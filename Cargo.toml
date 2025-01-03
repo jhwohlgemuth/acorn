@@ -1,0 +1,29 @@
+[workspace]
+members = ["acorn-cli"]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.1"
+authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
+description = "Accessible Content Organization for Research Needs"
+documentation = "https://acorn.ornl.gov"
+readme = "README.md"
+homepage = "https://acorn.ornl.gov"
+repository = "https://code.ornl.gov/research-enablement/acorn"
+
+[workspace.dependencies]
+clap-verbosity-flag = "3.0.2"
+color-eyre = "0.6.3"
+dotenvy = "0.15.0"
+exitcode = "1.1.2"
+owo-colors = "4.0.0"
+rayon = "1.7.0"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.107"
+tracing = { version = "0.1.40" }
+tracing-log = "0.2.0"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"]}
+uriparse = "0.6.4"
+
+[profile.release]
+debug = true
