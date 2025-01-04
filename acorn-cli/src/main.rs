@@ -53,12 +53,17 @@ fn main() -> Void {
         }
     }
     match &args.command {
-        | Some(Commands::Check {
-            path,
-            config,
-            ..
-        }) => {
+        | Some(Commands::Check {..}) => {
             println!("ACORN validation details will go here...");
+            Ok(())
+        },
+        | Some(Commands::Download {.. }) => {
+            let response = reqwest::blocking::get("https://www.scrapingcourse.com/ecommerce/");
+            let content = response.unwrap().text().unwrap();
+            let document = scraper::Html::parse_document(&content);
+            let selector = scraper::Selector::parse(".site-title > a").unwrap();
+            println!("{:?}", &document.select(&selector).next().unwrap().attr("href").unwrap());
+            println!("ACORN will eventually download the <type> schema...",);
             Ok(())
         },
         | None => {
