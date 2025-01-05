@@ -11,7 +11,7 @@ use clap_verbosity_flag::Verbosity;
 /// | /  | | |  | ___  | |  | |  | |         | |  | |  
 /// ; |  ; | |  '(   ) | '  | |  | |         | |  | |  
 /// ' `-'  | '  `-' |  '  `-' /  | |         | |  | |  
-/// `.__.'_.  `.__,'    `.__.'  (___)       (___)(___) 
+/// `.__.'_.  `.__,'    `.__.'  (___)       (___)(___)
 /// Accessible Content Organization for Research Needs
 ///
 #[derive(Debug, Parser)]
@@ -30,7 +30,7 @@ pub enum Commands {
     ///     $> acorn check /path/to/file.json
     ///
     ///     $> acorn check /path/to/folder
-    /// 
+    ///
     ///     $> acorn check /some/regex/*.json
     ///
     #[clap(verbatim_doc_comment)]
@@ -49,7 +49,7 @@ pub enum Commands {
     ///     $> acorn download --config /path/to/bucket.json
     ///
     ///     $> acorn download https://example.com/project
-    /// 
+    ///
     ///     $> acorn download --schema project
     ///
     #[clap(verbatim_doc_comment)]

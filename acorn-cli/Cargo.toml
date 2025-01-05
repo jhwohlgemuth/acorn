@@ -28,3 +28,7 @@ tracing = { workspace = true }
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 uriparse = { workspace = true }
+sha2 = "0.10.8"
+is_executable = "1.0.4"
+is-terminal = "0.4.9"
+derive_more = { version = "1.0.0", features = ["display", "from_str"] }
