@@ -4,14 +4,13 @@ use derive_more::Display;
 use dotenvy::dotenv;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
-use serde_json::error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use tracing::instrument;
 use tracing::{debug, error};
 use tracing_log::AsTrace;
-use tracing_subscriber::fmt::{self, format};
+use tracing_subscriber::fmt::{self};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 use uriparse::URI;
@@ -84,12 +83,12 @@ impl Bucket {
             },
         }
     }
-    async fn download_archive(&self) {
-        match self.provider {
-            Provider::GitHub => unimplemented!(),
-            Provider::GitLab => unimplemented!(),
-        }
-    }
+    // async fn download_archive(&self) {
+    //     match self.provider {
+    //         Provider::GitHub => unimplemented!(),
+    //         Provider::GitLab => unimplemented!(),
+    //     }
+    // }
     async fn download_files(&self) {
         match self.provider {
             Provider::GitHub => unimplemented!(),
