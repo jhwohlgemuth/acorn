@@ -20,7 +20,7 @@ mod schema;
 mod util;
 
 use cli::{Arguments, Commands};
-use schema::project::Project;
+use schema::{Project, SchemaType};
 use util::*;
 
 pub type Void = Result<(), Report>;
@@ -40,16 +40,6 @@ pub enum Provider {
     GitHub,
     #[display("gitlab")]
     GitLab,
-}
-#[derive(Clone, Debug, Serialize, Deserialize, Display)]
-#[serde(rename_all = "lowercase")]
-pub enum SchemaType {
-    #[display("project")]
-    Project,
-    #[display("program")]
-    Program,
-    #[display("organization")]
-    Organization,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BucketsConfig {
@@ -174,7 +164,7 @@ pub fn read_json(path: PathBuf) -> serde_json::Result<Project> {
         Ok(_) => Label::using(),
         Err(_) => Label::invalid(),
     };
-    error!("=> {} Project = {:#?}", label, data.dimmed());
+    debug!("=> {} Project = {:#?}", label, data.dimmed());
     data
 }
 
@@ -215,7 +205,6 @@ fn main() -> Void {
     }
     match &args.command {
         Some(Commands::Check { path, .. }) => {
-            println!("ACORN validation details will go here...");
             match path {
                 Some(path) => {
                     match read_json(PathBuf::from(path)) {
