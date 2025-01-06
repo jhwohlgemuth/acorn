@@ -1,13 +1,16 @@
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Contact {
     pub title: String,
     pub first: String,
     pub last: String,
+    #[validate(email)]
     pub email: String,
     pub phone: String,
+    #[validate(url)]
     pub profile: String,
     pub division: String,
 }
@@ -65,12 +68,15 @@ pub enum Technology {
     #[serde(rename = "javascript::react")]
     React,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Project {
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+pub struct ResearchActivity {
     pub meta: Metadata,
+    #[validate(length(max = 35))]
     pub title: String,
+    #[validate(length(max = 75))]
     pub subtitle: String,
     pub sections: Sections,
+    #[validate(nested)]
     pub contact: Contact,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -79,24 +85,29 @@ pub enum Sections {
     Project(ProjectSections),
     Organization(OrganizationSections),
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ProjectSections {
+    #[validate(length(max = 25))]
     pub introduction: String,
+    #[validate(length(max = 500))]
     pub challenge: String,
+    #[validate(length(max = 600))]
     pub approach: String,
     pub outcomes: Vec<String>,
     pub research: Research,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct OrganizationSections {
     #[serde(alias = "overview")]
+    #[validate(length(max = 250))]
     pub mission: String,
-    pub capabilities: String,
+    pub capabilities: Vec<String>,
     pub impact: Vec<String>,
     pub facilities: Vec<String>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Research {
+    #[validate(length(max = 150))]
     pub focus: String,
     pub areas: Vec<String>,
 }

@@ -14,13 +14,14 @@ use tracing_subscriber::fmt::{self};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 use uriparse::URI;
+use validator::Validate;
 
 mod cli;
 mod schema;
 mod util;
 
 use cli::{Arguments, Commands};
-use schema::{Project, SchemaType};
+use schema::{ResearchActivity, SchemaType};
 use util::*;
 
 pub type Void = Result<(), Report>;
@@ -147,7 +148,7 @@ fn tokio_runtime() -> tokio::runtime::Runtime {
         .build()
         .unwrap()
 }
-pub fn read_json(path: PathBuf) -> serde_json::Result<Project> {
+pub fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity> {
     let content = match read_file(path.clone()) {
         Ok(value) if !value.is_empty() => value,
         Ok(_) | Err(_) => {
@@ -159,7 +160,7 @@ pub fn read_json(path: PathBuf) -> serde_json::Result<Project> {
             "{}".to_owned()
         }
     };
-    let data: serde_json::Result<Project> = serde_json::from_str(&content);
+    let data: serde_json::Result<ResearchActivity> = serde_json::from_str(&content);
     let label = match data {
         Ok(_) => Label::using(),
         Err(_) => Label::invalid(),
@@ -206,16 +207,21 @@ fn main() -> Void {
     match &args.command {
         Some(Commands::Check { path, .. }) => {
             match path {
-                Some(path) => {
-                    match read_json(PathBuf::from(path)) {
-                        Ok(project) => {
-                            println!("=> {} Project = {:#?}", Label::using(), project.dimmed());
-                        }
-                        Err(err) => {
-                            error!("Failed to read project - {err}");
+                Some(path) => match read_json(PathBuf::from(path)) {
+                    Ok(project) => {
+                        match project.validate() {
+                            Ok(_) => {
+                                println!("=> {} Project = {:#?}", Label::using(), project.dimmed());
+                            }
+                            Err(err) => {
+                                error!("Failed to validate project - {err}");
+                            }
                         }
                     }
-                }
+                    Err(err) => {
+                        error!("Failed to read project - {err}");
+                    }
+                },
                 None => {}
             }
             Ok(())
