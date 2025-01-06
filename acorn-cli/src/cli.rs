@@ -40,7 +40,7 @@ pub enum Commands {
     #[clap(verbatim_doc_comment)]
     Check {
         /// Path to check
-        #[arg(value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
+        #[arg(short = 'p', long = "path", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
         path: Option<std::path::PathBuf>,
         /// Path to configuration file
         #[arg(short = 'c', long = "config", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]

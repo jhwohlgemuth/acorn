@@ -1,0 +1,11 @@
+{
+    "buckets": [
+        {
+            "id": 17410,
+            "parent": "nssd",
+            "provider": "gitlab",
+            "type": "project",
+            "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
+        }
+    ]
+}

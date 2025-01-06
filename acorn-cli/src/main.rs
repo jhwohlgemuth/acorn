@@ -16,9 +16,11 @@ use tracing_subscriber::EnvFilter;
 use uriparse::URI;
 
 mod cli;
+mod schema;
 mod util;
 
 use cli::{Arguments, Commands};
+use schema::project::Project;
 use util::*;
 
 pub type Void = Result<(), Report>;
@@ -127,31 +129,53 @@ impl Bucket {
         }
     }
 }
-pub fn read_json(path: PathBuf) -> serde_json::Result<BucketsConfig> {
-    let content = match read_file(path.clone()) {
-        Ok(value) if !value.is_empty() => value,
-        Ok(_) | Err(_) => {
-            error!(
-                path = path.to_str().unwrap(),
-                "=> {} Configuration content is not valid",
-                Label::fail()
-            );
-            "{}".to_owned()
-        }
-    };
-    let data: serde_json::Result<BucketsConfig> = serde_json::from_str(&content);
-    let label = match data {
-        Ok(_) => Label::using(),
-        Err(_) => Label::invalid(),
-    };
-    debug!("=> {} Configuration = {:#?}", label, data.dimmed());
-    data
+impl BucketsConfig {
+    pub fn read_json(path: PathBuf) -> serde_json::Result<BucketsConfig> {
+        let content = match read_file(path.clone()) {
+            Ok(value) if !value.is_empty() => value,
+            Ok(_) | Err(_) => {
+                error!(
+                    path = path.to_str().unwrap(),
+                    "=> {} Bucket configuration content is not valid",
+                    Label::fail()
+                );
+                "{}".to_owned()
+            }
+        };
+        let data: serde_json::Result<BucketsConfig> = serde_json::from_str(&content);
+        let label = match data {
+            Ok(_) => Label::using(),
+            Err(_) => Label::invalid(),
+        };
+        debug!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
+        data
+    }
 }
 fn tokio_runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap()
+}
+pub fn read_json(path: PathBuf) -> serde_json::Result<Project> {
+    let content = match read_file(path.clone()) {
+        Ok(value) if !value.is_empty() => value,
+        Ok(_) | Err(_) => {
+            error!(
+                path = path.to_str().unwrap(),
+                "=> {} Project content is not valid",
+                Label::fail()
+            );
+            "{}".to_owned()
+        }
+    };
+    let data: serde_json::Result<Project> = serde_json::from_str(&content);
+    let label = match data {
+        Ok(_) => Label::using(),
+        Err(_) => Label::invalid(),
+    };
+    error!("=> {} Project = {:#?}", label, data.dimmed());
+    data
 }
 
 #[instrument]
@@ -190,14 +214,27 @@ fn main() -> Void {
         }
     }
     match &args.command {
-        Some(Commands::Check { .. }) => {
+        Some(Commands::Check { path, .. }) => {
             println!("ACORN validation details will go here...");
+            match path {
+                Some(path) => {
+                    match read_json(PathBuf::from(path)) {
+                        Ok(project) => {
+                            println!("=> {} Project = {:#?}", Label::using(), project.dimmed());
+                        }
+                        Err(err) => {
+                            error!("Failed to read project - {err}");
+                        }
+                    }
+                }
+                None => {}
+            }
             Ok(())
         }
         Some(Commands::Download { config, .. }) => {
             let runtime = tokio_runtime();
             match config {
-                Some(path) => match read_json(path.clone()) {
+                Some(path) => match BucketsConfig::read_json(path.clone()) {
                     Ok(content) => {
                         content.buckets.into_iter().for_each(|bucket| {
                             runtime.block_on(async {
