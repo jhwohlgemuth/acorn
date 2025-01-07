@@ -1,5 +1,8 @@
+use crate::util::*;
 use derive_more::Display;
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
+use tracing::error;
 use validator::Validate;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -111,4 +114,35 @@ pub struct Research {
     #[validate(length(max = 150))]
     pub focus: String,
     pub areas: Vec<String>,
+}
+impl ResearchActivity {
+    pub fn check(self) {
+        match self.validate() {
+            Ok(_) => match self.clone().sections {
+                Sections::Project(sections) => match sections.validate() {
+                    Ok(_) => {
+                        println!(
+                            "=> {} Research activity data = {:#?}",
+                            Label::using(),
+                            self.dimmed()
+                        );
+                    }
+                    Err(err) => {
+                        error!("Failed to validate research activity sections - {err}");
+                    }
+                },
+                Sections::Organization(sections) => match sections.validate() {
+                    Ok(_) => {
+                        println!("=> {} Project = {:#?}", Label::using(), self.dimmed());
+                    }
+                    Err(err) => {
+                        error!("Failed to validate project sections - {err}");
+                    }
+                },
+            },
+            Err(err) => {
+                error!("Failed to validate project - {err}");
+            }
+        }
+    }
 }

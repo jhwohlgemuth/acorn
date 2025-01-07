@@ -14,14 +14,13 @@ use tracing_subscriber::fmt::{self};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 use uriparse::URI;
-use validator::Validate;
 
 mod cli;
 mod schema;
 mod util;
 
 use cli::{Arguments, Commands};
-use schema::{ResearchActivity, SchemaType, Sections};
+use schema::{ResearchActivity, SchemaType};
 use util::*;
 
 pub type Void = Result<(), Report>;
@@ -202,39 +201,11 @@ fn main() -> Void {
         Some(Commands::Check { path, .. }) => {
             if let Some(path) = path {
                 match read_json(PathBuf::from(path)) {
-                    Ok(project) => match project.validate() {
-                        Ok(_) => match project.clone().sections {
-                            Sections::Project(sections) => match sections.validate() {
-                                Ok(_) => {
-                                    println!(
-                                        "=> {} Research activity data = {:#?}",
-                                        Label::using(),
-                                        project.dimmed()
-                                    );
-                                }
-                                Err(err) => {
-                                    error!("Failed to validate research activity sections - {err}");
-                                }
-                            },
-                            Sections::Organization(sections) => match sections.validate() {
-                                Ok(_) => {
-                                    println!(
-                                        "=> {} Project = {:#?}",
-                                        Label::using(),
-                                        project.dimmed()
-                                    );
-                                }
-                                Err(err) => {
-                                    error!("Failed to validate project sections - {err}");
-                                }
-                            },
-                        },
-                        Err(err) => {
-                            error!("Failed to validate project - {err}");
-                        }
-                    },
+                    Ok(data) => {
+                        data.check();
+                    }
                     Err(err) => {
-                        error!("Failed to read project - {err}");
+                        error!("Failed to read research activity data - {err}");
                     }
                 }
             }
