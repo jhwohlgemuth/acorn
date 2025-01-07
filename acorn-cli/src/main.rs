@@ -21,7 +21,7 @@ mod schema;
 mod util;
 
 use cli::{Arguments, Commands};
-use schema::{ResearchActivity, SchemaType};
+use schema::{ResearchActivity, SchemaType, Sections};
 use util::*;
 
 pub type Void = Result<(), Report>;
@@ -76,12 +76,6 @@ impl Bucket {
             },
         }
     }
-    // async fn download_archive(&self) {
-    //     match self.provider {
-    //         Provider::GitHub => unimplemented!(),
-    //         Provider::GitLab => unimplemented!(),
-    //     }
-    // }
     async fn download_files(&self) {
         match self.provider {
             Provider::GitHub => unimplemented!(),
@@ -91,8 +85,9 @@ impl Bucket {
                     let url = format!("{}/-/raw/main/{}/{}", self.uri, self.schema_type, file);
                     let response = reqwest::get(url).await.unwrap();
                     let content = response.text().await.unwrap();
-                    let output = format!("./content/{}/{}", self.schema_type, file);
-                    let mut file = File::create(output).unwrap();
+                    let output = format!("./content/{}", self.schema_type);
+                    std::fs::create_dir_all(output.clone()).unwrap();
+                    let mut file = File::create(format!("{}/{}", output, file)).unwrap();
                     file.write_all(content.as_bytes()).unwrap();
                 }
             }
@@ -111,11 +106,10 @@ impl Bucket {
                 let response = reqwest::get(url).await.unwrap();
                 let content = response.text().await.unwrap();
                 let data: serde_json::Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
-                let files = match data {
+                match data {
                     Ok(entries) => entries.into_iter().map(|entry| entry.name).collect(),
                     Err(_) => vec![],
-                };
-                files
+                }
             }
         }
     }
@@ -206,30 +200,50 @@ fn main() -> Void {
     }
     match &args.command {
         Some(Commands::Check { path, .. }) => {
-            match path {
-                Some(path) => match read_json(PathBuf::from(path)) {
-                    Ok(project) => {
-                        match project.validate() {
-                            Ok(_) => {
-                                println!("=> {} Project = {:#?}", Label::using(), project.dimmed());
-                            }
-                            Err(err) => {
-                                error!("Failed to validate project - {err}");
-                            }
+            if let Some(path) = path {
+                match read_json(PathBuf::from(path)) {
+                    Ok(project) => match project.validate() {
+                        Ok(_) => match project.clone().sections {
+                            Sections::Project(sections) => match sections.validate() {
+                                Ok(_) => {
+                                    println!(
+                                        "=> {} Research activity data = {:#?}",
+                                        Label::using(),
+                                        project.dimmed()
+                                    );
+                                }
+                                Err(err) => {
+                                    error!("Failed to validate research activity sections - {err}");
+                                }
+                            },
+                            Sections::Organization(sections) => match sections.validate() {
+                                Ok(_) => {
+                                    println!(
+                                        "=> {} Project = {:#?}",
+                                        Label::using(),
+                                        project.dimmed()
+                                    );
+                                }
+                                Err(err) => {
+                                    error!("Failed to validate project sections - {err}");
+                                }
+                            },
+                        },
+                        Err(err) => {
+                            error!("Failed to validate project - {err}");
                         }
-                    }
+                    },
                     Err(err) => {
                         error!("Failed to read project - {err}");
                     }
-                },
-                None => {}
+                }
             }
             Ok(())
         }
         Some(Commands::Download { config, .. }) => {
             let runtime = tokio_runtime();
-            match config {
-                Some(path) => match BucketsConfig::read_json(path.clone()) {
+            if let Some(path) = config {
+                match BucketsConfig::read_json(path.clone()) {
                     Ok(content) => {
                         content.buckets.into_iter().for_each(|bucket| {
                             runtime.block_on(async {
@@ -240,14 +254,12 @@ fn main() -> Void {
                     Err(err) => {
                         error!("Failed to download data - {err}");
                     }
-                },
-                None => {}
+                };
             }
-            println!("ACORN will eventually download the <type> schema...",);
             Ok(())
         }
         None => {
-            println!("ACORN without a subcommand will do stuff eventually...");
+            println!("ACORN without a subcommand currently does nothing");
             Ok(())
         }
     }

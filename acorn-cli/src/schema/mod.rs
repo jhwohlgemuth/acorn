@@ -21,7 +21,7 @@ pub struct Metadata {
     pub schema_type: SchemaType,
     pub draft: bool,
     pub website: Option<Website>,
-    pub graphics: Vec<Graphic>,
+    pub graphics: Option<Vec<Graphic>>,
     pub keywords: Vec<Keyword>,
     pub sponsors: Vec<Sponsor>,
     pub technology: Vec<Technology>,
@@ -41,9 +41,10 @@ pub enum SchemaType {
 pub struct Graphic {
     pub caption: String,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Website {
     pub title: String,
+    #[validate(url)]
     pub url: String,
 }
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
@@ -87,7 +88,7 @@ pub enum Sections {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ProjectSections {
-    #[validate(length(max = 25))]
+    #[validate(length(max = 250))]
     pub introduction: String,
     #[validate(length(max = 500))]
     pub challenge: String,
