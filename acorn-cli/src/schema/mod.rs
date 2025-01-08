@@ -146,3 +146,6 @@ impl ResearchActivity {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

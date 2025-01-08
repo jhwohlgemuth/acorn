@@ -33,3 +33,4 @@ is_executable = "1.0.4"
 is-terminal = "0.4.9"
 derive_more = { version = "1.0.0", features = ["display", "from_str"] }
 validator = { version = "0.19", features = ["derive"] }
+nucleo-matcher = "0.3.1"
