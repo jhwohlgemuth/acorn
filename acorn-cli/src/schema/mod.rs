@@ -35,8 +35,6 @@ pub struct Metadata {
 pub enum SchemaType {
     #[display("project")]
     Project,
-    #[display("program")]
-    Program,
     #[display("organization")]
     Organization,
 }
@@ -102,7 +100,6 @@ pub struct ProjectSections {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct OrganizationSections {
-    #[serde(alias = "overview")]
     #[validate(length(max = 250))]
     pub mission: String,
     pub capabilities: Vec<String>,

@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "id": "some-organization",
+    "type": "organization",
+    "draft": true,
+    "website": {
+      "title": "Organization Repository",
+      "url": "https://code.ornl.gov/GSHS/common/sites/fact-sheets"
+    },
+    "graphics": [
+      {
+        "caption": "Vel similique ut asperiores temporibus unde et."
+      }
+    ],
+    "keywords": [],
+    "sponsors": [],
+    "technology": []
+  },
+  "title": "Some Organization",
+  "subtitle": "Dicta rerum amet modi consequatur minima tempore",
+  "sections": {
+    "mission": "Nostrum dolorum consectetur est dolor voluptate et. Ab nulla voluptate dolor exercitationem rerum. Dolorem qui mollitia rerum autem perferendis.",
+    "capabilities": [
+      "Deleniti voluptas incidunt nulla temporibus enim et est et.",
+      "Vitae et excepturi quam.",
+      "Est suscipit cum."
+    ],
+    "impact": [
+      "Reiciendis dolorem quia.",
+      "Soluta vitae quia et beatae sed nihil quod animi.",
+      "Veniam eligendi ex et sint in pariatur."
+    ],
+    "facilities": [
+      "Adipisci ducimus ut omnis nihil enim.",
+      "Magni cum laboriosam.",
+      "Sequi explicabo est vel distinctio."
+    ]
+  },
+  "contact": {
+    "title": "Primary Investigator",
+    "first": "Maximus",
+    "last": "Hintz",
+    "email": "Fae_Grant@yahoo.com",
+    "phone": "(820) 893-6283",
+    "profile": "https://worse-coconut.org",
+    "division": "Creative Services"
+  }
+}
