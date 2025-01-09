@@ -141,26 +141,6 @@ fn tokio_runtime() -> tokio::runtime::Runtime {
         .build()
         .unwrap()
 }
-pub fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity> {
-    let content = match read_file(path.clone()) {
-        Ok(value) if !value.is_empty() => value,
-        Ok(_) | Err(_) => {
-            error!(
-                path = path.to_str().unwrap(),
-                "=> {} Project content is not valid",
-                Label::fail()
-            );
-            "{}".to_owned()
-        }
-    };
-    let data: serde_json::Result<ResearchActivity> = serde_json::from_str(&content);
-    let label = match data {
-        Ok(_) => Label::using(),
-        Err(_) => Label::invalid(),
-    };
-    debug!("=> {} Project = {:#?}", label, data.dimmed());
-    data
-}
 
 #[instrument]
 fn main() -> Void {
@@ -200,7 +180,7 @@ fn main() -> Void {
     match &args.command {
         Some(Commands::Check { path, .. }) => {
             if let Some(path) = path {
-                match read_json(PathBuf::from(path)) {
+                match ResearchActivity::read(PathBuf::from(path)) {
                     Ok(data) => {
                         data.check();
                     }

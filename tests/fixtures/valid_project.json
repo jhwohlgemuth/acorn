@@ -12,13 +12,19 @@
         "caption": "The ACORN workflow helps teams validate and generate research content."
       }
     ],
-    "keywords": ["automation"],
-    "sponsors": ["ORNL"],
+    "keywords": ["automation", "gearssss"],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa"
+    ],
     "technology": [
-      "language::JavaScript",
-      "language::TypeSpec",
-      "javascript::astro",
-      "javascript::react"
+      "JavaScript",
+      "astro",
+      "React.js"
     ]
   },
   "title": "ACORN",
