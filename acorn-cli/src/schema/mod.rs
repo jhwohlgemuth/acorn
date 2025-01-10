@@ -192,7 +192,7 @@ impl ResearchActivity {
     }
 }
 fn resolve_keyword(value: Fuzzy) -> Option<String> {
-    let data = vec![
+    let data = [
         "artificial-intelligence",
         "automation",
         "cyber",
@@ -215,33 +215,33 @@ fn resolve_keyword(value: Fuzzy) -> Option<String> {
 }
 fn resolve_sponsor(value: Fuzzy) -> Option<String> {
     let mut data: HashMap<String, String> = HashMap::new();
-    vec![
-        ("ARPA-E", "Advanced Research Projects Agency-Energy"),
-        ("CISA", "Cybersecurity and Infrastructure Security Agency"),
-        ("DARPA", "Defense Advanced Research Projects Agency"),
-        ("DHS", "Department of Homeland Security"),
-        ("DOD", "Department of Defense"),
-        ("DOE", "Department of Energy"),
-        ("DOL", "Department of Labor"),
-        ("DOT", "Department of Transportation"),
-        ("EPA", "Environmental Protection Agency"),
-        ("FEMA", "Federal Emergency Management Agency"),
-        ("IAEA", "International Atomic Energy Agency"),
-        ("IARPA", "Intelligence Advanced Research Projects Activity"),
-        ("LDRD", "Laboratory Directed Research and Development"),
-        ("NASA", "National Aeronautics and Space Administration"),
-        ("NGA", "National Geospatial Intelligence Agency"),
-        ("NNSA", "National Nuclear Security Administration"),
-        ("NOAA", "National Oceanic and Atmospheric Administration"),
-        ("NSF", "National Science Foundation"),
-        ("OPM", "Office of Personnel Management"),
-        ("ORNL", "Oak Ridge National Laboratory"),
-        ("OSTI", "Office of Scienctific and Technical Information"),
-        ("USACE", "United States Army Corps of Engineers"),
-        ("USGS", "United States Geological Survey"),
+    [
+        ["ARPA-E", "Advanced Research Projects Agency-Energy"],
+        ["CISA", "Cybersecurity and Infrastructure Security Agency"],
+        ["DARPA", "Defense Advanced Research Projects Agency"],
+        ["DHS", "Department of Homeland Security"],
+        ["DOD", "Department of Defense"],
+        ["DOE", "Department of Energy"],
+        ["DOL", "Department of Labor"],
+        ["DOT", "Department of Transportation"],
+        ["EPA", "Environmental Protection Agency"],
+        ["FEMA", "Federal Emergency Management Agency"],
+        ["IAEA", "International Atomic Energy Agency"],
+        ["IARPA", "Intelligence Advanced Research Projects Activity"],
+        ["LDRD", "Laboratory Directed Research and Development"],
+        ["NASA", "National Aeronautics and Space Administration"],
+        ["NGA", "National Geospatial Intelligence Agency"],
+        ["NNSA", "National Nuclear Security Administration"],
+        ["NOAA", "National Oceanic and Atmospheric Administration"],
+        ["NSF", "National Science Foundation"],
+        ["OPM", "Office of Personnel Management"],
+        ["ORNL", "Oak Ridge National Laboratory"],
+        ["OSTI", "Office of Scienctific and Technical Information"],
+        ["USACE", "United States Army Corps of Engineers"],
+        ["USGS", "United States Geological Survey"],
     ]
     .into_iter()
-    .for_each(|(key, value)| {
+    .for_each(|[key, value]| {
         data.insert(key.to_string(), value.to_string());
     });
     let value = value.trim().to_string();
@@ -265,7 +265,7 @@ fn resolve_sponsor(value: Fuzzy) -> Option<String> {
     }
 }
 fn resolve_technology(value: Fuzzy) -> Option<String> {
-    let data = vec![
+    [
         vec!["javascript", "js", "node.js"],
         vec!["python", "py"],
         vec!["rust", "rs"],
@@ -283,18 +283,25 @@ fn resolve_technology(value: Fuzzy) -> Option<String> {
         vec!["matplotlib", "Matplotlib"],
         vec!["seaborn", "Seaborn"],
         vec!["plotly", "Plotly"],
-    ];
-    let processed = data.into_iter().flat_map(|x| {
+    ]
+    .into_iter()
+    .flat_map(|x| {
         let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
         let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-        let output = pattern
-            .match_list(x, &mut matcher)
-            .first()
-            .map(|(x, _)| x.to_string());
-        output
-    });
-    println!("{:?}", processed);
-    Some(value.to_string())
+        let matched = pattern.match_list(x.clone(), &mut matcher);
+        let scores = matched
+            .clone()
+            .into_iter()
+            .map(|(_, score)| score)
+            .collect::<Vec<_>>();
+        if !matched.clone().is_empty() {
+            Some((x[0], scores[0]))
+        } else {
+            None
+        }
+    })
+    .max_by_key(|(_, score)| *score)
+    .map(|(x, _)| x.to_string())
 }
 fn sanitize(value: String) -> String {
     match Regex::new(r"[-_.]") {

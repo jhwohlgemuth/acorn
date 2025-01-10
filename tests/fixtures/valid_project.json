@@ -22,9 +22,11 @@
       " epa"
     ],
     "technology": [
-      "JavaScript",
       "astro",
-      "React.js"
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
     ]
   },
   "title": "ACORN",
