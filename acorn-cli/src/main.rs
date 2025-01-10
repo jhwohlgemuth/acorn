@@ -2,7 +2,9 @@ use clap::Parser;
 use color_eyre::eyre::{Report, Result};
 use derive_more::Display;
 use dotenvy::dotenv;
+use glob::glob;
 use owo_colors::OwoColorize;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::prelude::*;
@@ -179,14 +181,28 @@ fn main() -> Void {
     }
     match &args.command {
         Some(Commands::Check { path, .. }) => {
-            if let Some(path) = path {
-                match ResearchActivity::read(PathBuf::from(path)) {
+            fn check_file(path: &PathBuf) {
+                match ResearchActivity::read(path.clone()) {
                     Ok(data) => {
-                        data.check();
+                        let _ = data.check();
                     }
                     Err(err) => {
                         error!("Failed to read research activity data - {err}");
                     }
+                }
+            }
+            if let Some(path) = path {
+                if path.is_dir() {
+                    match glob(&format!("{}/**/*.json", path.to_str().unwrap())) {
+                        Ok(paths) => paths.collect::<Vec<_>>().par_iter().for_each(|path| {
+                            check_file(path.as_ref().unwrap());
+                        }),
+                        Err(err) => {
+                            error!("Failed to read glob pattern - {err}");
+                        }
+                    };
+                } else {
+                    check_file(&path.clone());
                 }
             }
             Ok(())

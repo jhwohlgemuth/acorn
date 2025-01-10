@@ -1,17 +1,27 @@
 use crate::util::*;
 use derive_more::Display;
 use fancy_regex::Regex;
+use lazy_static::lazy_static;
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher};
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use tracing::debug;
+use std::result::Result;
 use tracing::error;
-use validator::Validate;
+use tracing::{debug, info};
+use validator::{Validate, ValidationError, ValidationErrors};
 
 pub type Fuzzy = String;
+pub type Keyword = Fuzzy;
+pub type Sponsor = Fuzzy;
+pub type Technology = Fuzzy;
+
+lazy_static! {
+    static ref RE_PHONE: Regex =
+        Regex::new(r#"^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$"#).unwrap();
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Contact {
@@ -20,6 +30,7 @@ pub struct Contact {
     pub last: String,
     #[validate(email)]
     pub email: String,
+    #[validate(custom(function = "validate_phone_number"))]
     pub phone: String,
     #[validate(url)]
     pub profile: String,
@@ -80,6 +91,7 @@ pub struct ProjectSections {
     pub challenge: String,
     #[validate(length(max = 600))]
     pub approach: String,
+    // TODO: Validate length (max = 100/line)
     pub outcomes: Vec<String>,
     pub research: Research,
 }
@@ -87,45 +99,100 @@ pub struct ProjectSections {
 pub struct OrganizationSections {
     #[validate(length(max = 250))]
     pub mission: String,
+    // TODO: Validate length (max = 300/line)
     pub capabilities: Vec<String>,
+    // TODO: Validate length (max = 400/line)
     pub impact: Vec<String>,
+    // TODO: Validate length (max = 40/line)
     pub facilities: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Research {
     #[validate(length(max = 150))]
     pub focus: String,
+    // TODO: Validate length (max = 100/line)
     pub areas: Vec<String>,
 }
 impl ResearchActivity {
-    pub fn check(self) {
+    fn resolve(self, name: &str) -> Vec<Fuzzy> {
+        let mut data: Vec<_> = match name {
+            "keyword" => self
+                .meta
+                .keywords
+                .into_iter()
+                .flat_map(resolve_keyword)
+                .collect(),
+            "sponsor" => self
+                .meta
+                .sponsors
+                .into_iter()
+                .flat_map(resolve_sponsor)
+                .collect(),
+            "technology" => self
+                .meta
+                .technology
+                .into_iter()
+                .flat_map(resolve_technology)
+                .collect(),
+            _ => vec![],
+        };
+        data.sort();
+        data.dedup();
+        data
+    }
+    pub fn check(self) -> Result<(), ValidationErrors> {
+        // TODO: Validate meta.website, meta.graphics, and sections.research.focus
         match self.validate() {
             Ok(_) => match self.clone().sections {
                 Sections::Project(sections) => match sections.validate() {
                     Ok(_) => {
-                        println!(
-                            "=> {} Research activity data = {:#?}",
-                            Label::using(),
-                            self.dimmed()
-                        );
+                        debug!("=> {} Project data = {:#?}", Label::using(), self.dimmed());
+                        Ok(())
                     }
                     Err(err) => {
-                        error!("Failed to validate research activity sections - {err}");
+                        error!("Failed to validate project sections {:#?}", err.errors());
+                        Err(err)
                     }
                 },
                 Sections::Organization(sections) => match sections.validate() {
                     Ok(_) => {
-                        println!("=> {} Project = {:#?}", Label::using(), self.dimmed());
+                        debug!(
+                            "=> {} Organization data = {:#?}",
+                            Label::using(),
+                            self.dimmed()
+                        );
+                        Ok(())
                     }
                     Err(err) => {
-                        error!("Failed to validate project sections - {err}");
+                        error!(
+                            "Failed to validate organization sections {:#?}",
+                            err.errors()
+                        );
+                        Err(err)
                     }
                 },
             },
             Err(err) => {
-                error!("Failed to validate project - {err}");
+                error!(
+                    "Failed to validate research activity data {:#?}",
+                    err.errors()
+                );
+                Err(err)
             }
         }
+    }
+    pub fn parse(mut self) -> ResearchActivity {
+        self.meta = Metadata {
+            id: self.meta.id.clone(),
+            schema_type: SchemaType::Project,
+            draft: self.meta.draft,
+            website: self.clone().meta.website,
+            graphics: self.clone().meta.graphics,
+            keywords: self.clone().resolve("keyword"),
+            sponsors: self.clone().resolve("sponsor"),
+            technology: self.clone().resolve("technology"),
+        };
+        self
     }
     pub fn read(path: PathBuf) -> serde_json::Result<ResearchActivity> {
         let content = match read_file(path.clone()) {
@@ -144,54 +211,34 @@ impl ResearchActivity {
             Ok(_) => Label::using(),
             Err(_) => Label::invalid(),
         };
-        let data = match parsed {
-            Ok(mut data) => {
-                let mut keywords: Vec<Fuzzy> = data
-                    .meta
-                    .keywords
-                    .clone()
-                    .into_iter()
-                    .flat_map(resolve_keyword)
-                    .collect();
-                keywords.sort();
-                keywords.dedup();
-                let mut sponsors: Vec<Fuzzy> = data
-                    .meta
-                    .sponsors
-                    .clone()
-                    .into_iter()
-                    .flat_map(resolve_sponsor)
-                    .collect();
-                sponsors.sort();
-                sponsors.dedup();
-                let mut technology: Vec<Fuzzy> = data
-                    .meta
-                    .technology
-                    .clone()
-                    .into_iter()
-                    .flat_map(resolve_technology)
-                    .collect();
-                technology.sort();
-                technology.dedup();
-                data.meta = Metadata {
-                    id: data.meta.id.clone(),
-                    schema_type: SchemaType::Project,
-                    draft: data.meta.draft,
-                    website: data.meta.website,
-                    graphics: data.meta.graphics,
-                    keywords,
-                    sponsors,
-                    technology,
-                };
-                Ok(data)
+        match parsed {
+            Ok(data) => {
+                let parsed = data.parse();
+                info!(path = path.to_str().unwrap(), "=> {}", label);
+                Ok(parsed)
             }
-            Err(err) => Err(err),
-        };
-        debug!("=> {} Project = {:#?}", label, data.dimmed());
-        data
+            Err(err) => {
+                error!(path = path.to_str().unwrap(), "=> {}", label);
+                Err(err)
+            }
+        }
     }
 }
-fn resolve_keyword(value: Fuzzy) -> Option<String> {
+/// Resolves a keyword to its closest match from a predefined list.
+///
+/// The function uses pattern matching to compare the input keyword against
+/// a set of predefined keywords. It returns the first matched keyword in
+/// the list, considering case-insensitive and normalized comparisons.
+///
+/// # Arguments
+///
+/// * `value` - A `Keyword` type representing the keyword to be resolved.
+///
+/// # Returns
+///
+/// An `Option<String>` containing the resolved keyword if a match is found,
+/// otherwise `None`.
+fn resolve_keyword(value: Keyword) -> Option<String> {
     let data = [
         "artificial-intelligence",
         "automation",
@@ -213,7 +260,20 @@ fn resolve_keyword(value: Fuzzy) -> Option<String> {
         .map(|(x, _)| x.to_string());
     output
 }
-fn resolve_sponsor(value: Fuzzy) -> Option<String> {
+/// Resolve a sponsor acronym to its full name.
+///
+/// If the input string is already a full name, it is returned as is.
+///
+/// If the input string is an acronym and matches a sponsor in the database,
+/// the full name of the sponsor is returned.
+///
+/// If the input string is an acronym and does not match a sponsor in the database,
+/// the function attempts to fuzzy match the acronym to a sponsor in the database.
+///
+/// If the fuzzy match is successful, the full name of the matched sponsor is returned.
+///
+/// If the fuzzy match is not successful, the input string is returned as is.
+fn resolve_sponsor(value: Sponsor) -> Option<String> {
     let mut data: HashMap<String, String> = HashMap::new();
     [
         ["ARPA-E", "Advanced Research Projects Agency-Energy"],
@@ -264,7 +324,22 @@ fn resolve_sponsor(value: Fuzzy) -> Option<String> {
         }
     }
 }
-fn resolve_technology(value: Fuzzy) -> Option<String> {
+/// Resolves the technology name from a given `Technology` input.
+///
+/// The function attempts to match the input against a predefined list of
+/// technology names and their common aliases. It leverages a pattern matching
+/// mechanism to find the closest match by comparing scores, and returns the
+/// primary technology name with the highest match score.
+///
+/// # Arguments
+///
+/// * `value` - A `Technology` type representing the input to be resolved.
+///
+/// # Returns
+///
+/// An `Option<String>` containing the resolved technology name if a match is
+/// found, otherwise `None`.
+fn resolve_technology(value: Technology) -> Option<String> {
     [
         vec!["javascript", "js", "node.js"],
         vec!["python", "py"],
@@ -307,6 +382,14 @@ fn sanitize(value: String) -> String {
     match Regex::new(r"[-_.]") {
         Ok(re) => re.replace_all(&value, "").trim().to_string(),
         Err(err) => err.to_string(),
+    }
+}
+fn validate_phone_number(value: &str) -> Result<(), ValidationError> {
+    match RE_PHONE.is_match(value) {
+        Ok(value) if value == true => Ok(()),
+        _ => Err(ValidationError::new(
+            "Phone number requirement not satisfied",
+        )),
     }
 }
 
