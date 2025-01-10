@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 
-/// Mutli-tool for working with research activity data
+/// Multitool for validating and enabling research activity data
 ///
 ///⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣄⣀⠀⠀⠀
 ///⠀⠀⠀⠀⠀⠀⠀⣀⠀⢴⣶⠀⢶⣦⠀⢄⣀⠀⠠⢾⣿⠿⠿⠿⠿⢦⠀   .---.    .--.      .--.    ___ .-.     ___ .-.   
@@ -48,7 +48,7 @@ pub enum Commands {
         #[command(flatten)]
         verbose: Verbosity,
     },
-    /// Download research activity data such as fact sheet files from buckets and ACORN schemas
+    /// Download research activity data, such as fact sheet files, from buckets and ACORN schemas
     ///
     ///     $> acorn download --config /path/to/bucket.json
     ///
