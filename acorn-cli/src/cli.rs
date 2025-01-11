@@ -29,13 +29,13 @@ pub struct Arguments {
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum Commands {
-    /// Validate research activity data
+    /// Perfrom static analysis on research activity data and apply standardized best practices
     ///
-    ///     $> acorn check /path/to/file.json
+    ///     $> acorn lint --path /path/to/file.json
     ///
-    ///     $> acorn check /path/to/folder
-    ///
-    ///     $> acorn check /some/regex/*.json
+    ///     $> acorn lint --path /path/to/folder
+    /// 
+    ///     $> acorn lint --path /path/to/folder --format
     ///
     #[clap(verbatim_doc_comment)]
     Lint {
@@ -45,6 +45,7 @@ pub enum Commands {
         /// Path to configuration file
         #[arg(short = 'c', long = "config", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
         config: Option<std::path::PathBuf>,
+        /// Format JSON files in-place to maintain consistent format
         #[arg(short = 'f', long = "format", value_name = "BOOL")]
         format: bool,
         #[command(flatten)]
