@@ -54,19 +54,19 @@ pub enum Commands {
     /// Download research activity data, such as fact sheet files, from buckets and ACORN schemas
     ///
     ///     $> acorn download --config /path/to/bucket.json
-    ///
-    ///     $> acorn download https://example.com/project
+    /// 
+    ///     $> acorn download --config /path/to/bucket.json --output /path/to/output
     ///
     ///     $> acorn download --schema project
     ///
     #[clap(verbatim_doc_comment)]
     Download {
-        /// Path to check
-        #[arg(value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
-        path: Option<std::path::PathBuf>,
-        /// Path to configuration file
+        /// Path to buckets configuration file
         #[arg(short = 'c', long = "config", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
         config: Option<std::path::PathBuf>,
+        /// Path to output directory where the downloaded content should be saved
+        #[arg(value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
+        output: Option<std::path::PathBuf>,
         #[command(flatten)]
         verbose: Verbosity,
     },
