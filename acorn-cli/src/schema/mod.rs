@@ -143,7 +143,7 @@ impl ResearchActivity {
         data.dedup();
         data
     }
-    pub fn check(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
+    pub fn lint(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
         let mut found: Vec<Option<HashMap<String, ValidationErrorsKind>>> = vec![];
         found.push(get_errors::<ResearchActivity>(self.clone()));
         match self.clone().sections {
@@ -205,17 +205,16 @@ impl ResearchActivity {
     }
 }
 /// Combines a vector of optional hash maps containing validation errors into a single hash map.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `found` - A vector of optional hash maps where each hash map represents validation errors
 ///   with keys as strings and values as `ValidationErrorsKind`.
-/// 
+///
 /// # Returns
-/// 
+///
 /// A single hash map containing all the validation errors from the input vector, with each key
 /// mapped to its corresponding `ValidationErrorsKind`.
-
 pub fn format_errors(
     found: Vec<Option<HashMap<String, ValidationErrorsKind>>>,
 ) -> HashMap<String, ValidationErrorsKind> {
@@ -250,7 +249,6 @@ pub fn format_errors(
 ///
 /// * `Option<HashMap<String, ValidationErrorsKind>>` - A map of validation errors
 ///   if validation fails, or `None` if validation succeeds.
-
 pub fn get_errors<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
     match attribute.validate() {
         Ok(_) => None,
@@ -278,7 +276,6 @@ pub fn get_errors<T: Validate>(attribute: T) -> Option<HashMap<String, Validatio
 /// # Returns
 ///
 /// * `usize` - The total count of validation errors.
-
 pub fn get_error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
     errors
         .clone()

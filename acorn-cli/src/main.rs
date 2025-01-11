@@ -8,7 +8,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::instrument;
 use tracing::{debug, error, info};
 use tracing_log::AsTrace;
@@ -180,10 +180,10 @@ fn main() -> Void {
         }
     }
     match &args.command {
-        Some(Commands::Check { path, .. }) => {
-            fn check_file(path: &PathBuf) {
-                match ResearchActivity::read(path.clone()) {
-                    Ok(data) => match data.check() {
+        Some(Commands::Lint { path, .. }) => {
+            fn check_file(path: &Path) {
+                match ResearchActivity::read(path.into()) {
+                    Ok(data) => match data.lint() {
                         Ok(_) => {
                             info!("=> {} No errors", Label::pass());
                         }

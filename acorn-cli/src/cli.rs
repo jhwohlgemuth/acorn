@@ -38,13 +38,15 @@ pub enum Commands {
     ///     $> acorn check /some/regex/*.json
     ///
     #[clap(verbatim_doc_comment)]
-    Check {
+    Lint {
         /// Path to check
         #[arg(short = 'p', long = "path", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
         path: Option<std::path::PathBuf>,
         /// Path to configuration file
         #[arg(short = 'c', long = "config", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
         config: Option<std::path::PathBuf>,
+        #[arg(short = 'f', long = "format", value_name = "BOOL")]
+        format: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },
