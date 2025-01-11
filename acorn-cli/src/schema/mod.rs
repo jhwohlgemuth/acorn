@@ -4,14 +4,12 @@ use fancy_regex::Regex;
 use lazy_static::lazy_static;
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher};
-use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::result::Result;
-use tracing::error;
-use tracing::{debug, info};
-use validator::{Validate, ValidationError, ValidationErrors};
+use tracing::{error, info};
+use validator::{Validate, ValidationError, ValidationErrorsKind};
 
 pub type Fuzzy = String;
 pub type Keyword = Fuzzy;
@@ -36,13 +34,15 @@ pub struct Contact {
     pub profile: String,
     pub division: String,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Metadata {
     pub id: String,
     #[serde(alias = "type")]
     pub schema_type: SchemaType,
     pub draft: bool,
+    #[validate(nested)]
     pub website: Option<Website>,
+    #[validate(nested)]
     pub graphics: Option<Vec<Graphic>>,
     pub keywords: Vec<Fuzzy>,
     pub sponsors: Vec<Fuzzy>,
@@ -56,8 +56,9 @@ pub enum SchemaType {
     #[display("organization")]
     Organization,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Graphic {
+    #[validate(length(max = 250))]
     pub caption: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -68,6 +69,7 @@ pub struct Website {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ResearchActivity {
+    #[validate(nested)]
     pub meta: Metadata,
     #[validate(length(max = 35))]
     pub title: String,
@@ -85,7 +87,7 @@ pub enum Sections {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ProjectSections {
-    #[validate(length(max = 250))]
+    #[validate(length(max = 2))]
     pub introduction: String,
     #[validate(length(max = 500))]
     pub challenge: String,
@@ -93,6 +95,7 @@ pub struct ProjectSections {
     pub approach: String,
     // TODO: Validate length (max = 100/line)
     pub outcomes: Vec<String>,
+    #[validate(nested)]
     pub research: Research,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -140,45 +143,22 @@ impl ResearchActivity {
         data.dedup();
         data
     }
-    pub fn check(self) -> Result<(), ValidationErrors> {
-        // TODO: Validate meta.website, meta.graphics, and sections.research.focus
-        match self.validate() {
-            Ok(_) => match self.clone().sections {
-                Sections::Project(sections) => match sections.validate() {
-                    Ok(_) => {
-                        debug!("=> {} Project data = {:#?}", Label::using(), self.dimmed());
-                        Ok(())
-                    }
-                    Err(err) => {
-                        error!("Failed to validate project sections {:#?}", err.errors());
-                        Err(err)
-                    }
-                },
-                Sections::Organization(sections) => match sections.validate() {
-                    Ok(_) => {
-                        debug!(
-                            "=> {} Organization data = {:#?}",
-                            Label::using(),
-                            self.dimmed()
-                        );
-                        Ok(())
-                    }
-                    Err(err) => {
-                        error!(
-                            "Failed to validate organization sections {:#?}",
-                            err.errors()
-                        );
-                        Err(err)
-                    }
-                },
-            },
-            Err(err) => {
-                error!(
-                    "Failed to validate research activity data {:#?}",
-                    err.errors()
-                );
-                Err(err)
+    pub fn check(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
+        let mut found: Vec<Option<HashMap<String, ValidationErrorsKind>>> = vec![];
+        found.push(get_errors::<ResearchActivity>(self.clone()));
+        match self.clone().sections {
+            Sections::Project(sections) => {
+                found.push(get_errors::<ProjectSections>(sections));
             }
+            Sections::Organization(sections) => {
+                found.push(get_errors::<OrganizationSections>(sections));
+            }
+        };
+        let errors = format_errors(found.clone());
+        if !errors.is_empty() {
+            Err(errors)
+        } else {
+            Ok(())
         }
     }
     pub fn parse(mut self) -> ResearchActivity {
@@ -223,6 +203,92 @@ impl ResearchActivity {
             }
         }
     }
+}
+/// Combines a vector of optional hash maps containing validation errors into a single hash map.
+/// 
+/// # Arguments
+/// 
+/// * `found` - A vector of optional hash maps where each hash map represents validation errors
+///   with keys as strings and values as `ValidationErrorsKind`.
+/// 
+/// # Returns
+/// 
+/// A single hash map containing all the validation errors from the input vector, with each key
+/// mapped to its corresponding `ValidationErrorsKind`.
+
+pub fn format_errors(
+    found: Vec<Option<HashMap<String, ValidationErrorsKind>>>,
+) -> HashMap<String, ValidationErrorsKind> {
+    found
+        .clone()
+        .into_iter()
+        .flatten()
+        .fold(HashMap::new(), |mut acc, x| {
+            for (key, value) in x.iter() {
+                acc.insert(key.clone(), value.clone());
+            }
+            acc
+        })
+}
+/// Validates an attribute and returns a map of validation errors, if any.
+///
+/// This function takes an attribute that implements the `Validate` trait and
+/// performs validation on it. If validation succeeds, it returns `None`. If
+/// validation fails, it returns a `HashMap` where each key is a string
+/// representing the field name with errors, and the value is a
+/// `ValidationErrorsKind` representing the type of validation error.
+///
+/// # Type Parameters
+///
+/// * `T` - A type that implements the `Validate` trait.
+///
+/// # Arguments
+///
+/// * `attribute` - The attribute to be validated.
+///
+/// # Returns
+///
+/// * `Option<HashMap<String, ValidationErrorsKind>>` - A map of validation errors
+///   if validation fails, or `None` if validation succeeds.
+
+pub fn get_errors<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
+    match attribute.validate() {
+        Ok(_) => None,
+        Err(err) => Some(
+            err.into_errors()
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect::<HashMap<String, ValidationErrorsKind>>(),
+        ),
+    }
+}
+/// Counts the total number of validation errors in a given HashMap.
+///
+/// The function iterates over the values of the provided HashMap, which
+/// maps error field names to their respective `ValidationErrorsKind`.
+/// It counts each `Field` error as one and sums the number of nested
+/// errors for `Struct` types. `List` errors are ignored in the count.
+///
+/// # Arguments
+///
+/// * `errors` - A HashMap where the key is a String representing the
+///   field name and the value is a `ValidationErrorsKind` representing
+///   the type of validation error.
+///
+/// # Returns
+///
+/// * `usize` - The total count of validation errors.
+
+pub fn get_error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
+    errors
+        .clone()
+        .into_values()
+        .map(|v| match v {
+            ValidationErrorsKind::Field(_) => 1,
+            ValidationErrorsKind::Struct(errors) => errors.into_errors().len(),
+            ValidationErrorsKind::List(_) => 0,
+        })
+        .sum()
 }
 /// Resolves a keyword to its closest match from a predefined list.
 ///
@@ -274,36 +340,34 @@ fn resolve_keyword(value: Keyword) -> Option<String> {
 ///
 /// If the fuzzy match is not successful, the input string is returned as is.
 fn resolve_sponsor(value: Sponsor) -> Option<String> {
-    let mut data: HashMap<String, String> = HashMap::new();
-    [
-        ["ARPA-E", "Advanced Research Projects Agency-Energy"],
-        ["CISA", "Cybersecurity and Infrastructure Security Agency"],
-        ["DARPA", "Defense Advanced Research Projects Agency"],
-        ["DHS", "Department of Homeland Security"],
-        ["DOD", "Department of Defense"],
-        ["DOE", "Department of Energy"],
-        ["DOL", "Department of Labor"],
-        ["DOT", "Department of Transportation"],
-        ["EPA", "Environmental Protection Agency"],
-        ["FEMA", "Federal Emergency Management Agency"],
-        ["IAEA", "International Atomic Energy Agency"],
-        ["IARPA", "Intelligence Advanced Research Projects Activity"],
-        ["LDRD", "Laboratory Directed Research and Development"],
-        ["NASA", "National Aeronautics and Space Administration"],
-        ["NGA", "National Geospatial Intelligence Agency"],
-        ["NNSA", "National Nuclear Security Administration"],
-        ["NOAA", "National Oceanic and Atmospheric Administration"],
-        ["NSF", "National Science Foundation"],
-        ["OPM", "Office of Personnel Management"],
-        ["ORNL", "Oak Ridge National Laboratory"],
-        ["OSTI", "Office of Scienctific and Technical Information"],
-        ["USACE", "United States Army Corps of Engineers"],
-        ["USGS", "United States Geological Survey"],
+    let data = [
+        ("ARPA-E", "Advanced Research Projects Agency-Energy"),
+        ("CISA", "Cybersecurity and Infrastructure Security Agency"),
+        ("DARPA", "Defense Advanced Research Projects Agency"),
+        ("DHS", "Department of Homeland Security"),
+        ("DOD", "Department of Defense"),
+        ("DOE", "Department of Energy"),
+        ("DOL", "Department of Labor"),
+        ("DOT", "Department of Transportation"),
+        ("EPA", "Environmental Protection Agency"),
+        ("FEMA", "Federal Emergency Management Agency"),
+        ("IAEA", "International Atomic Energy Agency"),
+        ("IARPA", "Intelligence Advanced Research Projects Activity"),
+        ("LDRD", "Laboratory Directed Research and Development"),
+        ("NASA", "National Aeronautics and Space Administration"),
+        ("NGA", "National Geospatial Intelligence Agency"),
+        ("NNSA", "National Nuclear Security Administration"),
+        ("NOAA", "National Oceanic and Atmospheric Administration"),
+        ("NSF", "National Science Foundation"),
+        ("OPM", "Office of Personnel Management"),
+        ("ORNL", "Oak Ridge National Laboratory"),
+        ("OSTI", "Office of Scienctific and Technical Information"),
+        ("USACE", "United States Army Corps of Engineers"),
+        ("USGS", "United States Geological Survey"),
     ]
     .into_iter()
-    .for_each(|[key, value]| {
-        data.insert(key.to_string(), value.to_string());
-    });
+    .map(|(key, value)| (key.to_string(), value.to_string()))
+    .collect::<HashMap<String, String>>();
     let value = value.trim().to_string();
     let sanitized = sanitize(value.clone());
     match sanitized.len() {
@@ -386,7 +450,7 @@ fn sanitize(value: String) -> String {
 }
 fn validate_phone_number(value: &str) -> Result<(), ValidationError> {
     match RE_PHONE.is_match(value) {
-        Ok(value) if value == true => Ok(()),
+        Ok(value) if value => Ok(()),
         _ => Err(ValidationError::new(
             "Phone number requirement not satisfied",
         )),

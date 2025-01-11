@@ -10,7 +10,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use tracing::instrument;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
 use tracing_subscriber::prelude::*;
@@ -22,7 +22,7 @@ mod schema;
 mod util;
 
 use cli::{Arguments, Commands};
-use schema::{ResearchActivity, SchemaType};
+use schema::*;
 use util::*;
 
 pub type Void = Result<(), Report>;
@@ -183,9 +183,20 @@ fn main() -> Void {
         Some(Commands::Check { path, .. }) => {
             fn check_file(path: &PathBuf) {
                 match ResearchActivity::read(path.clone()) {
-                    Ok(data) => {
-                        let _ = data.check();
-                    }
+                    Ok(data) => match data.check() {
+                        Ok(_) => {
+                            info!("=> {} No errors", Label::pass());
+                        }
+                        Err(found) => {
+                            error!(
+                                "=> {} Found {} errors in {}: {:#?}",
+                                Label::fail(),
+                                get_error_count(found.clone()),
+                                path.display(),
+                                found,
+                            );
+                        }
+                    },
                     Err(err) => {
                         error!("Failed to read research activity data - {err}");
                     }
