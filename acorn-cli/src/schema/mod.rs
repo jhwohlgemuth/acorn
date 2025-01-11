@@ -87,7 +87,7 @@ pub enum Sections {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ProjectSections {
-    #[validate(length(max = 2))]
+    #[validate(length(max = 250))]
     pub introduction: String,
     #[validate(length(max = 500))]
     pub challenge: String,

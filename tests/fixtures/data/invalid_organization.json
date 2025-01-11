@@ -19,7 +19,7 @@
   "title": "Some Organization",
   "subtitle": "Dicta rerum amet modi consequatur minima tempore",
   "sections": {
-    "overview": "Nostrum dolorum consectetur est dolor voluptate et. Ab nulla voluptate dolor exercitationem rerum. Dolorem qui mollitia rerum autem perferendis.",
+    "mission": "Nostrum dolorum consectetur est dolor voluptate et. Ab nulla voluptate dolor exercitationem rerum. Dolorem qui mollitia rerum autem perferendis.",
     "capabilities": [
       "Deleniti voluptas incidunt nulla temporibus enim et est et.",
       "Vitae et excepturi quam.",
@@ -38,9 +38,10 @@
   },
   "contact": {
     "title": "Primary Investigator",
+    "first": "Wilfred",
     "last": "Hintz",
-    "email": 42,
-    "phone": "(820) 893-6283",
+    "email": "42",
+    "phone": "Not a phone number",
     "profile": "https://worse-coconut.org",
     "division": "Creative Services"
   }
