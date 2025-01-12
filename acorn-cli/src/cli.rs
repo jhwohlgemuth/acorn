@@ -65,7 +65,7 @@ pub enum Commands {
         #[arg(short = 'c', long = "config", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
         config: Option<std::path::PathBuf>,
         /// Path to output directory where the downloaded content should be saved
-        #[arg(value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
+        #[arg(default_value = "./content", short = 'o', long = "output", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
         output: Option<std::path::PathBuf>,
         #[command(flatten)]
         verbose: Verbosity,

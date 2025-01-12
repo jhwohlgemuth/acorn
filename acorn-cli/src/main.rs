@@ -77,7 +77,7 @@ impl Bucket {
             },
         }
     }
-    async fn download_files(&self) {
+    async fn download_files(&self, output: &PathBuf) {
         match self.provider {
             Provider::GitHub => unimplemented!(),
             Provider::GitLab => {
@@ -86,7 +86,7 @@ impl Bucket {
                     let url = format!("{}/-/raw/main/{}/{}", self.uri, self.schema_type, file);
                     let response = reqwest::get(url).await.unwrap();
                     let content = response.text().await.unwrap();
-                    let output = format!("./content/{}", self.schema_type);
+                    let output = format!("{}/{}", output.display(), self.schema_type);
                     std::fs::create_dir_all(output.clone()).unwrap();
                     let mut file = File::create(format!("{}/{}", output, file)).unwrap();
                     file.write_all(content.as_bytes()).unwrap();
@@ -218,14 +218,20 @@ fn main() -> Void {
             }
             Ok(())
         }
-        Some(Commands::Download { config, .. }) => {
+        Some(Commands::Download { config, output, .. }) => {
             let runtime = tokio_runtime();
             if let Some(path) = config {
                 match BucketsConfig::read_json(path.clone()) {
                     Ok(content) => {
                         content.buckets.into_iter().for_each(|bucket| {
                             runtime.block_on(async {
-                                bucket.download_files().await;
+                                match output {
+                                    Some(path) => {
+                                        bucket.download_files(path).await;
+                                    },
+                                    None => ()
+
+                                }
                             });
                         });
                     }
