@@ -17,6 +17,12 @@ pub type Keyword = Fuzzy;
 pub type Sponsor = Fuzzy;
 pub type Technology = Fuzzy;
 
+const MAX_LENGTH_AREA: usize = 40;
+const MAX_LENGTH_CAPABILIY: usize = 300;
+const MAX_LENGTH_FACILITY: usize = 40;
+const MAX_LENGTH_IMPACT: usize = 400;
+const MAX_LENGTH_OUTCOME: usize = 100;
+
 lazy_static! {
     static ref RE_PHONE: Regex =
         Regex::new(r#"^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$"#).unwrap();
@@ -86,16 +92,17 @@ pub struct Contact {
     pub title: String,
     pub first: String,
     pub last: String,
-    #[validate(email)]
+    #[validate(email(message = "Please provide a valid email"))]
     pub email: String,
     #[validate(custom(function = "validate_phone_number"))]
     pub phone: String,
-    #[validate(url)]
+    #[validate(url(message = "Please provide a valid URL"))]
     pub profile: String,
     pub division: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Metadata {
+    #[validate(custom(function = "validate_is_kebabcase"))]
     pub id: String,
     #[serde(alias = "type")]
     pub schema_type: SchemaType,
@@ -118,22 +125,28 @@ pub enum SchemaType {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Graphic {
-    #[validate(length(max = 250))]
+    #[validate(length(
+        max = 250,
+        message = "Caption is too long, please reduce the length below 250."
+    ))]
     pub caption: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Website {
     pub title: String,
-    #[validate(url)]
+    #[validate(url(message = "Please provide a valid URL"))]
     pub url: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ResearchActivity {
     #[validate(nested)]
     pub meta: Metadata,
-    #[validate(length(max = 35))]
+    #[validate(length(min = 5, max = 35))]
     pub title: String,
-    #[validate(length(max = 75))]
+    #[validate(length(
+        max = 75,
+        message = "Subtitle is too long, please reduce the length below 75."
+    ))]
     pub subtitle: String,
     pub sections: Sections,
     #[validate(nested)]
@@ -147,33 +160,48 @@ pub enum Sections {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ProjectSections {
-    #[validate(length(max = 250))]
+    #[validate(length(
+        max = 250,
+        message = "Introduction is too long, please reduce the length below 250."
+    ))]
     pub introduction: String,
-    #[validate(length(max = 500))]
+    #[validate(length(
+        max = 500,
+        message = "Challenge is too long, please reduce the length below 500."
+    ))]
     pub challenge: String,
-    #[validate(length(max = 600))]
+    #[validate(length(
+        max = 600,
+        message = "Approach is too long, please reduce the length below 600."
+    ))]
     pub approach: String,
-    // TODO: Validate length (max = 100/line)
+    #[validate(custom(function = "validate_attribute_outcomes"))]
     pub outcomes: Vec<String>,
     #[validate(nested)]
     pub research: Research,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct OrganizationSections {
-    #[validate(length(max = 250))]
+    #[validate(length(
+        max = 250,
+        message = "Mission is too long, please reduce the length below 250."
+    ))]
     pub mission: String,
-    // TODO: Validate length (max = 300/line)
+    #[validate(custom(function = "validate_attribute_capabilities"))]
     pub capabilities: Vec<String>,
-    // TODO: Validate length (max = 400/line)
+    #[validate(custom(function = "validate_attribute_impact"))]
     pub impact: Vec<String>,
-    // TODO: Validate length (max = 40/line)
+    #[validate(custom(function = "validate_attribute_facilities"))]
     pub facilities: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Research {
-    #[validate(length(max = 150))]
+    #[validate(length(
+        max = 150,
+        message = "Focus is too long, please reduce the length below 150."
+    ))]
     pub focus: String,
-    // TODO: Validate length (max = 100/line)
+    #[validate(custom(function = "validate_attribute_areas"))]
     pub areas: Vec<String>,
 }
 impl ResearchActivity {
@@ -456,12 +484,84 @@ fn sanitize(value: String) -> String {
         Err(err) => err.to_string(),
     }
 }
+fn validate_attribute_areas(value: &[String]) -> Result<(), ValidationError> {
+    const MAX_LENGTH: usize = MAX_LENGTH_AREA;
+    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
+    match is_valid {
+        true => Ok(()),
+        _ => Err(ValidationError::new("area").with_message(
+            format!("Each area should be less than {} characters", MAX_LENGTH).into(),
+        )),
+    }
+}
+fn validate_attribute_capabilities(value: &[String]) -> Result<(), ValidationError> {
+    const MAX_LENGTH: usize = MAX_LENGTH_CAPABILIY;
+    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
+    match is_valid {
+        true => Ok(()),
+        _ => Err(ValidationError::new("area").with_message(
+            format!(
+                "Each capability should be less than {} characters",
+                MAX_LENGTH
+            )
+            .into(),
+        )),
+    }
+}
+fn validate_attribute_facilities(value: &[String]) -> Result<(), ValidationError> {
+    const MAX_LENGTH: usize = MAX_LENGTH_FACILITY;
+    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
+    match is_valid {
+        true => Ok(()),
+        _ => Err(ValidationError::new("area").with_message(
+            format!(
+                "Each facility should be less than {} characters",
+                MAX_LENGTH
+            )
+            .into(),
+        )),
+    }
+}
+fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
+    const MAX_LENGTH: usize = MAX_LENGTH_IMPACT;
+    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
+    match is_valid {
+        true => Ok(()),
+        _ => Err(ValidationError::new("outcome").with_message(
+            format!(
+                "Each impact item should be less than {} characters",
+                MAX_LENGTH
+            )
+            .into(),
+        )),
+    }
+}
+fn validate_attribute_outcomes(value: &[String]) -> Result<(), ValidationError> {
+    const MAX_LENGTH: usize = MAX_LENGTH_OUTCOME;
+    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
+    match is_valid {
+        true => Ok(()),
+        _ => Err(ValidationError::new("outcome").with_message(
+            format!("Each outcome should be less than {} characters", MAX_LENGTH).into(),
+        )),
+    }
+}
+fn validate_is_kebabcase(value: &str) -> Result<(), ValidationError> {
+    let kebab = match Regex::new(r"[*_./\!@#$%^&(){}]") {
+        Ok(re) => re.replace_all(value, "").trim().to_string(),
+        Err(err) => err.to_string(),
+    };
+    match kebab.to_lowercase().eq(&value) {
+        true => Ok(()),
+        _ => Err(ValidationError::new("kebabcase")
+            .with_message("Please provide a an ID in kebab-case format".into())),
+    }
+}
 fn validate_phone_number(value: &str) -> Result<(), ValidationError> {
     match RE_PHONE.is_match(value) {
         Ok(value) if value => Ok(()),
-        _ => Err(ValidationError::new(
-            "Phone number requirement not satisfied",
-        )),
+        _ => Err(ValidationError::new("phone")
+            .with_message("Please provide a valid phone number".into())),
     }
 }
 
