@@ -4,11 +4,12 @@ use fancy_regex::Regex;
 use lazy_static::lazy_static;
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher};
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::result::Result;
-use tracing::{error, info};
+use tracing::{debug, error, trace};
 use validator::{Validate, ValidationError, ValidationErrorsKind};
 
 pub type Fuzzy = String;
@@ -19,6 +20,65 @@ pub type Technology = Fuzzy;
 lazy_static! {
     static ref RE_PHONE: Regex =
         Regex::new(r#"^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$"#).unwrap();
+}
+lazy_static! {
+    static ref KEYWORD_DATA: [&'static str; 11] = [
+        "artificial-intelligence",
+        "automation",
+        "cyber",
+        "GEARS",
+        "geospatial",
+        "machine-learning",
+        "nuclear-nonproliferation",
+        "security",
+        "transportation",
+        "event:icons:2024",
+        "workflow",
+    ];
+    static ref SPONSOR_DATA: [(&'static str, &'static str); 23] = [
+        ("ARPA-E", "Advanced Research Projects Agency-Energy"),
+        ("CISA", "Cybersecurity and Infrastructure Security Agency"),
+        ("DARPA", "Defense Advanced Research Projects Agency"),
+        ("DHS", "Department of Homeland Security"),
+        ("DOD", "Department of Defense"),
+        ("DOE", "Department of Energy"),
+        ("DOL", "Department of Labor"),
+        ("DOT", "Department of Transportation"),
+        ("EPA", "Environmental Protection Agency"),
+        ("FEMA", "Federal Emergency Management Agency"),
+        ("IAEA", "International Atomic Energy Agency"),
+        ("IARPA", "Intelligence Advanced Research Projects Activity"),
+        ("LDRD", "Laboratory Directed Research and Development"),
+        ("NASA", "National Aeronautics and Space Administration"),
+        ("NGA", "National Geospatial Intelligence Agency"),
+        ("NNSA", "National Nuclear Security Administration"),
+        ("NOAA", "National Oceanic and Atmospheric Administration"),
+        ("NSF", "National Science Foundation"),
+        ("OPM", "Office of Personnel Management"),
+        ("ORNL", "Oak Ridge National Laboratory"),
+        ("OSTI", "Office of Scienctific and Technical Information"),
+        ("USACE", "United States Army Corps of Engineers"),
+        ("USGS", "United States Geological Survey"),
+    ];
+    static ref TECHNOLOGY_DATA: [Vec<&'static str>; 17] = [
+        vec!["javascript", "js", "node.js"],
+        vec!["python", "py"],
+        vec!["rust", "rs"],
+        vec!["astro", "astro.js"],
+        vec!["react", "react.js"],
+        vec!["gdal", "Geospatial Data Abstraction Library"],
+        vec!["polars", "Polars"],
+        vec!["pandas", "Pandas"],
+        vec!["numpy", "NumPy"],
+        vec!["pytorch", "PyTorch"],
+        vec!["tensorflow", "TensorFlow"],
+        vec!["keras", "Keras"],
+        vec!["scikit-learn", "SciKit-Learn"],
+        vec!["scipy", "SciPy"],
+        vec!["matplotlib", "Matplotlib"],
+        vec!["seaborn", "Seaborn"],
+        vec!["plotly", "Plotly"],
+    ];
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -194,7 +254,12 @@ impl ResearchActivity {
         match parsed {
             Ok(data) => {
                 let parsed = data.parse();
-                info!(path = path.to_str().unwrap(), "=> {}", label);
+                debug!(path = path.to_str().unwrap(), "=> {}", label);
+                trace!(
+                    "=> {} Research activity data = {:#?}",
+                    label,
+                    parsed.dimmed()
+                );
                 Ok(parsed)
             }
             Err(err) => {
@@ -302,23 +367,10 @@ pub fn get_error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
 /// An `Option<String>` containing the resolved keyword if a match is found,
 /// otherwise `None`.
 fn resolve_keyword(value: Keyword) -> Option<String> {
-    let data = [
-        "artificial-intelligence",
-        "automation",
-        "cyber",
-        "GEARS",
-        "geospatial",
-        "machine-learning",
-        "nuclear-nonproliferation",
-        "security",
-        "transportation",
-        "event:icons:2024",
-        "workflow",
-    ];
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
     let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
     let output = pattern
-        .match_list(data, &mut matcher)
+        .match_list(*KEYWORD_DATA, &mut matcher)
         .first()
         .map(|(x, _)| x.to_string());
     output
@@ -337,34 +389,10 @@ fn resolve_keyword(value: Keyword) -> Option<String> {
 ///
 /// If the fuzzy match is not successful, the input string is returned as is.
 fn resolve_sponsor(value: Sponsor) -> Option<String> {
-    let data = [
-        ("ARPA-E", "Advanced Research Projects Agency-Energy"),
-        ("CISA", "Cybersecurity and Infrastructure Security Agency"),
-        ("DARPA", "Defense Advanced Research Projects Agency"),
-        ("DHS", "Department of Homeland Security"),
-        ("DOD", "Department of Defense"),
-        ("DOE", "Department of Energy"),
-        ("DOL", "Department of Labor"),
-        ("DOT", "Department of Transportation"),
-        ("EPA", "Environmental Protection Agency"),
-        ("FEMA", "Federal Emergency Management Agency"),
-        ("IAEA", "International Atomic Energy Agency"),
-        ("IARPA", "Intelligence Advanced Research Projects Activity"),
-        ("LDRD", "Laboratory Directed Research and Development"),
-        ("NASA", "National Aeronautics and Space Administration"),
-        ("NGA", "National Geospatial Intelligence Agency"),
-        ("NNSA", "National Nuclear Security Administration"),
-        ("NOAA", "National Oceanic and Atmospheric Administration"),
-        ("NSF", "National Science Foundation"),
-        ("OPM", "Office of Personnel Management"),
-        ("ORNL", "Oak Ridge National Laboratory"),
-        ("OSTI", "Office of Scienctific and Technical Information"),
-        ("USACE", "United States Army Corps of Engineers"),
-        ("USGS", "United States Geological Survey"),
-    ]
-    .into_iter()
-    .map(|(key, value)| (key.to_string(), value.to_string()))
-    .collect::<HashMap<String, String>>();
+    let data = SPONSOR_DATA
+        .into_iter()
+        .map(|(key, value)| (key.to_string(), value.to_string()))
+        .collect::<HashMap<String, String>>();
     let value = value.trim().to_string();
     let sanitized = sanitize(value.clone());
     match sanitized.len() {
@@ -401,43 +429,26 @@ fn resolve_sponsor(value: Sponsor) -> Option<String> {
 /// An `Option<String>` containing the resolved technology name if a match is
 /// found, otherwise `None`.
 fn resolve_technology(value: Technology) -> Option<String> {
-    [
-        vec!["javascript", "js", "node.js"],
-        vec!["python", "py"],
-        vec!["rust", "rs"],
-        vec!["astro", "astro.js"],
-        vec!["react", "react.js"],
-        vec!["gdal", "Geospatial Data Abstraction Library"],
-        vec!["polars", "Polars"],
-        vec!["pandas", "Pandas"],
-        vec!["numpy", "NumPy"],
-        vec!["pytorch", "PyTorch"],
-        vec!["tensorflow", "TensorFlow"],
-        vec!["keras", "Keras"],
-        vec!["scikit-learn", "SciKit-Learn"],
-        vec!["scipy", "SciPy"],
-        vec!["matplotlib", "Matplotlib"],
-        vec!["seaborn", "Seaborn"],
-        vec!["plotly", "Plotly"],
-    ]
-    .into_iter()
-    .flat_map(|x| {
-        let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
-        let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-        let matched = pattern.match_list(x.clone(), &mut matcher);
-        let scores = matched
-            .clone()
-            .into_iter()
-            .map(|(_, score)| score)
-            .collect::<Vec<_>>();
-        if !matched.clone().is_empty() {
-            Some((x[0], scores[0]))
-        } else {
-            None
-        }
-    })
-    .max_by_key(|(_, score)| *score)
-    .map(|(x, _)| x.to_string())
+    TECHNOLOGY_DATA
+        .clone()
+        .into_iter()
+        .flat_map(|x| {
+            let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
+            let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+            let matched = pattern.match_list(x.clone(), &mut matcher);
+            let scores = matched
+                .clone()
+                .into_iter()
+                .map(|(_, score)| score)
+                .collect::<Vec<_>>();
+            if !matched.clone().is_empty() {
+                Some((x[0], scores[0]))
+            } else {
+                None
+            }
+        })
+        .max_by_key(|(_, score)| *score)
+        .map(|(x, _)| x.to_string())
 }
 fn sanitize(value: String) -> String {
     match Regex::new(r"[-_.]") {

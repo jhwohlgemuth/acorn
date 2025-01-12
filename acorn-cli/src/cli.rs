@@ -34,7 +34,7 @@ pub enum Commands {
     ///     $> acorn lint --path /path/to/file.json
     ///
     ///     $> acorn lint --path /path/to/folder
-    /// 
+    ///
     ///     $> acorn lint --path /path/to/folder --format
     ///
     #[clap(verbatim_doc_comment)]
@@ -54,7 +54,7 @@ pub enum Commands {
     /// Download research activity data, such as fact sheet files, from buckets and ACORN schemas
     ///
     ///     $> acorn download --config /path/to/bucket.json
-    /// 
+    ///
     ///     $> acorn download --config /path/to/bucket.json --output /path/to/output
     ///
     ///     $> acorn download --schema project

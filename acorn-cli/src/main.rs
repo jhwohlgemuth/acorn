@@ -10,7 +10,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use tracing::instrument;
-use tracing::{debug, error, info};
+use tracing::{error, info, trace};
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
 use tracing_subscriber::prelude::*;
@@ -33,7 +33,7 @@ const DISPLAY_LEVEL: bool = true;
 const DISPLAY_LINE_NUMBER: bool = false;
 const DISPLAY_TARGET: bool = false;
 const DISPLAY_THREAD_ID: bool = false;
-const DISPLAY_THREAD_NAME: bool = true;
+const DISPLAY_THREAD_NAME: bool = false;
 
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -133,15 +133,9 @@ impl BucketsConfig {
             Ok(_) => Label::using(),
             Err(_) => Label::invalid(),
         };
-        debug!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
+        trace!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
         data
     }
-}
-fn tokio_runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
 }
 
 #[instrument]
@@ -185,7 +179,7 @@ fn main() -> Void {
                 match ResearchActivity::read(path.into()) {
                     Ok(data) => match data.lint() {
                         Ok(_) => {
-                            info!("=> {} No errors", Label::pass());
+                            info!("=> {} {} has no errors", Label::pass(), path.display());
                         }
                         Err(found) => {
                             error!(
@@ -198,7 +192,12 @@ fn main() -> Void {
                         }
                     },
                     Err(err) => {
-                        error!("Failed to read research activity data - {err}");
+                        error!(
+                            "=> {} Read research activity data at {} - {}",
+                            Label::fail(),
+                            path.display(),
+                            err
+                        );
                     }
                 }
             }
@@ -225,12 +224,8 @@ fn main() -> Void {
                     Ok(content) => {
                         content.buckets.into_iter().for_each(|bucket| {
                             runtime.block_on(async {
-                                match output {
-                                    Some(path) => {
-                                        bucket.download_files(path).await;
-                                    },
-                                    None => ()
-
+                                if let Some(path) = output {
+                                    bucket.download_files(path).await;
                                 }
                             });
                         });
