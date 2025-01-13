@@ -173,6 +173,7 @@ pub enum Sections {
 pub struct HighlightSections {
     pub achievement: String,
     pub impact: String,
+    // TODO: limit 6 lines, 75 characters
     pub approach: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
