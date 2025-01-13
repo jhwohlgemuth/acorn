@@ -1,8 +1,10 @@
 use clap::Parser;
 use color_eyre::eyre::{Report, Result};
+use console::Emoji;
 use derive_more::Display;
 use dotenvy::dotenv;
 use glob::glob;
+use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -26,6 +28,8 @@ use schema::*;
 use util::*;
 
 pub type Void = Result<(), Report>;
+
+static CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "√ ");
 
 // Environment variables
 const LOG_LEVEL: &str = "ACORN_LOG_LEVEL";
@@ -82,6 +86,14 @@ impl Bucket {
             Provider::GitHub => unimplemented!(),
             Provider::GitLab => {
                 let files = self.get_files().await;
+                let progress = ProgressBar::new(files.len() as u64);
+                progress.set_style(
+                    ProgressStyle::with_template(
+                        "{spinner:.green} {msg} [{wide_bar:.green}] {pos}/{len}",
+                    )
+                    .unwrap(),
+                );
+                println!("Downloading files from {}...", self.uri);
                 for file in files {
                     let url = format!("{}/-/raw/main/{}/{}", self.uri, self.schema_type, file);
                     let response = reqwest::get(url).await.unwrap();
@@ -90,7 +102,9 @@ impl Bucket {
                     std::fs::create_dir_all(output.clone()).unwrap();
                     let mut file = File::create(format!("{}/{}", output, file)).unwrap();
                     file.write_all(content.as_bytes()).unwrap();
+                    progress.inc(1);
                 }
+                progress.finish_with_message(format!("{}Done", CHECKMARK));
             }
         };
     }
