@@ -57,3 +57,92 @@ fn test_fuzzy_technologies() {
     );
     assert_eq!(resolve_technology("foobarbaz".into()), None);
 }
+#[test]
+fn test_validate_attribute_areas() {
+    let valid = ["x".repeat(10).to_string(), "x".repeat(40).to_string()];
+    let invalid = ["x".repeat(41).to_string(), "x".repeat(100).to_string()];
+    for x in valid.iter() {
+        assert!(validate_attribute_areas(&[x.clone()]).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_attribute_areas(&[x.clone()]).is_err());
+    }
+}
+#[test]
+fn test_validate_attribute_facilities() {
+    let valid = ["x".repeat(10).to_string(), "x".repeat(40).to_string()];
+    let invalid = ["x".repeat(41).to_string(), "x".repeat(100).to_string()];
+    for x in valid.iter() {
+        assert!(validate_attribute_facilities(&[x.clone()]).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_attribute_facilities(&[x.clone()]).is_err());
+    }
+}
+#[test]
+fn test_validate_attribute_capabilities() {
+    let valid = ["x".repeat(10).to_string(), "x".repeat(300).to_string()];
+    let invalid = ["x".repeat(301).to_string(), "x".repeat(400).to_string()];
+    for x in valid.iter() {
+        assert!(validate_attribute_capabilities(&[x.clone()]).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_attribute_capabilities(&[x.clone()]).is_err());
+    }
+}
+#[test]
+fn test_validate_attribute_impact() {
+    let valid = ["x".repeat(10).to_string(), "x".repeat(400).to_string()];
+    let invalid = ["x".repeat(401).to_string(), "x".repeat(500).to_string()];
+    for x in valid.iter() {
+        assert!(validate_attribute_impact(&[x.clone()]).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_attribute_impact(&[x.clone()]).is_err());
+    }
+}
+#[test]
+fn test_validate_attribute_outcomes() {
+    let valid = ["x".repeat(10).to_string(), "x".repeat(100).to_string()];
+    let invalid = ["x".repeat(101).to_string(), "x".repeat(500).to_string()];
+    for x in valid.iter() {
+        assert!(validate_attribute_outcomes(&[x.clone()]).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_attribute_outcomes(&[x.clone()]).is_err());
+    }
+}
+#[test]
+fn test_validate_is_kebabcase() {
+    let valid = ["this-is-valid", "thisisvalid"];
+    let invalid = [
+        "this_is_not_valid",
+        "ThisIsNotValid",
+        "this is not valid",
+        "This-Is-Not-Valid",
+    ];
+    for x in valid.iter() {
+        assert!(validate_is_kebabcase(x).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_is_kebabcase(x).is_err());
+    }
+}
+#[test]
+fn test_validate_is_phone_number() {
+    let valid = [
+        "555-123-4567",
+        "555.123.4567",
+        "+1 (555) 123-4567",
+        "+1 (555) 123.4567",
+        "+15551234567",
+        "(555) 123-4567",
+    ];
+    let invalid = ["42", "1 (555) 123-4567", "1234-567", "123-4567"];
+    for x in valid.iter() {
+        assert!(validate_is_phone_number(x).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_is_phone_number(x).is_err());
+    }
+}

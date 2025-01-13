@@ -94,7 +94,7 @@ pub struct Contact {
     pub last: String,
     #[validate(email(message = "Please provide a valid email"))]
     pub email: String,
-    #[validate(custom(function = "validate_phone_number"))]
+    #[validate(custom(function = "validate_is_phone_number"))]
     pub phone: String,
     #[validate(url(message = "Please provide a valid URL"))]
     pub profile: String,
@@ -547,7 +547,7 @@ fn validate_attribute_outcomes(value: &[String]) -> Result<(), ValidationError> 
     }
 }
 fn validate_is_kebabcase(value: &str) -> Result<(), ValidationError> {
-    let kebab = match Regex::new(r"[*_./\!@#$%^&(){}]") {
+    let kebab = match Regex::new(r"[ *_./\!@#$%^&(){}]") {
         Ok(re) => re.replace_all(value, "").trim().to_string(),
         Err(err) => err.to_string(),
     };
@@ -557,7 +557,7 @@ fn validate_is_kebabcase(value: &str) -> Result<(), ValidationError> {
             .with_message("Please provide a an ID in kebab-case format".into())),
     }
 }
-fn validate_phone_number(value: &str) -> Result<(), ValidationError> {
+fn validate_is_phone_number(value: &str) -> Result<(), ValidationError> {
     match RE_PHONE.is_match(value) {
         Ok(value) if value => Ok(()),
         _ => Err(ValidationError::new("phone")
