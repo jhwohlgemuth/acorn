@@ -208,7 +208,7 @@ fn main() -> Void {
                             check_file(path.as_ref().unwrap());
                         }),
                         Err(err) => {
-                            error!("Failed to read glob pattern - {err}");
+                            error!("=> {} Failed to read glob pattern - {}", Label::fail(), err);
                         }
                     };
                 } else {
@@ -231,7 +231,7 @@ fn main() -> Void {
                         });
                     }
                     Err(err) => {
-                        error!("Failed to download data - {err}");
+                        error!("=> {} Failed to download data - {}", Label::fail(), err);
                     }
                 };
             }
