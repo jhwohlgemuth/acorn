@@ -104,6 +104,10 @@ pub struct Contact {
 pub struct Metadata {
     #[validate(custom(function = "validate_is_kebabcase"))]
     pub id: String,
+    // TODO: validate against the format of a DOI
+    pub doi: Option<String>,
+    #[validate(url(message = "Please provide a valid URL"))]
+    pub publication: Option<String>,
     #[serde(alias = "type")]
     pub schema_type: SchemaType,
     pub draft: bool,
@@ -114,10 +118,14 @@ pub struct Metadata {
     pub keywords: Vec<Fuzzy>,
     pub sponsors: Vec<Fuzzy>,
     pub technology: Vec<Fuzzy>,
+    // TODO: Create Ascr struct
+    pub ascr: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 #[serde(rename_all = "lowercase")]
 pub enum SchemaType {
+    #[display("highlight")]
+    Highlight,
     #[display("project")]
     Project,
     #[display("organization")]
@@ -151,12 +159,21 @@ pub struct ResearchActivity {
     pub sections: Sections,
     #[validate(nested)]
     pub contact: Contact,
+    pub notes: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Sections {
+    Highlight(HighlightSections),
     Project(ProjectSections),
     Organization(OrganizationSections),
+}
+// TODO: Add length validation
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+pub struct HighlightSections {
+    pub achievement: String,
+    pub impact: String,
+    pub approach: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ProjectSections {
@@ -235,6 +252,9 @@ impl ResearchActivity {
         let mut found: Vec<Option<HashMap<String, ValidationErrorsKind>>> = vec![];
         found.push(get_errors::<ResearchActivity>(self.clone()));
         match self.clone().sections {
+            Sections::Highlight(sections) => {
+                found.push(get_errors::<HighlightSections>(sections));
+            }
             Sections::Project(sections) => {
                 found.push(get_errors::<ProjectSections>(sections));
             }
@@ -252,6 +272,8 @@ impl ResearchActivity {
     pub fn parse(mut self) -> ResearchActivity {
         self.meta = Metadata {
             id: self.meta.id.clone(),
+            doi: self.meta.doi.clone(),
+            publication: self.meta.publication.clone(),
             schema_type: SchemaType::Project,
             draft: self.meta.draft,
             website: self.clone().meta.website,
@@ -259,6 +281,7 @@ impl ResearchActivity {
             keywords: self.clone().resolve("keyword"),
             sponsors: self.clone().resolve("sponsor"),
             technology: self.clone().resolve("technology"),
+            ascr: self.clone().meta.ascr,
         };
         self
     }
