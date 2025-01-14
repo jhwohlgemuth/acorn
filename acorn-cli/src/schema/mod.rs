@@ -140,6 +140,8 @@ pub struct Graphic {
         message = "Caption is too long, please reduce the length below 250."
     ))]
     pub caption: String,
+    pub href: Option<String>,
+    pub use_default: Option<bool>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Website {
