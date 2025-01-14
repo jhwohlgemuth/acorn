@@ -21,9 +21,11 @@ const MAX_LENGTH_AREA: usize = 40;
 const MAX_LENGTH_CAPABILIY: usize = 300;
 const MAX_LENGTH_FACILITY: usize = 40;
 const MAX_LENGTH_IMPACT: usize = 400;
+const MAX_LENGTH_METHOD: usize = 75;
 const MAX_LENGTH_OUTCOME: usize = 100;
 
 lazy_static! {
+    static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
     static ref RE_PHONE: Regex =
         Regex::new(r#"^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$"#).unwrap();
 }
@@ -104,7 +106,7 @@ pub struct Contact {
 pub struct Metadata {
     #[validate(custom(function = "validate_is_kebabcase"))]
     pub id: String,
-    // TODO: validate against the format of a DOI
+    #[validate(custom(function = "validate_is_doi"))]
     pub doi: Option<String>,
     #[validate(url(message = "Please provide a valid URL"))]
     pub publication: Option<String>,
@@ -118,8 +120,8 @@ pub struct Metadata {
     pub keywords: Vec<Fuzzy>,
     pub sponsors: Vec<Fuzzy>,
     pub technology: Vec<Fuzzy>,
-    // TODO: Create Ascr struct
-    pub ascr: Option<String>,
+    pub programs: Option<Vec<String>>,
+    pub managers: Option<Vec<String>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 #[serde(rename_all = "lowercase")]
@@ -149,7 +151,7 @@ pub struct Website {
 pub struct ResearchActivity {
     #[validate(nested)]
     pub meta: Metadata,
-    #[validate(length(min = 5, max = 35))]
+    #[validate(length(min = 4, max = 35))]
     pub title: String,
     #[validate(length(
         max = 75,
@@ -168,13 +170,15 @@ pub enum Sections {
     Project(ProjectSections),
     Organization(OrganizationSections),
 }
-// TODO: Add length validation
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct HighlightSections {
     pub achievement: String,
     pub impact: String,
-    // TODO: limit 6 lines, 75 characters
-    pub approach: Vec<String>,
+    #[validate(
+        length(max = 6, message = "Please limit the number of methods to 6"),
+        custom(function = "validate_attribute_methods")
+    )]
+    pub methods: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ProjectSections {
@@ -275,6 +279,8 @@ impl ResearchActivity {
             id: self.meta.id.clone(),
             doi: self.meta.doi.clone(),
             publication: self.meta.publication.clone(),
+            programs: self.meta.programs.clone(),
+            managers: self.meta.managers.clone(),
             schema_type: SchemaType::Project,
             draft: self.meta.draft,
             website: self.clone().meta.website,
@@ -282,7 +288,6 @@ impl ResearchActivity {
             keywords: self.clone().resolve("keyword"),
             sponsors: self.clone().resolve("sponsor"),
             technology: self.clone().resolve("technology"),
-            ascr: self.clone().meta.ascr,
         };
         self
     }
@@ -560,6 +565,16 @@ fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
         )),
     }
 }
+fn validate_attribute_methods(value: &[String]) -> Result<(), ValidationError> {
+    const MAX_LENGTH: usize = MAX_LENGTH_METHOD;
+    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
+    match is_valid {
+        true => Ok(()),
+        _ => Err(ValidationError::new("area").with_message(
+            format!("Each method should be less than {} characters", MAX_LENGTH).into(),
+        )),
+    }
+}
 fn validate_attribute_outcomes(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_OUTCOME;
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
@@ -570,22 +585,30 @@ fn validate_attribute_outcomes(value: &[String]) -> Result<(), ValidationError> 
         )),
     }
 }
+fn validate_is_doi(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str =
+        "Please provide a valid DOI, by itself and without domain or 'doi:' prefix.";
+    match RE_DOI.is_match(value) {
+        Ok(value) if value => Ok(()),
+        _ => Err(ValidationError::new("doi").with_message(MESSAGE.into())),
+    }
+}
 fn validate_is_kebabcase(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide an ID in kebab-case format";
     let kebab = match Regex::new(r"[ *_./\!@#$%^&(){}]") {
         Ok(re) => re.replace_all(value, "").trim().to_string(),
         Err(err) => err.to_string(),
     };
     match kebab.to_lowercase().eq(&value) {
         true => Ok(()),
-        _ => Err(ValidationError::new("kebabcase")
-            .with_message("Please provide a an ID in kebab-case format".into())),
+        _ => Err(ValidationError::new("kebabcase").with_message(MESSAGE.into())),
     }
 }
 fn validate_is_phone_number(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid phone number";
     match RE_PHONE.is_match(value) {
         Ok(value) if value => Ok(()),
-        _ => Err(ValidationError::new("phone")
-            .with_message("Please provide a valid phone number".into())),
+        _ => Err(ValidationError::new("phone").with_message(MESSAGE.into())),
     }
 }
 

@@ -1,0 +1,48 @@
+{
+    "meta": {
+        "id": "some-highlight",
+        "doi": "Not a valid DOI",
+        "type": "highlight",
+        "draft": false,
+        "website": {
+            "title": "Project Repository",
+            "url": "https://code.ornl.gov/GSHS/common/sites/fact-sheets"
+        },
+        "graphics": [
+            {
+                "caption": "Ad cum provident saepe incidunt explicabo excepturi aut sint."
+            }
+        ],
+        "keywords": [],
+        "sponsors": [
+            "ORNL"
+        ],
+        "technology": [
+            "Geospatial Data Abstraction Lib"
+        ]
+    },
+    "title": "Some Highlight",
+    "subtitle": "Et eum et molestias eaque",
+    "sections": {
+        "achievement": "Iste est dicta earum est cum pariatur et. Qui voluptates ut debitis. Nobis expedita soluta provident culpa. Enim et explicabo assumenda error sunt. Dolorum sint et blanditiis rem rerum dolores assumenda minima ut. Inventore consequatur accusamus dolores neque ratione doloremque sit.",
+        "impact": "A recusandae occaecati id. Inventore inventore omnis dicta doloribus.",
+        "methods": [
+            "Et et deleniti magni quam id deserunt.",
+            "Alias animi saepe eligendi distinctio sunt id.",
+            "Cum saepe dolor facere natus quo esse. Officia amet omnis magni id.",
+            "Harum neque et quasi vel pariatur corrupti.",
+            "Qui fugiat odit.",
+            "Omnis cupiditate aspernatur ipsam nemo aut officia reiciendis dolore.",
+            "Id iure cupiditate voluptatem quod possimus cum est numquam."
+        ]
+    },
+    "contact": {
+        "title": "Primary Investigator",
+        "first": "Mitthraw",
+        "last": "Nuruodo",
+        "email": "thrawn@empire.gov",
+        "phone": "555.123.4567",
+        "profile": "https://example.com/thrawn",
+        "division": "Naval Operations"
+    }
+}

@@ -102,6 +102,17 @@ fn test_validate_attribute_impact() {
     }
 }
 #[test]
+fn test_validate_attribute_methods() {
+    let valid = ["x".repeat(10).to_string(), "x".repeat(75).to_string()];
+    let invalid = ["x".repeat(76).to_string(), "x".repeat(500).to_string()];
+    for x in valid.iter() {
+        assert!(validate_attribute_methods(&[x.clone()]).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_attribute_methods(&[x.clone()]).is_err());
+    }
+}
+#[test]
 fn test_validate_attribute_outcomes() {
     let valid = ["x".repeat(10).to_string(), "x".repeat(100).to_string()];
     let invalid = ["x".repeat(101).to_string(), "x".repeat(500).to_string()];
@@ -110,6 +121,17 @@ fn test_validate_attribute_outcomes() {
     }
     for x in invalid.iter() {
         assert!(validate_attribute_outcomes(&[x.clone()]).is_err());
+    }
+}
+#[test]
+fn test_validate_is_doi() {
+    let valid = ["10.1000/182", "10.97812345/99990"];
+    let invalid = ["978-12345-99990"];
+    for x in valid.iter() {
+        assert!(validate_is_doi(x).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_is_doi(x).is_err());
     }
 }
 #[test]

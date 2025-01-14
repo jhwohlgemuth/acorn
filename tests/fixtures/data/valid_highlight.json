@@ -1,6 +1,7 @@
 {
     "meta": {
         "id": "some-highlight",
+        "doi": "10.1000/182",
         "type": "highlight",
         "draft": false,
         "website": {
@@ -25,7 +26,7 @@
     "sections": {
         "achievement": "Iste est dicta earum est cum pariatur et. Qui voluptates ut debitis. Nobis expedita soluta provident culpa. Enim et explicabo assumenda error sunt. Dolorum sint et blanditiis rem rerum dolores assumenda minima ut. Inventore consequatur accusamus dolores neque ratione doloremque sit.",
         "impact": "A recusandae occaecati id. Inventore inventore omnis dicta doloribus.",
-        "approach": [
+        "methods": [
             "Et et deleniti magni quam id deserunt.",
             "Alias animi saepe eligendi distinctio sunt id.",
             "Cum saepe dolor facere natus quo esse. Officia amet omnis magni id."
