@@ -1,5 +1,8 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum, ValueHint};
 use clap_verbosity_flag::Verbosity;
+use derive_more::Display;
+use serde::Serialize;
+use std::path::PathBuf;
 
 /// Multitool for validating and enabling research activity data
 ///
@@ -26,6 +29,17 @@ pub struct Arguments {
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
+#[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Target {
+    #[default]
+    #[display("fact-sheet")]
+    FactSheet,
+    #[display("highlight")]
+    Highlight,
+    #[display("poster")]
+    Poster,
+}
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum Commands {
@@ -40,33 +54,55 @@ pub enum Commands {
     #[clap(verbatim_doc_comment)]
     Lint {
         /// Path to check
-        #[arg(short = 'p', long = "path", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
-        path: Option<std::path::PathBuf>,
+        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        path: Option<PathBuf>,
         /// Path to configuration file
-        #[arg(short = 'c', long = "config", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
-        config: Option<std::path::PathBuf>,
+        #[arg(short = 'c', long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        config: Option<PathBuf>,
         /// Format JSON files in-place to maintain consistent format
-        #[arg(short = 'f', long = "format", value_name = "BOOL")]
+        #[arg(short, long, value_name = "BOOL")]
         format: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },
     /// Download research activity data, such as fact sheet files, from buckets and ACORN schemas
     ///
-    ///     $> acorn download --config /path/to/bucket.json
+    ///     $> acorn download --config /path/to/buckets.json
     ///
-    ///     $> acorn download --config /path/to/bucket.json --output /path/to/output
+    ///     $> acorn download --config /path/to/buckets.json --output /path/to/output
     ///
     ///     $> acorn download --schema project
     ///
     #[clap(verbatim_doc_comment)]
     Download {
         /// Path to buckets configuration file
-        #[arg(short = 'c', long = "config", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
-        config: Option<std::path::PathBuf>,
+        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        config: Option<PathBuf>,
         /// Path to output directory where the downloaded content should be saved
-        #[arg(default_value = "./content", short = 'o', long = "output", value_name = "PATH", value_hint = clap::ValueHint::DirPath)]
-        output: Option<std::path::PathBuf>,
+        #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        output: Option<PathBuf>,
+        #[command(flatten)]
+        verbose: Verbosity,
+    },
+    /// Export research activity data to a specific target
+    ///
+    ///     $> acorn export --path /path/to/data
+    ///
+    ///     $> acorn export --path /path/to/data --target pdf
+    ///
+    ///     $> acorn export --path /path/to/data --target pdf --output /path/to/output
+    ///
+    #[clap(verbatim_doc_comment)]
+    Export {
+        /// Path to files for export
+        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        path: Option<PathBuf>,
+        /// Export target type
+        #[arg(default_value_t, short, long, value_name = "TARGET")]
+        target: Target,
+        /// Path to output directory where the export artifacts should be saved
+        #[arg(default_value = "./export", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        output: Option<PathBuf>,
         #[command(flatten)]
         verbose: Verbosity,
     },

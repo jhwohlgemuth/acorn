@@ -6,9 +6,10 @@ use dotenvy::dotenv;
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
+use playwright::Playwright;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
+use std::fs::{create_dir_all, File};
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use tracing::instrument;
@@ -21,9 +22,10 @@ use uriparse::URI;
 
 mod cli;
 mod schema;
+mod template;
 mod util;
 
-use cli::{Arguments, Commands};
+use cli::{Arguments, Commands, Target};
 use schema::*;
 use util::*;
 
@@ -250,6 +252,81 @@ fn main() -> Void {
                 };
             }
             Ok(())
+        }
+        Some(Commands::Export {
+            output,
+            path,
+            target,
+            ..
+        }) => {
+            match target {
+                Target::FactSheet => {
+                    let id = "acorn";
+                    let output_path = match output {
+                        Some(path) => match create_dir_all(path) {
+                            Ok(_) => Ok(format!("{}/{}.pdf", path.display(), id)),
+                            Err(err) => {
+                                error!(
+                                    path = path.clone().into_os_string().into_string().unwrap(),
+                                    "=> {} Failed to create directory",
+                                    Label::fail()
+                                );
+                                Err(err)
+                            }
+                        },
+                        None => unreachable!(),
+                    };
+                    println!("Creating Tokio runtime");
+                    let runtime = tokio_runtime();
+                    runtime.block_on(async {
+                        match output_path {
+                            Ok(output_path_string) => {
+                                let data = match ResearchActivity::read(path.clone().unwrap()) {
+                                    Ok(data) => data,
+                                    Err(_) => unimplemented!(),
+                                };
+                                let playwright = Playwright::initialize().await.unwrap();
+                                playwright.prepare().unwrap(); // Install browsers
+                                let chromium = playwright.chromium();
+                                let browser =
+                                    chromium.launcher().headless(true).launch().await.unwrap();
+                                let context = browser.context_builder().build().await.unwrap();
+                                let page = context.new_page().await.unwrap();
+                                println!("Generating PDF...");
+                                page.set_content_builder(&template::project(data).to_string())
+                                    .set_content()
+                                    .await
+                                    .unwrap();
+                                page.pdf_builder()
+                                    .path(output_path_string.into())
+                                    // .height(playwright::api::Length::WithUnit("36in"))
+                                    // .width(playwright::api::Length::WithUnit("24in"))
+                                    .print_background(true)
+                                    .pdf()
+                                    .await
+                                    .unwrap();
+                                page.close(Some(false)).await.unwrap();
+                            }
+                            Err(_) => {
+                                error!("=> {} Failed to create output directory", Label::fail());
+                            }
+                        }
+                    });
+                    Ok(())
+                }
+                Target::Poster => Ok(()),
+                Target::Highlight => {
+                    let data = match ResearchActivity::read(path.clone().unwrap()) {
+                        Ok(data) => data,
+                        Err(err) => {
+                            error!("=> {} Read research activity data - {}", Label::fail(), err);
+                            return Ok(());
+                        }
+                    };
+                    println!("{}", template::project(data));
+                    Ok(())
+                }
+            }
         }
         None => {
             println!("ACORN without a subcommand currently does nothing");
