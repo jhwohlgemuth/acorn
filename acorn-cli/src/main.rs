@@ -13,7 +13,7 @@ use std::fs::{create_dir_all, File};
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use tracing::instrument;
-use tracing::{error, info, trace};
+use tracing::{debug, error, info, trace};
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
 use tracing_subscriber::prelude::*;
@@ -276,8 +276,8 @@ fn main() -> Void {
                         },
                         None => unreachable!(),
                     };
-                    println!("Creating Tokio runtime");
                     let runtime = tokio_runtime();
+                    info!("=> {} Tokio runtime", Label::using());
                     runtime.block_on(async {
                         match output_path {
                             Ok(output_path_string) => {
@@ -285,6 +285,9 @@ fn main() -> Void {
                                     Ok(data) => data,
                                     Err(_) => unimplemented!(),
                                 };
+                                let content = template::project(data).to_string();
+                                debug!("=> {} Rendered template", Label::using());
+                                println!("{}", content);
                                 let playwright = Playwright::initialize().await.unwrap();
                                 playwright.prepare().unwrap(); // Install browsers
                                 let chromium = playwright.chromium();
@@ -292,8 +295,7 @@ fn main() -> Void {
                                     chromium.launcher().headless(true).launch().await.unwrap();
                                 let context = browser.context_builder().build().await.unwrap();
                                 let page = context.new_page().await.unwrap();
-                                println!("Generating PDF...");
-                                page.set_content_builder(&template::project(data).to_string())
+                                page.set_content_builder(&content)
                                     .set_content()
                                     .await
                                     .unwrap();
@@ -315,17 +317,7 @@ fn main() -> Void {
                     Ok(())
                 }
                 Target::Poster => Ok(()),
-                Target::Highlight => {
-                    let data = match ResearchActivity::read(path.clone().unwrap()) {
-                        Ok(data) => data,
-                        Err(err) => {
-                            error!("=> {} Read research activity data - {}", Label::fail(), err);
-                            return Ok(());
-                        }
-                    };
-                    println!("{}", template::project(data));
-                    Ok(())
-                }
+                Target::Highlight => Ok(()),
             }
         }
         None => {
