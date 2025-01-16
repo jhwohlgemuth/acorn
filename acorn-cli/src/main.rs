@@ -10,6 +10,7 @@ use playwright::Playwright;
 use rayon::prelude::*;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs::{create_dir_all, File};
 use std::io::{copy, Cursor};
 use std::path::{Path, PathBuf};
@@ -43,6 +44,12 @@ const DISPLAY_TARGET: bool = false;
 const DISPLAY_THREAD_ID: bool = false;
 const DISPLAY_THREAD_NAME: bool = false;
 
+#[derive(Clone, Debug)]
+pub struct Endpoint<'a> {
+    pub provider: Provider,
+    pub domain: String,
+    pub queries: HashMap<&'a str, &'a str>,
+}
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
@@ -133,8 +140,17 @@ impl Bucket {
             Provider::GitLab => {
                 let id = self.id.to_string();
                 let domain = self.get_domain();
+                // let endpoint = Endpoint {
+                //     provider: self.provider,
+                //     domain: domain.clone(),
+                //     queries: HashMap::from([
+                //         ("path", self.schema_type.to_string().as_str()),
+                //         ("per_page", "100"),
+                //         ("recursive", "true"),
+                //     ]),
+                // };
                 let url = format!(
-                    "https://{}/api/v4/projects/{}/repository/tree?pagination=keyset&per_page=100&recursive=true&path={}",
+                    "https://{}/api/v4/projects/{}/repository/tree?&per_page=100&recursive=true&path={}",
                     domain, id, self.schema_type
                 );
                 debug!(url = url.as_str(), "=> {} Endpoint", Label::using());
