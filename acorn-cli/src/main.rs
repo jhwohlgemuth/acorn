@@ -31,7 +31,7 @@ use util::*;
 
 pub type Void = Result<(), Report>;
 
-static CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "√ ");
+static CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
 
 // Environment variables
 const LOG_LEVEL: &str = "ACORN_LOG_LEVEL";

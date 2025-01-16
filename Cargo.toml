@@ -12,6 +12,7 @@ homepage = "https://acorn.ornl.gov"
 repository = "https://code.ornl.gov/research-enablement/acorn"
 
 [workspace.dependencies]
+assert_cmd = "2.0.16"
 clap-verbosity-flag = "3.0.2"
 color-eyre = "0.6.3"
 dotenvy = "0.15.0"
