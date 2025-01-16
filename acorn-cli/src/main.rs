@@ -95,14 +95,17 @@ impl Bucket {
                     )
                     .unwrap(),
                 );
-                println!("Downloading files from {}...", self.uri);
+                println!("=> Downloading files from {}...", self.uri);
                 for file in files {
-                    let url = format!("{}/-/raw/main/{}/{}", self.uri, self.schema_type, file);
+                    let url = format!(
+                        "{}/-/raw/main/{}/{}/{}.json",
+                        self.uri, self.schema_type, file, file
+                    );
                     let response = reqwest::get(url).await.unwrap();
                     let content = response.text().await.unwrap();
-                    let output = format!("{}/{}", output.display(), self.schema_type);
+                    let output = format!("{}/{}/{}", output.display(), self.schema_type, file);
                     std::fs::create_dir_all(output.clone()).unwrap();
-                    let mut file = File::create(format!("{}/{}", output, file)).unwrap();
+                    let mut file = File::create(format!("{}/{}.json", output, file)).unwrap();
                     file.write_all(content.as_bytes()).unwrap();
                     progress.inc(1);
                 }
@@ -117,7 +120,7 @@ impl Bucket {
                 let id = self.id.to_string();
                 let domain = self.get_domain();
                 let url = format!(
-                    "https://{}/api/v4/projects/{}/repository/tree?recursive=true&path={}",
+                    "https://{}/api/v4/projects/{}/repository/tree?path={}",
                     domain, id, self.schema_type
                 );
                 let response = reqwest::get(url).await.unwrap();
