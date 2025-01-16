@@ -8,12 +8,14 @@ use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use playwright::Playwright;
 use rayon::prelude::*;
+use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::fs::{create_dir_all, File};
-use std::io::prelude::*;
+use std::io::{copy, Cursor};
 use std::path::{Path, PathBuf};
 use tracing::instrument;
 use tracing::{debug, error, info, trace};
+use tracing_indicatif::IndicatifLayer;
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
 use tracing_subscriber::prelude::*;
@@ -62,12 +64,20 @@ pub struct Bucket {
     schema_type: SchemaType,
     uri: String,
 }
+#[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
+#[serde(rename_all = "lowercase")]
+enum EntryType {
+    #[display("tree")]
+    Tree,
+    #[display("blob")]
+    Blob,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GitlabTreeEntry {
     id: String,
     name: String,
     #[serde(rename = "type")]
-    entry_type: String,
+    entry_type: EntryType,
     path: String,
     mode: String,
 }
@@ -83,52 +93,76 @@ impl Bucket {
             },
         }
     }
-    async fn download_files(&self, output: &PathBuf) {
+    fn download_files(self, output: PathBuf) {
         match self.provider {
             Provider::GitHub => unimplemented!(),
             Provider::GitLab => {
-                let files = self.get_files().await;
-                let progress = ProgressBar::new(files.len() as u64);
-                progress.set_style(
-                    ProgressStyle::with_template(
-                        "{spinner:.green} {msg} [{wide_bar:.green}] {pos}/{len}",
-                    )
-                    .unwrap(),
-                );
-                println!("=> Downloading files from {}...", self.uri);
-                for file in files {
-                    let url = format!(
-                        "{}/-/raw/main/{}/{}/{}.json",
-                        self.uri, self.schema_type, file, file
-                    );
-                    let response = reqwest::get(url).await.unwrap();
-                    let content = response.text().await.unwrap();
-                    let output = format!("{}/{}/{}", output.display(), self.schema_type, file);
-                    std::fs::create_dir_all(output.clone()).unwrap();
-                    let mut file = File::create(format!("{}/{}.json", output, file)).unwrap();
-                    file.write_all(content.as_bytes()).unwrap();
-                    progress.inc(1);
+                fn get_parent(path: String) -> String {
+                    PathBuf::from(PathBuf::from(path).parent().unwrap())
+                        .display()
+                        .to_string()
                 }
+                let paths = self.clone().get_file_paths();
+                let progress = ProgressBar::new(paths.len() as u64);
+                let template = "{spinner:.green} {pos}/{len} [{bar:.green}] {msg}";
+                progress.set_style(ProgressStyle::with_template(template).unwrap());
+                info!(
+                    "=> Downloading {} research data from {}...",
+                    self.schema_type, &self.uri
+                );
+                let client = Client::new();
+                paths.par_iter().for_each(|path| {
+                    progress.set_message(format!("Downloading {}", path));
+                    let folder = format!("{}/{}", output.display(), get_parent(path.clone()));
+                    std::fs::create_dir_all(folder.clone()).unwrap();
+                    let mut file = File::create(format!("{}/{}", output.display(), path)).unwrap();
+                    let url = format!("{}/-/raw/main/{}", self.uri, path);
+                    let response = client.get(url).send().unwrap();
+                    let mut content = Cursor::new(response.bytes().unwrap());
+                    let _ = copy(&mut content, &mut file);
+                    progress.inc(1);
+                });
                 progress.finish_with_message(format!("{}Done", CHECKMARK));
             }
         };
     }
-    async fn get_files(&self) -> Vec<String> {
+    // https://docs.gitlab.com/ee/api/repositories.html
+    fn get_file_paths(self) -> Vec<String> {
         match self.provider {
             Provider::GitHub => unimplemented!(),
             Provider::GitLab => {
                 let id = self.id.to_string();
                 let domain = self.get_domain();
                 let url = format!(
-                    "https://{}/api/v4/projects/{}/repository/tree?path={}",
+                    "https://{}/api/v4/projects/{}/repository/tree?pagination=keyset&per_page=100&recursive=true&path={}",
                     domain, id, self.schema_type
                 );
-                let response = reqwest::get(url).await.unwrap();
-                let content = response.text().await.unwrap();
-                let data: serde_json::Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
-                match data {
-                    Ok(entries) => entries.into_iter().map(|entry| entry.name).collect(),
-                    Err(_) => vec![],
+                debug!(url = url.as_str(), "=> {} Endpoint", Label::using());
+                match reqwest::blocking::get(url.clone()) {
+                    Ok(response) if response.status().is_success() => {
+                        // println!(
+                        //     "Headers = {:#?}",
+                        //     response.headers()//.get("x-total-pages")
+                        // );
+                        let content = response.text().unwrap();
+                        let data: serde_json::Result<Vec<GitlabTreeEntry>> =
+                            serde_json::from_str(&content);
+                        match data {
+                            Ok(entries) => entries
+                                .into_iter()
+                                .filter(|entry| entry.entry_type.eq(&EntryType::Blob))
+                                .map(|entry| entry.path)
+                                .collect(),
+                            Err(_) => {
+                                error!("=> {} Failed to deserialize GitLab data", Label::fail());
+                                vec![]
+                            }
+                        }
+                    }
+                    Ok(_) | Err(_) => {
+                        error!("=> {} Failed to get paths from {}", Label::fail(), url);
+                        vec![]
+                    }
                 }
             }
         }
@@ -164,6 +198,7 @@ fn main() -> Void {
     match dotenv() {
         Ok(_) if !dotenvy::var(LOG_LEVEL).unwrap_or_default().is_empty() => {
             // Configure tracing with a .env file
+            let indicatif_layer = IndicatifLayer::new();
             let format = fmt::layer()
                 .with_level(DISPLAY_LEVEL)
                 .with_line_number(DISPLAY_LINE_NUMBER)
@@ -173,6 +208,7 @@ fn main() -> Void {
                 .compact();
             tracing_subscriber::registry()
                 .with(format)
+                .with(indicatif_layer)
                 .with(EnvFilter::from_env(LOG_LEVEL))
                 .init();
         }
@@ -236,17 +272,16 @@ fn main() -> Void {
             }
             Ok(())
         }
-        Some(Commands::Download { config, output, .. }) => {
-            let runtime = tokio_runtime();
-            if let Some(path) = config {
+        Some(Commands::Download {
+            buckets, output, ..
+        }) => {
+            if let Some(path) = buckets {
                 match BucketsConfig::read_json(path.clone()) {
                     Ok(content) => {
                         content.buckets.into_iter().for_each(|bucket| {
-                            runtime.block_on(async {
-                                if let Some(path) = output {
-                                    bucket.download_files(path).await;
-                                }
-                            });
+                            if let Some(path) = output {
+                                bucket.download_files(path.to_path_buf());
+                            }
                         });
                     }
                     Err(err) => {

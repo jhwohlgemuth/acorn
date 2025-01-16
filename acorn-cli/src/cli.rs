@@ -67,9 +67,9 @@ pub enum Commands {
     },
     /// Download research activity data, such as fact sheet files, from buckets and ACORN schemas
     ///
-    ///     $> acorn download --config /path/to/buckets.json
+    ///     $> acorn download --buckets /path/to/buckets.json
     ///
-    ///     $> acorn download --config /path/to/buckets.json --output /path/to/output
+    ///     $> acorn download --buckets /path/to/buckets.json --output /path/to/output
     ///
     ///     $> acorn download --schema project
     ///
@@ -77,7 +77,7 @@ pub enum Commands {
     Download {
         /// Path to buckets configuration file
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
-        config: Option<PathBuf>,
+        buckets: Option<PathBuf>,
         /// Path to output directory where the downloaded content should be saved
         #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         output: Option<PathBuf>,
