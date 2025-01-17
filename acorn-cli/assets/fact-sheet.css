@@ -1,45 +1,3 @@
-@font-face {
-    font-family: "myriad";
-    src: url("fonts/Myriad\ Pro\ Light.otf") format("opentype");
-    font-style: normal;
-    font-weight: 300;
-}
-
-@font-face {
-    font-family: "myriad-semi";
-    src: url("fonts/Myriad\ Pro\ Semibold.OTF") format("opentype");
-    font-style: normal;
-    font-weight: 300;
-}
-
-@font-face {
-    font-family: "proxima";
-    src: url("fonts/Proxima\ Nova\ Light.otf") format("opentype");
-    font-weight: normal;
-    font-style: normal;
-}
-
-@font-face {
-    font-family: "proxima-bold";
-    src: url("fonts/Proxima\ Nova\ Bold.otf") format("opentype");
-    font-weight: bold;
-    font-style: normal;
-}
-
-@font-face {
-    font-family: "proxima-semi";
-    src: url("fonts/Proxima\ Nova\ Semibold.otf") format("opentype");
-    font-weight: bold;
-    font-style: normal;
-}
-
-@font-face {
-    font-family: "proxima";
-    src: url("fonts/Proxima\ Nova\ Regular\ Italic.otf") format("opentype");
-    font-weight: normal;
-    font-style: italic;
-}
-
 @page {
     margin: 0;
     size: letter portrait;
@@ -63,7 +21,6 @@ header {
     margin: 0;
     padding: 0;
     padding-left: 55px;
-    background-image: url("img/banner.jpg");
     background-repeat: no-repeat;
     background-position: bottom center;
     background-size: cover;
@@ -154,7 +111,6 @@ aside>div>h3 {
 }
 
 footer {
-    background-image: url("img/footer.jpg");
     background-position: bottom center;
     background-repeat: no-repeat;
     background-size: cover;
@@ -212,7 +168,7 @@ footer>.wrapper>.logo-wrapper {
     grid-template-columns: auto auto auto 5px auto 5px auto 5px auto;
     grid-template-rows: auto;
     padding: 10px 0;
-    margin-left: -50px;
+    margin-left: 0px;
     /* weasyprint */
     white-space: nowrap;
 }
