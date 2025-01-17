@@ -1,3 +1,5 @@
+#![deny(unsafe_code)]
+// #![deny(missing_docs)]
 use clap::Parser;
 use color_eyre::eyre::{Report, Result};
 use console::Emoji;
@@ -339,7 +341,7 @@ fn main() -> Void {
                                     Ok(data) => data,
                                     Err(_) => unimplemented!(),
                                 };
-                                let content = template::project(data).to_string();
+                                let content = template::factsheet(data).to_string();
                                 debug!("=> {} Rendered template", Label::using());
                                 println!("{}", content);
                                 let playwright = Playwright::initialize().await.unwrap();

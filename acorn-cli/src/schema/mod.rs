@@ -174,12 +174,15 @@ pub enum Sections {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct HighlightSections {
+    #[serde(alias = "scientific achievement")]
     pub achievement: String,
+    #[serde(alias = "significance & impact")]
     pub impact: String,
     #[validate(
         length(max = 6, message = "Please limit the number of methods to 6"),
         custom(function = "validate_attribute_methods")
     )]
+    #[serde(alias = "technical approach")]
     pub methods: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]

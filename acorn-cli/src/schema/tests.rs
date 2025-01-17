@@ -1,5 +1,6 @@
 use crate::schema::*;
 use glob::glob;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn test_read() {
