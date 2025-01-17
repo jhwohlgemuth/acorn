@@ -80,7 +80,8 @@ impl View for FactSheetHead {
     fn render(&self) -> VirtualNode {
         let css =
             String::from_utf8_lossy(include_bytes!("../../assets/fact-sheet.css")).into_owned();
-        let font_faces = format!(r#"
+        let font_faces = format!(
+            r#"
             @font-face {{
                 font-family: "myriad";
                 src: url("{}") format("opentype");
@@ -117,7 +118,9 @@ impl View for FactSheetHead {
                 font-weight: normal;
                 font-style: italic;
             }}
-        "#, "fonts/myriad_pro_light.otf");
+        "#,
+            "fonts/myriad_pro_light.otf"
+        );
         html! {
             <head>
                 <meta charset="utf-8">

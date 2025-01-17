@@ -1,4 +1,3 @@
-#![deny(unsafe_code)]
 // #![deny(missing_docs)]
 use clap::Parser;
 use color_eyre::eyre::{Report, Result};
