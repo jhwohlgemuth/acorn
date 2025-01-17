@@ -11,7 +11,6 @@ use playwright::Playwright;
 use rayon::prelude::*;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs::{create_dir_all, File};
 use std::io::{copy, Cursor};
 use std::path::{Path, PathBuf};
@@ -45,12 +44,6 @@ const DISPLAY_TARGET: bool = false;
 const DISPLAY_THREAD_ID: bool = false;
 const DISPLAY_THREAD_NAME: bool = false;
 
-#[derive(Clone, Debug)]
-pub struct Endpoint<'a> {
-    pub provider: Provider,
-    pub domain: String,
-    pub queries: HashMap<&'a str, &'a str>,
-}
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
@@ -90,8 +83,6 @@ pub struct GitlabTreeEntry {
     mode: String,
 }
 impl Bucket {
-    /// Return the domain name of the bucket's `uri` as a string. If the `uri`
-    /// is not a valid URI, return a default domain name based on the `provider`.
     fn get_domain(&self) -> String {
         match URI::try_from(self.uri.as_str()) {
             Ok(uri) => uri.host().unwrap().to_string(),
@@ -139,28 +130,29 @@ impl Bucket {
         match self.provider {
             Provider::GitHub => unimplemented!(),
             Provider::GitLab => {
+                fn get_url(domain: String, id: String, path: SchemaType, page: u32) -> String {
+                    format!(
+                        "https://{}/api/v4/projects/{}/repository/tree?&per_page=100&page={}&recursive=true&path={}",
+                        domain, id, page, path
+                    )
+                }
                 let id = self.id.to_string();
                 let domain = self.get_domain();
-                // let endpoint = Endpoint {
-                //     provider: self.provider,
-                //     domain: domain.clone(),
-                //     queries: HashMap::from([
-                //         ("path", self.schema_type.to_string().as_str()),
-                //         ("per_page", "100"),
-                //         ("recursive", "true"),
-                //     ]),
-                // };
-                let url = format!(
-                    "https://{}/api/v4/projects/{}/repository/tree?&per_page=100&recursive=true&path={}",
-                    domain, id, self.schema_type
-                );
+                let url = get_url(domain, id, self.schema_type, 1);
                 debug!(url = url.as_str(), "=> {} Endpoint", Label::using());
                 match reqwest::blocking::get(url.clone()) {
                     Ok(response) if response.status().is_success() => {
-                        // println!(
-                        //     "Headers = {:#?}",
-                        //     response.headers()//.get("x-total-pages")
-                        // );
+                        let headers = response.headers();
+                        let total_pages = match headers.get("x-total-pages") {
+                            Some(value) if !value.is_empty() => value.to_str().unwrap().parse::<u32>().unwrap(),
+                            Some(_) | None => 0,
+                        };
+                        let next_page = match headers.get("x-next-page") {
+                            Some(value) if !value.is_empty() => value.to_str().unwrap().parse::<u32>().unwrap(),
+                            Some(_) | None => 0,
+                        };
+                        println!("Total = {}, Next = {}", total_pages, next_page);
+                        println!("Headers = {:#?}", headers);
                         let content = response.text().unwrap();
                         let data: serde_json::Result<Vec<GitlabTreeEntry>> =
                             serde_json::from_str(&content);
