@@ -10,6 +10,7 @@ use owo_colors::OwoColorize;
 use playwright::Playwright;
 use rayon::prelude::*;
 use reqwest::blocking::Client;
+use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use std::fs::{create_dir_all, File};
 use std::io::{copy, Cursor};
@@ -22,6 +23,8 @@ use tracing_subscriber::fmt::{self};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 use uriparse::URI;
+use std::str::FromStr;
+use std::fmt::Debug;
 
 mod cli;
 mod schema;
@@ -130,27 +133,29 @@ impl Bucket {
         match self.provider {
             Provider::GitHub => unimplemented!(),
             Provider::GitLab => {
-                fn get_url(domain: String, id: String, path: SchemaType, page: u32) -> String {
+                fn get_repository_tree(domain: String, id: String, path: SchemaType, page: u32) -> String {
                     format!(
                         "https://{}/api/v4/projects/{}/repository/tree?&per_page=100&page={}&recursive=true&path={}",
                         domain, id, page, path
                     )
                 }
+                fn parse_header(headers: HeaderMap, key: &str) -> u32 {
+                    match headers.get(key) {
+                        Some(value) if !value.is_empty() => {
+                            value.to_str().unwrap().parse::<u32>().unwrap()
+                        }
+                        Some(_) | None => 0,
+                    }
+                }
                 let id = self.id.to_string();
                 let domain = self.get_domain();
-                let url = get_url(domain, id, self.schema_type, 1);
+                let url = get_repository_tree(domain, id, self.schema_type, 1);
                 debug!(url = url.as_str(), "=> {} Endpoint", Label::using());
                 match reqwest::blocking::get(url.clone()) {
                     Ok(response) if response.status().is_success() => {
                         let headers = response.headers();
-                        let total_pages = match headers.get("x-total-pages") {
-                            Some(value) if !value.is_empty() => value.to_str().unwrap().parse::<u32>().unwrap(),
-                            Some(_) | None => 0,
-                        };
-                        let next_page = match headers.get("x-next-page") {
-                            Some(value) if !value.is_empty() => value.to_str().unwrap().parse::<u32>().unwrap(),
-                            Some(_) | None => 0,
-                        };
+                        let total_pages = parse_header(headers.clone(), "x-total-pages");
+                        let next_page = parse_header(headers.clone(), "x-next-page");
                         println!("Total = {}, Next = {}", total_pages, next_page);
                         println!("Headers = {:#?}", headers);
                         let content = response.text().unwrap();
@@ -159,8 +164,8 @@ impl Bucket {
                         match data {
                             Ok(entries) => entries
                                 .into_iter()
-                                .filter(|entry| entry.entry_type.eq(&EntryType::Blob))
-                                .map(|entry| entry.path)
+                                .filter(GitlabTreeEntry::is_blob)
+                                .map(GitlabTreeEntry::get_path)
                                 .collect(),
                             Err(_) => {
                                 error!("=> {} Failed to deserialize GitLab data", Label::fail());
@@ -197,6 +202,14 @@ impl BucketsConfig {
         };
         trace!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
         data
+    }
+}
+impl GitlabTreeEntry {
+    fn get_path(self) -> String {
+        self.path
+    }
+    fn is_blob(&self) -> bool {
+        self.entry_type.eq(&EntryType::Blob)
     }
 }
 
