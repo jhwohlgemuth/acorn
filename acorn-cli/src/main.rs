@@ -178,17 +178,12 @@ impl Bucket {
                     let headers = response.headers();
                     parse_header(headers, "x-total-pages")
                 }
-                let mut file_paths: Vec<String> = vec![];
                 match self.get_tree(1) {
                     Ok(response) if response.status().is_success() => {
-                        let count = get_page_count(&response);
-                        for page in 1..=count {
-                            self.clone()
-                                .get_file_paths_for_page(page)
-                                .into_iter()
-                                .for_each(|path| file_paths.push(path));
-                        }
-                        file_paths
+                        (1..=get_page_count(&response))
+                            .into_par_iter()
+                            .map(|page| self.clone().get_file_paths_for_page(page))
+                            .reduce(std::vec::Vec::new, |a, b| [a, b].concat())
                     }
                     Ok(_) | Err(_) => {
                         let url = self.get_tree_url(1);
