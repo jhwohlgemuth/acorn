@@ -22,6 +22,10 @@ impl Label {
         let style = Style::new().white().on_red();
         format!(" ✗ {} ", value).style(style).to_string()
     }
+    pub fn found() -> Styled<&'static &'static str> {
+        let style = Style::new().green().on_default_color();
+        "FOUND".style(style)
+    }
     pub fn pass() -> Styled<&'static &'static str> {
         let style = Style::new().green().on_default_color();
         "☑  PASS".style(style)
@@ -37,6 +41,11 @@ impl Label {
         let style = Style::new().cyan();
         value.style(style).to_string()
     }
+}
+pub fn get_parent(path: String) -> String {
+    PathBuf::from(PathBuf::from(path).parent().unwrap())
+        .display()
+        .to_string()
 }
 /// Read content of a file to a string
 ///

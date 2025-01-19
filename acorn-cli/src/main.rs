@@ -1,6 +1,6 @@
 // #![deny(missing_docs)]
 use clap::Parser;
-use color_eyre::eyre::{Report, Result};
+use color_eyre::eyre;
 use console::Emoji;
 use derive_more::Display;
 use dotenvy::dotenv;
@@ -12,6 +12,8 @@ use rayon::prelude::*;
 use reqwest::blocking::Client;
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
+use serde_json::Result;
+use std::fmt::Debug;
 use std::fs::{create_dir_all, File};
 use std::io::{copy, Cursor};
 use std::path::{Path, PathBuf};
@@ -23,8 +25,6 @@ use tracing_subscriber::fmt::{self};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 use uriparse::URI;
-use std::str::FromStr;
-use std::fmt::Debug;
 
 mod cli;
 mod schema;
@@ -35,7 +35,7 @@ use cli::{Arguments, Commands, Target};
 use schema::*;
 use util::*;
 
-pub type Void = Result<(), Report>;
+pub type Void = eyre::Result<(), eyre::Report>;
 
 static CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
 
@@ -86,6 +86,26 @@ pub struct GitlabTreeEntry {
     mode: String,
 }
 impl Bucket {
+    fn parse(response: reqwest::blocking::Response) -> Vec<String> {
+        let content = response.text().unwrap();
+        let data: Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
+        debug!(
+            "=> {} {} GitLab tree entries",
+            Label::found(),
+            data.as_ref().unwrap().len()
+        );
+        match data {
+            Ok(entries) => entries
+                .into_iter()
+                .filter(GitlabTreeEntry::is_blob)
+                .map(GitlabTreeEntry::get_path)
+                .collect(),
+            Err(_) => {
+                error!("=> {} Failed to process GitLab tree entries", Label::fail());
+                vec![]
+            }
+        }
+    }
     fn get_domain(&self) -> String {
         match URI::try_from(self.uri.as_str()) {
             Ok(uri) => uri.host().unwrap().to_string(),
@@ -95,23 +115,34 @@ impl Bucket {
             },
         }
     }
-    fn download_files(self, output: PathBuf) {
+    fn get_tree(&self, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
+        let url = self.get_tree_url(page);
+        reqwest::blocking::get(url)
+    }
+    fn get_tree_url(&self, page: u32) -> String {
+        let Self {
+            id, schema_type, ..
+        } = self;
+        let per_page = 3;
+        let url = format!(
+            "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path={}",
+            self.get_domain(), id, per_page, page, schema_type
+        );
+        debug!(url = url.as_str(), "=> {}", Label::using());
+        url
+    }
+    fn download_files(self: Bucket, output: PathBuf) {
         match self.provider {
             Provider::GitHub => unimplemented!(),
             Provider::GitLab => {
-                fn get_parent(path: String) -> String {
-                    PathBuf::from(PathBuf::from(path).parent().unwrap())
-                        .display()
-                        .to_string()
-                }
-                let paths = self.clone().get_file_paths();
-                let progress = ProgressBar::new(paths.len() as u64);
-                let template = "{spinner:.green} {pos}/{len} [{bar:.green}] {msg}";
-                progress.set_style(ProgressStyle::with_template(template).unwrap());
                 info!(
                     "=> Downloading {} research data from {}...",
                     self.schema_type, &self.uri
                 );
+                let paths = self.clone().get_file_paths();
+                let progress = ProgressBar::new(paths.len() as u64);
+                let template = "{spinner:.green} {pos}/{len} [{bar:.green}] {msg}";
+                progress.set_style(ProgressStyle::with_template(template).unwrap());
                 let client = Client::new();
                 paths.par_iter().for_each(|path| {
                     progress.set_message(format!("Downloading {}", path));
@@ -129,51 +160,38 @@ impl Bucket {
         };
     }
     // https://docs.gitlab.com/ee/api/repositories.html
-    fn get_file_paths(self) -> Vec<String> {
+    fn get_file_paths(self: Bucket) -> Vec<String> {
         match self.provider {
             Provider::GitHub => unimplemented!(),
             Provider::GitLab => {
-                fn get_repository_tree(domain: String, id: String, path: SchemaType, page: u32) -> String {
-                    format!(
-                        "https://{}/api/v4/projects/{}/repository/tree?&per_page=100&page={}&recursive=true&path={}",
-                        domain, id, page, path
-                    )
-                }
-                fn parse_header(headers: HeaderMap, key: &str) -> u32 {
-                    match headers.get(key) {
-                        Some(value) if !value.is_empty() => {
-                            value.to_str().unwrap().parse::<u32>().unwrap()
-                        }
-                        Some(_) | None => 0,
-                    }
-                }
-                let id = self.id.to_string();
-                let domain = self.get_domain();
-                let url = get_repository_tree(domain, id, self.schema_type, 1);
-                debug!(url = url.as_str(), "=> {} Endpoint", Label::using());
-                match reqwest::blocking::get(url.clone()) {
-                    Ok(response) if response.status().is_success() => {
-                        let headers = response.headers();
-                        let total_pages = parse_header(headers.clone(), "x-total-pages");
-                        let next_page = parse_header(headers.clone(), "x-next-page");
-                        println!("Total = {}, Next = {}", total_pages, next_page);
-                        println!("Headers = {:#?}", headers);
-                        let content = response.text().unwrap();
-                        let data: serde_json::Result<Vec<GitlabTreeEntry>> =
-                            serde_json::from_str(&content);
-                        match data {
-                            Ok(entries) => entries
-                                .into_iter()
-                                .filter(GitlabTreeEntry::is_blob)
-                                .map(GitlabTreeEntry::get_path)
-                                .collect(),
-                            Err(_) => {
-                                error!("=> {} Failed to deserialize GitLab data", Label::fail());
-                                vec![]
+                fn get_page_count(response: &reqwest::blocking::Response) -> u32 {
+                    fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
+                        match headers.get(key) {
+                            Some(val) if !val.is_empty() => {
+                                let value = val.to_str().unwrap().parse::<u32>().unwrap();
+                                debug!("=> {} {} = {}", Label::using(), key, value);
+                                value
                             }
+                            Some(_) | None => 0,
                         }
+                    }
+                    let headers = response.headers();
+                    parse_header(headers, "x-total-pages")
+                }
+                let mut file_paths: Vec<String> = vec![];
+                match self.get_tree(1) {
+                    Ok(response) if response.status().is_success() => {
+                        let count = get_page_count(&response);
+                        for page in 1..=count {
+                            self.clone()
+                                .get_file_paths_for_page(page)
+                                .into_iter()
+                                .for_each(|path| file_paths.push(path));
+                        }
+                        file_paths
                     }
                     Ok(_) | Err(_) => {
+                        let url = self.get_tree_url(1);
                         error!("=> {} Failed to get paths from {}", Label::fail(), url);
                         vec![]
                     }
@@ -181,9 +199,26 @@ impl Bucket {
             }
         }
     }
+    fn get_file_paths_for_page(self: Bucket, page: u32) -> Vec<String> {
+        match self.get_tree(page) {
+            Ok(response) if response.status().is_success() => match self.get_tree(page) {
+                Ok(response) if response.status().is_success() => Bucket::parse(response),
+                Ok(_) | Err(_) => {
+                    let url = self.get_tree_url(1);
+                    error!(url, page, "=> {} Failed to get paths", Label::fail());
+                    vec![]
+                }
+            },
+            Ok(_) | Err(_) => {
+                let url = self.get_tree_url(page);
+                error!(url, page, "=> {} Failed to get paths", Label::fail());
+                vec![]
+            }
+        }
+    }
 }
 impl BucketsConfig {
-    pub fn read_json(path: PathBuf) -> serde_json::Result<BucketsConfig> {
+    pub fn read_json(path: PathBuf) -> Result<BucketsConfig> {
         let content = match read_file(path.clone()) {
             Ok(value) if !value.is_empty() => value,
             Ok(_) | Err(_) => {
@@ -195,7 +230,7 @@ impl BucketsConfig {
                 "{}".to_owned()
             }
         };
-        let data: serde_json::Result<BucketsConfig> = serde_json::from_str(&content);
+        let data: Result<BucketsConfig> = serde_json::from_str(&content);
         let label = match data {
             Ok(_) => Label::using(),
             Err(_) => Label::invalid(),

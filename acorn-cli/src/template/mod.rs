@@ -11,12 +11,12 @@ enum MimeType {
     Jpeg,
     #[display("image/png")]
     Png,
-    #[display("font/otf")]
-    Otf,
+    // #[display("font/otf")]
+    // Otf,
     #[display("image/svg+xml")]
     Svg,
-    #[display("font/ttf")]
-    Ttf,
+    // #[display("font/ttf")]
+    // Ttf,
 }
 fn encode_data_uri(data: &[u8], mime_type: MimeType) -> String {
     format!(
