@@ -1,4 +1,4 @@
-use crate::schema::{Contact, ProjectSections, Research, ResearchActivity, Sections};
+use crate::schema::{Contact, Metadata, ProjectSections, Research, ResearchActivity, Sections};
 use base64::engine::general_purpose;
 use base64::prelude::*;
 use derive_more::Display;
@@ -7,18 +7,56 @@ use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::*;
 
+const BASE_URL: &str = "https://fact-sheets.ornl.gov";
+
 // https://www.olcf.ornl.gov/about-olcf/media-assets/
 const TRANSPARENT_RGBA: [u8; 4] = [255, 255, 255, 0];
 const ORNL_GREEN_RGBA: [u8; 4] = [0, 121, 52, 255];
 
-pub fn encode_data_uri(data: &[u8], mime_type: MimeType) -> String {
+fn encode_data_uri(data: &[u8], mime_type: MimeType) -> String {
     format!(
         "data:{};base64,{}",
         mime_type,
         general_purpose::STANDARD.encode(data)
     )
 }
-pub fn qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
+fn generate_font_faces() -> String {
+    format!(
+        r#"
+        @font-face {{font-family: "myriad";src: url("{}") format("opentype");font-style: normal;font-weight: 300;}}
+        @font-face {{font-family: "myriad-semi";src: url({}) format("opentype");font-style: normal;font-weight: 300;}}
+        @font-face {{font-family: "proxima";src: url({}) format("opentype");font-weight: normal;font-style: normal;}}
+        @font-face {{font-family: "proxima-bold";src: url({}) format("opentype");font-weight: bold;font-style: normal;}}
+        @font-face {{font-family: "proxima-semi";src: url({}) format("opentype");font-weight: bold;font-style: normal;}}
+        @font-face {{font-family: "proxima";src: url({}) format("opentype");font-weight: normal;font-style: italic;}}
+        "#,
+        encode_data_uri(
+            include_bytes!("../../assets/fonts/myriad_pro_light.otf"),
+            MimeType::Otf
+        ),
+        encode_data_uri(
+            include_bytes!("../../assets/fonts/myriad_pro_semibold.otf"),
+            MimeType::Otf
+        ),
+        encode_data_uri(
+            include_bytes!("../../assets/fonts/proxima_nova_light.otf"),
+            MimeType::Otf
+        ),
+        encode_data_uri(
+            include_bytes!("../../assets/fonts/proxima_nova_bold.otf"),
+            MimeType::Otf
+        ),
+        encode_data_uri(
+            include_bytes!("../../assets/fonts/proxima_nova_semibold.otf"),
+            MimeType::Otf
+        ),
+        encode_data_uri(
+            include_bytes!("../../assets/fonts/proxima_nova_regular_italic.otf"),
+            MimeType::Otf
+        ),
+    )
+}
+fn generate_qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
     let code = match QRBuilder::new(text).build() {
         Ok(data) => data,
         Err(err) => panic!("Failed to generate QR code: {}", err),
@@ -42,11 +80,15 @@ pub enum MimeType {
     Otf,
     #[display("image/svg+xml")]
     Svg,
-    // #[display("font/ttf")]
-    // Ttf,
 }
-pub struct FactSheetFooter {}
-pub struct FactSheetHead {}
+pub struct FactSheetFooter {
+    /// TODO: Convert to enum
+    pub division: String,
+}
+pub struct FactSheetHead {
+    pub title: String,
+    pub description: String,
+}
 impl View for Contact {
     fn render(&self) -> VirtualNode {
         let Contact {
@@ -76,20 +118,30 @@ impl View for Contact {
 }
 impl View for FactSheetFooter {
     fn render(&self) -> VirtualNode {
+        let disclaimer = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
+        let style = format!(
+            "background-image: url({});",
+            encode_data_uri(
+                include_bytes!("../../assets/images/fact-sheet/footer.jpg"),
+                MimeType::Jpeg
+            )
+        );
+        let ornl_logo = encode_data_uri(
+            include_bytes!("../../assets/images/logo_ornl.svg"),
+            MimeType::Svg,
+        );
+        let doe_logo = encode_data_uri(
+            include_bytes!("../../assets/images/logo_doe_os.png"),
+            MimeType::Png,
+        );
         html! {
-            <footer style={ format!("background-image: url({});", encode_data_uri(include_bytes!("../../assets/images/fact-sheet/footer.jpg"), MimeType::Jpeg)) }>
+            <footer style={ style }>
                 <div class="wrapper">
-                    <div id="disclaimer">
-                        <div>{ "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy" }</div>
-                    </div>
+                    <div id="disclaimer">{ disclaimer }</div>
                     <div class="logo-wrapper">
-                        <div>
-                            <img src={ encode_data_uri(include_bytes!("../../assets/images/logo_ornl.svg"), MimeType::Svg) } id="logo-ornl"/>
-                        </div>
-                        <div>
-                            <img src={ encode_data_uri(include_bytes!("../../assets/images/logo_doe_os.png"), MimeType::Png) } id="logo-doe-os"/>
-                        </div>
-                        <div id="nss">{ "National Security Sciences" }</div>
+                        <div><img src={ ornl_logo } id="logo-ornl"/></div>
+                        <div><img src={ doe_logo } id="logo-doe-os"/></div>
+                        <div id="division">{ &self.division }</div>
                     </div>
                 </div>
             </footer>
@@ -98,97 +150,35 @@ impl View for FactSheetFooter {
 }
 impl View for FactSheetHead {
     fn render(&self) -> VirtualNode {
-        let css =
-            String::from_utf8_lossy(include_bytes!("../../assets/fact-sheet.css")).into_owned();
-        let font_faces = format!(
-            r#"
-            @font-face {{
-                font-family: "myriad";
-                src: url("{}") format("opentype");
-                font-style: normal;
-                font-weight: 300;
-            }}
-            @font-face {{
-                font-family: "myriad-semi";
-                src: url({}) format("opentype");
-                font-style: normal;
-                font-weight: 300;
-            }}
-            @font-face {{
-                font-family: "proxima";
-                src: url({}) format("opentype");
-                font-weight: normal;
-                font-style: normal;
-            }}
-            @font-face {{
-                font-family: "proxima-bold";
-                src: url({}) format("opentype");
-                font-weight: bold;
-                font-style: normal;
-            }}
-            @font-face {{
-                font-family: "proxima-semi";
-                src: url({}) format("opentype");
-                font-weight: bold;
-                font-style: normal;
-            }}
-            @font-face {{
-                font-family: "proxima";
-                src: url({}) format("opentype");
-                font-weight: normal;
-                font-style: italic;
-            }}
-        "#,
-            encode_data_uri(
-                include_bytes!("../../assets/fonts/myriad_pro_light.otf"),
-                MimeType::Otf
-            ),
-            encode_data_uri(
-                include_bytes!("../../assets/fonts/myriad_pro_semibold.otf"),
-                MimeType::Otf
-            ),
-            encode_data_uri(
-                include_bytes!("../../assets/fonts/proxima_nova_light.otf"),
-                MimeType::Otf
-            ),
-            encode_data_uri(
-                include_bytes!("../../assets/fonts/proxima_nova_bold.otf"),
-                MimeType::Otf
-            ),
-            encode_data_uri(
-                include_bytes!("../../assets/fonts/proxima_nova_semibold.otf"),
-                MimeType::Otf
-            ),
-            encode_data_uri(
-                include_bytes!("../../assets/fonts/proxima_nova_regular_italic.otf"),
-                MimeType::Otf
-            ),
-        );
         html! {
             <head>
                 <meta charset="utf-8">
-                <title>{ "Research Activity" }</title>
-                <meta name="description" content="Research Activity Data">
+                <title>{ &self.title }</title>
+                <meta name="description" content={ &self.description }>
                 <style>
-                    { font_faces }
-                    { css }
+                    { generate_font_faces() }
+                    { String::from_utf8_lossy(include_bytes!("../../assets/fact-sheet.css")).into_owned() }
                 </style>
             </head>
         }
     }
 }
-// impl View for ResearchActivity {
-//     fn render(&self) -> VirtualNode {
-
-//     }
-// }
 
 pub fn factsheet(data: ResearchActivity) -> VirtualNode {
     let ResearchActivity {
-        title, subtitle, ..
+        meta,
+        title,
+        subtitle,
+        ..
     } = data;
-    let head = FactSheetHead {};
-    let footer = FactSheetFooter {};
+    let Metadata { id, .. } = meta;
+    let head = FactSheetHead {
+        title: "Research Activity".to_string(),
+        description: "Research Activity Data".to_string(),
+    };
+    let footer = FactSheetFooter {
+        division: "National Security Sciences".to_string(),
+    };
     match data.sections {
         Sections::Project(ProjectSections {
             introduction,
@@ -199,6 +189,23 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
             ..
         }) => {
             let Research { focus, areas, .. } = research;
+            let header_style = format!(
+                "background-image: url({});",
+                encode_data_uri(
+                    include_bytes!("../../assets/images/fact-sheet/header.jpg"),
+                    MimeType::Jpeg
+                )
+            );
+            // TODO: Read research data image and base64 encode
+            let graphic = "";
+            let qrcode = encode_data_uri(
+                &generate_qr_code(&format!("{}/{}", BASE_URL, id)).unwrap(),
+                MimeType::Png,
+            );
+            let logo = encode_data_uri(
+                include_bytes!("../../assets/images/logo_leaf.svg"),
+                MimeType::Svg,
+            );
             let main = html! {
                 <main>
                     <section>
@@ -221,16 +228,14 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
             };
             let aside = html! {
                 <aside>
-                    <div class="graphic">
-                        <img src="{{ src }}"/>
-                    </div>
+                    <div class="graphic"><img src={ graphic }/></div>
                     <div class="research-focus">
                         <h3>{ "Research Focus" }</h3>
                         <p>{ focus }</p>
                         <ul><li>{ areas.join("</li><li>") }</li></ul>
                     </div>
                     <div class="qrcode">
-                        <img src={ encode_data_uri(&qr_code("HELLO WORLD").unwrap(), MimeType::Png) }/>
+                        <img src={ qrcode }/>
                     </div>
                 </aside>
             };
@@ -238,9 +243,9 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
                 <html>
                     { head }
                     <body>
-                        <header style={ format!("background-image: url({});", encode_data_uri(include_bytes!("../../assets/images/fact-sheet/header.jpg"), MimeType::Jpeg)) }>
+                        <header style={ header_style }>
                             <div class="wrapper">
-                                <img id="logo" src={ encode_data_uri(include_bytes!("../../assets/images/logo_leaf.svg"), MimeType::Svg) } height="76px"/>
+                                <img id="logo" src={ logo } height="76px"/>
                                 <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
                                 <div id="title">{ title }</div>
                                 <div id="subtitle">{ subtitle }</div>
