@@ -461,7 +461,7 @@ FN:21,qr_code
 FN:51,<impl View for Contact>::render
 FN:78,<impl View for FactSheetFooter>::render
 FN:100,<impl View for FactSheetHead>::render
-FN:163,factsheet
+FN:186,factsheet
 FNF:6
 FNDA:0,encode_data_uri
 FNDA:0,qr_code
@@ -491,18 +491,30 @@ DA:79,0
 DA:100,0
 DA:101,0
 DA:103,0
+DA:142,0
 DA:144,0
-DA:163,0
+DA:146,0
+DA:148,0
+DA:150,0
+DA:152,0
+DA:154,0
+DA:156,0
+DA:158,0
+DA:160,0
+DA:162,0
 DA:164,0
-DA:165,0
-DA:169,0
-DA:170,0
-DA:178,0
-DA:179,0
-DA:199,0
-DA:210,0
-DA:214,0
-LF:33
+DA:167,0
+DA:186,0
+DA:187,0
+DA:188,0
+DA:192,0
+DA:193,0
+DA:201,0
+DA:202,0
+DA:222,0
+DA:233,0
+DA:237,0
+LF:45
 LH:0
 end_of_record
 TN:

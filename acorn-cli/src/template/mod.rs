@@ -38,8 +38,8 @@ pub enum MimeType {
     Jpeg,
     #[display("image/png")]
     Png,
-    // #[display("font/otf")]
-    // Otf,
+    #[display("font/otf")]
+    Otf,
     #[display("image/svg+xml")]
     Svg,
     // #[display("font/ttf")]
@@ -110,36 +110,59 @@ impl View for FactSheetHead {
             }}
             @font-face {{
                 font-family: "myriad-semi";
-                src: url("fonts/myriad_pro_semibold.otf") format("opentype");
+                src: url({}) format("opentype");
                 font-style: normal;
                 font-weight: 300;
             }}
             @font-face {{
                 font-family: "proxima";
-                src: url("fonts/proxima_nova_light.otf") format("opentype");
+                src: url({}) format("opentype");
                 font-weight: normal;
                 font-style: normal;
             }}
             @font-face {{
                 font-family: "proxima-bold";
-                src: url("fonts/proxima_nova_bold.otf") format("opentype");
+                src: url({}) format("opentype");
                 font-weight: bold;
                 font-style: normal;
             }}
             @font-face {{
                 font-family: "proxima-semi";
-                src: url("fonts/proxima_nova_semibold.otf") format("opentype");
+                src: url({}) format("opentype");
                 font-weight: bold;
                 font-style: normal;
             }}
             @font-face {{
                 font-family: "proxima";
-                src: url("fonts/proxima_nova_regular_italic.otf") format("opentype");
+                src: url({}) format("opentype");
                 font-weight: normal;
                 font-style: italic;
             }}
         "#,
-            "fonts/myriad_pro_light.otf"
+            encode_data_uri(
+                include_bytes!("../../assets/fonts/myriad_pro_light.otf"),
+                MimeType::Otf
+            ),
+            encode_data_uri(
+                include_bytes!("../../assets/fonts/myriad_pro_semibold.otf"),
+                MimeType::Otf
+            ),
+            encode_data_uri(
+                include_bytes!("../../assets/fonts/proxima_nova_light.otf"),
+                MimeType::Otf
+            ),
+            encode_data_uri(
+                include_bytes!("../../assets/fonts/proxima_nova_bold.otf"),
+                MimeType::Otf
+            ),
+            encode_data_uri(
+                include_bytes!("../../assets/fonts/proxima_nova_semibold.otf"),
+                MimeType::Otf
+            ),
+            encode_data_uri(
+                include_bytes!("../../assets/fonts/proxima_nova_regular_italic.otf"),
+                MimeType::Otf
+            ),
         );
         html! {
             <head>
