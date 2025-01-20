@@ -377,7 +377,6 @@ fn main() -> Void {
                                 };
                                 let content = template::factsheet(data).to_string();
                                 debug!("=> {} Rendered template", Label::using());
-                                println!("{}", content);
                                 let playwright = Playwright::initialize().await.unwrap();
                                 playwright.prepare().unwrap(); // Install browsers
                                 let chromium = playwright.chromium();

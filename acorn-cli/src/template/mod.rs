@@ -2,11 +2,38 @@ use crate::schema::{Contact, ProjectSections, Research, ResearchActivity, Sectio
 use base64::engine::general_purpose;
 use base64::prelude::*;
 use derive_more::Display;
+use fast_qr::convert::image::{ImageBuilder, ImageError};
+use fast_qr::convert::{Builder, Shape};
+use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::*;
 
+// https://www.olcf.ornl.gov/about-olcf/media-assets/
+const TRANSPARENT_RGBA: [u8; 4] = [255, 255, 255, 0];
+const ORNL_GREEN_RGBA: [u8; 4] = [0, 121, 52, 255];
+
+pub fn encode_data_uri(data: &[u8], mime_type: MimeType) -> String {
+    format!(
+        "data:{};base64,{}",
+        mime_type,
+        general_purpose::STANDARD.encode(data)
+    )
+}
+pub fn qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
+    let code = match QRBuilder::new(text).build() {
+        Ok(data) => data,
+        Err(err) => panic!("Failed to generate QR code: {}", err),
+    };
+    ImageBuilder::default()
+        .shape(Shape::RoundedSquare)
+        .background_color(TRANSPARENT_RGBA)
+        .module_color(ORNL_GREEN_RGBA)
+        .margin(0)
+        .fit_width(125)
+        .to_bytes(&code)
+}
 /// See https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types
 #[derive(Clone, Debug, Display)]
-enum MimeType {
+pub enum MimeType {
     #[display("image/jpeg")]
     Jpeg,
     #[display("image/png")]
@@ -17,13 +44,6 @@ enum MimeType {
     Svg,
     // #[display("font/ttf")]
     // Ttf,
-}
-fn encode_data_uri(data: &[u8], mime_type: MimeType) -> String {
-    format!(
-        "data:{};base64,{}",
-        mime_type,
-        general_purpose::STANDARD.encode(data)
-    )
 }
 pub struct FactSheetFooter {}
 pub struct FactSheetHead {}
@@ -156,7 +176,6 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
             ..
         }) => {
             let Research { focus, areas, .. } = research;
-            let qrcode = "qrcode.png";
             let main = html! {
                 <main>
                     <section>
@@ -173,7 +192,7 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
                     <section>
                         <h3>{ "Outcomes" }</h3>
                         <p>{ "Previous and expected future outcomes include" }</p>
-                        <ul><li>{ outcomes.into_iter().map(|i| i.to_string()).collect::<String>() }</li></ul>
+                        <ul><li>{ outcomes.join("</li><li>") }</li></ul>
                     </section>
                 </main>
             };
@@ -185,10 +204,10 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
                     <div class="research-focus">
                         <h3>{ "Research Focus" }</h3>
                         <p>{ focus }</p>
-                        <ul><li>{ areas.into_iter().map(|i| i.to_string()).collect::<String>() }</li></ul>
+                        <ul><li>{ areas.join("</li><li>") }</li></ul>
                     </div>
                     <div class="qrcode">
-                        <img src={ qrcode }/>
+                        <img src={ encode_data_uri(&qr_code("HELLO WORLD").unwrap(), MimeType::Png) }/>
                     </div>
                 </aside>
             };
