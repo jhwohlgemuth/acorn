@@ -6,54 +6,32 @@ use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::*;
+use rust_embed::Embed;
+use std::ffi::OsStr;
+use std::path::Path;
 
 const BASE_URL: &str = "https://fact-sheets.ornl.gov";
 
 // https://www.olcf.ornl.gov/about-olcf/media-assets/
-const TRANSPARENT_RGBA: [u8; 4] = [255, 255, 255, 0];
-const ORNL_GREEN_RGBA: [u8; 4] = [0, 121, 52, 255];
+const RGBA_TRANSPARENT: [u8; 4] = [255, 255, 255, 0];
+const RGBA_ORNL_GREEN: [u8; 4] = [0, 121, 52, 255];
 
-fn encode_data_uri(data: &[u8], mime_type: MimeType) -> String {
-    format!(
-        "data:{};base64,{}",
-        mime_type,
-        general_purpose::STANDARD.encode(data)
-    )
-}
 fn generate_font_faces() -> String {
     format!(
         r#"
-        @font-face {{font-family: "myriad";src: url("{}") format("opentype");font-style: normal;font-weight: 300;}}
-        @font-face {{font-family: "myriad-semi";src: url({}) format("opentype");font-style: normal;font-weight: 300;}}
-        @font-face {{font-family: "proxima";src: url({}) format("opentype");font-weight: normal;font-style: normal;}}
-        @font-face {{font-family: "proxima-bold";src: url({}) format("opentype");font-weight: bold;font-style: normal;}}
-        @font-face {{font-family: "proxima-semi";src: url({}) format("opentype");font-weight: bold;font-style: normal;}}
-        @font-face {{font-family: "proxima";src: url({}) format("opentype");font-weight: normal;font-style: italic;}}
+        @font-face {{font-family:"myriad_pro_light";src:url("{}") format("opentype");font-style:normal;font-weight:300;}}
+        @font-face {{font-family:"myriad_pro_semibold";src:url({}) format("opentype");font-style:normal;font-weight:300;}}
+        @font-face {{font-family:"proxima";src:url({}) format("opentype");font-weight:normal;font-style:normal;}}
+        @font-face {{font-family:"proxima_nova_bold";src: url({}) format("opentype");font-weight:bold;font-style:normal;}}
+        @font-face {{font-family:"proxima_nova_semibold";src:url({}) format("opentype");font-weight:bold;font-style:normal;}}
+        @font-face {{font-family:"proxima";src:url({}) format("opentype");font-weight:normal;font-style:italic;}}
         "#,
-        encode_data_uri(
-            include_bytes!("../../assets/fonts/myriad_pro_light.otf"),
-            MimeType::Otf
-        ),
-        encode_data_uri(
-            include_bytes!("../../assets/fonts/myriad_pro_semibold.otf"),
-            MimeType::Otf
-        ),
-        encode_data_uri(
-            include_bytes!("../../assets/fonts/proxima_nova_light.otf"),
-            MimeType::Otf
-        ),
-        encode_data_uri(
-            include_bytes!("../../assets/fonts/proxima_nova_bold.otf"),
-            MimeType::Otf
-        ),
-        encode_data_uri(
-            include_bytes!("../../assets/fonts/proxima_nova_semibold.otf"),
-            MimeType::Otf
-        ),
-        encode_data_uri(
-            include_bytes!("../../assets/fonts/proxima_nova_regular_italic.otf"),
-            MimeType::Otf
-        ),
+        DataUri::from_asset("myriad_pro_light.otf"),
+        DataUri::from_asset("myriad_pro_semibold.otf"),
+        DataUri::from_asset("proxima_nova_light.otf"),
+        DataUri::from_asset("proxima_nova_bold.otf"),
+        DataUri::from_asset("proxima_nova_semibold.otf"),
+        DataUri::from_asset("proxima_nova_regular_italic.otf"),
     )
 }
 fn generate_qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
@@ -63,23 +41,42 @@ fn generate_qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
     };
     ImageBuilder::default()
         .shape(Shape::RoundedSquare)
-        .background_color(TRANSPARENT_RGBA)
-        .module_color(ORNL_GREEN_RGBA)
+        .background_color(RGBA_TRANSPARENT)
+        .module_color(RGBA_ORNL_GREEN)
         .margin(0)
         .fit_width(125)
         .to_bytes(&code)
 }
+struct DataUri {}
+#[derive(Embed)]
+#[folder = "assets/images/"]
+struct Image;
+#[derive(Embed)]
+#[folder = "assets/fonts/"]
+struct Font;
 /// See https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types
 #[derive(Clone, Debug, Display)]
 pub enum MimeType {
+    #[display("font/otf")]
+    Otf,
     #[display("image/jpeg")]
     Jpeg,
     #[display("image/png")]
     Png,
-    #[display("font/otf")]
-    Otf,
     #[display("image/svg+xml")]
     Svg,
+}
+impl MimeType {
+    fn from_str(value: &str) -> MimeType {
+        let name = &value.to_lowercase();
+        match Path::new(name).extension().and_then(OsStr::to_str) {
+            Some("jpg") | Some("jpeg") => MimeType::Jpeg,
+            Some("png") => MimeType::Png,
+            Some("otf") => MimeType::Otf,
+            Some("svg") => MimeType::Svg,
+            Some(_) | None => unimplemented!("Unsupported MIME type"),
+        }
+    }
 }
 pub struct FactSheetFooter {
     /// TODO: Convert to enum
@@ -88,6 +85,30 @@ pub struct FactSheetFooter {
 pub struct FactSheetHead {
     pub title: String,
     pub description: String,
+}
+impl DataUri {
+    fn from_bytes(data: &[u8], mime: MimeType) -> String {
+        format!(
+            "data:{};base64,{}",
+            mime,
+            general_purpose::STANDARD.encode(data)
+        )
+    }
+    fn from_asset(name: &str) -> String {
+        let mime = MimeType::from_str(name);
+        match mime {
+            MimeType::Otf => {
+                let binding = Font::get(name).unwrap();
+                let data = binding.data.as_ref();
+                DataUri::from_bytes(data, mime)
+            }
+            MimeType::Jpeg | MimeType::Png | MimeType::Svg => {
+                let binding = Image::get(name).unwrap();
+                let data = binding.data.as_ref();
+                DataUri::from_bytes(data, mime)
+            }
+        }
+    }
 }
 impl View for Contact {
     fn render(&self) -> VirtualNode {
@@ -121,26 +142,15 @@ impl View for FactSheetFooter {
         let disclaimer = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
         let style = format!(
             "background-image: url({});",
-            encode_data_uri(
-                include_bytes!("../../assets/images/fact-sheet/footer.jpg"),
-                MimeType::Jpeg
-            )
-        );
-        let ornl_logo = encode_data_uri(
-            include_bytes!("../../assets/images/logo_ornl.svg"),
-            MimeType::Svg,
-        );
-        let doe_logo = encode_data_uri(
-            include_bytes!("../../assets/images/logo_doe_os.png"),
-            MimeType::Png,
+            DataUri::from_asset("fact-sheet/footer.jpg"),
         );
         html! {
             <footer style={ style }>
                 <div class="wrapper">
                     <div id="disclaimer">{ disclaimer }</div>
                     <div class="logo-wrapper">
-                        <div><img src={ ornl_logo } id="logo-ornl"/></div>
-                        <div><img src={ doe_logo } id="logo-doe-os"/></div>
+                        <div><img src={ DataUri::from_asset("logo_ornl.svg") } id="logo-ornl"/></div>
+                        <div><img src={ DataUri::from_asset("logo_doe_os.png") } id="logo-doe-os"/></div>
                         <div id="division">{ &self.division }</div>
                     </div>
                 </div>
@@ -191,20 +201,13 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
             let Research { focus, areas, .. } = research;
             let header_style = format!(
                 "background-image: url({});",
-                encode_data_uri(
-                    include_bytes!("../../assets/images/fact-sheet/header.jpg"),
-                    MimeType::Jpeg
-                )
+                DataUri::from_asset("fact-sheet/header.jpg")
             );
             // TODO: Read research data image and base64 encode
             let graphic = "";
-            let qrcode = encode_data_uri(
+            let qrcode = DataUri::from_bytes(
                 &generate_qr_code(&format!("{}/{}", BASE_URL, id)).unwrap(),
                 MimeType::Png,
-            );
-            let logo = encode_data_uri(
-                include_bytes!("../../assets/images/logo_leaf.svg"),
-                MimeType::Svg,
             );
             let main = html! {
                 <main>
@@ -245,7 +248,7 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
                     <body>
                         <header style={ header_style }>
                             <div class="wrapper">
-                                <img id="logo" src={ logo } height="76px"/>
+                                <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
                                 <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
                                 <div id="title">{ title }</div>
                                 <div id="subtitle">{ subtitle }</div>

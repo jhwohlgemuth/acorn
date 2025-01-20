@@ -5,7 +5,7 @@
 
 html,
 body {
-    font-family: "myriad";
+    font-family: "myriad_pro_light";
     margin: 0;
     padding: 0;
 }
@@ -40,7 +40,7 @@ header {
 }
 
 main {
-    font-family: "myriad";
+    font-family: "myriad_pro_light";
     font-size: 11pt;
     margin: 0px 0px 0px 50px;
     letter-spacing: 0.1em;
@@ -59,7 +59,7 @@ li {
 
 section>h3 {
     color: #16537B;
-    font-family: "proxima-bold";
+    font-family: "proxima_nova_bold";
     font-weight: bold;
     font-size: 16pt;
     letter-spacing: 0.1em;
@@ -99,7 +99,7 @@ aside>.research-focus {
 
 aside>.research-focus>h3 {
     font-size: 13pt;
-    font-family: "proxima-bold";
+    font-family: "proxima_nova_bold";
     font-weight: bold;
     letter-spacing: 0.15em;
 }
@@ -179,7 +179,7 @@ footer>.wrapper>.logo-wrapper {
 
 #contact .label {
     color: #16537B;
-    font-family: "proxima-bold";
+    font-family: "proxima_nova_bold";
     font-size: 16pt;
     text-transform: uppercase;
 }
@@ -187,7 +187,7 @@ footer>.wrapper>.logo-wrapper {
 #contact .label+.spacer {
     margin: 0 9px;
     color: #16537B;
-    font-family: "proxima-bold";
+    font-family: "proxima_nova_bold";
     height: 35px;
     width: 3px;
     background-color: #16537B;
@@ -214,7 +214,7 @@ footer>.wrapper>.logo-wrapper {
     grid-column: 2;
     grid-row: 1;
     color: #FFFFFF;
-    font-family: "proxima-semi";
+    font-family: "proxima_nova_semibold";
     font-size: 11pt;
     font-weight: 400;
     letter-spacing: 0.35em;
@@ -225,7 +225,7 @@ footer>.wrapper>.logo-wrapper {
     grid-column: 2;
     grid-row: 2;
     color: #FFFFFF;
-    font-family: "proxima-bold";
+    font-family: "proxima_nova_bold";
     font-size: 30pt;
     font-weight: bold;
 }
@@ -241,7 +241,7 @@ footer>.wrapper>.logo-wrapper {
 }
 
 #disclaimer {
-    font-family: "myriad-semi";
+    font-family: "myriad_pro_semibold";
     font-size: 10pt;
     grid-column: 1;
     grid-row: 1;
@@ -251,7 +251,7 @@ footer>.wrapper>.logo-wrapper {
 }
 
 #division {
-    font-family: "proxima-semi";
+    font-family: "proxima_nova_semibold";
     font-size: 12pt;
     letter-spacing: 0.3em;
     text-transform: uppercase;
