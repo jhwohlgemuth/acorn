@@ -203,8 +203,8 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
                 "background-image: url({});",
                 DataUri::from_asset("fact-sheet/header.jpg")
             );
-            // TODO: Read research data image and base64 encode
-            let graphic = "";
+            // TODO: Figure out path to research data image
+            let graphic = "project/acorn/00.png";
             let qrcode = DataUri::from_bytes(
                 &generate_qr_code(&format!("{}/{}", BASE_URL, id)).unwrap(),
                 MimeType::Png,

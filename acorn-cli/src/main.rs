@@ -376,7 +376,11 @@ fn main() -> Void {
                                     Err(_) => unimplemented!(),
                                 };
                                 let content = template::factsheet(data).to_string();
-                                debug!("=> {} Rendered template", Label::using());
+                                debug!(
+                                    "=> {} Rendered template {:?}",
+                                    Label::using(),
+                                    content.clone()
+                                );
                                 let playwright = Playwright::initialize().await.unwrap();
                                 playwright.prepare().unwrap(); // Install browsers
                                 let chromium = playwright.chromium();
@@ -384,6 +388,10 @@ fn main() -> Void {
                                     chromium.launcher().headless(true).launch().await.unwrap();
                                 let context = browser.context_builder().build().await.unwrap();
                                 let page = context.new_page().await.unwrap();
+                                page.goto_builder("file:///root/dev/acorn/content/index.html")
+                                    .goto()
+                                    .await
+                                    .unwrap();
                                 page.set_content_builder(&content)
                                     .set_content()
                                     .await
