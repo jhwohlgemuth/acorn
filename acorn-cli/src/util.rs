@@ -1,3 +1,4 @@
+use glob::glob;
 use owo_colors::{OwoColorize, Style, Styled};
 use std::error::Error;
 use std::fs::File;
@@ -42,6 +43,17 @@ impl Label {
         value.style(style).to_string()
     }
 }
+pub fn get_image_paths(root: PathBuf) -> Vec<PathBuf> {
+    let extensions = ["jpg", "jpeg", "png", "svg"];
+    let mut files = extensions
+        .iter()
+        .flat_map(|ext| glob(&format!("{}/**/*.{}", root.display(), ext)))
+        .flat_map(|paths| paths.collect::<Vec<_>>())
+        .flatten()
+        .collect::<Vec<PathBuf>>();
+    files.sort();
+    files
+}
 pub fn get_parent(path: String) -> String {
     PathBuf::from(PathBuf::from(path).parent().unwrap())
         .display()
@@ -77,6 +89,7 @@ pub fn read_file(path: PathBuf) -> Result<String, Box<dyn Error>> {
     Ok(content)
 }
 pub fn tokio_runtime() -> tokio::runtime::Runtime {
+    debug!("=> {} Tokio runtime", Label::using());
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()

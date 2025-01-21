@@ -7,6 +7,7 @@ use dotenvy::dotenv;
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
+use playwright::api::Page;
 use playwright::Playwright;
 use rayon::prelude::*;
 use reqwest::blocking::Client;
@@ -14,9 +15,9 @@ use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use std::fmt::Debug;
-use std::fs::{create_dir_all, File};
+use std::fs::{create_dir_all, remove_file, File};
 use std::io::{copy, Cursor};
-use std::path::{Path, PathBuf};
+use std::path::{self, Path, PathBuf};
 use tracing::instrument;
 use tracing::{debug, error, info, trace};
 use tracing_indicatif::IndicatifLayer;
@@ -46,6 +47,8 @@ const DISPLAY_LINE_NUMBER: bool = false;
 const DISPLAY_TARGET: bool = false;
 const DISPLAY_THREAD_ID: bool = false;
 const DISPLAY_THREAD_NAME: bool = false;
+// Application constants
+const PROGRESS_BAR_TEMPLATE: &str = "{spinner:.green} {pos}/{len} [{bar:.green}] {msg}";
 
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -141,8 +144,7 @@ impl Bucket {
                 );
                 let paths = self.clone().get_file_paths();
                 let progress = ProgressBar::new(paths.len() as u64);
-                let template = "{spinner:.green} {pos}/{len} [{bar:.green}] {msg}";
-                progress.set_style(ProgressStyle::with_template(template).unwrap());
+                progress.set_style(ProgressStyle::with_template(PROGRESS_BAR_TEMPLATE).unwrap());
                 let client = Client::new();
                 paths.par_iter().for_each(|path| {
                     progress.set_message(format!("Downloading {}", path));
@@ -242,7 +244,53 @@ impl GitlabTreeEntry {
         self.entry_type.eq(&EntryType::Blob)
     }
 }
-
+async fn generate_factsheet_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
+    let data = match ResearchActivity::read(path.clone()) {
+        Ok(value) => {
+            // let parent = path.parent().unwrap().to_path_buf();
+            // println!("Path: {:?}", get_image_paths(parent)[0]);
+            value
+        },
+        Err(_) => unimplemented!(),
+    };
+    let content = template::factsheet(data.clone()).to_string();
+    // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
+    let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
+    if File::create(&index).is_ok() {
+        page.goto_builder(&format!("file://{}", index.display()))
+            .goto()
+            .await
+            .unwrap();
+    };
+    page.set_content_builder(&content)
+        .set_content()
+        .await
+        .unwrap();
+    match output {
+        Some(output_dir) => match create_dir_all(output_dir.clone()) {
+            Ok(_) => {
+                let id = data.meta.id;
+                let output_path = format!("{}/{}.pdf", output_dir.display(), id);
+                debug!(path = output_path, "=> {} Output", Label::using());
+                page.pdf_builder()
+                    .path(output_path.into())
+                    .print_background(true)
+                    .pdf()
+                    .await
+                    .unwrap();
+            }
+            Err(err) => {
+                error!(
+                    path = output_dir.clone().into_os_string().into_string().unwrap(),
+                    "=> {} Create directory - {err}",
+                    Label::fail()
+                );
+            }
+        },
+        None => unreachable!(),
+    };
+    let _remove = remove_file(index);
+}
 #[instrument]
 fn main() -> Void {
     color_eyre::install()?;
@@ -351,65 +399,49 @@ fn main() -> Void {
         }) => {
             match target {
                 Target::FactSheet => {
-                    let id = "acorn";
-                    let output_path = match output {
-                        Some(path) => match create_dir_all(path) {
-                            Ok(_) => Ok(format!("{}/{}.pdf", path.display(), id)),
-                            Err(err) => {
-                                error!(
-                                    path = path.clone().into_os_string().into_string().unwrap(),
-                                    "=> {} Failed to create directory",
-                                    Label::fail()
-                                );
-                                Err(err)
-                            }
-                        },
-                        None => unreachable!(),
-                    };
-                    let runtime = tokio_runtime();
-                    info!("=> {} Tokio runtime", Label::using());
-                    runtime.block_on(async {
-                        match output_path {
-                            Ok(output_path_string) => {
-                                let data = match ResearchActivity::read(path.clone().unwrap()) {
-                                    Ok(data) => data,
-                                    Err(_) => unimplemented!(),
-                                };
-                                let content = template::factsheet(data).to_string();
-                                debug!(
-                                    "=> {} Rendered template {:?}",
-                                    Label::using(),
-                                    content.clone()
-                                );
-                                let playwright = Playwright::initialize().await.unwrap();
-                                playwright.prepare().unwrap(); // Install browsers
-                                let chromium = playwright.chromium();
-                                let browser =
-                                    chromium.launcher().headless(true).launch().await.unwrap();
-                                let context = browser.context_builder().build().await.unwrap();
-                                let page = context.new_page().await.unwrap();
-                                page.goto_builder("file:///root/dev/acorn/content/index.html")
-                                    .goto()
-                                    .await
-                                    .unwrap();
-                                page.set_content_builder(&content)
-                                    .set_content()
-                                    .await
-                                    .unwrap();
-                                page.pdf_builder()
-                                    .path(output_path_string.into())
-                                    // .height(playwright::api::Length::WithUnit("36in"))
-                                    // .width(playwright::api::Length::WithUnit("24in"))
-                                    .print_background(true)
-                                    .pdf()
-                                    .await
-                                    .unwrap();
-                                page.close(Some(false)).await.unwrap();
-                            }
-                            Err(_) => {
-                                error!("=> {} Failed to create output directory", Label::fail());
-                            }
+                    tokio_runtime().block_on(async {
+                        let playwright = Playwright::initialize().await.unwrap();
+                        playwright.prepare().unwrap(); // Install browsers
+                        let chromium = playwright.chromium();
+                        let browser = chromium.launcher().headless(true).launch().await.unwrap();
+                        let context = browser.context_builder().build().await.unwrap();
+                        let page = context.new_page().await.unwrap();
+                        let input_path = match path.clone() {
+                            Some(value) => value,
+                            None => unimplemented!(),
+                        };
+                        if input_path.is_dir() {
+                            match glob(&format!("{}/**/*.json", input_path.to_str().unwrap())) {
+                                Ok(values) => {
+                                    let paths = values.flatten().collect::<Vec<_>>();
+                                    let progress = ProgressBar::new(paths.len() as u64);
+                                    progress.set_style(
+                                        ProgressStyle::with_template(PROGRESS_BAR_TEMPLATE)
+                                            .unwrap(),
+                                    );
+                                    for path in paths {
+                                        progress.set_message(format!(
+                                            "Generating PDF for {}",
+                                            path.display()
+                                        ));
+                                        generate_factsheet_pdf(path, &page, output).await;
+                                        progress.inc(1);
+                                    }
+                                    progress.finish_with_message(format!("{}Done", CHECKMARK));
+                                }
+                                Err(err) => {
+                                    error!(
+                                        "=> {} Failed to read glob pattern - {}",
+                                        Label::fail(),
+                                        err
+                                    );
+                                }
+                            };
+                        } else {
+                            info!("=> Generating PDF for {}...", input_path.display());
+                            generate_factsheet_pdf(input_path, &page, output).await;
                         }
+                        let _close = page.close(Some(false)).await;
                     });
                     Ok(())
                 }
