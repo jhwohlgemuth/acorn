@@ -335,7 +335,7 @@ fn main() -> Void {
         Some(Commands::Check { path, .. }) => {
             fn check_file(path: &Path) {
                 match ResearchActivity::read(path.into()) {
-                    Ok(data) => match data.lint() {
+                    Ok(data) => match data.check() {
                         Ok(_) => {
                             info!("=> {} {} has no errors", Label::pass(), path.display());
                         }

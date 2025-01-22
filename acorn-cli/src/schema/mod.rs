@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::result::Result;
-use tracing::{debug, error, trace};
+use tracing::{debug, error, info, trace};
 use validator::{Validate, ValidationError, ValidationErrorsKind};
 
 pub type Fuzzy = String;
@@ -236,7 +236,7 @@ pub struct Research {
 }
 impl Metadata {
     pub fn get_first_graphic_href(self) -> String {
-        match &self.graphics {
+        let value = match &self.graphics {
             Some(values) => {
                 let first = values.first();
                 match first {
@@ -248,7 +248,14 @@ impl Metadata {
                 }
             }
             None => DEFAULT_GRAPHIC_HREF.to_string(),
-        }
+        };
+        info!(
+            value,
+            "=> {} First graphic href for {} data",
+            Label::using(),
+            self.id
+        );
+        value
     }
 }
 impl ResearchActivity {
@@ -278,7 +285,7 @@ impl ResearchActivity {
         data.dedup();
         data
     }
-    pub fn lint(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
+    pub fn check(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
         let mut found: Vec<Option<HashMap<String, ValidationErrorsKind>>> = vec![];
         found.push(get_errors::<ResearchActivity>(self.clone()));
         match self.clone().sections {

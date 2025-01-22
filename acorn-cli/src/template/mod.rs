@@ -203,7 +203,6 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
                 DataUri::from_asset("fact-sheet/header.jpg")
             );
             let graphic = meta.clone().get_first_graphic_href();
-            println!("Graphic: {}", graphic);
             let qrcode = DataUri::from_bytes(
                 &generate_qr_code(&format!("{}/{}", BASE_URL, meta.id)).unwrap(),
                 MimeType::Png,
