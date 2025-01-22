@@ -1,4 +1,4 @@
-use crate::schema::{Contact, Metadata, ProjectSections, Research, ResearchActivity, Sections};
+use crate::schema::{Contact, ProjectSections, Research, ResearchActivity, Sections};
 use base64::engine::general_purpose;
 use base64::prelude::*;
 use derive_more::Display;
@@ -181,7 +181,6 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
         subtitle,
         ..
     } = data;
-    let Metadata { id, .. } = meta;
     let head = FactSheetHead {
         title: "Research Activity".to_string(),
         description: "Research Activity Data".to_string(),
@@ -203,10 +202,10 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
                 "background-image: url({});",
                 DataUri::from_asset("fact-sheet/header.jpg")
             );
-            // TODO: Figure out path to research data image
-            let graphic = "00.png";
+            let graphic = meta.clone().get_first_graphic_href();
+            println!("Graphic: {}", graphic);
             let qrcode = DataUri::from_bytes(
-                &generate_qr_code(&format!("{}/{}", BASE_URL, id)).unwrap(),
+                &generate_qr_code(&format!("{}/{}", BASE_URL, meta.id)).unwrap(),
                 MimeType::Png,
             );
             let main = html! {

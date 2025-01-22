@@ -250,8 +250,11 @@ async fn generate_factsheet_pdf(path: PathBuf, page: &Page, output: &Option<Path
             // let parent = path.parent().unwrap().to_path_buf();
             // println!("Path: {:?}", get_image_paths(parent)[0]);
             value
-        },
-        Err(_) => unimplemented!(),
+        }
+        Err(err) => {
+            error!(path = path.to_str().unwrap(), "=> {} {err}", Label::fail());
+            unimplemented!()
+        }
     };
     let content = template::factsheet(data.clone()).to_string();
     // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL

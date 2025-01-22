@@ -17,6 +17,8 @@ pub type Keyword = Fuzzy;
 pub type Sponsor = Fuzzy;
 pub type Technology = Fuzzy;
 
+const DEFAULT_GRAPHIC_HREF: &str = "00.png";
+
 const MAX_LENGTH_AREA: usize = 40;
 const MAX_LENGTH_CAPABILIY: usize = 300;
 const MAX_LENGTH_FACILITY: usize = 40;
@@ -89,6 +91,33 @@ lazy_static! {
     ];
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Display)]
+#[serde(rename_all = "lowercase")]
+pub enum SchemaType {
+    #[display("highlight")]
+    Highlight,
+    #[display("project")]
+    Project,
+    #[display("organization")]
+    Organization,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Sections {
+    Highlight(HighlightSections),
+    Project(ProjectSections),
+    Organization(OrganizationSections),
+}
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+pub struct Graphic {
+    #[validate(length(
+        max = 250,
+        message = "Caption is too long, please reduce the length below 250."
+    ))]
+    pub caption: String,
+    // TODO: Add validation for image extension
+    pub href: Option<String>,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Contact {
     pub title: String,
@@ -112,6 +141,7 @@ pub struct Metadata {
     pub publication: Option<String>,
     #[serde(alias = "type")]
     pub schema_type: SchemaType,
+    pub archive: bool,
     pub draft: bool,
     #[validate(nested)]
     pub website: Option<Website>,
@@ -122,26 +152,6 @@ pub struct Metadata {
     pub technology: Vec<Fuzzy>,
     pub programs: Option<Vec<String>>,
     pub managers: Option<Vec<String>>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize, Display)]
-#[serde(rename_all = "lowercase")]
-pub enum SchemaType {
-    #[display("highlight")]
-    Highlight,
-    #[display("project")]
-    Project,
-    #[display("organization")]
-    Organization,
-}
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
-pub struct Graphic {
-    #[validate(length(
-        max = 250,
-        message = "Caption is too long, please reduce the length below 250."
-    ))]
-    pub caption: String,
-    pub href: Option<String>,
-    pub use_default: Option<bool>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Website {
@@ -164,13 +174,6 @@ pub struct ResearchActivity {
     #[validate(nested)]
     pub contact: Contact,
     pub notes: Option<String>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Sections {
-    Highlight(HighlightSections),
-    Project(ProjectSections),
-    Organization(OrganizationSections),
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct HighlightSections {
@@ -231,6 +234,23 @@ pub struct Research {
     #[validate(custom(function = "validate_attribute_areas"))]
     pub areas: Vec<String>,
 }
+impl Metadata {
+    pub fn get_first_graphic_href(self) -> String {
+        match &self.graphics {
+            Some(values) => {
+                let first = values.first();
+                match first {
+                    Some(Graphic { href, .. }) => match href.clone() {
+                        Some(href) => href.clone(),
+                        None => DEFAULT_GRAPHIC_HREF.to_string(),
+                    },
+                    None => DEFAULT_GRAPHIC_HREF.to_string(),
+                }
+            }
+            None => DEFAULT_GRAPHIC_HREF.to_string(),
+        }
+    }
+}
 impl ResearchActivity {
     fn resolve(self, name: &str) -> Vec<Fuzzy> {
         let mut data: Vec<_> = match name {
@@ -287,6 +307,7 @@ impl ResearchActivity {
             programs: self.meta.programs.clone(),
             managers: self.meta.managers.clone(),
             schema_type: SchemaType::Project,
+            archive: self.meta.archive,
             draft: self.meta.draft,
             website: self.clone().meta.website,
             graphics: self.clone().meta.graphics,
