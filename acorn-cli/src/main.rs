@@ -332,7 +332,7 @@ fn main() -> Void {
         }
     }
     match &args.command {
-        Some(Commands::Lint { path, .. }) => {
+        Some(Commands::Check { path, .. }) => {
             fn check_file(path: &Path) {
                 match ResearchActivity::read(path.into()) {
                     Ok(data) => match data.lint() {
@@ -452,6 +452,7 @@ fn main() -> Void {
                 Target::Highlight => Ok(()),
             }
         }
+        Some(Commands::Format { .. }) => Ok(()),
         None => {
             println!("ACORN without a subcommand currently does nothing");
             Ok(())

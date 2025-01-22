@@ -4,7 +4,7 @@ use derive_more::Display;
 use serde::Serialize;
 use std::path::PathBuf;
 
-/// Multitool for validating and enabling research activity data
+/// Multitool for maintaining sustainable research activity data
 ///
 ///⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣄⣀⠀⠀⠀
 ///⠀⠀⠀⠀⠀⠀⠀⣀⠀⢴⣶⠀⢶⣦⠀⢄⣀⠀⠠⢾⣿⠿⠿⠿⠿⢦⠀
@@ -43,21 +43,19 @@ pub enum Target {
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum Commands {
-    /// Perfrom static analysis on research activity data and apply standardized best practices
+    /// Perform static analysis on research activity data and apply standardized best practices
     ///
-    ///     $> acorn lint --path /path/to/file.json
+    ///     $> acorn check --path /path/to/file.json
     ///
-    ///     $> acorn lint --path /path/to/folder
-    ///
-    ///     $> acorn lint --path /path/to/folder --format
+    ///     $> acorn check --path /path/to/folder
     ///
     #[clap(verbatim_doc_comment)]
-    Lint {
+    Check {
         /// Path to check
-        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        #[arg(default_value = "./", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
         /// Path to configuration file
-        #[arg(short = 'c', long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         config: Option<PathBuf>,
         /// Format JSON files in-place to maintain consistent format
         #[arg(short, long, value_name = "BOOL")]
@@ -65,18 +63,16 @@ pub enum Commands {
         #[command(flatten)]
         verbose: Verbosity,
     },
-    /// Download research activity data, such as fact sheet files, from buckets and ACORN schemas
+    /// Download research activity data from buckets
     ///
     ///     $> acorn download --buckets /path/to/buckets.json
     ///
     ///     $> acorn download --buckets /path/to/buckets.json --output /path/to/output
     ///
-    ///     $> acorn download --schema project
-    ///
     #[clap(verbatim_doc_comment)]
     Download {
         /// Path to buckets configuration file
-        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        #[arg(default_value = "./buckets.json", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         buckets: Option<PathBuf>,
         /// Path to output directory where the downloaded content should be saved
         #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
@@ -88,13 +84,15 @@ pub enum Commands {
     ///
     ///     $> acorn export --path /path/to/data
     ///
+    ///     $> acorn export --path /path/to/data/data.json -vv
+    ///
     ///     $> acorn export --path /path/to/data --target pdf
     ///
     ///     $> acorn export --path /path/to/data --target pdf --output /path/to/output
     ///
     #[clap(verbatim_doc_comment)]
     Export {
-        /// Path to files for export
+        /// Path of input files to be exported
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
         /// Export target type
@@ -103,6 +101,23 @@ pub enum Commands {
         /// Path to output directory where the export artifacts should be saved
         #[arg(default_value = "./export", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         output: Option<PathBuf>,
+        #[command(flatten)]
+        verbose: Verbosity,
+    },
+    /// Formats research activity data in place (inherently includes some elements of `acorn check`)
+    ///
+    ///     $> acorn format --path /path/to/file.json
+    ///
+    ///     $> acorn format --path /path/to/folder
+    ///
+    #[clap(verbatim_doc_comment)]
+    Format {
+        /// Path to check
+        #[arg(default_value = "./", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        path: Option<PathBuf>,
+        /// Path to configuration file
+        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        config: Option<PathBuf>,
         #[command(flatten)]
         verbose: Verbosity,
     },
