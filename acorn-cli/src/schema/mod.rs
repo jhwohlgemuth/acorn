@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::result::Result;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, trace};
 use validator::{Validate, ValidationError, ValidationErrorsKind};
 
 pub type Fuzzy = String;
@@ -249,12 +249,6 @@ impl Metadata {
             }
             None => DEFAULT_GRAPHIC_HREF.to_string(),
         };
-        info!(
-            value,
-            "=> {} First graphic href for {} data",
-            Label::using(),
-            self.id
-        );
         value
     }
 }
@@ -305,6 +299,26 @@ impl ResearchActivity {
         } else {
             Ok(())
         }
+    }
+    pub fn format(mut self, path: Option<PathBuf>) -> ResearchActivity {
+        if let Some(path) = path {
+            let parent = path.parent().unwrap().to_path_buf();
+            // let first_image = &get_image_paths(parent)[0].clone().into_os_string().into_string().unwrap();
+            let name = match get_image_paths(parent) {
+                value if !value.is_empty() => {
+                    value[0].file_name().unwrap().to_string_lossy().to_string()
+                }
+                _ => DEFAULT_GRAPHIC_HREF.to_string(),
+            };
+            debug!(name, "=> {} Formatting first image", Label::using());
+            // TODO: Update self.meta.graphics
+            println!("First image: {}", name);
+            self.meta.graphics = Some(vec![Graphic {
+                href: Some(name),
+                caption: "".to_string(),
+            }])
+        };
+        self
     }
     pub fn parse(mut self) -> ResearchActivity {
         self.meta = Metadata {
