@@ -27,6 +27,13 @@ impl Label {
         let style = Style::new().green().on_default_color();
         "FOUND".style(style)
     }
+    pub fn not_found() -> String {
+        Label::fmt_not_found("NOT_FOUND")
+    }
+    pub fn fmt_not_found(value: &str) -> String {
+        let style = Style::new().red().on_default_color();
+        value.style(style).to_string()
+    }
     pub fn pass() -> Styled<&'static &'static str> {
         let style = Style::new().green().on_default_color();
         "☑  PASS".style(style)

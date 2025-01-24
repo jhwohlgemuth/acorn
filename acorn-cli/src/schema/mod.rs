@@ -313,14 +313,22 @@ impl ResearchActivity {
             _ => DEFAULT_GRAPHIC_HREF.to_string(),
         };
         debug!(name, "=> {} Formatting first image", Label::using());
-        println!("First image: {}", name);
         let first_graphic = match self.meta.clone().graphics {
             Some(values) if !values.is_empty() => {
                 let caption = match values.first() {
-                    Some(Graphic { href, caption, .. }) if !href.is_some() => caption,
-                    Some(_) | None => "",
+                    Some(Graphic { href, caption, .. }) if !href.is_some() => {
+                        debug!(caption, "=> {}", Label::using());
+                        caption
+                    }
+                    Some(_) | None => {
+                        error!(
+                            path = path.to_str().unwrap(),
+                            "=> {} Caption",
+                            Label::not_found()
+                        );
+                        ""
+                    }
                 };
-                println!("Caption: {}", caption);
                 Graphic {
                     href: Some(name.clone()),
                     caption: caption.to_string(),
