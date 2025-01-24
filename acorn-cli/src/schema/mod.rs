@@ -301,26 +301,41 @@ impl ResearchActivity {
         }
     }
     pub fn format(mut self, path: Option<PathBuf>) -> ResearchActivity {
-        if let Some(path) = path {
-            let parent = path.parent().unwrap().to_path_buf();
-            // let first_image = &get_image_paths(parent)[0].clone().into_os_string().into_string().unwrap();
-            let name = match get_image_paths(parent) {
-                value if !value.is_empty() => {
-                    value[0].file_name().unwrap().to_string_lossy().to_string()
-                }
-                _ => DEFAULT_GRAPHIC_HREF.to_string(),
-            };
-            debug!(name, "=> {} Formatting first image", Label::using());
-            // TODO: Update self.meta.graphics
-            println!("First image: {}", name);
-            self.meta.graphics = Some(vec![Graphic {
-                href: Some(name),
-                caption: "".to_string(),
-            }])
+        let path = match path {
+            Some(path) => path,
+            None => PathBuf::from("."),
         };
+        let parent = path.parent().unwrap().to_path_buf();
+        let name = match get_image_paths(parent) {
+            value if !value.is_empty() => {
+                value[0].file_name().unwrap().to_string_lossy().to_string()
+            }
+            _ => DEFAULT_GRAPHIC_HREF.to_string(),
+        };
+        debug!(name, "=> {} Formatting first image", Label::using());
+        println!("First image: {}", name);
+        let first_graphic = match self.meta.clone().graphics {
+            Some(values) if !values.is_empty() => {
+                let caption = match values.first() {
+                    Some(Graphic { href, caption, .. }) if !href.is_some() => caption,
+                    Some(_) | None => "",
+                };
+                println!("Caption: {}", caption);
+                Graphic {
+                    href: Some(name.clone()),
+                    caption: caption.to_string(),
+                }
+            }
+            Some(_) | None => Graphic {
+                href: Some(name.clone()),
+                caption: "".to_string(),
+            },
+        };
+        self.meta.graphics = Some(vec![first_graphic]);
         self
     }
     pub fn parse(mut self) -> ResearchActivity {
+        // TODO: Move fuzzy resolution to format function
         self.meta = Metadata {
             id: self.meta.id.clone(),
             doi: self.meta.doi.clone(),
