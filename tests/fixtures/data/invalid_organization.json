@@ -2,6 +2,7 @@
   "meta": {
     "id": "some_organization",
     "type": "organization",
+    "archive": false,
     "draft": true,
     "website": {
       "title": "Organization Repository",

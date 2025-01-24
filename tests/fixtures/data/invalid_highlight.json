@@ -3,6 +3,7 @@
         "id": "some-highlight",
         "doi": "Not a valid DOI",
         "type": "highlight",
+        "archive": false,
         "draft": false,
         "website": {
             "title": "Project Repository",

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::result::Result;
-use tracing::{debug, error, trace};
+use tracing::{debug, error, info, trace, warn};
 use validator::{Validate, ValidationError, ValidationErrorsKind};
 
 pub type Fuzzy = String;
@@ -500,6 +500,23 @@ fn resolve_keyword(value: Keyword) -> Option<String> {
         .match_list(*KEYWORD_DATA, &mut matcher)
         .first()
         .map(|(x, _)| x.to_string());
+    match output.clone() {
+        Some(resolved) => {
+            if resolved.eq(&value.to_string()) {
+                info!("=> {} Keyword = \"{}\"", Label::using(), value.clone());
+            } else {
+                warn!(
+                    input = value.clone(),
+                    resolved,
+                    "=> {} Keyword",
+                    Label::found()
+                );
+            }
+        }
+        None => {
+            error!(keyword = value.clone(), "=> {}", Label::not_found());
+        }
+    };
     output
 }
 /// Resolve a sponsor acronym to its full name.
@@ -522,7 +539,7 @@ fn resolve_sponsor(value: Sponsor) -> Option<String> {
         .collect::<HashMap<String, String>>();
     let value = value.trim().to_string();
     let sanitized = sanitize(value.clone());
-    match sanitized.len() {
+    let output = match sanitized.len() {
         3..=5 if data.contains_key(&value.to_uppercase()) => {
             data.get(&value.to_uppercase()).cloned()
         }
@@ -538,7 +555,25 @@ fn resolve_sponsor(value: Sponsor) -> Option<String> {
                 .map(|(x, _)| x.to_string());
             output
         }
-    }
+    };
+    match output.clone() {
+        Some(resolved) => {
+            if resolved.eq(&value.to_string()) {
+                info!("=> {} Sponsor = \"{}\"", Label::using(), value.clone());
+            } else {
+                warn!(
+                    input = value.clone(),
+                    resolved,
+                    "=> {} Sponsor",
+                    Label::found()
+                );
+            }
+        }
+        None => {
+            error!(sponsor = value.clone(), "=> {}", Label::not_found());
+        }
+    };
+    output
 }
 /// Resolves the technology name from a given `Technology` input.
 ///
@@ -556,7 +591,7 @@ fn resolve_sponsor(value: Sponsor) -> Option<String> {
 /// An `Option<String>` containing the resolved technology name if a match is
 /// found, otherwise `None`.
 fn resolve_technology(value: Technology) -> Option<String> {
-    TECHNOLOGY_DATA
+    let output = TECHNOLOGY_DATA
         .clone()
         .into_iter()
         .flat_map(|x| {
@@ -575,7 +610,25 @@ fn resolve_technology(value: Technology) -> Option<String> {
             }
         })
         .max_by_key(|(_, score)| *score)
-        .map(|(x, _)| x.to_string())
+        .map(|(x, _)| x.to_string());
+    match output.clone() {
+        Some(resolved) => {
+            if resolved.eq(&value.to_string()) {
+                info!("=> {} Technology = \"{}\"", Label::using(), value.clone());
+            } else {
+                warn!(
+                    input = value.clone(),
+                    resolved,
+                    "=> {} Technology",
+                    Label::found()
+                );
+            }
+        }
+        None => {
+            error!(technology = value.clone(), "=> {}", Label::not_found());
+        }
+    };
+    output
 }
 fn sanitize(value: String) -> String {
     match Regex::new(r"[-_.]") {

@@ -3,6 +3,7 @@
         "id": "some-highlight",
         "doi": "10.1000/182",
         "type": "highlight",
+        "archive": false,
         "draft": false,
         "website": {
             "title": "Project Repository",

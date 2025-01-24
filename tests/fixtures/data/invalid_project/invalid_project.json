@@ -2,6 +2,7 @@
   "meta": {
     "id": "acornProject",
     "type": "project",
+    "archive": false,
     "draft": false,
     "website": {
       "title": "Project Repository",
