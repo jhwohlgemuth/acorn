@@ -85,8 +85,7 @@ impl Label {
         value.style(style).to_string()
     }
 }
-#[derive(Clone, Debug)]
-#[derive(bon::Builder)]
+#[derive(Clone, Debug, bon::Builder)]
 #[builder(start_fn = init)]
 pub struct Vale {
     pub version: Option<SemanticVersion>,
@@ -94,9 +93,7 @@ pub struct Vale {
     pub config: Option<ValeConfig>,
 }
 #[derive(Clone, Debug, Display)]
-pub struct ValeConfig {
-    
-}
+pub struct ValeConfig {}
 impl SemanticVersion {
     pub fn from_string(version: &str) -> SemanticVersion {
         let mut parts = version.split('.');

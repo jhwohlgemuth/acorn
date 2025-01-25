@@ -1,7 +1,6 @@
 use acorn_lib::schema::{ProjectSections, Research, ResearchActivity, Sections};
 use acorn_lib::util::get_extension;
-use base64::engine::general_purpose;
-use base64::prelude::*;
+use data_encoding::BASE64;
 use derive_more::Display;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
@@ -88,7 +87,7 @@ pub struct FactSheetHead {
 }
 impl DataUri {
     fn from_bytes(data: &[u8], mime: MimeType) -> String {
-        format!("data:{};base64,{}", mime, general_purpose::STANDARD.encode(data))
+        format!("data:{};base64,{}", mime, BASE64.encode(data))
     }
     fn from_asset(name: &str) -> String {
         let mime = MimeType::from_str(name);
