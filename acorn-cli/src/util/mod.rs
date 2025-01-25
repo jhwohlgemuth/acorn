@@ -1,16 +1,20 @@
+use data_encoding::HEXUPPER;
 use derive_more::Display;
+use flate2::read::GzDecoder;
 use glob::glob;
 use is_executable::IsExecutable;
 use owo_colors::{OwoColorize, Style, Styled};
+use ring::digest::{Context, SHA256};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs::remove_file;
 use std::fs::File;
 use std::io::copy;
 use std::io::Cursor;
-use std::io::Read;
+use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
+use tar::Archive;
 use tracing::{debug, error, info};
 
 const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
@@ -138,8 +142,7 @@ pub fn download_vale(version: Option<SemanticVersion>) -> Result<PathBuf, String
         "windows" => "Windows_64-bit.zip",
         _ => {
             error!(os, "=> {}", Label::not_found());
-            // TODO: Add exitcode here
-            unimplemented!("Unrecognized operating system")
+            std::process::exit(exitcode::UNAVAILABLE);
         }
     };
     let release = match version.clone() {
@@ -158,15 +161,17 @@ pub fn download_vale(version: Option<SemanticVersion>) -> Result<PathBuf, String
                 Ok(value) => value.get(platform).unwrap().to_string(),
                 Err(_) => "".to_string(),
             };
-            println!("Downloaded checksum: {}", checksum);
-            // TODO: validate checksum using get_checksum
-            // TODO: Un(zip|tar) vale (includes LICENSE, README.md, and vale)
-            let vale = PathBuf::from("vale");
-            if make_executable(&vale) {
-                Ok(vale)
+            let binary = extract_vale(path.clone(), None);
+            if !checksum.eq(&get_checksum(path.clone())) {
+                error!(checksum, "=> {} Vale checksum", Label::invalid());
+                std::process::exit(exitcode::USAGE);
+            }
+            if make_executable(&binary) {
+                let _cleanup = remove_file(path);
+                Ok(binary)
             } else {
-                error!("=> {} Vale not executable", Label::invalid());
-                Err(format!("Failed to make {} executable", path.display()))
+                error!("=> {} vale not executable", Label::fail());
+                Err(format!("Failed to make {} executable", binary.display()))
             }
         }
         Err(error) => {
@@ -195,41 +200,48 @@ pub fn download_vale_checksums(
             .clone()
             .fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
                 let mut values = line.split("  ").collect::<Vec<&str>>();
-                let key = values.pop().unwrap()[11..].to_string();
+                let key = values.pop().unwrap()["vale_#.#.#_".len()..].to_string();
                 let value = values.pop().unwrap().to_string();
                 acc.insert(key, value);
                 acc
             });
+    debug!("=> {} Vale checksums {:#?}", Label::using(), checksums);
     Ok(checksums)
 }
-// pub fn extract(path: PathBuf) -> Result<PathBuf, String> {
-//     let tar_gz = File::open(path)?;
-//     let tar = GzDecoder::new(tar_gz);
-//     let mut archive = Archive::new(tar);
-//     archive.unpack(".")?;
-//     unimplemented!()
-// }
-// Get SHA256 hash of a file
-pub fn get_checksum(path: PathBuf) -> String {
-    if let Ok(content) = read_file(path) {
-        let hash = Sha256::digest(content);
-        format!("{:x}", hash)
-    } else {
-        unreachable!()
+pub fn extract_vale(path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
+    match get_extension(&path).as_str() {
+        "zip" => unimplemented!(),
+        _ => {
+            let tar_gz = File::open(path).unwrap();
+            let tar = GzDecoder::new(tar_gz);
+            let mut archive = Archive::new(tar);
+            let parent = match destination {
+                Some(value) => path_to_string(value),
+                None => "./bin/".to_string(),
+            };
+            let _ = archive.unpack(parent.clone());
+            debug!(parent, "=> {} Extracted vale binary", Label::using());
+            PathBuf::from(format!("{}/vale", parent))
+        }
     }
 }
-/// Get file extension
-///
-/// # Examples
-/// ```
-/// use std::path::Path;
-/// use pipe_lib::util::get_extension;
-///
-/// assert_eq!("txt", get_extension(Path::new("hello.txt")));
-/// assert_eq!("md", get_extension(Path::new("README.md")));
-/// assert_eq!("", get_extension(Path::new(".dotfile")));
-/// assert_eq!("", get_extension(Path::new("/path/to/folder")));
-/// ```
+// Get SHA256 hash of a file
+pub fn get_checksum(path: PathBuf) -> String {
+    let input = File::open(path).unwrap();
+    let mut buffer = [0; 1024];
+    let mut context = Context::new(&SHA256);
+    let mut reader = BufReader::new(input);
+    loop {
+        let count = reader.read(&mut buffer).unwrap();
+        if count == 0 {
+            break;
+        }
+        context.update(&buffer[..count]);
+    }
+    let digest = context.finish();
+    let result = HEXUPPER.encode(digest.as_ref());
+    result.to_lowercase()
+}
 pub fn get_extension(path: &Path) -> String {
     path.extension()
         .unwrap_or_default()
@@ -264,17 +276,14 @@ pub fn make_executable(path: &PathBuf) -> bool {
     // TODO: Add windows support...pass through?
     path.is_executable()
 }
-/// Read content of a file to a string
-///
-/// Fails when the file cannot be found or read
-///
-/// # Examples
-/// ```
-/// use std::path::PathBuf;
-/// use pipe_lib::util::read_file;
-///
-/// let path = PathBuf::from("./tests/fixtures/template.json");
-/// let content = read_file(path).unwrap();
+pub fn path_to_string(path: PathBuf) -> String {
+    // NOTE: fs::canonicalize might cause problems on Windows
+    let result = match std::fs::canonicalize(path.as_path()) {
+        Ok(value) => value,
+        Err(_) => path,
+    };
+    result.to_str().unwrap().to_string()
+}
 pub fn read_file(path: PathBuf) -> Result<String, Box<dyn Error>> {
     let mut content = String::new();
     let _ = match File::open(path.clone()) {
