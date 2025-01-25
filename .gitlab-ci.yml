@@ -1,0 +1,25 @@
+default:
+  tags:
+    - cpu
+  image: rust
+  before_script:
+    - rustup component add rustfmt
+    - rustup component add clippy
+    - rustup target add x86_64-unknown-linux-gnu
+    - rustup target add x86_64-unknown-linux-musl
+
+variables:
+  USER: CI
+  EMAIL: wohlgemuthjh@ornl.gov
+
+stages:
+  - prepare
+  - test
+
+test:
+  stage: test
+  image: rust
+  inherit:
+    default: true
+    variables: true
+  script: make test-ci
