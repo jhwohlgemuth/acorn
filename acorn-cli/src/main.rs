@@ -450,6 +450,7 @@ fn main() -> Void {
         }
         Some(Commands::Format { .. }) => Ok(()),
         None => {
+            let _ = download_vale(None);
             println!("ACORN without a subcommand currently does nothing");
             Ok(())
         }
