@@ -1,4 +1,5 @@
 use crate::schema::{Contact, ProjectSections, Research, ResearchActivity, Sections};
+use crate::util::get_extension;
 use base64::engine::general_purpose;
 use base64::prelude::*;
 use derive_more::Display;
@@ -7,7 +8,6 @@ use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::*;
 use rust_embed::Embed;
-use std::ffi::OsStr;
 use std::path::Path;
 
 const BASE_URL: &str = "https://fact-sheets.ornl.gov";
@@ -69,12 +69,12 @@ pub enum MimeType {
 impl MimeType {
     fn from_str(value: &str) -> MimeType {
         let name = &value.to_lowercase();
-        match Path::new(name).extension().and_then(OsStr::to_str) {
-            Some("jpg") | Some("jpeg") => MimeType::Jpeg,
-            Some("png") => MimeType::Png,
-            Some("otf") => MimeType::Otf,
-            Some("svg") => MimeType::Svg,
-            Some(_) | None => unimplemented!("Unsupported MIME type"),
+        match get_extension(Path::new(name)).as_str() {
+            "jpg" | "jpeg" => MimeType::Jpeg,
+            "png" => MimeType::Png,
+            "otf" => MimeType::Otf,
+            "svg" => MimeType::Svg,
+            _ => unimplemented!("Unsupported MIME type"),
         }
     }
 }

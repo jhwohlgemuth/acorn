@@ -3,14 +3,14 @@ use glob::glob;
 use is_executable::IsExecutable;
 use owo_colors::{OwoColorize, Style, Styled};
 use serde::{Deserialize, Serialize};
-// use sha2::Digest;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::copy;
 use std::io::Cursor;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{debug, error, info};
 
 const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
@@ -154,10 +154,11 @@ pub fn download_vale(version: Option<SemanticVersion>) -> Result<PathBuf, String
     info!(url, "=> {} Vale release v{}", Label::using(), release);
     match download_binary(url.clone(), destination) {
         Ok(path) => {
-            let _checksum = match download_vale_checksums(version) {
+            let checksum = match download_vale_checksums(version) {
                 Ok(value) => value.get(platform).unwrap().to_string(),
                 Err(_) => "".to_string(),
             };
+            println!("Downloaded checksum: {}", checksum);
             // TODO: validate checksum using get_checksum
             // TODO: Un(zip|tar) vale (includes LICENSE, README.md, and vale)
             let vale = PathBuf::from("vale");
@@ -188,24 +189,54 @@ pub fn download_vale_checksums(
     let client = reqwest::blocking::Client::new();
     let response = client.get(url).send().unwrap();
     let content = response.text().unwrap();
-    for line in content.lines() {
-        let mut values = line.split("  ").collect::<Vec<&str>>();
-        let key = values.pop().unwrap();
-        let value = values.pop().unwrap();
-        println!("{} => Key: {:?}, Value: {:?}", Label::output(), key, value);
-    }
-    // TODO: Parse checksums
-    unimplemented!()
+    let checksums =
+        content
+            .lines()
+            .clone()
+            .fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
+                let mut values = line.split("  ").collect::<Vec<&str>>();
+                let key = values.pop().unwrap()[11..].to_string();
+                let value = values.pop().unwrap().to_string();
+                acc.insert(key, value);
+                acc
+            });
+    Ok(checksums)
 }
-/// Get SHA256 hash of a file
-// pub fn get_checksum(path: PathBuf) -> String {
-//     if let Ok(content) = read_file(path) {
-//         let hash = Sha256::digest(content);
-//         format!("{:x}", hash)
-//     } else {
-//         unreachable!()
-//     }
+// pub fn extract(path: PathBuf) -> Result<PathBuf, String> {
+//     let tar_gz = File::open(path)?;
+//     let tar = GzDecoder::new(tar_gz);
+//     let mut archive = Archive::new(tar);
+//     archive.unpack(".")?;
+//     unimplemented!()
 // }
+// Get SHA256 hash of a file
+pub fn get_checksum(path: PathBuf) -> String {
+    if let Ok(content) = read_file(path) {
+        let hash = Sha256::digest(content);
+        format!("{:x}", hash)
+    } else {
+        unreachable!()
+    }
+}
+/// Get file extension
+///
+/// # Examples
+/// ```
+/// use std::path::Path;
+/// use pipe_lib::util::get_extension;
+///
+/// assert_eq!("txt", get_extension(Path::new("hello.txt")));
+/// assert_eq!("md", get_extension(Path::new("README.md")));
+/// assert_eq!("", get_extension(Path::new(".dotfile")));
+/// assert_eq!("", get_extension(Path::new("/path/to/folder")));
+/// ```
+pub fn get_extension(path: &Path) -> String {
+    path.extension()
+        .unwrap_or_default()
+        .to_str()
+        .unwrap_or_default()
+        .to_string()
+}
 pub fn get_image_paths(root: PathBuf) -> Vec<PathBuf> {
     let extensions = ["jpg", "jpeg", "png", "svg"];
     let mut files = extensions
@@ -269,3 +300,6 @@ pub fn tokio_runtime() -> tokio::runtime::Runtime {
         .build()
         .unwrap()
 }
+
+#[cfg(test)]
+mod tests;
