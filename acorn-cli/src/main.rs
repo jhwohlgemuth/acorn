@@ -408,7 +408,8 @@ fn main() -> Void {
         }
         | Some(Commands::Format { .. }) => Ok(()),
         | None => {
-            let _ = download_vale(None);
+            let vale = Vale::init().build();
+            let _ = vale.download();
             Ok(())
         }
     }

@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 base64 = "0.22.1"
+bon = "3.3.2"
 console = { version = "0.15.7", default-features = false, features = [
     "ansi-parsing",
 ] }

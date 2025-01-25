@@ -1,3 +1,4 @@
+use bon::builder;
 use data_encoding::HEXUPPER;
 use derive_more::Display;
 use flate2::read::GzDecoder;
@@ -84,6 +85,18 @@ impl Label {
         value.style(style).to_string()
     }
 }
+#[derive(Clone, Debug)]
+#[derive(bon::Builder)]
+#[builder(start_fn = init)]
+pub struct Vale {
+    pub version: Option<SemanticVersion>,
+    pub binary: Option<PathBuf>,
+    pub config: Option<ValeConfig>,
+}
+#[derive(Clone, Debug, Display)]
+pub struct ValeConfig {
+    
+}
 impl SemanticVersion {
     pub fn from_string(version: &str) -> SemanticVersion {
         let mut parts = version.split('.');
@@ -91,6 +104,92 @@ impl SemanticVersion {
         let minor = parts.next().unwrap().parse::<u32>().unwrap();
         let patch = parts.next().unwrap().parse::<u32>().unwrap();
         SemanticVersion { major, minor, patch }
+    }
+}
+impl Vale {
+    pub fn download(self) -> Result<PathBuf, String> {
+        // https://doc.rust-lang.org/std/env/consts/constant.OS.html
+        let os = std::env::consts::OS.to_lowercase();
+        let platform = match os.as_str() {
+            | "linux" => "Linux_64-bit.tar.gz",
+            | "macos" | "apple" => "macOS_64-bit.tar.gz",
+            | "windows" => "Windows_64-bit.zip",
+            | _ => {
+                error!(os, "=> {}", Label::not_found());
+                std::process::exit(exitcode::UNAVAILABLE);
+            }
+        };
+        let release = match self.version.clone() {
+            | Some(value) => value,
+            | None => SemanticVersion::from_string(VALE_VERSION),
+        };
+        let url = format!("{}/download/v{}/vale_{}_{}", VALE_RELEASES_URL, release, release, platform);
+        let destination = PathBuf::from(".");
+        info!(url, "=> {} Vale release v{}", Label::using(), release);
+        match download_binary(url.clone(), destination) {
+            | Ok(path) => {
+                let checksum = match self.download_checksums() {
+                    | Ok(value) => value.get(platform).unwrap().to_string(),
+                    | Err(_) => "".to_string(),
+                };
+                let expected = get_checksum(path.clone());
+                if !checksum.eq(&expected) {
+                    error!(checksum, expected, "=> {}", Label::invalid());
+                    let _cleanup = remove_file(path);
+                    std::process::exit(exitcode::USAGE);
+                } else {
+                    info!(checksum, "=> {}", Label::pass());
+                }
+                let binary = Vale::extract(path.clone(), None);
+                if make_executable(&binary) {
+                    let _cleanup = remove_file(path);
+                    Ok(binary)
+                } else {
+                    error!("=> {} vale not executable", Label::fail());
+                    Err(format!("Failed to make {} executable", binary.display()))
+                }
+            }
+            | Err(error) => {
+                error!(error, url, "=> {} Vale download", Label::fail());
+                Err(error)
+            }
+        }
+    }
+    pub fn download_checksums(self) -> Result<HashMap<String, String>, String> {
+        let release = match self.version {
+            | Some(value) => value,
+            | None => SemanticVersion::from_string(VALE_VERSION),
+        };
+        let url = format!("{}/download/v{}/vale_{}_checksums.txt", VALE_RELEASES_URL, release, release);
+        let client = reqwest::blocking::Client::new();
+        let response = client.get(url).send().unwrap();
+        let content = response.text().unwrap();
+        let checksums = content.lines().clone().fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
+            let mut values = line.split("  ").collect::<Vec<&str>>();
+            let key = values.pop().unwrap()["vale_#.#.#_".len()..].to_string();
+            let value = values.pop().unwrap().to_string();
+            acc.insert(key, value);
+            acc
+        });
+        debug!("=> {} Vale checksums {:#?}", Label::using(), checksums);
+        Ok(checksums)
+    }
+    fn extract(path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
+        match get_extension(&path).as_str() {
+            | "zip" => unimplemented!(),
+            | _ => {
+                let tar_gz = File::open(path).unwrap();
+                let tar = GzDecoder::new(tar_gz);
+                let mut archive = Archive::new(tar);
+                let parent = match destination {
+                    | Some(value) => path_to_string(value),
+                    | None => "./bin/".to_string(),
+                };
+                let _ = archive.unpack(parent.clone());
+                debug!(parent, "=> {} Extracted vale binary", Label::using());
+                PathBuf::from(format!("{}/vale", parent))
+            }
+        }
     }
 }
 pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, String> {
@@ -115,87 +214,6 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
     let _ = runtime.block_on(download(url.clone(), destination.clone()));
     let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.join(filename))
-}
-pub fn download_vale(version: Option<SemanticVersion>) -> Result<PathBuf, String> {
-    // https://doc.rust-lang.org/std/env/consts/constant.OS.html
-    let os = std::env::consts::OS.to_lowercase();
-    let platform = match os.as_str() {
-        | "linux" => "Linux_64-bit.tar.gz",
-        | "macos" | "apple" => "macOS_64-bit.tar.gz",
-        | "windows" => "Windows_64-bit.zip",
-        | _ => {
-            error!(os, "=> {}", Label::not_found());
-            std::process::exit(exitcode::UNAVAILABLE);
-        }
-    };
-    let release = match version.clone() {
-        | Some(value) => value,
-        | None => SemanticVersion::from_string(VALE_VERSION),
-    };
-    let url = format!("{}/download/v{}/vale_{}_{}", VALE_RELEASES_URL, release, release, platform);
-    let destination = PathBuf::from(".");
-    info!(url, "=> {} Vale release v{}", Label::using(), release);
-    match download_binary(url.clone(), destination) {
-        | Ok(path) => {
-            let checksum = match download_vale_checksums(version) {
-                | Ok(value) => value.get(platform).unwrap().to_string(),
-                | Err(_) => "".to_string(),
-            };
-            if !checksum.eq(&get_checksum(path.clone())) {
-                error!(checksum, "=> {} Vale checksum", Label::invalid());
-                let _cleanup = remove_file(path);
-                std::process::exit(exitcode::USAGE);
-            }
-            let binary = extract_vale(path.clone(), None);
-            if make_executable(&binary) {
-                let _cleanup = remove_file(path);
-                Ok(binary)
-            } else {
-                error!("=> {} vale not executable", Label::fail());
-                Err(format!("Failed to make {} executable", binary.display()))
-            }
-        }
-        | Err(error) => {
-            error!(error, url, "=> {} Vale download", Label::fail());
-            Err(error)
-        }
-    }
-}
-pub fn download_vale_checksums(version: Option<SemanticVersion>) -> Result<HashMap<String, String>, String> {
-    let release = match version {
-        | Some(value) => value,
-        | None => SemanticVersion::from_string(VALE_VERSION),
-    };
-    let url = format!("{}/download/v{}/vale_{}_checksums.txt", VALE_RELEASES_URL, release, release);
-    let client = reqwest::blocking::Client::new();
-    let response = client.get(url).send().unwrap();
-    let content = response.text().unwrap();
-    let checksums = content.lines().clone().fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
-        let mut values = line.split("  ").collect::<Vec<&str>>();
-        let key = values.pop().unwrap()["vale_#.#.#_".len()..].to_string();
-        let value = values.pop().unwrap().to_string();
-        acc.insert(key, value);
-        acc
-    });
-    debug!("=> {} Vale checksums {:#?}", Label::using(), checksums);
-    Ok(checksums)
-}
-pub fn extract_vale(path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
-    match get_extension(&path).as_str() {
-        | "zip" => unimplemented!(),
-        | _ => {
-            let tar_gz = File::open(path).unwrap();
-            let tar = GzDecoder::new(tar_gz);
-            let mut archive = Archive::new(tar);
-            let parent = match destination {
-                | Some(value) => path_to_string(value),
-                | None => "./bin/".to_string(),
-            };
-            let _ = archive.unpack(parent.clone());
-            debug!(parent, "=> {} Extracted vale binary", Label::using());
-            PathBuf::from(format!("{}/vale", parent))
-        }
-    }
 }
 // Get SHA256 hash of a file
 // https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html
