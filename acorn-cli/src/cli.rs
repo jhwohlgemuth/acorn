@@ -86,9 +86,9 @@ pub enum Commands {
     ///
     ///     $> acorn export --path /path/to/data/data.json -vv
     ///
-    ///     $> acorn export --path /path/to/data --target pdf
+    ///     $> acorn export --path /path/to/data --target fact-sheet
     ///
-    ///     $> acorn export --path /path/to/data --target pdf --output /path/to/output
+    ///     $> acorn export -p /path/to/data -t fact-sheet -o /path/to/output
     ///
     #[clap(verbatim_doc_comment)]
     Export {

@@ -141,11 +141,12 @@ pub fn download_vale(version: Option<SemanticVersion>) -> Result<PathBuf, String
                 | Ok(value) => value.get(platform).unwrap().to_string(),
                 | Err(_) => "".to_string(),
             };
-            let binary = extract_vale(path.clone(), None);
             if !checksum.eq(&get_checksum(path.clone())) {
                 error!(checksum, "=> {} Vale checksum", Label::invalid());
+                let _cleanup = remove_file(path);
                 std::process::exit(exitcode::USAGE);
             }
+            let binary = extract_vale(path.clone(), None);
             if make_executable(&binary) {
                 let _cleanup = remove_file(path);
                 Ok(binary)
