@@ -226,6 +226,7 @@ pub fn extract_vale(path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
     }
 }
 // Get SHA256 hash of a file
+// https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html
 pub fn get_checksum(path: PathBuf) -> String {
     let input = File::open(path).unwrap();
     let mut buffer = [0; 1024];

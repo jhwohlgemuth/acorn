@@ -28,13 +28,11 @@ use tracing_subscriber::EnvFilter;
 use uriparse::URI;
 
 mod cli;
-mod schema;
 mod template;
-mod util;
 
+use acorn_lib::schema::*;
+use acorn_lib::util::*;
 use cli::{Arguments, Commands, Target};
-use schema::*;
-use util::*;
 
 pub type Void = eyre::Result<(), eyre::Report>;
 

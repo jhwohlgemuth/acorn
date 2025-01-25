@@ -5,6 +5,7 @@ use lazy_static::lazy_static;
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher};
 use owo_colors::OwoColorize;
+use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -233,6 +234,33 @@ pub struct Research {
     pub focus: String,
     #[validate(custom(function = "validate_attribute_areas"))]
     pub areas: Vec<String>,
+}
+impl View for Contact {
+    fn render(&self) -> VirtualNode {
+        let Contact {
+            first,
+            last,
+            title: role,
+            email,
+            phone,
+            ..
+        } = self;
+        html! {
+            <section id="contact">
+                <div>
+                    <span class="label">Contact</span>
+                    <span class="spacer"> </span>
+                    <span class="name">{ format!("{} {}", first, last) }</span>
+                    <span class="spacer">|</span>
+                    <span class="title">{ role }</span>
+                    <span class="spacer">|</span>
+                    <span class="email">{ email }</span>
+                    <span class="spacer">|</span>
+                    <span class="phone">{ phone }</span>
+                </div>
+            </section>
+        }
+    }
 }
 impl Metadata {
     pub fn get_first_graphic_href(self) -> String {

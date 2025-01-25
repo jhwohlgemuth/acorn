@@ -1,5 +1,5 @@
-use crate::schema::{Contact, ProjectSections, Research, ResearchActivity, Sections};
-use crate::util::get_extension;
+use acorn_lib::schema::{ProjectSections, Research, ResearchActivity, Sections};
+use acorn_lib::util::get_extension;
 use base64::engine::general_purpose;
 use base64::prelude::*;
 use derive_more::Display;
@@ -107,33 +107,6 @@ impl DataUri {
                 let data = binding.data.as_ref();
                 DataUri::from_bytes(data, mime)
             }
-        }
-    }
-}
-impl View for Contact {
-    fn render(&self) -> VirtualNode {
-        let Contact {
-            first,
-            last,
-            title: role,
-            email,
-            phone,
-            ..
-        } = self;
-        html! {
-            <section id="contact">
-                <div>
-                    <span class="label">Contact</span>
-                    <span class="spacer"> </span>
-                    <span class="name">{ format!("{} {}", first, last) }</span>
-                    <span class="spacer">|</span>
-                    <span class="title">{ role }</span>
-                    <span class="spacer">|</span>
-                    <span class="email">{ email }</span>
-                    <span class="spacer">|</span>
-                    <span class="phone">{ phone }</span>
-                </div>
-            </section>
         }
     }
 }

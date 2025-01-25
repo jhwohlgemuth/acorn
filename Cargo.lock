@@ -6,9 +6,45 @@ version = 4
 name = "acorn-cli"
 version = "0.0.1"
 dependencies = [
+ "acorn-lib",
  "assert_cmd",
  "base64 0.22.1",
  "clap",
+ "clap-verbosity-flag",
+ "color-eyre",
+ "console",
+ "data-encoding",
+ "derive_more",
+ "dotenvy",
+ "exitcode",
+ "fast_qr",
+ "glob",
+ "indicatif",
+ "lazy_static",
+ "once_cell",
+ "owo-colors 4.1.0",
+ "percy-dom",
+ "playwright",
+ "pretty_assertions",
+ "rayon",
+ "reqwest 0.12.12",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-indicatif",
+ "tracing-log",
+ "tracing-subscriber",
+ "uriparse",
+]
+
+[[package]]
+name = "acorn-lib"
+version = "0.0.1"
+dependencies = [
+ "assert_cmd",
+ "base64 0.22.1",
  "clap-verbosity-flag",
  "color-eyre",
  "console",
@@ -35,7 +71,6 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_json",
- "sha2",
  "sysinfo",
  "tar",
  "tempfile",
