@@ -14,7 +14,7 @@
       }
     ],
     "keywords": ["automation"],
-    "sponsors": ["ORNL"],
+    "sponsors": ["DOD"],
     "technology": [
       "language::JavaScript",
       "language::TypeSpec",

@@ -340,25 +340,9 @@ impl ResearchActivity {
             },
         };
         self.meta.graphics = Some(vec![first_graphic]);
-        self
-    }
-    pub fn parse(mut self) -> ResearchActivity {
-        // TODO: Move fuzzy resolution to format function
-        self.meta = Metadata {
-            id: self.meta.id.clone(),
-            doi: self.meta.doi.clone(),
-            publication: self.meta.publication.clone(),
-            programs: self.meta.programs.clone(),
-            managers: self.meta.managers.clone(),
-            schema_type: SchemaType::Project,
-            archive: self.meta.archive,
-            draft: self.meta.draft,
-            website: self.clone().meta.website,
-            graphics: self.clone().meta.graphics,
-            keywords: self.clone().resolve("keyword"),
-            sponsors: self.clone().resolve("sponsor"),
-            technology: self.clone().resolve("technology"),
-        };
+        self.meta.keywords = self.clone().resolve("keyword");
+        self.meta.sponsors = self.clone().resolve("sponsor");
+        self.meta.technology = self.clone().resolve("technology");
         self
     }
     pub fn read(path: PathBuf) -> serde_json::Result<ResearchActivity> {
@@ -380,12 +364,12 @@ impl ResearchActivity {
         };
         match parsed {
             Ok(data) => {
-                let parsed = data.parse();
+                let parsed = data.format(Some(path.clone()));
                 debug!(path = path.to_str().unwrap(), "=> {}", label);
                 trace!(
                     "=> {} Research activity data = {:#?}",
                     label,
-                    parsed.dimmed()
+                    parsed.dimmed().cyan()
                 );
                 Ok(parsed)
             }

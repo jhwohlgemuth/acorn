@@ -246,7 +246,7 @@ impl GitlabTreeEntry {
 }
 async fn generate_factsheet_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
     let data = match ResearchActivity::read(path.clone()) {
-        Ok(value) => value.parse().format(Some(path.clone())),
+        Ok(value) => value.format(Some(path.clone())),
         Err(err) => {
             error!(path = path.to_str().unwrap(), "=> {} {err}", Label::fail());
             unimplemented!()
