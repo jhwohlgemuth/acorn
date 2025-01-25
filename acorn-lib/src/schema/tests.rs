@@ -6,8 +6,8 @@ use pretty_assertions::assert_eq;
 fn test_read() {
     for entry in glob("./**/*").expect("Failed to read glob pattern") {
         match entry {
-            Ok(path) => println!("{:?}", path.display()),
-            Err(e) => println!("{:?}", e),
+            | Ok(path) => println!("{:?}", path.display()),
+            | Err(e) => println!("{:?}", e),
         }
     }
 }
@@ -22,40 +22,19 @@ fn test_fuzzy_keywords() {
 }
 #[test]
 fn test_fuzzy_sponsors() {
-    assert_eq!(
-        resolve_sponsor("ORNL".into()),
-        Some("Oak Ridge National Laboratory".into())
-    );
-    assert_eq!(
-        resolve_sponsor("Dept of Energy".into()),
-        Some("Department of Energy".into())
-    );
-    assert_eq!(
-        resolve_sponsor("Dept. of Energy".into()),
-        Some("Department of Energy".into())
-    );
-    assert_eq!(
-        resolve_sponsor("DHS ".into()),
-        Some("Department of Homeland Security".into())
-    );
-    assert_eq!(
-        resolve_sponsor(" epa".into()),
-        Some("Environmental Protection Agency".into())
-    );
-    assert_eq!(
-        resolve_sponsor("darpa".into()),
-        Some("Defense Advanced Research Projects Agency".into())
-    );
+    assert_eq!(resolve_sponsor("ORNL".into()), Some("Oak Ridge National Laboratory".into()));
+    assert_eq!(resolve_sponsor("Dept of Energy".into()), Some("Department of Energy".into()));
+    assert_eq!(resolve_sponsor("Dept. of Energy".into()), Some("Department of Energy".into()));
+    assert_eq!(resolve_sponsor("DHS ".into()), Some("Department of Homeland Security".into()));
+    assert_eq!(resolve_sponsor(" epa".into()), Some("Environmental Protection Agency".into()));
+    assert_eq!(resolve_sponsor("darpa".into()), Some("Defense Advanced Research Projects Agency".into()));
 }
 #[test]
 fn test_fuzzy_technologies() {
     assert_eq!(resolve_technology("astro".into()), Some("astro".into()));
     assert_eq!(resolve_technology("React.js".into()), Some("react".into()));
     assert_eq!(resolve_technology("rs".into()), Some("rust".into()));
-    assert_eq!(
-        resolve_technology("Geospatial Data Abstraction Lib".into()),
-        Some("gdal".into())
-    );
+    assert_eq!(resolve_technology("Geospatial Data Abstraction Lib".into()), Some("gdal".into()));
     assert_eq!(resolve_technology("foobarbaz".into()), None);
 }
 #[test]
@@ -138,12 +117,7 @@ fn test_validate_is_doi() {
 #[test]
 fn test_validate_is_kebabcase() {
     let valid = ["this-is-valid", "thisisvalid"];
-    let invalid = [
-        "this_is_not_valid",
-        "ThisIsNotValid",
-        "this is not valid",
-        "This-Is-Not-Valid",
-    ];
+    let invalid = ["this_is_not_valid", "ThisIsNotValid", "this is not valid", "This-Is-Not-Valid"];
     for x in valid.iter() {
         assert!(validate_is_kebabcase(x).is_ok());
     }

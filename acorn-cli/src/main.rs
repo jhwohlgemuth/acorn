@@ -90,18 +90,14 @@ impl Bucket {
     fn parse(response: reqwest::blocking::Response) -> Vec<String> {
         let content = response.text().unwrap();
         let data: Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
-        debug!(
-            "=> {} {} GitLab tree entries",
-            Label::found(),
-            data.as_ref().unwrap().len()
-        );
+        debug!("=> {} {} GitLab tree entries", Label::found(), data.as_ref().unwrap().len());
         match data {
-            Ok(entries) => entries
+            | Ok(entries) => entries
                 .into_iter()
                 .filter(GitlabTreeEntry::is_blob)
                 .map(GitlabTreeEntry::get_path)
                 .collect(),
-            Err(_) => {
+            | Err(_) => {
                 error!("=> {} Failed to process GitLab tree entries", Label::fail());
                 vec![]
             }
@@ -109,10 +105,10 @@ impl Bucket {
     }
     fn get_domain(&self) -> String {
         match URI::try_from(self.uri.as_str()) {
-            Ok(uri) => uri.host().unwrap().to_string(),
-            Err(_) => match self.provider {
-                Provider::GitHub => "github.com".to_string(),
-                Provider::GitLab => "gitlab.com".to_string(),
+            | Ok(uri) => uri.host().unwrap().to_string(),
+            | Err(_) => match self.provider {
+                | Provider::GitHub => "github.com".to_string(),
+                | Provider::GitLab => "gitlab.com".to_string(),
             },
         }
     }
@@ -121,25 +117,24 @@ impl Bucket {
         reqwest::blocking::get(url)
     }
     fn get_tree_url(&self, page: u32) -> String {
-        let Self {
-            id, schema_type, ..
-        } = self;
+        let Self { id, schema_type, .. } = self;
         let per_page = 3;
         let url = format!(
             "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path={}",
-            self.get_domain(), id, per_page, page, schema_type
+            self.get_domain(),
+            id,
+            per_page,
+            page,
+            schema_type
         );
         debug!(url = url.as_str(), "=> {}", Label::using());
         url
     }
     fn download_files(self: Bucket, output: PathBuf) {
         match self.provider {
-            Provider::GitHub => unimplemented!(),
-            Provider::GitLab => {
-                info!(
-                    "=> Downloading {} research data from {}...",
-                    self.schema_type, &self.uri
-                );
+            | Provider::GitHub => unimplemented!(),
+            | Provider::GitLab => {
+                info!("=> Downloading {} research data from {}...", self.schema_type, &self.uri);
                 let paths = self.clone().get_file_paths();
                 let progress = ProgressBar::new(paths.len() as u64);
                 progress.set_style(ProgressStyle::with_template(PROGRESS_BAR_TEMPLATE).unwrap());
@@ -162,30 +157,28 @@ impl Bucket {
     // https://docs.gitlab.com/ee/api/repositories.html
     fn get_file_paths(self: Bucket) -> Vec<String> {
         match self.provider {
-            Provider::GitHub => unimplemented!(),
-            Provider::GitLab => {
+            | Provider::GitHub => unimplemented!(),
+            | Provider::GitLab => {
                 fn get_page_count(response: &reqwest::blocking::Response) -> u32 {
                     fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
                         match headers.get(key) {
-                            Some(val) if !val.is_empty() => {
+                            | Some(val) if !val.is_empty() => {
                                 let value = val.to_str().unwrap().parse::<u32>().unwrap();
                                 debug!("=> {} {} = {}", Label::using(), key, value);
                                 value
                             }
-                            Some(_) | None => 0,
+                            | Some(_) | None => 0,
                         }
                     }
                     let headers = response.headers();
                     parse_header(headers, "x-total-pages")
                 }
                 match self.get_tree(1) {
-                    Ok(response) if response.status().is_success() => {
-                        (1..=get_page_count(&response))
-                            .into_par_iter()
-                            .map(|page| self.clone().get_file_paths_for_page(page))
-                            .reduce(std::vec::Vec::new, |a, b| [a, b].concat())
-                    }
-                    Ok(_) | Err(_) => {
+                    | Ok(response) if response.status().is_success() => (1..=get_page_count(&response))
+                        .into_par_iter()
+                        .map(|page| self.clone().get_file_paths_for_page(page))
+                        .reduce(std::vec::Vec::new, |a, b| [a, b].concat()),
+                    | Ok(_) | Err(_) => {
                         let url = self.get_tree_url(1);
                         error!("=> {} Failed to get paths from {}", Label::fail(), url);
                         vec![]
@@ -196,15 +189,15 @@ impl Bucket {
     }
     fn get_file_paths_for_page(self: Bucket, page: u32) -> Vec<String> {
         match self.get_tree(page) {
-            Ok(response) if response.status().is_success() => match self.get_tree(page) {
-                Ok(response) if response.status().is_success() => Bucket::parse(response),
-                Ok(_) | Err(_) => {
+            | Ok(response) if response.status().is_success() => match self.get_tree(page) {
+                | Ok(response) if response.status().is_success() => Bucket::parse(response),
+                | Ok(_) | Err(_) => {
                     let url = self.get_tree_url(1);
                     error!(url, page, "=> {} Failed to get paths", Label::fail());
                     vec![]
                 }
             },
-            Ok(_) | Err(_) => {
+            | Ok(_) | Err(_) => {
                 let url = self.get_tree_url(page);
                 error!(url, page, "=> {} Failed to get paths", Label::fail());
                 vec![]
@@ -215,8 +208,8 @@ impl Bucket {
 impl BucketsConfig {
     pub fn read_json(path: PathBuf) -> Result<BucketsConfig> {
         let content = match read_file(path.clone()) {
-            Ok(value) if !value.is_empty() => value,
-            Ok(_) | Err(_) => {
+            | Ok(value) if !value.is_empty() => value,
+            | Ok(_) | Err(_) => {
                 error!(
                     path = path.to_str().unwrap(),
                     "=> {} Bucket configuration content is not valid",
@@ -227,8 +220,8 @@ impl BucketsConfig {
         };
         let data: Result<BucketsConfig> = serde_json::from_str(&content);
         let label = match data {
-            Ok(_) => Label::using(),
-            Err(_) => Label::invalid(),
+            | Ok(_) => Label::using(),
+            | Err(_) => Label::invalid(),
         };
         trace!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
         data
@@ -244,8 +237,8 @@ impl GitlabTreeEntry {
 }
 async fn generate_factsheet_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
     let data = match ResearchActivity::read(path.clone()) {
-        Ok(value) => value.format(Some(path.clone())),
-        Err(err) => {
+        | Ok(value) => value.format(Some(path.clone())),
+        | Err(err) => {
             error!(path = path.to_str().unwrap(), "=> {} {err}", Label::fail());
             unimplemented!()
         }
@@ -254,29 +247,18 @@ async fn generate_factsheet_pdf(path: PathBuf, page: &Page, output: &Option<Path
     // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
     let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
     if File::create(&index).is_ok() {
-        page.goto_builder(&format!("file://{}", index.display()))
-            .goto()
-            .await
-            .unwrap();
+        page.goto_builder(&format!("file://{}", index.display())).goto().await.unwrap();
     };
-    page.set_content_builder(&content)
-        .set_content()
-        .await
-        .unwrap();
+    page.set_content_builder(&content).set_content().await.unwrap();
     match output {
-        Some(output_dir) => match create_dir_all(output_dir.clone()) {
-            Ok(_) => {
+        | Some(output_dir) => match create_dir_all(output_dir.clone()) {
+            | Ok(_) => {
                 let id = data.meta.id;
                 let output_path = format!("{}/{}.pdf", output_dir.display(), id);
                 debug!(path = output_path, "=> {} Output", Label::using());
-                page.pdf_builder()
-                    .path(output_path.into())
-                    .print_background(true)
-                    .pdf()
-                    .await
-                    .unwrap();
+                page.pdf_builder().path(output_path.into()).print_background(true).pdf().await.unwrap();
             }
-            Err(err) => {
+            | Err(err) => {
                 error!(
                     path = output_dir.clone().into_os_string().into_string().unwrap(),
                     "=> {} Create directory - {err}",
@@ -284,7 +266,7 @@ async fn generate_factsheet_pdf(path: PathBuf, page: &Page, output: &Option<Path
                 );
             }
         },
-        None => unreachable!(),
+        | None => unreachable!(),
     };
     let _remove = remove_file(index);
 }
@@ -293,7 +275,7 @@ fn main() -> Void {
     color_eyre::install()?;
     let args = Arguments::parse();
     match dotenv() {
-        Ok(_) if !dotenvy::var(LOG_LEVEL).unwrap_or_default().is_empty() => {
+        | Ok(_) if !dotenvy::var(LOG_LEVEL).unwrap_or_default().is_empty() => {
             // Configure tracing with a .env file
             let indicatif_layer = IndicatifLayer::new();
             let format = fmt::layer()
@@ -309,7 +291,7 @@ fn main() -> Void {
                 .with(EnvFilter::from_env(LOG_LEVEL))
                 .init();
         }
-        _ => {
+        | _ => {
             // Configure tracing with command line argument
             let format = fmt::format()
                 .with_level(DISPLAY_LEVEL)
@@ -326,14 +308,14 @@ fn main() -> Void {
         }
     }
     match &args.command {
-        Some(Commands::Check { path, .. }) => {
+        | Some(Commands::Check { path, .. }) => {
             fn check_file(path: &Path) {
                 match ResearchActivity::read(path.into()) {
-                    Ok(data) => match data.check() {
-                        Ok(_) => {
+                    | Ok(data) => match data.check() {
+                        | Ok(_) => {
                             info!("=> {} {} has no errors", Label::pass(), path.display());
                         }
-                        Err(found) => {
+                        | Err(found) => {
                             error!(
                                 "=> {} Found {} errors in {}: {:#?}",
                                 Label::fail(),
@@ -343,23 +325,18 @@ fn main() -> Void {
                             );
                         }
                     },
-                    Err(err) => {
-                        error!(
-                            "=> {} Read research activity data at {} - {}",
-                            Label::fail(),
-                            path.display(),
-                            err
-                        );
+                    | Err(err) => {
+                        error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), err);
                     }
                 }
             }
             if let Some(path) = path {
                 if path.is_dir() {
                     match glob(&format!("{}/**/*.json", path.to_str().unwrap())) {
-                        Ok(paths) => paths.collect::<Vec<_>>().par_iter().for_each(|path| {
+                        | Ok(paths) => paths.collect::<Vec<_>>().par_iter().for_each(|path| {
                             check_file(path.as_ref().unwrap());
                         }),
-                        Err(err) => {
+                        | Err(err) => {
                             error!("=> {} Failed to read glob pattern - {}", Label::fail(), err);
                         }
                     };
@@ -369,33 +346,26 @@ fn main() -> Void {
             }
             Ok(())
         }
-        Some(Commands::Download {
-            buckets, output, ..
-        }) => {
+        | Some(Commands::Download { buckets, output, .. }) => {
             if let Some(path) = buckets {
                 match BucketsConfig::read_json(path.clone()) {
-                    Ok(content) => {
+                    | Ok(content) => {
                         content.buckets.into_iter().for_each(|bucket| {
                             if let Some(path) = output {
                                 bucket.download_files(path.to_path_buf());
                             }
                         });
                     }
-                    Err(err) => {
+                    | Err(err) => {
                         error!("=> {} Failed to download data - {}", Label::fail(), err);
                     }
                 };
             }
             Ok(())
         }
-        Some(Commands::Export {
-            output,
-            path,
-            target,
-            ..
-        }) => {
+        | Some(Commands::Export { output, path, target, .. }) => {
             match target {
-                Target::FactSheet => {
+                | Target::FactSheet => {
                     tokio_runtime().block_on(async {
                         let playwright = Playwright::initialize().await.unwrap();
                         playwright.prepare().unwrap(); // Install browsers
@@ -404,34 +374,24 @@ fn main() -> Void {
                         let context = browser.context_builder().build().await.unwrap();
                         let page = context.new_page().await.unwrap();
                         let input_path = match path.clone() {
-                            Some(value) => value,
-                            None => unimplemented!(),
+                            | Some(value) => value,
+                            | None => unimplemented!(),
                         };
                         if input_path.is_dir() {
                             match glob(&format!("{}/**/*.json", input_path.to_str().unwrap())) {
-                                Ok(values) => {
+                                | Ok(values) => {
                                     let paths = values.flatten().collect::<Vec<_>>();
                                     let progress = ProgressBar::new(paths.len() as u64);
-                                    progress.set_style(
-                                        ProgressStyle::with_template(PROGRESS_BAR_TEMPLATE)
-                                            .unwrap(),
-                                    );
+                                    progress.set_style(ProgressStyle::with_template(PROGRESS_BAR_TEMPLATE).unwrap());
                                     for path in paths {
-                                        progress.set_message(format!(
-                                            "Generating PDF for {}",
-                                            path.display()
-                                        ));
+                                        progress.set_message(format!("Generating PDF for {}", path.display()));
                                         generate_factsheet_pdf(path, &page, output).await;
                                         progress.inc(1);
                                     }
                                     progress.finish_with_message(format!("{}Done", CHECKMARK));
                                 }
-                                Err(err) => {
-                                    error!(
-                                        "=> {} Failed to read glob pattern - {}",
-                                        Label::fail(),
-                                        err
-                                    );
+                                | Err(err) => {
+                                    error!("=> {} Failed to read glob pattern - {}", Label::fail(), err);
                                 }
                             };
                         } else {
@@ -442,12 +402,12 @@ fn main() -> Void {
                     });
                     Ok(())
                 }
-                Target::Poster => Ok(()),
-                Target::Highlight => Ok(()),
+                | Target::Poster => Ok(()),
+                | Target::Highlight => Ok(()),
             }
         }
-        Some(Commands::Format { .. }) => Ok(()),
-        None => {
+        | Some(Commands::Format { .. }) => Ok(()),
+        | None => {
             let _ = download_vale(None);
             Ok(())
         }

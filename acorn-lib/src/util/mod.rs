@@ -90,76 +90,56 @@ impl SemanticVersion {
         let major = parts.next().unwrap().parse::<u32>().unwrap();
         let minor = parts.next().unwrap().parse::<u32>().unwrap();
         let patch = parts.next().unwrap().parse::<u32>().unwrap();
-        SemanticVersion {
-            major,
-            minor,
-            patch,
-        }
+        SemanticVersion { major, minor, patch }
     }
 }
 pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, String> {
     async fn download(url: String, destination: PathBuf) -> Result<(), String> {
         let client = reqwest::Client::new();
         let response = client.get(url.clone()).send();
-        let filename = PathBuf::from(url.clone())
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
+        let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
         match response.await {
-            Ok(data) => match data.bytes().await {
-                Ok(content) => {
+            | Ok(data) => match data.bytes().await {
+                | Ok(content) => {
                     let mut output = File::create(destination.join(filename.clone())).unwrap();
                     let _ = copy(&mut Cursor::new(content.clone()), &mut output);
                     debug!(filename = filename, "=> {} Downloaded", Label::output());
                     Ok(())
                 }
-                Err(_) => Err(format!("No content downloaded from {url}")),
+                | Err(_) => Err(format!("No content downloaded from {url}")),
             },
-            Err(_) => Err(format!("Failed to download {url}")),
+            | Err(_) => Err(format!("Failed to download {url}")),
         }
     }
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
     let _ = runtime.block_on(download(url.clone(), destination.clone()));
-    let filename = PathBuf::from(url.clone())
-        .file_name()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
+    let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.join(filename))
 }
 pub fn download_vale(version: Option<SemanticVersion>) -> Result<PathBuf, String> {
     // https://doc.rust-lang.org/std/env/consts/constant.OS.html
     let os = std::env::consts::OS.to_lowercase();
     let platform = match os.as_str() {
-        "linux" => "Linux_64-bit.tar.gz",
-        "macos" | "apple" => "macOS_64-bit.tar.gz",
-        "windows" => "Windows_64-bit.zip",
-        _ => {
+        | "linux" => "Linux_64-bit.tar.gz",
+        | "macos" | "apple" => "macOS_64-bit.tar.gz",
+        | "windows" => "Windows_64-bit.zip",
+        | _ => {
             error!(os, "=> {}", Label::not_found());
             std::process::exit(exitcode::UNAVAILABLE);
         }
     };
     let release = match version.clone() {
-        Some(value) => value,
-        None => SemanticVersion::from_string(VALE_VERSION),
+        | Some(value) => value,
+        | None => SemanticVersion::from_string(VALE_VERSION),
     };
-    let url = format!(
-        "{}/download/v{}/vale_{}_{}",
-        VALE_RELEASES_URL, release, release, platform
-    );
+    let url = format!("{}/download/v{}/vale_{}_{}", VALE_RELEASES_URL, release, release, platform);
     let destination = PathBuf::from(".");
     info!(url, "=> {} Vale release v{}", Label::using(), release);
     match download_binary(url.clone(), destination) {
-        Ok(path) => {
+        | Ok(path) => {
             let checksum = match download_vale_checksums(version) {
-                Ok(value) => value.get(platform).unwrap().to_string(),
-                Err(_) => "".to_string(),
+                | Ok(value) => value.get(platform).unwrap().to_string(),
+                | Err(_) => "".to_string(),
             };
             let binary = extract_vale(path.clone(), None);
             if !checksum.eq(&get_checksum(path.clone())) {
@@ -174,50 +154,41 @@ pub fn download_vale(version: Option<SemanticVersion>) -> Result<PathBuf, String
                 Err(format!("Failed to make {} executable", binary.display()))
             }
         }
-        Err(error) => {
+        | Err(error) => {
             error!(error, url, "=> {} Vale download", Label::fail());
             Err(error)
         }
     }
 }
-pub fn download_vale_checksums(
-    version: Option<SemanticVersion>,
-) -> Result<HashMap<String, String>, String> {
+pub fn download_vale_checksums(version: Option<SemanticVersion>) -> Result<HashMap<String, String>, String> {
     let release = match version {
-        Some(value) => value,
-        None => SemanticVersion::from_string(VALE_VERSION),
+        | Some(value) => value,
+        | None => SemanticVersion::from_string(VALE_VERSION),
     };
-    let url = format!(
-        "{}/download/v{}/vale_{}_checksums.txt",
-        VALE_RELEASES_URL, release, release
-    );
+    let url = format!("{}/download/v{}/vale_{}_checksums.txt", VALE_RELEASES_URL, release, release);
     let client = reqwest::blocking::Client::new();
     let response = client.get(url).send().unwrap();
     let content = response.text().unwrap();
-    let checksums =
-        content
-            .lines()
-            .clone()
-            .fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
-                let mut values = line.split("  ").collect::<Vec<&str>>();
-                let key = values.pop().unwrap()["vale_#.#.#_".len()..].to_string();
-                let value = values.pop().unwrap().to_string();
-                acc.insert(key, value);
-                acc
-            });
+    let checksums = content.lines().clone().fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
+        let mut values = line.split("  ").collect::<Vec<&str>>();
+        let key = values.pop().unwrap()["vale_#.#.#_".len()..].to_string();
+        let value = values.pop().unwrap().to_string();
+        acc.insert(key, value);
+        acc
+    });
     debug!("=> {} Vale checksums {:#?}", Label::using(), checksums);
     Ok(checksums)
 }
 pub fn extract_vale(path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
     match get_extension(&path).as_str() {
-        "zip" => unimplemented!(),
-        _ => {
+        | "zip" => unimplemented!(),
+        | _ => {
             let tar_gz = File::open(path).unwrap();
             let tar = GzDecoder::new(tar_gz);
             let mut archive = Archive::new(tar);
             let parent = match destination {
-                Some(value) => path_to_string(value),
-                None => "./bin/".to_string(),
+                | Some(value) => path_to_string(value),
+                | None => "./bin/".to_string(),
             };
             let _ = archive.unpack(parent.clone());
             debug!(parent, "=> {} Extracted vale binary", Label::using());
@@ -243,12 +214,20 @@ pub fn get_checksum(path: PathBuf) -> String {
     let result = HEXUPPER.encode(digest.as_ref());
     result.to_lowercase()
 }
+/// Get file extension
+///
+/// # Examples
+/// ```
+/// use std::path::Path;
+/// use acorn_lib::util::get_extension;
+///
+/// assert_eq!("txt", get_extension(Path::new("hello.txt")));
+/// assert_eq!("md", get_extension(Path::new("README.md")));
+/// assert_eq!("", get_extension(Path::new(".dotfile")));
+/// assert_eq!("", get_extension(Path::new("/path/to/folder")));
+/// ```
 pub fn get_extension(path: &Path) -> String {
-    path.extension()
-        .unwrap_or_default()
-        .to_str()
-        .unwrap_or_default()
-        .to_string()
+    path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string()
 }
 pub fn get_image_paths(root: PathBuf) -> Vec<PathBuf> {
     let extensions = ["jpg", "jpeg", "png", "svg"];
@@ -262,9 +241,7 @@ pub fn get_image_paths(root: PathBuf) -> Vec<PathBuf> {
     files
 }
 pub fn get_parent(path: String) -> String {
-    PathBuf::from(PathBuf::from(path).parent().unwrap())
-        .display()
-        .to_string()
+    PathBuf::from(PathBuf::from(path).parent().unwrap()).display().to_string()
 }
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 pub fn make_executable(path: &PathBuf) -> bool {
@@ -280,24 +257,20 @@ pub fn make_executable(path: &PathBuf) -> bool {
 pub fn path_to_string(path: PathBuf) -> String {
     // NOTE: fs::canonicalize might cause problems on Windows
     let result = match std::fs::canonicalize(path.as_path()) {
-        Ok(value) => value,
-        Err(_) => path,
+        | Ok(value) => value,
+        | Err(_) => path,
     };
     result.to_str().unwrap().to_string()
 }
 pub fn read_file(path: PathBuf) -> Result<String, Box<dyn Error>> {
     let mut content = String::new();
     let _ = match File::open(path.clone()) {
-        Ok(mut file) => {
+        | Ok(mut file) => {
             debug!(path = path.to_str().unwrap(), "=> {}", Label::read());
             file.read_to_string(&mut content)
         }
-        Err(err) => {
-            error!(
-                path = path.to_str().unwrap(),
-                "=> {} Cannot read file",
-                Label::fail()
-            );
+        | Err(err) => {
+            error!(path = path.to_str().unwrap(), "=> {} Cannot read file", Label::fail());
             Err(err)
         }
     };
@@ -305,10 +278,7 @@ pub fn read_file(path: PathBuf) -> Result<String, Box<dyn Error>> {
 }
 pub fn tokio_runtime() -> tokio::runtime::Runtime {
     debug!("=> {} Tokio runtime", Label::using());
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
+    tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap()
 }
 
 #[cfg(test)]

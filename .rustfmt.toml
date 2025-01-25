@@ -1,0 +1,5 @@
+# brace_style = "PreferSameLine"
+match_arm_leading_pipes = "Always"
+max_width = 150
+# normalize_comments = true
+# where_single_line = true
