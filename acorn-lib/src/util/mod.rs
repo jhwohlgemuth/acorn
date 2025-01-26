@@ -88,7 +88,8 @@ impl Label {
         value.style(style).to_string()
     }
 }
-#[derive(Clone, Debug, bon::Builder)]
+#[derive(Clone, Debug, bon::Builder, Display)]
+#[display("{:?}", version)]
 #[builder(start_fn = init)]
 pub struct Vale {
     pub version: Option<SemanticVersion>,

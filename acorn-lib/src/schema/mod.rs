@@ -259,6 +259,32 @@ impl Metadata {
     }
 }
 impl ResearchActivity {
+    pub fn extract_prose(self) -> String {
+        let sections = match self.sections {
+            | Sections::Highlight(_) => unimplemented!(),
+            | Sections::Project(ProjectSections {
+                introduction,
+                challenge,
+                approach,
+                outcomes,
+                research,
+                ..
+            }) => {
+                let Research { focus, areas } = research;
+                format!(
+                    "{} {} {} The project has the following outcomes: {} The project research focus is \"{}\". The project has the following research areas: {}.",
+                    introduction,
+                    challenge,
+                    approach,
+                    outcomes.join(", "),
+                    focus,
+                    areas.join(", ")
+                )
+            }
+            | Sections::Organization(_) => unimplemented!(),
+        };
+        format!("The subtitle is \"{}\". {}", self.subtitle, sections)
+    }
     fn resolve(self, name: &str) -> Vec<Fuzzy> {
         let mut data: Vec<_> = match name {
             | "keyword" => self.meta.keywords.into_iter().flat_map(resolve_keyword).collect(),

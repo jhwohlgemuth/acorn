@@ -75,20 +75,24 @@ fn main() -> Void {
         | Some(Commands::Check { path, .. }) => {
             fn check_file(path: &Path) {
                 match ResearchActivity::read(path.into()) {
-                    | Ok(data) => match data.check() {
-                        | Ok(_) => {
-                            info!("=> {} {} has no errors", Label::pass(), path.display());
+                    | Ok(data) => {
+                        match data.clone().check() {
+                            | Ok(_) => {
+                                info!("=> {} {} has no errors", Label::pass(), path.display());
+                            }
+                            | Err(found) => {
+                                error!(
+                                    "=> {} Found {} errors in {}: {:#?}",
+                                    Label::fail(),
+                                    get_error_count(found.clone()),
+                                    path.display(),
+                                    found,
+                                );
+                            }
                         }
-                        | Err(found) => {
-                            error!(
-                                "=> {} Found {} errors in {}: {:#?}",
-                                Label::fail(),
-                                get_error_count(found.clone()),
-                                path.display(),
-                                found,
-                            );
-                        }
-                    },
+                        let prose = data.clone().extract_prose();
+                        println!("{:?}", prose.clone());
+                    }
                     | Err(err) => {
                         error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), err);
                     }
