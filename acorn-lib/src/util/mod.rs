@@ -1,4 +1,5 @@
 use bon::builder;
+use console::Emoji;
 use data_encoding::HEXUPPER;
 use derive_more::Display;
 use flate2::read::GzDecoder;
@@ -37,6 +38,8 @@ pub struct SemanticVersion {
     pub patch: u32,
 }
 impl Label {
+    pub const CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
+    pub const PROGRESS_BAR_TEMPLATE: &str = "{spinner:.green} {pos}/{len} [{bar:.green}] {msg}";
     pub fn invalid() -> String {
         Label::fmt_invalid("INVALID")
     }

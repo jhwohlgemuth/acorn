@@ -1,13 +1,17 @@
 use acorn_lib::schema::{ProjectSections, Research, ResearchActivity, Sections};
-use acorn_lib::util::get_extension;
+use acorn_lib::util::{get_extension, Label};
 use data_encoding::BASE64;
 use derive_more::Display;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::*;
+use playwright::api::Page;
 use rust_embed::Embed;
+use std::fs::{create_dir_all, remove_file, File};
 use std::path::Path;
+use std::path::{self, PathBuf};
+use tracing::{debug, error};
 
 const BASE_URL: &str = "https://fact-sheets.ornl.gov";
 
@@ -219,4 +223,39 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
         | Sections::Highlight(_) => unimplemented!("Highlight not implemented"),
         | Sections::Organization(_) => unimplemented!("Organization not implemented"),
     }
+}
+pub async fn generate_factsheet_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
+    let data = match ResearchActivity::read(path.clone()) {
+        | Ok(value) => value.format(Some(path.clone())),
+        | Err(err) => {
+            error!(path = path.to_str().unwrap(), "=> {} {err}", Label::fail());
+            unimplemented!()
+        }
+    };
+    let content = factsheet(data.clone()).to_string();
+    // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
+    let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
+    if File::create(&index).is_ok() {
+        page.goto_builder(&format!("file://{}", index.display())).goto().await.unwrap();
+    };
+    page.set_content_builder(&content).set_content().await.unwrap();
+    match output {
+        | Some(output_dir) => match create_dir_all(output_dir.clone()) {
+            | Ok(_) => {
+                let id = data.meta.id;
+                let output_path = format!("{}/{}.pdf", output_dir.display(), id);
+                debug!(path = output_path, "=> {} Output", Label::using());
+                page.pdf_builder().path(output_path.into()).print_background(true).pdf().await.unwrap();
+            }
+            | Err(err) => {
+                error!(
+                    path = output_dir.clone().into_os_string().into_string().unwrap(),
+                    "=> {} Create directory - {err}",
+                    Label::fail()
+                );
+            }
+        },
+        | None => unreachable!(),
+    };
+    let _remove = remove_file(index);
 }
