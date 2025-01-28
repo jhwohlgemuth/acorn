@@ -1,22 +1,24 @@
 use crate::util::*;
 use bon::builder;
+use color_eyre::owo_colors::OwoColorize;
 use derive_more::Display;
+use directories::ProjectDirs;
 use duct::cmd;
 use flate2::read::GzDecoder;
 use ini::Ini;
 use std::collections::HashMap;
 use std::fs::remove_file;
 use std::fs::File;
+use std::io::prelude::*;
 use std::path::PathBuf;
 use tar::Archive;
-use tempfile::NamedTempFile;
 use tracing::{debug, error, info};
 
 const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
 const VALE_VERSION: &str = "3.9.4";
 
 pub trait StaticAnalyzer {
-    fn analyze(self, content: String) -> Result<std::process::Output, std::io::Error>;
+    fn analyze(self, id: String, content: String) -> Result<std::process::Output, std::io::Error>;
     fn download(self, config: Option<ValeConfig>) -> Self;
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     fn extract(path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
@@ -44,19 +46,37 @@ pub struct ValeConfig {
     pub disabled: Vec<String>,
 }
 impl StaticAnalyzer for Vale {
-    fn analyze(self, content: String) -> Result<std::process::Output, std::io::Error> {
-        // TODO: Save prose to project directory - cache = <id>.json
-        let file = NamedTempFile::new().expect("Failed to create temporary file");
-        std::fs::write(file.path(), content).expect("Unable to write to temporary file");
-        println!("{}", file.path().display());
-        let path = match self.binary {
-            | Some(value) => value,
-            | None => {
-                error!("=> {} Vale binary", Label::not_found());
-                std::process::exit(exitcode::UNAVAILABLE);
+    fn analyze(self, id: String, content: String) -> Result<std::process::Output, std::io::Error> {
+        match ProjectDirs::from("org", "ornl", "acorn") {
+            | Some(dirs) => {
+                let cache = dirs.cache_dir();
+                let path = cache.join(format!("{}.txt", id));
+                std::fs::create_dir_all(cache).expect("Unable to create cache directory {cache}");
+                let mut file = match File::create(&path) {
+                    | Ok(file) => file,
+                    | Err(why) => panic!("=> {} Create file {} - {}", Label::fail(), path.display(), why),
+                };
+                // std::fs::write(path, content).expect("Unable to write to temporary file");
+                file.write_all(content.as_bytes()).expect("Unable to write to temporary file");
+                let binary = match self.binary {
+                    | Some(value) => value,
+                    | None => {
+                        error!("=> {} Vale binary", Label::not_found());
+                        std::process::exit(exitcode::UNAVAILABLE);
+                    }
+                };
+                println!("\n\n");
+                error!("=> {} {} = {}", Label::using(), id.underline(), content);
+                match self.config {
+                    | Some(config) => cmd!(binary, "--config", config.path, "--no-wrap", path).run(),
+                    | None => {
+                        error!("=> {} Vale configuration", Label::not_found());
+                        std::process::exit(exitcode::UNAVAILABLE);
+                    }
+                }
             }
-        };
-        cmd!(path, "--config", self.config.unwrap().path, "--no-wrap", file.path()).run()
+            | None => unreachable!(),
+        }
     }
     // TODO: Check if binary has already been downloaded
     fn download(self, config: Option<ValeConfig>) -> Vale {
@@ -167,6 +187,7 @@ impl StaticAnalyzer for Vale {
 }
 impl Default for ValeConfig {
     fn default() -> Self {
+        debug!("=> {} Default Vale configuration", Label::using());
         ValeConfig::init()
             .packages(to_string(vec!["Google", "proselint", "write-good", "Readability", "Joblint"]))
             .vocabularies(to_string(vec![]))
@@ -189,7 +210,7 @@ impl Default for ValeConfig {
     }
 }
 impl ValeConfig {
-    pub fn ini(self) -> Ini {
+    pub fn ini(&self) -> Ini {
         let ValeConfig {
             packages,
             vocabularies,
@@ -203,11 +224,13 @@ impl ValeConfig {
             .set("StylesPath", "styles");
         conf.with_section(Some("*"))
             .set("BasedOnStyles", format!("Vale, {}", packages.join(", ")));
-        disabled.into_iter().for_each(|rule| {
+        disabled.iter().for_each(|rule| {
             conf.with_section(Some("*")).set(rule, "NO");
         });
-        // conf.write_to(&mut std::io::stdout()).unwrap();
-        let _save = conf.write_to_file(self.path);
         conf
+    }
+    pub fn save(self) -> ValeConfig {
+        let _save = self.ini().write_to_file(self.clone().path);
+        self
     }
 }

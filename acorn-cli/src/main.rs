@@ -95,13 +95,14 @@ fn main() -> Void {
                     }
                 }
             }
-            fn anazlye_file(path: &Path) {
+            fn analyze_file(path: &Path) {
                 let config = ValeConfig::default();
+                let _save = config.clone().save();
                 let vale = Vale::init().config(config).build().download(None);
                 let _sync = vale.clone().sync();
                 match ResearchActivity::read(path.into()) {
                     | Ok(data) => {
-                        let _ = vale.clone().analyze(data.extract_prose());
+                        let _ = vale.clone().analyze(data.clone().meta.id, data.extract_prose());
                     }
                     | Err(err) => {
                         error!("=> {} Read research activity data at - {}", Label::fail(), err);
@@ -121,14 +122,15 @@ fn main() -> Void {
                     match glob(&format!("{}/**/*.json", path.to_str().unwrap())) {
                         | Ok(paths) => {
                             let config = ValeConfig::default();
+                            let _save = config.clone().save();
                             let vale = Vale::init().config(config).build().download(None);
                             let _sync = vale.clone().sync();
                             paths
                                 .collect::<Vec<_>>()
-                                .par_iter()
+                                .iter()
                                 .for_each(|path| match ResearchActivity::read(path.as_ref().unwrap().into()) {
                                     | Ok(data) => {
-                                        let _ = vale.clone().analyze(data.extract_prose());
+                                        let _ = vale.clone().analyze(data.clone().meta.id, data.extract_prose());
                                     }
                                     | Err(err) => {
                                         error!("=> {} Read research activity data at - {}", Label::fail(), err);
@@ -141,7 +143,7 @@ fn main() -> Void {
                     };
                 } else {
                     check_file(&path.clone());
-                    anazlye_file(&path.clone());
+                    analyze_file(&path.clone());
                 }
             }
             Ok(())
@@ -207,11 +209,6 @@ fn main() -> Void {
             }
         }
         | Some(Commands::Format { .. }) => Ok(()),
-        | None => {
-            let config = ValeConfig::default();
-            let vale = Vale::init().config(config).build().download(None);
-            let _ = vale.analyze("hellow world".to_string());
-            Ok(())
-        }
+        | None => Ok(()),
     }
 }
