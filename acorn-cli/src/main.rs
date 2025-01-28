@@ -91,8 +91,6 @@ fn main() -> Void {
                                 );
                             }
                         }
-                        let prose = data.clone().extract_prose();
-                        println!("{:?}", prose.clone());
                     }
                     | Err(err) => {
                         error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), err);
