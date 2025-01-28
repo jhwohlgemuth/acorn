@@ -13,6 +13,8 @@ console = { version = "0.15.7", default-features = false, features = [
 ] }
 data-encoding = "2.7.0"
 derive_more = { version = "1.0.0", features = ["display", "from_str"] }
+directories = "6.0.0"
+duct = "0.13.7"
 fancy-regex = "0.14.0"
 fast_qr = { version = "0.12.7", features = ["image"] }
 flate2 = "1.0.35"
@@ -25,6 +27,7 @@ once_cell = "1.20.2"
 percy-dom = "0.10.0"
 playwright = "0.0.20"
 ring = "0.17.8"
+rust-ini = "0.21.1"
 sysinfo = "0.33.1"
 tar = "0.4.43"
 tempfile = "3.15.0"
@@ -46,8 +49,6 @@ tracing-indicatif.workspace = true
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 uriparse = { workspace = true }
-duct = "0.13.7"
-rust-ini = "0.21.1"
 
 [lints.rust]
 unsafe_code = "forbid"

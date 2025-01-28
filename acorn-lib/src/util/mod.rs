@@ -19,7 +19,7 @@ pub struct Label {}
 /// Semantic version
 ///
 /// see <https://semver.org/>
-#[derive(Clone, Debug, Deserialize, Display, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Serialize)]
 #[display("{}.{}.{}", major, minor, patch)]
 pub struct SemanticVersion {
     /// Version when you make incompatible API changes
@@ -115,20 +115,27 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
 // Get SHA256 hash of a file
 // https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html
 pub fn get_checksum(path: PathBuf) -> String {
-    let input = File::open(path).unwrap();
-    let mut buffer = [0; 1024];
-    let mut context = Context::new(&SHA256);
-    let mut reader = BufReader::new(input);
-    loop {
-        let count = reader.read(&mut buffer).unwrap();
-        if count == 0 {
-            break;
+    match File::open(path.clone()) {
+        | Ok(file) => {
+            let mut buffer = [0; 1024];
+            let mut context = Context::new(&SHA256);
+            let mut reader = BufReader::new(file);
+            loop {
+                let count = reader.read(&mut buffer).unwrap();
+                if count == 0 {
+                    break;
+                }
+                context.update(&buffer[..count]);
+            }
+            let digest = context.finish();
+            let result = HEXUPPER.encode(digest.as_ref());
+            result.to_lowercase()
         }
-        context.update(&buffer[..count]);
+        | Err(err) => {
+            error!(error = err.to_string(), path = path_to_string(path), "=> {} Read file", Label::fail());
+            "".to_string()
+        }
     }
-    let digest = context.finish();
-    let result = HEXUPPER.encode(digest.as_ref());
-    result.to_lowercase()
 }
 /// Get file extension
 ///

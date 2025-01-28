@@ -9,18 +9,20 @@ use std::fs::remove_file;
 use std::fs::File;
 use std::path::PathBuf;
 use tar::Archive;
+use tempfile::NamedTempFile;
 use tracing::{debug, error, info};
 
 const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
 const VALE_VERSION: &str = "3.9.4";
 
 pub trait StaticAnalyzer {
-    fn download(self) -> Result<PathBuf, String>;
+    fn analyze(self, content: String) -> Result<std::process::Output, std::io::Error>;
+    fn download(self, config: Option<ValeConfig>) -> Self;
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     fn extract(path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
-    fn run(self, binary_location: PathBuf) -> Result<std::process::Output, std::io::Error>;
+    fn sync(self) -> Result<std::process::Output, std::io::Error>;
 }
-#[derive(Clone, Debug, bon::Builder, Display)]
+#[derive(Clone, Debug, Default, bon::Builder, Display)]
 #[display("{:?}", version)]
 #[builder(start_fn = init)]
 pub struct Vale {
@@ -42,7 +44,22 @@ pub struct ValeConfig {
     pub disabled: Vec<String>,
 }
 impl StaticAnalyzer for Vale {
-    fn download(self) -> Result<PathBuf, String> {
+    fn analyze(self, content: String) -> Result<std::process::Output, std::io::Error> {
+        // TODO: Save prose to project directory - cache = <id>.json
+        let file = NamedTempFile::new().expect("Failed to create temporary file");
+        std::fs::write(file.path(), content).expect("Unable to write to temporary file");
+        println!("{}", file.path().display());
+        let path = match self.binary {
+            | Some(value) => value,
+            | None => {
+                error!("=> {} Vale binary", Label::not_found());
+                std::process::exit(exitcode::UNAVAILABLE);
+            }
+        };
+        cmd!(path, "--config", self.config.unwrap().path, "--no-wrap", file.path()).run()
+    }
+    // TODO: Check if binary has already been downloaded
+    fn download(self, config: Option<ValeConfig>) -> Vale {
         // https://doc.rust-lang.org/std/env/consts/constant.OS.html
         let os = std::env::consts::OS.to_lowercase();
         let platform = match os.as_str() {
@@ -54,39 +71,50 @@ impl StaticAnalyzer for Vale {
                 std::process::exit(exitcode::UNAVAILABLE);
             }
         };
-        let release = match self.version.clone() {
+        let release = match self.version {
             | Some(value) => value,
             | None => SemanticVersion::from_string(VALE_VERSION),
         };
         let url = format!("{}/download/v{}/vale_{}_{}", VALE_RELEASES_URL, release, release, platform);
-        let destination = PathBuf::from(".");
         info!(url, "=> {} Vale release v{}", Label::using(), release);
-        match download_binary(url.clone(), destination) {
+        let binary = match download_binary(url.clone(), PathBuf::from(".")) {
             | Ok(path) => {
                 let checksum = match self.download_checksums() {
                     | Ok(value) => value.get(platform).unwrap().to_string(),
                     | Err(_) => "".to_string(),
                 };
-                let expected = get_checksum(path.clone());
-                if !checksum.eq(&expected) {
-                    error!(checksum, expected, "=> {}", Label::invalid());
+                let calculated = get_checksum(path.clone());
+                if !checksum.eq(&calculated) {
+                    error!(checksum, calculated, "=> {}", Label::invalid());
                     let _cleanup = remove_file(path);
                     std::process::exit(exitcode::USAGE);
                 } else {
                     info!(checksum, "=> {}", Label::pass());
                 }
-                let binary = Vale::extract(path.clone(), None);
+                let destination = match config.clone() {
+                    | Some(value) => value.path.parent().unwrap().to_path_buf(),
+                    | None => PathBuf::from("./.vale/"),
+                };
+                let binary = Vale::extract(path.clone(), Some(destination));
                 if make_executable(&binary) {
                     let _cleanup = remove_file(path);
-                    Ok(binary)
+                    Some(binary)
                 } else {
                     error!("=> {} vale not executable", Label::fail());
-                    Err(format!("Failed to make {} executable", binary.display()))
+                    None
                 }
             }
             | Err(error) => {
-                error!(error, url, "=> {} Vale download", Label::fail());
-                Err(error)
+                error!(error, url, "=> {} vale download", Label::fail());
+                None
+            }
+        };
+        let builder = Vale::init().version(release).maybe_binary(binary);
+        match config {
+            | Some(value) => builder.config(value).build(),
+            | None => {
+                let config = ValeConfig::default();
+                builder.config(config).build()
             }
         }
     }
@@ -126,22 +154,22 @@ impl StaticAnalyzer for Vale {
             }
         }
     }
-    fn run(self, binary_location: PathBuf) -> Result<std::process::Output, std::io::Error> {
-        let vale = path_to_string(binary_location);
-        let _config = ValeConfig::default().ini();
-        cmd!("echo", "hellow world")
-            .pipe(cmd!(vale.clone(), "--config", "./.vale/.vale.ini", "sync"))
-            .read()
-            .unwrap();
-        // cmd!(vale, "--config", "./.vale/.vale.ini", "sync").run()
-        cmd!(vale, "--version").run()
+    fn sync(self) -> Result<std::process::Output, std::io::Error> {
+        let path = match self.binary {
+            | Some(value) => value,
+            | None => {
+                error!("=> {} Vale binary", Label::not_found());
+                std::process::exit(exitcode::UNAVAILABLE);
+            }
+        };
+        cmd!(path.clone(), "--config", self.config.unwrap().path, "sync").run()
     }
 }
-impl ValeConfig {
-    pub fn default() -> ValeConfig {
+impl Default for ValeConfig {
+    fn default() -> Self {
         ValeConfig::init()
             .packages(to_string(vec!["Google", "proselint", "write-good", "Readability", "Joblint"]))
-            .vocabularies(to_string(vec!["ORNL"]))
+            .vocabularies(to_string(vec![]))
             .disabled(to_string(vec![
                 "Vale.Terms",
                 "Google.EmDash",
@@ -159,6 +187,8 @@ impl ValeConfig {
             ]))
             .build()
     }
+}
+impl ValeConfig {
     pub fn ini(self) -> Ini {
         let ValeConfig {
             packages,
@@ -176,7 +206,7 @@ impl ValeConfig {
         disabled.into_iter().for_each(|rule| {
             conf.with_section(Some("*")).set(rule, "NO");
         });
-        conf.write_to(&mut std::io::stdout()).unwrap();
+        // conf.write_to(&mut std::io::stdout()).unwrap();
         let _save = conf.write_to_file(self.path);
         conf
     }

@@ -18,7 +18,7 @@ use tracing_subscriber::EnvFilter;
 mod cli;
 mod template;
 
-use acorn_lib::analyzer::{StaticAnalyzer, Vale};
+use acorn_lib::analyzer::{StaticAnalyzer, Vale, ValeConfig};
 use acorn_lib::schema::*;
 use acorn_lib::util::*;
 use acorn_lib::*;
@@ -76,24 +76,35 @@ fn main() -> Void {
         | Some(Commands::Check { path, .. }) => {
             fn check_file(path: &Path) {
                 match ResearchActivity::read(path.into()) {
-                    | Ok(data) => {
-                        match data.clone().check() {
-                            | Ok(_) => {
-                                info!("=> {} {} has no errors", Label::pass(), path.display());
-                            }
-                            | Err(found) => {
-                                error!(
-                                    "=> {} Found {} errors in {}: {:#?}",
-                                    Label::fail(),
-                                    get_error_count(found.clone()),
-                                    path.display(),
-                                    found,
-                                );
-                            }
+                    | Ok(data) => match data.clone().check() {
+                        | Ok(_) => {
+                            info!("=> {} {} has no schema errors", Label::pass(), path.display());
                         }
-                    }
+                        | Err(found) => {
+                            error!(
+                                "=> {} Found {} errors in {}: {:#?}",
+                                Label::fail(),
+                                get_error_count(found.clone()),
+                                path.display(),
+                                found,
+                            );
+                        }
+                    },
                     | Err(err) => {
                         error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), err);
+                    }
+                }
+            }
+            fn anazlye_file(path: &Path) {
+                let config = ValeConfig::default();
+                let vale = Vale::init().config(config).build().download(None);
+                let _sync = vale.clone().sync();
+                match ResearchActivity::read(path.into()) {
+                    | Ok(data) => {
+                        let _ = vale.clone().analyze(data.extract_prose());
+                    }
+                    | Err(err) => {
+                        error!("=> {} Read research activity data at - {}", Label::fail(), err);
                     }
                 }
             }
@@ -107,8 +118,30 @@ fn main() -> Void {
                             error!("=> {} Failed to read glob pattern - {}", Label::fail(), err);
                         }
                     };
+                    match glob(&format!("{}/**/*.json", path.to_str().unwrap())) {
+                        | Ok(paths) => {
+                            let config = ValeConfig::default();
+                            let vale = Vale::init().config(config).build().download(None);
+                            let _sync = vale.clone().sync();
+                            paths
+                                .collect::<Vec<_>>()
+                                .par_iter()
+                                .for_each(|path| match ResearchActivity::read(path.as_ref().unwrap().into()) {
+                                    | Ok(data) => {
+                                        let _ = vale.clone().analyze(data.extract_prose());
+                                    }
+                                    | Err(err) => {
+                                        error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                                    }
+                                })
+                        }
+                        | Err(err) => {
+                            error!("=> {} Failed to read glob pattern - {}", Label::fail(), err);
+                        }
+                    };
                 } else {
                     check_file(&path.clone());
+                    anazlye_file(&path.clone());
                 }
             }
             Ok(())
@@ -175,15 +208,9 @@ fn main() -> Void {
         }
         | Some(Commands::Format { .. }) => Ok(()),
         | None => {
-            let vale = Vale::init().build();
-            match vale.clone().download() {
-                | Ok(path) => {
-                    let _ = vale.run(path);
-                }
-                | Err(err) => {
-                    error!("=> {} Failed to download Vale - {}", Label::fail(), err);
-                }
-            }
+            let config = ValeConfig::default();
+            let vale = Vale::init().config(config).build().download(None);
+            let _ = vale.analyze("hellow world".to_string());
             Ok(())
         }
     }

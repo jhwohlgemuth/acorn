@@ -337,7 +337,7 @@ impl ResearchActivity {
                     }
                     | Some(_) | None => {
                         error!(path = path.to_str().unwrap(), "=> {} Caption", Label::not_found());
-                        ""
+                        &"".to_string()
                     }
                 };
                 Graphic {
@@ -487,7 +487,7 @@ fn resolve_keyword(value: Keyword) -> Option<String> {
             }
         }
         | None => {
-            error!(keyword = value.clone(), "=> {}", Label::not_found());
+            warn!(keyword = value.clone(), "=> {}", Label::not_found());
         }
     };
     output
@@ -533,7 +533,7 @@ fn resolve_sponsor(value: Sponsor) -> Option<String> {
             }
         }
         | None => {
-            error!(sponsor = value.clone(), "=> {}", Label::not_found());
+            warn!(sponsor = value.clone(), "=> {}", Label::not_found());
         }
     };
     output
@@ -579,7 +579,7 @@ fn resolve_technology(value: Technology) -> Option<String> {
             }
         }
         | None => {
-            error!(technology = value.clone(), "=> {}", Label::not_found());
+            warn!(technology = value.clone(), "=> {}", Label::not_found());
         }
     };
     output
