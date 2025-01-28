@@ -46,6 +46,8 @@ tracing-indicatif.workspace = true
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 uriparse = { workspace = true }
+duct = "0.13.7"
+rust-ini = "0.21.1"
 
 [lints.rust]
 unsafe_code = "forbid"

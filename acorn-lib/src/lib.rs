@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use tracing::{debug, error, info, trace};
 use uriparse::URI;
 
+pub mod analyzer;
 pub mod schema;
 pub mod util;
 

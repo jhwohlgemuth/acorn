@@ -18,6 +18,7 @@ use tracing_subscriber::EnvFilter;
 mod cli;
 mod template;
 
+use acorn_lib::analyzer::{StaticAnalyzer, Vale};
 use acorn_lib::schema::*;
 use acorn_lib::util::*;
 use acorn_lib::*;
@@ -177,7 +178,14 @@ fn main() -> Void {
         | Some(Commands::Format { .. }) => Ok(()),
         | None => {
             let vale = Vale::init().build();
-            let _ = vale.download();
+            match vale.clone().download() {
+                | Ok(path) => {
+                    let _ = vale.run(path);
+                }
+                | Err(err) => {
+                    error!("=> {} Failed to download Vale - {}", Label::fail(), err);
+                }
+            }
             Ok(())
         }
     }
