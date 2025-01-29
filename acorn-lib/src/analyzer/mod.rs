@@ -230,7 +230,12 @@ impl ValeConfig {
         conf
     }
     pub fn save(self) -> ValeConfig {
-        self.ini().write_to_file(self.clone().path).expect("Unable to save Vale configuration");
+        match self.ini().write_to_file(self.clone().path) {
+            | Ok(_) => (),
+            | Err(why) => {
+                error!("=> {} Save configuration - {}", Label::fail(), why);
+            }
+        }
         self
     }
 }

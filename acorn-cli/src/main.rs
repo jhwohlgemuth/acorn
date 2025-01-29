@@ -83,13 +83,7 @@ fn main() -> Void {
                         }
                         | Err(found) => {
                             let count = get_error_count(found.clone());
-                            error!(
-                                "=> {} Found {} errors in {}: {:#?}",
-                                Label::fail(),
-                                count,
-                                path.display(),
-                                found,
-                            );
+                            error!("=> {} Found {} errors in {}: {:#?}", Label::fail(), count, path.display(), found,);
                             count
                         }
                     },
