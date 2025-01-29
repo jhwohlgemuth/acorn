@@ -74,24 +74,28 @@ fn main() -> Void {
     }
     match &args.command {
         | Some(Commands::Check { path, .. }) => {
-            fn check_file(path: &Path) {
+            fn check_file(path: &Path) -> usize {
                 match ResearchActivity::read(path.into()) {
                     | Ok(data) => match data.clone().check() {
                         | Ok(_) => {
                             info!("=> {} {} has no schema errors", Label::pass(), path.display());
+                            0
                         }
                         | Err(found) => {
+                            let count = get_error_count(found.clone());
                             error!(
                                 "=> {} Found {} errors in {}: {:#?}",
                                 Label::fail(),
-                                get_error_count(found.clone()),
+                                count,
                                 path.display(),
                                 found,
                             );
+                            count
                         }
                     },
                     | Err(err) => {
                         error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), err);
+                        0
                     }
                 }
             }
@@ -114,6 +118,9 @@ fn main() -> Void {
             }
             if let Some(path) = path {
                 if path.is_dir() {
+                    // TODO: Implement total error count that works with par_iter
+                    // let mut count = 0;
+                    // Schema validation
                     match glob(&format!("{}/**/*.json", path.to_str().unwrap())) {
                         | Ok(paths) => paths.collect::<Vec<_>>().par_iter().for_each(|path| {
                             check_file(path.as_ref().unwrap());
@@ -122,6 +129,7 @@ fn main() -> Void {
                             error!("=> {} Failed to read glob pattern - {}", Label::fail(), err);
                         }
                     };
+                    // Prose static analysis
                     match glob(&format!("{}/**/*.json", path.to_str().unwrap())) {
                         | Ok(paths) => {
                             let config = ValeConfig::default().save();
