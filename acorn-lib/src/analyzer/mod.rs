@@ -168,7 +168,7 @@ impl StaticAnalyzer for Vale {
                     | Some(value) => path_to_string(value),
                     | None => "./.vale/".to_string(),
                 };
-                let _ = archive.unpack(parent.clone());
+                archive.unpack(parent.clone()).expect("Unable to extract vale binary");
                 debug!(parent, "=> {} Extracted vale binary", Label::using());
                 PathBuf::from(format!("{}/vale", parent))
             }
@@ -230,7 +230,7 @@ impl ValeConfig {
         conf
     }
     pub fn save(self) -> ValeConfig {
-        let _save = self.ini().write_to_file(self.clone().path);
+        self.ini().write_to_file(self.clone().path).expect("Unable to save Vale configuration");
         self
     }
 }

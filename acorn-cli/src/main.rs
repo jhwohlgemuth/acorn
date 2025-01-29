@@ -96,16 +96,19 @@ fn main() -> Void {
                 }
             }
             fn analyze_file(path: &Path) {
-                let config = ValeConfig::default();
-                let _save = config.clone().save();
+                let config = ValeConfig::default().save();
                 let vale = Vale::init().config(config).build().download(None);
-                let _sync = vale.clone().sync();
-                match ResearchActivity::read(path.into()) {
-                    | Ok(data) => {
-                        let _ = vale.clone().analyze(data.clone().meta.id, data.extract_prose());
-                    }
+                match vale.clone().sync() {
+                    | Ok(_) => match ResearchActivity::read(path.into()) {
+                        | Ok(data) => {
+                            vale.analyze(data.clone().meta.id, data.extract_prose()).expect("Failed to analyze data");
+                        }
+                        | Err(err) => {
+                            error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                        }
+                    },
                     | Err(err) => {
-                        error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                        error!("=> {} Vale sync - {}", Label::fail(), err);
                     }
                 }
             }
@@ -121,21 +124,27 @@ fn main() -> Void {
                     };
                     match glob(&format!("{}/**/*.json", path.to_str().unwrap())) {
                         | Ok(paths) => {
-                            let config = ValeConfig::default();
-                            let _save = config.clone().save();
+                            let config = ValeConfig::default().save();
                             let vale = Vale::init().config(config).build().download(None);
-                            let _sync = vale.clone().sync();
-                            paths
-                                .collect::<Vec<_>>()
-                                .iter()
-                                .for_each(|path| match ResearchActivity::read(path.as_ref().unwrap().into()) {
-                                    | Ok(data) => {
-                                        let _ = vale.clone().analyze(data.clone().meta.id, data.extract_prose());
-                                    }
-                                    | Err(err) => {
-                                        error!("=> {} Read research activity data at - {}", Label::fail(), err);
-                                    }
-                                })
+                            match vale.clone().sync() {
+                                | Ok(_) => {
+                                    paths
+                                        .collect::<Vec<_>>()
+                                        .iter()
+                                        .for_each(|path| match ResearchActivity::read(path.as_ref().unwrap().into()) {
+                                            | Ok(data) => {
+                                                // TODO: Handle vale runs that exit with error code. Maybe use --no-exit?
+                                                let _ = vale.clone().analyze(data.clone().meta.id, data.extract_prose());
+                                            }
+                                            | Err(err) => {
+                                                error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                                            }
+                                        })
+                                }
+                                | Err(err) => {
+                                    error!("=> {} Vale sync - {}", Label::fail(), err);
+                                }
+                            }
                         }
                         | Err(err) => {
                             error!("=> {} Failed to read glob pattern - {}", Label::fail(), err);

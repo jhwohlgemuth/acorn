@@ -272,7 +272,7 @@ impl ResearchActivity {
             }) => {
                 let Research { focus, areas } = research;
                 format!(
-                    "{} {} {} The project has the following outcomes: {} The project research focus is \"{}\". The project has the following research areas: {}.",
+                    "{} {} {} The project has the following outcomes - {} The project research focus is \"{}\". The project has the following research areas - {}.",
                     introduction,
                     challenge,
                     approach,
