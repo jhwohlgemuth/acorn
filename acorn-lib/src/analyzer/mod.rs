@@ -6,23 +6,70 @@ use directories::ProjectDirs;
 use duct::cmd;
 use flate2::read::GzDecoder;
 use ini::Ini;
+use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::fs::remove_file;
 use std::fs::File;
+use std::fs::{create_dir_all, remove_file};
 use std::io::prelude::*;
 use std::path::PathBuf;
 use tar::Archive;
 use tracing::{debug, error, info};
 
+lazy_static! {
+    static ref VOCABULARY_ACCEPT: [&'static str; 38] = [
+        "ACORN",
+        "airflows",
+        "application",
+        "biomonitoring",
+        "cyber",
+        "[Cc]ybersecurity",
+        "deliverables?",
+        "disable",
+        "downscaled?",
+        "FAIR",
+        "GEARS",
+        "geotag(ged)?",
+        "GIS",
+        "geoprocessing",
+        "geoscience",
+        "geospatial",
+        "GPS",
+        "GSHS",
+        "IPs?",
+        "ISO",
+        "landscan",
+        "misconfigurations",
+        "multimodal",
+        "operationalize",
+        "ORNL",
+        "PIPE",
+        "POI",
+        "regionalization",
+        "SANSR",
+        "Situ",
+        "socioeconomics?",
+        "spaceborne",
+        "STAR",
+        "telematics",
+        "timeframe",
+        "uncrewed",
+        "UAS",
+        "USA",
+    ];
+}
+
 const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
 const VALE_VERSION: &str = "3.9.4";
+const QUALIFIER: &str = "org";
+const ORGANIZATION: &str = "ornl";
+const APPLICATION: &str = "acorn";
 
 pub trait StaticAnalyzer {
-    fn analyze(self, id: String, content: String) -> Result<std::process::Output, std::io::Error>;
+    fn analyze(self, id: String, content: String);
     fn download(self, config: Option<ValeConfig>) -> Self;
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     fn extract(path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
-    fn sync(self) -> Result<std::process::Output, std::io::Error>;
+    fn sync(self) -> Result<(), std::io::Error>;
 }
 #[derive(Clone, Debug, Default, bon::Builder, Display)]
 #[display("{:?}", version)]
@@ -46,18 +93,19 @@ pub struct ValeConfig {
     pub disabled: Vec<String>,
 }
 impl StaticAnalyzer for Vale {
-    fn analyze(self, id: String, content: String) -> Result<std::process::Output, std::io::Error> {
-        match ProjectDirs::from("org", "ornl", "acorn") {
+    fn analyze(self, id: String, content: String) {
+        match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
             | Some(dirs) => {
                 let cache = dirs.cache_dir();
                 let path = cache.join(format!("{}.txt", id));
-                std::fs::create_dir_all(cache).expect("Unable to create cache directory {cache}");
+                create_dir_all(cache).expect("Unable to create cache directory {cache}");
                 let mut file = match File::create(&path) {
                     | Ok(file) => file,
                     | Err(why) => panic!("=> {} Create file {} - {}", Label::fail(), path.display(), why),
                 };
                 // std::fs::write(path, content).expect("Unable to write to temporary file");
-                file.write_all(content.as_bytes()).expect("Unable to write to temporary file");
+                file.write_all(content.as_bytes())
+                    .expect("Unable to write to cache directory project file");
                 let binary = match self.binary {
                     | Some(value) => value,
                     | None => {
@@ -65,10 +113,20 @@ impl StaticAnalyzer for Vale {
                         std::process::exit(exitcode::UNAVAILABLE);
                     }
                 };
-                println!("\n\n");
-                error!("=> {} {} = {}", Label::using(), id.underline(), content);
                 match self.config {
-                    | Some(config) => cmd!(binary, "--config", config.path, "--no-wrap", path).run(),
+                    | Some(config) => {
+                        let result = cmd!(binary, "--no-wrap", "--config", config.path, path).run();
+                        match result {
+                            | Ok(_) => {
+                                let message = format!("=> {} No errors found in {}", Label::pass(), id.underline());
+                                println!("{}", message);
+                            }
+                            | Err(_) => {
+                                error!("=> {} {}.json = {}", Label::using(), id.underline(), content);
+                            }
+                        }
+                        println!("\n\n");
+                    }
                     | None => {
                         error!("=> {} Vale configuration", Label::not_found());
                         std::process::exit(exitcode::UNAVAILABLE);
@@ -154,7 +212,7 @@ impl StaticAnalyzer for Vale {
             acc.insert(key, value);
             acc
         });
-        debug!("=> {} Vale checksums {:#?}", Label::using(), checksums);
+        debug!("=> {} Vale checksums {:#?}", Label::using(), checksums.dimmed().cyan());
         Ok(checksums)
     }
     fn extract(path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
@@ -174,7 +232,7 @@ impl StaticAnalyzer for Vale {
             }
         }
     }
-    fn sync(self) -> Result<std::process::Output, std::io::Error> {
+    fn sync(self) -> Result<(), std::io::Error> {
         let path = match self.binary {
             | Some(value) => value,
             | None => {
@@ -182,15 +240,37 @@ impl StaticAnalyzer for Vale {
                 std::process::exit(exitcode::UNAVAILABLE);
             }
         };
-        cmd!(path.clone(), "--config", self.config.unwrap().path, "sync").run()
+        let config_path = self.config.unwrap().path;
+        let result = cmd!(path.clone(), "--config", config_path.clone(), "sync").run();
+        match result {
+            | Ok(_) => {
+                let parent = format!("{}/styles/config/vocabularies/{}", config_path.parent().unwrap().display(), APPLICATION);
+                debug!(parent, "=> {} Vocabularies", Label::using());
+                match create_dir_all(parent.clone()) {
+                    | Ok(_) => {}
+                    | Err(why) => error!(directory = parent, "=> {} Create - {}", Label::fail(), why),
+                }
+                match File::create(format!("{}/accept.txt", parent)) {
+                    | Ok(mut file) => {
+                        let content = VOCABULARY_ACCEPT.join("\n");
+                        file.write_all(content.as_bytes()).expect("Unable to write to accept.txt");
+                    }
+                    | Err(why) => panic!("=> {} Create accept.txt - {}", Label::fail(), why),
+                }
+                Ok(())
+            }
+            | Err(why) => {
+                error!("=> {} Vale sync - {}", Label::fail(), why);
+                std::process::exit(exitcode::SOFTWARE);
+            }
+        }
     }
 }
 impl Default for ValeConfig {
     fn default() -> Self {
-        debug!("=> {} Default Vale configuration", Label::using());
-        ValeConfig::init()
+        let config = ValeConfig::init()
             .packages(to_string(vec!["Google", "proselint", "write-good", "Readability", "Joblint"]))
-            .vocabularies(to_string(vec![]))
+            .vocabularies(to_string(vec![APPLICATION]))
             .disabled(to_string(vec![
                 "Vale.Terms",
                 "Google.EmDash",
@@ -206,7 +286,9 @@ impl Default for ValeConfig {
                 "write-good.TooWordy",
                 "write-good.Weasel",
             ]))
-            .build()
+            .build();
+        debug!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
+        config
     }
 }
 impl ValeConfig {
@@ -218,10 +300,11 @@ impl ValeConfig {
             ..
         } = self;
         let mut conf = Ini::new();
+        // CAUTION: Order of attributes in INI file matter. "StylesPath" must come before "Vocab"
         conf.with_section::<String>(None)
-            .set("Packages", packages.join(", "))
+            .set("StylesPath", "styles")
             .set("Vocab", vocabularies.join(", "))
-            .set("StylesPath", "styles");
+            .set("Packages", packages.join(", "));
         conf.with_section(Some("*"))
             .set("BasedOnStyles", format!("Vale, {}", packages.join(", ")));
         disabled.iter().for_each(|rule| {
@@ -230,10 +313,19 @@ impl ValeConfig {
         conf
     }
     pub fn save(self) -> ValeConfig {
-        match self.ini().write_to_file(self.clone().path) {
-            | Ok(_) => (),
+        let path = self.clone().path;
+        let parent = path.parent().unwrap().to_path_buf();
+        match create_dir_all(parent.clone()) {
+            | Ok(_) => {}
+            | Err(why) => error!(directory = path_to_string(parent), "=> {} Create - {}", Label::fail(), why),
+        }
+        match self.ini().write_to_file(path.clone()) {
+            | Ok(_) => {
+                debug!(path = path_to_string(path), "=> {} Saved configuration", Label::using());
+            }
             | Err(why) => {
                 error!("=> {} Save configuration - {}", Label::fail(), why);
+                std::process::exit(exitcode::SOFTWARE);
             }
         }
         self

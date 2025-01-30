@@ -99,7 +99,8 @@ fn main() -> Void {
                 match vale.clone().sync() {
                     | Ok(_) => match ResearchActivity::read(path.into()) {
                         | Ok(data) => {
-                            vale.analyze(data.clone().meta.id, data.extract_prose()).expect("Failed to analyze data");
+                            // TODO: Handle vale runs that exit with error code. Maybe use --no-exit?
+                            vale.analyze(data.clone().meta.id, data.extract_prose());
                         }
                         | Err(err) => {
                             error!("=> {} Read research activity data at - {}", Label::fail(), err);
@@ -136,7 +137,7 @@ fn main() -> Void {
                                         .for_each(|path| match ResearchActivity::read(path.as_ref().unwrap().into()) {
                                             | Ok(data) => {
                                                 // TODO: Handle vale runs that exit with error code. Maybe use --no-exit?
-                                                let _ = vale.clone().analyze(data.clone().meta.id, data.extract_prose());
+                                                vale.clone().analyze(data.clone().meta.id, data.extract_prose());
                                             }
                                             | Err(err) => {
                                                 error!("=> {} Read research activity data at - {}", Label::fail(), err);
