@@ -261,7 +261,13 @@ impl Metadata {
 impl ResearchActivity {
     pub fn extract_prose(self) -> String {
         let sections = match self.sections {
-            | Sections::Highlight(_) => unimplemented!(),
+            | Sections::Highlight(HighlightSections {
+                achievement,
+                impact,
+                methods,
+            }) => {
+                format!("{}\n{}\n{}", achievement, impact, methods.join(", "))
+            }
             | Sections::Project(ProjectSections {
                 introduction,
                 challenge,
@@ -272,7 +278,7 @@ impl ResearchActivity {
             }) => {
                 let Research { focus, areas } = research;
                 format!(
-                    "{} {} {} The project has the following outcomes - {} The project research focus is \"{}\". The project has the following research areas - {}.",
+                    "{}\n{}\n{}\n{}\n{}\n{}",
                     introduction,
                     challenge,
                     approach,
@@ -281,7 +287,20 @@ impl ResearchActivity {
                     areas.join(", ")
                 )
             }
-            | Sections::Organization(_) => unimplemented!(),
+            | Sections::Organization(OrganizationSections {
+                mission,
+                capabilities,
+                impact,
+                facilities,
+            }) => {
+                format!(
+                    "{}\n{}\n{}\n{}",
+                    mission,
+                    capabilities.join(", "),
+                    impact.join(", "),
+                    facilities.join(", ")
+                )
+            }
         };
         format!("The subtitle is \"{}\". {}", self.subtitle, sections)
     }
