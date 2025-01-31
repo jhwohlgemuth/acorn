@@ -25,7 +25,7 @@ const MAX_LENGTH_CAPABILIY: usize = 300;
 const MAX_LENGTH_FACILITY: usize = 40;
 const MAX_LENGTH_IMPACT: usize = 400;
 const MAX_LENGTH_METHOD: usize = 75;
-const MAX_LENGTH_OUTCOME: usize = 100;
+const MAX_LENGTH_OUTCOME: usize = 150;
 
 lazy_static! {
     static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
@@ -632,9 +632,14 @@ fn validate_attribute_methods(value: &[String]) -> Result<(), ValidationError> {
 }
 fn validate_attribute_outcomes(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_OUTCOME;
-    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
-    match is_valid {
-        | true => Ok(()),
+    match value.iter().all(|x| x.len() <= MAX_LENGTH) {
+        | true => {
+            let is_valid = value.iter().all(|x| !x.trim().ends_with("."));
+            match is_valid {
+                | true => Ok(()),
+                | _ => Err(ValidationError::new("outcome").with_message("Outcomes should be phrases that do not end in periods".into())),
+            }
+        }
         | _ => Err(ValidationError::new("outcome").with_message(format!("Each outcome should be less than {} characters", MAX_LENGTH).into())),
     }
 }

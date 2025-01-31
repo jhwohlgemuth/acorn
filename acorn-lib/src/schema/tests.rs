@@ -39,8 +39,8 @@ fn test_fuzzy_technologies() {
 }
 #[test]
 fn test_validate_attribute_areas() {
-    let valid = ["x".repeat(10).to_string(), "x".repeat(40).to_string()];
-    let invalid = ["x".repeat(41).to_string(), "x".repeat(100).to_string()];
+    let valid = ["x".repeat(10), "x".repeat(40)];
+    let invalid = ["x".repeat(41), "x".repeat(100)];
     for x in valid.iter() {
         assert!(validate_attribute_areas(&[x.clone()]).is_ok());
     }
@@ -50,8 +50,8 @@ fn test_validate_attribute_areas() {
 }
 #[test]
 fn test_validate_attribute_facilities() {
-    let valid = ["x".repeat(10).to_string(), "x".repeat(40).to_string()];
-    let invalid = ["x".repeat(41).to_string(), "x".repeat(100).to_string()];
+    let valid = ["x".repeat(10), "x".repeat(40)];
+    let invalid = ["x".repeat(41), "x".repeat(100)];
     for x in valid.iter() {
         assert!(validate_attribute_facilities(&[x.clone()]).is_ok());
     }
@@ -61,8 +61,8 @@ fn test_validate_attribute_facilities() {
 }
 #[test]
 fn test_validate_attribute_capabilities() {
-    let valid = ["x".repeat(10).to_string(), "x".repeat(300).to_string()];
-    let invalid = ["x".repeat(301).to_string(), "x".repeat(400).to_string()];
+    let valid = ["x".repeat(10), "x".repeat(300)];
+    let invalid = ["x".repeat(301), "x".repeat(400)];
     for x in valid.iter() {
         assert!(validate_attribute_capabilities(&[x.clone()]).is_ok());
     }
@@ -72,8 +72,8 @@ fn test_validate_attribute_capabilities() {
 }
 #[test]
 fn test_validate_attribute_impact() {
-    let valid = ["x".repeat(10).to_string(), "x".repeat(400).to_string()];
-    let invalid = ["x".repeat(401).to_string(), "x".repeat(500).to_string()];
+    let valid = ["x".repeat(10), "x".repeat(400)];
+    let invalid = ["x".repeat(401), "x".repeat(500)];
     for x in valid.iter() {
         assert!(validate_attribute_impact(&[x.clone()]).is_ok());
     }
@@ -83,8 +83,8 @@ fn test_validate_attribute_impact() {
 }
 #[test]
 fn test_validate_attribute_methods() {
-    let valid = ["x".repeat(10).to_string(), "x".repeat(75).to_string()];
-    let invalid = ["x".repeat(76).to_string(), "x".repeat(500).to_string()];
+    let valid = ["x".repeat(10), "x".repeat(75)];
+    let invalid = ["x".repeat(76), "x".repeat(500)];
     for x in valid.iter() {
         assert!(validate_attribute_methods(&[x.clone()]).is_ok());
     }
@@ -94,13 +94,13 @@ fn test_validate_attribute_methods() {
 }
 #[test]
 fn test_validate_attribute_outcomes() {
-    let valid = ["x".repeat(10).to_string(), "x".repeat(100).to_string()];
-    let invalid = ["x".repeat(101).to_string(), "x".repeat(500).to_string()];
+    let valid = [&"x".repeat(10), &"x".repeat(150), "this is a valid outcome"];
+    let invalid = [&"x".repeat(151), &"x".repeat(500), "outcome should not be a sentence."];
     for x in valid.iter() {
-        assert!(validate_attribute_outcomes(&[x.clone()]).is_ok());
+        assert!(validate_attribute_outcomes(&[x.to_string()]).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_attribute_outcomes(&[x.clone()]).is_err());
+        assert!(validate_attribute_outcomes(&[x.to_string()]).is_err());
     }
 }
 #[test]

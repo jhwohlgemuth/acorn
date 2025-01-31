@@ -98,9 +98,12 @@ impl StaticAnalyzer for Vale {
     fn analyze(self, id: String, content: String) {
         match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
             | Some(dirs) => {
-                let cache = dirs.cache_dir();
-                let path = cache.join(format!("{}.json", id)); // Note: Note actually JSON data
-                create_dir_all(cache).expect("Unable to create cache directory {cache}");
+                let cache = dirs.cache_dir().to_path_buf();
+                let path = cache.join(format!("{}.json", id)); // Note: Not actually JSON data
+                match create_dir_all(cache.clone()) {
+                    | Ok(_) => {}
+                    | Err(why) => error!(directory = path_to_string(cache), "=> {} Create - {}", Label::fail(), why),
+                }
                 let mut file = match File::create(&path) {
                     | Ok(file) => file,
                     | Err(why) => panic!("=> {} Create file {} - {}", Label::fail(), path.display(), why),
