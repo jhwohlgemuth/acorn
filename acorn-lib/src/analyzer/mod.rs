@@ -18,8 +18,8 @@ use tracing::{debug, error, info};
 lazy_static! {
     static ref VOCABULARY_ACCEPT: [&'static str; 38] = [
         "ACORN",
-        "airflows",
-        "application",
+        "airflows?",
+        "applications?",
         "biomonitoring",
         "cyber",
         "[Cc]ybersecurity",
@@ -37,21 +37,21 @@ lazy_static! {
         "GSHS",
         "IPs?",
         "ISO",
-        "landscan",
-        "misconfigurations",
+        "MRI",
+        "misconfigurations?",
         "multimodal",
         "operationalize",
         "ORNL",
         "PIPE",
         "POI",
-        "regionalization",
+        "regionalizations?",
         "SANSR",
         "Situ",
         "socioeconomics?",
         "spaceborne",
         "STAR",
         "telematics",
-        "timeframe",
+        "timeframes?",
         "uncrewed",
         "UAS",
         "USA",
@@ -97,7 +97,7 @@ impl StaticAnalyzer for Vale {
         match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
             | Some(dirs) => {
                 let cache = dirs.cache_dir();
-                let path = cache.join(format!("{}.txt", id));
+                let path = cache.join(format!("{}.json", id)); // Note: Note actually JSON data
                 create_dir_all(cache).expect("Unable to create cache directory {cache}");
                 let mut file = match File::create(&path) {
                     | Ok(file) => file,
@@ -118,14 +118,13 @@ impl StaticAnalyzer for Vale {
                         let result = cmd!(binary, "--no-wrap", "--config", config.path, path).run();
                         match result {
                             | Ok(_) => {
-                                let message = format!("=> {} No errors found in {}", Label::pass(), id.underline());
+                                let message = format!("=> {} No errors found in {}", Label::pass(), format!("{}.json", id).underline());
                                 println!("{}", message);
                             }
                             | Err(_) => {
-                                error!("=> {} {}.json = {}", Label::using(), id.underline(), content);
+                                error!("=> {} {} = {}\n", Label::using(), Label::fmt_fail(&format!("{}.json", id)), content);
                             }
                         }
-                        println!("\n\n");
                     }
                     | None => {
                         error!("=> {} Vale configuration", Label::not_found());
