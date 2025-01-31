@@ -16,7 +16,7 @@ use tar::Archive;
 use tracing::{debug, error, info};
 
 lazy_static! {
-    static ref VOCABULARY_ACCEPT: [&'static str; 38] = [
+    static ref VOCABULARY_ACCEPT: [&'static str; 40] = [
         "ACORN",
         "airflows?",
         "applications?",
@@ -30,6 +30,7 @@ lazy_static! {
         "GEARS",
         "geotag(ged)?",
         "GIS",
+        "geometrical",
         "geoprocessing",
         "geoscience",
         "geospatial",
@@ -45,6 +46,7 @@ lazy_static! {
         "PIPE",
         "POI",
         "regionalizations?",
+        "reusability",
         "SANSR",
         "Situ",
         "socioeconomics?",
