@@ -177,7 +177,9 @@ fn main() -> Void {
             }
             Ok(())
         }
-        | Some(Commands::Export { output, path, target, .. }) => {
+        | Some(Commands::Export {
+            output, path, size: _, target, ..
+        }) => {
             match target {
                 | Target::FactSheet => {
                     tokio_runtime().block_on(async {

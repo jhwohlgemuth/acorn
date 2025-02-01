@@ -18,7 +18,7 @@ use std::path::PathBuf;
 ///⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀ ' `-'  | '  `-' |  '  `-' /  | |         | |  | |
 ///⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠃⠀⠀⠀⠀⠀⠀⠀`.__.'_.  `.__,'    `.__.'  (___)       (___)(___)
 ///⠀⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀
-///⠀⠈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀Accessible Content Organization for Research Needs
+///⠀⠈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀Accessible Content Optimization for Research Needs
 /// ⠀ ⣿⣿⠿⠿⠿⠿⠿⠿⠟⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ///
 #[derive(Debug, Parser)]
@@ -28,6 +28,17 @@ pub struct Arguments {
     pub verbose: Verbosity,
     #[command(subcommand)]
     pub command: Option<Commands>,
+}
+#[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Size {
+    #[default]
+    #[display("standard")]
+    // Standard size (4:3)
+    Standard,
+    // Widescreen size (16:9)
+    #[display("widescreen")]
+    Widescreen,
 }
 #[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -86,9 +97,9 @@ pub enum Commands {
     ///
     ///     $> acorn export --path /path/to/data/data.json -vv
     ///
-    ///     $> acorn export --path /path/to/data --target fact-sheet
+    ///     $> acorn export --path /path/to/data --target highlight --size widescreen
     ///
-    ///     $> acorn export -p /path/to/data -t fact-sheet -o /path/to/output
+    ///     $> acorn export -p /path/to/data -t poster -o /path/to/output
     ///
     #[clap(verbatim_doc_comment)]
     Export {
@@ -98,6 +109,9 @@ pub enum Commands {
         /// Export target type
         #[arg(default_value_t, short, long, value_name = "TARGET")]
         target: Target,
+        /// Value to use when creating export artifacts that require an aspect ratio (only applies to `--target highlight`)
+        #[arg(default_value_t, short, long, value_name = "SIZE")]
+        size: Size,
         /// Path to output directory where the export artifacts should be saved
         #[arg(default_value = "./export", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         output: Option<PathBuf>,
