@@ -6,7 +6,7 @@ use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::Playwright;
 use rayon::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::instrument;
 use tracing::{error, info};
 use tracing_indicatif::IndicatifLayer;
@@ -74,8 +74,8 @@ fn main() -> Void {
     }
     match &args.command {
         | Some(Commands::Check { path, .. }) => {
-            fn check_file(path: &Path) -> usize {
-                match ResearchActivity::read(path.into()) {
+            fn check_file(path: PathBuf) -> usize {
+                match ResearchActivity::read(path.clone()) {
                     | Ok(data) => match data.clone().check() {
                         | Ok(_) => {
                             info!("=> {} {} has no schema errors", Label::pass(), path.display());
@@ -114,12 +114,18 @@ fn main() -> Void {
             if let Some(path) = path {
                 if path.is_dir() {
                     // TODO: Implement total error count that works with par_iter
-                    // let mut count = 0;
                     // Schema validation
                     match glob(&format!("{}/**/*.json", path.to_str().unwrap())) {
-                        | Ok(paths) => paths.collect::<Vec<_>>().par_iter().for_each(|path| {
-                            check_file(path.as_ref().unwrap());
-                        }),
+                        | Ok(paths) => {
+                            // let mut arr = [0, 7, 9, 11];
+                            // arr.par_iter_mut().for_each(|p| *p -= 1);
+                            // println!("{:?}", arr);
+                            // let mut count = 0;
+                            paths.collect::<Vec<_>>().par_iter_mut().filter_map(|x| x.as_mut().ok()).for_each(|path| {
+                                let _error_count = check_file(path.clone());
+                                // count += error_count;
+                            })
+                        }
                         | Err(err) => {
                             error!("=> {} Failed to read glob pattern - {}", Label::fail(), err);
                         }
@@ -154,7 +160,7 @@ fn main() -> Void {
                         }
                     };
                 } else {
-                    check_file(&path.clone());
+                    check_file(path.clone());
                     analyze_file(&path.clone());
                 }
             }
@@ -178,7 +184,11 @@ fn main() -> Void {
             Ok(())
         }
         | Some(Commands::Export {
-            output, path, size: _, target, ..
+            output,
+            path,
+            size: _,
+            target,
+            ..
         }) => {
             match target {
                 | Target::FactSheet => {
