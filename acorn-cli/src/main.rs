@@ -113,18 +113,18 @@ fn main() -> Void {
             }
             if let Some(path) = path {
                 if path.is_dir() {
-                    // TODO: Implement total error count that works with par_iter
                     // Schema validation
                     match glob(&format!("{}/**/*.json", path.to_str().unwrap())) {
                         | Ok(paths) => {
-                            // let mut arr = [0, 7, 9, 11];
-                            // arr.par_iter_mut().for_each(|p| *p -= 1);
-                            // println!("{:?}", arr);
-                            // let mut count = 0;
-                            paths.collect::<Vec<_>>().par_iter_mut().filter_map(|x| x.as_mut().ok()).for_each(|path| {
-                                let _error_count = check_file(path.clone());
-                                // count += error_count;
-                            })
+                            let total: usize = paths
+                                .collect::<Vec<_>>()
+                                .par_iter()
+                                .filter_map(|x| x.as_ref().ok())
+                                .map(|path| check_file(path.clone()))
+                                .sum();
+                            if total > 0 {
+                                error!("=> {} Found {} schema errors", Label::fail(), total);
+                            }
                         }
                         | Err(err) => {
                             error!("=> {} Failed to read glob pattern - {}", Label::fail(), err);
