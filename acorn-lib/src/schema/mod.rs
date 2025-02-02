@@ -93,6 +93,22 @@ lazy_static! {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 #[serde(rename_all = "lowercase")]
+pub enum OrganizationType {
+    #[display("center")]
+    Center,
+    #[display("division")]
+    Division,
+    #[display("directorate")]
+    Directorate,
+    #[display("group")]
+    Group,
+    #[display("program")]
+    Program,
+    #[display("facility")]
+    Facility,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, Display)]
+#[serde(rename_all = "lowercase")]
 pub enum SchemaType {
     #[display("highlight")]
     Highlight,
@@ -149,6 +165,15 @@ pub struct Metadata {
     pub technology: Vec<Fuzzy>,
     pub programs: Option<Vec<String>>,
     pub managers: Option<Vec<String>>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Organization {
+    pub name: String,
+    pub alternative_name: Option<String>,
+    pub additional_type: OrganizationType,
+    pub keywords: Option<Vec<Fuzzy>>,
+    pub children: Vec<Organization>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Website {

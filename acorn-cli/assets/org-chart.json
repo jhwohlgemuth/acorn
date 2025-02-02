@@ -1,0 +1,250 @@
+[
+    {
+        "name": "Oak Ridge National Laboratory",
+        "alternativeName": "ORNL",
+        "children": [
+            {
+                "name": "Biological and Environmental Systems Science Directorate",
+                "alternativeName": "BESSD",
+                "additionalType": "directorate",
+                "children": [
+                    {
+                        "name": "Biosciences Division",
+                        "alternativeName": "BSD",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Environmental Sciences Division",
+                        "alternativeName": "ESD",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Advanced Plant Phenotyping Laboratory",
+                        "keywords": [],
+                        "children": []
+                    }
+                ]
+            },
+            {
+                "name": "Computing and Computational Sciences Directorate",
+                "alternativeName": "CCSD",
+                "additionalType": "directorate",
+                "keywords": [],
+                "children": [
+                    {
+                        "name": "Quantum Science Center",
+                        "alternativeName": "",
+                        "additionalType": "center",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Computational Sciences and Engineering Division",
+                        "alternativeName": "CSED",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "National Center for Computational Sciences",
+                        "alternativeName": "NCCS",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Advanced Scientific Computing Research",
+                        "alternativeName": "ASCR",
+                        "additionalType": "program",
+                        "keywords": [],
+                        "children": []
+                    }
+                ]
+            },
+            {
+                "name": "Energy Science and Technology Directorate",
+                "alternativeName": "ESTD",
+                "additionalType": "directorate",
+                "children": [
+                    {
+                        "name": "Buildings and Transportation Division",
+                        "alternativeName": "BTSD",
+                        "additionalType": "division",
+                        "children": []
+                    },
+                    {
+                        "name": "Electrification and Energy Infrastructures Division",
+                        "alternativeName": "EEID",
+                        "additionalType": "division",
+                        "children": []
+                    },
+                    {
+                        "name": "Manufacturing Science Division",
+                        "alternativeName": "MSD",
+                        "additionalType": "division",
+                        "children": []
+                    }
+                ]
+            },
+                    {
+                "name": "Fusion and Fission Energy and Science Directorate",
+                "alternativeName": "FFESD",
+                "additionalType": "directorate",
+                "children": [
+                    {
+                        "name": "Fusion Energy Division",
+                        "alternativeName": "FED",
+                        "additionalType": "division",
+                        "children": []
+                    },
+                    {
+                        "name": "Nuclear Energy and Fuel Cycle Division",
+                        "alternativeName": "NEFCD",
+                        "additionalType": "division",
+                        "children": []
+                    }
+                ]
+            },
+            {
+                "name": "Isotope Science and Engineering Directorate",
+                "alternativeName": "ISED",
+                "additionalType": "directorate",
+                "children": [
+                    {
+                        "name": "Radioisotope Science and Technology Division",
+                        "alternativeName": "RSTD",
+                        "additionalType": "division",
+                        "children": []
+                    },
+                    {
+                        "name": "Isotope Processing and Manufacturing Division",
+                        "alternativeName": "IPMD",
+                        "additionalType": "division",
+                        "children": []
+                    },
+                    {
+                        "name": "Enrichment Science and Engineering Division",
+                        "alternativeName": "ESED",
+                        "additionalType": "division",
+                        "children": []
+                    },
+                    {
+                        "name": "Nonreactor Nuclear Facilities Division",
+                        "alternativeName": "NNFD",
+                        "additionalType": "division",
+                        "children": []
+                    }
+                ]
+            },
+            {
+                "name": "National Security Sciences Directorate",
+                "alternativeName": "NSSD",
+                "additionalType": "directorate",
+                "children": [
+                    {
+                        "name": "Cyber Resilience and Intelligence Division",
+                        "alternativeName": "CRID",
+                        "additionalType": "division",
+                        "keywords": ["cyber", "security"],
+                        "children": []
+                    },
+                    {
+                        "name": "Field Intelligence Operations Division",
+                        "alternativeName": "FIOD",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Geospatial Science and Human Security Division",
+                        "alternativeName": "GSHS",
+                        "additionalType": "division",
+                        "keywords": ["geospatial"],
+                        "children": []
+                    },
+                    {
+                        "name": "Nuclear Nonproliferation Division",
+                        "alternativeName": "NND",
+                        "additionalType": "division",
+                        "keywords": ["nuclear-nonproliferation"],
+                        "children": []
+                    }
+                ]
+            },
+            {
+                "name": "Neutron Sciences Directorate",
+                "alternativeName": "NSD",
+                "additionalType": "directorate",
+                "children": [
+                    {
+                        "name": "Neutron Scattering Division",
+                        "alternativeName": "NSD",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Neutron Technologies Division",
+                        "alternativeName": "",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Research Accelerator Division",
+                        "alternativeName": "",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Research Reactors Division",
+                        "alternativeName": "",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    }
+
+                ]
+            },
+            {
+                "name": "Physical Sciences Directorate",
+                "alternativeName": "PSD",
+                "additionalType": "directorate",
+                "children": [
+                    {
+                        "name": "Chemical Sciences Division",
+                        "alternativeName": "CSD",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Center for Nanophase Materials Sciences Division",
+                        "alternativeName": "CNMS",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Materials Science and Technology Division",
+                        "alternativeName": "MSTD",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Physics Division",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "children": []
+                    }
+                ]
+            }
+        ]
+    }
+]
