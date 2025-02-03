@@ -84,14 +84,14 @@ fn test_validate_attribute_impact() {
     }
 }
 #[test]
-fn test_validate_attribute_methods() {
-    let valid = ["x".repeat(10), "x".repeat(75)];
-    let invalid = ["x".repeat(76), "x".repeat(500)];
+fn test_validate_attribute_technical_approach() {
+    let valid = ["x".repeat(10), "x".repeat(100)];
+    let invalid = ["x".repeat(101), "x".repeat(500)];
     for x in valid.iter() {
-        assert!(validate_attribute_methods(&[x.clone()]).is_ok());
+        assert!(validate_attribute_technical(&[x.clone()]).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_attribute_methods(&[x.clone()]).is_err());
+        assert!(validate_attribute_technical(&[x.clone()]).is_err());
     }
 }
 #[test]

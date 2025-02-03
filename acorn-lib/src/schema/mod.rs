@@ -24,7 +24,7 @@ const MAX_LENGTH_AREA: usize = 40;
 const MAX_LENGTH_CAPABILIY: usize = 300;
 const MAX_LENGTH_FACILITY: usize = 40;
 const MAX_LENGTH_IMPACT: usize = 400;
-const MAX_LENGTH_METHOD: usize = 75;
+const MAX_LENGTH_TECHNICAL: usize = 100;
 const MAX_LENGTH_OUTCOME: usize = 150;
 
 lazy_static! {
@@ -183,9 +183,9 @@ pub struct Website {
 pub struct ResearchActivity {
     #[validate(nested)]
     pub meta: Metadata,
-    #[validate(length(min = 4, max = 35))]
+    #[validate(length(min = 4, max = 50))]
     pub title: String,
-    #[validate(length(max = 75, message = "Subtitle is too long, please reduce the length below 75."))]
+    #[validate(length(max = 100, message = "Subtitle is too long, please reduce the length below 75."))]
     pub subtitle: String,
     pub sections: Sections,
     #[validate(nested)]
@@ -200,10 +200,10 @@ pub struct HighlightSections {
     pub impact: String,
     #[validate(
         length(max = 6, message = "Please limit the number of methods to 6"),
-        custom(function = "validate_attribute_methods")
+        custom(function = "validate_attribute_technical")
     )]
     #[serde(alias = "technical approach")]
-    pub methods: Vec<String>,
+    pub technical: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ProjectSections {
@@ -287,9 +287,9 @@ impl ResearchActivity {
             | Sections::Highlight(HighlightSections {
                 achievement,
                 impact,
-                methods,
+                technical,
             }) => {
-                format!("{}\n{}\n{}", achievement, impact, methods.join(", "))
+                format!("{}\n{}\n{}", achievement, impact, technical.join(", "))
             }
             | Sections::Project(ProjectSections {
                 introduction,
@@ -664,12 +664,13 @@ fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("outcome").with_message(format!("Each impact item should be less than {} characters", MAX_LENGTH).into())),
     }
 }
-fn validate_attribute_methods(value: &[String]) -> Result<(), ValidationError> {
-    const MAX_LENGTH: usize = MAX_LENGTH_METHOD;
+fn validate_attribute_technical(value: &[String]) -> Result<(), ValidationError> {
+    const MAX_LENGTH: usize = MAX_LENGTH_TECHNICAL;
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("area").with_message(format!("Each method should be less than {} characters", MAX_LENGTH).into())),
+        | _ => Err(ValidationError::new("area")
+            .with_message(format!("Each element of technical approach should be less than {} characters", MAX_LENGTH).into())),
     }
 }
 fn validate_attribute_outcomes(value: &[String]) -> Result<(), ValidationError> {

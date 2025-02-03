@@ -16,15 +16,19 @@ use tar::Archive;
 use tracing::{debug, error, info};
 
 lazy_static! {
-    static ref VOCABULARY_ACCEPT: [&'static str; 40] = [
+    static ref VOCABULARY_ACCEPT: [&'static str; 54] = [
         "ACORN",
+        "AMD",
+        "ASCR",
         "airflows?",
         "applications?",
         "biomonitoring",
+        "CPUs?",
         "cyber",
         "[Cc]ybersecurity",
         "deliverables?",
         "disable",
+        "DOE",
         "downscaled?",
         "FAIR",
         "GEARS",
@@ -36,27 +40,37 @@ lazy_static! {
         "geospatial",
         "GPS",
         "GSHS",
+        "HPC",
         "IPs?",
+        "IRI",
         "ISO",
+        "JACC",
+        "LLVM",
         "MRI",
         "misconfigurations?",
         "multimodal",
+        "NERSC",
         "operationalize",
+        "OLCF",
         "ORNL",
+        "Perlmutter",
         "PIPE",
         "POI",
+        "RAJA",
         "regionalizations?",
         "reusability",
         "SANSR",
         "Situ",
         "socioeconomics?",
         "spaceborne",
+        "SNS",
         "STAR",
         "telematics",
         "timeframes?",
         "uncrewed",
         "UAS",
         "USA",
+        "XLOOP",
     ];
 }
 
@@ -256,6 +270,7 @@ impl StaticAnalyzer for Vale {
                 }
                 match File::create(format!("{}/accept.txt", parent)) {
                     | Ok(mut file) => {
+                        // TODO: Concatenate sponsor acronyms to accept file
                         let content = VOCABULARY_ACCEPT.join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to accept.txt");
                     }
