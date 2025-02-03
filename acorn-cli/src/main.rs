@@ -6,7 +6,7 @@ use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::Playwright;
 use rayon::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tracing::instrument;
 use tracing::{error, info};
 use tracing_indicatif::IndicatifLayer;
@@ -74,6 +74,23 @@ fn main() -> Void {
     }
     match &args.command {
         | Some(Commands::Check { path, .. }) => {
+            fn analyze_file(path: PathBuf) {
+                let config = ValeConfig::default().save();
+                let vale = Vale::init().config(config).build().download(None);
+                match vale.clone().sync() {
+                    | Ok(_) => match ResearchActivity::read(path) {
+                        | Ok(data) => {
+                            vale.analyze(data.clone().meta.id, data.extract_prose());
+                        }
+                        | Err(err) => {
+                            error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                        }
+                    },
+                    | Err(err) => {
+                        error!("=> {} Vale sync - {}", Label::fail(), err);
+                    }
+                }
+            }
             fn check_file(path: PathBuf) -> usize {
                 match ResearchActivity::read(path.clone()) {
                     | Ok(data) => match data.clone().check() {
@@ -90,24 +107,6 @@ fn main() -> Void {
                     | Err(err) => {
                         error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), err);
                         0
-                    }
-                }
-            }
-            fn analyze_file(path: &Path) {
-                let config = ValeConfig::default().save();
-                let vale = Vale::init().config(config).build().download(None);
-                match vale.clone().sync() {
-                    | Ok(_) => match ResearchActivity::read(path.into()) {
-                        | Ok(data) => {
-                            // TODO: Handle vale runs that exit with error code. Maybe use --no-exit?
-                            vale.analyze(data.clone().meta.id, data.extract_prose());
-                        }
-                        | Err(err) => {
-                            error!("=> {} Read research activity data at - {}", Label::fail(), err);
-                        }
-                    },
-                    | Err(err) => {
-                        error!("=> {} Vale sync - {}", Label::fail(), err);
                     }
                 }
             }
@@ -161,7 +160,7 @@ fn main() -> Void {
                     };
                 } else {
                     check_file(path.clone());
-                    analyze_file(&path.clone());
+                    analyze_file(path.clone());
                 }
             }
             Ok(())
