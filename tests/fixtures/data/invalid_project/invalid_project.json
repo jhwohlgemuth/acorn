@@ -16,10 +16,10 @@
     "keywords": ["automation"],
     "sponsors": ["DOD"],
     "technology": [
-      "language::JavaScript",
-      "language::TypeSpec",
-      "javascript::astro",
-      "javascript::react"
+      "JavaScript",
+      "TypeSpec",
+      "astro",
+      "react"
     ]
   },
   "title": "ACORN",

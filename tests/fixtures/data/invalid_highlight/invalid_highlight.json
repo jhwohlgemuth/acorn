@@ -20,7 +20,9 @@
         ],
         "technology": [
             "Geospatial Data Abstraction Lib"
-        ]
+        ],
+        "programs": [],
+        "managers": []
     },
     "title": "Some Highlight",
     "subtitle": "Et eum et molestias eaque",
@@ -45,5 +47,6 @@
         "phone": "555.123.4567",
         "profile": "https://example.com/thrawn",
         "division": "Naval Operations"
-    }
+    },
+    "notes": "Words that don't fit into other fields"
 }

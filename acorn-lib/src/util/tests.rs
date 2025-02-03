@@ -1,6 +1,16 @@
 use crate::util::*;
 use std::path::Path;
 
+const FIXTURES: &str = "../tests/fixtures";
+
+#[test]
+fn test_get_all_files() {
+    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), None);
+    assert_eq!(files.len(), 3);
+    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), Some("jpg".to_string()));
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
+}
 // #[test]
 // fn test_get_checksum() {
 //     let checksum = get_checksum(PathBuf::from("../LICENSE"));

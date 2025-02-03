@@ -115,12 +115,12 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
 // TODO: Make work, add tests
 pub fn get_all_files(path: PathBuf, extension: Option<String>) -> Vec<PathBuf> {
     let ext = match extension {
-        | Some(value) => format!(".{}", value.to_lowercase()),
-        | None => ".json".to_string(),
+        | Some(value) => value.to_lowercase().to_string(),
+        | None => "json".to_string(),
     };
-    println!("{} {}", Label::using(), ext);
-    let paths = glob(&format!("{}/**/*.{}", path_to_string(path), ext));
-    println!("{:#?}", paths);
+    let pattern = format!("{}/**/*.{}", path_to_string(path), ext);
+    debug!(pattern, "=> {}", Label::using());
+    let paths = glob(&pattern);
     match paths {
         | Ok(values) => values.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>(),
         | Err(_) => vec![],

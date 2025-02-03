@@ -17,8 +17,10 @@ fn test_fuzzy_keywords() {
     assert_eq!(resolve_keyword(exact.clone()), Some(exact));
     let misspelled: Keyword = "cyb".into();
     assert_eq!(resolve_keyword(misspelled), Some("cyber".into()));
-    let lowercase: Keyword = "gears".into();
-    assert_eq!(resolve_keyword(lowercase), Some("GEARS".into()));
+    let lowercase: Keyword = "machine-learn".into();
+    assert_eq!(resolve_keyword(lowercase), Some("machine-learning".into()));
+    let lowercase: Keyword = "Automation".into();
+    assert_eq!(resolve_keyword(lowercase), Some("automation".into()));
 }
 #[test]
 fn test_fuzzy_sponsors() {
