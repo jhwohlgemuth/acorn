@@ -32,17 +32,15 @@ lazy_static! {
     static ref RE_PHONE: Regex = Regex::new(r#"^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$"#).unwrap();
 }
 lazy_static! {
-    static ref KEYWORD_DATA: [&'static str; 11] = [
+    static ref KEYWORD_DATA: [&'static str; 9] = [
         "artificial-intelligence",
         "automation",
         "cyber",
-        "GEARS",
         "geospatial",
         "machine-learning",
         "nuclear-nonproliferation",
         "security",
         "transportation",
-        "event:icons:2024",
         "workflow",
     ];
     static ref SPONSOR_DATA: [(&'static str, &'static str); 23] = [
