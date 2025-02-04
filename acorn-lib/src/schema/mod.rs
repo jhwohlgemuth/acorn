@@ -291,8 +291,8 @@ impl ResearchActivity {
             | Ok(_) => {
                 paths.iter().for_each(|path| match ResearchActivity::read(path.into()) {
                     | Ok(data) => {
-                        // TODO: Handle vale runs that exit with error code
-                        vale.clone().analyze(data.clone().meta.id, data.extract_prose());
+                        // TODO: Use JSON output to create consolidated error count and output
+                        vale.clone().analyze(data.clone().meta.id, data.extract_prose(), None);
                     }
                     | Err(err) => {
                         error!("=> {} Read research activity data at - {}", Label::fail(), err);
@@ -307,7 +307,7 @@ impl ResearchActivity {
     pub fn check(paths: Vec<PathBuf>) -> usize {
         paths
             .par_iter()
-            .map(|path| match ResearchActivity::read(path.clone()) {
+            .map(|path| match ResearchActivity::read(path.into()) {
                 | Ok(data) => match data.clone().get_errors() {
                     | Ok(_) => {
                         info!("=> {} {} has no schema errors", Label::pass(), path.display());

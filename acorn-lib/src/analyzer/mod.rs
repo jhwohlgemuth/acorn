@@ -81,7 +81,7 @@ const ORGANIZATION: &str = "ornl";
 const APPLICATION: &str = "acorn";
 
 pub trait StaticAnalyzer {
-    fn analyze(self, id: String, content: String);
+    fn analyze(self, id: String, content: String, output: Option<String>);
     fn download(self, config: Option<ValeConfig>) -> Self;
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     fn extract(path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
@@ -114,7 +114,7 @@ pub struct ValeConfig {
     pub disabled: Vec<String>,
 }
 impl StaticAnalyzer for Vale {
-    fn analyze(self, id: String, content: String) {
+    fn analyze(self, id: String, content: String, output: Option<String>) {
         match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
             | Some(dirs) => {
                 let cache = dirs.cache_dir().to_path_buf();
@@ -127,7 +127,6 @@ impl StaticAnalyzer for Vale {
                     | Ok(file) => file,
                     | Err(why) => panic!("=> {} Create file {} - {}", Label::fail(), path.display(), why),
                 };
-                // std::fs::write(path, content).expect("Unable to write to temporary file");
                 file.write_all(content.as_bytes())
                     .expect("Unable to write to cache directory project file");
                 let binary = match self.binary {
@@ -139,7 +138,10 @@ impl StaticAnalyzer for Vale {
                 };
                 match self.config {
                     | Some(config) => {
-                        let result = cmd!(binary, "--no-wrap", "--config", config.path, path).run();
+                        let result = match output {
+                            | Some(value) => cmd!(binary, "--no-wrap", "--config", config.path, "--output", value, path).run(),
+                            | None => cmd!(binary, "--no-wrap", "--config", config.path, path).run(),
+                        };
                         match result {
                             | Ok(_) => {
                                 let message = format!("=> {} No errors found in {} data", Label::pass(), id.to_string().underline());
