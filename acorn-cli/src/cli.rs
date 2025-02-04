@@ -29,6 +29,16 @@ pub struct Arguments {
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
+#[derive(Clone, Debug, Display, PartialEq, ValueEnum, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Check {
+    #[display("analysis")]
+    // Static analysis of prose
+    Analysis,
+    // Schema validation via Rust type system
+    #[display("validation")]
+    Validation,
+}
 #[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Size {
@@ -71,6 +81,9 @@ pub enum Commands {
         /// Format JSON files in-place to maintain consistent format
         #[arg(short, long, value_name = "BOOL")]
         format: bool,
+        /// Skip one or more available quality checks
+        #[arg(short, long, value_name = "LIST", value_delimiter = ',')]
+        skip: Vec<Check>,
         #[command(flatten)]
         verbose: Verbosity,
     },

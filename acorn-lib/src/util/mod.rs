@@ -30,6 +30,7 @@ pub struct SemanticVersion {
     pub patch: u32,
 }
 impl Label {
+    pub const CAUTION: Emoji<'_, '_> = Emoji("⚠️ ", "!!! ");
     pub const CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
     pub const PROGRESS_BAR_TEMPLATE: &str = "{spinner:.green} {pos}/{len} [{bar:.green}] {msg}";
     pub fn invalid() -> String {
@@ -64,13 +65,23 @@ impl Label {
         let style = Style::new().cyan().dimmed().on_default_color();
         value.style(style).to_string()
     }
-    pub fn pass() -> Styled<&'static &'static str> {
-        let style = Style::new().green().on_default_color();
-        "☑  PASS".style(style)
+    pub fn pass() -> String {
+        Label::fmt_pass("SUCCESS")
+    }
+    pub fn fmt_pass(value: &str) -> String {
+        let style = Style::new().green().bold().on_default_color();
+        format!("{}{}", Label::CHECKMARK, value).style(style).to_string()
     }
     pub fn read() -> Styled<&'static &'static str> {
         let style = Style::new().green().on_default_color();
         "READ".style(style)
+    }
+    pub fn skip() -> String {
+        Label::fmt_skip("SKIP")
+    }
+    pub fn fmt_skip(value: &str) -> String {
+        let style = Style::new().yellow().on_default_color();
+        format!("{}{} ", Label::CAUTION, value).style(style).to_string()
     }
     pub fn using() -> String {
         Label::fmt_using("USING")

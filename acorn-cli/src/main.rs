@@ -6,7 +6,7 @@ use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::Playwright;
 use tracing::instrument;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use tracing_indicatif::IndicatifLayer;
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
@@ -19,7 +19,7 @@ mod template;
 use acorn_lib::schema::*;
 use acorn_lib::util::*;
 use acorn_lib::*;
-use cli::{Arguments, Commands, Target};
+use cli::{Arguments, Check, Commands, Target};
 use template::generate_factsheet_pdf;
 
 pub type Void = eyre::Result<(), eyre::Report>;
@@ -70,18 +70,26 @@ fn main() -> Void {
         }
     }
     match &args.command {
-        | Some(Commands::Check { path, .. }) => {
+        | Some(Commands::Check { path, skip, .. }) => {
             if let Some(path) = path {
                 let paths = if path.is_dir() {
                     get_all_files(path.clone(), None)
                 } else {
                     vec![path.clone()]
                 };
-                let total: usize = ResearchActivity::check(paths.clone());
-                if total > 0 {
-                    error!("=> {} Found {} schema errors in total", Label::fail(), total);
+                if skip.contains(&Check::Validation) {
+                    warn!("=> {} Schema validation", Label::skip());
+                } else {
+                    let total: usize = ResearchActivity::check(paths.clone());
+                    if total > 0 {
+                        error!("=> {} Found {} schema errors in total", Label::fail(), total);
+                    }
                 }
-                ResearchActivity::analyze(paths);
+                if skip.contains(&Check::Analysis) {
+                    warn!("=> {} Prose analysis", Label::skip());
+                } else {
+                    ResearchActivity::analyze(paths);
+                }
             }
             Ok(())
         }

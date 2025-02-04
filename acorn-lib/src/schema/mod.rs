@@ -12,13 +12,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::result::Result;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, trace};
 use validator::{Validate, ValidationError, ValidationErrorsKind};
-
-pub type Fuzzy = String;
-pub type Keyword = Fuzzy;
-pub type Sponsor = Fuzzy;
-pub type Technology = Fuzzy;
 
 const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 
@@ -28,6 +23,16 @@ const MAX_LENGTH_FACILITY: usize = 40;
 const MAX_LENGTH_IMPACT: usize = 400;
 const MAX_LENGTH_TECHNICAL: usize = 100;
 const MAX_LENGTH_OUTCOME: usize = 150;
+
+#[derive(Clone, Debug, Serialize, Deserialize, Display)]
+pub enum FuzzyValue {
+    #[display("Keyword")]
+    Keyword,
+    #[display("Sponsor")]
+    Sponsor,
+    #[display("Technology")]
+    Technology,
+}
 
 lazy_static! {
     static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
@@ -160,9 +165,9 @@ pub struct Metadata {
     pub website: Option<Website>,
     #[validate(nested)]
     pub graphics: Option<Vec<Graphic>>,
-    pub keywords: Vec<Fuzzy>,
-    pub sponsors: Vec<Fuzzy>,
-    pub technology: Vec<Fuzzy>,
+    pub keywords: Vec<String>,
+    pub sponsors: Vec<String>,
+    pub technology: Vec<String>,
     pub programs: Option<Vec<String>>,
     pub managers: Option<Vec<String>>,
 }
@@ -172,7 +177,7 @@ pub struct Organization {
     pub name: String,
     pub alternative_name: Option<String>,
     pub additional_type: OrganizationType,
-    pub keywords: Option<Vec<Fuzzy>>,
+    pub keywords: Option<Vec<String>>,
     pub children: Vec<Organization>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -371,12 +376,11 @@ impl ResearchActivity {
         };
         format!("The subtitle is \"{}\". {}", self.subtitle, sections)
     }
-    fn resolve(self, name: &str) -> Vec<Fuzzy> {
+    fn resolve(self, name: FuzzyValue) -> Vec<String> {
         let mut data: Vec<_> = match name {
-            | "keyword" => self.meta.keywords.into_iter().flat_map(resolve_keyword).collect(),
-            | "sponsor" => self.meta.sponsors.into_iter().flat_map(resolve_sponsor).collect(),
-            | "technology" => self.meta.technology.into_iter().flat_map(resolve_technology).collect(),
-            | _ => vec![],
+            | FuzzyValue::Keyword => self.meta.keywords.into_iter().flat_map(resolve_keyword).collect(),
+            | FuzzyValue::Sponsor => self.meta.sponsors.into_iter().flat_map(resolve_sponsor).collect(),
+            | FuzzyValue::Technology => self.meta.technology.into_iter().flat_map(resolve_technology).collect(),
         };
         data.sort();
         data.dedup();
@@ -405,7 +409,7 @@ impl ResearchActivity {
     }
     pub fn format(mut self, path: Option<PathBuf>) -> ResearchActivity {
         let path = match path {
-            | Some(path) => path,
+            | Some(value) => value,
             | None => PathBuf::from("."),
         };
         let parent = path.parent().unwrap().to_path_buf();
@@ -413,7 +417,7 @@ impl ResearchActivity {
             | value if !value.is_empty() => value[0].file_name().unwrap().to_string_lossy().to_string(),
             | _ => DEFAULT_GRAPHIC_HREF.to_string(),
         };
-        debug!(name, "=> {} Formatting first image", Label::using());
+        debug!(name, "=> {} First image", Label::using());
         let first_graphic = match self.meta.clone().graphics {
             | Some(values) if !values.is_empty() => {
                 let caption = match values.first() {
@@ -437,9 +441,9 @@ impl ResearchActivity {
             },
         };
         self.meta.graphics = Some(vec![first_graphic]);
-        self.meta.keywords = self.clone().resolve("keyword");
-        self.meta.sponsors = self.clone().resolve("sponsor");
-        self.meta.technology = self.clone().resolve("technology");
+        self.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
+        self.meta.sponsors = self.clone().resolve(FuzzyValue::Sponsor);
+        self.meta.technology = self.clone().resolve(FuzzyValue::Technology);
         self
     }
     pub fn read(path: PathBuf) -> serde_json::Result<ResearchActivity> {
@@ -499,25 +503,26 @@ pub fn get_error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
         })
         .sum()
 }
-fn resolve_keyword(value: Keyword) -> Option<String> {
+fn resolve_keyword(value: String) -> Option<String> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
     let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
     let output = pattern.match_list(*KEYWORD_DATA, &mut matcher).first().map(|(x, _)| x.to_string());
+    let label = "Keyword";
     match output.clone() {
         | Some(resolved) => {
             if resolved.eq(&value.to_string()) {
-                info!("=> {} Keyword = \"{}\"", Label::using(), value.clone());
+                trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
             } else {
-                warn!(input = value.clone(), resolved, "=> {} Keyword", Label::found());
+                debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
             }
         }
         | None => {
-            warn!(keyword = value.clone(), "=> {}", Label::not_found());
+            debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
         }
     };
     output
 }
-fn resolve_sponsor(value: Sponsor) -> Option<String> {
+fn resolve_sponsor(value: String) -> Option<String> {
     let data = SPONSOR_DATA
         .into_iter()
         .map(|(key, value)| (key.to_string(), value.to_string()))
@@ -536,21 +541,22 @@ fn resolve_sponsor(value: Sponsor) -> Option<String> {
             output
         }
     };
+    let label = "Sponsor";
     match output.clone() {
         | Some(resolved) => {
             if resolved.eq(&value.to_string()) {
-                info!("=> {} Sponsor = \"{}\"", Label::using(), value.clone());
+                trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
             } else {
-                warn!(input = value.clone(), resolved, "=> {} Sponsor", Label::found());
+                debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
             }
         }
         | None => {
-            warn!(sponsor = value.clone(), "=> {}", Label::not_found());
+            debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
         }
     };
     output
 }
-fn resolve_technology(value: Technology) -> Option<String> {
+fn resolve_technology(value: String) -> Option<String> {
     let output = TECHNOLOGY_DATA
         .clone()
         .into_iter()
@@ -567,16 +573,17 @@ fn resolve_technology(value: Technology) -> Option<String> {
         })
         .max_by_key(|(_, score)| *score)
         .map(|(x, _)| x.to_string());
+    let label = "Technology";
     match output.clone() {
         | Some(resolved) => {
             if resolved.eq(&value.to_string()) {
-                info!("=> {} Technology = \"{}\"", Label::using(), value.clone());
+                trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
             } else {
-                warn!(input = value.clone(), resolved, "=> {} Technology", Label::found());
+                debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
             }
         }
         | None => {
-            warn!(technology = value.clone(), "=> {}", Label::not_found());
+            debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
         }
     };
     output

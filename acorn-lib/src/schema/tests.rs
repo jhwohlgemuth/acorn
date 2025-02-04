@@ -13,13 +13,13 @@ fn test_read() {
 }
 #[test]
 fn test_fuzzy_keywords() {
-    let exact: Keyword = "nuclear-nonproliferation".into();
+    let exact: String = "nuclear-nonproliferation".into();
     assert_eq!(resolve_keyword(exact.clone()), Some(exact));
-    let misspelled: Keyword = "cyb".into();
+    let misspelled: String = "cyb".into();
     assert_eq!(resolve_keyword(misspelled), Some("cyber".into()));
-    let lowercase: Keyword = "machine-learn".into();
+    let lowercase: String = "machine-learn".into();
     assert_eq!(resolve_keyword(lowercase), Some("machine-learning".into()));
-    let lowercase: Keyword = "Automation".into();
+    let lowercase: String = "Automation".into();
     assert_eq!(resolve_keyword(lowercase), Some("automation".into()));
 }
 #[test]
