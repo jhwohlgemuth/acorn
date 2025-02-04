@@ -1,3 +1,4 @@
+use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig, Vale, ValeConfig};
 use crate::util::*;
 use derive_more::Display;
 use fancy_regex::Regex;
@@ -6,6 +7,7 @@ use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher};
 use owo_colors::OwoColorize;
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -282,6 +284,48 @@ impl Metadata {
     }
 }
 impl ResearchActivity {
+    pub fn analyze(paths: Vec<PathBuf>) {
+        let config = ValeConfig::default().save();
+        let vale = Vale::init().config(config).build().download(None);
+        match vale.clone().sync() {
+            | Ok(_) => {
+                paths.iter().for_each(|path| match ResearchActivity::read(path.into()) {
+                    | Ok(data) => {
+                        // TODO: Handle vale runs that exit with error code
+                        vale.clone().analyze(data.clone().meta.id, data.extract_prose());
+                    }
+                    | Err(err) => {
+                        error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                    }
+                })
+            }
+            | Err(err) => {
+                error!("=> {} Vale sync - {}", Label::fail(), err);
+            }
+        }
+    }
+    pub fn check(paths: Vec<PathBuf>) -> usize {
+        paths
+            .par_iter()
+            .map(|path| match ResearchActivity::read(path.clone()) {
+                | Ok(data) => match data.clone().get_errors() {
+                    | Ok(_) => {
+                        info!("=> {} {} has no schema errors", Label::pass(), path.display());
+                        0
+                    }
+                    | Err(found) => {
+                        let count = get_error_count(found.clone());
+                        error!("=> {} Found {} errors in {}: {:#?}", Label::fail(), count, path.display(), found,);
+                        count
+                    }
+                },
+                | Err(err) => {
+                    error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), err);
+                    0
+                }
+            })
+            .sum()
+    }
     pub fn extract_prose(self) -> String {
         let sections = match self.sections {
             | Sections::Highlight(HighlightSections {
@@ -338,18 +382,18 @@ impl ResearchActivity {
         data.dedup();
         data
     }
-    pub fn check(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
+    pub fn get_errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
         let mut found: Vec<Option<HashMap<String, ValidationErrorsKind>>> = vec![];
-        found.push(get_errors::<ResearchActivity>(self.clone()));
+        found.push(get_validation_errors::<ResearchActivity>(self.clone()));
         match self.clone().sections {
             | Sections::Highlight(sections) => {
-                found.push(get_errors::<HighlightSections>(sections));
+                found.push(get_validation_errors::<HighlightSections>(sections));
             }
             | Sections::Project(sections) => {
-                found.push(get_errors::<ProjectSections>(sections));
+                found.push(get_validation_errors::<ProjectSections>(sections));
             }
             | Sections::Organization(sections) => {
-                found.push(get_errors::<OrganizationSections>(sections));
+                found.push(get_validation_errors::<OrganizationSections>(sections));
             }
         };
         let errors = format_errors(found.clone());
@@ -425,17 +469,6 @@ impl ResearchActivity {
         }
     }
 }
-/// Combines a vector of optional hash maps containing validation errors into a single hash map.
-///
-/// # Arguments
-///
-/// * `found` - A vector of optional hash maps where each hash map represents validation errors
-///   with keys as strings and values as `ValidationErrorsKind`.
-///
-/// # Returns
-///
-/// A single hash map containing all the validation errors from the input vector, with each key
-/// mapped to its corresponding `ValidationErrorsKind`.
 pub fn format_errors(found: Vec<Option<HashMap<String, ValidationErrorsKind>>>) -> HashMap<String, ValidationErrorsKind> {
     found.clone().into_iter().flatten().fold(HashMap::new(), |mut acc, x| {
         for (key, value) in x.iter() {
@@ -444,27 +477,7 @@ pub fn format_errors(found: Vec<Option<HashMap<String, ValidationErrorsKind>>>) 
         acc
     })
 }
-/// Validates an attribute and returns a map of validation errors, if any.
-///
-/// This function takes an attribute that implements the `Validate` trait and
-/// performs validation on it. If validation succeeds, it returns `None`. If
-/// validation fails, it returns a `HashMap` where each key is a string
-/// representing the field name with errors, and the value is a
-/// `ValidationErrorsKind` representing the type of validation error.
-///
-/// # Type Parameters
-///
-/// * `T` - A type that implements the `Validate` trait.
-///
-/// # Arguments
-///
-/// * `attribute` - The attribute to be validated.
-///
-/// # Returns
-///
-/// * `Option<HashMap<String, ValidationErrorsKind>>` - A map of validation errors
-///   if validation fails, or `None` if validation succeeds.
-pub fn get_errors<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
+pub fn get_validation_errors<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
     match attribute.validate() {
         | Ok(_) => None,
         | Err(err) => Some(
@@ -475,22 +488,6 @@ pub fn get_errors<T: Validate>(attribute: T) -> Option<HashMap<String, Validatio
         ),
     }
 }
-/// Counts the total number of validation errors in a given HashMap.
-///
-/// The function iterates over the values of the provided HashMap, which
-/// maps error field names to their respective `ValidationErrorsKind`.
-/// It counts each `Field` error as one and sums the number of nested
-/// errors for `Struct` types. `List` errors are ignored in the count.
-///
-/// # Arguments
-///
-/// * `errors` - A HashMap where the key is a String representing the
-///   field name and the value is a `ValidationErrorsKind` representing
-///   the type of validation error.
-///
-/// # Returns
-///
-/// * `usize` - The total count of validation errors.
 pub fn get_error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
     errors
         .clone()
@@ -502,20 +499,6 @@ pub fn get_error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
         })
         .sum()
 }
-/// Resolves a keyword to its closest match from a predefined list.
-///
-/// The function uses pattern matching to compare the input keyword against
-/// a set of predefined keywords. It returns the first matched keyword in
-/// the list, considering case-insensitive and normalized comparisons.
-///
-/// # Arguments
-///
-/// * `value` - A `Keyword` type representing the keyword to be resolved.
-///
-/// # Returns
-///
-/// An `Option<String>` containing the resolved keyword if a match is found,
-/// otherwise `None`.
 fn resolve_keyword(value: Keyword) -> Option<String> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
     let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
@@ -534,19 +517,6 @@ fn resolve_keyword(value: Keyword) -> Option<String> {
     };
     output
 }
-/// Resolve a sponsor acronym to its full name.
-///
-/// If the input string is already a full name, it is returned as is.
-///
-/// If the input string is an acronym and matches a sponsor in the database,
-/// the full name of the sponsor is returned.
-///
-/// If the input string is an acronym and does not match a sponsor in the database,
-/// the function attempts to fuzzy match the acronym to a sponsor in the database.
-///
-/// If the fuzzy match is successful, the full name of the matched sponsor is returned.
-///
-/// If the fuzzy match is not successful, the input string is returned as is.
 fn resolve_sponsor(value: Sponsor) -> Option<String> {
     let data = SPONSOR_DATA
         .into_iter()
@@ -580,21 +550,6 @@ fn resolve_sponsor(value: Sponsor) -> Option<String> {
     };
     output
 }
-/// Resolves the technology name from a given `Technology` input.
-///
-/// The function attempts to match the input against a predefined list of
-/// technology names and their common aliases. It leverages a pattern matching
-/// mechanism to find the closest match by comparing scores, and returns the
-/// primary technology name with the highest match score.
-///
-/// # Arguments
-///
-/// * `value` - A `Technology` type representing the input to be resolved.
-///
-/// # Returns
-///
-/// An `Option<String>` containing the resolved technology name if a match is
-/// found, otherwise `None`.
 fn resolve_technology(value: Technology) -> Option<String> {
     let output = TECHNOLOGY_DATA
         .clone()

@@ -5,8 +5,6 @@ use dotenvy::dotenv;
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::Playwright;
-use rayon::prelude::*;
-use std::path::PathBuf;
 use tracing::instrument;
 use tracing::{error, info};
 use tracing_indicatif::IndicatifLayer;
@@ -18,7 +16,6 @@ use tracing_subscriber::EnvFilter;
 mod cli;
 mod template;
 
-use acorn_lib::analyzer::{StaticAnalyzer, Vale, ValeConfig};
 use acorn_lib::schema::*;
 use acorn_lib::util::*;
 use acorn_lib::*;
@@ -74,79 +71,17 @@ fn main() -> Void {
     }
     match &args.command {
         | Some(Commands::Check { path, .. }) => {
-            // TODO: Refactor to support vec of paths
-            fn analyze_file(path: PathBuf) {
-                let config = ValeConfig::default().save();
-                let vale = Vale::init().config(config).build().download(None);
-                match vale.clone().sync() {
-                    | Ok(_) => match ResearchActivity::read(path) {
-                        | Ok(data) => {
-                            vale.analyze(data.clone().meta.id, data.extract_prose());
-                        }
-                        | Err(err) => {
-                            error!("=> {} Read research activity data at - {}", Label::fail(), err);
-                        }
-                    },
-                    | Err(err) => {
-                        error!("=> {} Vale sync - {}", Label::fail(), err);
-                    }
-                }
-            }
-            fn check_file(path: PathBuf) -> usize {
-                match ResearchActivity::read(path.clone()) {
-                    | Ok(data) => match data.clone().check() {
-                        | Ok(_) => {
-                            info!("=> {} {} has no schema errors", Label::pass(), path.display());
-                            0
-                        }
-                        | Err(found) => {
-                            let count = get_error_count(found.clone());
-                            error!("=> {} Found {} errors in {}: {:#?}", Label::fail(), count, path.display(), found,);
-                            count
-                        }
-                    },
-                    | Err(err) => {
-                        error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), err);
-                        0
-                    }
-                }
-            }
             if let Some(path) = path {
-                if path.is_dir() {
-                    //
-                    // Schema validation
-                    //
-                    let paths = get_all_files(path.clone(), None);
-                    let total: usize = paths.par_iter().map(|path| check_file(path.clone())).sum();
-                    if total > 0 {
-                        error!("=> {} Found {} schema errors", Label::fail(), total);
-                    }
-                    //
-                    // Prose static analysis
-                    //
-                    let config = ValeConfig::default().save();
-                    let vale = Vale::init().config(config).build().download(None);
-                    match vale.clone().sync() {
-                        | Ok(_) => {
-                            paths.iter().for_each(|path| match ResearchActivity::read(path.into()) {
-                                | Ok(data) => {
-                                    // TODO: Handle vale runs that exit with error code. Maybe use --no-exit?
-                                    vale.clone().analyze(data.clone().meta.id, data.extract_prose());
-                                }
-                                | Err(err) => {
-                                    error!("=> {} Read research activity data at - {}", Label::fail(), err);
-                                }
-                            })
-                        }
-                        | Err(err) => {
-                            error!("=> {} Vale sync - {}", Label::fail(), err);
-                        }
-                    };
+                let paths = if path.is_dir() {
+                    get_all_files(path.clone(), None)
                 } else {
-                    // Single file
-                    check_file(path.clone());
-                    analyze_file(path.clone());
+                    vec![path.clone()]
+                };
+                let total: usize = ResearchActivity::check(paths.clone());
+                if total > 0 {
+                    error!("=> {} Found {} schema errors in total", Label::fail(), total);
                 }
+                ResearchActivity::analyze(paths);
             }
             Ok(())
         }

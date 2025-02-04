@@ -87,6 +87,11 @@ pub trait StaticAnalyzer {
     fn extract(path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
     fn sync(self) -> Result<(), std::io::Error>;
 }
+pub trait StaticAnalyzerConfig {
+    fn default() -> ValeConfig;
+    fn ini(self) -> Ini;
+    fn save(self) -> ValeConfig;
+}
 #[derive(Clone, Debug, Default, bon::Builder, Display)]
 #[display("{:?}", version)]
 #[builder(start_fn = init)]
@@ -285,7 +290,7 @@ impl StaticAnalyzer for Vale {
         }
     }
 }
-impl Default for ValeConfig {
+impl StaticAnalyzerConfig for ValeConfig {
     fn default() -> Self {
         let config = ValeConfig::init()
             .packages(to_string(vec!["Google", "proselint", "write-good", "Readability", "Joblint"]))
@@ -309,9 +314,7 @@ impl Default for ValeConfig {
         debug!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
         config
     }
-}
-impl ValeConfig {
-    pub fn ini(&self) -> Ini {
+    fn ini(self) -> Ini {
         let ValeConfig {
             packages,
             vocabularies,
@@ -331,14 +334,14 @@ impl ValeConfig {
         });
         conf
     }
-    pub fn save(self) -> ValeConfig {
+    fn save(self) -> ValeConfig {
         let path = self.clone().path;
         let parent = path.parent().unwrap().to_path_buf();
         match create_dir_all(parent.clone()) {
             | Ok(_) => {}
             | Err(why) => error!(directory = path_to_string(parent), "=> {} Create - {}", Label::fail(), why),
         }
-        match self.ini().write_to_file(path.clone()) {
+        match self.clone().ini().write_to_file(path.clone()) {
             | Ok(_) => {
                 debug!(path = path_to_string(path), "=> {} Saved configuration", Label::using());
             }
