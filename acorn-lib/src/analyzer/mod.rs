@@ -137,11 +137,11 @@ impl StaticAnalyzer for Vale {
                         let result = cmd!(binary, "--no-wrap", "--config", config.path, path).run();
                         match result {
                             | Ok(_) => {
-                                let message = format!("=> {} No errors found in {} data", Label::pass(), format!("{}", id).underline());
+                                let message = format!("=> {} No errors found in {} data", Label::pass(), id.to_string().underline());
                                 println!("{}", message);
                             }
                             | Err(_) => {
-                                error!("=> {} {} data = {}\n", Label::using(), Label::fmt_fail(&format!("{}", id)), content);
+                                error!("=> {} {} data = {}\n", Label::using(), Label::fmt_fail(&id.to_string()), content);
                             }
                         }
                     }
