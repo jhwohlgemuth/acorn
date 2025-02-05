@@ -537,7 +537,7 @@ fn resolve_sponsor(value: String) -> Option<String> {
     let value = value.trim().to_string();
     let sanitized = sanitize(value.clone());
     let output = match sanitized.len() {
-        | 3..=5 if data.contains_key(&value.to_uppercase()) => data.get(&value.to_uppercase()).cloned(),
+        3..=5 if data.contains_key(&value.to_uppercase()) => data.get(&value.to_uppercase()).cloned(),
         | _ => {
             let pattern = Pattern::parse(&sanitized, CaseMatching::Ignore, Normalization::Smart);
             let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
@@ -614,7 +614,7 @@ fn validate_attribute_capabilities(value: &[String]) -> Result<(), ValidationErr
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("area").with_message(format!("Each capability should be less than {} characters", MAX_LENGTH).into())),
+        | _ => Err(ValidationError::new("capability").with_message(format!("Each capability should be less than {} characters", MAX_LENGTH).into())),
     }
 }
 fn validate_attribute_facilities(value: &[String]) -> Result<(), ValidationError> {
@@ -622,7 +622,7 @@ fn validate_attribute_facilities(value: &[String]) -> Result<(), ValidationError
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("area").with_message(format!("Each facility should be less than {} characters", MAX_LENGTH).into())),
+        | _ => Err(ValidationError::new("facility").with_message(format!("Each facility should be less than {} characters", MAX_LENGTH).into())),
     }
 }
 fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
@@ -630,7 +630,7 @@ fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("outcome").with_message(format!("Each impact item should be less than {} characters", MAX_LENGTH).into())),
+        | _ => Err(ValidationError::new("impact").with_message(format!("Each impact item should be less than {} characters", MAX_LENGTH).into())),
     }
 }
 fn validate_attribute_technical(value: &[String]) -> Result<(), ValidationError> {
@@ -638,7 +638,7 @@ fn validate_attribute_technical(value: &[String]) -> Result<(), ValidationError>
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("area")
+        | _ => Err(ValidationError::new("technical approach")
             .with_message(format!("Each element of technical approach should be less than {} characters", MAX_LENGTH).into())),
     }
 }
