@@ -41,7 +41,7 @@ header {
 
 main {
     font-family: "myriad_pro_light";
-    font-size: 11pt;
+    font-size: 10.4pt;
     margin: 0px 0px 0px 50px;
     letter-spacing: 0.1em;
 }
@@ -107,7 +107,7 @@ aside>.research-focus>h3 {
 aside>div>h3 {
     color: #16537B;
     font-family: "proxima";
-    font-size: 11pt;
+    font-size: 10pt;
 }
 
 footer {
@@ -131,7 +131,7 @@ header>.wrapper {
     grid-gap: 5px;
     grid-template-columns: 70px auto;
     grid-template-rows: auto auto auto;
-    margin-top: 45px;
+    margin-top: 35px;
 }
 
 footer>.wrapper {
