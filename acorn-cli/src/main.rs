@@ -5,6 +5,9 @@ use dotenvy::dotenv;
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::Playwright;
+use rayon::prelude::*;
+use std::fs::File;
+use std::io::Write;
 use tracing::instrument;
 use tracing::{error, info, warn};
 use tracing_indicatif::IndicatifLayer;
@@ -73,9 +76,9 @@ fn main() -> Void {
         | Some(Commands::Check { path, skip, .. }) => {
             if let Some(path) = path {
                 let paths = if path.is_dir() {
-                    get_all_files(path.clone(), None)
+                    get_all_files(path.into(), None)
                 } else {
-                    vec![path.clone()]
+                    vec![path.into()]
                 };
                 if skip.contains(&Check::Validation) {
                     warn!("=> {} Schema validation", Label::skip());
@@ -88,6 +91,7 @@ fn main() -> Void {
                 if skip.contains(&Check::Analysis) {
                     warn!("=> {} Prose analysis", Label::skip());
                 } else {
+                    // TODO: Use JSON output to create customized and consolidated error count and output
                     ResearchActivity::analyze(paths);
                 }
             }
@@ -159,7 +163,42 @@ fn main() -> Void {
                 | Target::Highlight => Ok(()),
             }
         }
-        | Some(Commands::Format { .. }) => Ok(()),
+        | Some(Commands::Format { path, .. }) => {
+            if let Some(path) = path {
+                let paths = if path.is_dir() {
+                    get_all_files(path.into(), None)
+                } else {
+                    vec![path.into()]
+                };
+                paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
+                    | Ok(data) => {
+                        let formatted = data.format(Some(path.clone()));
+                        let filepath = path_to_string(path.clone());
+                        let mut file = match File::create(path) {
+                            | Ok(file) => file,
+                            | Err(why) => {
+                                error!(file = filepath, "=> {} Create - {}", Label::fail(), why);
+                                std::process::exit(exitcode::UNAVAILABLE);
+                            }
+                        };
+                        let content = serde_json::to_string_pretty(&formatted).unwrap();
+                        match file.write_all(content.as_bytes()) {
+                            | Ok(_) => {
+                                info!(file = filepath, "=> {} Formatted", Label::pass());
+                            }
+                            | Err(why) => {
+                                error!(file = filepath, "=> {} Write - {}", Label::fail(), why);
+                                std::process::exit(exitcode::UNAVAILABLE);
+                            }
+                        }
+                    }
+                    | Err(err) => {
+                        error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                    }
+                });
+            }
+            Ok(())
+        }
         | None => Ok(()),
     }
 }

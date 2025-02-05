@@ -75,9 +75,6 @@ pub enum Commands {
         /// Path to check
         #[arg(default_value = "./", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
-        /// Path to configuration file
-        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
-        config: Option<PathBuf>,
         /// Format JSON files in-place to maintain consistent format
         #[arg(short, long, value_name = "BOOL")]
         format: bool,
@@ -139,12 +136,9 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment)]
     Format {
-        /// Path to check
+        /// Path to look for files to format
         #[arg(default_value = "./", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
-        /// Path to configuration file
-        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
-        config: Option<PathBuf>,
         #[command(flatten)]
         verbose: Verbosity,
     },

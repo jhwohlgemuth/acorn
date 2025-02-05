@@ -134,6 +134,7 @@ pub struct Graphic {
     #[validate(length(max = 250, message = "Caption is too long, please reduce the length below 250."))]
     pub caption: String,
     // TODO: Add validation for image extension
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub href: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -153,22 +154,28 @@ pub struct Contact {
 pub struct Metadata {
     #[validate(custom(function = "validate_is_kebabcase"))]
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "validate_is_doi"))]
     pub doi: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(url(message = "Please provide a valid URL"))]
     pub publication: Option<String>,
-    #[serde(alias = "type")]
+    #[serde(alias = "type", rename = "type")]
     pub schema_type: SchemaType,
     pub archive: bool,
     pub draft: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
     pub website: Option<Website>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
     pub graphics: Option<Vec<Graphic>>,
     pub keywords: Vec<String>,
     pub sponsors: Vec<String>,
     pub technology: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub programs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub managers: Option<Vec<String>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -186,6 +193,7 @@ pub struct Website {
     #[validate(url(message = "Please provide a valid URL"))]
     pub url: String,
 }
+// TODO: Trim whitespace with desaerialize_with derive - https://serde.rs/impl-serialize.html
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ResearchActivity {
     #[validate(nested)]
@@ -197,6 +205,7 @@ pub struct ResearchActivity {
     pub sections: Sections,
     #[validate(nested)]
     pub contact: Contact,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -293,17 +302,14 @@ impl ResearchActivity {
         let config = ValeConfig::default().save();
         let vale = Vale::init().config(config).build().download(None);
         match vale.clone().sync() {
-            | Ok(_) => {
-                paths.iter().for_each(|path| match ResearchActivity::read(path.into()) {
-                    | Ok(data) => {
-                        // TODO: Use JSON output to create consolidated error count and output
-                        vale.clone().analyze(data.clone().meta.id, data.extract_prose(), None);
-                    }
-                    | Err(err) => {
-                        error!("=> {} Read research activity data at - {}", Label::fail(), err);
-                    }
-                })
-            }
+            | Ok(_) => paths.iter().for_each(|path| match ResearchActivity::read(path.into()) {
+                | Ok(data) => {
+                    vale.clone().analyze(data.clone().meta.id, data.extract_prose(), None);
+                }
+                | Err(err) => {
+                    error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                }
+            }),
             | Err(err) => {
                 error!("=> {} Vale sync - {}", Label::fail(), err);
             }
@@ -421,9 +427,10 @@ impl ResearchActivity {
         let first_graphic = match self.meta.clone().graphics {
             | Some(values) if !values.is_empty() => {
                 let caption = match values.first() {
-                    | Some(Graphic { href, caption, .. }) if !href.is_some() => {
-                        debug!(caption, "=> {}", Label::using());
-                        caption
+                    | Some(Graphic { caption, .. }) if !caption.is_empty() => {
+                        let trimmed = caption.trim();
+                        trace!(caption = trimmed, "=> {}", Label::using());
+                        trimmed
                     }
                     | Some(_) | None => {
                         error!(path = path.to_str().unwrap(), "=> {} Caption", Label::not_found());
