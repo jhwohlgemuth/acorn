@@ -11,7 +11,7 @@
         },
         "graphics": [
             {
-                "caption": "Ad cum provident saepe incidunt explicabo excepturi aut sint."
+                "caption": "This is an image caption."
             }
         ],
         "keywords": [],
@@ -25,14 +25,14 @@
         "managers": []
     },
     "title": "Some Highlight",
-    "subtitle": "Et eum et molestias eaque",
+    "subtitle": "This is a subtitle",
     "sections": {
-        "achievement": "Iste est dicta earum est cum pariatur et. Qui voluptates ut debitis. Nobis expedita soluta provident culpa. Enim et explicabo assumenda error sunt. Dolorum sint et blanditiis rem rerum dolores assumenda minima ut. Inventore consequatur accusamus dolores neque ratione doloremque sit.",
-        "impact": "A recusandae occaecati id. Inventore inventore omnis dicta doloribus.",
+        "achievement": "This is an achievement.",
+        "impact": "This is the impact.",
         "technical": [
-            "Et et deleniti magni quam id deserunt.",
-            "Alias animi saepe eligendi distinctio sunt id.",
-            "Cum saepe dolor facere natus quo esse. Officia amet omnis magni id."
+            "Here is a technical approach",
+            "Here is more technical approach",
+            "Even more technical approaches"
         ]
     },
     "contact": {
