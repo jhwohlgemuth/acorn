@@ -66,9 +66,17 @@ pub enum Target {
 pub enum Commands {
     /// Perform static analysis on research activity data and apply standardized best practices
     ///
+    ///     Check a file
     ///     $> acorn check --path /path/to/file.json
     ///
+    ///     Check all supported files in a folder
     ///     $> acorn check --path /path/to/folder
+    /// 
+    ///     Skip static analysis
+    ///     $> acorn check --path /path/to/folder --skip validation
+    /// 
+    ///     Skip schema validation
+    ///     $> acorn check --path /path/to/folder --skip analysis,validation
     ///
     #[clap(verbatim_doc_comment)]
     Check {
@@ -86,8 +94,10 @@ pub enum Commands {
     },
     /// Download research activity data from buckets
     ///
+    ///     Download research activity data from a list of buckets
     ///     $> acorn download --buckets /path/to/buckets.json
     ///
+    ///     Download research activity data to a specific output directory
     ///     $> acorn download --buckets /path/to/buckets.json --output /path/to/output
     ///
     #[clap(verbatim_doc_comment)]

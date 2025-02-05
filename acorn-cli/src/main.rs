@@ -125,7 +125,7 @@ fn main() -> Void {
                 | Target::FactSheet => {
                     tokio_runtime().block_on(async {
                         let playwright = Playwright::initialize().await.unwrap();
-                        playwright.prepare().unwrap(); // Install browsers
+                        playwright.install_chromium().unwrap(); // Install browsers
                         let chromium = playwright.chromium();
                         let browser = chromium.launcher().headless(true).launch().await.unwrap();
                         let context = browser.context_builder().build().await.unwrap();
@@ -134,6 +134,11 @@ fn main() -> Void {
                             | Some(value) => value,
                             | None => unimplemented!(),
                         };
+                        // let paths = if input_path.is_dir() {
+                        //     get_all_files(input_path.into(), None)
+                        // } else {
+                        //     vec![input_path.into()]
+                        // };
                         if input_path.is_dir() {
                             match glob(&format!("{}/**/*.json", input_path.to_str().unwrap())) {
                                 | Ok(values) => {

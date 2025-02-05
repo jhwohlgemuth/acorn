@@ -123,7 +123,6 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
     let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.join(filename))
 }
-// TODO: Make work, add tests
 pub fn get_all_files(path: PathBuf, extension: Option<String>) -> Vec<PathBuf> {
     let ext = match extension {
         | Some(value) => value.to_lowercase().to_string(),
