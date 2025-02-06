@@ -74,11 +74,7 @@ fn main() -> Void {
     match &args.command {
         | Some(Commands::Check { path, skip, .. }) => {
             if let Some(path) = path {
-                let paths = if path.is_dir() {
-                    get_all_files(path.into(), None)
-                } else {
-                    vec![path.into()]
-                };
+                let paths = get_all_files(path.into(), None);
                 if skip.contains(&Check::Validation) {
                     warn!("=> {} Schema validation", Label::skip());
                 } else {
@@ -133,11 +129,7 @@ fn main() -> Void {
                             | Some(value) => value,
                             | None => unimplemented!(),
                         };
-                        let paths = if input_path.is_dir() {
-                            get_all_files(input_path, None)
-                        } else {
-                            vec![input_path]
-                        };
+                        let paths = get_all_files(input_path, None);
                         let progress = ProgressBar::new(paths.len() as u64);
                         progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                         for path in paths {
@@ -156,11 +148,7 @@ fn main() -> Void {
         }
         | Some(Commands::Format { path, .. }) => {
             if let Some(path) = path {
-                let paths = if path.is_dir() {
-                    get_all_files(path.into(), None)
-                } else {
-                    vec![path.into()]
-                };
+                let paths = get_all_files(path.into(), None);
                 paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
                     | Ok(data) => {
                         let formatted = data.format(Some(path.clone()));

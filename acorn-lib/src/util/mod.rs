@@ -124,16 +124,25 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
     Ok(destination.join(filename))
 }
 pub fn get_all_files(path: PathBuf, extension: Option<String>) -> Vec<PathBuf> {
-    let ext = match extension {
-        | Some(value) => value.to_lowercase().to_string(),
-        | None => "json".to_string(),
-    };
-    let pattern = format!("{}/**/*.{}", path_to_string(path), ext);
-    debug!(pattern, "=> {}", Label::using());
-    let paths = glob(&pattern);
-    match paths {
-        | Ok(values) => values.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>(),
-        | Err(_) => vec![],
+    if path.is_dir() {
+        let ext = match extension {
+            | Some(value) => value.to_lowercase().to_string(),
+            | None => "json".to_string(),
+        };
+        let pattern = format!("{}/**/*.{}", path_to_string(path), ext);
+        debug!(pattern, "=> {}", Label::using());
+        let paths = glob(&pattern);
+        match paths {
+            | Ok(values) => values.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>(),
+            | Err(_) => vec![],
+        }
+    } else {
+        debug!(
+            path = path_to_string(path.clone()),
+            "=> {} Extension passed with single file to get_all_files() - make sure this is desired",
+            Label::using()
+        );
+        vec![path]
     }
 }
 // Get SHA256 hash of a file

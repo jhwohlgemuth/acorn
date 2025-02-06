@@ -16,7 +16,7 @@ use tar::Archive;
 use tracing::{debug, error, info};
 
 lazy_static! {
-    static ref VOCABULARY_ACCEPT: [&'static str; 54] = [
+    static ref VOCABULARY_ACCEPT: [&'static str; 55] = [
         "ACORN",
         "AMD",
         "ASCR",
@@ -67,6 +67,7 @@ lazy_static! {
         "STAR",
         "telematics",
         "timeframes?",
+        "TSUSG",
         "uncrewed",
         "UAS",
         "USA",

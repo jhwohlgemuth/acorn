@@ -5,11 +5,16 @@ const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
 fn test_get_all_files() {
+    // Directory
     let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), None);
     assert_eq!(files.len(), 3);
     let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), Some("jpg".to_string()));
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
+    // File
+    let files = get_all_files(PathBuf::from(FIXTURES).join("glob/a.txt"), None);
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.txt");
 }
 #[test]
 fn test_get_checksum() {
