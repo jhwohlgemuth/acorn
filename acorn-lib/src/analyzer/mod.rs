@@ -14,6 +14,7 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 use tar::Archive;
 use tracing::{debug, error, info};
+use which::which;
 
 lazy_static! {
     static ref VOCABULARY_ACCEPT: [&'static str; 55] = [
@@ -87,6 +88,10 @@ pub trait StaticAnalyzer {
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     fn extract(path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
     fn sync(self) -> Result<(), std::io::Error>;
+    fn with_binary(self, path: PathBuf) -> Self;
+    fn with_config(self, value: ValeConfig) -> Self;
+    fn with_system_command(self) -> Self;
+    fn with_version(self, value: String) -> Self;
 }
 pub trait StaticAnalyzerConfig {
     fn default() -> ValeConfig;
@@ -195,6 +200,7 @@ impl StaticAnalyzer for Vale {
                 } else {
                     info!(checksum, "=> {}", Label::pass());
                 }
+                // TODO: Provide option to save to cache project directory
                 let destination = match config.clone() {
                     | Some(value) => value.path.parent().unwrap().to_path_buf(),
                     | None => PathBuf::from("./.vale/"),
@@ -291,6 +297,36 @@ impl StaticAnalyzer for Vale {
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
+    }
+    fn with_binary(mut self, path: PathBuf) -> Self {
+        self.binary = Some(path);
+        self
+    }
+    fn with_config(mut self, value: ValeConfig) -> Self {
+        self.config = Some(value);
+        self
+    }
+    fn with_system_command(mut self) -> Self {
+        let name = "vale".to_string();
+        if test_command(name.clone()) {
+            let path = which(name.clone()).unwrap().to_path_buf();
+            self.binary = Some(path.clone());
+            let offset = "vale version ".len();
+            let version = cmd!("vale", "--version").read().unwrap()[offset..].to_string();
+            self.version = Some(SemanticVersion::from_string(&version));
+            info!(
+                path = path_to_string(path),
+                "=> {} System {} (v{}) command",
+                Label::using(),
+                name.green().bold(),
+                version
+            );
+        }
+        self
+    }
+    fn with_version(mut self, value: String) -> Self {
+        self.version = Some(SemanticVersion::from_string(&value));
+        self
     }
 }
 impl StaticAnalyzerConfig for ValeConfig {

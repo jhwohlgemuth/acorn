@@ -300,7 +300,12 @@ impl Metadata {
 impl ResearchActivity {
     pub fn analyze(paths: Vec<PathBuf>) {
         let config = ValeConfig::default().save();
-        let vale = Vale::init().config(config).build().download(None);
+        let init = Vale::init().build();
+        let vale = if test_command("vale".into()) {
+            init.with_config(config).with_system_command()
+        } else {
+            init.download(Some(config))
+        };
         match vale.clone().sync() {
             | Ok(_) => paths.iter().for_each(|path| match ResearchActivity::read(path.into()) {
                 | Ok(data) => {

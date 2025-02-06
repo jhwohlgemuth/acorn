@@ -12,7 +12,7 @@ use std::io::copy;
 use std::io::Cursor;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 use which::which;
 
 /// Struct for using and sharing colorized logging labels
@@ -124,31 +124,6 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
     let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.join(filename))
 }
-/// Check if a command exists in current command line context
-///
-/// Can also be used to check if a command exists within a [conda](https://conda.io/projects/conda/en/latest/user-guide/getting-started.html) virtual environment
-///
-pub fn test_command(name: String) -> bool {
-    match which(&name) {
-        | Ok(value) => {
-            let path = path_to_string(value);
-            match value.clone().try_exists() {
-                | Ok(true) => {
-                    debug!(path, "=> {} Command test", Label::found());
-                    true
-                }
-                | _ => {
-                    debug!(path, "=> {} Command test", Label::not_found());
-                    false
-                }
-            }
-        }
-        | Err(_) => {
-            error!(name, "=> {} Command test", Label::fail());
-            false
-        }
-    }
-}
 pub fn get_all_files(path: PathBuf, extension: Option<String>) -> Vec<PathBuf> {
     if path.is_dir() {
         let ext = match extension {
@@ -257,6 +232,27 @@ pub fn read_file(path: PathBuf) -> Result<String, Box<dyn Error>> {
         }
     };
     Ok(content)
+}
+pub fn test_command(name: String) -> bool {
+    match which(&name) {
+        | Ok(value) => {
+            let path = path_to_string(value.clone());
+            match value.try_exists() {
+                | Ok(true) => {
+                    debug!(path, "=> {} Command test", Label::found());
+                    true
+                }
+                | _ => {
+                    debug!(path, "=> {} Command test", Label::not_found());
+                    false
+                }
+            }
+        }
+        | Err(_) => {
+            warn!(name, "=> {} Command test", Label::fail());
+            false
+        }
+    }
 }
 pub fn tokio_runtime() -> tokio::runtime::Runtime {
     debug!("=> {} Tokio runtime", Label::using());
