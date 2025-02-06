@@ -104,6 +104,11 @@ aside>.research-focus>h3 {
     letter-spacing: 0.15em;
 }
 
+aside>.research-focus li,
+aside>.research-focus p {
+    font-size: 10pt;
+}
+
 aside>div>h3 {
     color: #16537B;
     font-family: "proxima";

@@ -83,10 +83,11 @@ const ORGANIZATION: &str = "ornl";
 const APPLICATION: &str = "acorn";
 
 pub trait StaticAnalyzer {
+    fn command(self) -> String;
     fn analyze(self, id: String, content: String, output: Option<String>);
     fn download(self, config: Option<ValeConfig>) -> Self;
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
-    fn extract(path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
+    fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
     fn sync(self) -> Result<(), std::io::Error>;
     fn with_binary(self, path: PathBuf) -> Self;
     fn with_config(self, value: ValeConfig) -> Self;
@@ -120,6 +121,9 @@ pub struct ValeConfig {
     pub disabled: Vec<String>,
 }
 impl StaticAnalyzer for Vale {
+    fn command(self) -> String {
+        "vale".to_string()
+    }
     fn analyze(self, id: String, content: String, output: Option<String>) {
         match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
             | Some(dirs) => {
@@ -138,7 +142,7 @@ impl StaticAnalyzer for Vale {
                 let binary = match self.binary {
                     | Some(value) => value,
                     | None => {
-                        error!("=> {} Vale binary", Label::not_found());
+                        error!("=> {} {} binary", Label::not_found(), self.command());
                         std::process::exit(exitcode::UNAVAILABLE);
                     }
                 };
@@ -188,7 +192,7 @@ impl StaticAnalyzer for Vale {
         info!(url, "=> {} Vale release v{}", Label::using(), release);
         let binary = match download_binary(url.clone(), PathBuf::from(".")) {
             | Ok(path) => {
-                let checksum = match self.download_checksums() {
+                let checksum = match self.clone().download_checksums() {
                     | Ok(value) => value.get(platform).unwrap().to_string(),
                     | Err(_) => "".to_string(),
                 };
@@ -205,17 +209,17 @@ impl StaticAnalyzer for Vale {
                     | Some(value) => value.path.parent().unwrap().to_path_buf(),
                     | None => PathBuf::from("./.vale/"),
                 };
-                let binary = Vale::extract(path.clone(), Some(destination));
+                let binary = self.clone().extract(path.clone(), Some(destination));
                 if make_executable(&binary) {
                     let _cleanup = remove_file(path);
                     Some(binary)
                 } else {
-                    error!("=> {} vale not executable", Label::fail());
+                    error!("=> {} {} not executable", Label::fail(), self.command());
                     None
                 }
             }
             | Err(error) => {
-                error!(error, url, "=> {} vale download", Label::fail());
+                error!(error, url, "=> {} {} download", Label::fail(), self.command());
                 None
             }
         };
@@ -247,7 +251,7 @@ impl StaticAnalyzer for Vale {
         debug!("=> {} Vale checksums {:#?}", Label::using(), checksums.dimmed().cyan());
         Ok(checksums)
     }
-    fn extract(path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
+    fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
         match get_extension(&path).as_str() {
             | "zip" => unimplemented!(),
             | _ => {
@@ -259,7 +263,7 @@ impl StaticAnalyzer for Vale {
                     | None => "./.vale/".to_string(),
                 };
                 archive.unpack(parent.clone()).expect("Unable to extract vale binary");
-                debug!(parent, "=> {} Extracted vale binary", Label::using());
+                debug!(parent, "=> {} Extracted {} binary", Label::using(), self.command());
                 PathBuf::from(format!("{}/vale", parent))
             }
         }
@@ -268,7 +272,7 @@ impl StaticAnalyzer for Vale {
         let path = match self.binary {
             | Some(value) => value,
             | None => {
-                error!("=> {} Vale binary", Label::not_found());
+                error!("=> {} {} binary", Label::not_found(), self.command());
                 std::process::exit(exitcode::UNAVAILABLE);
             }
         };
@@ -290,6 +294,7 @@ impl StaticAnalyzer for Vale {
                     }
                     | Err(why) => panic!("=> {} Create accept.txt - {}", Label::fail(), why),
                 }
+                // TODO: Create reject.txt file
                 Ok(())
             }
             | Err(why) => {
@@ -307,12 +312,12 @@ impl StaticAnalyzer for Vale {
         self
     }
     fn with_system_command(mut self) -> Self {
-        let name = "vale".to_string();
+        let name = self.clone().command();
         if test_command(name.clone()) {
             let path = which(name.clone()).unwrap().to_path_buf();
             self.binary = Some(path.clone());
             let offset = "vale version ".len();
-            let version = cmd!("vale", "--version").read().unwrap()[offset..].to_string();
+            let version = cmd!(name.clone(), "--version").read().unwrap()[offset..].to_string();
             self.version = Some(SemanticVersion::from_string(&version));
             info!(
                 path = path_to_string(path),

@@ -239,17 +239,17 @@ pub fn test_command(name: String) -> bool {
             let path = path_to_string(value.clone());
             match value.try_exists() {
                 | Ok(true) => {
-                    debug!(path, "=> {} Command test", Label::found());
+                    debug!(path, "=> {} Command", Label::found());
                     true
                 }
                 | _ => {
-                    debug!(path, "=> {} Command test", Label::not_found());
+                    debug!(path, "=> {} Command", Label::not_found());
                     false
                 }
             }
         }
         | Err(_) => {
-            warn!(name, "=> {} Command test", Label::fail());
+            warn!(name, "=> {} Command", Label::not_found());
             false
         }
     }
