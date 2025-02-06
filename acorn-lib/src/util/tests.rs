@@ -41,3 +41,15 @@ fn test_semantic_version() {
     assert_eq!(version.patch, 3);
     assert_eq!(format!("{}", version), "1.2.3");
 }
+
+#[test]
+fn test_test_command() {
+    let nonexistent = "does-not-exist".to_string();
+    assert!(!test_command(nonexistent));
+    if cfg!(target_os = "windows") {
+        assert!(test_command("cmd".to_string()));
+    } else {
+        assert!(test_command("ls".to_string()));
+        assert!(test_command("cargo".to_string()));
+    }
+}
