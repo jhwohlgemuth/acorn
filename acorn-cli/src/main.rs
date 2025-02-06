@@ -22,7 +22,7 @@ use acorn_lib::schema::*;
 use acorn_lib::util::*;
 use acorn_lib::*;
 use cli::{Arguments, Check, Commands, Target};
-use template::generate_factsheet_pdf;
+use template::create_pdf;
 
 pub type Void = eyre::Result<(), eyre::Report>;
 
@@ -142,7 +142,7 @@ fn main() -> Void {
                         progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                         for path in paths {
                             progress.set_message(format!("Generating PDF for {}", path.display()));
-                            generate_factsheet_pdf(path, &page, output).await;
+                            create_pdf(path, &page, output).await;
                             progress.inc(1);
                         }
                         progress.finish_with_message(format!("{}Done", Label::CHECKMARK));

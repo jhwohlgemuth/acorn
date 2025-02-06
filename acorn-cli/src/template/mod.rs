@@ -146,7 +146,42 @@ impl View for FactSheetHead {
         }
     }
 }
-pub fn factsheet(data: ResearchActivity) -> VirtualNode {
+pub async fn create_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
+    let data = match ResearchActivity::read(path.clone()) {
+        | Ok(value) => value.format(Some(path.clone())),
+        | Err(err) => {
+            error!(path = path_to_string(path), "=> {} {err}", Label::fail());
+            unimplemented!()
+        }
+    };
+    let content = get_html(&data);
+    // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
+    let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
+    if File::create(&index).is_ok() {
+        page.goto_builder(&format!("file://{}", index.display())).goto().await.unwrap();
+    };
+    page.set_content_builder(&content).set_content().await.unwrap();
+    match output {
+        | Some(output_dir) => match create_dir_all(output_dir.clone()) {
+            | Ok(_) => {
+                let id = data.meta.id;
+                let output_path = format!("{}/{}.pdf", output_dir.display(), id);
+                debug!(path = output_path, "=> {} Output", Label::using());
+                page.pdf_builder().path(output_path.into()).print_background(true).pdf().await.unwrap();
+            }
+            | Err(err) => {
+                error!(
+                    path = output_dir.clone().into_os_string().into_string().unwrap(),
+                    "=> {} Create directory - {err}",
+                    Label::fail()
+                );
+            }
+        },
+        | None => unreachable!(),
+    };
+    let _remove = remove_file(index);
+}
+pub fn get_html(data: &ResearchActivity) -> String {
     let ResearchActivity { meta, title, subtitle, .. } = data;
     let head = FactSheetHead {
         title: "Research Activity".to_string(),
@@ -155,7 +190,7 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
     let footer = FactSheetFooter {
         division: "National Security Sciences".to_string(),
     };
-    match data.sections {
+    let node = match &data.sections {
         | Sections::Project(ProjectSections {
             introduction,
             challenge,
@@ -217,7 +252,7 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
                             { main }
                             { aside }
                         </div>
-                        { data.contact }
+                        { data.clone().contact }
                         { footer }
                     </body>
                 </html>
@@ -225,42 +260,8 @@ pub fn factsheet(data: ResearchActivity) -> VirtualNode {
         }
         | Sections::Highlight(_) => unimplemented!("Highlight not implemented"),
         | Sections::Organization(_) => unimplemented!("Organization not implemented"),
-    }
-}
-pub async fn generate_factsheet_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
-    let data = match ResearchActivity::read(path.clone()) {
-        | Ok(value) => value.format(Some(path.clone())),
-        | Err(err) => {
-            error!(path = path_to_string(path), "=> {} {err}", Label::fail());
-            unimplemented!()
-        }
     };
-    let content = factsheet(data.clone()).to_string();
-    // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
-    let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
-    if File::create(&index).is_ok() {
-        page.goto_builder(&format!("file://{}", index.display())).goto().await.unwrap();
-    };
-    page.set_content_builder(&content).set_content().await.unwrap();
-    match output {
-        | Some(output_dir) => match create_dir_all(output_dir.clone()) {
-            | Ok(_) => {
-                let id = data.meta.id;
-                let output_path = format!("{}/{}.pdf", output_dir.display(), id);
-                debug!(path = output_path, "=> {} Output", Label::using());
-                page.pdf_builder().path(output_path.into()).print_background(true).pdf().await.unwrap();
-            }
-            | Err(err) => {
-                error!(
-                    path = output_dir.clone().into_os_string().into_string().unwrap(),
-                    "=> {} Create directory - {err}",
-                    Label::fail()
-                );
-            }
-        },
-        | None => unreachable!(),
-    };
-    let _remove = remove_file(index);
+    node.to_string()
 }
 pub fn get_stylesheet(file_name: String) -> String {
     let data = match Style::get(&file_name) {

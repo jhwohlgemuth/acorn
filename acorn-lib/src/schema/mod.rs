@@ -392,27 +392,6 @@ impl ResearchActivity {
         data.dedup();
         data
     }
-    pub fn get_errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
-        let mut found: Vec<Option<HashMap<String, ValidationErrorsKind>>> = vec![];
-        found.push(get_validation_errors::<ResearchActivity>(self.clone()));
-        match self.clone().sections {
-            | Sections::Highlight(sections) => {
-                found.push(get_validation_errors::<HighlightSections>(sections));
-            }
-            | Sections::Project(sections) => {
-                found.push(get_validation_errors::<ProjectSections>(sections));
-            }
-            | Sections::Organization(sections) => {
-                found.push(get_validation_errors::<OrganizationSections>(sections));
-            }
-        };
-        let errors = format_errors(found.clone());
-        if !errors.is_empty() {
-            Err(errors)
-        } else {
-            Ok(())
-        }
-    }
     pub fn format(mut self, path: Option<PathBuf>) -> ResearchActivity {
         let path = match path {
             | Some(value) => value,
@@ -452,6 +431,27 @@ impl ResearchActivity {
         self.meta.sponsors = self.clone().resolve(FuzzyValue::Sponsor);
         self.meta.technology = self.clone().resolve(FuzzyValue::Technology);
         self
+    }
+    pub fn get_errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
+        let mut found: Vec<Option<HashMap<String, ValidationErrorsKind>>> = vec![];
+        found.push(get_validation_errors::<ResearchActivity>(self.clone()));
+        match self.clone().sections {
+            | Sections::Highlight(sections) => {
+                found.push(get_validation_errors::<HighlightSections>(sections));
+            }
+            | Sections::Project(sections) => {
+                found.push(get_validation_errors::<ProjectSections>(sections));
+            }
+            | Sections::Organization(sections) => {
+                found.push(get_validation_errors::<OrganizationSections>(sections));
+            }
+        };
+        let errors = format_errors(found.clone());
+        if !errors.is_empty() {
+            Err(errors)
+        } else {
+            Ok(())
+        }
     }
     pub fn read(path: PathBuf) -> serde_json::Result<ResearchActivity> {
         let content = match read_file(path.clone()) {
