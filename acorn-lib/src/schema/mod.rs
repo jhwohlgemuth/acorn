@@ -76,11 +76,11 @@ lazy_static! {
         ("USGS", "United States Geological Survey"),
     ];
     static ref TECHNOLOGY_DATA: [Vec<&'static str>; 17] = [
-        vec!["javascript", "js", "node.js"],
-        vec!["python", "py"],
-        vec!["rust", "rs"],
-        vec!["astro", "astro.js"],
-        vec!["react", "react.js"],
+        vec!["javascript", "js", "node.js", "language::JavaScript"],
+        vec!["python", "py", "language::Python"],
+        vec!["rust", "rs", "language::Rust"],
+        vec!["astro", "astro.js", "AstroJS"],
+        vec!["react", "react.js", "ReactJS"],
         vec!["gdal", "Geospatial Data Abstraction Library"],
         vec!["polars", "Polars"],
         vec!["pandas", "Pandas"],
