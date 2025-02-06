@@ -57,6 +57,9 @@ struct Image;
 #[derive(Embed)]
 #[folder = "assets/fonts/"]
 struct Font;
+#[derive(Embed)]
+#[folder = "assets/styles/"]
+struct Style;
 /// See https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types
 #[derive(Clone, Debug, Display)]
 pub enum MimeType {
@@ -129,6 +132,8 @@ impl View for FactSheetFooter {
 }
 impl View for FactSheetHead {
     fn render(&self) -> VirtualNode {
+        let binding = Style::get("fact-sheet.css").unwrap();
+        let data = binding.data.as_ref();
         html! {
             <head>
                 <meta charset="utf-8">
@@ -136,7 +141,7 @@ impl View for FactSheetHead {
                 <meta name="description" content={ &self.description }>
                 <style>
                     { generate_font_faces() }
-                    { String::from_utf8_lossy(include_bytes!("../../assets/fact-sheet.css")).into_owned() }
+                    { String::from_utf8_lossy(data).into_owned() }
                 </style>
             </head>
         }

@@ -537,7 +537,7 @@ fn resolve_sponsor(value: String) -> Option<String> {
     let value = value.trim().to_string();
     let sanitized = sanitize(value.clone());
     let output = match sanitized.len() {
-        3..=5 if data.contains_key(&value.to_uppercase()) => data.get(&value.to_uppercase()).cloned(),
+        | 3..=5 if data.contains_key(&value.to_uppercase()) => data.get(&value.to_uppercase()).cloned(),
         | _ => {
             let pattern = Pattern::parse(&sanitized, CaseMatching::Ignore, Normalization::Smart);
             let mut matcher = Matcher::new(Config::DEFAULT.match_paths());

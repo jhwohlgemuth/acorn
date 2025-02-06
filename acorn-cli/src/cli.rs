@@ -71,10 +71,10 @@ pub enum Commands {
     ///
     ///     Check all supported files in a folder
     ///     $> acorn check --path /path/to/folder
-    /// 
+    ///
     ///     Skip static analysis
     ///     $> acorn check --path /path/to/folder --skip validation
-    /// 
+    ///
     ///     Skip schema validation
     ///     $> acorn check --path /path/to/folder --skip analysis,validation
     ///
