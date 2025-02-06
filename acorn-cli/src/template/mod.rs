@@ -1,5 +1,5 @@
 use acorn_lib::schema::{ProjectSections, Research, ResearchActivity, Sections};
-use acorn_lib::util::{get_extension, Label};
+use acorn_lib::util::{get_extension, path_to_string, Label};
 use data_encoding::BASE64;
 use derive_more::Display;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
@@ -132,8 +132,7 @@ impl View for FactSheetFooter {
 }
 impl View for FactSheetHead {
     fn render(&self) -> VirtualNode {
-        let binding = Style::get("fact-sheet.css").unwrap();
-        let data = binding.data.as_ref();
+        let styles = get_stylesheet("fact-sheet.css".into());
         html! {
             <head>
                 <meta charset="utf-8">
@@ -141,13 +140,12 @@ impl View for FactSheetHead {
                 <meta name="description" content={ &self.description }>
                 <style>
                     { generate_font_faces() }
-                    { String::from_utf8_lossy(data).into_owned() }
+                    { styles }
                 </style>
             </head>
         }
     }
 }
-
 pub fn factsheet(data: ResearchActivity) -> VirtualNode {
     let ResearchActivity { meta, title, subtitle, .. } = data;
     let head = FactSheetHead {
@@ -233,7 +231,7 @@ pub async fn generate_factsheet_pdf(path: PathBuf, page: &Page, output: &Option<
     let data = match ResearchActivity::read(path.clone()) {
         | Ok(value) => value.format(Some(path.clone())),
         | Err(err) => {
-            error!(path = path.to_str().unwrap(), "=> {} {err}", Label::fail());
+            error!(path = path_to_string(path), "=> {} {err}", Label::fail());
             unimplemented!()
         }
     };
@@ -263,4 +261,14 @@ pub async fn generate_factsheet_pdf(path: PathBuf, page: &Page, output: &Option<
         | None => unreachable!(),
     };
     let _remove = remove_file(index);
+}
+pub fn get_stylesheet(file_name: String) -> String {
+    let data = match Style::get(&file_name) {
+        | Some(value) => value.data,
+        | None => {
+            error!(file_name, "=> {} Import Style asset", Label::fail());
+            unimplemented!()
+        }
+    };
+    String::from_utf8_lossy(data.as_ref()).into_owned()
 }

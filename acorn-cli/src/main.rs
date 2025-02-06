@@ -2,7 +2,6 @@
 use clap::Parser;
 use color_eyre::eyre;
 use dotenvy::dotenv;
-use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::Playwright;
 use rayon::prelude::*;
@@ -134,32 +133,19 @@ fn main() -> Void {
                             | Some(value) => value,
                             | None => unimplemented!(),
                         };
-                        // let paths = if input_path.is_dir() {
-                        //     get_all_files(input_path.into(), None)
-                        // } else {
-                        //     vec![input_path.into()]
-                        // };
-                        if input_path.is_dir() {
-                            match glob(&format!("{}/**/*.json", input_path.to_str().unwrap())) {
-                                | Ok(values) => {
-                                    let paths = values.flatten().collect::<Vec<_>>();
-                                    let progress = ProgressBar::new(paths.len() as u64);
-                                    progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                                    for path in paths {
-                                        progress.set_message(format!("Generating PDF for {}", path.display()));
-                                        generate_factsheet_pdf(path, &page, output).await;
-                                        progress.inc(1);
-                                    }
-                                    progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                                }
-                                | Err(err) => {
-                                    error!("=> {} Failed to read glob pattern - {}", Label::fail(), err);
-                                }
-                            };
+                        let paths = if input_path.is_dir() {
+                            get_all_files(input_path, None)
                         } else {
-                            info!("=> Generating PDF for {}...", input_path.display());
-                            generate_factsheet_pdf(input_path, &page, output).await;
+                            vec![input_path]
+                        };
+                        let progress = ProgressBar::new(paths.len() as u64);
+                        progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+                        for path in paths {
+                            progress.set_message(format!("Generating PDF for {}", path.display()));
+                            generate_factsheet_pdf(path, &page, output).await;
+                            progress.inc(1);
                         }
+                        progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
                         let _close = page.close(Some(false)).await;
                     });
                     Ok(())
