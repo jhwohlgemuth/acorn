@@ -74,6 +74,7 @@ lazy_static! {
         "USA",
         "XLOOP",
     ];
+    static ref VOCABULARY_REJECT: [&'static str; 2] = ["geo-spatial", "utilize"];
 }
 
 const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
@@ -294,7 +295,13 @@ impl StaticAnalyzer for Vale {
                     }
                     | Err(why) => panic!("=> {} Create accept.txt - {}", Label::fail(), why),
                 }
-                // TODO: Create reject.txt file
+                match File::create(format!("{}/reject.txt", parent)) {
+                    | Ok(mut file) => {
+                        let content = VOCABULARY_REJECT.join("\n");
+                        file.write_all(content.as_bytes()).expect("Unable to write to reject.txt");
+                    }
+                    | Err(why) => panic!("=> {} Create reject.txt - {}", Label::fail(), why),
+                }
                 Ok(())
             }
             | Err(why) => {
