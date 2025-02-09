@@ -92,6 +92,34 @@ pub enum Commands {
         #[command(flatten)]
         verbose: Verbosity,
     },
+    /// Diagnose and correct system requirements for using acorn
+    ///
+    ///     Print system diagnostics and identify issues
+    ///     $> acorn doctor
+    ///
+    ///     Auto-correct systems issues
+    ///     $> acorn doctor --fix
+    ///
+    ///     Start interactive TUI to selectively apply fixes
+    ///     $> acorn doctor --fix --interactive
+    ///
+    ///     Generate JSON report for use when filing bug reports
+    ///     $> acorn doctor --report
+    ///
+    #[clap(verbatim_doc_comment)]
+    Doctor {
+        /// Auto-correct systems issues where possible
+        #[arg(short, long, value_name = "BOOL")]
+        fix: bool,
+        /// Start interactive TUI to selectively apply fixes
+        #[arg(short, long, value_name = "BOOL")]
+        interactive: bool,
+        /// Choose to output a JSON issue report to stdout
+        #[arg(short, long, value_name = "BOOL")]
+        report: bool,
+        #[command(flatten)]
+        verbose: Verbosity,
+    },
     /// Download research activity data from buckets
     ///
     ///     Download research activity data from a list of buckets

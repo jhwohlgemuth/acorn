@@ -13,7 +13,7 @@ console = { version = "0.15.7", default-features = false, features = [
     "ansi-parsing",
 ] }
 data-encoding = "2.7.0"
-derive_more = { version = "1.0.0", features = ["display", "from_str"] }
+derive_more = { version = "2.0.1", features = ["display", "from_str"] }
 fast_qr = { version = "0.12.7", features = ["image"] }
 glob = "0.3.1"
 indicatif = "0.17.6"

@@ -32,6 +32,8 @@ sysinfo = "0.33.1"
 tar = "0.4.43"
 tempfile = "3.15.0"
 validator = { version = "0.20", features = ["derive"] }
+wgpu = "24.0.1"
+which = "7.0.2"
 assert_cmd = { workspace = true }
 clap-verbosity-flag = { workspace = true }
 color-eyre = { workspace = true }
@@ -49,7 +51,6 @@ tracing-indicatif.workspace = true
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 uriparse = { workspace = true }
-which = "7.0.2"
 
 [lints.rust]
 unsafe_code = "forbid"

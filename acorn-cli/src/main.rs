@@ -18,6 +18,7 @@ use tracing_subscriber::EnvFilter;
 mod cli;
 mod template;
 
+use acorn_lib::doctor::print_system_information;
 use acorn_lib::schema::*;
 use acorn_lib::util::*;
 use acorn_lib::*;
@@ -90,6 +91,20 @@ fn main() -> Void {
                     ResearchActivity::analyze(paths);
                 }
             }
+            Ok(())
+        }
+        | Some(Commands::Doctor { fix, interactive, .. }) => {
+            if *fix {
+                unimplemented!("Autofix is not implemented yet");
+            }
+            if *interactive {
+                unimplemented!("Interactive mode is not implemented yet");
+            }
+            print_system_information();
+            // TODO: Add support for GPU information
+            // tokio_runtime().block_on(async {
+            //     print_gpu_information().await;
+            // });
             Ok(())
         }
         | Some(Commands::Download { buckets, output, .. }) => {
