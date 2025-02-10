@@ -5,9 +5,15 @@ use human_units::FormatSize;
 use owo_colors::OwoColorize;
 use sysinfo::{Networks, System};
 
-pub trait Print {
+pub trait TableFormatPrint {
     fn init() -> Self;
     fn print(self);
+}
+pub struct MemoryInformation {
+    pub total: String,
+    pub available: String,
+    pub used: String,
+    pub swap: String,
 }
 #[derive(Debug, Clone)]
 pub struct Network {
@@ -27,7 +33,43 @@ pub struct SystemInformation {
     pub cpu_arch: String,
     pub cpu_count: String,
 }
-impl Print for NetworkInformation {
+impl TableFormatPrint for MemoryInformation {
+    fn init() -> MemoryInformation {
+        let mut sys = System::new_all();
+        sys.refresh_all();
+        MemoryInformation {
+            total: sys.total_memory().format_size().to_string(),
+            available: sys.available_memory().format_size().to_string(),
+            used: sys.used_memory().format_size().to_string(),
+            swap: format!("{} of {}", sys.used_swap().format_size(), sys.total_swap().format_size()),
+        }
+    }
+    fn print(self) {
+        let MemoryInformation {
+            total,
+            available,
+            used,
+            swap,
+        } = self;
+        let rows = [
+            vec!["Total", &total],
+            vec!["Available", &available],
+            vec!["Used", &used],
+            vec!["Swap", &swap],
+        ];
+        let mut table = Table::new();
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(vec!["Attribute", "Value"]);
+        rows.into_iter().for_each(|row| {
+            table.add_row(row);
+        });
+        println!("=> {} \n{table}", "Memory".green().bold());
+    }
+}
+impl TableFormatPrint for NetworkInformation {
     fn init() -> NetworkInformation {
         let networks = Networks::new_with_refreshed_list()
             .into_iter()
@@ -40,19 +82,24 @@ impl Print for NetworkInformation {
         NetworkInformation { networks }
     }
     fn print(self) {
+        let rows = self
+            .networks
+            .into_iter()
+            .map(|network| vec![network.ip_address.join("\n"), network.clone().mac_address, network.clone().mtu])
+            .collect::<Vec<_>>();
         let mut table = Table::new();
         table
             .load_preset(UTF8_FULL)
             .apply_modifier(UTF8_ROUND_CORNERS)
             .set_content_arrangement(ContentArrangement::Dynamic)
             .set_header(vec!["Network", "MAC Address", "MTU"]);
-        for network in &self.networks {
-            table.add_row(vec![network.ip_address.join("\n"), network.clone().mac_address, network.clone().mtu]);
-        }
+        rows.into_iter().for_each(|row| {
+            table.add_row(row);
+        });
         println!("=> {} \n{table}", "Network".green().bold());
     }
 }
-impl Print for SystemInformation {
+impl TableFormatPrint for SystemInformation {
     fn init() -> SystemInformation {
         let mut sys = System::new_all();
         sys.refresh_all();
@@ -97,22 +144,7 @@ impl Print for SystemInformation {
 pub fn print_system_information() {
     SystemInformation::init().print();
     NetworkInformation::init().print();
-    let mut sys = System::new_all();
-    sys.refresh_all();
-    let mut table = Table::new();
-    table
-        .load_preset(UTF8_FULL)
-        .apply_modifier(UTF8_ROUND_CORNERS)
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_header(vec!["Attribute", "Value"])
-        .add_row(vec!["Total", &sys.total_memory().format_size().to_string()])
-        .add_row(vec!["Available", &sys.available_memory().format_size().to_string()])
-        .add_row(vec!["Used", &sys.used_memory().format_size().to_string()])
-        .add_row(vec![
-            "Swap",
-            &format!("{} of {}", sys.used_swap().format_size(), sys.total_swap().format_size()),
-        ]);
-    println!("=> {} \n{table}", "Memory".green().bold());
+    MemoryInformation::init().print();
 }
 // TODO: Make work
 pub async fn print_gpu_information() {

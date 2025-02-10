@@ -18,11 +18,11 @@ use tracing_subscriber::EnvFilter;
 mod cli;
 mod template;
 
-use acorn_lib::doctor::print_system_information;
+use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, TableFormatPrint};
 use acorn_lib::schema::*;
 use acorn_lib::util::*;
 use acorn_lib::*;
-use cli::{Arguments, Check, Commands, Target};
+use cli::{Arguments, Check, Commands, Diagnostic, Target};
 use template::create_pdf;
 
 pub type Void = eyre::Result<(), eyre::Report>;
@@ -93,18 +93,38 @@ fn main() -> Void {
             }
             Ok(())
         }
-        | Some(Commands::Doctor { fix, interactive, .. }) => {
+        | Some(Commands::Doctor { fix, interactive, skip, .. }) => {
             if *fix {
                 unimplemented!("Autofix is not implemented yet");
             }
             if *interactive {
                 unimplemented!("Interactive mode is not implemented yet");
             }
-            print_system_information();
-            // TODO: Add support for GPU information
-            // tokio_runtime().block_on(async {
-            //     print_gpu_information().await;
-            // });
+            if skip.contains(&Diagnostic::System) {
+                warn!("=> {} System diagnostics", Label::skip());
+            } else {
+                SystemInformation::init().print();
+            }
+            if skip.contains(&Diagnostic::Memory) {
+                warn!("=> {} Memory diagnostics", Label::skip());
+            } else {
+                MemoryInformation::init().print();
+            }
+            if skip.contains(&Diagnostic::Network) {
+                warn!("=> {} Network diagnostics", Label::skip());
+            } else {
+                NetworkInformation::init().print();
+            }
+
+            if skip.contains(&Diagnostic::Gpu) {
+                warn!("=> {} GPU diagnostics", Label::skip());
+            } else {
+                // TODO: Add support for GPU information
+                // tokio_runtime().block_on(async {
+                //     print_gpu_information().await;
+                // });
+                unimplemented!("GPU diagnostics is not implemented yet");
+            }
             Ok(())
         }
         | Some(Commands::Download { buckets, output, .. }) => {

@@ -39,6 +39,25 @@ pub enum Check {
     #[display("validation")]
     Validation,
 }
+#[derive(Clone, Debug, Display, PartialEq, ValueEnum, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Diagnostic {
+    #[display("system")]
+    // System information (e.g. CPU count, OS, etc...)
+    System,
+    #[display("memory")]
+    // Memory information and usage
+    Memory,
+    #[display("network")]
+    // Network information
+    Network,
+    #[display("gpu")]
+    // Graphics Processing Unit (GPU) information
+    Gpu,
+    #[display("software")]
+    // Check for installed software
+    Software,
+}
 #[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Size {
@@ -117,6 +136,9 @@ pub enum Commands {
         /// Choose to output a JSON issue report to stdout
         #[arg(short, long, value_name = "BOOL")]
         report: bool,
+        /// Skip one or more available diagnostic checks
+        #[arg(short, long, value_name = "LIST", value_delimiter = ',')]
+        skip: Vec<Diagnostic>,
         #[command(flatten)]
         verbose: Verbosity,
     },
