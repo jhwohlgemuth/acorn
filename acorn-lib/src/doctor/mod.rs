@@ -1,32 +1,118 @@
+use comfy_table::modifiers::UTF8_ROUND_CORNERS;
+use comfy_table::presets::UTF8_FULL;
+use comfy_table::*;
+use human_units::FormatSize;
+use owo_colors::OwoColorize;
 use sysinfo::{Networks, System};
 
-pub fn print_system_information() {
-    // Please note that we use "new_all" to ensure that all lists of
-    // CPUs and processes are filled!
-    let mut sys = System::new_all();
-    // First we update all information of our `System` struct.
-    sys.refresh_all();
-    println!("=> system:");
-    // RAM and swap information:
-    println!("total memory: {} bytes", sys.total_memory());
-    println!("used memory : {} bytes", sys.used_memory());
-    println!("available memory : {} bytes", sys.available_memory());
-    println!("total swap  : {} bytes", sys.total_swap());
-    println!("used swap   : {} bytes", sys.used_swap());
-    // Display system information:
-    println!("CPU architecture:        {:?}", System::cpu_arch());
-    println!("System name:             {:?}", System::name());
-    println!("System kernel version:   {:?}", System::kernel_version());
-    println!("System OS version:       {:?}", System::os_version());
-    println!("System host name:        {:?}", System::host_name());
-    // Number of CPUs:
-    println!("Number of CPUs: {}", sys.cpus().len());
-    let networks = Networks::new_with_refreshed_list();
-    for (_, network) in &networks {
-        println!("Internet Protocol (IP) Networks: {:?}", network.ip_networks());
-        println!("MAC address: {}", network.mac_address());
-        println!("Maximum Transfer Unit (MTU): {}", network.mtu());
+pub trait Print {
+    fn init() -> Self;
+    fn print(self);
+}
+#[derive(Debug, Clone)]
+pub struct Network {
+    pub ip_address: Vec<String>,
+    pub mac_address: String,
+    pub mtu: String,
+}
+#[derive(Debug, Clone)]
+pub struct NetworkInformation {
+    pub networks: Vec<Network>,
+}
+pub struct SystemInformation {
+    pub name: String,
+    pub kernel_version: String,
+    pub os_version: String,
+    pub host_name: String,
+    pub cpu_arch: String,
+    pub cpu_count: String,
+}
+impl Print for NetworkInformation {
+    fn init() -> NetworkInformation {
+        let networks = Networks::new_with_refreshed_list()
+            .into_iter()
+            .map(|(_, network)| Network {
+                ip_address: parse_network_addresses(network),
+                mac_address: network.mac_address().to_string(),
+                mtu: network.mtu().to_string(),
+            })
+            .collect();
+        NetworkInformation { networks }
     }
+    fn print(self) {
+        let mut table = Table::new();
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(vec!["Network", "MAC Address", "MTU"]);
+        for network in &self.networks {
+            table.add_row(vec![network.ip_address.join("\n"), network.clone().mac_address, network.clone().mtu]);
+        }
+        println!("=> {} \n{table}", "Network".green().bold());
+    }
+}
+impl Print for SystemInformation {
+    fn init() -> SystemInformation {
+        let mut sys = System::new_all();
+        sys.refresh_all();
+        SystemInformation {
+            name: System::name().unwrap(),
+            kernel_version: System::kernel_version().unwrap(),
+            os_version: System::os_version().unwrap(),
+            host_name: System::host_name().unwrap(),
+            cpu_arch: System::cpu_arch(),
+            cpu_count: sys.cpus().len().to_string(),
+        }
+    }
+    fn print(self) {
+        let SystemInformation {
+            name,
+            kernel_version,
+            os_version,
+            host_name,
+            cpu_arch,
+            cpu_count,
+        } = self;
+        let rows = [
+            vec!["Name", &name],
+            vec!["Kernel Version", &kernel_version],
+            vec!["OS Version", &os_version],
+            vec!["Host Name", &host_name],
+            vec!["CPU Architecture", &cpu_arch],
+            vec!["CPU Count", &cpu_count],
+        ];
+        let mut table = Table::new();
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(vec!["Attribute", "Value"]);
+        rows.into_iter().for_each(|row| {
+            table.add_row(row);
+        });
+        println!("=> {} \n{table}", "System".green().bold());
+    }
+}
+pub fn print_system_information() {
+    SystemInformation::init().print();
+    NetworkInformation::init().print();
+    let mut sys = System::new_all();
+    sys.refresh_all();
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(vec!["Attribute", "Value"])
+        .add_row(vec!["Total", &sys.total_memory().format_size().to_string()])
+        .add_row(vec!["Available", &sys.available_memory().format_size().to_string()])
+        .add_row(vec!["Used", &sys.used_memory().format_size().to_string()])
+        .add_row(vec![
+            "Swap",
+            &format!("{} of {}", sys.used_swap().format_size(), sys.total_swap().format_size()),
+        ]);
+    println!("=> {} \n{table}", "Memory".green().bold());
 }
 // TODO: Make work
 pub async fn print_gpu_information() {
@@ -56,4 +142,11 @@ async fn init_wgpu_device() -> Result<(wgpu::Device, wgpu::Queue), wgpu::Request
     // and also access to the queue for its command buffers.
     // It is possible, if necessary, to add a description of required features.
     adapter.request_device(&Default::default(), None).await
+}
+fn parse_network_addresses(data: &sysinfo::NetworkData) -> Vec<String> {
+    data.ip_networks()
+        .iter()
+        .map(|ip| ip.addr.to_string())
+        .filter(|x| !x.starts_with("::"))
+        .collect::<Vec<String>>()
 }
