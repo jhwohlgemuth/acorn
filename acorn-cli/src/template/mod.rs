@@ -8,7 +8,6 @@ use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::*;
 use playwright::api::Page;
 use rust_embed::Embed;
-use tracing_subscriber::filter::combinator::Or;
 use std::fs::{create_dir_all, remove_file, File};
 use std::path::Path;
 use std::path::{self, PathBuf};
@@ -317,7 +316,7 @@ pub fn get_html(data: &ResearchActivity) -> String {
                     </body>
                 </html>
             }
-        },
+        }
     };
     node.to_string()
 }
