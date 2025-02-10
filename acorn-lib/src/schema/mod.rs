@@ -36,6 +36,7 @@ pub enum FuzzyValue {
 
 lazy_static! {
     static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
+    static ref RE_IP6: Regex = Regex::new(r#"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"#).unwrap();
     static ref RE_PHONE: Regex = Regex::new(r#"^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$"#).unwrap();
 }
 lazy_static! {
@@ -542,7 +543,7 @@ fn resolve_sponsor(value: String) -> Option<String> {
     let value = value.trim().to_string();
     let sanitized = sanitize(value.clone());
     let output = match sanitized.len() {
-        | 3..=5 if data.contains_key(&value.to_uppercase()) => data.get(&value.to_uppercase()).cloned(),
+        3..=5 if data.contains_key(&value.to_uppercase()) => data.get(&value.to_uppercase()).cloned(),
         | _ => {
             let pattern = Pattern::parse(&sanitized, CaseMatching::Ignore, Normalization::Smart);
             let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
@@ -665,6 +666,13 @@ fn validate_is_doi(value: &str) -> Result<(), ValidationError> {
     match RE_DOI.is_match(value) {
         | Ok(value) if value => Ok(()),
         | _ => Err(ValidationError::new("doi").with_message(MESSAGE.into())),
+    }
+}
+pub fn validate_is_ip6(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid IP6 address";
+    match RE_IP6.is_match(value) {
+        | Ok(value) if value => Ok(()),
+        | _ => Err(ValidationError::new("IP6").with_message(MESSAGE.into())),
     }
 }
 fn validate_is_kebabcase(value: &str) -> Result<(), ValidationError> {

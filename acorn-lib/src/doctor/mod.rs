@@ -1,3 +1,4 @@
+use crate::schema::validate_is_ip6;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::*;
@@ -85,7 +86,16 @@ impl TableFormatPrint for NetworkInformation {
         let rows = self
             .networks
             .into_iter()
-            .map(|network| vec![network.ip_address.join("\n"), network.clone().mac_address, network.clone().mtu])
+            .filter_map(|network| {
+                if network.ip_address.is_empty() {
+                    None
+                } else {
+                    let ip = network.ip_address.join("\n");
+                    let mac = network.clone().mac_address;
+                    let mtu = network.clone().mtu;
+                    Some(vec![ip, mac, mtu])
+                }
+            })
             .collect::<Vec<_>>();
         let mut table = Table::new();
         table
@@ -179,6 +189,6 @@ fn parse_network_addresses(data: &sysinfo::NetworkData) -> Vec<String> {
     data.ip_networks()
         .iter()
         .map(|ip| ip.addr.to_string())
-        .filter(|x| !x.starts_with("::"))
+        .filter(|x| validate_is_ip6(x).is_err())
         .collect::<Vec<String>>()
 }

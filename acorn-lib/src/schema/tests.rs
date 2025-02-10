@@ -117,6 +117,22 @@ fn test_validate_is_doi() {
     }
 }
 #[test]
+fn test_validate_is_ip6() {
+    let valid = [
+        "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+        "FE80:0000:0000:0000:0202:B3FF:FE1E:8329",
+        "::",
+        "::::",
+    ];
+    let invalid = ["192.168.1.1", "127.0.0.1", "test:test:test:test:test:test:test:test"];
+    for x in valid.iter() {
+        assert!(validate_is_ip6(x).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_is_ip6(x).is_err());
+    }
+}
+#[test]
 fn test_validate_is_kebabcase() {
     let valid = ["this-is-valid", "thisisvalid"];
     let invalid = ["this_is_not_valid", "ThisIsNotValid", "this is not valid", "This-Is-Not-Valid"];

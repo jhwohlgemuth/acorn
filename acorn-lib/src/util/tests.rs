@@ -34,6 +34,8 @@ fn test_get_extension() {
     assert_eq!("", get_extension(Path::new("/path/to/folder")));
 }
 #[test]
+fn test_is_ip6() {}
+#[test]
 fn test_semantic_version() {
     let version = SemanticVersion::from_string("1.2.3");
     assert_eq!(version.major, 1);
@@ -41,7 +43,6 @@ fn test_semantic_version() {
     assert_eq!(version.patch, 3);
     assert_eq!(format!("{}", version), "1.2.3");
 }
-
 #[test]
 fn test_test_command() {
     let nonexistent = "does-not-exist".to_string();
