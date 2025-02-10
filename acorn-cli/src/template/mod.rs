@@ -1,4 +1,4 @@
-use acorn_lib::schema::{ProjectSections, Research, ResearchActivity, Sections};
+use acorn_lib::schema::{OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
 use acorn_lib::util::{get_extension, path_to_string, Label};
 use data_encoding::BASE64;
 use derive_more::Display;
@@ -8,6 +8,7 @@ use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::*;
 use playwright::api::Page;
 use rust_embed::Embed;
+use tracing_subscriber::filter::combinator::Or;
 use std::fs::{create_dir_all, remove_file, File};
 use std::path::Path;
 use std::path::{self, PathBuf};
@@ -259,7 +260,64 @@ pub fn get_html(data: &ResearchActivity) -> String {
             }
         }
         | Sections::Highlight(_) => unimplemented!("Highlight not implemented"),
-        | Sections::Organization(_) => unimplemented!("Organization not implemented"),
+        | Sections::Organization(OrganizationSections {
+            mission,
+            capabilities,
+            impact,
+            facilities,
+        }) => {
+            let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
+            let graphic = meta.clone().get_first_graphic_href();
+            let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.id)).unwrap(), MimeType::Png);
+            let main = html! {
+                <main>
+                    <section>
+                        <p>{ mission }</p>
+                    </section>
+                    <section>
+                        <h3>{ "Capabilities" }</h3>
+                        <ul><li>{ capabilities.join("</li><li>") }</li></ul>
+                    </section>
+                    <section>
+                        <h3>{ "Impact" }</h3>
+                        <ul><li>{ impact.join("</li><li>") }</li></ul>
+                    </section>
+                </main>
+            };
+            let aside = html! {
+                <aside>
+                    <div class="graphic"><img src={ graphic }/></div>
+                    <div class="research-focus">
+                        <h3>{ "Facilities" }</h3>
+                        <ul><li>{ facilities.join("</li><li>") }</li></ul>
+                    </div>
+                    <div class="qrcode">
+                        <img src={ qrcode }/>
+                    </div>
+                </aside>
+            };
+            html! {
+                <html>
+                    { head }
+                    <body>
+                        <header style={ header_style }>
+                            <div class="wrapper">
+                                <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
+                                <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
+                                <div id="title">{ title }</div>
+                                <div id="subtitle">{ subtitle }</div>
+                            </div>
+                        </header>
+                        <div class="main">
+                            { main }
+                            { aside }
+                        </div>
+                        { data.clone().contact }
+                        { footer }
+                    </body>
+                </html>
+            }
+        },
     };
     node.to_string()
 }
