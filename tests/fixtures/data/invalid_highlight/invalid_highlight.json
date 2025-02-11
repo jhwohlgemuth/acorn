@@ -46,7 +46,7 @@
         "email": "thrawn@empire.gov",
         "phone": "555.123.4567",
         "profile": "https://example.com/thrawn",
-        "division": "Naval Operations"
+        "organization": "Naval Operations"
     },
     "notes": "Words that don't fit into other fields"
 }

@@ -71,7 +71,7 @@ pub struct Contact {
     #[validate(url(message = "Please provide a valid URL"))]
     pub profile: String,
     // TODO: Resolve division
-    pub division: String,
+    pub organization: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Metadata {
@@ -350,7 +350,7 @@ impl ResearchActivity {
         self.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
         self.meta.sponsors = self.clone().resolve(FuzzyValue::Sponsor);
         self.meta.technology = self.clone().resolve(FuzzyValue::Technology);
-        self.contact.division = match resolve_division(self.clone().contact.division) {
+        self.contact.organization = match resolve_organization(self.clone().contact.organization) {
             | Some(value) => value,
             | None => "".to_string(),
         };
@@ -456,7 +456,7 @@ fn resolve_keyword(value: String) -> Option<String> {
     };
     output
 }
-fn resolve_division(value: String) -> Option<String> {
+fn resolve_organization(value: String) -> Option<String> {
     let data = Constant::organization()[0]
         .get_all()
         .into_iter()
