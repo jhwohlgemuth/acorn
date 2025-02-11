@@ -1,5 +1,122 @@
+use crate::util::{get_extension, Label};
+use derive_more::Display;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
+use rust_embed::Embed;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+use tracing::error;
+
+/// See https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types
+#[derive(Clone, Debug, Display)]
+pub enum MimeType {
+    #[display("application/ld+json")]
+    LdJson,
+    #[display("image/jpeg")]
+    Jpeg,
+    #[display("application/json")]
+    Json,
+    #[display("font/otf")]
+    Otf,
+    #[display("image/png")]
+    Png,
+    #[display("image/svg+xml")]
+    Svg,
+    #[display("text/plain")]
+    Text,
+}
+#[derive(Embed)]
+#[folder = "assets/constants/"]
+pub struct Constant;
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Organization {
+    pub name: String,
+    pub alternative_name: String,
+    pub additional_type: OrganizationType,
+    pub keywords: Option<Vec<String>>,
+    pub children: Vec<Organization>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, Display, PartialEq, PartialOrd)]
+#[serde(rename_all = "lowercase")]
+pub enum OrganizationType {
+    #[display("center")]
+    Center,
+    #[display("division")]
+    Division,
+    #[display("directorate")]
+    Directorate,
+    #[display("group")]
+    Group,
+    #[display("program")]
+    Program,
+    #[display("facility")]
+    Facility,
+    #[display("FFRDC")]
+    Ffrdc,
+}
+impl Constant {
+    pub fn from_asset(file_name: &str) -> String {
+        match Constant::get(file_name) {
+            | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
+            | None => {
+                error!(file_name, "=> {} Import Constant asset", Label::fail());
+                unimplemented!()
+            }
+        }
+    }
+    pub fn text(file_name: &str) -> Vec<String> {
+        Constant::from_asset(file_name).lines().map(String::from).collect()
+    }
+    pub fn organization() -> Vec<Organization> {
+        serde_json::from_str(&Constant::from_asset("organization.json")).unwrap()
+    }
+}
+impl MimeType {
+    pub fn from_path(file_name: &str) -> MimeType {
+        let name = &file_name.to_lowercase();
+        match get_extension(Path::new(name)).as_str() {
+            | "jpg" | "jpeg" => MimeType::Jpeg,
+            | "json" => MimeType::Json,
+            | "jsonld" => MimeType::LdJson,
+            | "otf" => MimeType::Otf,
+            | "png" => MimeType::Png,
+            | "svg" => MimeType::Svg,
+            | "txt" => MimeType::Text,
+            | _ => unimplemented!("Unsupported MIME type"),
+        }
+    }
+}
+impl Organization {
+    pub fn get(&self, organization_type: OrganizationType) -> Vec<&Organization> {
+        self.children
+            .iter()
+            .filter(|child| match &child.additional_type {
+                | value if value.eq(&organization_type) => true,
+                | _ => false,
+            })
+            .collect::<Vec<_>>()
+    }
+    pub fn flatten(&self) -> Vec<Organization> {
+        let mut items = vec![self.clone()];
+        let directorates = self.children.clone();
+        for directorate in &directorates {
+            items.push(directorate.clone());
+            let divisions = directorate.children.clone();
+            for division in &divisions {
+                items.push(division.clone());
+            }
+        }
+        items
+    }
+    pub fn get_all(&self) -> Vec<(String, String)> {
+        self.flatten()
+            .into_iter()
+            .map(|x| (x.alternative_name.clone(), x.name.clone()))
+            .filter(|(abbr, name)| !(abbr.is_empty() || name.is_empty()))
+            .collect::<Vec<(String, String)>>()
+    }
+}
 
 lazy_static! {
     pub static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
@@ -7,17 +124,6 @@ lazy_static! {
     pub static ref RE_PHONE: Regex = Regex::new(r#"^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$"#).unwrap();
 }
 lazy_static! {
-    pub static ref KEYWORD_DATA: [&'static str; 9] = [
-        "artificial-intelligence",
-        "automation",
-        "cyber",
-        "geospatial",
-        "machine-learning",
-        "nuclear-nonproliferation",
-        "security",
-        "transportation",
-        "workflow",
-    ];
     pub static ref SPONSOR_DATA: [(&'static str, &'static str); 23] = [
         ("ARPA-E", "Advanced Research Projects Agency-Energy"),
         ("CISA", "Cybersecurity and Infrastructure Security Agency"),
@@ -62,62 +168,4 @@ lazy_static! {
         vec!["seaborn", "Seaborn"],
         vec!["plotly", "Plotly"],
     ];
-    pub static ref VOCABULARY_ACCEPT: [&'static str; 55] = [
-        "ACORN",
-        "AMD",
-        "ASCR",
-        "airflows?",
-        "applications?",
-        "biomonitoring",
-        "CPUs?",
-        "cyber",
-        "[Cc]ybersecurity",
-        "deliverables?",
-        "disable",
-        "DOE",
-        "downscaled?",
-        "FAIR",
-        "GEARS",
-        "geotag(ged)?",
-        "GIS",
-        "geometrical",
-        "geoprocessing",
-        "geoscience",
-        "geospatial",
-        "GPS",
-        "GSHS",
-        "HPC",
-        "IPs?",
-        "IRI",
-        "ISO",
-        "JACC",
-        "LLVM",
-        "MRI",
-        "misconfigurations?",
-        "multimodal",
-        "NERSC",
-        "operationalize",
-        "OLCF",
-        "ORNL",
-        "Perlmutter",
-        "PIPE",
-        "POI",
-        "RAJA",
-        "regionalizations?",
-        "reusability",
-        "SANSR",
-        "Situ",
-        "socioeconomics?",
-        "spaceborne",
-        "SNS",
-        "STAR",
-        "telematics",
-        "timeframes?",
-        "TSUSG",
-        "uncrewed",
-        "UAS",
-        "USA",
-        "XLOOP",
-    ];
-    pub static ref VOCABULARY_REJECT: [&'static str; 2] = ["geo-spatial", "utilize"];
 }

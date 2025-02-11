@@ -1,5 +1,5 @@
 use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig, Vale, ValeConfig};
-use crate::constants::{KEYWORD_DATA, RE_DOI, RE_IP6, RE_PHONE, SPONSOR_DATA, TECHNOLOGY_DATA};
+use crate::constants::{Constant, RE_DOI, RE_IP6, RE_PHONE, SPONSOR_DATA, TECHNOLOGY_DATA};
 use crate::util::*;
 use derive_more::Display;
 use fancy_regex::Regex;
@@ -25,28 +25,14 @@ const MAX_LENGTH_OUTCOME: usize = 150;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 pub enum FuzzyValue {
+    #[display("Division")]
+    Division,
     #[display("Keyword")]
     Keyword,
     #[display("Sponsor")]
     Sponsor,
     #[display("Technology")]
     Technology,
-}
-#[derive(Clone, Debug, Serialize, Deserialize, Display)]
-#[serde(rename_all = "lowercase")]
-pub enum OrganizationType {
-    #[display("center")]
-    Center,
-    #[display("division")]
-    Division,
-    #[display("directorate")]
-    Directorate,
-    #[display("group")]
-    Group,
-    #[display("program")]
-    Program,
-    #[display("facility")]
-    Facility,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 #[serde(rename_all = "lowercase")]
@@ -84,6 +70,7 @@ pub struct Contact {
     pub phone: String,
     #[validate(url(message = "Please provide a valid URL"))]
     pub profile: String,
+    // TODO: Resolve division
     pub division: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -113,15 +100,6 @@ pub struct Metadata {
     pub programs: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub managers: Option<Vec<String>>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Organization {
-    pub name: String,
-    pub alternative_name: Option<String>,
-    pub additional_type: OrganizationType,
-    pub keywords: Option<Vec<String>>,
-    pub children: Vec<Organization>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Website {
@@ -328,6 +306,7 @@ impl ResearchActivity {
             | FuzzyValue::Keyword => self.meta.keywords.into_iter().flat_map(resolve_keyword).collect(),
             | FuzzyValue::Sponsor => self.meta.sponsors.into_iter().flat_map(resolve_sponsor).collect(),
             | FuzzyValue::Technology => self.meta.technology.into_iter().flat_map(resolve_technology).collect(),
+            | FuzzyValue::Division => vec![],
         };
         data.sort();
         data.dedup();
@@ -371,6 +350,10 @@ impl ResearchActivity {
         self.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
         self.meta.sponsors = self.clone().resolve(FuzzyValue::Sponsor);
         self.meta.technology = self.clone().resolve(FuzzyValue::Technology);
+        self.contact.division = match resolve_division(self.clone().contact.division) {
+            | Some(value) => value,
+            | None => "".to_string(),
+        };
         self
     }
     pub fn get_errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
@@ -454,8 +437,46 @@ pub fn get_error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
 fn resolve_keyword(value: String) -> Option<String> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
     let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-    let output = pattern.match_list(*KEYWORD_DATA, &mut matcher).first().map(|(x, _)| x.to_string());
+    let output = pattern
+        .match_list(Constant::text("keywords.txt"), &mut matcher)
+        .first()
+        .map(|(x, _)| x.to_string());
     let label = "Keyword";
+    match output.clone() {
+        | Some(resolved) => {
+            if resolved.eq(&value.to_string()) {
+                trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
+            } else {
+                debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
+            }
+        }
+        | None => {
+            debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
+        }
+    };
+    output
+}
+fn resolve_division(value: String) -> Option<String> {
+    let data = Constant::organization()[0]
+        .get_all()
+        .into_iter()
+        .map(|(key, value)| (key.to_string(), value.to_string()))
+        .collect::<HashMap<String, String>>();
+    let value = value.trim().to_string();
+    let sanitized = sanitize(value.clone());
+    let output = match sanitized.len() {
+        | 3..=5 if data.contains_key(&value.to_uppercase()) => data.get(&value.to_uppercase()).cloned(),
+        | _ => {
+            let pattern = Pattern::parse(&sanitized, CaseMatching::Ignore, Normalization::Smart);
+            let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+            let output = pattern
+                .match_list(data.clone().into_values().collect::<Vec<String>>(), &mut matcher)
+                .first()
+                .map(|(x, _)| x.to_string());
+            output
+        }
+    };
+    let label = "Division";
     match output.clone() {
         | Some(resolved) => {
             if resolved.eq(&value.to_string()) {

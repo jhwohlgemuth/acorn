@@ -1,4 +1,4 @@
-use crate::constants::{VOCABULARY_ACCEPT, VOCABULARY_REJECT};
+use crate::constants::Constant;
 use crate::util::*;
 use bon::builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -229,14 +229,14 @@ impl StaticAnalyzer for Vale {
                 match File::create(format!("{}/accept.txt", parent)) {
                     | Ok(mut file) => {
                         // TODO: Concatenate sponsor acronyms to accept file
-                        let content = VOCABULARY_ACCEPT.join("\n");
+                        let content = Constant::text("accept.txt").join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to accept.txt");
                     }
                     | Err(why) => panic!("=> {} Create accept.txt - {}", Label::fail(), why),
                 }
                 match File::create(format!("{}/reject.txt", parent)) {
                     | Ok(mut file) => {
-                        let content = VOCABULARY_REJECT.join("\n");
+                        let content = Constant::text("reject.txt").join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to reject.txt");
                     }
                     | Err(why) => panic!("=> {} Create reject.txt - {}", Label::fail(), why),

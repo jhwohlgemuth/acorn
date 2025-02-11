@@ -2,6 +2,7 @@
     {
         "name": "Oak Ridge National Laboratory",
         "alternativeName": "ORNL",
+        "additionalType": "ffrdc",
         "children": [
             {
                 "name": "Biological and Environmental Systems Science Directorate",
@@ -25,6 +26,7 @@
                     {
                         "name": "Advanced Plant Phenotyping Laboratory",
                         "alternativeName": "APPL",
+                        "additionalType": "facility",
                         "keywords": [],
                         "children": []
                     }
@@ -240,6 +242,7 @@
                     },
                     {
                         "name": "Physics Division",
+                        "alternativeName": "",
                         "additionalType": "division",
                         "keywords": [],
                         "children": []

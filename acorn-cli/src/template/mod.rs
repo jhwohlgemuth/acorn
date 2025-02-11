@@ -1,7 +1,7 @@
+use acorn_lib::constants::MimeType;
 use acorn_lib::schema::{OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
-use acorn_lib::util::{get_extension, path_to_string, Label};
+use acorn_lib::util::{path_to_string, Label};
 use data_encoding::BASE64;
-use derive_more::Display;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
@@ -9,12 +9,10 @@ use percy_dom::prelude::*;
 use playwright::api::Page;
 use rust_embed::Embed;
 use std::fs::{create_dir_all, remove_file, File};
-use std::path::Path;
 use std::path::{self, PathBuf};
 use tracing::{debug, error};
 
 const BASE_URL: &str = "https://fact-sheets.ornl.gov";
-
 // https://www.olcf.ornl.gov/about-olcf/media-assets/
 const RGBA_TRANSPARENT: [u8; 4] = [255, 255, 255, 0];
 const RGBA_ORNL_GREEN: [u8; 4] = [0, 121, 52, 255];
@@ -60,30 +58,6 @@ struct Font;
 #[derive(Embed)]
 #[folder = "assets/styles/"]
 struct Style;
-/// See https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types
-#[derive(Clone, Debug, Display)]
-pub enum MimeType {
-    #[display("font/otf")]
-    Otf,
-    #[display("image/jpeg")]
-    Jpeg,
-    #[display("image/png")]
-    Png,
-    #[display("image/svg+xml")]
-    Svg,
-}
-impl MimeType {
-    fn from_str(value: &str) -> MimeType {
-        let name = &value.to_lowercase();
-        match get_extension(Path::new(name)).as_str() {
-            | "jpg" | "jpeg" => MimeType::Jpeg,
-            | "png" => MimeType::Png,
-            | "otf" => MimeType::Otf,
-            | "svg" => MimeType::Svg,
-            | _ => unimplemented!("Unsupported MIME type"),
-        }
-    }
-}
 pub struct FactSheetFooter {
     /// TODO: Convert to enum
     pub division: String,
@@ -96,19 +70,20 @@ impl DataUri {
     fn from_bytes(data: &[u8], mime: MimeType) -> String {
         format!("data:{};base64,{}", mime, BASE64.encode(data))
     }
-    fn from_asset(name: &str) -> String {
-        let mime = MimeType::from_str(name);
+    fn from_asset(value: &str) -> String {
+        let mime = MimeType::from_path(value);
         match mime {
             | MimeType::Otf => {
-                let binding = Font::get(name).unwrap();
+                let binding = Font::get(value).unwrap();
                 let data = binding.data.as_ref();
                 DataUri::from_bytes(data, mime)
             }
             | MimeType::Jpeg | MimeType::Png | MimeType::Svg => {
-                let binding = Image::get(name).unwrap();
+                let binding = Image::get(value).unwrap();
                 let data = binding.data.as_ref();
                 DataUri::from_bytes(data, mime)
             }
+            | _ => unimplemented!(),
         }
     }
 }
@@ -151,7 +126,7 @@ pub async fn create_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
         | Ok(value) => value.format(Some(path.clone())),
         | Err(err) => {
             error!(path = path_to_string(path), "=> {} {err}", Label::fail());
-            unimplemented!()
+            std::process::exit(exitcode::UNAVAILABLE);
         }
     };
     let content = get_html(&data);

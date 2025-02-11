@@ -18,6 +18,7 @@ use tracing_subscriber::EnvFilter;
 mod cli;
 mod template;
 
+use acorn_lib::constants::Constant;
 use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, TableFormatPrint};
 use acorn_lib::schema::*;
 use acorn_lib::util::*;
