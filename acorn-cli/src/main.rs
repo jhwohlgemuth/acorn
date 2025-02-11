@@ -93,13 +93,8 @@ fn main() -> Void {
             }
             Ok(())
         }
-        | Some(Commands::Doctor {
-            fix,
-            interactive,
-            check,
-            ..
-        }) => {
-            fn should_run(checks: &Vec<Diagnostic>, diagnostic: Diagnostic) -> bool {
+        | Some(Commands::Doctor { fix, interactive, check, .. }) => {
+            fn should_run(checks: &[Diagnostic], diagnostic: Diagnostic) -> bool {
                 [diagnostic, Diagnostic::All].iter().any(|&x| checks.contains(&x))
             }
             if *fix {

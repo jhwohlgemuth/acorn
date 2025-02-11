@@ -1,8 +1,8 @@
 use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig, Vale, ValeConfig};
+use crate::constants::{KEYWORD_DATA, RE_DOI, RE_IP6, RE_PHONE, SPONSOR_DATA, TECHNOLOGY_DATA};
 use crate::util::*;
 use derive_more::Display;
 use fancy_regex::Regex;
-use lazy_static::lazy_static;
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher};
 use owo_colors::OwoColorize;
@@ -16,7 +16,6 @@ use tracing::{debug, error, info, trace};
 use validator::{Validate, ValidationError, ValidationErrorsKind};
 
 const DEFAULT_GRAPHIC_HREF: &str = "00.png";
-
 const MAX_LENGTH_AREA: usize = 40;
 const MAX_LENGTH_CAPABILIY: usize = 300;
 const MAX_LENGTH_FACILITY: usize = 40;
@@ -33,70 +32,6 @@ pub enum FuzzyValue {
     #[display("Technology")]
     Technology,
 }
-
-lazy_static! {
-    static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
-    static ref RE_IP6: Regex = Regex::new(r#"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"#).unwrap();
-    static ref RE_PHONE: Regex = Regex::new(r#"^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$"#).unwrap();
-}
-lazy_static! {
-    static ref KEYWORD_DATA: [&'static str; 9] = [
-        "artificial-intelligence",
-        "automation",
-        "cyber",
-        "geospatial",
-        "machine-learning",
-        "nuclear-nonproliferation",
-        "security",
-        "transportation",
-        "workflow",
-    ];
-    static ref SPONSOR_DATA: [(&'static str, &'static str); 23] = [
-        ("ARPA-E", "Advanced Research Projects Agency-Energy"),
-        ("CISA", "Cybersecurity and Infrastructure Security Agency"),
-        ("DARPA", "Defense Advanced Research Projects Agency"),
-        ("DHS", "Department of Homeland Security"),
-        ("DOD", "Department of Defense"),
-        ("DOE", "Department of Energy"),
-        ("DOL", "Department of Labor"),
-        ("DOT", "Department of Transportation"),
-        ("EPA", "Environmental Protection Agency"),
-        ("FEMA", "Federal Emergency Management Agency"),
-        ("IAEA", "International Atomic Energy Agency"),
-        ("IARPA", "Intelligence Advanced Research Projects Activity"),
-        ("LDRD", "Laboratory Directed Research and Development"),
-        ("NASA", "National Aeronautics and Space Administration"),
-        ("NGA", "National Geospatial Intelligence Agency"),
-        ("NNSA", "National Nuclear Security Administration"),
-        ("NOAA", "National Oceanic and Atmospheric Administration"),
-        ("NSF", "National Science Foundation"),
-        ("OPM", "Office of Personnel Management"),
-        ("ORNL", "Oak Ridge National Laboratory"),
-        ("OSTI", "Office of Scienctific and Technical Information"),
-        ("USACE", "United States Army Corps of Engineers"),
-        ("USGS", "United States Geological Survey"),
-    ];
-    static ref TECHNOLOGY_DATA: [Vec<&'static str>; 17] = [
-        vec!["javascript", "js", "node.js", "language::JavaScript"],
-        vec!["python", "py", "language::Python"],
-        vec!["rust", "rs", "language::Rust"],
-        vec!["astro", "astro.js", "AstroJS"],
-        vec!["react", "react.js", "ReactJS"],
-        vec!["gdal", "Geospatial Data Abstraction Library"],
-        vec!["polars", "Polars"],
-        vec!["pandas", "Pandas"],
-        vec!["numpy", "NumPy"],
-        vec!["pytorch", "PyTorch"],
-        vec!["tensorflow", "TensorFlow"],
-        vec!["keras", "Keras"],
-        vec!["scikit-learn", "SciKit-Learn"],
-        vec!["scipy", "SciPy"],
-        vec!["matplotlib", "Matplotlib"],
-        vec!["seaborn", "Seaborn"],
-        vec!["plotly", "Plotly"],
-    ];
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 #[serde(rename_all = "lowercase")]
 pub enum OrganizationType {
@@ -327,7 +262,7 @@ impl ResearchActivity {
             .map(|path| match ResearchActivity::read(path.into()) {
                 | Ok(data) => match data.clone().get_errors() {
                     | Ok(_) => {
-                        info!("=> {} {} has no schema errors", Label::pass(), path.display());
+                        info!("=> {} {} has {}", Label::pass(), path.display(), "no schema errors".green().bold());
                         0
                     }
                     | Err(found) => {

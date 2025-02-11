@@ -1,3 +1,4 @@
+use crate::constants::{VOCABULARY_ACCEPT, VOCABULARY_REJECT};
 use crate::util::*;
 use bon::builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -6,7 +7,6 @@ use directories::ProjectDirs;
 use duct::cmd;
 use flate2::read::GzDecoder;
 use ini::Ini;
-use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::{create_dir_all, remove_file};
@@ -15,67 +15,6 @@ use std::path::PathBuf;
 use tar::Archive;
 use tracing::{debug, error, info};
 use which::which;
-
-lazy_static! {
-    static ref VOCABULARY_ACCEPT: [&'static str; 55] = [
-        "ACORN",
-        "AMD",
-        "ASCR",
-        "airflows?",
-        "applications?",
-        "biomonitoring",
-        "CPUs?",
-        "cyber",
-        "[Cc]ybersecurity",
-        "deliverables?",
-        "disable",
-        "DOE",
-        "downscaled?",
-        "FAIR",
-        "GEARS",
-        "geotag(ged)?",
-        "GIS",
-        "geometrical",
-        "geoprocessing",
-        "geoscience",
-        "geospatial",
-        "GPS",
-        "GSHS",
-        "HPC",
-        "IPs?",
-        "IRI",
-        "ISO",
-        "JACC",
-        "LLVM",
-        "MRI",
-        "misconfigurations?",
-        "multimodal",
-        "NERSC",
-        "operationalize",
-        "OLCF",
-        "ORNL",
-        "Perlmutter",
-        "PIPE",
-        "POI",
-        "RAJA",
-        "regionalizations?",
-        "reusability",
-        "SANSR",
-        "Situ",
-        "socioeconomics?",
-        "spaceborne",
-        "SNS",
-        "STAR",
-        "telematics",
-        "timeframes?",
-        "TSUSG",
-        "uncrewed",
-        "UAS",
-        "USA",
-        "XLOOP",
-    ];
-    static ref VOCABULARY_REJECT: [&'static str; 2] = ["geo-spatial", "utilize"];
-}
 
 const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
 const VALE_VERSION: &str = "3.9.4";

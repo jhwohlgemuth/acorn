@@ -15,6 +15,7 @@ use tracing::{debug, error, info, trace};
 use uriparse::URI;
 
 pub mod analyzer;
+pub mod constants;
 pub mod doctor;
 pub mod schema;
 pub mod util;
