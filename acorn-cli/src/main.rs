@@ -93,37 +93,36 @@ fn main() -> Void {
             }
             Ok(())
         }
-        | Some(Commands::Doctor { fix, interactive, skip, .. }) => {
+        | Some(Commands::Doctor {
+            fix,
+            interactive,
+            check,
+            ..
+        }) => {
+            fn should_run(checks: &Vec<Diagnostic>, diagnostic: Diagnostic) -> bool {
+                [diagnostic, Diagnostic::All].iter().any(|&x| checks.contains(&x))
+            }
             if *fix {
                 unimplemented!("Autofix is not implemented yet");
             }
             if *interactive {
                 unimplemented!("Interactive mode is not implemented yet");
             }
-            if skip.contains(&Diagnostic::System) {
-                warn!("=> {} System diagnostics", Label::skip());
-            } else {
+            if should_run(check, Diagnostic::Software) {
                 SystemInformation::init().print();
             }
-            if skip.contains(&Diagnostic::Memory) {
-                warn!("=> {} Memory diagnostics", Label::skip());
-            } else {
+            if should_run(check, Diagnostic::System) {
+                SystemInformation::init().print();
+            }
+            if should_run(check, Diagnostic::Memory) {
                 MemoryInformation::init().print();
             }
-            if skip.contains(&Diagnostic::Network) {
-                warn!("=> {} Network diagnostics", Label::skip());
-            } else {
+            if should_run(check, Diagnostic::Network) {
                 NetworkInformation::init().print();
             }
-
-            if skip.contains(&Diagnostic::Gpu) {
-                warn!("=> {} GPU diagnostics", Label::skip());
-            } else {
-                // TODO: Add support for GPU information
-                // tokio_runtime().block_on(async {
-                //     print_gpu_information().await;
-                // });
-                unimplemented!("GPU diagnostics is not implemented yet");
+            // TODO: Add support for GPU information
+            if should_run(check, Diagnostic::Gpu) {
+                warn!("GPU diagnostics is not implemented yet");
             }
             Ok(())
         }

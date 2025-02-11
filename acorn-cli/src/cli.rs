@@ -39,9 +39,12 @@ pub enum Check {
     #[display("validation")]
     Validation,
 }
-#[derive(Clone, Debug, Display, PartialEq, ValueEnum, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Display, PartialEq, ValueEnum, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Diagnostic {
+    #[default]
+    #[display("all")]
+    All,
     #[display("system")]
     // System information (e.g. CPU count, OS, etc...)
     System,
@@ -137,8 +140,8 @@ pub enum Commands {
         #[arg(short, long, value_name = "BOOL")]
         report: bool,
         /// Skip one or more available diagnostic checks
-        #[arg(short, long, value_name = "LIST", value_delimiter = ',')]
-        skip: Vec<Diagnostic>,
+        #[arg(default_value = "all", short, long, value_name = "LIST", value_delimiter = ',')]
+        check: Vec<Diagnostic>,
         #[command(flatten)]
         verbose: Verbosity,
     },

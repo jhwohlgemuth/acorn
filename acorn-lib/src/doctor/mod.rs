@@ -26,6 +26,14 @@ pub struct Network {
 pub struct NetworkInformation {
     pub networks: Vec<Network>,
 }
+// TODO: Add detailed CPU information printer
+/// Information about microprocessor
+#[derive(Debug, Clone)]
+pub struct Processor {
+    pub frequency: u64,
+    pub vendor: String,
+    pub brand: String,
+}
 pub struct SystemInformation {
     pub name: String,
     pub kernel_version: String,
@@ -155,35 +163,6 @@ pub fn print_system_information() {
     SystemInformation::init().print();
     NetworkInformation::init().print();
     MemoryInformation::init().print();
-}
-// TODO: Make work
-pub async fn print_gpu_information() {
-    let (device, _) = init_wgpu_device().await.unwrap();
-    println!("wgpu device: {:?}", device);
-}
-// TODO: Make work
-async fn init_wgpu_device() -> Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError> {
-    // Start an "Instance", which is the context for all things wgpu.
-    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-        backends: wgpu::Backends::all(),
-        ..Default::default()
-    });
-    // An "Adapter" is a handle to a physical graphics/compute device.
-    let adapter = match instance
-        .request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(), // None | LowPower | HighPerformance
-            compatible_surface: None,
-            force_fallback_adapter: false, // If needed to force CPU fallback?
-        })
-        .await
-    {
-        | Some(adapter) => adapter,
-        | None => panic!("Failed to request adapter"),
-    };
-    // Request a connection to a physical device,
-    // and also access to the queue for its command buffers.
-    // It is possible, if necessary, to add a description of required features.
-    adapter.request_device(&Default::default(), None).await
 }
 fn parse_network_addresses(data: &sysinfo::NetworkData) -> Vec<String> {
     data.ip_networks()
