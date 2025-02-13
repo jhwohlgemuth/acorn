@@ -60,7 +60,7 @@ struct Font;
 struct Style;
 struct FactSheetFooter {
     /// TODO: Convert to enum
-    pub division: String,
+    pub organization: String,
 }
 struct FactSheetHead {
     pub title: String,
@@ -99,7 +99,7 @@ impl View for FactSheetFooter {
                     <div class="logo-wrapper">
                         <div><img src={ DataUri::from_asset("logo_ornl.svg") } id="logo-ornl"/></div>
                         <div><img src={ DataUri::from_asset("logo_doe_os.png") } id="logo-doe-os"/></div>
-                        <div id="division">{ &self.division }</div>
+                        <div id="division">{ &self.organization }</div>
                     </div>
                 </div>
             </footer>
@@ -159,14 +159,6 @@ pub async fn create_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
 }
 pub fn get_html(data: &ResearchActivity) -> String {
     let ResearchActivity { meta, title, subtitle, .. } = data;
-    let head = FactSheetHead {
-        title: "Research Activity".to_string(),
-        description: "Research Activity Data".to_string(),
-        stylesheet: "fact-sheet.css".to_string(),
-    };
-    let footer = FactSheetFooter {
-        division: "National Security Sciences".to_string(),
-    };
     let node = match &data.sections {
         | Sections::Project(ProjectSections {
             introduction,
@@ -177,6 +169,14 @@ pub fn get_html(data: &ResearchActivity) -> String {
             ..
         }) => {
             let Research { focus, areas, .. } = research;
+            let head = FactSheetHead {
+                title: "Research Activity".to_string(),
+                description: "Research Activity Data".to_string(),
+                stylesheet: "fact-sheet.css".to_string(),
+            };
+            let footer = FactSheetFooter {
+                organization: "National Security Sciences".to_string(),
+            };
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
             let graphic = meta.clone().get_first_graphic_href();
             let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.id)).unwrap(), MimeType::Png);
@@ -242,6 +242,14 @@ pub fn get_html(data: &ResearchActivity) -> String {
             impact,
             facilities,
         }) => {
+            let head = FactSheetHead {
+                title: "Research Activity".to_string(),
+                description: "Research Activity Data".to_string(),
+                stylesheet: "fact-sheet.css".to_string(),
+            };
+            let footer = FactSheetFooter {
+                organization: "National Security Sciences".to_string(),
+            };
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
             let graphic = meta.clone().get_first_graphic_href();
             let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.id)).unwrap(), MimeType::Png);

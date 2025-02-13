@@ -28,7 +28,8 @@ pub enum MimeType {
 #[derive(Embed)]
 #[folder = "assets/constants/"]
 pub struct Constant;
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Display)]
+#[display("Organization ({additional_type}) - {name} ({alternative_name})")]
 #[serde(rename_all = "camelCase")]
 pub struct Organization {
     pub name: String,
@@ -71,6 +72,13 @@ impl Constant {
     pub fn organization() -> Vec<Organization> {
         serde_json::from_str(&Constant::from_asset("organization.json")).unwrap()
     }
+    pub fn divisions() -> Vec<Organization> {
+        Constant::organization()[0]
+            .flatten()
+            .into_iter()
+            .filter(|x| x.additional_type.eq(&OrganizationType::Division))
+            .collect::<Vec<_>>()
+    }
 }
 impl MimeType {
     pub fn from_path(file_name: &str) -> MimeType {
@@ -88,14 +96,11 @@ impl MimeType {
     }
 }
 impl Organization {
-    pub fn get(&self, organization_type: OrganizationType) -> Vec<&Organization> {
-        self.children
-            .iter()
-            .filter(|child| match &child.additional_type {
-                | value if value.eq(&organization_type) => true,
-                | _ => false,
-            })
-            .collect::<Vec<_>>()
+    pub fn walk<F: Copy + for<'a> Fn(&'a mut Organization)>(&mut self, f: F) {
+        f(self);
+        for child in self.children.iter_mut() {
+            child.walk(f);
+        }
     }
     pub fn flatten(&self) -> Vec<Organization> {
         let mut items = vec![self.clone()];
@@ -108,6 +113,15 @@ impl Organization {
             }
         }
         items
+    }
+    pub fn get(&self, organization_type: OrganizationType) -> Vec<&Organization> {
+        self.children
+            .iter()
+            .filter(|child| match &child.additional_type {
+                | value if value.eq(&organization_type) => true,
+                | _ => false,
+            })
+            .collect::<Vec<_>>()
     }
     pub fn get_all(&self) -> Vec<(String, String)> {
         self.flatten()
