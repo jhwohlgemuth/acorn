@@ -58,13 +58,14 @@ struct Font;
 #[derive(Embed)]
 #[folder = "assets/styles/"]
 struct Style;
-pub struct FactSheetFooter {
+struct FactSheetFooter {
     /// TODO: Convert to enum
     pub division: String,
 }
-pub struct FactSheetHead {
+struct FactSheetHead {
     pub title: String,
     pub description: String,
+    pub stylesheet: String,
 }
 impl DataUri {
     fn from_bytes(data: &[u8], mime: MimeType) -> String {
@@ -107,7 +108,7 @@ impl View for FactSheetFooter {
 }
 impl View for FactSheetHead {
     fn render(&self) -> VirtualNode {
-        let styles = get_stylesheet("fact-sheet.css".into());
+        let styles = get_stylesheet(self.stylesheet.clone());
         html! {
             <head>
                 <meta charset="utf-8">
@@ -161,6 +162,7 @@ pub fn get_html(data: &ResearchActivity) -> String {
     let head = FactSheetHead {
         title: "Research Activity".to_string(),
         description: "Research Activity Data".to_string(),
+        stylesheet: "fact-sheet.css".to_string(),
     };
     let footer = FactSheetFooter {
         division: "National Security Sciences".to_string(),
