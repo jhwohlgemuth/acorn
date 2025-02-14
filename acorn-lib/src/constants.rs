@@ -1,7 +1,25 @@
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
+// Vale
+pub const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
+pub const VALE_VERSION: &str = "3.9.4";
+// Project folder values
+pub const APPLICATION: &str = "acorn";
+pub const ORGANIZATION: &str = "ornl";
+pub const QUALIFIER: &str = "org";
+// Schema defaults
+pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
+// Validation
+pub const MAX_LENGTH_AREA: usize = 40;
+pub const MAX_LENGTH_CAPABILIY: usize = 300;
+pub const MAX_LENGTH_FACILITY: usize = 40;
+pub const MAX_LENGTH_IMPACT: usize = 400;
+pub const MAX_LENGTH_TECHNICAL: usize = 100;
+pub const MAX_LENGTH_OUTCOME: usize = 150;
+
 lazy_static! {
+    // Regular expressions
     pub static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
     pub static ref RE_IP6: Regex = Regex::new(r#"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"#).unwrap();
     pub static ref RE_PHONE: Regex = Regex::new(r#"^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$"#).unwrap();

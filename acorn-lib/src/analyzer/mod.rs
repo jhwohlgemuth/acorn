@@ -1,3 +1,4 @@
+use crate::constants::*;
 use crate::util::{
     download_binary, get_checksum, get_extension, make_executable, path_to_string, test_command, to_string, Constant, Label, SemanticVersion,
 };
@@ -16,12 +17,6 @@ use std::path::PathBuf;
 use tar::Archive;
 use tracing::{debug, error, info};
 use which::which;
-
-const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
-const VALE_VERSION: &str = "3.9.4";
-const QUALIFIER: &str = "org";
-const ORGANIZATION: &str = "ornl";
-const APPLICATION: &str = "acorn";
 
 pub trait StaticAnalyzer {
     fn command(self) -> String;

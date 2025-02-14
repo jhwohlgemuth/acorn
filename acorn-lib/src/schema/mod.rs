@@ -1,5 +1,5 @@
 use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig, Vale, ValeConfig};
-use crate::constants::{RE_DOI, RE_IP6, RE_PHONE};
+use crate::constants::*;
 use crate::util::*;
 use derive_more::Display;
 use fancy_regex::Regex;
@@ -15,14 +15,6 @@ use std::path::PathBuf;
 use std::result::Result;
 use tracing::{debug, error, info, trace};
 use validator::{Validate, ValidationError, ValidationErrorsKind};
-
-const DEFAULT_GRAPHIC_HREF: &str = "00.png";
-const MAX_LENGTH_AREA: usize = 40;
-const MAX_LENGTH_CAPABILIY: usize = 300;
-const MAX_LENGTH_FACILITY: usize = 40;
-const MAX_LENGTH_IMPACT: usize = 400;
-const MAX_LENGTH_TECHNICAL: usize = 100;
-const MAX_LENGTH_OUTCOME: usize = 150;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 pub enum FuzzyValue {
