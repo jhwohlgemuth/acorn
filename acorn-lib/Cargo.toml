@@ -49,6 +49,7 @@ tracing-indicatif = { workspace = true }
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 uriparse = { workspace = true }
+petgraph = "0.7.1"
 
 [lints.rust]
 unsafe_code = "forbid"

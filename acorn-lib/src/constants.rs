@@ -6,6 +6,8 @@ use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tracing::error;
+use std::hash::Hash;
+use petgraph::graphmap::UnGraphMap;
 
 /// See https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types
 #[derive(Clone, Debug, Display)]
@@ -28,7 +30,7 @@ pub enum MimeType {
 #[derive(Embed)]
 #[folder = "assets/constants/"]
 pub struct Constant;
-#[derive(Clone, Debug, Serialize, Deserialize, Display)]
+#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
 #[display("Organization ({additional_type}) - {name} ({alternative_name})")]
 #[serde(rename_all = "camelCase")]
 pub struct Organization {
@@ -38,7 +40,7 @@ pub struct Organization {
     pub keywords: Option<Vec<String>>,
     pub children: Vec<Organization>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, Display, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
 #[serde(rename_all = "lowercase")]
 pub enum OrganizationType {
     #[display("center")]
@@ -76,7 +78,7 @@ impl Constant {
         Constant::organization()[0]
             .flatten()
             .into_iter()
-            .filter(|x| x.additional_type.eq(&OrganizationType::Division))
+            .filter(|Organization { additional_type, .. }| additional_type.eq(&OrganizationType::Division))
             .collect::<Vec<_>>()
     }
 }
@@ -96,12 +98,6 @@ impl MimeType {
     }
 }
 impl Organization {
-    pub fn walk<F: Copy + for<'a> Fn(&'a mut Organization)>(&mut self, f: F) {
-        f(self);
-        for child in self.children.iter_mut() {
-            child.walk(f);
-        }
-    }
     pub fn flatten(&self) -> Vec<Organization> {
         let mut items = vec![self.clone()];
         let directorates = self.children.clone();
@@ -114,21 +110,35 @@ impl Organization {
         }
         items
     }
-    pub fn get(&self, organization_type: OrganizationType) -> Vec<&Organization> {
-        self.children
-            .iter()
+    fn _get(data: Vec<Organization>, organization_type: OrganizationType) -> Vec<Organization> {
+        data
+            .into_iter()
             .filter(|child| match &child.additional_type {
                 | value if value.eq(&organization_type) => true,
                 | _ => false,
             })
             .collect::<Vec<_>>()
     }
-    pub fn get_all(&self) -> Vec<(String, String)> {
+    pub fn get(&self, organization_type: OrganizationType) -> Vec<Organization> {
+        let items = self.children.clone();
+        Organization::_get(items, organization_type)
+    }
+    pub fn get_all(&self, organization_type: OrganizationType) -> Vec<Organization> {
+        let items = self.flatten();
+        Organization::_get(items, organization_type)
+    }
+    pub fn get_all_name_pairs(&self) -> Vec<(String, String)> {
         self.flatten()
             .into_iter()
             .map(|x| (x.alternative_name.clone(), x.name.clone()))
             .filter(|(abbr, name)| !(abbr.is_empty() || name.is_empty()))
             .collect::<Vec<(String, String)>>()
+    }
+    pub fn visit<F: Copy + for<'a> Fn(&'a mut Organization)>(&mut self, f: F) {
+        f(self);
+        for child in self.children.iter_mut() {
+            child.visit(f);
+        }
     }
 }
 

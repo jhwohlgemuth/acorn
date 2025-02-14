@@ -458,7 +458,7 @@ fn resolve_keyword(value: String) -> Option<String> {
 }
 fn resolve_organization(value: String) -> Option<String> {
     let data = Constant::organization()[0]
-        .get_all()
+        .get_all_name_pairs()
         .into_iter()
         .map(|(key, value)| (key.to_string(), value.to_string()))
         .collect::<HashMap<String, String>>();
