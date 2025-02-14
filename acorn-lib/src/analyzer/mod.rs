@@ -1,5 +1,6 @@
-use crate::constants::Constant;
-use crate::util::*;
+use crate::util::{
+    download_binary, get_checksum, get_extension, make_executable, path_to_string, test_command, to_string, Constant, Label, SemanticVersion,
+};
 use bon::builder;
 use color_eyre::owo_colors::OwoColorize;
 use derive_more::Display;
@@ -229,14 +230,14 @@ impl StaticAnalyzer for Vale {
                 match File::create(format!("{}/accept.txt", parent)) {
                     | Ok(mut file) => {
                         // TODO: Concatenate sponsor acronyms to accept file
-                        let content = Constant::text("accept.txt").join("\n");
+                        let content = Constant::read_lines("accept.txt").join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to accept.txt");
                     }
                     | Err(why) => panic!("=> {} Create accept.txt - {}", Label::fail(), why),
                 }
                 match File::create(format!("{}/reject.txt", parent)) {
                     | Ok(mut file) => {
-                        let content = Constant::text("reject.txt").join("\n");
+                        let content = Constant::read_lines("reject.txt").join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to reject.txt");
                     }
                     | Err(why) => panic!("=> {} Create reject.txt - {}", Label::fail(), why),

@@ -5,6 +5,7 @@ use glob::glob;
 use is_executable::IsExecutable;
 use owo_colors::{OwoColorize, Style, Styled};
 use ring::digest::{Context, SHA256};
+use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs::File;
@@ -15,6 +16,50 @@ use std::path::{Path, PathBuf};
 use tracing::{debug, error, warn};
 use which::which;
 
+#[derive(Embed)]
+#[folder = "assets/constants/"]
+pub struct Constant;
+impl Constant {
+    pub fn from_asset(file_name: &str) -> String {
+        match Constant::get(file_name) {
+            | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
+            | None => {
+                error!(file_name, "=> {} Import Constant asset", Label::fail());
+                unimplemented!()
+            }
+        }
+    }
+    pub fn read_lines(file_name: &str) -> Vec<String> {
+        let data = Constant::from_asset(file_name);
+        data.lines().map(String::from).collect()
+    }
+    pub fn csv(file_name: &str) -> Vec<Vec<String>> {
+        Constant::read_lines(file_name)
+            .into_iter()
+            .map(|x| x.split(",").map(String::from).collect())
+            .collect()
+    }
+}
+/// See https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types
+#[derive(Clone, Debug, Display)]
+pub enum MimeType {
+    #[display("text/csv")]
+    Csv,
+    #[display("application/ld+json")]
+    LdJson,
+    #[display("image/jpeg")]
+    Jpeg,
+    #[display("application/json")]
+    Json,
+    #[display("font/otf")]
+    Otf,
+    #[display("image/png")]
+    Png,
+    #[display("image/svg+xml")]
+    Svg,
+    #[display("text/plain")]
+    Text,
+}
 /// Struct for using and sharing colorized logging labels
 pub struct Label {}
 /// Semantic version
@@ -90,6 +135,22 @@ impl Label {
     pub fn fmt_using(value: &str) -> String {
         let style = Style::new().cyan();
         value.style(style).to_string()
+    }
+}
+impl MimeType {
+    pub fn from_path(file_name: &str) -> MimeType {
+        let name = &file_name.to_lowercase();
+        match get_extension(Path::new(name)).as_str() {
+            | "csv" => MimeType::Csv,
+            | "jpg" | "jpeg" => MimeType::Jpeg,
+            | "json" => MimeType::Json,
+            | "jsonld" => MimeType::LdJson,
+            | "otf" => MimeType::Otf,
+            | "png" => MimeType::Png,
+            | "svg" => MimeType::Svg,
+            | "txt" => MimeType::Text,
+            | _ => unimplemented!("Unsupported MIME type"),
+        }
     }
 }
 impl SemanticVersion {

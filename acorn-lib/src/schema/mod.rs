@@ -1,5 +1,5 @@
 use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig, Vale, ValeConfig};
-use crate::constants::{Constant, RE_DOI, RE_IP6, RE_PHONE, SPONSOR_DATA, TECHNOLOGY_DATA};
+use crate::constants::{RE_DOI, RE_IP6, RE_PHONE};
 use crate::util::*;
 use derive_more::Display;
 use fancy_regex::Regex;
@@ -10,6 +10,7 @@ use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::path::PathBuf;
 use std::result::Result;
 use tracing::{debug, error, info, trace};
@@ -70,7 +71,6 @@ pub struct Contact {
     pub phone: String,
     #[validate(url(message = "Please provide a valid URL"))]
     pub profile: String,
-    // TODO: Resolve division
     pub organization: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -100,6 +100,34 @@ pub struct Metadata {
     pub programs: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub managers: Option<Vec<String>>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
+#[display("Organization ({additional_type}) - {name} ({alternative_name})")]
+#[serde(rename_all = "camelCase")]
+pub struct Organization {
+    pub name: String,
+    pub alternative_name: String,
+    pub additional_type: OrganizationType,
+    pub keywords: Option<Vec<String>>,
+    pub children: Vec<Organization>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
+#[serde(rename_all = "lowercase")]
+pub enum OrganizationType {
+    #[display("center")]
+    Center,
+    #[display("division")]
+    Division,
+    #[display("directorate")]
+    Directorate,
+    #[display("group")]
+    Group,
+    #[display("program")]
+    Program,
+    #[display("facility")]
+    Facility,
+    #[display("FFRDC")]
+    Ffrdc,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Website {
@@ -209,6 +237,59 @@ impl Metadata {
             | None => DEFAULT_GRAPHIC_HREF.to_string(),
         };
         value
+    }
+}
+impl Organization {
+    pub fn load() -> Vec<Organization> {
+        serde_json::from_str(&Constant::from_asset("organization.json")).unwrap()
+    }
+    pub fn divisions() -> Vec<Organization> {
+        Organization::load()[0]
+            .flatten()
+            .into_iter()
+            .filter(|Organization { additional_type, .. }| additional_type.eq(&OrganizationType::Division))
+            .collect::<Vec<_>>()
+    }
+    pub fn flatten(&self) -> Vec<Organization> {
+        let mut items = vec![self.clone()];
+        let directorates = self.children.clone();
+        for directorate in &directorates {
+            items.push(directorate.clone());
+            let divisions = directorate.children.clone();
+            for division in &divisions {
+                items.push(division.clone());
+            }
+        }
+        items
+    }
+    fn _get(data: Vec<Organization>, organization_type: OrganizationType) -> Vec<Organization> {
+        data.into_iter()
+            .filter(|child| match &child.additional_type {
+                | value if value.eq(&organization_type) => true,
+                | _ => false,
+            })
+            .collect::<Vec<_>>()
+    }
+    pub fn get(&self, organization_type: OrganizationType) -> Vec<Organization> {
+        let items = self.children.clone();
+        Organization::_get(items, organization_type)
+    }
+    pub fn get_all(&self, organization_type: OrganizationType) -> Vec<Organization> {
+        let items = self.flatten();
+        Organization::_get(items, organization_type)
+    }
+    pub fn get_all_name_pairs(&self) -> Vec<(String, String)> {
+        self.flatten()
+            .into_iter()
+            .map(|x| (x.alternative_name.clone(), x.name.clone()))
+            .filter(|(abbr, name)| !(abbr.is_empty() || name.is_empty()))
+            .collect::<Vec<(String, String)>>()
+    }
+    pub fn visit<F: Copy + for<'a> Fn(&'a mut Organization)>(&mut self, f: F) {
+        f(self);
+        for child in self.children.iter_mut() {
+            child.visit(f);
+        }
     }
 }
 impl ResearchActivity {
@@ -438,7 +519,7 @@ fn resolve_keyword(value: String) -> Option<String> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
     let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
     let output = pattern
-        .match_list(Constant::text("keywords.txt"), &mut matcher)
+        .match_list(Constant::read_lines("keywords.txt"), &mut matcher)
         .first()
         .map(|(x, _)| x.to_string());
     let label = "Keyword";
@@ -457,7 +538,7 @@ fn resolve_keyword(value: String) -> Option<String> {
     output
 }
 fn resolve_organization(value: String) -> Option<String> {
-    let data = Constant::organization()[0]
+    let data = Organization::load()[0]
         .get_all_name_pairs()
         .into_iter()
         .map(|(key, value)| (key.to_string(), value.to_string()))
@@ -492,9 +573,9 @@ fn resolve_organization(value: String) -> Option<String> {
     output
 }
 fn resolve_sponsor(value: String) -> Option<String> {
-    let data = SPONSOR_DATA
+    let data = Constant::csv("sponsors.csv")
         .into_iter()
-        .map(|(key, value)| (key.to_string(), value.to_string()))
+        .map(|x| (x[0].to_string(), x[1].to_string()))
         .collect::<HashMap<String, String>>();
     let value = value.trim().to_string();
     let sanitized = sanitize(value.clone());
@@ -526,8 +607,7 @@ fn resolve_sponsor(value: String) -> Option<String> {
     output
 }
 fn resolve_technology(value: String) -> Option<String> {
-    let output = TECHNOLOGY_DATA
-        .clone()
+    let output = Constant::csv("technology.csv")
         .into_iter()
         .flat_map(|x| {
             let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
@@ -535,7 +615,7 @@ fn resolve_technology(value: String) -> Option<String> {
             let matched = pattern.match_list(x.clone(), &mut matcher);
             let scores = matched.clone().into_iter().map(|(_, score)| score).collect::<Vec<_>>();
             if !matched.clone().is_empty() {
-                Some((x[0], scores[0]))
+                Some((x[0].clone(), scores[0]))
             } else {
                 None
             }

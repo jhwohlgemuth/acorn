@@ -1,0 +1,17 @@
+javascript,js,node.js,language::JavaScript
+python,py,language::Python
+rust,rs,language::Rust
+astro,astro.js,AstroJS
+react,react.js,ReactJS
+gdal,Geospatial Data Abstraction Library
+polars,Polars
+pandas,Pandas
+numpy,NumPy
+pytorch,PyTorch
+tensorflow,TensorFlow
+keras,Keras
+scikit-learn,SciKit-Learn
+scipy,SciPy
+matplotlib,Matplotlib
+seaborn,Seaborn
+plotly,Plotly

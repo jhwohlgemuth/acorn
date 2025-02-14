@@ -1,6 +1,5 @@
-use acorn_lib::constants::MimeType;
 use acorn_lib::schema::{OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
-use acorn_lib::util::{path_to_string, Label};
+use acorn_lib::util::{path_to_string, Label, MimeType};
 use data_encoding::BASE64;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
