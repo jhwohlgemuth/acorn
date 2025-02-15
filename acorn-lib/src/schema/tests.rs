@@ -161,3 +161,50 @@ fn test_validate_is_phone_number() {
         assert!(validate_is_phone_number(x).is_err());
     }
 }
+#[test]
+fn test_validate_is_ror() {
+    // Downloaded from https://zenodo.org/records/14728473
+    let valid = [
+        "04ttjf776",
+        "01rxfrp27",
+        "023q4bk22",
+        "006jxzx88",
+        "00wfvh315",
+        "05ktbsm52",
+        "00nx6aa03",
+        "02k3cxs74",
+        "046fa4y88",
+        "02d439m40",
+        "04h08p482",
+        "01zctcs90",
+        "05m7zw681",
+        "03awtex73",
+        "00kv9pj15",
+        "03mjtdk61",
+        "04yyp8h20",
+        "022rkxt86",
+        "01wddqe20",
+        "03kwrfk72",
+        "037mpqg03",
+        "05cggb038",
+        "050b31k83",
+        "01q8f6705",
+        "03t40cz74",
+        "03ebg0v16",
+    ];
+    let invalid = [
+        "978-12345-99990",
+        "10.1000/182",
+        "10.97812345/99990",
+        "3t40cz74",
+        "03ebg0v16-",
+        "https://ror.org/04ttjf776",
+        "https://ror.org/01rxfrp27",
+    ];
+    for x in valid.iter() {
+        assert!(validate_is_ror(x).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(validate_is_ror(x).is_err());
+    }
+}

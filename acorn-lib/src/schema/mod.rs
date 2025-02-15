@@ -71,7 +71,16 @@ pub struct Metadata {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "validate_is_doi"))]
+    // Digital Object Identifier
     pub doi: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(custom(function = "validate_is_raid"))]
+    // Research Activity Identifier
+    pub raid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(custom(function = "validate_is_ror"))]
+    // Research Organization Registry
+    pub ror: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(url(message = "Please provide a valid URL"))]
     pub publication: Option<String>,
@@ -719,6 +728,20 @@ fn validate_is_phone_number(value: &str) -> Result<(), ValidationError> {
     match RE_PHONE.is_match(value) {
         | Ok(value) if value => Ok(()),
         | _ => Err(ValidationError::new("phone").with_message(MESSAGE.into())),
+    }
+}
+fn validate_is_raid(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid RAiD";
+    match RE_DOI.is_match(value) {
+        | Ok(value) if value => Ok(()),
+        | _ => Err(ValidationError::new("raid").with_message(MESSAGE.into())),
+    }
+}
+fn validate_is_ror(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid ROR";
+    match RE_ROR.is_match(value) {
+        | Ok(value) if value => Ok(()),
+        | _ => Err(ValidationError::new("ror").with_message(MESSAGE.into())),
     }
 }
 
