@@ -5,10 +5,12 @@
         "type": "highlight",
         "archive": false,
         "draft": false,
-        "website": {
-            "title": "Project Repository",
-            "url": "https://code.ornl.gov/GSHS/common/sites/fact-sheets"
-        },
+        "website": [
+            {
+                "title": "Project Repository",
+                "url": "https://code.ornl.gov/GSHS/common/sites/fact-sheets"
+            }
+        ],
         "graphics": [
             {
                 "caption": "This is an image caption."

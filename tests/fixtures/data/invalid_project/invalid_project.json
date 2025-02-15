@@ -4,17 +4,27 @@
     "type": "project",
     "archive": false,
     "draft": false,
-    "website": {
-      "title": "Project Repository",
-      "url": "Not a URL"
-    },
+    "website": [
+      {
+        "title": "Example",
+        "url": "https://example.com"
+      },
+      {
+        "title": "Project Repository",
+        "url": "Not a URL"
+      }
+    ],
     "graphics": [
       {
         "caption": "The ACORN workflow helps teams validate and generate research content."
       }
     ],
-    "keywords": ["automatin"],
-    "sponsors": ["DOD"],
+    "keywords": [
+      "automatin"
+    ],
+    "sponsors": [
+      "DOD"
+    ],
     "technology": [
       "JavaScript",
       "TypeSpec",

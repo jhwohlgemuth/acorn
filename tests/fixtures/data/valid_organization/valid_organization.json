@@ -4,10 +4,12 @@
     "type": "organization",
     "archive": false,
     "draft": true,
-    "website": {
-      "title": "Organization Repository",
-      "url": "https://code.ornl.gov/GSHS/common/sites/fact-sheets"
-    },
+    "website": [
+      {
+        "title": "Organization Repository",
+        "url": "https://code.ornl.gov/GSHS/common/sites/fact-sheets"
+      }
+    ],
     "graphics": [
       {
         "caption": "This is an image caption."

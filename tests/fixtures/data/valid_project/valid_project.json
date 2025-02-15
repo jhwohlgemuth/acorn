@@ -4,16 +4,23 @@
     "type": "project",
     "archive": false,
     "draft": false,
-    "website": {
-      "title": "Project Repository",
-      "url": "https://code.ornl.gov/GSHS/common/sites/fact-sheets"
-    },
+    "website": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/GSHS/common/sites/fact-sheets"
+      }
+    ],
     "graphics": [
       {
         "caption": "The ACORN workflow helps teams validate and generate research content."
       }
     ],
-    "keywords": ["automation", "cybr", "gearssss", "not-a-valid-keyword"],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
     "sponsors": [
       "ORNL",
       "Dept of Energy",
