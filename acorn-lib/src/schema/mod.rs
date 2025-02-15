@@ -90,7 +90,7 @@ pub struct Metadata {
     pub draft: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
-    pub website: Option<Vec<Website>>,
+    pub websites: Option<Vec<Website>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
     pub graphics: Option<Vec<Graphic>>,

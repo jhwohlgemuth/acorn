@@ -4,7 +4,7 @@
     "type": "organization",
     "archive": false,
     "draft": true,
-    "website": [
+    "websites": [
       {
         "title": "Organization Repository",
         "url": "https://code.ornl.gov/GSHS/common/sites/fact-sheets"

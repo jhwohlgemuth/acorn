@@ -5,7 +5,7 @@
         "type": "highlight",
         "archive": false,
         "draft": false,
-        "website": [
+        "websites": [
             {
                 "title": "Project Repository",
                 "url": "https://code.ornl.gov/GSHS/common/sites/fact-sheets"
