@@ -3,6 +3,12 @@ use glob::glob;
 use pretty_assertions::assert_eq;
 
 #[test]
+fn test_organization() {
+    let data = Organization::load();
+    assert_eq!(data.len(), 1);
+    assert_eq!(data[0].name, "Oak Ridge National Laboratory".to_string());
+}
+#[test]
 fn test_read() {
     for entry in glob("./**/*").expect("Failed to read glob pattern") {
         match entry {
