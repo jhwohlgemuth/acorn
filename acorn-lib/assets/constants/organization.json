@@ -57,7 +57,16 @@
                         "alternativeName": "NCCS",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "children": 
+                        [
+                            {
+                                "name": "Oak Ridge Leadership Computing Facility",
+                                "alternativeName": "OLCF",
+                                "additionalType": "facility",
+                                "keywords": [],
+                                "children": []
+                            }
+                        ]
                     },
                     {
                         "name": "Advanced Scientific Computing Research",
@@ -90,7 +99,36 @@
                         "alternativeName": "MSD",
                         "additionalType": "division",
                         "children": []
+                    },
+                    { 
+                    "name": "Carbon Fiber Technology Facility",
+                        "alternativeName": "CFTF",
+                        "additionalType": "facility",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "National Transportation Research Center",
+                        "alternativeName": "NTRC",
+                        "additionalType": "facility",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Building Technologies Research and Integration Center",
+                        "alternativeName": "BTRIC",
+                        "additionalType": "facility",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Manufacturing Demonstration Facility",
+                        "alternativeName": "MDF",
+                        "additionalType": "facility",
+                        "keywords": [],
+                        "children": []
                     }
+
                 ]
             },
                     {
@@ -188,7 +226,16 @@
                         "alternativeName": "NSD",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "children": 
+                        [
+                            {
+                             "name": "Center for Structural Molecular Biology",
+                             "alternativeName": "CSMB",
+                             "additionalType": "facility",
+                             "keywords": [],
+                             "children": []
+                            }
+                        ]
                     },
                     {
                         "name": "Neutron Technologies Division",
@@ -210,6 +257,20 @@
                         "additionalType": "division",
                         "keywords": [],
                         "children": []
+                    },
+                    { 
+                        "name": "High Flux Isotope Reactor",
+                        "alternativeName": "HFIR",
+                        "additionalType": "facility",
+                        "keywords": [],
+                        "children": []
+                    },
+                    {
+                        "name": "Spallation Neutron Source",
+                        "alternativeName": "SNS",
+                        "additionalType": "facility",
+                        "keywords": [],
+                        "children": []
                     }
 
                 ]
@@ -228,10 +289,19 @@
                     },
                     {
                         "name": "Center for Nanophase Materials Sciences Division",
-                        "alternativeName": "CNMS",
+                        "alternativeName": "CNMSD",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "children": 
+                        [
+                            {
+                                "name": "Center for Nanophase Materials Sciences",
+                                "alternativeName": "CNMS",
+                                "additionalType": "facility",
+                                "keywords": [],
+                                "children": []
+                            }
+                        ]
                     },
                     {
                         "name": "Materials Science and Technology Division",
