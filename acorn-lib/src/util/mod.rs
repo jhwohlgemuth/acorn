@@ -16,6 +16,68 @@ use std::path::{Path, PathBuf};
 use tracing::{debug, error, warn};
 use which::which;
 
+#[cfg(feature = "cli")]
+pub mod cli {
+    use clap::ValueEnum;
+    use derive_more::Display;
+    use serde::Serialize;
+
+    #[derive(Clone, Debug, Display, PartialEq, ValueEnum, Serialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum Check {
+        #[display("analysis")]
+        // Static analysis of prose
+        Analysis,
+        // Schema validation via Rust type system
+        #[display("validation")]
+        Validation,
+    }
+    #[derive(Clone, Copy, Debug, Default, Display, PartialEq, ValueEnum, Serialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum Diagnostic {
+        #[default]
+        #[display("all")]
+        All,
+        #[display("system")]
+        // System information (e.g. CPU count, OS, etc...)
+        System,
+        #[display("memory")]
+        // Memory information and usage
+        Memory,
+        #[display("network")]
+        // Network information
+        Network,
+        #[display("gpu")]
+        // Graphics Processing Unit (GPU) information
+        Gpu,
+        #[display("software")]
+        // Check for installed software
+        Software,
+    }
+    #[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum Size {
+        #[default]
+        #[display("standard")]
+        // Standard size (4:3)
+        Standard,
+        // Widescreen size (16:9)
+        #[display("widescreen")]
+        Widescreen,
+    }
+    #[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum Target {
+        #[default]
+        #[display("fact-sheet")]
+        FactSheet,
+        #[display("highlight")]
+        Highlight,
+        #[display("poster")]
+        Poster,
+    }
+}
+
 #[derive(Embed)]
 #[folder = "assets/constants/"]
 pub struct Constant;

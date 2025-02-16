@@ -7,7 +7,7 @@ documentation.workspace = true
 edition = "2021"
 
 [dependencies]
-acorn-lib = { path = "../acorn-lib" }
+acorn-lib = { path = "../acorn-lib", features = ["cli"] }
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
 clap-verbosity-flag = "3.0.2"
 dotenvy = "0.15.0"

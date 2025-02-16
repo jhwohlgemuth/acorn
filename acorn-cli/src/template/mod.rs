@@ -1,5 +1,5 @@
-use acorn_lib::schema::{OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
-use acorn_lib::util::{path_to_string, Label, MimeType};
+use acorn_lib::schema::{HighlightSections, OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
+use acorn_lib::util::{cli, path_to_string, Label, MimeType};
 use data_encoding::BASE64;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
@@ -16,37 +16,6 @@ const BASE_URL: &str = "https://fact-sheets.ornl.gov";
 const RGBA_TRANSPARENT: [u8; 4] = [255, 255, 255, 0];
 const RGBA_ORNL_GREEN: [u8; 4] = [0, 121, 52, 255];
 
-fn generate_font_faces() -> String {
-    format!(
-        r#"
-        @font-face {{font-family:"myriad_pro_light";src:url("{}") format("opentype");font-style:normal;font-weight:300;}}
-        @font-face {{font-family:"myriad_pro_semibold";src:url({}) format("opentype");font-style:normal;font-weight:300;}}
-        @font-face {{font-family:"proxima";src:url({}) format("opentype");font-weight:normal;font-style:normal;}}
-        @font-face {{font-family:"proxima_nova_bold";src: url({}) format("opentype");font-weight:bold;font-style:normal;}}
-        @font-face {{font-family:"proxima_nova_semibold";src:url({}) format("opentype");font-weight:bold;font-style:normal;}}
-        @font-face {{font-family:"proxima";src:url({}) format("opentype");font-weight:normal;font-style:italic;}}
-        "#,
-        DataUri::from_asset("myriad_pro_light.otf"),
-        DataUri::from_asset("myriad_pro_semibold.otf"),
-        DataUri::from_asset("proxima_nova_light.otf"),
-        DataUri::from_asset("proxima_nova_bold.otf"),
-        DataUri::from_asset("proxima_nova_semibold.otf"),
-        DataUri::from_asset("proxima_nova_regular_italic.otf"),
-    )
-}
-fn generate_qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
-    let code = match QRBuilder::new(text).build() {
-        | Ok(data) => data,
-        | Err(err) => panic!("Failed to generate QR code: {}", err),
-    };
-    ImageBuilder::default()
-        .shape(Shape::RoundedSquare)
-        .background_color(RGBA_TRANSPARENT)
-        .module_color(RGBA_ORNL_GREEN)
-        .margin(0)
-        .fit_width(125)
-        .to_bytes(&code)
-}
 struct DataUri {}
 #[derive(Embed)]
 #[folder = "assets/images/"]
@@ -57,11 +26,13 @@ struct Font;
 #[derive(Embed)]
 #[folder = "assets/styles/"]
 struct Style;
-struct FactSheetFooter {
+struct HtmlFooter {
     /// TODO: Convert to enum
     pub organization: String,
 }
-struct FactSheetHead {
+struct HtmlHead {
+    pub target: cli::Target,
+    pub size: cli::Size,
     pub title: String,
     pub description: String,
     pub stylesheet: String,
@@ -87,7 +58,7 @@ impl DataUri {
         }
     }
 }
-impl View for FactSheetFooter {
+impl View for HtmlFooter {
     fn render(&self) -> VirtualNode {
         let disclaimer = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
         let style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/footer.jpg"),);
@@ -105,9 +76,20 @@ impl View for FactSheetFooter {
         }
     }
 }
-impl View for FactSheetHead {
+impl View for HtmlHead {
     fn render(&self) -> VirtualNode {
         let styles = get_stylesheet(self.stylesheet.clone());
+        let page_css = match self.target {
+            | cli::Target::FactSheet => "",
+            | cli::Target::Highlight => {
+                let size = match self.size {
+                    | cli::Size::Standard => "10in 7.5in",
+                    | cli::Size::Widescreen => "13.33in 7.5in",
+                };
+                &format!("@page {{ size: {}; margin: 0; }}", size)
+            }
+            | cli::Target::Poster => "",
+        };
         html! {
             <head>
                 <meta charset="utf-8">
@@ -115,6 +97,7 @@ impl View for FactSheetHead {
                 <meta name="description" content={ &self.description }>
                 <style>
                     { generate_font_faces() }
+                    { page_css }
                     { styles }
                 </style>
             </head>
@@ -168,12 +151,14 @@ pub fn get_html(data: &ResearchActivity) -> String {
             ..
         }) => {
             let Research { focus, areas, .. } = research;
-            let head = FactSheetHead {
+            let head = HtmlHead {
+                target: cli::Target::FactSheet,
+                size: cli::Size::Standard,
                 title: "Research Activity".to_string(),
                 description: "Research Activity Data".to_string(),
-                stylesheet: "fact-sheet.css".to_string(),
+                stylesheet: "project.css".to_string(),
             };
-            let footer = FactSheetFooter {
+            let footer = HtmlFooter {
                 organization: "National Security Sciences".to_string(),
             };
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
@@ -234,19 +219,78 @@ pub fn get_html(data: &ResearchActivity) -> String {
                 </html>
             }
         }
-        | Sections::Highlight(_) => unimplemented!("Highlight not implemented"),
+        | Sections::Highlight(HighlightSections {
+            achievement,
+            impact,
+            technical,
+        }) => {
+            let head = HtmlHead {
+                target: cli::Target::Highlight,
+                size: cli::Size::Standard,
+                title: "Highlight".to_string(),
+                description: "Research Activity Data for Highlight".to_string(),
+                stylesheet: "highlight.css".to_string(),
+            };
+            let footer = HtmlFooter {
+                organization: "National Security Sciences".to_string(),
+            };
+            let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
+            let graphic = meta.clone().get_first_graphic_href();
+            let main = html! {
+                <main>
+                    <section>
+                        <p>{ achievement }</p>
+                    </section>
+                    <section>
+                        <p>{ impact }</p>
+                    </section>
+                    <section>
+                        <h3>{ "Technical Approaches" }</h3>
+                        <ul><li>{ technical.join("</li><li>") }</li></ul>
+                    </section>
+                </main>
+            };
+            let aside = html! {
+                <aside>
+                    <div class="graphic"><img src={ graphic }/></div>
+                </aside>
+            };
+            html! {
+                <html>
+                    { head }
+                    <body>
+                        <header style={ header_style }>
+                            <div class="wrapper">
+                                <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
+                                <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
+                                <div id="title">{ title }</div>
+                                <div id="subtitle">{ subtitle }</div>
+                            </div>
+                        </header>
+                        <div class="main">
+                            { main }
+                            { aside }
+                        </div>
+                        { data.clone().contact }
+                        { footer }
+                    </body>
+                </html>
+            }
+        }
         | Sections::Organization(OrganizationSections {
             mission,
             capabilities,
             impact,
             facilities,
         }) => {
-            let head = FactSheetHead {
+            let head = HtmlHead {
+                target: cli::Target::FactSheet,
+                size: cli::Size::Standard,
                 title: "Research Activity".to_string(),
                 description: "Research Activity Data".to_string(),
-                stylesheet: "fact-sheet.css".to_string(),
+                stylesheet: "organization.css".to_string(),
             };
-            let footer = FactSheetFooter {
+            let footer = HtmlFooter {
                 organization: "National Security Sciences".to_string(),
             };
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
@@ -303,6 +347,37 @@ pub fn get_html(data: &ResearchActivity) -> String {
         }
     };
     node.to_string()
+}
+fn generate_font_faces() -> String {
+    format!(
+        r#"
+        @font-face {{font-family:"myriad_pro_light";src:url("{}") format("opentype");font-style:normal;font-weight:300;}}
+        @font-face {{font-family:"myriad_pro_semibold";src:url({}) format("opentype");font-style:normal;font-weight:300;}}
+        @font-face {{font-family:"proxima";src:url({}) format("opentype");font-weight:normal;font-style:normal;}}
+        @font-face {{font-family:"proxima_nova_bold";src: url({}) format("opentype");font-weight:bold;font-style:normal;}}
+        @font-face {{font-family:"proxima_nova_semibold";src:url({}) format("opentype");font-weight:bold;font-style:normal;}}
+        @font-face {{font-family:"proxima";src:url({}) format("opentype");font-weight:normal;font-style:italic;}}
+        "#,
+        DataUri::from_asset("myriad_pro_light.otf"),
+        DataUri::from_asset("myriad_pro_semibold.otf"),
+        DataUri::from_asset("proxima_nova_light.otf"),
+        DataUri::from_asset("proxima_nova_bold.otf"),
+        DataUri::from_asset("proxima_nova_semibold.otf"),
+        DataUri::from_asset("proxima_nova_regular_italic.otf"),
+    )
+}
+fn generate_qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
+    let code = match QRBuilder::new(text).build() {
+        | Ok(data) => data,
+        | Err(err) => panic!("Failed to generate QR code: {}", err),
+    };
+    ImageBuilder::default()
+        .shape(Shape::RoundedSquare)
+        .background_color(RGBA_TRANSPARENT)
+        .module_color(RGBA_ORNL_GREEN)
+        .margin(0)
+        .fit_width(125)
+        .to_bytes(&code)
 }
 pub fn get_stylesheet(file_name: String) -> String {
     let data = match Style::get(&file_name) {

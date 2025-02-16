@@ -41,6 +41,7 @@ version = "0.0.1"
 dependencies = [
  "assert_cmd",
  "bon",
+ "clap",
  "color-eyre",
  "comfy-table",
  "console",

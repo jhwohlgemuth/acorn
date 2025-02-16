@@ -6,8 +6,13 @@ description.workspace = true
 documentation.workspace = true
 edition = "2021"
 
+[features]
+default = ["cli"]
+cli = []
+
 [dependencies]
 bon = "3.3.2"
+clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
 comfy-table = "7.1.4"
 console = { version = "0.15.7", default-features = false, features = [
     "ansi-parsing",

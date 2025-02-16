@@ -2,13 +2,8 @@
 use clap::Parser;
 use color_eyre::eyre;
 use dotenvy::dotenv;
-use indicatif::{ProgressBar, ProgressStyle};
-use playwright::Playwright;
-use rayon::prelude::*;
-use std::fs::File;
-use std::io::Write;
 use tracing::instrument;
-use tracing::{error, info, warn};
+use tracing::warn;
 use tracing_indicatif::IndicatifLayer;
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
@@ -16,14 +11,10 @@ use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 
 mod cli;
+mod commands;
 mod template;
 
-use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, TableFormatPrint};
-use acorn_lib::schema::*;
-use acorn_lib::util::*;
-use acorn_lib::*;
-use cli::{Arguments, Check, Commands, Diagnostic, Target};
-use template::create_pdf;
+use cli::{Arguments, Commands};
 
 pub type Void = eyre::Result<(), eyre::Report>;
 
@@ -73,140 +64,13 @@ fn main() -> Void {
         }
     }
     match &args.command {
-        | Some(Commands::Check { path, skip, .. }) => {
-            if let Some(path) = path {
-                let paths = get_all_files(path.into(), None);
-                if skip.contains(&Check::Validation) {
-                    warn!("=> {} Schema validation", Label::skip());
-                } else {
-                    let total: usize = ResearchActivity::check(paths.clone());
-                    if total > 0 {
-                        error!("=> {} Found {} schema errors in total", Label::fail(), total);
-                    }
-                }
-                if skip.contains(&Check::Analysis) {
-                    warn!("=> {} Prose analysis", Label::skip());
-                } else {
-                    // TODO: Use JSON output to create customized and consolidated error count and output
-                    ResearchActivity::analyze(paths);
-                }
-            }
-            Ok(())
-        }
-        | Some(Commands::Doctor { fix, interactive, check, .. }) => {
-            fn should_run(checks: &[Diagnostic], diagnostic: Diagnostic) -> bool {
-                [diagnostic, Diagnostic::All].iter().any(|&x| checks.contains(&x))
-            }
-            if *fix {
-                unimplemented!("Autofix is not implemented yet");
-            }
-            if *interactive {
-                unimplemented!("Interactive mode is not implemented yet");
-            }
-            if should_run(check, Diagnostic::Software) {
-                SystemInformation::init().print();
-            }
-            if should_run(check, Diagnostic::System) {
-                SystemInformation::init().print();
-            }
-            if should_run(check, Diagnostic::Memory) {
-                MemoryInformation::init().print();
-            }
-            if should_run(check, Diagnostic::Network) {
-                NetworkInformation::init().print();
-            }
-            // TODO: Add support for GPU information
-            if should_run(check, Diagnostic::Gpu) {
-                warn!("GPU diagnostics is not implemented yet");
-            }
-            Ok(())
-        }
-        | Some(Commands::Download { buckets, output, .. }) => {
-            if let Some(path) = buckets {
-                match BucketsConfig::read_json(path.clone()) {
-                    | Ok(content) => {
-                        content.buckets.into_iter().for_each(|bucket| {
-                            if let Some(path) = output {
-                                bucket.download_files(path.to_path_buf());
-                            }
-                        });
-                    }
-                    | Err(err) => {
-                        error!("=> {} Failed to download data - {}", Label::fail(), err);
-                    }
-                };
-            }
-            Ok(())
-        }
+        | Some(Commands::Check { path, skip, .. }) => commands::check::run(path, skip),
+        | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check),
+        | Some(Commands::Download { buckets, output, .. }) => commands::download::run(buckets, output),
         | Some(Commands::Export {
-            output,
-            path,
-            size: _,
-            target,
-            ..
-        }) => {
-            match target {
-                | Target::FactSheet => {
-                    tokio_runtime().block_on(async {
-                        let playwright = Playwright::initialize().await.unwrap();
-                        playwright.install_chromium().unwrap(); // Install browsers
-                        let chromium = playwright.chromium();
-                        let browser = chromium.launcher().headless(true).launch().await.unwrap();
-                        let context = browser.context_builder().build().await.unwrap();
-                        let page = context.new_page().await.unwrap();
-                        let input_path = match path.clone() {
-                            | Some(value) => value,
-                            | None => unimplemented!(),
-                        };
-                        let paths = get_all_files(input_path, None);
-                        let progress = ProgressBar::new(paths.len() as u64);
-                        progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                        for path in paths {
-                            progress.set_message(format!("Generating PDF for {}", path.display()));
-                            create_pdf(path, &page, output).await;
-                            progress.inc(1);
-                        }
-                        progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                        let _close = page.close(Some(false)).await;
-                    });
-                    Ok(())
-                }
-                | Target::Poster => Ok(()),
-                | Target::Highlight => Ok(()),
-            }
-        }
-        | Some(Commands::Format { path, .. }) => {
-            if let Some(path) = path {
-                let paths = get_all_files(path.into(), None);
-                paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
-                    | Ok(data) => {
-                        let formatted = data.format(Some(path.clone()));
-                        let filepath = path_to_string(path.clone());
-                        let mut file = match File::create(path) {
-                            | Ok(file) => file,
-                            | Err(why) => {
-                                error!(file = filepath, "=> {} Create - {}", Label::fail(), why);
-                                std::process::exit(exitcode::UNAVAILABLE);
-                            }
-                        };
-                        let content = serde_json::to_string_pretty(&formatted).unwrap();
-                        match file.write_all(content.as_bytes()) {
-                            | Ok(_) => {
-                                info!(file = filepath, "=> {} Formatted", Label::pass());
-                            }
-                            | Err(why) => {
-                                error!(file = filepath, "=> {} Write - {}", Label::fail(), why);
-                                std::process::exit(exitcode::UNAVAILABLE);
-                            }
-                        }
-                    }
-                    | Err(err) => {
-                        error!("=> {} Read research activity data at - {}", Label::fail(), err);
-                    }
-                });
-            }
-            Ok(())
-        }
+            output, path, size, target, ..
+        }) => commands::export::run(output, path, size, target),
+        | Some(Commands::Format { path, .. }) => commands::format::run(path),
         | None => Ok(()),
     }
 }
