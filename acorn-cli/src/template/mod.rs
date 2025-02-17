@@ -8,7 +8,7 @@ use percy_dom::prelude::*;
 use playwright::api::Page;
 use rust_embed::Embed;
 use std::fs::{create_dir_all, remove_file, File};
-use std::path::{self, PathBuf};
+use std::path::{self};
 use tracing::{debug, error};
 
 const BASE_URL: &str = "https://fact-sheets.ornl.gov";
@@ -31,11 +31,9 @@ struct HtmlFooter {
     pub organization: String,
 }
 struct HtmlHead {
-    pub target: cli::Target,
     pub size: cli::Size,
-    pub title: String,
-    pub description: String,
     pub stylesheet: String,
+    pub target: cli::Target,
 }
 impl DataUri {
     fn from_bytes(data: &[u8], mime: MimeType) -> String {
@@ -78,33 +76,41 @@ impl View for HtmlFooter {
 }
 impl View for HtmlHead {
     fn render(&self) -> VirtualNode {
-        let styles = get_stylesheet(self.stylesheet.clone());
         let page_css = match self.target {
-            | cli::Target::FactSheet => "",
+            | cli::Target::FactSheet => "A4 portrait",
             | cli::Target::Highlight => {
                 let size = match self.size {
                     | cli::Size::Standard => "10in 7.5in",
                     | cli::Size::Widescreen => "13.33in 7.5in",
                 };
-                &format!("@page {{ size: {}; margin: 0; }}", size)
+                &format!("\n@page {{ margin: 0; size: {}; }}\n", size)
             }
             | cli::Target::Poster => "",
+        };
+        let styles = get_stylesheet(self.stylesheet.to_string());
+        let style = html! {
+            <style>
+                { generate_font_faces() }
+                { page_css }
+                { styles }
+            </style>
         };
         html! {
             <head>
                 <meta charset="utf-8">
-                <title>{ &self.title }</title>
-                <meta name="description" content={ &self.description }>
-                <style>
-                    { generate_font_faces() }
-                    { page_css }
-                    { styles }
-                </style>
+                <title>{ "Research Activity Data" }</title>
+                <meta name="description" content={ "Research Activity Data" }>
+                { style }
             </head>
         }
     }
 }
-pub async fn create_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
+pub async fn create_pdf(page: &Page, options: cli::Options) {
+    let cli::Options { output, size, target, .. } = options;
+    let path = match options.path {
+        | Some(value) => value,
+        | None => unimplemented!(),
+    };
     let data = match ResearchActivity::read(path.clone()) {
         | Ok(value) => value.format(Some(path.clone())),
         | Err(err) => {
@@ -112,7 +118,7 @@ pub async fn create_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
             std::process::exit(exitcode::UNAVAILABLE);
         }
     };
-    let content = get_html(&data);
+    let content = get_html(&data, target, size);
     // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
     let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
     if File::create(&index).is_ok() {
@@ -125,7 +131,13 @@ pub async fn create_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
                 let id = data.meta.id;
                 let output_path = format!("{}/{}.pdf", output_dir.display(), id);
                 debug!(path = output_path, "=> {} Output", Label::using());
-                page.pdf_builder().path(output_path.into()).print_background(true).pdf().await.unwrap();
+                page.pdf_builder()
+                    .prefer_css_page_size(true)
+                    .path(output_path.into())
+                    .print_background(true)
+                    .pdf()
+                    .await
+                    .unwrap();
             }
             | Err(err) => {
                 error!(
@@ -139,7 +151,7 @@ pub async fn create_pdf(path: PathBuf, page: &Page, output: &Option<PathBuf>) {
     };
     let _remove = remove_file(index);
 }
-pub fn get_html(data: &ResearchActivity) -> String {
+pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Option<cli::Size>) -> String {
     let ResearchActivity { meta, title, subtitle, .. } = data;
     let node = match &data.sections {
         | Sections::Project(ProjectSections {
@@ -152,11 +164,9 @@ pub fn get_html(data: &ResearchActivity) -> String {
         }) => {
             let Research { focus, areas, .. } = research;
             let head = HtmlHead {
-                target: cli::Target::FactSheet,
-                size: cli::Size::Standard,
-                title: "Research Activity".to_string(),
-                description: "Research Activity Data".to_string(),
+                size: size.unwrap(),
                 stylesheet: "project.css".to_string(),
+                target: target.unwrap(),
             };
             let footer = HtmlFooter {
                 organization: "National Security Sciences".to_string(),
@@ -225,54 +235,36 @@ pub fn get_html(data: &ResearchActivity) -> String {
             technical,
         }) => {
             let head = HtmlHead {
-                target: cli::Target::Highlight,
-                size: cli::Size::Standard,
-                title: "Highlight".to_string(),
-                description: "Research Activity Data for Highlight".to_string(),
+                size: size.unwrap(),
                 stylesheet: "highlight.css".to_string(),
+                target: target.unwrap(),
             };
-            let footer = HtmlFooter {
-                organization: "National Security Sciences".to_string(),
-            };
-            let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
-            let graphic = meta.clone().get_first_graphic_href();
             let main = html! {
                 <main>
                     <section>
+                        <h3>{ "Scientific Achievement" }</h3>
                         <p>{ achievement }</p>
                     </section>
                     <section>
+                        <h3>{ "Significance and Impact" }</h3>
                         <p>{ impact }</p>
                     </section>
                     <section>
-                        <h3>{ "Technical Approaches" }</h3>
+                        <h3>{ "Technical Approach" }</h3>
                         <ul><li>{ technical.join("</li><li>") }</li></ul>
                     </section>
                 </main>
-            };
-            let aside = html! {
-                <aside>
-                    <div class="graphic"><img src={ graphic }/></div>
-                </aside>
             };
             html! {
                 <html>
                     { head }
                     <body>
-                        <header style={ header_style }>
-                            <div class="wrapper">
-                                <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
-                                <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
-                                <div id="title">{ title }</div>
-                                <div id="subtitle">{ subtitle }</div>
-                            </div>
+                        <header>
+                            <h1>{ title }</h1>
                         </header>
                         <div class="main">
                             { main }
-                            { aside }
                         </div>
-                        { data.clone().contact }
-                        { footer }
                     </body>
                 </html>
             }
@@ -284,11 +276,9 @@ pub fn get_html(data: &ResearchActivity) -> String {
             facilities,
         }) => {
             let head = HtmlHead {
-                target: cli::Target::FactSheet,
-                size: cli::Size::Standard,
-                title: "Research Activity".to_string(),
-                description: "Research Activity Data".to_string(),
+                size: size.unwrap(),
                 stylesheet: "organization.css".to_string(),
+                target: target.unwrap(),
             };
             let footer = HtmlFooter {
                 organization: "National Security Sciences".to_string(),
@@ -346,6 +336,8 @@ pub fn get_html(data: &ResearchActivity) -> String {
             }
         }
     };
+    
+    // println!("{}", result);
     node.to_string()
 }
 fn generate_font_faces() -> String {

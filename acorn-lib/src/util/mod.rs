@@ -18,9 +18,11 @@ use which::which;
 
 #[cfg(feature = "cli")]
 pub mod cli {
+
     use clap::ValueEnum;
     use derive_more::Display;
     use serde::Serialize;
+    use std::path::PathBuf;
 
     #[derive(Clone, Debug, Display, PartialEq, ValueEnum, Serialize)]
     #[serde(rename_all = "lowercase")]
@@ -76,32 +78,16 @@ pub mod cli {
         #[display("poster")]
         Poster,
     }
+    #[derive(Clone, bon::Builder, Debug)]
+    #[builder(start_fn = init)]
+    pub struct Options {
+        pub path: Option<PathBuf>,
+        pub output: Option<PathBuf>,
+        pub size: Option<Size>,
+        pub target: Option<Target>,
+    }
 }
 
-#[derive(Embed)]
-#[folder = "assets/constants/"]
-pub struct Constant;
-impl Constant {
-    pub fn from_asset(file_name: &str) -> String {
-        match Constant::get(file_name) {
-            | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
-            | None => {
-                error!(file_name, "=> {} Import Constant asset", Label::fail());
-                unimplemented!()
-            }
-        }
-    }
-    pub fn read_lines(file_name: &str) -> Vec<String> {
-        let data = Constant::from_asset(file_name);
-        data.lines().map(String::from).collect()
-    }
-    pub fn csv(file_name: &str) -> Vec<Vec<String>> {
-        Constant::read_lines(file_name)
-            .into_iter()
-            .map(|x| x.split(",").map(String::from).collect())
-            .collect()
-    }
-}
 /// See https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types
 #[derive(Clone, Debug, Display)]
 pub enum MimeType {
@@ -122,6 +108,9 @@ pub enum MimeType {
     #[display("text/plain")]
     Text,
 }
+#[derive(Embed)]
+#[folder = "assets/constants/"]
+pub struct Constant;
 /// Struct for using and sharing colorized logging labels
 pub struct Label {}
 /// Semantic version
@@ -197,6 +186,27 @@ impl Label {
     pub fn fmt_using(value: &str) -> String {
         let style = Style::new().cyan();
         value.style(style).to_string()
+    }
+}
+impl Constant {
+    pub fn from_asset(file_name: &str) -> String {
+        match Constant::get(file_name) {
+            | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
+            | None => {
+                error!(file_name, "=> {} Import Constant asset", Label::fail());
+                unimplemented!()
+            }
+        }
+    }
+    pub fn read_lines(file_name: &str) -> Vec<String> {
+        let data = Constant::from_asset(file_name);
+        data.lines().map(String::from).collect()
+    }
+    pub fn csv(file_name: &str) -> Vec<Vec<String>> {
+        Constant::read_lines(file_name)
+            .into_iter()
+            .map(|x| x.split(",").map(String::from).collect())
+            .collect()
     }
 }
 impl MimeType {

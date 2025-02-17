@@ -1,5 +1,5 @@
 use crate::template::create_pdf;
-use acorn_lib::util::cli::{Size, Target};
+use acorn_lib::util::cli::{Options, Size, Target};
 use acorn_lib::util::{get_all_files, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -7,7 +7,7 @@ use playwright::Playwright;
 use std::path::PathBuf;
 
 #[allow(clippy::too_many_arguments)]
-pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, _size: &Size, target: &Target) -> Result<(), Report> {
+pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, size: &Size, target: &Target) -> Result<(), Report> {
     match target {
         | Target::FactSheet => {
             tokio_runtime().block_on(async {
@@ -21,12 +21,18 @@ pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, _size: &Size, targe
                     | Some(value) => value,
                     | None => unimplemented!(),
                 };
-                let paths = get_all_files(input_path, None);
+                let paths = get_all_files(input_path.clone(), None);
                 let progress = ProgressBar::new(paths.len() as u64);
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 for path in paths {
                     progress.set_message(format!("Generating PDF for {}", path.display()));
-                    create_pdf(path, &page, output).await;
+                    let options = Options::init()
+                        .path(path.clone())
+                        .maybe_output(output.clone())
+                        .size(size.clone())
+                        .target(target.clone())
+                        .build();
+                    create_pdf(&page, options.clone()).await;
                     progress.inc(1);
                 }
                 progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
@@ -47,12 +53,18 @@ pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, _size: &Size, targe
                     | Some(value) => value,
                     | None => unimplemented!(),
                 };
-                let paths = get_all_files(input_path, None);
+                let paths = get_all_files(input_path.clone(), None);
                 let progress = ProgressBar::new(paths.len() as u64);
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 for path in paths {
                     progress.set_message(format!("Generating PDF for {}", path.display()));
-                    create_pdf(path, &page, output).await;
+                    let options = Options::init()
+                        .path(path.clone())
+                        .maybe_output(output.clone())
+                        .size(size.clone())
+                        .target(target.clone())
+                        .build();
+                    create_pdf(&page, options.clone()).await;
                     progress.inc(1);
                 }
                 progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
