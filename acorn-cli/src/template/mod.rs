@@ -77,7 +77,7 @@ impl View for HtmlFooter {
 impl View for HtmlHead {
     fn render(&self) -> VirtualNode {
         let page_css = match self.target {
-            | cli::Target::FactSheet => "A4 portrait",
+            | cli::Target::FactSheet => "letter portrait",
             | cli::Target::Highlight => {
                 let size = match self.size {
                     | cli::Size::Standard => "10in 7.5in",
@@ -239,31 +239,36 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                 stylesheet: "highlight.css".to_string(),
                 target: target.unwrap(),
             };
-            let main = html! {
-                <main>
-                    <section>
-                        <h3>{ "Scientific Achievement" }</h3>
-                        <p>{ achievement }</p>
-                    </section>
-                    <section>
-                        <h3>{ "Significance and Impact" }</h3>
-                        <p>{ impact }</p>
-                    </section>
-                    <section>
-                        <h3>{ "Technical Approach" }</h3>
-                        <ul><li>{ technical.join("</li><li>") }</li></ul>
-                    </section>
-                </main>
-            };
+            let graphic = meta.clone().get_first_graphic_href();
+            let separator = if subtitle.is_empty() { "".to_string() } else { ": ".to_string() };
             html! {
                 <html>
                     { head }
                     <body>
                         <header>
-                            <h1>{ title }</h1>
+                            <h1>
+                                <span>{ title }{ separator }</span>
+                                <span>{ subtitle }</span>
+                            </h1>
                         </header>
                         <div class="main">
-                            { main }
+                            <main>
+                                <section>
+                                    <h3>{ "Scientific Achievement" }</h3>
+                                    <p>{ achievement }</p>
+                                </section>
+                                <section>
+                                    <h3>{ "Significance and Impact" }</h3>
+                                    <p>{ impact }</p>
+                                </section>
+                                <section>
+                                    <h3>{ "Technical Approach" }</h3>
+                                    <ul><li>{ technical.join("</li><li>") }</li></ul>
+                                </section>
+                            </main>
+                            <aside>
+                                <div class="graphic"><img src={ graphic }/></div>
+                            </aside>
                         </div>
                     </body>
                 </html>
@@ -336,7 +341,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             }
         }
     };
-    
+
     // println!("{}", result);
     node.to_string()
 }
