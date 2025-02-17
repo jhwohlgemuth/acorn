@@ -1,4 +1,4 @@
-use acorn_lib::schema::{HighlightSections, OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
+use acorn_lib::schema::{Contact, HighlightSections, Metadata, OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
 use acorn_lib::util::{cli, path_to_string, Label, MimeType};
 use data_encoding::BASE64;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
@@ -29,6 +29,7 @@ struct Style;
 struct HtmlFooter {
     /// TODO: Convert to enum
     pub organization: String,
+    pub target: cli::Target,
 }
 struct HtmlHead {
     pub size: cli::Size,
@@ -58,19 +59,37 @@ impl DataUri {
 }
 impl View for HtmlFooter {
     fn render(&self) -> VirtualNode {
-        let disclaimer = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
-        let style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/footer.jpg"),);
-        html! {
-            <footer style={ style }>
-                <div class="wrapper">
-                    <div id="disclaimer">{ disclaimer }</div>
-                    <div class="logo-wrapper">
-                        <div><img src={ DataUri::from_asset("logo_ornl.svg") } id="logo-ornl"/></div>
-                        <div><img src={ DataUri::from_asset("logo_doe_os.png") } id="logo-doe-os"/></div>
-                        <div id="division">{ &self.organization }</div>
+        match self.target {
+            | cli::Target::FactSheet => {
+                let disclaimer = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
+                let style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/footer.jpg"),);
+                html! {
+                    <footer style={ style }>
+                        <div class="wrapper">
+                            <div id="disclaimer">{ disclaimer }</div>
+                            <div class="logo-wrapper">
+                                <div><img src={ DataUri::from_asset("logo_ornl.svg") } id="logo-ornl"/></div>
+                                <div><img src={ DataUri::from_asset("logo_doe_os.png") } id="logo-doe-os"/></div>
+                                <div id="division">{ &self.organization }</div>
+                            </div>
+                        </div>
+                    </footer>
+                }
+            }
+            | cli::Target::Highlight => html! {
+                <footer>
+                    <div class="wrapper">
+                        <div>{ "CCSD" }</div>
                     </div>
-                </div>
-            </footer>
+                </footer>
+            },
+            | cli::Target::Poster => html! {
+                <footer>
+                    <div class="wrapper">
+                        <div></div>
+                    </div>
+                </footer>
+            },
         }
     }
 }
@@ -170,6 +189,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             };
             let footer = HtmlFooter {
                 organization: "National Security Sciences".to_string(),
+                target: target.unwrap(),
             };
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
             let graphic = meta.clone().get_first_graphic_href();
@@ -234,9 +254,15 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             impact,
             technical,
         }) => {
+            let Metadata { doi,  .. } = &meta;
+            let Contact { first, last, .. } = &data.contact;
             let head = HtmlHead {
                 size: size.unwrap(),
                 stylesheet: "highlight.css".to_string(),
+                target: target.unwrap(),
+            };
+            let footer = HtmlFooter {
+                organization: "National Security Sciences".to_string(),
                 target: target.unwrap(),
             };
             let graphic = meta.clone().get_first_graphic_href();
@@ -268,8 +294,31 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                             </main>
                             <aside>
                                 <div class="graphic"><img src={ graphic }/></div>
+                                <div class="contact">
+                                    <div>
+                                        <span>{ "PI" }</span>
+                                        <span>{ first } { last }</span>
+                                    </div>
+                                    <div>
+                                        <span>{ "Programs" }</span>
+                                        <span></span>
+                                    </div>
+                                    <div>
+                                        <span>{ "PMs" }</span>
+                                        <span></span>
+                                    </div>
+                                    <div>
+                                        <span>{ "Publication" }</span>
+                                        <span>{ "link to publication" }</span>
+                                    </div>
+                                    <div>
+                                        <span>{ "DOI" }</span>
+                                        <span>{ doi.clone().unwrap() }</span>
+                                    </div>
+                                </div>
                             </aside>
                         </div>
+                        { footer }
                     </body>
                 </html>
             }
@@ -287,6 +336,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             };
             let footer = HtmlFooter {
                 organization: "National Security Sciences".to_string(),
+                target: target.unwrap(),
             };
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
             let graphic = meta.clone().get_first_graphic_href();

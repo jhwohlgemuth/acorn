@@ -67,7 +67,7 @@ pub mod cli {
         #[display("widescreen")]
         Widescreen,
     }
-    #[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
+    #[derive(Clone, Copy, Debug, Default, Display, ValueEnum, Serialize)]
     #[serde(rename_all = "lowercase")]
     pub enum Target {
         #[default]

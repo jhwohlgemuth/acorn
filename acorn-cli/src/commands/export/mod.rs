@@ -30,7 +30,7 @@ pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, size: &Size, target
                         .path(path.clone())
                         .maybe_output(output.clone())
                         .size(size.clone())
-                        .target(target.clone())
+                        .target(*target)
                         .build();
                     create_pdf(&page, options.clone()).await;
                     progress.inc(1);
@@ -62,7 +62,7 @@ pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, size: &Size, target
                         .path(path.clone())
                         .maybe_output(output.clone())
                         .size(size.clone())
-                        .target(target.clone())
+                        .target(*target)
                         .build();
                     create_pdf(&page, options.clone()).await;
                     progress.inc(1);
