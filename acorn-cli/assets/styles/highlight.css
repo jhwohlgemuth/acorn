@@ -41,7 +41,13 @@ main {
     grid-row: 1;
 }
 .graphic>img {
-    width: 400px;
+    width: 4.5in;
+}
+.caption {
+    font-size: 10pt;
+    padding: 10px;
+    margin-left: 10px;
+    width: 4.5in;
 }
 .contact {
     background-color: #DBDBDB;
@@ -49,13 +55,36 @@ main {
     padding: 10px;
 }
 footer {
+    background-color: #FFFFFF;
     background-position: bottom center;
     background-repeat: no-repeat;
     background-size: cover;
     bottom: 0;
-    height: 110px;
     margin: 0;
     padding: 0;
     position: fixed;
     width: 100%;
+}
+footer>.wrapper {
+    align-items: center;
+    border-top: 2px double #007833;
+    color: #FFFFFF;
+    grid-gap: 5px;
+    grid-template-columns: auto;
+    grid-template-rows: auto auto;
+    margin-top: 0;
+    padding: 15px;
+}
+footer>.wrapper>.logo-wrapper {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-rows: auto;
+    text-align: center;
+    line-height: 66px;
+}
+#logo-doe-os {
+    height: 0.46in;
+}
+#logo-ornl {
+    height: 0.46in;
 }

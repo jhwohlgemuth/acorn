@@ -79,16 +79,15 @@ impl View for HtmlFooter {
             | cli::Target::Highlight => html! {
                 <footer>
                     <div class="wrapper">
-                        <div>{ "CCSD" }</div>
+                        <div class="logo-wrapper">
+                            <div><img src={ DataUri::from_asset("logo_doe_os_green.png") } id="logo-doe-os"/></div>
+                            <div><img src={ DataUri::from_asset("logo_ornl_green.svg") } id="logo-ornl"/></div>
+                        </div>
                     </div>
                 </footer>
             },
             | cli::Target::Poster => html! {
-                <footer>
-                    <div class="wrapper">
-                        <div></div>
-                    </div>
-                </footer>
+                <footer></footer>
             },
         }
     }
@@ -194,39 +193,6 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
             let graphic = meta.clone().get_first_graphic_href();
             let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.id)).unwrap(), MimeType::Png);
-            let main = html! {
-                <main>
-                    <section>
-                        <p>{ introduction }</p>
-                    </section>
-                    <section>
-                        <h3>{ "Challenge" }</h3>
-                        <p>{ challenge }</p>
-                    </section>
-                    <section>
-                        <h3>{ "Approach" }</h3>
-                        <p>{ approach }</p>
-                    </section>
-                    <section>
-                        <h3>{ "Outcomes" }</h3>
-                        <p>{ "Previous and expected future outcomes include" }</p>
-                        <ul><li>{ outcomes.join("</li><li>") }</li></ul>
-                    </section>
-                </main>
-            };
-            let aside = html! {
-                <aside>
-                    <div class="graphic"><img src={ graphic }/></div>
-                    <div class="research-focus">
-                        <h3>{ "Research Focus" }</h3>
-                        <p>{ focus }</p>
-                        <ul><li>{ areas.join("</li><li>") }</li></ul>
-                    </div>
-                    <div class="qrcode">
-                        <img src={ qrcode }/>
-                    </div>
-                </aside>
-            };
             html! {
                 <html>
                     { head }
@@ -240,8 +206,35 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                             </div>
                         </header>
                         <div class="main">
-                            { main }
-                            { aside }
+                            <main>
+                                <section>
+                                    <p>{ introduction }</p>
+                                </section>
+                                <section>
+                                    <h3>{ "Challenge" }</h3>
+                                    <p>{ challenge }</p>
+                                </section>
+                                <section>
+                                    <h3>{ "Approach" }</h3>
+                                    <p>{ approach }</p>
+                                </section>
+                                <section>
+                                    <h3>{ "Outcomes" }</h3>
+                                    <p>{ "Previous and expected future outcomes include" }</p>
+                                    <ul><li>{ outcomes.join("</li><li>") }</li></ul>
+                                </section>
+                            </main>
+                            <aside>
+                                <div class="graphic"><img src={ graphic }/></div>
+                                <div class="research-focus">
+                                    <h3>{ "Research Focus" }</h3>
+                                    <p>{ focus }</p>
+                                    <ul><li>{ areas.join("</li><li>") }</li></ul>
+                                </div>
+                                <div class="qrcode">
+                                    <img src={ qrcode }/>
+                                </div>
+                            </aside>
                         </div>
                         { data.clone().contact }
                         { footer }
@@ -266,6 +259,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                 target: target.unwrap(),
             };
             let graphic = meta.clone().get_first_graphic_href();
+            let caption = &meta.clone().graphics.unwrap()[0].caption;
             let separator = if subtitle.is_empty() { "".to_string() } else { ": ".to_string() };
             html! {
                 <html>
@@ -294,6 +288,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                             </main>
                             <aside>
                                 <div class="graphic"><img src={ graphic }/></div>
+                                <div class="caption">{ caption }</div>
                                 <div class="contact">
                                     <div>
                                         <span>{ "PI" }</span>
