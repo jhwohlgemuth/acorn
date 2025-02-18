@@ -62,7 +62,6 @@ dependencies = [
  "owo-colors 4.1.0",
  "percy-dom",
  "petgraph",
- "playwright",
  "pretty_assertions",
  "rayon",
  "reqwest 0.12.12",
