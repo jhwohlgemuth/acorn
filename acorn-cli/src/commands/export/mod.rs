@@ -1,12 +1,62 @@
-use crate::template::create_pdf;
+use crate::template::get_html;
+use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::cli::{Options, Size, Target};
+use acorn_lib::util::{cli, path_to_string};
 use acorn_lib::util::{get_all_files, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
+use playwright::api::Page;
 use playwright::Playwright;
-use std::path::PathBuf;
+use std::fs::{create_dir_all, remove_file, File};
+use std::path::{self, PathBuf};
+use tracing::{debug, error};
 
-#[allow(clippy::too_many_arguments)]
+pub async fn create_pdf(page: &Page, options: cli::Options) {
+    let cli::Options { output, size, target, .. } = options;
+    let path = match options.path {
+        | Some(value) => value,
+        | None => unimplemented!(),
+    };
+    let data = match ResearchActivity::read(path.clone()) {
+        | Ok(value) => value.format(Some(path.clone())),
+        | Err(err) => {
+            error!(path = path_to_string(path), "=> {} {err}", Label::fail());
+            std::process::exit(exitcode::UNAVAILABLE);
+        }
+    };
+    let content = get_html(&data, target, size);
+    // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
+    let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
+    if File::create(&index).is_ok() {
+        page.goto_builder(&format!("file://{}", index.display())).goto().await.unwrap();
+    };
+    page.set_content_builder(&content).set_content().await.unwrap();
+    match output {
+        | Some(output_dir) => match create_dir_all(output_dir.clone()) {
+            | Ok(_) => {
+                let id = data.meta.id;
+                let output_path = format!("{}/{}.pdf", output_dir.display(), id);
+                debug!(path = output_path, "=> {} Output", Label::using());
+                page.pdf_builder()
+                    .prefer_css_page_size(true)
+                    .path(output_path.into())
+                    .print_background(true)
+                    .pdf()
+                    .await
+                    .unwrap();
+            }
+            | Err(err) => {
+                error!(
+                    path = output_dir.clone().into_os_string().into_string().unwrap(),
+                    "=> {} Create directory - {err}",
+                    Label::fail()
+                );
+            }
+        },
+        | None => unreachable!(),
+    };
+    let _remove = remove_file(index);
+}
 pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, size: &Size, target: &Target) -> Result<(), Report> {
     match target {
         | Target::FactSheet => {

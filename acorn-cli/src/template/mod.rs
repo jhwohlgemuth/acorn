@@ -1,15 +1,12 @@
 use acorn_lib::schema::{Contact, HighlightSections, Metadata, OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
-use acorn_lib::util::{cli, path_to_string, Label, MimeType};
+use acorn_lib::util::{cli, Label, MimeType};
 use data_encoding::BASE64;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::*;
-use playwright::api::Page;
 use rust_embed::Embed;
-use std::fs::{create_dir_all, remove_file, File};
-use std::path::{self};
-use tracing::{debug, error};
+use tracing::error;
 
 const BASE_URL: &str = "https://fact-sheets.ornl.gov";
 // https://www.olcf.ornl.gov/about-olcf/media-assets/
@@ -123,52 +120,6 @@ impl View for HtmlHead {
         }
     }
 }
-pub async fn create_pdf(page: &Page, options: cli::Options) {
-    let cli::Options { output, size, target, .. } = options;
-    let path = match options.path {
-        | Some(value) => value,
-        | None => unimplemented!(),
-    };
-    let data = match ResearchActivity::read(path.clone()) {
-        | Ok(value) => value.format(Some(path.clone())),
-        | Err(err) => {
-            error!(path = path_to_string(path), "=> {} {err}", Label::fail());
-            std::process::exit(exitcode::UNAVAILABLE);
-        }
-    };
-    let content = get_html(&data, target, size);
-    // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
-    let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
-    if File::create(&index).is_ok() {
-        page.goto_builder(&format!("file://{}", index.display())).goto().await.unwrap();
-    };
-    page.set_content_builder(&content).set_content().await.unwrap();
-    match output {
-        | Some(output_dir) => match create_dir_all(output_dir.clone()) {
-            | Ok(_) => {
-                let id = data.meta.id;
-                let output_path = format!("{}/{}.pdf", output_dir.display(), id);
-                debug!(path = output_path, "=> {} Output", Label::using());
-                page.pdf_builder()
-                    .prefer_css_page_size(true)
-                    .path(output_path.into())
-                    .print_background(true)
-                    .pdf()
-                    .await
-                    .unwrap();
-            }
-            | Err(err) => {
-                error!(
-                    path = output_dir.clone().into_os_string().into_string().unwrap(),
-                    "=> {} Create directory - {err}",
-                    Label::fail()
-                );
-            }
-        },
-        | None => unreachable!(),
-    };
-    let _remove = remove_file(index);
-}
 pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Option<cli::Size>) -> String {
     let ResearchActivity { meta, title, subtitle, .. } = data;
     let node = match &data.sections {
@@ -247,7 +198,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             impact,
             technical,
         }) => {
-            let Metadata { doi,  .. } = &meta;
+            let Metadata { doi, .. } = &meta;
             let Contact { first, last, .. } = &data.contact;
             let head = HtmlHead {
                 size: size.unwrap(),
