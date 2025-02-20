@@ -2,7 +2,7 @@ use crate::constants::*;
 use crate::util::{
     download_binary, get_checksum, get_extension, make_executable, path_to_string, test_command, to_string, Constant, Label, SemanticVersion,
 };
-use bon::builder;
+use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use derive_more::Display;
 use directories::ProjectDirs;
@@ -35,7 +35,7 @@ pub trait StaticAnalyzerConfig {
     fn ini(self) -> Ini;
     fn save(self) -> ValeConfig;
 }
-#[derive(Clone, Debug, Default, bon::Builder, Display)]
+#[derive(Builder, Clone, Debug, Default, Display)]
 #[display("{:?}", version)]
 #[builder(start_fn = init)]
 pub struct Vale {
@@ -43,7 +43,7 @@ pub struct Vale {
     pub binary: Option<PathBuf>,
     pub config: Option<ValeConfig>,
 }
-#[derive(Clone, Debug, Display, bon::Builder)]
+#[derive(Builder, Clone, Debug, Display)]
 #[display("{:?}", path)]
 #[builder(start_fn = init)]
 pub struct ValeConfig {

@@ -1,7 +1,31 @@
+use crate::schema::validate::*;
 use crate::schema::*;
 use glob::glob;
 use pretty_assertions::assert_eq;
 
+#[test]
+fn test_metadata() {
+    const DEFAULT: &str = "00.png";
+    let meta = Metadata::init().id("test-data".to_string()).build();
+    assert_eq!(meta.id, "test-data".to_string());
+    assert_eq!(meta.schema_type, SchemaType::Project);
+    assert_eq!(meta.get_first_graphic_href(), DEFAULT);
+    let href = "abc.png".to_string();
+    let graphics = vec![Graphic {
+        href: Some(href.clone()),
+        caption: "hello world".to_string(),
+    }];
+    let meta = Metadata::init().id("test-data".to_string()).graphics(graphics).build();
+    assert_eq!(meta.get_first_graphic_href(), href);
+    let meta = Metadata::init().id("test-data".to_string()).graphics(vec![]).build();
+    assert_eq!(meta.get_first_graphic_href(), DEFAULT);
+    let graphics = vec![Graphic {
+        href: None,
+        caption: "hello world".to_string(),
+    }];
+    let meta = Metadata::init().id("test-data".to_string()).graphics(graphics).build();
+    assert_eq!(meta.get_first_graphic_href(), DEFAULT);
+}
 #[test]
 fn test_organization() {
     let data = Organization::load();
@@ -116,10 +140,10 @@ fn test_validate_is_doi() {
     let valid = ["10.1000/182", "10.97812345/99990"];
     let invalid = ["978-12345-99990"];
     for x in valid.iter() {
-        assert!(validate_is_doi(x).is_ok());
+        assert!(is_doi(x).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_is_doi(x).is_err());
+        assert!(is_doi(x).is_err());
     }
 }
 #[test]
@@ -132,10 +156,10 @@ fn test_validate_is_ip6() {
     ];
     let invalid = ["192.168.1.1", "127.0.0.1", "test:test:test:test:test:test:test:test"];
     for x in valid.iter() {
-        assert!(validate_is_ip6(x).is_ok());
+        assert!(is_ip6(x).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_is_ip6(x).is_err());
+        assert!(is_ip6(x).is_err());
     }
 }
 #[test]
@@ -143,10 +167,10 @@ fn test_validate_is_kebabcase() {
     let valid = ["this-is-valid", "thisisvalid"];
     let invalid = ["this_is_not_valid", "ThisIsNotValid", "this is not valid", "This-Is-Not-Valid"];
     for x in valid.iter() {
-        assert!(validate_is_kebabcase(x).is_ok());
+        assert!(is_kebabcase(x).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_is_kebabcase(x).is_err());
+        assert!(is_kebabcase(x).is_err());
     }
 }
 #[test]
@@ -161,10 +185,10 @@ fn test_validate_is_phone_number() {
     ];
     let invalid = ["42", "1 (555) 123-4567", "1234-567", "123-4567"];
     for x in valid.iter() {
-        assert!(validate_is_phone_number(x).is_ok());
+        assert!(is_phone_number(x).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_is_phone_number(x).is_err());
+        assert!(is_phone_number(x).is_err());
     }
 }
 #[test]
@@ -208,9 +232,9 @@ fn test_validate_is_ror() {
         "https://ror.org/01rxfrp27",
     ];
     for x in valid.iter() {
-        assert!(validate_is_ror(x).is_ok());
+        assert!(is_ror(x).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_is_ror(x).is_err());
+        assert!(is_ror(x).is_err());
     }
 }
