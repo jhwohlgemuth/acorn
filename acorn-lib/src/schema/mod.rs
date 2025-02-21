@@ -119,6 +119,7 @@ pub struct Metadata {
 #[serde(rename_all = "camelCase")]
 pub struct Organization {
     pub name: String,
+    pub ror: Option<String>,
     pub alternative_name: String,
     pub additional_type: OrganizationType,
     pub keywords: Option<Vec<String>>,

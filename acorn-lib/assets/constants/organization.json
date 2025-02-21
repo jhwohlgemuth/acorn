@@ -1,6 +1,7 @@
 [
     {
         "name": "Oak Ridge National Laboratory",
+        "ror": "01qz5mb56",
         "alternativeName": "ORNL",
         "additionalType": "ffrdc",
         "children": [
@@ -61,6 +62,7 @@
                         [
                             {
                                 "name": "Oak Ridge Leadership Computing Facility",
+                                "ror": "05p915b28",
                                 "alternativeName": "OLCF",
                                 "additionalType": "facility",
                                 "keywords": [],
@@ -260,6 +262,7 @@
                     },
                     { 
                         "name": "High Flux Isotope Reactor",
+                        "ror": "02xn1ny06",
                         "alternativeName": "HFIR",
                         "additionalType": "facility",
                         "keywords": [],
@@ -267,6 +270,7 @@
                     },
                     {
                         "name": "Spallation Neutron Source",
+                        "ror": "00q6v6102",
                         "alternativeName": "SNS",
                         "additionalType": "facility",
                         "keywords": [],
@@ -289,6 +293,7 @@
                     },
                     {
                         "name": "Center for Nanophase Materials Sciences Division",
+                        "ror": "01wass480",
                         "alternativeName": "CNMSD",
                         "additionalType": "division",
                         "keywords": [],
