@@ -198,7 +198,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             impact,
             technical,
         }) => {
-            let Metadata { doi, .. } = &meta;
+            let Metadata { doi, managers, programs, publication, .. } = &meta;
             let Contact { first, last, .. } = &data.contact;
             let head = HtmlHead {
                 size: size.unwrap(),
@@ -212,6 +212,39 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             let graphic = meta.clone().get_first_graphic_href();
             let caption = &meta.clone().graphics.unwrap()[0].caption;
             let separator = if subtitle.is_empty() { "".to_string() } else { ": ".to_string() };
+            let maybe_managers = match managers {
+                | Some(value) if !value.is_empty() => {
+                    html! {
+                        <div>
+                            <span>{ "Managers" }</span>
+                            <span>{ value.join(", ") }</span>
+                        </div>
+                    }
+                },
+                | _ => html! { <div></div> },
+            };
+            let maybe_programs = match programs {
+                | Some(value) if !value.is_empty() => {
+                    html! {
+                        <div>
+                            <span>{ "Programs" }</span>
+                            <span>{ value.join(", ") }</span>
+                        </div>
+                    }
+                },
+                | _ => html! { <div></div> },
+            };
+            let maybe_publication = match publication {
+                | Some(value) if !value.is_empty() => {
+                    html! {
+                        <div>
+                            <span>{ "Publication" }</span>
+                            <span>{ value }</span>
+                        </div>
+                    }
+                },
+                | _ => html! { <div></div> },
+            };
             html! {
                 <html>
                     { head }
@@ -243,20 +276,11 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                                 <div class="contact">
                                     <div>
                                         <span>{ "PI" }</span>
-                                        <span>{ first } { last }</span>
+                                        <span>{ first }&nbsp;{ last }</span>
                                     </div>
-                                    <div>
-                                        <span>{ "Programs" }</span>
-                                        <span></span>
-                                    </div>
-                                    <div>
-                                        <span>{ "PMs" }</span>
-                                        <span></span>
-                                    </div>
-                                    <div>
-                                        <span>{ "Publication" }</span>
-                                        <span>{ "link to publication" }</span>
-                                    </div>
+                                    { maybe_programs }
+                                    { maybe_managers }
+                                    { maybe_publication }
                                     <div>
                                         <span>{ "DOI" }</span>
                                         <span>{ doi.clone().unwrap() }</span>

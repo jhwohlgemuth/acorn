@@ -1,3 +1,7 @@
+:root {
+    --primary: #007833;
+    --secondary: #00454D;
+}
 html,
 body {
     font-family: "myriad_pro_light";
@@ -16,10 +20,10 @@ h3 {
     padding: 0;
 }
 header {
-    color: #007833;
+    color: var(--primary);
     padding: 20px 20px 10px 20px;;
     text-align: center;
-    border-bottom: 2px double #007833;
+    border-bottom: 2px double var(--primary);
 }
 main {
     font-family: "myriad_pro_light";
@@ -27,11 +31,29 @@ main {
     margin: 0px;
     letter-spacing: 0.1em;
 }
+main>section:first-of-type {
+    margin-top: 10px;
+}
+h3 {
+    color: var(--primary);
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+section {
+    margin: 20px 0px 0px 5px;
+    padding: 0;
+}
+p {
+    margin: 0;
+    padding: 0;
+}
 .main {
     margin: 0;
     padding: 20px;
     position: absolute;
     display: grid;
+    align-items: center;
+    justify-content: center;
     grid-template-columns: auto auto;
     grid-template-rows: auto auto auto;
     grid-gap: 0px;
@@ -40,7 +62,12 @@ main {
     grid-column: 2;
     grid-row: 1;
 }
+.graphic {
+    text-align: center;
+    width: 100%;
+}
 .graphic>img {
+    margin: 0 auto;
     width: 4.5in;
 }
 .caption {
@@ -50,9 +77,19 @@ main {
     width: 4.5in;
 }
 .contact {
+    font-size: 11pt;
     background-color: #DBDBDB;
-    margin: 10px;
-    padding: 10px;
+    margin: 5px;
+    padding: 10px 15px 5px 15px;
+    width: 4.5in;
+}
+.contact>div>span:first-of-type::after {
+    content: ": ";
+    padding-right: 5px;
+}
+.contact>div>span:first-of-type {
+    color: #555;
+    font-weight: bold;
 }
 footer {
     background-color: #FFFFFF;
@@ -67,24 +104,24 @@ footer {
 }
 footer>.wrapper {
     align-items: center;
-    border-top: 2px double #007833;
+    border-top: 2px double var(--primary);
     color: #FFFFFF;
     grid-gap: 5px;
     grid-template-columns: auto;
     grid-template-rows: auto auto;
     margin-top: 0;
-    padding: 15px;
+    padding: 10px;
 }
 footer>.wrapper>.logo-wrapper {
     display: grid;
     grid-template-columns: auto auto;
     grid-template-rows: auto;
     text-align: center;
-    line-height: 66px;
+    line-height: 0.4in;
 }
 #logo-doe-os {
-    height: 0.46in;
+    height: 0.4in;
 }
 #logo-ornl {
-    height: 0.46in;
+    height: 0.40in;
 }
