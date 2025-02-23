@@ -55,6 +55,7 @@ tracing-subscriber = { workspace = true }
 uriparse = { workspace = true }
 petgraph = "0.7.1"
 csv = "1.3.1"
+eserde = "0.1.2"
 
 [lints.rust]
 unsafe_code = "forbid"

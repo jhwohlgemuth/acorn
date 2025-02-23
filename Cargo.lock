@@ -50,6 +50,7 @@ dependencies = [
  "derive_more",
  "directories",
  "duct",
+ "eserde",
  "exitcode",
  "fancy-regex",
  "flate2",
@@ -970,6 +971,29 @@ checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "eserde"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7b385c6ce7ab3d94b5c04262aa48afcc97c2329ecb2559e83792493b5e71630"
+dependencies = [
+ "eserde_derive",
+ "itoa",
+ "serde",
+]
+
+[[package]]
+name = "eserde_derive"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58199fbf1f2cd20d1a1086ac6e88909493376f9bf648ac65ddda599c2b92f82a"
+dependencies = [
+ "indexmap",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.94",
 ]
 
 [[package]]
