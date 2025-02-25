@@ -331,7 +331,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                     <div class="graphic"><img src={ graphic }/></div>
                     <div class="research-focus">
                         <h3>{ "Facilities" }</h3>
-                        <ul><li>{ facilities.join("</li><li>") }</li></ul>
+                        <ul><li>{ facilities.clone().unwrap_or_default().join("</li><li>") }</li></ul>
                     </div>
                     <div class="qrcode">
                         <img src={ qrcode }/>

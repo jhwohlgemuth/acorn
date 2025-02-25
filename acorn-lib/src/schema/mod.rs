@@ -199,7 +199,7 @@ pub struct OrganizationSections {
     #[validate(custom(function = "validate_attribute_impact"))]
     pub impact: Vec<String>,
     #[validate(custom(function = "validate_attribute_facilities"))]
-    pub facilities: Vec<String>,
+    pub facilities: Option<Vec<String>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Research {
@@ -390,7 +390,7 @@ impl ResearchActivity {
                     mission,
                     capabilities.join(", "),
                     impact.join(", "),
-                    facilities.join(", ")
+                    facilities.unwrap_or_default().join(", ")
                 )
             }
         };
