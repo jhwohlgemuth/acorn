@@ -1,3 +1,4 @@
+use acorn_lib::constants::{BASE_URL, COLOR_TRANSPARENT, COLOR_PRIMARY};
 use acorn_lib::schema::{Contact, HighlightSections, Metadata, OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
 use acorn_lib::util::{cli, Label, MimeType};
 use data_encoding::BASE64;
@@ -7,11 +8,6 @@ use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::*;
 use rust_embed::Embed;
 use tracing::error;
-
-const BASE_URL: &str = "https://research.ornl.gov";
-// https://www.olcf.ornl.gov/about-olcf/media-assets/
-const RGBA_TRANSPARENT: [u8; 4] = [255, 255, 255, 0];
-const RGBA_ORNL_GREEN: [u8; 4] = [0, 121, 52, 255];
 
 struct DataUri {}
 #[derive(Embed)]
@@ -396,8 +392,8 @@ fn generate_qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
     };
     ImageBuilder::default()
         .shape(Shape::RoundedSquare)
-        .background_color(RGBA_TRANSPARENT)
-        .module_color(RGBA_ORNL_GREEN)
+        .background_color(COLOR_TRANSPARENT)
+        .module_color(COLOR_PRIMARY)
         .margin(0)
         .fit_width(125)
         .to_bytes(&code)

@@ -1,6 +1,11 @@
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
+pub const BASE_URL: &str = "https://research.ornl.gov";
+// ORNL brand colors
+// https://www.olcf.ornl.gov/about-olcf/media-assets/
+pub const COLOR_TRANSPARENT: [u8; 4] = [255, 255, 255, 0];
+pub const COLOR_PRIMARY: [u8; 4] = [0, 121, 52, 255];
 // Vale
 pub const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
 pub const VALE_VERSION: &str = "3.9.4";
