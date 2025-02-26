@@ -8,7 +8,7 @@ use percy_dom::prelude::*;
 use rust_embed::Embed;
 use tracing::error;
 
-const BASE_URL: &str = "https://fact-sheets.ornl.gov";
+const BASE_URL: &str = "https://research.ornl.gov";
 // https://www.olcf.ornl.gov/about-olcf/media-assets/
 const RGBA_TRANSPARENT: [u8; 4] = [255, 255, 255, 0];
 const RGBA_ORNL_GREEN: [u8; 4] = [0, 121, 52, 255];
@@ -198,7 +198,13 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             impact,
             technical,
         }) => {
-            let Metadata { doi, managers, programs, publication, .. } = &meta;
+            let Metadata {
+                doi,
+                managers,
+                programs,
+                publication,
+                ..
+            } = &meta;
             let Contact { first, last, .. } = &data.contact;
             let head = HtmlHead {
                 size: size.unwrap(),
@@ -220,7 +226,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                             <span>{ value.join(", ") }</span>
                         </div>
                     }
-                },
+                }
                 | _ => html! { <div></div> },
             };
             let maybe_programs = match programs {
@@ -231,7 +237,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                             <span>{ value.join(", ") }</span>
                         </div>
                     }
-                },
+                }
                 | _ => html! { <div></div> },
             };
             let maybe_publication = match publication {
@@ -242,7 +248,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                             <span>{ value }</span>
                         </div>
                     }
-                },
+                }
                 | _ => html! { <div></div> },
             };
             html! {
