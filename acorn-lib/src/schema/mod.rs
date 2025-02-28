@@ -111,6 +111,7 @@ pub struct Metadata {
     pub technology: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub programs: Option<Vec<String>>,
+    pub partners: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub managers: Option<Vec<String>>,
 }

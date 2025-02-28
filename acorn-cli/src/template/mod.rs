@@ -1,4 +1,4 @@
-use acorn_lib::constants::{BASE_URL, COLOR_TRANSPARENT, COLOR_PRIMARY};
+use acorn_lib::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT};
 use acorn_lib::schema::{Contact, HighlightSections, Metadata, OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
 use acorn_lib::util::{cli, Label, MimeType};
 use data_encoding::BASE64;
