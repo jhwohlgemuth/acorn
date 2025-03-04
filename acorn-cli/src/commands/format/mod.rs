@@ -35,6 +35,7 @@ pub fn run(path: &Option<PathBuf>) -> Result<(), Report> {
             }
             | Err(err) => {
                 error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                std::process::exit(exitcode::DATAERR);
             }
         });
     }

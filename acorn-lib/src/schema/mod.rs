@@ -308,7 +308,7 @@ impl Organization {
     }
 }
 impl ResearchActivity {
-    pub fn analyze(paths: Vec<PathBuf>) {
+    pub fn analyze(paths: Vec<PathBuf>) -> bool {
         let config = ValeConfig::default().save();
         let init = Vale::init().build();
         let vale = if test_command("vale".into()) {
@@ -317,16 +317,20 @@ impl ResearchActivity {
             init.download(Some(config))
         };
         match vale.clone().sync() {
-            | Ok(_) => paths.iter().for_each(|path| match ResearchActivity::read(path.into()) {
-                | Ok(data) => {
-                    vale.clone().analyze(data.clone().meta.id, data.extract_prose(), None);
-                }
-                | Err(err) => {
-                    error!("=> {} Read research activity data at - {}", Label::fail(), err);
-                }
-            }),
+            | Ok(_) => {
+                let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
+                    | Ok(data) => vale.clone().analyze(data.clone().meta.id, data.extract_prose(), None),
+                    | Err(err) => {
+                        error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                        false
+                    }
+                });
+                let output = results.collect::<Vec<bool>>();
+                output.iter().all(|&x| x)
+            }
             | Err(err) => {
                 error!("=> {} Vale sync - {}", Label::fail(), err);
+                false
             }
         }
     }

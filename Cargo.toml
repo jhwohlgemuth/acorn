@@ -3,7 +3,7 @@ members = ["acorn-cli", "acorn-lib"]
 resolver = "2"
 
 [workspace.package]
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
 description = "Accessible Content Organization for Research Needs"
 documentation = "https://acorn.ornl.gov"

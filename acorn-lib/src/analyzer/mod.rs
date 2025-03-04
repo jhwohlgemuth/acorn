@@ -20,7 +20,7 @@ use which::which;
 
 pub trait StaticAnalyzer {
     fn command(self) -> String;
-    fn analyze(self, id: String, content: String, output: Option<String>);
+    fn analyze(self, id: String, content: String, output: Option<String>) -> bool;
     fn download(self, config: Option<ValeConfig>) -> Self;
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
@@ -60,7 +60,7 @@ impl StaticAnalyzer for Vale {
     fn command(self) -> String {
         "vale".to_string()
     }
-    fn analyze(self, id: String, content: String, output: Option<String>) {
+    fn analyze(self, id: String, content: String, output: Option<String>) -> bool {
         match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
             | Some(dirs) => {
                 let cache = dirs.cache_dir().to_path_buf();
@@ -92,9 +92,11 @@ impl StaticAnalyzer for Vale {
                             | Ok(_) => {
                                 let message = format!("=> {} No errors found in {} data", Label::pass(), id.to_string().underline());
                                 println!("{}", message);
+                                true
                             }
                             | Err(_) => {
                                 error!("=> {} {} data = {}\n", Label::using(), Label::fmt_fail(&id.to_string()), content);
+                                false
                             }
                         }
                     }

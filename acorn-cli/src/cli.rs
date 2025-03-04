@@ -57,6 +57,9 @@ pub enum Commands {
         /// Skip one or more available quality checks
         #[arg(short, long, value_name = "LIST", value_delimiter = ',')]
         skip: Vec<Check>,
+        /// Exit on first error
+        #[arg(short, long = "exit-on-first-error", value_name = "BOOL")]
+        exit_on_first_error: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },
