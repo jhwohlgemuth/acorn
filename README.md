@@ -5,6 +5,23 @@ ACORN
 ## Quick Start
 > 🚧 Under Construction
 
+## Installation
+> [!WARNING] `acorn export` is not currently supported on MacOS
+
+- Download newest binary from [releases page](https://code.ornl.gov/research-enablement/acorn/-/releases)
+    ```shell
+    curl -LO https://code.ornl.gov/api/v4/projects/15383/packages/generic/x86_64-unknown-linux-gnu/v0.0.5/pipe
+    ```
+- Make binary executable
+    ```shell
+    chmod +x ./acorn
+    ```
+- Move binary to folder on path (ex. `/usr/local/bin`)
+    ```shell
+    mv acorn /usr/local/bin
+    ```
+- Verify installation with `acorn --version`
+
 ## Architecture
 > See [ARCHITECTURE.md](./ARCHITECTURE.md)
 
