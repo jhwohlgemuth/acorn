@@ -75,6 +75,8 @@ publish-docs:
       changes:
         - acorn-cli/**/*
         - acorn-lib/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
   script:
     - make doc
     - git config --global user.name "${USER}"

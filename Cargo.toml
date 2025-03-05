@@ -3,7 +3,7 @@ members = ["acorn-cli", "acorn-lib"]
 resolver = "2"
 
 [workspace.package]
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
 description = "Accessible Content Organization for Research Needs"
 documentation = "https://acorn.ornl.gov"
@@ -18,12 +18,12 @@ data-encoding = "2.7.0"
 derive_more = { version = "1.0.0", features = ["display", "from_str"] }
 exitcode = "1.1.2"
 glob = "0.3.1"
-indicatif = "0.17.6"
+indicatif = "0.17.11"
 lazy_static = "1.5.0"
-owo-colors = "4.0.0"
+owo-colors = "4.2.0"
 pretty_assertions = "1.4.1"
 rayon = "1.7.0"
-rust-embed = "8.5.0"
+rust-embed = "8.6.0"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
 tokio = { version = "1", features = ["full"] }
