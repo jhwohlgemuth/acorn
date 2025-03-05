@@ -10,7 +10,7 @@ default:
 
 variables:
   USER: CI
-  EMAIL: wohlgemuthjh@ornl.gov
+  EMAIL: $GITLAB_USER_EMAIL
 
 stages:
   - prepare
