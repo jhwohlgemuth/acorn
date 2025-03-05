@@ -6,7 +6,6 @@ ACORN
 > 🚧 Under Construction
 
 ## Installation
-> [!WARNING] `acorn export` is not currently supported on MacOS
 
 - Download newest binary from [releases page](https://code.ornl.gov/research-enablement/acorn/-/releases)
     ```shell
@@ -21,6 +20,7 @@ ACORN
     mv acorn /usr/local/bin
     ```
 - Verify installation with `acorn --version`
+> ⚠️ **CAUTION** `acorn export` is not currently supported on MacOS
 
 ## Architecture
 > See [ARCHITECTURE.md](./ARCHITECTURE.md)
