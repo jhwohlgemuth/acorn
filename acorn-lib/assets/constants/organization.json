@@ -161,7 +161,15 @@
                         "name": "Radioisotope Science and Technology Division",
                         "alternativeName": "RSTD",
                         "additionalType": "division",
-                        "children": []
+                        "children": [
+                            {
+                                "name": "Radiochemical Engineering Development Center",
+                                "alternativeName": "REDC",
+                                "additionalType": "center",
+                                "keywords": [],
+                                "children": []
+                            }
+                        ]
                     },
                     {
                         "name": "Isotope Processing and Manufacturing Division",
@@ -231,11 +239,11 @@
                         "children": 
                         [
                             {
-                             "name": "Center for Structural Molecular Biology",
-                             "alternativeName": "CSMB",
-                             "additionalType": "facility",
-                             "keywords": [],
-                             "children": []
+                                "name": "Center for Structural Molecular Biology",
+                                "alternativeName": "CSMB",
+                                "additionalType": "facility",
+                                "keywords": [],
+                                "children": []
                             }
                         ]
                     },
