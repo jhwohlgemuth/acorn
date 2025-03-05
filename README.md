@@ -20,7 +20,7 @@ ACORN
     mv acorn /usr/local/bin
     ```
 - Verify installation with `acorn --version`
-> ⚠️ **CAUTION** `acorn export` is not currently supported on MacOS
+> ⚠️ **CAUTION** `acorn export` is [not currently supported on MacOS](https://code.ornl.gov/research-enablement/acorn/-/issues/4)
 
 ## Architecture
 > See [ARCHITECTURE.md](./ARCHITECTURE.md)
