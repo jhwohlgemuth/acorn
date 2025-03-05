@@ -9,7 +9,7 @@ ACORN
 
 - Download newest binary from [releases page](https://code.ornl.gov/research-enablement/acorn/-/releases)
     ```shell
-    curl -LO https://code.ornl.gov/api/v4/projects/15383/packages/generic/x86_64-unknown-linux-gnu/v0.0.2/acorn
+    curl -LO https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-unknown-linux-gnu/v0.0.3/acorn
     ```
 - Make binary executable
     ```shell
