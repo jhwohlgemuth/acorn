@@ -105,29 +105,44 @@ impl Bucket {
         debug!(url = url.as_str(), "=> {}", Label::using());
         url
     }
-    pub fn download_files(self: Bucket, output: PathBuf) {
+    pub fn download_files(self: Bucket, output: PathBuf) -> usize {
         match self.provider {
             | Provider::GitHub => unimplemented!(),
             | Provider::GitLab => {
                 info!("=> Downloading {} research data from {}...", self.schema_type, &self.uri);
-                let paths = self.clone().get_file_paths();
+                let paths = self
+                    .clone()
+                    .get_file_paths()
+                    .into_iter()
+                    .filter(|path| !path.ends_with(".gitkeep"))
+                    .collect::<Vec<String>>();
                 let progress = ProgressBar::new(paths.len() as u64);
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 let client = Client::new();
                 paths.par_iter().for_each(|path| {
+                    let url = format!("{}/-/raw/main/{}", self.uri, path);
                     progress.set_message(format!("Downloading {}", path));
                     let folder = format!("{}/{}", output.display(), get_parent(path.clone()));
                     std::fs::create_dir_all(folder.clone()).unwrap();
                     let mut file = File::create(format!("{}/{}", output.display(), path)).unwrap();
-                    let url = format!("{}/-/raw/main/{}", self.uri, path);
                     let response = client.get(url).send().unwrap();
                     let mut content = Cursor::new(response.bytes().unwrap());
                     let _ = copy(&mut content, &mut file);
                     progress.inc(1);
                 });
-                progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+                let total = paths.len();
+                progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
+                progress.finish_with_message(format!(
+                    "  {}Downloaded {} {} {}{}",
+                    if total > 0 { Label::CHECKMARK } else { Label::CAUTION },
+                    total.green(),
+                    self.clone().parent.to_uppercase(),
+                    self.clone().schema_type,
+                    if total == 1 { "" } else { "s" }
+                ));
+                total
             }
-        };
+        }
     }
     // https://docs.gitlab.com/ee/api/repositories.html
     fn get_file_paths(self: Bucket) -> Vec<String> {

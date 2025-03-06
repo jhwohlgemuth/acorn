@@ -129,7 +129,7 @@ pub struct SemanticVersion {
 impl Label {
     pub const CAUTION: Emoji<'_, '_> = Emoji("⚠️ ", "!!! ");
     pub const CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
-    pub const PROGRESS_BAR_TEMPLATE: &str = "{spinner:.green}{pos:>04}/{len:<04}[{bar:.green}] {msg}";
+    pub const PROGRESS_BAR_TEMPLATE: &str = "  {spinner:.green}{pos:>5} of{len:^5}[{bar:40.green}] {msg}";
     pub fn invalid() -> String {
         Label::fmt_invalid("INVALID")
     }

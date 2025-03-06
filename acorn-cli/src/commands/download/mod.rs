@@ -1,6 +1,7 @@
 use acorn_lib::util::Label;
 use acorn_lib::BucketsConfig;
 use color_eyre::eyre::{Report, Result};
+use owo_colors::OwoColorize;
 use std::path::PathBuf;
 use tracing::error;
 
@@ -9,11 +10,18 @@ pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>) -> Result<(), Re
     if let Some(path) = buckets {
         match BucketsConfig::read_json(path.clone()) {
             | Ok(content) => {
+                let mut total: usize = 0;
                 content.buckets.into_iter().for_each(|bucket| {
                     if let Some(path) = output {
-                        bucket.download_files(path.to_path_buf());
+                        total += bucket.download_files(path.to_path_buf());
                     }
                 });
+                println!(
+                    "\n\n   => {} Downloaded {} item{}\n",
+                    Label::pass(),
+                    total.green(),
+                    if total == 1 { "" } else { "s" }
+                );
             }
             | Err(err) => {
                 error!("=> {} Failed to download data - {}", Label::fail(), err);
