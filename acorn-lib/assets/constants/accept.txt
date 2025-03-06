@@ -4,8 +4,13 @@ AOCL
 ASCR
 airflows?
 applications?
+bioeconomy
+bioenergy
+bioengineering
+biomass
 biomonitoring
 BLAS
+coproduct
 CPUs?
 cyber
 [Cc]ybersecurity
