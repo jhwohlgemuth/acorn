@@ -5,7 +5,7 @@ ASCR
 airflows?
 applications?
 bioeconomy
-bioenergy?
+bioenerg(y|gies)
 bioengineering
 biofuels?
 biomass
@@ -38,6 +38,8 @@ ISO
 JACC
 LLMs?
 LLVM
+Mantid
+MDNorm
 MRI
 misconfigurations?
 multimodal

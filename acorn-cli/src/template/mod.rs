@@ -149,7 +149,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                                 <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
                                 <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
                                 <div id="title">{ title }</div>
-                                <div id="subtitle">{ subtitle }</div>
+                                <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
                             </div>
                         </header>
                         <div class="main">
@@ -213,7 +213,10 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             };
             let graphic = meta.clone().get_first_graphic_href();
             let caption = &meta.clone().graphics.unwrap()[0].caption;
-            let separator = if subtitle.is_empty() { "".to_string() } else { ": ".to_string() };
+            let separator = match subtitle {
+                | Some(value) if !value.is_empty() => ": ".to_string(),
+                | _ => "".to_string(),
+            };
             let maybe_managers = match managers {
                 | Some(value) if !value.is_empty() => {
                     html! {
@@ -254,7 +257,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                         <header>
                             <h1>
                                 <span>{ title }{ separator }</span>
-                                <span>{ subtitle }</span>
+                                <span>{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</span>
                             </h1>
                         </header>
                         <div class="main">
@@ -349,7 +352,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                                 <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
                                 <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
                                 <div id="title">{ title }</div>
-                                <div id="subtitle">{ subtitle }</div>
+                                <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
                             </div>
                         </header>
                         <div class="main">

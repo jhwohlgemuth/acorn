@@ -158,7 +158,7 @@ pub struct ResearchActivity {
     #[validate(length(min = 4, max = 50))]
     pub title: String,
     #[validate(length(max = 100, message = "Subtitle is too long, please reduce the length below 75."))]
-    pub subtitle: String,
+    pub subtitle: Option<String>,
     pub sections: Sections,
     #[validate(nested)]
     pub contact: Contact,
@@ -399,7 +399,10 @@ impl ResearchActivity {
                 )
             }
         };
-        format!("The subtitle is \"{}\". {}", self.subtitle, sections)
+        match self.subtitle {
+            | Some(subtitle) => format!("The subtitle is \"{}\". {}", subtitle, sections),
+            | None => sections.to_string(),
+        }
     }
     fn resolve(self, name: FuzzyValue) -> Vec<String> {
         let mut data: Vec<_> = match name {
