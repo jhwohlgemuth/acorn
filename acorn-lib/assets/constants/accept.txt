@@ -60,6 +60,7 @@ SANSR
 Situ
 socioeconomics?
 spaceborne
+superfluidity
 SNS
 STAR
 telematics
