@@ -21,7 +21,7 @@ glob = "0.3.1"
 indicatif = "0.17.11"
 lazy_static = "1.5.0"
 openssl = { version = "0.10.35", features = ["vendored"] }
-openssl-sys = {version = "0.9.66", features = ["vendored"]}
+openssl-sys = { version = "0.9.66", features = ["vendored"] }
 owo-colors = "4.2.0"
 pretty_assertions = "1.4.1"
 rayon = "1.7.0"
@@ -32,7 +32,7 @@ tokio = { version = "1", features = ["full"] }
 tracing = { version = "0.1.40" }
 tracing-indicatif = "0.3.8"
 tracing-log = "0.2.0"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"]}
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 uriparse = "0.6.4"
 
 [workspace.metadata.cross.build]
