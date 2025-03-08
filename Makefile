@@ -1,4 +1,4 @@
-.PHONY: doc lint test
+.PHONY: clean lint test coverage doc build release version
 
 clean:
 	@rm -rf ./bin
