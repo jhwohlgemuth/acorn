@@ -9,18 +9,10 @@ lint:
 	@cargo clippy --no-deps --all-targets --fix --allow-dirty
 
 test: clean lint
-	@cargo build
-	@cargo test
+	@cargo nextest run
+
+coverage: clean lint
 	@cargo tarpaulin --out lcov --line --skip-clean
-
-test-ci: clean lint
-	@cargo build
-	@cargo test
-
-test-cross: clean
-	@for target in $(TARGETS) ; do \
-        cross test --target $$target; \
-    done
 
 doc:
 	@cargo clean --doc
@@ -30,14 +22,6 @@ build: clean
 	@mkdir -p ./bin
 	@cargo build --release --target $(DEFAULT_TARGET)
 	@mv target/$(DEFAULT_TARGET)/release/acorn-cli ./bin/acorn-v$(VERSION)
-
-build-cross: clean
-	@mkdir -p ./bin
-	@for target in $(TARGETS) ; do \
-		export DISPLAY=:0; \
-        cross build --release --target $$target; \
-		mv target/$${target}/release/acorn-cli ./bin/acorn_v$(VERSION)_$${target}; \
-    done
 
 release: clean
 	@echo "Under Construction"

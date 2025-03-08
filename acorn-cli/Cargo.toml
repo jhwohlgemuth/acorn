@@ -22,6 +22,8 @@ exitcode = { workspace = true }
 glob = { workspace = true }
 indicatif = { workspace = true }
 lazy_static = { workspace = true }
+openssl = { workspace = true }
+openssl-sys = { workspace = true }
 owo-colors = { workspace = true }
 pretty_assertions = { workspace = true }
 rayon = { workspace = true }

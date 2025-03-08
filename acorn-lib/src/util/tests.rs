@@ -1,4 +1,5 @@
 use crate::util::*;
+use pretty_assertions::assert_eq;
 use std::path::Path;
 
 const FIXTURES: &str = "../tests/fixtures";
