@@ -93,7 +93,7 @@ impl Bucket {
     }
     fn get_tree_url(&self, page: u32) -> String {
         let Self { id, schema_type, .. } = self;
-        let per_page = 3;
+        let per_page = 100;
         let url = format!(
             "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path={}",
             self.get_domain(),
@@ -133,13 +133,12 @@ impl Bucket {
                     let _ = copy(&mut content, &mut file);
                     progress.inc(1);
                 });
-                let total = paths.len();
                 let total_data: usize = paths.clone().into_iter().filter(|path| path.to_lowercase().ends_with(".json")).count();
                 let total_images: usize = paths
                     .into_iter()
                     .filter(|path| path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg"))
                     .count();
-                progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
+                let total = total_data + total_images;
                 let message = if total_data != total_images {
                     let recommendation = if total_data > total_images {
                         "Do you need to add some images?"
@@ -157,6 +156,7 @@ impl Bucket {
                 } else {
                     "".to_string()
                 };
+                progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
                 progress.finish_with_message(format!(
                     "  {}Downloaded {} {} {} file{}{}",
                     if total > 0 { Label::CHECKMARK } else { Label::CAUTION },
@@ -200,7 +200,13 @@ impl Bucket {
                         .reduce(std::vec::Vec::new, |a, b| [a, b].concat()),
                     | Ok(_) | Err(_) => {
                         let url = self.get_tree_url(1);
-                        error!("=> {} Failed to get paths from {}", Label::fail(), url);
+                        debug!(url, "=> {}", Label::using());
+                        error!(
+                            "=> {} Failed to get file paths for {} {} bucket",
+                            Label::fail(),
+                            self.parent.to_uppercase().red(),
+                            self.schema_type.red()
+                        );
                         vec![]
                     }
                 }
