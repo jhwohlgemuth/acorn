@@ -106,6 +106,9 @@ impl Bucket {
         url
     }
     pub fn download_files(self: Bucket, output: PathBuf) -> usize {
+        fn get_suffix(value: usize) -> String {
+            (if value == 1 { "" } else { "s" }).to_string()
+        }
         match self.provider {
             | Provider::GitHub => unimplemented!(),
             | Provider::GitLab => {
@@ -131,14 +134,41 @@ impl Bucket {
                     progress.inc(1);
                 });
                 let total = paths.len();
+                let total_data: usize = paths.clone().into_iter().filter(|path| path.to_lowercase().ends_with(".json")).count();
+                let total_images: usize = paths
+                    .into_iter()
+                    .filter(|path| path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg"))
+                    .count();
                 progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
+                let message = if total_data != total_images {
+                    let recommendation = if total_data > total_images {
+                        "Do you need to add some images?"
+                    } else {
+                        "Do you need to add some JSON files?"
+                    };
+                    format!(
+                        " ({} data file{}, {} image{} - {})",
+                        total_data.yellow(),
+                        get_suffix(total_data),
+                        total_images.yellow(),
+                        get_suffix(total_images),
+                        recommendation.italic(),
+                    )
+                } else {
+                    "".to_string()
+                };
                 progress.finish_with_message(format!(
-                    "  {}Downloaded {} {} {}{}",
+                    "  {}Downloaded {} {} {} file{}{}",
                     if total > 0 { Label::CHECKMARK } else { Label::CAUTION },
-                    total.green(),
+                    if total > 0 {
+                        total.green().to_string()
+                    } else {
+                        total.yellow().to_string()
+                    },
                     self.clone().parent.to_uppercase(),
                     self.clone().schema_type,
-                    if total == 1 { "" } else { "s" }
+                    get_suffix(total),
+                    message,
                 ));
                 total
             }
