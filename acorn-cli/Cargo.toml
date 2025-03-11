@@ -14,7 +14,6 @@ dotenvy = "0.15.0"
 fast_qr = { version = "0.12.7", features = ["image"] }
 percy-dom = "0.10.0"
 playwright = "0.0.20"
-assert_cmd = { workspace = true }
 color-eyre = { workspace = true }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
@@ -25,7 +24,6 @@ lazy_static = { workspace = true }
 openssl = { workspace = true }
 openssl-sys = { workspace = true }
 owo-colors = { workspace = true }
-pretty_assertions = { workspace = true }
 rayon = { workspace = true }
 rust-embed = { workspace = true }
 serde = { workspace = true }
@@ -36,6 +34,10 @@ tracing-indicatif.workspace = true
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 uriparse = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = "2.0.16"
+pretty_assertions = "1.4.1"
 
 [lints.rust]
 unsafe_code = "forbid"

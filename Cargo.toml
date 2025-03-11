@@ -12,7 +12,6 @@ homepage = "https://acorn.ornl.gov"
 repository = "https://code.ornl.gov/research-enablement/acorn"
 
 [workspace.dependencies]
-assert_cmd = "2.0.16"
 color-eyre = "0.6.3"
 data-encoding = "2.7.0"
 derive_more = { version = "1.0.0", features = ["display", "from_str"] }
@@ -23,7 +22,6 @@ lazy_static = "1.5.0"
 openssl = { version = "0.10.35", features = ["vendored"] }
 openssl-sys = { version = "0.9.66", features = ["vendored"] }
 owo-colors = "4.2.0"
-pretty_assertions = "1.4.1"
 rayon = "1.7.0"
 rust-embed = "8.6.0"
 serde = { version = "1.0.188", features = ["derive"] }
