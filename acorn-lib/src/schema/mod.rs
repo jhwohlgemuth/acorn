@@ -33,13 +33,17 @@ pub enum FuzzyValue {
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Display, PartialEq)]
 #[serde(rename_all = "lowercase")]
+/// The schema type informs the sections and fields that apply to the associated research activity data
 pub enum SchemaType {
     #[display("highlight")]
+    /// WIP - may be revised/removed in the future
     Highlight,
     #[default]
     #[display("project")]
+    /// Projects describe research capability applications to solve a challenge or challenges resulting in measurable outcomes and impact
     Project,
     #[display("organization")]
+    /// Organizations describe research-related groupings of people and resources
     Organization,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -74,28 +78,42 @@ pub struct Contact {
 #[builder(start_fn = init)]
 pub struct Metadata {
     #[validate(custom(function = "is_kebabcase"))]
+    /// Data identifier and URL fragment for site on research.ornl.gov
+    /// Should always be in lower-kebab-case
+    /// 
+    /// Example: `my-research-project`
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_doi"))]
-    // Digital Object Identifier
+    /// Digital Object Identifier
+    /// See <https://www.doi.org/> for more information
     pub doi: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_raid"))]
-    // Research Activity Identifier
+    /// Research Activity Identifier
+    /// See <https://www.raid.org/> for more information
     pub raid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_ror"))]
-    // Research Organization Registry
+    /// Research Organization Registry
+    /// See <https://www.ror.org/> for more information
     pub ror: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(url(message = "Please provide a valid URL"))]
+    /// URL of internet location where associated publication can be found
     pub publication: Option<String>,
     #[serde(alias = "type", rename = "type")]
     #[builder(default = SchemaType::default())]
     pub schema_type: SchemaType,
     #[builder(default = false)]
+    /// Describes the active status of the associated research activity data
+    /// 
+    /// Archived content typically will be omitted from public artifacts such as research.ornl.gov
     pub archive: bool,
     #[builder(default = true)]
+    /// Describes the draft status of the associated research activity data
+    /// 
+    /// Draft content typically will be omitted from public artifacts such as research.ornl.gov
     pub draft: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
@@ -104,13 +122,20 @@ pub struct Metadata {
     #[validate(nested)]
     pub graphics: Option<Vec<Graphic>>,
     #[builder(default = Vec::<String>::new())]
+    /// Words related to the associated research activity data
+    /// 
+    /// Could be used to filter research activity data and/or power data analytics
     pub keywords: Vec<String>,
     #[builder(default = Vec::<String>::new())]
+    /// Organization responsible funding associated research activity data
     pub sponsors: Vec<String>,
     #[builder(default = Vec::<String>::new())]
+    /// Technologies related to the associated research activity data
     pub technology: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// A program is a collection of capabilities aimed at achieving a specific cross-cutting research outcome
     pub programs: Option<Vec<String>>,
+    /// Organizations related to the associated research activity data
     pub partners: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub managers: Option<Vec<String>>,
@@ -142,10 +167,30 @@ pub enum OrganizationType {
     #[display("facility")]
     Facility,
     #[display("FFRDC")]
+    /// Federally Funded Research and Development Center
     Ffrdc,
 }
+/// Website link and title description
+/// 
+/// Example: When deserializing research activity data, websites can be provided as a list of JSON objects.
+/// ```json
+/// {
+///     "websites": [
+///       {
+///         "title": "Home Page",
+///         "url": "https://example.com"
+///       },
+///       {
+///         "title": "Job Listing",
+///         "url": "https://www.example.com/jobs"
+///       }
+///     ]
+/// }
+/// ```
+/// 
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Website {
+    /// Brief description of webpage content
     pub title: String,
     #[validate(url(message = "Please provide a valid URL"))]
     pub url: String,
