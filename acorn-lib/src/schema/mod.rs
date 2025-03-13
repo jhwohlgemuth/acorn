@@ -78,7 +78,7 @@ pub struct Contact {
 #[builder(start_fn = init)]
 pub struct Metadata {
     #[validate(custom(function = "is_kebabcase"))]
-    /// Data identifier and URL fragment for site on research.ornl.gov
+    /// Identifier for associated research activity data
     /// Should always be in lower-kebab-case
     /// 
     /// Example: `my-research-project`
@@ -172,7 +172,7 @@ pub enum OrganizationType {
 }
 /// Website link and title description
 /// 
-/// Example: When deserializing research activity data, websites can be provided as a list of JSON objects.
+/// **Example**: When deserializing research activity data, websites can be provided as a list of JSON objects.
 /// ```json
 /// {
 ///     "websites": [
