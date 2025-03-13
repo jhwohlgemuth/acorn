@@ -11,6 +11,9 @@ lint:
 test: clean lint
 	@cargo nextest run
 
+test-all: clean lint
+	@cargo test
+
 coverage: clean lint
 	@cargo tarpaulin --out lcov --line --skip-clean
 
