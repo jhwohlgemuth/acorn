@@ -80,7 +80,7 @@ pub struct Metadata {
     #[validate(custom(function = "is_kebabcase"))]
     /// Identifier for associated research activity data
     /// Should always be in lower-kebab-case
-    /// 
+    ///
     /// Example: `my-research-project`
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -107,12 +107,12 @@ pub struct Metadata {
     pub schema_type: SchemaType,
     #[builder(default = false)]
     /// Describes the active status of the associated research activity data
-    /// 
+    ///
     /// Archived content typically will be omitted from public artifacts such as research.ornl.gov
     pub archive: bool,
     #[builder(default = true)]
     /// Describes the draft status of the associated research activity data
-    /// 
+    ///
     /// Draft content typically will be omitted from public artifacts such as research.ornl.gov
     pub draft: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -123,7 +123,7 @@ pub struct Metadata {
     pub graphics: Option<Vec<Graphic>>,
     #[builder(default = Vec::<String>::new())]
     /// Words related to the associated research activity data
-    /// 
+    ///
     /// Could be used to filter research activity data and/or power data analytics
     pub keywords: Vec<String>,
     #[builder(default = Vec::<String>::new())]
@@ -172,7 +172,7 @@ pub enum OrganizationType {
     Ffrdc,
 }
 /// Website link and title description
-/// 
+///
 /// **Example**: When deserializing research activity data, websites can be provided as a list of JSON objects.
 /// ```json
 /// {
@@ -188,7 +188,7 @@ pub enum OrganizationType {
 ///     ]
 /// }
 /// ```
-/// 
+///
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Website {
     /// Brief description of webpage content
