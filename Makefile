@@ -11,7 +11,7 @@ lint:
 test: clean lint
 	@cargo nextest run
 
-test-all: clean lint
+test-ci: clean lint
 	@cargo test
 
 coverage: clean lint
