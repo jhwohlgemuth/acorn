@@ -135,6 +135,7 @@ pub struct Metadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// A program is a collection of capabilities aimed at achieving a specific cross-cutting research outcome
     pub programs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     /// Organizations related to the associated research activity data
     pub partners: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -203,6 +204,7 @@ pub struct ResearchActivity {
     #[validate(length(min = 4, max = 50))]
     pub title: String,
     #[validate(length(max = 100, message = "Subtitle is too long, please reduce the length below 75."))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub subtitle: Option<String>,
     pub sections: Sections,
     #[validate(nested)]
@@ -580,7 +582,7 @@ fn resolve_organization(value: String) -> Option<String> {
         .into_iter()
         .map(|(key, value)| (key.to_string(), value.to_string()))
         .collect::<HashMap<String, String>>();
-    let value = value.trim().to_string();
+    let value = value.trim().to_string().replace("&", "and");
     let sanitized = sanitize(value.clone());
     let output = match sanitized.len() {
         | 3..=5 if data.contains_key(&value.to_uppercase()) => data.get(&value.to_uppercase()).cloned(),
