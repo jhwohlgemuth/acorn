@@ -19,8 +19,6 @@ exitcode = "1.1.2"
 glob = "0.3.1"
 indicatif = "0.17.11"
 lazy_static = "1.5.0"
-openssl = { version = "0.10.35", features = ["vendored"] }
-openssl-sys = { version = "0.9.66", features = ["vendored"] }
 owo-colors = "4.2.0"
 rayon = "1.7.0"
 rust-embed = "8.6.0"
