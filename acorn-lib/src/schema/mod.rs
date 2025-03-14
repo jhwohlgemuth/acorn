@@ -78,42 +78,53 @@ pub struct Contact {
 #[builder(start_fn = init)]
 pub struct Metadata {
     #[validate(custom(function = "is_kebabcase"))]
-    /// Identifier for associated research activity data
+    /// ### Identifier for associated research activity data
+    /// 
     /// Should always be in lower-kebab-case
     ///
-    /// Example: `my-research-project`
+    /// ***Example*** `my-research-project`
+    /// 
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_doi"))]
-    /// Digital Object Identifier
+    /// ### Digital Object Identifier
+    /// 
     /// See <https://www.doi.org/> for more information
+    /// 
     pub doi: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_raid"))]
-    /// Research Activity Identifier
+    /// ### Research Activity Identifier
+    /// 
     /// See <https://www.raid.org/> for more information
+    /// 
     pub raid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_ror"))]
-    /// Research Organization Registry
+    /// ### Research Organization Registry
+    /// 
     /// See <https://www.ror.org/> for more information
+    /// 
     pub ror: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(url(message = "Please provide a valid URL"))]
-    /// URL of internet location where associated publication can be found
+    /// ### URL of internet location where associated publication can be found
+    /// 
     pub publication: Option<String>,
     #[serde(alias = "type", rename = "type")]
     #[builder(default = SchemaType::default())]
     pub schema_type: SchemaType,
     #[builder(default = false)]
-    /// Describes the active status of the associated research activity data
+    /// ### Describes the active status of the associated research activity data
     ///
     /// Archived content typically will be omitted from public artifacts such as research.ornl.gov
+    /// 
     pub archive: bool,
     #[builder(default = true)]
-    /// Describes the draft status of the associated research activity data
+    /// ### Describes the draft status of the associated research activity data
     ///
     /// Draft content typically will be omitted from public artifacts such as research.ornl.gov
+    /// 
     pub draft: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
@@ -122,23 +133,45 @@ pub struct Metadata {
     #[validate(nested)]
     pub graphics: Option<Vec<Graphic>>,
     #[builder(default = Vec::<String>::new())]
-    /// Words related to the associated research activity data
+    /// ### Words related to the associated research activity data
     ///
     /// Could be used to filter research activity data and/or power data analytics
+    /// 
     pub keywords: Vec<String>,
     #[builder(default = Vec::<String>::new())]
-    /// Organization responsible funding associated research activity data
+    /// ### Organization responsible funding associated research activity data
+    /// 
     pub sponsors: Vec<String>,
     #[builder(default = Vec::<String>::new())]
-    /// Technologies related to the associated research activity data
+    /// ### Software, code languages, and digital tools related to the associated research activity data
+    /// 
+    /// ***Examples***
+    /// - Rust 
+    /// - Polars
+    /// - gdal
+    /// - matplotlib
+    /// - LaTeX
+    /// 
+    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/technology.csv">Full list of technologies</a></div>
+    ///
     pub technology: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    /// A program is a collection of capabilities aimed at achieving a specific cross-cutting research outcome
+    /// ### Collection of capabilities aimed at achieving a specific cross-cutting research outcome
+    /// 
     pub programs: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    /// Organizations related to the associated research activity data
+    /// ### Organizations related to the associated research activity data
+    /// 
+    /// ***Examples***
+    /// - Los Alamos National Laboratory
+    /// - University of Tennessee
+    /// - IBM
+    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
+    /// 
     pub partners: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// ### [ASCR](https://www.energy.gov/science/ascr/advanced-scientific-computing-research) highlight attribute
+    /// 
     pub managers: Option<Vec<String>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
