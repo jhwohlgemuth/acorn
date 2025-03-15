@@ -35,15 +35,16 @@ pub enum FuzzyValue {
 #[serde(rename_all = "lowercase")]
 /// The schema type informs the sections and fields that apply to the associated research activity data
 pub enum SchemaType {
+    /// ### WIP
+    /// <div class="warning">May be revised/removed in the future</div>
     #[display("highlight")]
-    /// WIP - may be revised/removed in the future
     Highlight,
+    /// Projects describe research capability applications to solve a challenge or challenges resulting in measurable outcomes and impact
     #[default]
     #[display("project")]
-    /// Projects describe research capability applications to solve a challenge or challenges resulting in measurable outcomes and impact
     Project,
-    #[display("organization")]
     /// Organizations describe research-related groupings of people and resources
+    #[display("organization")]
     Organization,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -77,54 +78,47 @@ pub struct Contact {
 #[derive(Clone, Builder, Debug, Serialize, Deserialize, Validate)]
 #[builder(start_fn = init)]
 pub struct Metadata {
-    #[validate(custom(function = "is_kebabcase"))]
     /// ### Identifier for associated research activity data
-    /// 
+    ///
     /// Should always be in lower-kebab-case
     ///
     /// ***Example*** `my-research-project`
-    /// 
+    #[validate(custom(function = "is_kebabcase"))]
     pub id: String,
+    /// ### Digital Object Identifier
+    ///
+    /// See <https://www.doi.org/> for more information
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_doi"))]
-    /// ### Digital Object Identifier
-    /// 
-    /// See <https://www.doi.org/> for more information
-    /// 
     pub doi: Option<String>,
+    /// ### Research Activity Identifier
+    ///
+    /// See <https://www.raid.org/> for more information
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_raid"))]
-    /// ### Research Activity Identifier
-    /// 
-    /// See <https://www.raid.org/> for more information
-    /// 
     pub raid: Option<String>,
+    /// ### Research Organization Registry
+    ///
+    /// See <https://www.ror.org/> for more information
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_ror"))]
-    /// ### Research Organization Registry
-    /// 
-    /// See <https://www.ror.org/> for more information
-    /// 
     pub ror: Option<String>,
+    /// ### URL of internet location where associated publication can be found
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(url(message = "Please provide a valid URL"))]
-    /// ### URL of internet location where associated publication can be found
-    /// 
     pub publication: Option<String>,
     #[serde(alias = "type", rename = "type")]
     #[builder(default = SchemaType::default())]
     pub schema_type: SchemaType,
-    #[builder(default = false)]
     /// ### Describes the active status of the associated research activity data
     ///
     /// Archived content typically will be omitted from public artifacts such as research.ornl.gov
-    /// 
+    #[builder(default = false)]
     pub archive: bool,
-    #[builder(default = true)]
     /// ### Describes the draft status of the associated research activity data
     ///
     /// Draft content typically will be omitted from public artifacts such as research.ornl.gov
-    /// 
+    #[builder(default = true)]
     pub draft: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
@@ -132,46 +126,41 @@ pub struct Metadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
     pub graphics: Option<Vec<Graphic>>,
-    #[builder(default = Vec::<String>::new())]
     /// ### Words related to the associated research activity data
     ///
     /// Could be used to filter research activity data and/or power data analytics
-    /// 
+    #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<String>,
-    #[builder(default = Vec::<String>::new())]
     /// ### Organization responsible funding associated research activity data
-    /// 
-    pub sponsors: Vec<String>,
+    ///
     #[builder(default = Vec::<String>::new())]
+    pub sponsors: Vec<String>,
     /// ### Software, code languages, and digital tools related to the associated research activity data
-    /// 
+    ///
     /// ***Examples***
-    /// - Rust 
+    /// - Rust
     /// - Polars
     /// - gdal
     /// - matplotlib
     /// - LaTeX
-    /// 
-    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/technology.csv">Full list of technologies</a></div>
     ///
+    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/technology.csv">Full list of technologies</a></div>
+    #[builder(default = Vec::<String>::new())]
     pub technology: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     /// ### Collection of capabilities aimed at achieving a specific cross-cutting research outcome
-    /// 
-    pub programs: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub programs: Option<Vec<String>>,
     /// ### Organizations related to the associated research activity data
-    /// 
+    ///
     /// ***Examples***
     /// - Los Alamos National Laboratory
     /// - University of Tennessee
     /// - IBM
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
-    /// 
-    pub partners: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub partners: Option<Vec<String>>,
     /// ### [ASCR](https://www.energy.gov/science/ascr/advanced-scientific-computing-research) highlight attribute
-    /// 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub managers: Option<Vec<String>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]

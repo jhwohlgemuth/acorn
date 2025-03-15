@@ -27,10 +27,10 @@ pub mod cli {
     #[derive(Clone, Debug, Display, PartialEq, ValueEnum, Serialize)]
     #[serde(rename_all = "lowercase")]
     pub enum Check {
+        /// Static analysis of prose
         #[display("analysis")]
-        // Static analysis of prose
         Analysis,
-        // Schema validation via Rust type system
+        /// Schema validation via Rust type system
         #[display("validation")]
         Validation,
     }
@@ -40,30 +40,30 @@ pub mod cli {
         #[default]
         #[display("all")]
         All,
+        /// System information (e.g. CPU count, OS, etc...)
         #[display("system")]
-        // System information (e.g. CPU count, OS, etc...)
         System,
+        /// Memory information and usage
         #[display("memory")]
-        // Memory information and usage
         Memory,
+        /// Network information
         #[display("network")]
-        // Network information
         Network,
+        /// Graphics Processing Unit (GPU) information
         #[display("gpu")]
-        // Graphics Processing Unit (GPU) information
         Gpu,
+        /// Check for installed software
         #[display("software")]
-        // Check for installed software
         Software,
     }
     #[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
     #[serde(rename_all = "lowercase")]
     pub enum Size {
-        #[default]
+        /// Standard size (4:3)
         #[display("standard")]
-        // Standard size (4:3)
         Standard,
-        // Widescreen size (16:9)
+        /// Widescreen size (16:9)
+        #[default]
         #[display("widescreen")]
         Widescreen,
     }
