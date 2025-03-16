@@ -1,5 +1,7 @@
 use acorn_lib::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT};
-use acorn_lib::schema::{Contact, HighlightSections, Metadata, OrganizationSections, ProjectSections, Research, ResearchActivity, Sections};
+use acorn_lib::schema::{
+    Contact, HighlightSections, Metadata, Notes, OrganizationSections, Other, ProjectSections, Research, ResearchActivity, Sections,
+};
 use acorn_lib::util::{cli, Label, MimeType};
 use data_encoding::BASE64;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
@@ -194,13 +196,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             impact,
             technical,
         }) => {
-            let Metadata {
-                doi,
-                managers,
-                programs,
-                publication,
-                ..
-            } = &meta;
+            let Metadata { doi, publication, .. } = &meta;
             let Contact { first, last, .. } = &data.contact;
             let head = HtmlHead {
                 size: size.unwrap(),
@@ -217,38 +213,65 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                 | Some(value) if !value.is_empty() => ": ".to_string(),
                 | _ => "".to_string(),
             };
-            let maybe_managers = match managers {
-                | Some(value) if !value.is_empty() => {
-                    html! {
-                        <div>
-                            <span>{ "Managers" }</span>
-                            <span>{ value.join(", ") }</span>
+            let contact_block = match &data.notes {
+                | Some(Other::Unformatted(value)) => {
+                    html!(
+                        <div class="contact">
+                            <div>{ value }</div>
                         </div>
-                    }
+                    )
                 }
-                | _ => html! { <div></div> },
-            };
-            let maybe_programs = match programs {
-                | Some(value) if !value.is_empty() => {
-                    html! {
-                        <div>
-                            <span>{ "Programs" }</span>
-                            <span>{ value.join(", ") }</span>
+                | Some(Other::Formatted(Notes { managers, programs, .. })) => {
+                    let maybe_managers = match managers {
+                        | Some(value) if !value.is_empty() => {
+                            html! {
+                                <div>
+                                    <span>{ "Managers" }</span>
+                                    <span>{ value.join(", ") }</span>
+                                </div>
+                            }
+                        }
+                        | _ => html! { <div></div> },
+                    };
+                    let maybe_programs = match programs {
+                        | Some(value) if !value.is_empty() => {
+                            html! {
+                                <div>
+                                    <span>{ "Programs" }</span>
+                                    <span>{ value.join(", ") }</span>
+                                </div>
+                            }
+                        }
+                        | _ => html! { <div></div> },
+                    };
+                    let maybe_publication = match publication {
+                        | Some(value) if !value.is_empty() => {
+                            html! {
+                                <div>
+                                    <span>{ "Publication" }</span>
+                                    <span>{ value }</span>
+                                </div>
+                            }
+                        }
+                        | _ => html! { <div></div> },
+                    };
+                    html!(
+                        <div class="contact">
+                            <div>
+                                <span>{ "PI" }</span>
+                                <span>{ first }&nbsp;{ last }</span>
+                            </div>
+                            { maybe_programs }
+                            { maybe_managers }
+                            { maybe_publication }
+                            <div>
+                                <span>{ "DOI" }</span>
+                                <span>{ doi.clone().unwrap() }</span>
+                            </div>
                         </div>
-                    }
+                    )
                 }
-                | _ => html! { <div></div> },
-            };
-            let maybe_publication = match publication {
-                | Some(value) if !value.is_empty() => {
-                    html! {
-                        <div>
-                            <span>{ "Publication" }</span>
-                            <span>{ value }</span>
-                        </div>
-                    }
-                }
-                | _ => html! { <div></div> },
+                | None => html!(<div></div>),
             };
             html! {
                 <html>
@@ -278,19 +301,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                             <aside>
                                 <div class="graphic"><img src={ graphic }/></div>
                                 <div class="caption">{ caption }</div>
-                                <div class="contact">
-                                    <div>
-                                        <span>{ "PI" }</span>
-                                        <span>{ first }&nbsp;{ last }</span>
-                                    </div>
-                                    { maybe_programs }
-                                    { maybe_managers }
-                                    { maybe_publication }
-                                    <div>
-                                        <span>{ "DOI" }</span>
-                                        <span>{ doi.clone().unwrap() }</span>
-                                    </div>
-                                </div>
+                                { contact_block }
                             </aside>
                         </div>
                         { footer }
