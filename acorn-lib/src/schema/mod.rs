@@ -680,15 +680,24 @@ fn resolve_sponsor(value: String) -> Option<String> {
 fn resolve_technology(value: String) -> Option<String> {
     let output = Constant::csv("technology.csv")
         .into_iter()
-        .flat_map(|x| {
-            let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
+        .flat_map(|values| {
+            let sanitized = sanitize(value.clone());
+            let pattern = Pattern::parse(&sanitized, CaseMatching::Ignore, Normalization::Smart);
             let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-            let matched = pattern.match_list(x.clone(), &mut matcher);
-            let scores = matched.clone().into_iter().map(|(_, score)| score).collect::<Vec<_>>();
-            if !matched.clone().is_empty() {
-                Some((x[0].clone(), scores[0]))
-            } else {
+            let matched = pattern.match_list(values.clone(), &mut matcher);
+            if matched.clone().is_empty() {
                 None
+            } else {
+                match values.first() {
+                    | Some(x) => {
+                        let score = matched.into_iter().map(|(_, score)| score).max();
+                        match score {
+                            | Some(value) if value > 0 => Some((x.to_string(), value)),
+                            | Some(_) | None => None,
+                        }
+                    }
+                    | None => None,
+                }
             }
         })
         .max_by_key(|(_, score)| *score)

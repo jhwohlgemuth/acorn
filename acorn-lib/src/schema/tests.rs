@@ -44,13 +44,11 @@ fn test_read() {
 #[test]
 fn test_fuzzy_keywords() {
     let exact: String = "nuclear-nonproliferation".into();
-    assert_eq!(resolve_keyword(exact.clone()), Some(exact));
     let misspelled: String = "cyb".into();
+    assert_eq!(resolve_keyword(exact.clone()), Some(exact));
     assert_eq!(resolve_keyword(misspelled), Some("cyber".into()));
-    let lowercase: String = "machine-learn".into();
-    assert_eq!(resolve_keyword(lowercase), Some("machine-learning".into()));
-    let lowercase: String = "Automation".into();
-    assert_eq!(resolve_keyword(lowercase), Some("automation".into()));
+    assert_eq!(resolve_keyword("machine-learn".into()), Some("machine-learning".into()));
+    assert_eq!(resolve_keyword("Automation".into()), Some("automation".into()));
 }
 #[test]
 fn test_fuzzy_sponsors() {
@@ -65,9 +63,15 @@ fn test_fuzzy_sponsors() {
 fn test_fuzzy_technologies() {
     assert_eq!(resolve_technology("astro".into()), Some("astro".into()));
     assert_eq!(resolve_technology("React.js".into()), Some("react".into()));
+    assert_eq!(resolve_technology("ReactJS".into()), Some("react".into()));
+    assert_eq!(resolve_technology("react".into()), Some("react".into()));
     assert_eq!(resolve_technology("rs".into()), Some("rust".into()));
     assert_eq!(resolve_technology("Geospatial Data Abstraction Lib".into()), Some("gdal".into()));
+    assert_eq!(resolve_technology("node.js".into()), Some("javascript".into()));
+    assert_eq!(resolve_technology("js".into()), Some("javascript".into()));
+    assert_eq!(resolve_technology("language::JavaScript".into()), Some("javascript".into()));
     assert_eq!(resolve_technology("foobarbaz".into()), None);
+    assert_eq!(resolve_technology("".into()), None);
 }
 #[test]
 fn test_validate_attribute_areas() {
