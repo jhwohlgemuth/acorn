@@ -73,6 +73,7 @@ dependencies = [
  "serde_json",
  "sysinfo",
  "tar",
+ "titlecase",
  "tokio",
  "tracing",
  "tracing-indicatif",
@@ -3500,6 +3501,15 @@ checksum = "9117f5d4db391c1cf6927e7bea3db74b9a1c1add8f7eda9ffd5364f40f57b82f"
 dependencies = [
  "displaydoc",
  "zerovec",
+]
+
+[[package]]
+name = "titlecase"
+version = "3.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef6b5cbe1316986025d8f662ff6945a0c85f2ca8ca13f04b5e0829ddb0d047f2"
+dependencies = [
+ "regex",
 ]
 
 [[package]]

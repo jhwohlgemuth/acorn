@@ -42,15 +42,6 @@ fn test_read() {
     }
 }
 #[test]
-fn test_fuzzy_keywords() {
-    let exact: String = "nuclear-nonproliferation".into();
-    let misspelled: String = "cyb".into();
-    assert_eq!(resolve_keyword(exact.clone()), Some(exact));
-    assert_eq!(resolve_keyword(misspelled), Some("cyber".into()));
-    assert_eq!(resolve_keyword("machine-learn".into()), Some("machine-learning".into()));
-    assert_eq!(resolve_keyword("Automation".into()), Some("automation".into()));
-}
-#[test]
 fn test_fuzzy_sponsors() {
     assert_eq!(resolve_sponsor("ORNL".into()), Some("Oak Ridge National Laboratory".into()));
     assert_eq!(resolve_sponsor("Dept of Energy".into()), Some("Department of Energy".into()));
@@ -60,18 +51,30 @@ fn test_fuzzy_sponsors() {
     assert_eq!(resolve_sponsor("darpa".into()), Some("Defense Advanced Research Projects Agency".into()));
 }
 #[test]
-fn test_fuzzy_technologies() {
-    assert_eq!(resolve_technology("astro".into()), Some("astro".into()));
-    assert_eq!(resolve_technology("React.js".into()), Some("react".into()));
-    assert_eq!(resolve_technology("ReactJS".into()), Some("react".into()));
-    assert_eq!(resolve_technology("react".into()), Some("react".into()));
-    assert_eq!(resolve_technology("rs".into()), Some("rust".into()));
-    assert_eq!(resolve_technology("Geospatial Data Abstraction Lib".into()), Some("gdal".into()));
-    assert_eq!(resolve_technology("node.js".into()), Some("javascript".into()));
-    assert_eq!(resolve_technology("js".into()), Some("javascript".into()));
-    assert_eq!(resolve_technology("language::JavaScript".into()), Some("javascript".into()));
-    assert_eq!(resolve_technology("foobarbaz".into()), None);
-    assert_eq!(resolve_technology("".into()), None);
+fn test_resolve_from_csv() {
+    let name = "keywords".to_string();
+    let exact: String = "nuclear-nonproliferation".into();
+    let misspelled: String = "cyb".into();
+    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv(name.clone(), misspelled), Some("cyber".into()));
+    assert_eq!(resolve_from_csv(name.clone(), "machine-learn".into()), Some("machine-learning".into()));
+    assert_eq!(resolve_from_csv(name.clone(), "Automation".into()), Some("automation".into()));
+    let name = "technology".to_string();
+    let exact: String = "react".into();
+    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv(name.clone(), "astro".into()), Some("astro".into()));
+    assert_eq!(resolve_from_csv(name.clone(), "React.js".into()), Some("react".into()));
+    assert_eq!(resolve_from_csv(name.clone(), "ReactJS".into()), Some("react".into()));
+    assert_eq!(resolve_from_csv(name.clone(), "rs".into()), Some("rust".into()));
+    assert_eq!(
+        resolve_from_csv(name.clone(), "Geospatial Data Abstraction Lib".into()),
+        Some("gdal".into())
+    );
+    assert_eq!(resolve_from_csv(name.clone(), "node.js".into()), Some("javascript".into()));
+    assert_eq!(resolve_from_csv(name.clone(), "js".into()), Some("javascript".into()));
+    assert_eq!(resolve_from_csv(name.clone(), "language::JavaScript".into()), Some("javascript".into()));
+    assert_eq!(resolve_from_csv(name.clone(), "foobarbaz".into()), None);
+    assert_eq!(resolve_from_csv(name.clone(), "".into()), None);
 }
 #[test]
 fn test_validate_attribute_areas() {

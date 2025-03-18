@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::PathBuf;
 use std::result::Result;
+use titlecase::Titlecase;
 use tracing::{debug, error, info, trace};
 use validator::{Validate, ValidationErrorsKind};
 
@@ -485,9 +486,19 @@ impl ResearchActivity {
     }
     fn resolve(self, name: FuzzyValue) -> Vec<String> {
         let mut data: Vec<_> = match name {
-            | FuzzyValue::Keyword => self.meta.keywords.into_iter().flat_map(resolve_keyword).collect(),
+            | FuzzyValue::Keyword => self
+                .meta
+                .keywords
+                .into_iter()
+                .flat_map(|x| resolve_from_csv("keywords".to_string(), x))
+                .collect(),
             | FuzzyValue::Sponsor => self.meta.sponsors.into_iter().flat_map(resolve_sponsor).collect(),
-            | FuzzyValue::Technology => self.meta.technology.into_iter().flat_map(resolve_technology).collect(),
+            | FuzzyValue::Technology => self
+                .meta
+                .technology
+                .into_iter()
+                .flat_map(|x| resolve_from_csv("technology".to_string(), x))
+                .collect(),
             | FuzzyValue::Division => vec![],
         };
         data.sort();
@@ -586,28 +597,6 @@ impl ResearchActivity {
         }
     }
 }
-fn resolve_keyword(value: String) -> Option<String> {
-    let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
-    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-    let output = pattern
-        .match_list(Constant::read_lines("keywords.txt"), &mut matcher)
-        .first()
-        .map(|(x, _)| x.to_string());
-    let label = "Keyword";
-    match output.clone() {
-        | Some(resolved) => {
-            if resolved.eq(&value.to_string()) {
-                trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
-            } else {
-                debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
-            }
-        }
-        | None => {
-            debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
-        }
-    };
-    output
-}
 fn resolve_organization(value: String) -> Option<String> {
     let data = Organization::load()[0]
         .get_all_name_pairs()
@@ -677,8 +666,8 @@ fn resolve_sponsor(value: String) -> Option<String> {
     };
     output
 }
-fn resolve_technology(value: String) -> Option<String> {
-    let output = Constant::csv("technology.csv")
+fn resolve_from_csv(name: String, value: String) -> Option<String> {
+    let output = Constant::csv(format!("{}.csv", name).as_str())
         .into_iter()
         .flat_map(|values| {
             let sanitized = sanitize(value.clone());
@@ -702,7 +691,7 @@ fn resolve_technology(value: String) -> Option<String> {
         })
         .max_by_key(|(_, score)| *score)
         .map(|(x, _)| x.to_string());
-    let label = "Technology";
+    let label = name.titlecase();
     match output.clone() {
         | Some(resolved) => {
             if resolved.eq(&value.to_string()) {
