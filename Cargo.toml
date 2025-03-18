@@ -46,6 +46,4 @@ uriparse = "0.6.4"
 
 [workspace.metadata.cross.build]
 default-target = "x86_64-unknown-linux-gnu"
-
-[profile.release]
-debug = true
+debug-assertions = true
