@@ -4,17 +4,29 @@ resolver = "2"
 
 [workspace.package]
 version = "0.0.4"
+license-file = "LICENSE"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
-description = "Accessible Content Organization for Research Needs"
+description = "Accessible Content Optimization for Research Needs - Multi-tool for validating and generating research content"
 documentation = "https://acorn.ornl.gov"
 readme = "README.md"
 homepage = "https://acorn.ornl.gov"
 repository = "https://code.ornl.gov/research-enablement/acorn"
+keywords = ["research", "automation"]
+build = "build.rs"
+exclude = [".vale", ".vscode"]
+
+[workspace.lints.clippy]
+# cargo = "warn"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+rust-2018-idioms = "warn"
+
 
 [workspace.dependencies]
 color-eyre = "0.6.3"
 data-encoding = "2.7.0"
-derive_more = { version = "1.0.0", features = ["display", "from_str"] }
+derive_more = { version = "2.0.1", features = ["display", "from_str"] }
 exitcode = "1.1.2"
 glob = "0.3.1"
 indicatif = "0.17.11"

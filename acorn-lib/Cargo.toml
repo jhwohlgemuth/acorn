@@ -1,10 +1,21 @@
 [package]
-name = "acorn-lib"
-version.workspace = true
-authors.workspace = true
-description.workspace = true
-documentation.workspace = true
 edition = "2021"
+name = "acorn-lib"
+readme = "README.md"
+description = "ACORN utility library"
+repository = "https://code.ornl.gov/research-enablement/acorn"
+categories = [
+  "command-line-utilities",
+  "data-structures",
+  "development-tools",
+  "parsing",
+  "science",
+]
+authors.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+license-file.workspace = true
+version.workspace = true
 
 [features]
 default = ["cli"]
@@ -23,7 +34,7 @@ duct = "0.13.7"
 eserde = { version = "0.1.2", features = ["json"] }
 fancy-regex = "0.14.0"
 flate2 = "1.0.35"
-human-units = "0.2.0"
+human-units = "0.3.0"
 is_executable = "1.0.4"
 nucleo-matcher = "0.3.1"
 percy-dom = "0.10.0"
@@ -60,5 +71,5 @@ titlecase = "3.4.0"
 assert_cmd = "2.0.16"
 pretty_assertions = "1.4.1"
 
-[lints.rust]
-unsafe_code = "forbid"
+[lints]
+workspace = true

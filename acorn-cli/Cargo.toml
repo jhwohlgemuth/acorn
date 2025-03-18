@@ -1,10 +1,15 @@
 [package]
-name = "acorn-cli"
-version.workspace = true
-authors.workspace = true
-description.workspace = true
-documentation.workspace = true
 edition = "2021"
+name = "acorn-cli"
+readme = "README.md"
+description = "ACORN command line interface"
+repository = "https://code.ornl.gov/research-enablement/acorn"
+categories = ["command-line-interface", "science"]
+authors.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+license-file.workspace = true
+version.workspace = true
 
 [dependencies]
 acorn-lib = { path = "../acorn-lib", features = ["cli"] }
@@ -37,5 +42,5 @@ uriparse = { workspace = true }
 assert_cmd = "2.0.16"
 pretty_assertions = "1.4.1"
 
-[lints.rust]
-unsafe_code = "forbid"
+[lints]
+workspace = true
