@@ -11,6 +11,9 @@ keywords.workspace = true
 license-file.workspace = true
 version.workspace = true
 
+[badges]
+maintenance = { status = "actively-developed" }
+
 [dependencies]
 acorn-lib = { path = "../acorn-lib", features = ["cli"] }
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }

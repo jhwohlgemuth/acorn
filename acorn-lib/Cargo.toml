@@ -17,6 +17,9 @@ keywords.workspace = true
 license-file.workspace = true
 version.workspace = true
 
+[badges]
+maintenance = { status = "actively-developed" }
+
 [features]
 default = ["cli"]
 cli = []
