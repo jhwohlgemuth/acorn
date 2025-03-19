@@ -437,6 +437,24 @@ impl ResearchActivity {
             })
             .sum()
     }
+    pub fn copy(self) -> ResearchActivity {
+        let ResearchActivity {
+            meta,
+            title,
+            subtitle,
+            sections,
+            contact,
+            notes,
+        } = self.clone();
+        ResearchActivity::init()
+            .meta(meta)
+            .title(title)
+            .maybe_subtitle(subtitle)
+            .sections(sections)
+            .contact(contact)
+            .maybe_notes(notes)
+            .build()
+    }
     pub fn extract_prose(self) -> String {
         let sections = match self.sections {
             | Sections::Highlight(HighlightSections {
@@ -506,7 +524,7 @@ impl ResearchActivity {
         data.dedup();
         data
     }
-    pub fn format(mut self, path: Option<PathBuf>) -> ResearchActivity {
+    pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
         let path = match path {
             | Some(value) => value,
             | None => PathBuf::from("."),
@@ -540,15 +558,16 @@ impl ResearchActivity {
                 caption: "".to_string(),
             },
         };
-        self.meta.graphics = Some(vec![first_graphic]);
-        self.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
-        self.meta.sponsors = self.clone().resolve(FuzzyValue::Sponsor);
-        self.meta.technology = self.clone().resolve(FuzzyValue::Technology);
-        self.contact.organization = match resolve_organization(self.clone().contact.organization) {
+        let mut clone = self.clone().copy();
+        clone.meta.graphics = Some(vec![first_graphic]);
+        clone.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
+        clone.meta.sponsors = self.clone().resolve(FuzzyValue::Sponsor);
+        clone.meta.technology = self.clone().resolve(FuzzyValue::Technology);
+        clone.contact.organization = match resolve_organization(self.clone().contact.organization) {
             | Some(value) => value,
             | None => "".to_string(),
         };
-        self
+        clone
     }
     pub fn get_errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
         let mut found: Vec<Option<HashMap<String, ValidationErrorsKind>>> = vec![];
@@ -586,10 +605,9 @@ impl ResearchActivity {
         };
         match parsed {
             | Ok(data) => {
-                let parsed = data.format(Some(path.clone()));
                 debug!(path = path.to_str().unwrap(), "=> {}", label);
-                trace!("=> {} Research activity data = {:#?}", label, parsed.dimmed().cyan());
-                Ok(parsed)
+                trace!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
+                Ok(data)
             }
             | Err(err) => {
                 error!(path = path.to_str().unwrap(), "=> {}", label);

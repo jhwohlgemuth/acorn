@@ -7,6 +7,7 @@ use owo_colors::{OwoColorize, Style, Styled};
 use ring::digest::{Context, SHA256};
 use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
+use similar::{ChangeTag, TextDiff};
 use std::error::Error;
 use std::fs::File;
 use std::io::copy;
@@ -131,6 +132,10 @@ impl Label {
     pub const CAUTION: Emoji<'_, '_> = Emoji("⚠️ ", "!!! ");
     pub const CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
     pub const PROGRESS_BAR_TEMPLATE: &str = "  {spinner:.green}{pos:>5} of{len:^5}[{bar:40.green}] {msg}";
+    pub fn dry_run() -> Styled<&'static &'static str> {
+        let style = Style::new().black().on_yellow();
+        " DRY_RUN ■ ".style(style)
+    }
     pub fn invalid() -> String {
         Label::fmt_invalid("INVALID")
     }
@@ -352,6 +357,22 @@ pub fn path_to_string(path: PathBuf) -> String {
         | Err(_) => path,
     };
     result.to_str().unwrap().to_string()
+}
+pub fn print_changes(old: &str, new: &str) {
+    let diff = TextDiff::from_lines(old, new);
+    for line in diff.iter_all_changes() {
+        let sign = match line.tag() {
+            | ChangeTag::Delete => "-".red().to_string(),
+            | ChangeTag::Insert => "+".green().to_string(),
+            | ChangeTag::Equal => " ".dimmed().to_string(),
+        };
+        let change = match line.tag() {
+            | ChangeTag::Delete => line.red().to_string(),
+            | ChangeTag::Insert => line.green().to_string(),
+            | ChangeTag::Equal => line.dimmed().to_string(),
+        };
+        print!("{} {}", sign, change);
+    }
 }
 pub fn read_file(path: PathBuf) -> Result<String, Box<dyn Error>> {
     let mut content = String::new();

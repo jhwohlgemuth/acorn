@@ -69,6 +69,7 @@ tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 uriparse = { workspace = true }
 titlecase = "3.4.0"
+similar = "2.7.0"
 
 [dev-dependencies]
 assert_cmd = "2.0.16"

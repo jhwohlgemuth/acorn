@@ -24,7 +24,6 @@ dotenvy = "0.15.0"
 fast_qr = { version = "0.12.7", features = ["image"] }
 percy-dom = "0.10.0"
 playwright = "0.0.20"
-similar = "2.7.0"
 color-eyre = { workspace = true }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
