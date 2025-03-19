@@ -205,7 +205,8 @@ pub struct Organization {
     pub children: Vec<Organization>,
 }
 // TODO: Trim whitespace with desaerialize_with derive - https://serde.rs/impl-serialize.html
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate)]
+#[builder(start_fn = init)]
 pub struct ResearchActivity {
     #[validate(nested)]
     pub meta: Metadata,

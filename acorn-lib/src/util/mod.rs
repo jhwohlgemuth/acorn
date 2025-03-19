@@ -19,6 +19,7 @@ use which::which;
 #[cfg(feature = "cli")]
 pub mod cli {
 
+    use bon::Builder;
     use clap::ValueEnum;
     use derive_more::Display;
     use serde::Serialize;
@@ -78,7 +79,7 @@ pub mod cli {
         #[display("poster")]
         Poster,
     }
-    #[derive(Clone, bon::Builder, Debug)]
+    #[derive(Builder, Clone, Debug)]
     #[builder(start_fn = init)]
     pub struct Options {
         pub path: Option<PathBuf>,
