@@ -7,7 +7,7 @@ use owo_colors::{OwoColorize, Style, Styled};
 use ring::digest::{Context, SHA256};
 use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
-use similar::{ChangeTag, TextDiff};
+use similar::{ChangeTag::{self, Delete, Equal, Insert}, TextDiff};
 use std::error::Error;
 use std::fs::File;
 use std::io::copy;
@@ -358,20 +358,29 @@ pub fn path_to_string(path: PathBuf) -> String {
     };
     result.to_str().unwrap().to_string()
 }
+pub fn get_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
+    TextDiff::from_lines(old, new)
+        .iter_all_changes()
+        .map(|line| {
+            let tag = line.tag();
+            let text = match tag {
+                | Delete => format!("- {}", line).red().to_string(),
+                | Insert => format!("+ {}", line).green().to_string(),
+                | Equal => format!("  {}", line).dimmed().to_string(),
+            };
+            (tag, text)
+        })
+        .collect::<Vec<_>>()
+}
 pub fn print_changes(old: &str, new: &str) {
-    let diff = TextDiff::from_lines(old, new);
-    for line in diff.iter_all_changes() {
-        let sign = match line.tag() {
-            | ChangeTag::Delete => "-".red().to_string(),
-            | ChangeTag::Insert => "+".green().to_string(),
-            | ChangeTag::Equal => " ".dimmed().to_string(),
-        };
-        let change = match line.tag() {
-            | ChangeTag::Delete => line.red().to_string(),
-            | ChangeTag::Insert => line.green().to_string(),
-            | ChangeTag::Equal => line.dimmed().to_string(),
-        };
-        print!("{} {}", sign, change);
+    let changes = get_changes(old, new);
+    let has_no_changes = changes.clone().into_iter().all(|(tag, _)| tag == Equal);
+    if has_no_changes {
+        debug!("=> {}No format changes", Label::skip());
+    } else {
+        for change in changes {
+            print!("{}", change.1);
+        }
     }
 }
 pub fn read_file(path: PathBuf) -> Result<String, Box<dyn Error>> {

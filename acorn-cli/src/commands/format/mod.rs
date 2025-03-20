@@ -18,7 +18,7 @@ pub fn run(path: &Option<PathBuf>, dry_run: bool, verbose: &Verbosity) -> Result
                 let old_content = serde_json::to_string_pretty(&data.clone()).unwrap();
                 let new_content = serde_json::to_string_pretty(&data.clone().format(Some(path.clone()))).unwrap();
                 if dry_run {
-                    println!("=> {} Formatting {}", Label::dry_run(), path_to_string(path.clone()).yellow());
+                    println!("{} Format {}", Label::dry_run(), path_to_string(path.clone()).yellow());
                 }
                 if dry_run || verbose.log_level().unwrap() > Level::Error {
                     print_changes(&old_content, &new_content);
