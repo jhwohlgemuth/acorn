@@ -7,7 +7,10 @@ use owo_colors::{OwoColorize, Style, Styled};
 use ring::digest::{Context, SHA256};
 use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
-use similar::{ChangeTag::{self, Delete, Equal, Insert}, TextDiff};
+use similar::{
+    ChangeTag::{self, Delete, Equal, Insert},
+    TextDiff,
+};
 use std::error::Error;
 use std::fs::File;
 use std::io::copy;

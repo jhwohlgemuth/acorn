@@ -26,26 +26,19 @@ percy-dom = "0.10.0"
 playwright = "0.0.20"
 color-eyre = { workspace = true }
 data-encoding = { workspace = true }
-derive_more = { workspace = true }
 exitcode = { workspace = true }
-glob = { workspace = true }
 indicatif = { workspace = true }
-lazy_static = { workspace = true }
 owo-colors = { workspace = true }
 rayon = { workspace = true }
 rust-embed = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-indicatif.workspace = true
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
-uriparse = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = "2.0.16"
-pretty_assertions = "1.4.1"
 
 [lints]
 workspace = true
