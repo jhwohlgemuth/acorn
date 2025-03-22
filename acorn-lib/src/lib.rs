@@ -261,3 +261,6 @@ impl GitlabTreeEntry {
         self.entry_type.eq(&EntryType::Blob)
     }
 }
+
+#[cfg(test)]
+mod tests;
