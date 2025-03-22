@@ -1,25 +1,28 @@
 {
     "buckets": [
         {
-            "id": 17410,
-            "parent": "nssd",
-            "provider": "gitlab",
-            "type": "project",
-            "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
+            "name": "bessd",
+            "repository": {
+                "provider": "gitlab",
+                "id": 17603,
+                "uri": "https://code.ornl.gov/research-enablement/buckets/bessd"
+            }
         },
         {
-            "id": 17410,
-            "parent": "nssd",
-            "provider": "gitlab",
-            "type": "organization",
-            "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
+            "name": "ccsd",
+            "repository": {
+                "provider": "gitlab",
+                "id": 17602,
+                "uri": "https://code.ornl.gov/research-enablement/buckets/ccsd"
+            }
         },
         {
-            "id": 17410,
-            "parent": "nssd",
-            "provider": "gitlab",
-            "type": "highlight",
-            "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
+            "name": "nssd",
+            "repository": {
+                "provider": "gitlab",
+                "id": 17410,
+                "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
+            }
         }
     ]
 }

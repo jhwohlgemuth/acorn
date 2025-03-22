@@ -5,19 +5,39 @@ const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
 fn test_bucket_config() {
-    let path = PathBuf::from(FIXTURES).join("buckets.json");
+    let path = PathBuf::from(FIXTURES).join("buckets_with_github.json");
     let config = BucketsConfig::read_json(path).unwrap();
-    assert_eq!(config.buckets.len(), 3);
+    assert_eq!(config.buckets.len(), 4);
 }
 
 #[test]
 fn test_bucket() {
     let bucket: Bucket = Bucket {
-        id: 1234,
-        parent: "nssd".to_string(),
-        provider: Provider::GitLab,
-        schema_type: SchemaType::Project,
-        uri: "https://code.ornl.gov/research-enablement/buckets/nssd".to_string(),
+        name: "nssd".to_string(),
+        repository: Repository::GitLab {
+            id: 1234,
+            uri: "https://code.ornl.gov/research-enablement/buckets/nssd".to_string(),
+        },
     };
     assert_eq!(bucket.get_domain(), "code.ornl.gov".to_string());
+    let bucket: Bucket = Bucket {
+        name: "nssd".to_string(),
+        repository: Repository::GitHub {
+            uri: "https://code.ornl.gov/research-enablement/buckets/nssd".to_string(),
+        },
+    };
+    assert_eq!(bucket.get_domain(), "code.ornl.gov".to_string());
+}
+
+#[test]
+fn test_gitlab_tree_entry() {
+    let entry = GitlabTreeEntry {
+        id: 1234.to_string(),
+        name: "acorn".to_string(),
+        entry_type: EntryType::Tree,
+        path: "acorn".to_string(),
+        mode: "example".to_string(),
+    };
+    assert!(!entry.is_blob());
+    assert_eq!(entry.get_path(), "acorn".to_string());
 }

@@ -1,6 +1,7 @@
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
+// Base URL for deploying ORNL data
 pub const BASE_URL: &str = "https://research.ornl.gov";
 // ORNL brand colors
 // https://www.olcf.ornl.gov/about-olcf/media-assets/

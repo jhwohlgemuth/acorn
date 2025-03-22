@@ -23,34 +23,33 @@ pub mod util;
 use crate::schema::SchemaType;
 use crate::util::*;
 
-#[derive(Clone, Debug, Display, Serialize, Deserialize)]
+const SCHEMA_TYPES: [SchemaType; 3] = [SchemaType::Project, SchemaType::Organization, SchemaType::Highlight];
+
+#[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 #[serde(rename_all = "lowercase")]
-pub enum Provider {
+pub enum EntryType {
+    #[display("tree")]
+    Tree,
+    #[display("blob")]
+    Blob,
+}
+#[derive(Clone, Debug, Display, Serialize, Deserialize)]
+#[serde(tag = "provider", rename_all = "lowercase")]
+pub enum Repository {
     #[display("github")]
-    GitHub,
+    GitHub { uri: String },
     #[display("gitlab")]
-    GitLab,
+    GitLab { id: u64, uri: String },
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BucketsConfig {
     pub buckets: Vec<Bucket>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Bucket {
-    id: u64,
-    parent: String,
-    provider: Provider,
-    #[serde(alias = "type")]
-    schema_type: SchemaType,
-    uri: String,
-}
-#[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 #[serde(rename_all = "lowercase")]
-enum EntryType {
-    #[display("tree")]
-    Tree,
-    #[display("blob")]
-    Blob,
+pub struct Bucket {
+    name: String,
+    repository: Repository,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GitlabTreeEntry {
@@ -79,20 +78,32 @@ impl Bucket {
         }
     }
     fn get_domain(&self) -> String {
-        match URI::try_from(self.uri.as_str()) {
-            | Ok(uri) => uri.host().unwrap().to_string(),
-            | Err(_) => match self.provider {
-                | Provider::GitHub => "github.com".to_string(),
-                | Provider::GitLab => "gitlab.com".to_string(),
+        fn default_domain(repository: Repository) -> String {
+            match repository {
+                | Repository::GitHub { .. } => "github.com".to_string(),
+                | Repository::GitLab { .. } => "gitlab.com".to_string(),
+            }
+        }
+        match &self.repository {
+            | Repository::GitHub { uri } => match URI::try_from(uri.as_str()) {
+                | Ok(uri) => uri.host().unwrap().to_string(),
+                | Err(_) => default_domain(self.repository.clone()),
+            },
+            | Repository::GitLab { uri, .. } => match URI::try_from(uri.as_str()) {
+                | Ok(uri) => uri.host().unwrap().to_string(),
+                | Err(_) => default_domain(self.repository.clone()),
             },
         }
     }
-    fn get_tree(&self, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
-        let url = self.get_tree_url(page);
+    fn get_tree(&self, schema_type: SchemaType, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
+        let url = self.get_tree_url(schema_type, page);
         reqwest::blocking::get(url)
     }
-    fn get_tree_url(&self, page: u32) -> String {
-        let Self { id, schema_type, .. } = self;
+    fn get_tree_url(&self, schema_type: SchemaType, page: u32) -> String {
+        let id = match &self.repository {
+            | Repository::GitHub { .. } => todo!(),
+            | Repository::GitLab { id, .. } => id.to_string(),
+        };
         let per_page = 100;
         let url = format!(
             "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path={}",
@@ -109,13 +120,13 @@ impl Bucket {
         fn get_suffix(value: usize) -> String {
             (if value == 1 { "" } else { "s" }).to_string()
         }
-        match self.provider {
-            | Provider::GitHub => unimplemented!(),
-            | Provider::GitLab => {
-                info!("=> Downloading {} research data from {}...", self.schema_type, &self.uri);
+        let counts = SCHEMA_TYPES.into_iter().map(|schema_type| match self.repository {
+            | Repository::GitHub { .. } => todo!(),
+            | Repository::GitLab { ref uri, .. } => {
+                info!("=> Downloading {} research data from {}...", schema_type, uri.clone());
                 let paths = self
                     .clone()
-                    .get_file_paths()
+                    .get_file_paths(schema_type.clone())
                     .into_iter()
                     .filter(|path| !path.ends_with(".gitkeep"))
                     .collect::<Vec<String>>();
@@ -123,7 +134,7 @@ impl Bucket {
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 let client = Client::new();
                 paths.par_iter().for_each(|path| {
-                    let url = format!("{}/-/raw/main/{}", self.uri, path);
+                    let url = format!("{}/-/raw/main/{}", uri, path);
                     progress.set_message(format!("Downloading {}", path));
                     let folder = format!("{}/{}", output.display(), get_parent(path.clone()));
                     std::fs::create_dir_all(folder.clone()).unwrap();
@@ -165,20 +176,22 @@ impl Bucket {
                     } else {
                         total.yellow().to_string()
                     },
-                    self.clone().parent.to_uppercase(),
-                    self.clone().schema_type,
+                    self.clone().name.to_uppercase(),
+                    schema_type,
                     get_suffix(total),
                     message,
                 ));
                 total
             }
-        }
+        });
+        counts.into_iter().sum()
     }
     // https://docs.gitlab.com/ee/api/repositories.html
-    fn get_file_paths(self: Bucket) -> Vec<String> {
-        match self.provider {
-            | Provider::GitHub => unimplemented!(),
-            | Provider::GitLab => {
+    fn get_file_paths(self: Bucket, schema_type: SchemaType) -> Vec<String> {
+        const FIRST_PAGE: u32 = 1;
+        match self.repository {
+            | Repository::GitHub { .. } => unimplemented!(),
+            | Repository::GitLab { .. } => {
                 fn get_page_count(response: &reqwest::blocking::Response) -> u32 {
                     fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
                         match headers.get(key) {
@@ -193,19 +206,19 @@ impl Bucket {
                     let headers = response.headers();
                     parse_header(headers, "x-total-pages")
                 }
-                match self.get_tree(1) {
-                    | Ok(response) if response.status().is_success() => (1..=get_page_count(&response))
+                match self.get_tree(schema_type.clone(), FIRST_PAGE) {
+                    | Ok(response) if response.status().is_success() => (FIRST_PAGE..=get_page_count(&response))
                         .into_par_iter()
-                        .map(|page| self.clone().get_file_paths_for_page(page))
+                        .map(|page| self.clone().get_file_paths_for_page(schema_type.clone(), page))
                         .reduce(std::vec::Vec::new, |a, b| [a, b].concat()),
                     | Ok(_) | Err(_) => {
-                        let url = self.get_tree_url(1);
+                        let url = self.get_tree_url(schema_type.clone(), FIRST_PAGE);
                         debug!(url, "=> {}", Label::using());
                         error!(
                             "=> {} Failed to get file paths for {} {} bucket",
                             Label::fail(),
-                            self.parent.to_uppercase().red(),
-                            self.schema_type.red()
+                            self.name.to_uppercase().red(),
+                            schema_type.red()
                         );
                         vec![]
                     }
@@ -213,18 +226,18 @@ impl Bucket {
             }
         }
     }
-    fn get_file_paths_for_page(self: Bucket, page: u32) -> Vec<String> {
-        match self.get_tree(page) {
-            | Ok(response) if response.status().is_success() => match self.get_tree(page) {
+    fn get_file_paths_for_page(self: Bucket, schema_type: SchemaType, page: u32) -> Vec<String> {
+        match self.get_tree(schema_type.clone(), page) {
+            | Ok(response) if response.status().is_success() => match self.get_tree(schema_type.clone(), page) {
                 | Ok(response) if response.status().is_success() => Bucket::parse(response),
                 | Ok(_) | Err(_) => {
-                    let url = self.get_tree_url(1);
+                    let url = self.get_tree_url(schema_type.clone(), 1);
                     error!(url, page, "=> {} Failed to get paths", Label::fail());
                     vec![]
                 }
             },
             | Ok(_) | Err(_) => {
-                let url = self.get_tree_url(page);
+                let url = self.get_tree_url(schema_type, page);
                 error!(url, page, "=> {} Failed to get paths", Label::fail());
                 vec![]
             }
