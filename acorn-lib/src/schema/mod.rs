@@ -23,8 +23,8 @@ use validate::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 pub enum FuzzyValue {
-    #[display("Division")]
-    Division,
+    #[display("Partner")]
+    Partner,
     #[display("Keyword")]
     Keyword,
     #[display("Sponsor")]
@@ -170,8 +170,8 @@ pub struct Metadata {
     /// - University of Tennessee
     /// - IBM
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub partners: Option<Vec<String>>,
+    #[builder(default = Vec::<String>::new())]
+    pub partners: Vec<String>,
     /// ### Organization responsible funding associated research activity data
     #[builder(default = Vec::<String>::new())]
     pub sponsors: Vec<String>,
@@ -511,14 +511,24 @@ impl ResearchActivity {
                 .into_iter()
                 .flat_map(|x| resolve_from_csv("keywords".to_string(), x))
                 .collect(),
-            | FuzzyValue::Sponsor => self.meta.sponsors.into_iter().flat_map(resolve_sponsor).collect(),
+            | FuzzyValue::Partner => self
+                .meta
+                .partners
+                .into_iter()
+                .flat_map(|x| resolve_from_csv("partners".to_string(), x))
+                .collect(),
+            | FuzzyValue::Sponsor => self
+                .meta
+                .sponsors
+                .into_iter()
+                .flat_map(|x| resolve_from_csv("sponsors".to_string(), x))
+                .collect(),
             | FuzzyValue::Technology => self
                 .meta
                 .technology
                 .into_iter()
                 .flat_map(|x| resolve_from_csv("technology".to_string(), x))
                 .collect(),
-            | FuzzyValue::Division => vec![],
         };
         data.sort();
         data.dedup();
@@ -561,6 +571,7 @@ impl ResearchActivity {
         let mut clone = self.clone().copy();
         clone.meta.graphics = Some(vec![first_graphic]);
         clone.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
+        clone.meta.partners = self.clone().resolve(FuzzyValue::Partner);
         clone.meta.sponsors = self.clone().resolve(FuzzyValue::Sponsor);
         clone.meta.technology = self.clone().resolve(FuzzyValue::Technology);
         clone.contact.organization = match resolve_organization(self.clone().contact.organization) {
@@ -616,6 +627,26 @@ impl ResearchActivity {
         }
     }
 }
+fn get_match_list(value: String, values: Vec<String>) -> Vec<(String, u32)> {
+    let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
+    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+    pattern.match_list(values.clone(), &mut matcher)
+}
+fn print_resolution(output: Option<String>, value: String, name: String) {
+    let label = name.titlecase();
+    match output {
+        | Some(resolved) => {
+            if resolved.eq(&value.to_string()) {
+                trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
+            } else {
+                debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
+            }
+        }
+        | None => {
+            debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
+        }
+    };
+}
 fn resolve_organization(value: String) -> Option<String> {
     let data = Organization::load()[0]
         .get_all_name_pairs()
@@ -651,48 +682,12 @@ fn resolve_organization(value: String) -> Option<String> {
     };
     output
 }
-fn resolve_sponsor(value: String) -> Option<String> {
-    let data = Constant::csv("sponsors.csv")
-        .into_iter()
-        .map(|x| (x[0].to_string(), x[1].to_string()))
-        .collect::<HashMap<String, String>>();
-    let value = value.trim().to_string();
-    let sanitized = sanitize(value.clone());
-    let output = match sanitized.len() {
-        | 3..=5 if data.contains_key(&value.to_uppercase()) => data.get(&value.to_uppercase()).cloned(),
-        | _ => {
-            let pattern = Pattern::parse(&sanitized, CaseMatching::Ignore, Normalization::Smart);
-            let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-            let output = pattern
-                .match_list(data.clone().into_values().collect::<Vec<String>>(), &mut matcher)
-                .first()
-                .map(|(x, _)| x.to_string());
-            output
-        }
-    };
-    let label = "Sponsor";
-    match output.clone() {
-        | Some(resolved) => {
-            if resolved.eq(&value.to_string()) {
-                trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
-            } else {
-                debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
-            }
-        }
-        | None => {
-            debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
-        }
-    };
-    output
-}
 fn resolve_from_csv(name: String, value: String) -> Option<String> {
     let output = Constant::csv(format!("{}.csv", name).as_str())
         .into_iter()
         .flat_map(|values| {
             let sanitized = sanitize(value.clone());
-            let pattern = Pattern::parse(&sanitized, CaseMatching::Ignore, Normalization::Smart);
-            let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-            let matched = pattern.match_list(values.clone(), &mut matcher);
+            let matched = get_match_list(sanitized, values.clone());
             if matched.clone().is_empty() {
                 None
             } else {
@@ -710,19 +705,8 @@ fn resolve_from_csv(name: String, value: String) -> Option<String> {
         })
         .max_by_key(|(_, score)| *score)
         .map(|(x, _)| x.to_string());
-    let label = name.titlecase();
-    match output.clone() {
-        | Some(resolved) => {
-            if resolved.eq(&value.to_string()) {
-                trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
-            } else {
-                debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
-            }
-        }
-        | None => {
-            debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
-        }
-    };
+
+    print_resolution(output.clone(), value, name);
     output
 }
 fn sanitize(value: String) -> String {

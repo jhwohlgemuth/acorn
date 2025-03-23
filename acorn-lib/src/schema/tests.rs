@@ -42,16 +42,10 @@ fn test_read() {
     }
 }
 #[test]
-fn test_fuzzy_sponsors() {
-    assert_eq!(resolve_sponsor("ORNL".into()), Some("Oak Ridge National Laboratory".into()));
-    assert_eq!(resolve_sponsor("Dept of Energy".into()), Some("Department of Energy".into()));
-    assert_eq!(resolve_sponsor("Dept. of Energy".into()), Some("Department of Energy".into()));
-    assert_eq!(resolve_sponsor("DHS ".into()), Some("Department of Homeland Security".into()));
-    assert_eq!(resolve_sponsor(" epa".into()), Some("Environmental Protection Agency".into()));
-    assert_eq!(resolve_sponsor("darpa".into()), Some("Defense Advanced Research Projects Agency".into()));
-}
-#[test]
 fn test_resolve_from_csv() {
+    //
+    // Keywords
+    //
     let name = "keywords".to_string();
     let exact: String = "nuclear-nonproliferation".into();
     let misspelled: String = "cyb".into();
@@ -59,6 +53,29 @@ fn test_resolve_from_csv() {
     assert_eq!(resolve_from_csv(name.clone(), misspelled), Some("cyber".into()));
     assert_eq!(resolve_from_csv(name.clone(), "machine-learn".into()), Some("machine-learning".into()));
     assert_eq!(resolve_from_csv(name.clone(), "Automation".into()), Some("automation".into()));
+    //
+    // Sponsors
+    //
+    let name = "sponsors".to_string();
+    let exact: String = "Oak Ridge National Laboratory".into();
+    assert_eq!(resolve_from_csv(name.clone(), "ORNL".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Department of Energy".into();
+    assert_eq!(resolve_from_csv(name.clone(), "Dept of Energy".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv(name.clone(), "Dept. of Energy".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Department of Homeland Security".into();
+    assert_eq!(resolve_from_csv(name.clone(), "DHS".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Environmental Protection Agency".into();
+    assert_eq!(resolve_from_csv(name.clone(), " epa".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Defense Advanced Research Projects Agency".into();
+    assert_eq!(resolve_from_csv(name.clone(), "darpa".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    //
+    // Technology
+    //
     let name = "technology".to_string();
     let exact: String = "react".into();
     assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));

@@ -9,7 +9,6 @@ fn test_bucket_config() {
     let config = BucketsConfig::read_json(path).unwrap();
     assert_eq!(config.buckets.len(), 4);
 }
-
 #[test]
 fn test_bucket() {
     let bucket: Bucket = Bucket {
@@ -28,7 +27,6 @@ fn test_bucket() {
     };
     assert_eq!(bucket.get_domain(), "code.ornl.gov".to_string());
 }
-
 #[test]
 fn test_gitlab_tree_entry() {
     let entry = GitlabTreeEntry {
