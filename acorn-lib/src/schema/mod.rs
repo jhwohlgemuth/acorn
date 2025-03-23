@@ -23,13 +23,13 @@ use validate::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 pub enum FuzzyValue {
-    #[display("Partner")]
+    #[display("partners")]
     Partner,
-    #[display("Keyword")]
+    #[display("keywords")]
     Keyword,
-    #[display("Sponsor")]
+    #[display("sponsors")]
     Sponsor,
-    #[display("Technology")]
+    #[display("technology")]
     Technology,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -170,11 +170,11 @@ pub struct Metadata {
     /// - University of Tennessee
     /// - IBM
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
-    #[builder(default = Vec::<String>::new())]
-    pub partners: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partners: Option<Vec<String>>,
     /// ### Organization responsible funding associated research activity data
-    #[builder(default = Vec::<String>::new())]
-    pub sponsors: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sponsors: Option<Vec<String>>,
     /// ### Words related to the associated research activity data
     ///
     /// Could be used to filter research activity data and/or power data analytics
@@ -192,6 +192,8 @@ pub struct Metadata {
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/technology.csv">Full list of technologies</a></div>
     #[builder(default = Vec::<String>::new())]
     pub technology: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub related: Option<Vec<String>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
 #[display("Organization ({additional_type}) - {name} ({alternative_name})")]
@@ -503,33 +505,20 @@ impl ResearchActivity {
             | None => sections.to_string(),
         }
     }
-    fn resolve(self, name: FuzzyValue) -> Vec<String> {
-        let mut data: Vec<_> = match name {
-            | FuzzyValue::Keyword => self
-                .meta
-                .keywords
-                .into_iter()
-                .flat_map(|x| resolve_from_csv("keywords".to_string(), x))
-                .collect(),
-            | FuzzyValue::Partner => self
-                .meta
-                .partners
-                .into_iter()
-                .flat_map(|x| resolve_from_csv("partners".to_string(), x))
-                .collect(),
-            | FuzzyValue::Sponsor => self
-                .meta
-                .sponsors
-                .into_iter()
-                .flat_map(|x| resolve_from_csv("sponsors".to_string(), x))
-                .collect(),
-            | FuzzyValue::Technology => self
-                .meta
-                .technology
-                .into_iter()
-                .flat_map(|x| resolve_from_csv("technology".to_string(), x))
-                .collect(),
+    fn resolve(self, value_type: FuzzyValue) -> Vec<String> {
+        let values: Vec<_> = match value_type {
+            | FuzzyValue::Keyword => self.meta.keywords,
+            | FuzzyValue::Partner => match self.meta.partners {
+                | Some(values) => values,
+                | None => vec![],
+            },
+            | FuzzyValue::Sponsor => match self.meta.sponsors {
+                | Some(values) => values,
+                | None => vec![],
+            },
+            | FuzzyValue::Technology => self.meta.technology,
         };
+        let mut data: Vec<_> = values.into_iter().flat_map(|x| resolve_from_csv(format!("{}", value_type), x)).collect();
         data.sort();
         data.dedup();
         data
@@ -571,8 +560,8 @@ impl ResearchActivity {
         let mut clone = self.clone().copy();
         clone.meta.graphics = Some(vec![first_graphic]);
         clone.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
-        clone.meta.partners = self.clone().resolve(FuzzyValue::Partner);
-        clone.meta.sponsors = self.clone().resolve(FuzzyValue::Sponsor);
+        clone.meta.partners = Some(self.clone().resolve(FuzzyValue::Partner));
+        clone.meta.sponsors = Some(self.clone().resolve(FuzzyValue::Sponsor));
         clone.meta.technology = self.clone().resolve(FuzzyValue::Technology);
         clone.contact.organization = match resolve_organization(self.clone().contact.organization) {
             | Some(value) => value,
