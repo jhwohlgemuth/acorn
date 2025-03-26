@@ -21,7 +21,6 @@ exclude = [".vale", ".vscode"]
 unsafe_code = "forbid"
 rust-2018-idioms = "warn"
 
-
 [workspace.dependencies]
 color-eyre = "0.6.3"
 data-encoding = "2.7.0"

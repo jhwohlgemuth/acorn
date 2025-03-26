@@ -35,7 +35,8 @@ version:
 # Variables
 #
 VERSION = `awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
-DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cross.toml | tr . _`
+# DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cross.toml | tr . _`
+DEFAULT_TARGET = x86_64-unknown-linux-gnu
 TARGETS = \
 	i586-unknown-linux-musl \
 	i686-unknown-linux-gnu \
