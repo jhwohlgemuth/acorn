@@ -129,6 +129,13 @@
                         "additionalType": "facility",
                         "keywords": [],
                         "children": []
+                    },
+                    {
+                        "name": "Water Power Program",
+                        "alternativeName": "WPP",
+                        "additionalType": "program",
+                        "keywords": [],
+                        "children": []
                     }
 
                 ]
