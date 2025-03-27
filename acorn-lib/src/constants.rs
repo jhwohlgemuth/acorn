@@ -17,12 +17,32 @@ pub const QUALIFIER: &str = "org";
 // Schema defaults
 pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 // Validation
+/// Maximum number of characters for a single area description
 pub const MAX_LENGTH_AREA: usize = 40;
+/// Maximum number of characters for a single capability description
 pub const MAX_LENGTH_CAPABILIY: usize = 300;
+/// Maximum number of characters for a single facility description
 pub const MAX_LENGTH_FACILITY: usize = 40;
+/// Maximum number of characters for a single facility description
+pub const MAX_LENGTH_GRAPHIC_CAPTION: u64 = 250;
+/// Maximum number of characters for a single impact description
 pub const MAX_LENGTH_IMPACT: usize = 400;
-pub const MAX_LENGTH_TECHNICAL: usize = 100;
+/// Maximum number of characters for a single outcome description
 pub const MAX_LENGTH_OUTCOME: usize = 150;
+/// Maximum number of characters for an single research focus description
+pub const MAX_LENGTH_RESEARCH_FOCUS: u64 = 150;
+/// Maximum number of characters for an introduction section
+pub const MAX_LENGTH_SECTION_INTRODUCTION: u64 = 250;
+/// Maximum number of characters for a challenge section
+pub const MAX_LENGTH_SECTION_CHALLENGE: u64 = 500;
+/// Maximum number of characters for an approach section
+pub const MAX_LENGTH_SECTION_APPROACH: u64 = 600;
+/// Maximum number of characters for a subtitle
+pub const MAX_LENGTH_SUBTITLE: u64 = 50;
+/// Maximum number of characters for a single technical approach description
+pub const MAX_LENGTH_TECHNICAL: usize = 100;
+/// Maximum number of characters for a title
+pub const MAX_LENGTH_TITLE: u64 = 50;
 
 lazy_static! {
     // Regular expressions

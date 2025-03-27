@@ -288,6 +288,20 @@ pub fn get_all_files(path: PathBuf, extension: Option<String>) -> Vec<PathBuf> {
         vec![path]
     }
 }
+pub fn get_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
+    TextDiff::from_lines(old, new)
+        .iter_all_changes()
+        .map(|line| {
+            let tag = line.tag();
+            let text = match tag {
+                | Delete => format!("- {}", line).red().to_string(),
+                | Insert => format!("+ {}", line).green().to_string(),
+                | Equal => format!("  {}", line).dimmed().to_string(),
+            };
+            (tag, text)
+        })
+        .collect::<Vec<_>>()
+}
 // Get SHA256 hash of a file
 // https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html
 pub fn get_checksum(path: PathBuf) -> String {
@@ -360,20 +374,6 @@ pub fn path_to_string(path: PathBuf) -> String {
         | Err(_) => path,
     };
     result.to_str().unwrap().to_string()
-}
-pub fn get_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
-    TextDiff::from_lines(old, new)
-        .iter_all_changes()
-        .map(|line| {
-            let tag = line.tag();
-            let text = match tag {
-                | Delete => format!("- {}", line).red().to_string(),
-                | Insert => format!("+ {}", line).green().to_string(),
-                | Equal => format!("  {}", line).dimmed().to_string(),
-            };
-            (tag, text)
-        })
-        .collect::<Vec<_>>()
 }
 pub fn print_changes(old: &str, new: &str) {
     let changes = get_changes(old, new);

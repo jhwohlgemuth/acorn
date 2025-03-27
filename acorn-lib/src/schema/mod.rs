@@ -106,7 +106,7 @@ pub struct Notes {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Graphic {
-    #[validate(length(max = 250, message = "Caption is too long, please reduce the length below 250."))]
+    #[validate(length(max = "MAX_LENGTH_GRAPHIC_CAPTION", message = "Caption is too long, please reduce the length below 250."))]
     pub caption: String,
     // TODO: Add validation for image extension
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -200,6 +200,9 @@ pub struct Metadata {
 #[serde(rename_all = "camelCase")]
 pub struct Organization {
     pub name: String,
+    /// ### Research Organization Registry
+    ///
+    /// See <https://www.ror.org/> for more information
     pub ror: Option<String>,
     pub alternative_name: String,
     pub additional_type: OrganizationType,
@@ -212,9 +215,9 @@ pub struct Organization {
 pub struct ResearchActivity {
     #[validate(nested)]
     pub meta: Metadata,
-    #[validate(length(min = 4, max = 50))]
+    #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
     pub title: String,
-    #[validate(length(max = 100, message = "Subtitle is too long, please reduce the length below 75."))]
+    #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 100."))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subtitle: Option<String>,
     pub sections: Sections,
@@ -263,11 +266,23 @@ pub struct HighlightSections {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ProjectSections {
-    #[validate(length(min = 10, max = 250, message = "Introduction is too long, please reduce the length below 250."))]
+    #[validate(length(
+        min = 10,
+        max = "MAX_LENGTH_SECTION_INTRODUCTION",
+        message = "Introduction is too long, please reduce the length below 250."
+    ))]
     pub introduction: String,
-    #[validate(length(min = 10, max = 500, message = "Challenge is too long, please reduce the length below 500."))]
+    #[validate(length(
+        min = 10,
+        max = "MAX_LENGTH_SECTION_CHALLENGE",
+        message = "Challenge is too long, please reduce the length below 500."
+    ))]
     pub challenge: String,
-    #[validate(length(min = 10, max = 600, message = "Approach is too long, please reduce the length below 600."))]
+    #[validate(length(
+        min = 10,
+        max = "MAX_LENGTH_SECTION_APPROACH",
+        message = "Approach is too long, please reduce the length below 600."
+    ))]
     pub approach: String,
     #[validate(length(min = 1), custom(function = "validate_attribute_outcomes"))]
     pub outcomes: Vec<String>,
@@ -276,7 +291,11 @@ pub struct ProjectSections {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct OrganizationSections {
-    #[validate(length(min = 10, max = 250, message = "Mission is too long, please reduce the length below 250."))]
+    #[validate(length(
+        min = 10,
+        max = "MAX_LENGTH_SECTION_INTRODUCTION",
+        message = "Mission is too long, please reduce the length below 250."
+    ))]
     pub mission: String,
     #[validate(length(min = 1), custom(function = "validate_attribute_capabilities"))]
     pub capabilities: Vec<String>,
@@ -287,7 +306,11 @@ pub struct OrganizationSections {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Research {
-    #[validate(length(min = 10, max = 150, message = "Focus is too long, please reduce the length below 150."))]
+    #[validate(length(
+        min = 10,
+        max = "MAX_LENGTH_RESEARCH_FOCUS",
+        message = "Focus is too long, please reduce the length below 150."
+    ))]
     pub focus: String,
     #[validate(length(min = 1), custom(function = "validate_attribute_areas"))]
     pub areas: Vec<String>,
