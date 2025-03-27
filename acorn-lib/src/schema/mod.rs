@@ -263,33 +263,33 @@ pub struct HighlightSections {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct ProjectSections {
-    #[validate(length(max = 250, message = "Introduction is too long, please reduce the length below 250."))]
+    #[validate(length(min = 10, max = 250, message = "Introduction is too long, please reduce the length below 250."))]
     pub introduction: String,
-    #[validate(length(max = 500, message = "Challenge is too long, please reduce the length below 500."))]
+    #[validate(length(min = 10, max = 500, message = "Challenge is too long, please reduce the length below 500."))]
     pub challenge: String,
-    #[validate(length(max = 600, message = "Approach is too long, please reduce the length below 600."))]
+    #[validate(length(min = 10, max = 600, message = "Approach is too long, please reduce the length below 600."))]
     pub approach: String,
-    #[validate(custom(function = "validate_attribute_outcomes"))]
+    #[validate(length(min = 1), custom(function = "validate_attribute_outcomes"))]
     pub outcomes: Vec<String>,
     #[validate(nested)]
     pub research: Research,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct OrganizationSections {
-    #[validate(length(max = 250, message = "Mission is too long, please reduce the length below 250."))]
+    #[validate(length(min = 10, max = 250, message = "Mission is too long, please reduce the length below 250."))]
     pub mission: String,
-    #[validate(custom(function = "validate_attribute_capabilities"))]
+    #[validate(length(min = 1), custom(function = "validate_attribute_capabilities"))]
     pub capabilities: Vec<String>,
-    #[validate(custom(function = "validate_attribute_impact"))]
+    #[validate(length(min = 1), custom(function = "validate_attribute_impact"))]
     pub impact: Vec<String>,
     #[validate(custom(function = "validate_attribute_facilities"))]
     pub facilities: Option<Vec<String>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Research {
-    #[validate(length(max = 150, message = "Focus is too long, please reduce the length below 150."))]
+    #[validate(length(min = 10, max = 150, message = "Focus is too long, please reduce the length below 150."))]
     pub focus: String,
-    #[validate(custom(function = "validate_attribute_areas"))]
+    #[validate(length(min = 1), custom(function = "validate_attribute_areas"))]
     pub areas: Vec<String>,
 }
 impl View for Contact {
