@@ -108,8 +108,8 @@ pub struct Notes {
 pub struct Graphic {
     #[validate(length(max = "MAX_LENGTH_GRAPHIC_CAPTION", message = "Caption is too long, please reduce the length below 250."))]
     pub caption: String,
-    // TODO: Add validation for image extension
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(custom(function = "has_image_extension"))]
     pub href: Option<String>,
 }
 #[derive(Clone, Builder, Debug, Serialize, Deserialize, Validate)]

@@ -34,6 +34,13 @@ pub fn get_error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
         })
         .sum()
 }
+pub fn has_image_extension(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a path with a PNG, JPEG, or SVG extension";
+    match RE_IMAGE_EXTENSION.is_match(value) {
+        | Ok(value) if value => Ok(()),
+        | _ => Err(ValidationError::new("image").with_message(MESSAGE.into())),
+    }
+}
 pub fn is_doi(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid DOI, by itself and without domain or 'doi:' prefix.";
     match RE_DOI.is_match(value) {

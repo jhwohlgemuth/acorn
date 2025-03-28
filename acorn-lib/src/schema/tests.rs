@@ -160,6 +160,24 @@ fn test_validate_attribute_outcomes() {
     }
 }
 #[test]
+fn test_validate_has_image_extension() {
+    let valid = [
+        "foo.png",
+        "bar.jpg",
+        "baz.jpeg",
+        "qux.svg",
+        "https://example.com/foo.PNG",
+        "https://example.com/bar.JPEG",
+    ];
+    let invalid = ["foo.pNg", "bar.jpx", "qux.sVG", "https://example.com/fooPNG"];
+    for x in valid.iter() {
+        assert!(has_image_extension(x).is_ok());
+    }
+    for x in invalid.iter() {
+        assert!(has_image_extension(x).is_err());
+    }
+}
+#[test]
 fn test_validate_is_doi() {
     let valid = ["10.1000/182", "10.97812345/99990"];
     let invalid = ["978-12345-99990"];

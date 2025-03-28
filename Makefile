@@ -8,7 +8,7 @@ lint:
 	@cargo fmt --verbose
 	@cargo clippy --workspace --no-deps --all-targets --fix --allow-dirty
 
-test: clean lint
+test:
 	@cargo nextest run
 
 test-ci: clean lint
