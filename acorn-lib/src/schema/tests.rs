@@ -4,6 +4,18 @@ use glob::glob;
 use pretty_assertions::assert_eq;
 
 #[test]
+fn test_trl() {
+    assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("0").unwrap());
+    assert_eq!(TechnologyReadinessLevel::MissionCapable, serde_json::from_str("9").unwrap());
+    assert_eq!(format!("{}", TechnologyReadinessLevel::MissionCapable), "Mission Capable");
+    assert!(TechnologyReadinessLevel::Research < TechnologyReadinessLevel::MissionCapable);
+}
+#[test]
+#[should_panic]
+fn test_trl_panic() {
+    assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("10").unwrap());
+}
+#[test]
 fn test_metadata() {
     const DEFAULT: &str = "00.png";
     let meta = Metadata::init().id("test-data".to_string()).build();

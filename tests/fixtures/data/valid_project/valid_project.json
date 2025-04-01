@@ -2,6 +2,7 @@
   "meta": {
     "id": "acorn",
     "type": "project",
+    "trl": 3,
     "archive": false,
     "draft": false,
     "websites": [

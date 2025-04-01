@@ -10,6 +10,7 @@ use owo_colors::OwoColorize;
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use serde_repr::*;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::PathBuf;
@@ -32,12 +33,6 @@ pub enum FuzzyValue {
     #[display("technology")]
     Technology,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Other {
-    Unformatted(String),
-    Formatted(Notes),
-}
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
 #[serde(rename_all = "lowercase")]
 pub enum OrganizationType {
@@ -57,6 +52,19 @@ pub enum OrganizationType {
     /// Federally Funded Research and Development Center
     Ffrdc,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Other {
+    Unformatted(String),
+    Formatted(Notes),
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Sections {
+    Highlight(HighlightSections),
+    Project(ProjectSections),
+    Organization(OrganizationSections),
+}
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Display, PartialEq)]
 #[serde(rename_all = "lowercase")]
 /// The schema type informs the sections and fields that apply to the associated research activity data
@@ -73,12 +81,65 @@ pub enum SchemaType {
     #[display("organization")]
     Organization,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Sections {
-    Highlight(HighlightSections),
-    Project(ProjectSections),
-    Organization(OrganizationSections),
+/// Technology readiness levels (TRLs) are a method for estimating the maturity of technologies during the acquisition phase of a program.
+///
+/// The "optimal point" to introduce technology depends on technology maturity (TRL) and program requirements. That point can be virtually anywhere in the acquisition process.
+///
+/// See [Technology Readiness for Machine Learning Systems](https://doi.org/10.1038/s41467-022-33128-9) for applying TRLs to machine learning (ML) systems
+#[derive(Clone, Debug, Default, Display, Serialize_repr, Deserialize_repr, PartialEq, PartialOrd)]
+#[repr(u8)]
+pub enum TechnologyReadinessLevel {
+    /// A stage for greenfield research
+    ///
+    /// Not a standard TRL
+    #[display("Greenfield Research")]
+    Principles = 0,
+    /// Basic principles observed and reported
+    ///
+    /// ML: Goal-oriented research
+    #[default]
+    #[display("Basic Research")]
+    Research = 1,
+    /// Technology concept and/or application formulated
+    ///
+    /// ML: Proof of principle development
+    #[display("Technology Concept")]
+    Concept = 2,
+    /// Analytical and experimental critical function and/or characteristic proof-of-concept
+    ///
+    /// ML: Systems development
+    #[display("Feasible")]
+    Feasible = 3,
+    /// Component and/or breadboard validation in laboratory environment (low fidelity)
+    ///
+    /// ML: Proof of concept development
+    #[display("Developing")]
+    Developing = 4,
+    /// Component and/or breadboard validation in relevant environment (high fidelity)
+    ///
+    /// ML: Machine learning "capability"
+    #[display("Developed")]
+    Developed = 5,
+    /// System/subsystem model or prototype demonstration in a relevant environment (high fidelity)
+    ///
+    /// ML: Application development
+    #[display("Prototype")]
+    Prototype = 6,
+    /// System prototype demonstration in an operational environment
+    ///
+    /// ML: Integrations
+    #[display("Operational")]
+    Operational = 7,
+    /// Actual system completed and qualified through test and demonstration
+    ///
+    /// ML: Mission-ready
+    #[display("Mission Ready")]
+    MissionReady = 8,
+    /// Actual system proven through successful mission operation
+    ///
+    /// ML: Deployment
+    #[display("Mission Capable")]
+    MissionCapable = 9,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Contact {
@@ -122,6 +183,9 @@ pub struct Metadata {
     /// ***Example*** `my-research-project`
     #[validate(custom(function = "is_kebabcase"))]
     pub id: String,
+    #[serde(alias = "type", rename = "type")]
+    #[builder(default = SchemaType::default())]
+    pub schema_type: SchemaType,
     /// ### Digital Object Identifier
     ///
     /// See <https://www.doi.org/> for more information
@@ -144,9 +208,6 @@ pub struct Metadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(url(message = "Please provide a valid URL"))]
     pub publication: Option<String>,
-    #[serde(alias = "type", rename = "type")]
-    #[builder(default = SchemaType::default())]
-    pub schema_type: SchemaType,
     /// ### Describes the active status of the associated research activity data
     ///
     /// Archived content typically will be omitted from public artifacts such as research.ornl.gov
@@ -157,6 +218,9 @@ pub struct Metadata {
     /// Draft content typically will be omitted from public artifacts such as research.ornl.gov
     #[builder(default = true)]
     pub draft: bool,
+    /// TRL is applicable to acquisition, machine learning, and more
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trl: Option<TechnologyReadinessLevel>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
     pub websites: Option<Vec<Website>>,
