@@ -38,7 +38,8 @@ pub const MAX_LENGTH_SECTION_CHALLENGE: u64 = 500;
 /// Maximum number of characters for an approach section
 pub const MAX_LENGTH_SECTION_APPROACH: u64 = 600;
 /// Maximum number of characters for a subtitle
-pub const MAX_LENGTH_SUBTITLE: u64 = 50;
+// TODO: This should be 65
+pub const MAX_LENGTH_SUBTITLE: u64 = 100;
 /// Maximum number of characters for a single technical approach description
 pub const MAX_LENGTH_TECHNICAL: usize = 100;
 /// Maximum number of characters for a title
