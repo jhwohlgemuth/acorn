@@ -22,6 +22,16 @@ use validator::{Validate, ValidationErrorsKind};
 pub mod validate;
 use validate::*;
 
+// TODO: Add docs for classification
+#[derive(Clone, Debug, Default, Display, Serialize_repr, Deserialize_repr, PartialEq, PartialOrd)]
+#[repr(u8)]
+pub enum Classification {
+    #[default]
+    Unclassified = 0,
+    Confidential = 1,
+    Secret = 2,
+    TopSecret = 3,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 pub enum FuzzyValue {
     #[display("partners")]
@@ -48,8 +58,8 @@ pub enum OrganizationType {
     Program,
     #[display("facility")]
     Facility,
-    #[display("FFRDC")]
     /// Federally Funded Research and Development Center
+    #[display("FFRDC")]
     Ffrdc,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -143,8 +153,17 @@ pub enum TechnologyReadinessLevel {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Contact {
+    /// ### Title (e.g. "Group Lead") of role that the contact fills related to the asscociated research activity.
+    ///
+    /// When the nearest associated title is unclear, job role of the contact can be used (e.g. "Senior Scientist").
+    ///
+    /// ***Example*** Ideal contact title for a project would be "Primary Investigator"
+    ///
+    /// ***Example*** Ideal contact title for a group organization would be "Group Lead"
     pub title: String,
+    /// ### First (given) name of contact
     pub first: String,
+    /// ### Last (family) name of contact
     pub last: String,
     #[validate(email(message = "Please provide a valid email"))]
     pub email: String,
@@ -175,7 +194,10 @@ pub struct Graphic {
 }
 #[derive(Clone, Builder, Debug, Serialize, Deserialize, Validate)]
 #[builder(start_fn = init)]
+#[serde(rename_all = "camelCase")]
 pub struct Metadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub classification: Option<Classification>,
     /// ### Identifier for associated research activity data
     ///
     /// Should always be in lower-kebab-case
@@ -186,6 +208,8 @@ pub struct Metadata {
     #[serde(alias = "type", rename = "type")]
     #[builder(default = SchemaType::default())]
     pub schema_type: SchemaType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub additional_type: Option<OrganizationType>,
     /// ### Digital Object Identifier
     ///
     /// See <https://www.doi.org/> for more information
@@ -210,15 +234,15 @@ pub struct Metadata {
     pub publication: Option<String>,
     /// ### Describes the active status of the associated research activity data
     ///
-    /// Archived content typically will be omitted from public artifacts such as research.ornl.gov
+    /// Archived content typically will be omitted from public artifacts such as <https://research.ornl.gov>
     #[builder(default = false)]
     pub archive: bool,
     /// ### Describes the draft status of the associated research activity data
     ///
-    /// Draft content typically will be omitted from public artifacts such as research.ornl.gov
+    /// Draft content typically will be omitted from public artifacts such as <https://research.ornl.gov>
     #[builder(default = true)]
     pub draft: bool,
-    /// TRL is applicable to acquisition, machine learning, and more
+    /// <abbr title"Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trl: Option<TechnologyReadinessLevel>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -236,7 +260,9 @@ pub struct Metadata {
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
     #[serde(skip_serializing_if = "Option::is_none")]
     pub partners: Option<Vec<String>>,
-    /// ### Organization responsible funding associated research activity data
+    /// ### Organization responsible for funding associated research activity data
+    ///
+    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sponsors: Option<Vec<String>>,
     /// ### Words related to the associated research activity data
