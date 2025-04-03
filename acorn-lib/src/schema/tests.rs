@@ -4,10 +4,17 @@ use glob::glob;
 use pretty_assertions::assert_eq;
 
 #[test]
+fn test_classification() {
+    assert_eq!(ClassificationLevel::Secret.to_string(), "SECRET");
+    assert!(ClassificationLevel::Unclassified < ClassificationLevel::Confidential);
+    assert!(ClassificationLevel::Confidential < ClassificationLevel::Secret);
+    assert!(ClassificationLevel::Secret < ClassificationLevel::TopSecret);
+}
+#[test]
 fn test_trl() {
     assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("0").unwrap());
     assert_eq!(TechnologyReadinessLevel::MissionCapable, serde_json::from_str("9").unwrap());
-    assert_eq!(format!("{}", TechnologyReadinessLevel::MissionCapable), "Mission Capable");
+    assert_eq!(TechnologyReadinessLevel::MissionCapable.to_string(), "Mission Capable");
     assert!(TechnologyReadinessLevel::Research < TechnologyReadinessLevel::MissionCapable);
 }
 #[test]

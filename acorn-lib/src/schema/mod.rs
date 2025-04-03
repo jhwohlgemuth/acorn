@@ -22,15 +22,31 @@ use validator::{Validate, ValidationErrorsKind};
 pub mod validate;
 use validate::*;
 
-// TODO: Add docs for classification
-#[derive(Clone, Debug, Default, Display, Serialize_repr, Deserialize_repr, PartialEq, PartialOrd)]
-#[repr(u8)]
-pub enum Classification {
+/// U.S. Classified National Security Information Level
+///
+/// See [President Executive Order 13526](https://www.archives.gov/isoo/policy-documents/cnsi-eo.html)
+#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[serde(rename_all = "lowercase")]
+pub enum ClassificationLevel {
+    /// ### Unclassified (U)
     #[default]
-    Unclassified = 0,
-    Confidential = 1,
-    Secret = 2,
-    TopSecret = 3,
+    #[display("UNCLASSIFIED")]
+    Unclassified,
+    /// ### Confidential (C)
+    ///
+    /// Shall be applied to information, the unauthorized disclosure of which reasonably could be expected to cause ***damage*** to the national security that the original classification authority is able to identify or describe.
+    #[display("CONFIDENTIAL")]
+    Confidential,
+    /// ### Secret (S)
+    ///
+    /// Shall be applied to information, the unauthorized disclosure of which reasonably could be expected to cause ***serious damage*** to the national security that the original classification authority is able to identify or describe.
+    #[display("SECRET")]
+    Secret,
+    /// ### Top Secret (TS)
+    ///
+    /// Shall be applied to information, the unauthorized disclosure of which reasonably could be expected to cause ***exceptionally grave damage*** to the national security that the original classification authority is able to identify or describe.
+    #[display("TOP SECRET")]
+    TopSecret,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
 pub enum FuzzyValue {
@@ -197,7 +213,7 @@ pub struct Graphic {
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub classification: Option<Classification>,
+    pub classification: Option<ClassificationLevel>,
     /// ### Identifier for associated research activity data
     ///
     /// Should always be in lower-kebab-case
