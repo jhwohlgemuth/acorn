@@ -46,6 +46,7 @@ pub enum ClassificationLevel {
     ///
     /// Shall be applied to information, the unauthorized disclosure of which reasonably could be expected to cause ***exceptionally grave damage*** to the national security that the original classification authority is able to identify or describe.
     #[display("TOP SECRET")]
+    #[serde(alias = "top secret")]
     TopSecret,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]

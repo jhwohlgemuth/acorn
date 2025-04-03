@@ -6,6 +6,7 @@ use pretty_assertions::assert_eq;
 #[test]
 fn test_classification() {
     assert_eq!(ClassificationLevel::Secret.to_string(), "SECRET");
+    assert_eq!(ClassificationLevel::TopSecret.to_string(), "TOP SECRET");
     assert!(ClassificationLevel::Unclassified < ClassificationLevel::Confidential);
     assert!(ClassificationLevel::Confidential < ClassificationLevel::Secret);
     assert!(ClassificationLevel::Secret < ClassificationLevel::TopSecret);
