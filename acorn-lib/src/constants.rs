@@ -16,6 +16,7 @@ pub const ORGANIZATION: &str = "ornl";
 pub const QUALIFIER: &str = "org";
 // Schema defaults
 pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
+pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
 // Validation
 /// Maximum number of characters for a single area description
 pub const MAX_LENGTH_AREA: usize = 40;

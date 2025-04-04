@@ -141,6 +141,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             };
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
             let graphic = meta.clone().get_first_graphic_href();
+            let caption = meta.clone().get_first_graphic_caption();
             let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.id)).unwrap(), MimeType::Png);
             html! {
                 <html>
@@ -175,6 +176,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                             </main>
                             <aside>
                                 <div class="graphic"><img src={ graphic }/></div>
+                                <div class="caption">{ caption }</div>
                                 <div class="research-focus">
                                     <h3>{ "Research Focus" }</h3>
                                     <p>{ focus }</p>
@@ -326,6 +328,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             };
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
             let graphic = meta.clone().get_first_graphic_href();
+            let caption = meta.clone().get_first_graphic_caption();
             let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.id)).unwrap(), MimeType::Png);
             let main = html! {
                 <main>
@@ -345,6 +348,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             let aside = html! {
                 <aside>
                     <div class="graphic"><img src={ graphic }/></div>
+                    <div class="caption">{ caption }</div>
                     <div class="research-focus">
                         <h3>{ "Facilities" }</h3>
                         <ul><li>{ facilities.clone().unwrap_or_default().join("</li><li>") }</li></ul>

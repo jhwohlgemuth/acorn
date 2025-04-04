@@ -450,21 +450,29 @@ impl View for Contact {
     }
 }
 impl Metadata {
+    fn get_first_graphic(self) -> Option<Graphic> {
+        match self.graphics {
+            | Some(values) => values.first().cloned(),
+            | None => None,
+        }
+    }
     pub fn get_first_graphic_href(self) -> String {
-        let value = match &self.graphics {
-            | Some(values) => {
-                let first = values.first();
-                match first {
-                    | Some(Graphic { href, .. }) => match href.clone() {
-                        | Some(href) => href.clone(),
-                        | None => DEFAULT_GRAPHIC_HREF.to_string(),
-                    },
-                    | None => DEFAULT_GRAPHIC_HREF.to_string(),
-                }
-            }
+        match self.get_first_graphic() {
+            | Some(Graphic { href, .. }) => match href.clone() {
+                | Some(href) => href.clone(),
+                | None => DEFAULT_GRAPHIC_HREF.to_string(),
+            },
             | None => DEFAULT_GRAPHIC_HREF.to_string(),
-        };
-        value
+        }
+    }
+    pub fn get_first_graphic_caption(self) -> String {
+        match self.get_first_graphic() {
+            | Some(Graphic { caption, .. }) => match caption.clone() {
+                | value if !value.is_empty() => value.clone(),
+                | _ => DEFAULT_GRAPHIC_CAPTION.to_string(),
+            },
+            | None => DEFAULT_GRAPHIC_CAPTION.to_string(),
+        }
     }
 }
 impl Organization {

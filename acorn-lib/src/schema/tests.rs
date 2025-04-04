@@ -25,26 +25,31 @@ fn test_trl_panic() {
 }
 #[test]
 fn test_metadata() {
-    const DEFAULT: &str = "00.png";
+    const DEFAULT_HREF: &str = "00.png";
+    const DEFAULT_CAPTION: &str = "";
     let meta = Metadata::init().id("test-data".to_string()).build();
     assert_eq!(meta.id, "test-data".to_string());
     assert_eq!(meta.schema_type, SchemaType::Project);
-    assert_eq!(meta.get_first_graphic_href(), DEFAULT);
-    let href = "abc.png".to_string();
+    assert_eq!(meta.get_first_graphic_href(), DEFAULT_HREF);
+    let href = "abc.png";
+    let caption = "hello world";
     let graphics = vec![Graphic {
-        href: Some(href.clone()),
-        caption: "hello world".to_string(),
+        href: Some(href.to_owned()),
+        caption: caption.to_owned(),
     }];
     let meta = Metadata::init().id("test-data".to_string()).graphics(graphics).build();
-    assert_eq!(meta.get_first_graphic_href(), href);
+    assert_eq!(meta.clone().get_first_graphic_href(), href);
+    assert_eq!(meta.get_first_graphic_caption(), caption);
     let meta = Metadata::init().id("test-data".to_string()).graphics(vec![]).build();
-    assert_eq!(meta.get_first_graphic_href(), DEFAULT);
+    assert_eq!(meta.clone().get_first_graphic_href(), DEFAULT_HREF);
+    assert_eq!(meta.get_first_graphic_caption(), DEFAULT_CAPTION);
     let graphics = vec![Graphic {
         href: None,
-        caption: "hello world".to_string(),
+        caption: "".to_string(),
     }];
     let meta = Metadata::init().id("test-data".to_string()).graphics(graphics).build();
-    assert_eq!(meta.get_first_graphic_href(), DEFAULT);
+    assert_eq!(meta.clone().get_first_graphic_href(), DEFAULT_HREF);
+    assert_eq!(meta.get_first_graphic_caption(), DEFAULT_CAPTION);
 }
 #[test]
 fn test_organization() {

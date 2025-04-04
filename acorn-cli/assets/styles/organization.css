@@ -75,7 +75,8 @@ section>h3 {
 aside>.graphic {
     background-color: #FFFFFF;
     height: 200px;
-    margin: 20px;
+    min-width: 300px;
+    margin: 20px 20px 0 20px;
     position: relative;
 }
 
@@ -84,8 +85,17 @@ aside>.qrcode {
 }
 
 aside>.graphic>img {
-    width: 100%;
-    /* weasyprint */
+    height: 200px;
+}
+
+aside>.caption {
+    font-family: "myriad_pro_light";
+    font-size: 9pt;
+    font-style: italic;
+    padding: 10px 30px 10px 30px;
+    position: relative;
+    text-align: left;
+    width: 80%;
 }
 
 aside>.research-focus {
