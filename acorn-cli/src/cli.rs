@@ -154,6 +154,9 @@ pub enum Commands {
         /// Path to look for files to format
         #[arg(default_value = "./", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
+        /// Format files that were changed in a given Git commit
+        #[arg(short, long, value_name = "COMMIT")]
+        commit: Option<String>,
         /// Run format without making changes to target file(s). Will print a diff of changes.
         #[arg(short, long = "dry-run", value_name = "BOOL")]
         dry_run: bool,

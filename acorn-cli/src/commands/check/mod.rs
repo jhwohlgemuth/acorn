@@ -6,14 +6,15 @@ use tracing::{error, warn};
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(path: &Option<PathBuf>, commit: &Option<String>, skip: &[Check], exit_on_first_error: &bool) -> Result<(), Report> {
+    let extension = Some("json");
     let paths = match commit {
-        | Some(hash) => get_files_from_git(hash, Some("json")),
+        | Some(hash) => get_files_from_git(hash, extension),
         | None => {
             let value = match path {
                 | Some(x) => x.clone(),
                 | None => PathBuf::from("."),
             };
-            get_all_files(value, Some("json".to_string()))
+            get_all_files(value, extension)
         }
     };
     let mut total: usize = 0;

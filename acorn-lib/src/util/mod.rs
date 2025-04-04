@@ -267,11 +267,11 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
     let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.join(filename))
 }
-pub fn get_all_files(path: PathBuf, extension: Option<String>) -> Vec<PathBuf> {
+pub fn get_all_files(path: PathBuf, extension: Option<&str>) -> Vec<PathBuf> {
     if path.is_dir() {
         let ext = match extension {
-            | Some(value) => value.to_lowercase().to_string(),
-            | None => "json".to_string(),
+            | Some(value) => &value.to_lowercase(),
+            | None => "json",
         };
         let pattern = format!("{}/**/*.{}", path_to_string(path), ext);
         debug!(pattern, "=> {}", Label::using());

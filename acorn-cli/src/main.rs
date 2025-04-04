@@ -76,7 +76,13 @@ fn main() -> Void {
         | Some(Commands::Export {
             output, path, size, target, ..
         }) => commands::export::run(output, path, size, target),
-        | Some(Commands::Format { path, dry_run, verbose, .. }) => commands::format::run(path, *dry_run, verbose),
+        | Some(Commands::Format {
+            path,
+            commit,
+            dry_run,
+            verbose,
+            ..
+        }) => commands::format::run(path, commit, *dry_run, verbose),
         | None => Ok(()),
     }
 }

@@ -9,7 +9,7 @@ fn test_get_all_files() {
     // Directory
     let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), None);
     assert_eq!(files.len(), 3);
-    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), Some("jpg".to_string()));
+    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), Some("jpg"));
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
     // File
