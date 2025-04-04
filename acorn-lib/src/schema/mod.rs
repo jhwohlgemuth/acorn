@@ -217,7 +217,7 @@ pub struct Metadata {
     pub classification: Option<ClassificationLevel>,
     /// ### Identifier for associated research activity data
     ///
-    /// Should always be in lower-kebab-case
+    /// Should be lower-kebab-case
     ///
     /// ***Example*** `my-research-project`
     #[validate(custom(function = "is_kebabcase"))]
@@ -282,9 +282,17 @@ pub struct Metadata {
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sponsors: Option<Vec<String>>,
-    /// ### Words related to the associated research activity data
+    /// ### Core concepts related to the associated research activity
     ///
-    /// Could be used to filter research activity data and/or power data analytics
+    /// Could be used to filter research activity data and/or power data analytics through concept composition
+    ///
+    /// ***Guidelines for creating keywords***
+    /// - Shall be officially sanctioned by responsible parties
+    /// - Shall be unique relative to other keywords
+    /// - Should not be too specific
+    /// - Shall be in lower-kebab-case
+    /// - Should be one or two words (ex. `foo` or `foo-bar`)
+    /// - Shall contain three or more characters
     #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<String>,
     /// ### Software, code languages, and digital tools related to the associated research activity data
