@@ -51,6 +51,9 @@ pub enum Commands {
         /// Path to check
         #[arg(default_value = "./", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
+        /// Check files that were changed in a given Git commit
+        #[arg(short, long, value_name = "COMMIT")]
+        commit: Option<String>,
         /// Format JSON files in-place to maintain consistent format
         #[arg(short, long, value_name = "BOOL")]
         format: bool,

@@ -1,6 +1,7 @@
 use console::Emoji;
 use data_encoding::HEXUPPER;
 use derive_more::Display;
+use duct::cmd;
 use glob::glob;
 use is_executable::IsExecutable;
 use owo_colors::{OwoColorize, Style, Styled};
@@ -341,6 +342,28 @@ pub fn get_checksum(path: PathBuf) -> String {
 /// ```
 pub fn get_extension(path: &Path) -> String {
     path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string()
+}
+pub fn get_files_from_git(commit: &str, extension: Option<&str>) -> Vec<PathBuf> {
+    if test_command("git".to_owned()) {
+        let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", commit];
+        let result = cmd("git", args).read();
+        match result {
+            | Ok(value) => {
+                let ext = match extension {
+                    | Some(value) => &value.to_lowercase(),
+                    | None => "json",
+                };
+                value
+                    .split("\n")
+                    .map(PathBuf::from)
+                    .filter(|x| get_extension(Path::new(x)) == ext)
+                    .collect::<Vec<_>>()
+            }
+            | Err(_) => vec![],
+        }
+    } else {
+        vec![]
+    }
 }
 pub fn get_image_paths(root: PathBuf) -> Vec<PathBuf> {
     let extensions = ["jpg", "jpeg", "png", "svg"];

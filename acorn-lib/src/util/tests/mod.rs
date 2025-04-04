@@ -35,6 +35,11 @@ fn test_get_extension() {
     assert_eq!("", get_extension(Path::new("/path/to/folder")));
 }
 #[test]
+fn test_get_files_from_git() {
+    let files = get_files_from_git("HEAD", Some("not-a-file-extension"));
+    assert!(files.is_empty());
+}
+#[test]
 fn test_is_ip6() {}
 #[test]
 fn test_semantic_version() {

@@ -66,10 +66,11 @@ fn main() -> Void {
     match &args.command {
         | Some(Commands::Check {
             path,
+            commit,
             skip,
             exit_on_first_error,
             ..
-        }) => commands::check::run(path, skip, exit_on_first_error),
+        }) => commands::check::run(path, commit, skip, exit_on_first_error),
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check),
         | Some(Commands::Download { buckets, output, .. }) => commands::download::run(buckets, output),
         | Some(Commands::Export {
