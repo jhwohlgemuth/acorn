@@ -286,13 +286,15 @@ pub struct Metadata {
     ///
     /// Could be used to filter research activity data and/or power data analytics through concept composition
     ///
-    /// ***Guidelines for creating keywords***
-    /// - Shall be officially sanctioned by responsible parties
-    /// - Shall be unique relative to other keywords
-    /// - Should not be too specific
-    /// - Shall be in lower-kebab-case
-    /// - Should be one or two words (ex. `foo` or `foo-bar`)
-    /// - Shall contain three or more characters
+    /// ### Guidelines for creating keywords
+    /// - **Shall**
+    ///     - Be officially sanctioned by responsible parties
+    ///     - Be in lower-kebab-case
+    ///     - Be unique relative to other keywords
+    ///     - Contain three or more characters
+    /// - **Should**
+    ///     - Not be too specific
+    ///     - Be one or two words (ex. `foo` or `foo-bar`)
     #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<String>,
     /// ### Software, code languages, and digital tools related to the associated research activity data
