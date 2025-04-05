@@ -34,7 +34,7 @@ pub async fn create_pdf(page: &Page, options: cli::Options) {
     match output {
         | Some(output_dir) => match create_dir_all(output_dir.clone()) {
             | Ok(_) => {
-                let id = data.meta.id;
+                let id = data.meta.identifier;
                 let output_path = format!("{}/{}.pdf", output_dir.display(), id);
                 debug!(path = output_path, "=> {} Output", Label::using());
                 page.pdf_builder()

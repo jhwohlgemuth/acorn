@@ -1,6 +1,6 @@
 use acorn_lib::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT};
 use acorn_lib::schema::{
-    Contact, HighlightSections, Metadata, Notes, OrganizationSections, Other, ProjectSections, Research, ResearchActivity, Sections,
+    ContactPoint, HighlightSections, Metadata, Notes, OrganizationSections, Other, ProjectSections, Research, ResearchActivity, Sections,
 };
 use acorn_lib::util::{cli, Label, MimeType};
 use data_encoding::BASE64;
@@ -142,7 +142,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
             let graphic = meta.clone().get_first_graphic_href();
             let caption = meta.clone().get_first_graphic_caption();
-            let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.id)).unwrap(), MimeType::Png);
+            let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
             html! {
                 <html>
                     { head }
@@ -199,7 +199,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             technical,
         }) => {
             let Metadata { doi, publication, .. } = &meta;
-            let Contact { first, last, .. } = &data.contact;
+            let ContactPoint { given_name, family_name, .. } = &data.contact;
             let head = HtmlHead {
                 size: size.unwrap(),
                 stylesheet: "highlight.css".to_string(),
@@ -261,7 +261,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                         <div class="contact">
                             <div>
                                 <span>{ "PI" }</span>
-                                <span>{ first }&nbsp;{ last }</span>
+                                <span>{ given_name }&nbsp;{ family_name }</span>
                             </div>
                             { maybe_programs }
                             { maybe_managers }
@@ -329,7 +329,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
             let graphic = meta.clone().get_first_graphic_href();
             let caption = meta.clone().get_first_graphic_caption();
-            let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.id)).unwrap(), MimeType::Png);
+            let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
             let main = html! {
                 <main>
                     <section>

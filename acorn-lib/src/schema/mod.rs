@@ -168,8 +168,12 @@ pub enum TechnologyReadinessLevel {
     #[display("Mission Capable")]
     MissionCapable = 9,
 }
+/// Contact point (i.e. "point of contact") for research activity
+///
+/// See <https://schema.org/ContactPoint>
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
-pub struct Contact {
+#[serde(rename_all = "camelCase")]
+pub struct ContactPoint {
     /// ### Title (e.g. "Group Lead") of role that the contact fills related to the asscociated research activity.
     ///
     /// When the nearest associated title is unclear, job role of the contact can be used (e.g. "Senior Scientist").
@@ -179,14 +183,24 @@ pub struct Contact {
     /// ***Example*** Ideal contact title for a group organization would be "Group Lead"
     pub title: String,
     /// ### First (given) name of contact
-    pub first: String,
+    ///
+    /// See <https://schema.org/givenName
+    #[serde(alias = "first")]
+    pub given_name: String,
     /// ### Last (family) name of contact
-    pub last: String,
+    ///
+    /// See <https://schema.org/familyName>
+    #[serde(alias = "last")]
+    pub family_name: String,
     #[validate(email(message = "Please provide a valid email"))]
     pub email: String,
+    #[serde(alias = "phone")]
     #[validate(custom(function = "is_phone_number"))]
-    pub phone: String,
-    #[validate(url(message = "Please provide a valid URL"))]
+    pub telephone: String,
+    /// ### Profile URL of contact point
+    ///
+    /// ***Example*** Profile for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
+    #[validate(url(message = "Please provide a valid profile URL"))]
     pub profile: String,
     pub organization: String,
 }
@@ -220,8 +234,9 @@ pub struct Metadata {
     /// Should be lower-kebab-case
     ///
     /// ***Example*** `my-research-project`
+    #[serde(alias = "id", rename = "identifier")]
     #[validate(custom(function = "is_kebabcase"))]
-    pub id: String,
+    pub identifier: String,
     #[serde(alias = "type", rename = "type")]
     #[builder(default = SchemaType::default())]
     pub schema_type: SchemaType,
@@ -268,7 +283,7 @@ pub struct Metadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
     pub graphics: Option<Vec<Graphic>>,
-    /// ### Organizations related to the associated research activity data
+    /// ### Organization(s related to the associated research activity data
     ///
     /// ***Examples***
     /// - Los Alamos National Laboratory
@@ -277,7 +292,7 @@ pub struct Metadata {
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
     #[serde(skip_serializing_if = "Option::is_none")]
     pub partners: Option<Vec<String>>,
-    /// ### Organization responsible for funding associated research activity data
+    /// ### Organization(s) responsible for funding associated research activity data
     ///
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -334,12 +349,12 @@ pub struct ResearchActivity {
     pub meta: Metadata,
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
     pub title: String,
-    #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 100."))]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 100."))]
     pub subtitle: Option<String>,
     pub sections: Sections,
     #[validate(nested)]
-    pub contact: Contact,
+    pub contact: ContactPoint,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<Other>,
 }
@@ -364,7 +379,10 @@ pub struct ResearchActivity {
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Website {
     /// Brief description of webpage content
-    pub title: String,
+    ///
+    /// See <https://schema.org/description>
+    #[serde(alias = "title")]
+    pub description: String,
     #[validate(url(message = "Please provide a valid URL"))]
     pub url: String,
 }
@@ -432,14 +450,14 @@ pub struct Research {
     #[validate(length(min = 1), custom(function = "validate_attribute_areas"))]
     pub areas: Vec<String>,
 }
-impl View for Contact {
+impl View for ContactPoint {
     fn render(&self) -> VirtualNode {
-        let Contact {
-            first,
-            last,
+        let ContactPoint {
+            given_name,
+            family_name,
             title: role,
             email,
-            phone,
+            telephone,
             ..
         } = self;
         html! {
@@ -447,13 +465,13 @@ impl View for Contact {
                 <div>
                     <span class="label">Contact</span>
                     <span class="spacer"> </span>
-                    <span class="name">{ format!("{} {}", first, last) }</span>
+                    <span class="name">{ format!("{} {}", given_name, family_name) }</span>
                     <span class="spacer">|</span>
                     <span class="title">{ role }</span>
                     <span class="spacer">|</span>
                     <span class="email">{ email }</span>
                     <span class="spacer">|</span>
-                    <span class="phone">{ phone }</span>
+                    <span class="phone">{ telephone }</span>
                 </div>
             </section>
         }
@@ -550,7 +568,7 @@ impl ResearchActivity {
         match vale.clone().sync() {
             | Ok(_) => {
                 let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
-                    | Ok(data) => vale.clone().analyze(data.clone().meta.id, data.extract_prose(), None),
+                    | Ok(data) => vale.clone().analyze(data.clone().meta.identifier, data.extract_prose(), None),
                     | Err(err) => {
                         error!("=> {} Read research activity data at - {}", Label::fail(), err);
                         false
