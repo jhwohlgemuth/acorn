@@ -299,7 +299,7 @@ impl StaticAnalyzerConfig for ValeConfig {
                 "write-good.Weasel",
             ]))
             .build();
-        debug!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
+        trace!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
         config
     }
     fn ini(self) -> Ini {
