@@ -15,7 +15,7 @@ use std::fs::{create_dir_all, remove_file};
 use std::io::prelude::*;
 use std::path::PathBuf;
 use tar::Archive;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, trace};
 use which::which;
 
 pub trait StaticAnalyzer {
