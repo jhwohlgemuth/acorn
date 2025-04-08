@@ -116,8 +116,8 @@ publish-release:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - Cargo.toml
-  release: 
-    tag_name: "v$PKG_VERSION" 
+  release:
+    tag_name: "v$PKG_VERSION"
     description: "ACORN CLI v$PKG_VERSION"
     ref: "$CI_COMMIT_SHA"
     assets:
@@ -146,4 +146,3 @@ upload-binaries:
     - echo "======== UPLOAD JOB ========"
     - ls -la bin/
     - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/acorn-v${PKG_VERSION} ${PKG_REGISTRY_URL}/x86_64-unknown-linux-gnu/v${PKG_VERSION}/acorn'
-
