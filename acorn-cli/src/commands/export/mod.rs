@@ -2,7 +2,7 @@ use crate::template::get_html;
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::cli::{Options, Size, Target};
 use acorn_lib::util::{cli, path_to_string};
-use acorn_lib::util::{get_all_files, tokio_runtime, Label};
+use acorn_lib::util::{get_all_files, get_files_from_git, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
@@ -57,7 +57,20 @@ pub async fn create_pdf(page: &Page, options: cli::Options) {
     };
     let _remove = remove_file(index);
 }
-pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, size: &Size, target: &Target) -> Result<(), Report> {
+pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, commit: &Option<String>, size: &Size, target: &Target) -> Result<(), Report> {
+    fn get_paths_from_options(path: &Option<PathBuf>, commit: &Option<String>) -> Vec<PathBuf> {
+        let extension = Some("json");
+        match commit {
+            | Some(hash) => get_files_from_git(hash, extension),
+            | None => {
+                let value = match path {
+                    | Some(x) => x.clone(),
+                    | None => PathBuf::from("."),
+                };
+                get_all_files(value, extension)
+            }
+        }
+    }
     match target {
         | Target::FactSheet => {
             tokio_runtime().block_on(async {
@@ -67,11 +80,7 @@ pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, size: &Size, target
                 let browser = chromium.launcher().headless(true).launch().await.unwrap();
                 let context = browser.context_builder().build().await.unwrap();
                 let page = context.new_page().await.unwrap();
-                let input_path = match path.clone() {
-                    | Some(value) => value,
-                    | None => unimplemented!(),
-                };
-                let paths = get_all_files(input_path.clone(), None);
+                let paths = get_paths_from_options(path, commit);
                 let progress = ProgressBar::new(paths.len() as u64);
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 for path in paths {
@@ -99,11 +108,7 @@ pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, size: &Size, target
                 let browser = chromium.launcher().headless(true).launch().await.unwrap();
                 let context = browser.context_builder().build().await.unwrap();
                 let page = context.new_page().await.unwrap();
-                let input_path = match path.clone() {
-                    | Some(value) => value,
-                    | None => unimplemented!(),
-                };
-                let paths = get_all_files(input_path.clone(), None);
+                let paths = get_paths_from_options(path, commit);
                 let progress = ProgressBar::new(paths.len() as u64);
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 for path in paths {

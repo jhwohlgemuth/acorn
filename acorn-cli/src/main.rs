@@ -74,8 +74,13 @@ fn main() -> Void {
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check),
         | Some(Commands::Download { buckets, output, .. }) => commands::download::run(buckets, output),
         | Some(Commands::Export {
-            output, path, size, target, ..
-        }) => commands::export::run(output, path, size, target),
+            output,
+            path,
+            commit,
+            size,
+            target,
+            ..
+        }) => commands::export::run(output, path, commit, size, target),
         | Some(Commands::Format {
             path,
             commit,

@@ -131,6 +131,9 @@ pub enum Commands {
         /// Path of input files to be exported
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
+        /// Export files that were changed in a given Git commit
+        #[arg(short, long, value_name = "COMMIT")]
+        commit: Option<String>,
         /// Export target type
         #[arg(default_value_t, short, long, value_name = "TARGET")]
         target: Target,
