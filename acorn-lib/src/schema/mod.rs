@@ -22,6 +22,20 @@ use validator::{Validate, ValidationErrorsKind};
 pub mod validate;
 use validate::*;
 
+/// ### Core concepts related to the associated research activity
+///
+/// Could be used to filter research activity data and/or power data analytics through concept composition
+///
+/// ### Guidelines for creating keywords
+/// - **Shall**
+///     - Be officially sanctioned by responsible parties
+///     - Be in lower-kebab-case
+///     - Be unique relative to other keywords
+///     - Contain three or more characters
+/// - **Should**
+///     - Not be too specific
+///     - Be one or two words (ex. `foo` or `foo-bar`)
+type Keyword = String;
 /// U.S. Classified National Security Information Level
 ///
 /// See [President Executive Order 13526](https://www.archives.gov/isoo/policy-documents/cnsi-eo.html)
@@ -53,6 +67,7 @@ pub enum ClassificationLevel {
 pub enum FuzzyValue {
     #[display("partners")]
     Partner,
+    /// See [Keyword]
     #[display("keywords")]
     Keyword,
     #[display("sponsors")]
@@ -297,21 +312,8 @@ pub struct Metadata {
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sponsors: Option<Vec<String>>,
-    /// ### Core concepts related to the associated research activity
-    ///
-    /// Could be used to filter research activity data and/or power data analytics through concept composition
-    ///
-    /// ### Guidelines for creating keywords
-    /// - **Shall**
-    ///     - Be officially sanctioned by responsible parties
-    ///     - Be in lower-kebab-case
-    ///     - Be unique relative to other keywords
-    ///     - Contain three or more characters
-    /// - **Should**
-    ///     - Not be too specific
-    ///     - Be one or two words (ex. `foo` or `foo-bar`)
     #[builder(default = Vec::<String>::new())]
-    pub keywords: Vec<String>,
+    pub keywords: Vec<Keyword>,
     /// ### Software, code languages, and digital tools related to the associated research activity data
     ///
     /// ***Examples***
@@ -328,18 +330,30 @@ pub struct Metadata {
     pub related: Option<Vec<String>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
-#[display("Organization ({additional_type}) - {name} ({alternative_name})")]
+#[display("Organization ({additional_type}) - {name})")]
 #[serde(rename_all = "camelCase")]
 pub struct Organization {
+    /// ### Full name of the organization
+    ///
+    /// See <https://schema.org/name>
     pub name: String,
     /// ### Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
     pub ror: Option<String>,
-    pub alternative_name: String,
+    /// ### Organization alias (e.g. acronym or nickname)
+    ///
+    /// See <https://schema.org/alternateName>
+    pub alternative_name: Option<String>,
+    /// ### Organization sub-type
+    ///
+    /// See <https://schema.org/additionalType>
     pub additional_type: OrganizationType,
-    pub keywords: Option<Vec<String>>,
-    pub children: Vec<Organization>,
+    pub keywords: Option<Vec<Keyword>>,
+    /// ### Distinct part(s) of the associated containing organization
+    ///
+    /// See <https://schema.org/member>
+    pub member: Vec<Organization>,
 }
 // TODO: Trim whitespace with desaerialize_with derive - https://serde.rs/impl-serialize.html
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate)]
@@ -516,10 +530,10 @@ impl Organization {
     }
     pub fn flatten(&self) -> Vec<Organization> {
         let mut items = vec![self.clone()];
-        let directorates = self.children.clone();
+        let directorates = self.member.clone();
         for directorate in &directorates {
             items.push(directorate.clone());
-            let divisions = directorate.children.clone();
+            let divisions = directorate.member.clone();
             for division in &divisions {
                 items.push(division.clone());
             }
@@ -535,23 +549,23 @@ impl Organization {
             .collect::<Vec<_>>()
     }
     pub fn get(&self, organization_type: OrganizationType) -> Vec<Organization> {
-        let items = self.children.clone();
+        let items = self.member.clone();
         Organization::_get(items, organization_type)
     }
     pub fn get_all(&self, organization_type: OrganizationType) -> Vec<Organization> {
         let items = self.flatten();
         Organization::_get(items, organization_type)
     }
-    pub fn get_all_name_pairs(&self) -> Vec<(String, String)> {
+    pub fn get_all_name_pairs(&self) -> Vec<(String, Option<String>)> {
         self.flatten()
             .into_iter()
-            .map(|x| (x.alternative_name.clone(), x.name.clone()))
-            .filter(|(abbr, name)| !(abbr.is_empty() || name.is_empty()))
-            .collect::<Vec<(String, String)>>()
+            .map(|x| (x.name.clone(), x.alternative_name.clone()))
+            .filter(|(name, alias)| !(name.is_empty() || alias.is_none()))
+            .collect::<Vec<(String, Option<String>)>>()
     }
     pub fn visit<F: Copy + for<'a> Fn(&'a mut Organization)>(&mut self, f: F) {
         f(self);
-        for child in self.children.iter_mut() {
+        for child in self.member.iter_mut() {
             child.visit(f);
         }
     }
@@ -684,7 +698,10 @@ impl ResearchActivity {
             },
             | FuzzyValue::Technology => self.meta.technology,
         };
-        let mut data: Vec<_> = values.into_iter().flat_map(|x| resolve_from_csv(format!("{}", value_type), x)).collect();
+        let mut data: Vec<_> = values
+            .into_iter()
+            .flat_map(|x| resolve_from_csv_asset(format!("{}", value_type), x))
+            .collect();
         data.sort();
         data.dedup();
         data
@@ -729,7 +746,7 @@ impl ResearchActivity {
         clone.meta.partners = Some(self.clone().resolve(FuzzyValue::Partner));
         clone.meta.sponsors = Some(self.clone().resolve(FuzzyValue::Sponsor));
         clone.meta.technology = self.clone().resolve(FuzzyValue::Technology);
-        clone.contact.organization = match resolve_organization(self.clone().contact.organization) {
+        clone.contact.organization = match resolve_from_organization_json(self.clone().contact.organization) {
             | Some(value) => value,
             | None => "".to_string(),
         };
@@ -802,43 +819,12 @@ fn print_resolution(output: Option<String>, value: String, name: String) {
         }
     };
 }
-fn resolve_organization(value: String) -> Option<String> {
-    let data = Organization::load()[0]
-        .get_all_name_pairs()
-        .into_iter()
-        .map(|(key, value)| (key.to_string(), value.to_string()))
-        .collect::<HashMap<String, String>>();
-    let value = value.trim().to_string().replace("&", "and");
-    let sanitized = sanitize(value.clone());
-    let output = match sanitized.len() {
-        | 3..=5 if data.contains_key(&value.to_uppercase()) => data.get(&value.to_uppercase()).cloned(),
-        | _ => {
-            let pattern = Pattern::parse(&sanitized, CaseMatching::Ignore, Normalization::Smart);
-            let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-            let output = pattern
-                .match_list(data.clone().into_values().collect::<Vec<String>>(), &mut matcher)
-                .first()
-                .map(|(x, _)| x.to_string());
-            output
-        }
-    };
-    let label = "Organization";
-    match output.clone() {
-        | Some(resolved) => {
-            if resolved.eq(&value.to_string()) {
-                trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
-            } else {
-                debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
-            }
-        }
-        | None => {
-            debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
-        }
-    };
-    output
+fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
+    let data = Constant::csv(format!("{}.csv", name).as_str());
+    resolve_from_list_of_lists(value, data)
 }
-fn resolve_from_csv(name: String, value: String) -> Option<String> {
-    let output = Constant::csv(format!("{}.csv", name).as_str())
+fn resolve_from_list_of_lists(value: String, data: Vec<Vec<String>>) -> Option<String> {
+    let output = data
         .into_iter()
         .flat_map(|values| {
             let sanitized = sanitize(value.clone());
@@ -860,13 +846,26 @@ fn resolve_from_csv(name: String, value: String) -> Option<String> {
         })
         .max_by_key(|(_, score)| *score)
         .map(|(x, _)| x.to_string());
-
-    print_resolution(output.clone(), value, name);
+    print_resolution(output.clone(), value, "organization".to_string());
     output
+}
+fn resolve_from_organization_json(value: String) -> Option<String> {
+    let data = Organization::load()[0]
+        .get_all_name_pairs()
+        .into_iter()
+        .map(|(name, alias)| {
+            let alternative_name = match alias {
+                | Some(x) => x.to_string(),
+                | None => name.clone(),
+            };
+            vec![name, alternative_name]
+        })
+        .collect::<Vec<Vec<String>>>();
+    resolve_from_list_of_lists(value, data)
 }
 fn sanitize(value: String) -> String {
     match Regex::new(r"[-_.]") {
-        | Ok(re) => re.replace_all(&value, "").trim().to_string(),
+        | Ok(re) => re.replace_all(&value, "").replace("&", "and").trim().to_string(),
         | Err(err) => err.to_string(),
     }
 }

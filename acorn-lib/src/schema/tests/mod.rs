@@ -67,64 +67,96 @@ fn test_read() {
     }
 }
 #[test]
-fn test_resolve_from_csv() {
+fn test_fuzzy_matching() {
     //
     // Keywords
     //
     let name = "keywords".to_string();
     let exact: String = "critical-infrastructure".into();
     let misspelled: String = "cyb".into();
-    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
-    assert_eq!(resolve_from_csv(name.clone(), misspelled), Some("cyber".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "machine-learn".into()), Some("machine-learning".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "Automation".into()), Some("automation".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "math".into()), Some("mathematics".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "mathematics".into()), Some("mathematics".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "ml".into()), Some("machine-learning".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "ai".into()), Some("artificial-intelligence".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), misspelled), Some("cyber".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "machine-learn".into()),
+        Some("machine-learning".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Automation".into()), Some("automation".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "math".into()), Some("mathematics".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "mathematics".into()), Some("mathematics".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ml".into()), Some("machine-learning".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ai".into()), Some("artificial-intelligence".into()));
     let exact: String = "high-performance-computing".into();
-    assert_eq!(resolve_from_csv(name.clone(), "hpc".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv(name.clone(), "high-performance-computi".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "hpc".into()), Some(exact.clone()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "high-performance-computi".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    //
+    // Organizations
+    //
+    let exact: String = "Oak Ridge National Laboratory".into();
+    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
+    assert_eq!(resolve_from_organization_json("ORNL".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_organization_json("Oak Ridge National Laborato".into()), Some(exact.clone()));
+    let exact: String = "Geospatial Science and Human Security Division".into();
+    assert_eq!(resolve_from_organization_json("GSHS".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
+    assert_eq!(
+        resolve_from_organization_json("Geospatial Science & Human Security".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(
+        resolve_from_organization_json("Geospatial Science and Human Security".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(
+        resolve_from_organization_json("Geospatial Science and Human Security".to_lowercase()),
+        Some(exact.clone())
+    );
+    assert_eq!(resolve_from_organization_json("PSD".into()), Some("Physical Sciences Directorate".into()));
     //
     // Sponsors
     //
     let name = "sponsors".to_string();
     let exact: String = "Oak Ridge National Laboratory".into();
-    assert_eq!(resolve_from_csv(name.clone(), "ORNL".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ORNL".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
     let exact: String = "Department of Energy".into();
-    assert_eq!(resolve_from_csv(name.clone(), "Dept of Energy".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv(name.clone(), "Dept. of Energy".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept of Energy".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept. of Energy".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
     let exact: String = "Department of Homeland Security".into();
-    assert_eq!(resolve_from_csv(name.clone(), "DHS".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "DHS".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
     let exact: String = "Environmental Protection Agency".into();
-    assert_eq!(resolve_from_csv(name.clone(), " epa".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), " epa".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
     let exact: String = "Defense Advanced Research Projects Agency".into();
-    assert_eq!(resolve_from_csv(name.clone(), "darpa".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "darpa".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
     //
     // Technology
     //
     let name = "technology".to_string();
     let exact: String = "react".into();
-    assert_eq!(resolve_from_csv(name.clone(), exact.clone()), Some(exact));
-    assert_eq!(resolve_from_csv(name.clone(), "astro".into()), Some("astro".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "React.js".into()), Some("react".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "ReactJS".into()), Some("react".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "rs".into()), Some("rust".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "astro".into()), Some("astro".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "React.js".into()), Some("react".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ReactJS".into()), Some("react".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "rs".into()), Some("rust".into()));
     assert_eq!(
-        resolve_from_csv(name.clone(), "Geospatial Data Abstraction Lib".into()),
+        resolve_from_csv_asset(name.clone(), "Geospatial Data Abstraction Lib".into()),
         Some("gdal".into())
     );
-    assert_eq!(resolve_from_csv(name.clone(), "node.js".into()), Some("javascript".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "js".into()), Some("javascript".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "language::JavaScript".into()), Some("javascript".into()));
-    assert_eq!(resolve_from_csv(name.clone(), "foobarbaz".into()), None);
-    assert_eq!(resolve_from_csv(name.clone(), "".into()), None);
+    assert_eq!(resolve_from_csv_asset(name.clone(), "node.js".into()), Some("javascript".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "js".into()), Some("javascript".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "language::JavaScript".into()),
+        Some("javascript".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "foobarbaz".into()), None);
+    assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
 }
 #[test]
 fn test_validate_attribute_areas() {

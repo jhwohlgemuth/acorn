@@ -4,32 +4,181 @@
         "ror": "01qz5mb56",
         "alternativeName": "ORNL",
         "additionalType": "ffrdc",
-        "children": [
+        "member": [
             {
                 "name": "Biological and Environmental Systems Science Directorate",
                 "alternativeName": "BESSD",
                 "additionalType": "directorate",
-                "children": [
+                "member": [
                     {
                         "name": "Biosciences Division",
                         "alternativeName": "BSD",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Integrative Microbiomics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Plant Systems Biology",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Synthetic Biology",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Computational and Predictive Biology",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Information Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Molecular Biophysics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Bioanalytical Mass Spectrometry",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Biomaterials and Biomass Characterization",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Molecular and Cellular Imaging",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Environmental Sciences Division",
                         "alternativeName": "ESD",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Biodiversity and Ecosystem Health",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Bioresource Science and Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Environmental Risk and Energy Analysis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Water Resource Science and Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Biogeochemical Dynamics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Earth Systems Modeling",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Ecosystem Processes",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Plant-Soil Interactions",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Watershed Systems Modeling",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Earth System Data Management and Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Remote Sensing and Environmental Informatics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Earth Science Database Engineering and Informatics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Advanced Plant Phenotyping Laboratory",
                         "alternativeName": "APPL",
                         "additionalType": "facility",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     }
                 ]
             },
@@ -38,35 +187,372 @@
                 "alternativeName": "CCSD",
                 "additionalType": "directorate",
                 "keywords": [],
-                "children": [
+                "member": [
                     {
                         "name": "Quantum Science Center",
                         "alternativeName": "",
                         "additionalType": "center",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     },
                     {
                         "name": "Computational Sciences and Engineering Division",
                         "alternativeName": "CSED",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Autonomous and Complex Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Computational Systems Engineering and Cybernetics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Computational Urban Sciences",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Multiphysics Modeling and Flows",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Scalable Engineering Applications",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Computational Coupled Physics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Computational Chemistry and Nanomaterials Sciences",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Computational Earth Sciences",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Multiscale Materials",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Biostatistics and Biomedical Informatics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Scalable Biomedical Modeling",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Multiscale Biomedical Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Quantum Communications and Networking",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Quantum Computing and Sensing",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Quantum Computational Science",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Computer Science and Mathematics Division",
+                        "alternativeName": "CSMD",
+                        "additionalType": "division",
+                        "keywords": [],
+                        "member": [
+                            {
+                                "name": "Application Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Architectures and Performance",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Beyond Moore",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Intelligent Systems and Facilities",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Programming Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Software Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Data Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Learning Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Performance Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Visualization",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Workflow Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Data Analysis and Machine Learning",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Discrete Algorithms",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Multiscale Methods and Dynamics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Systems and Decision Sciences",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "National Center for Computational Sciences",
                         "alternativeName": "NCCS",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": 
-                        [
+                        "member": [
                             {
                                 "name": "Oak Ridge Leadership Computing Facility",
                                 "ror": "05p915b28",
                                 "alternativeName": "OLCF",
                                 "additionalType": "facility",
                                 "keywords": [],
-                                "children": []
+                                "member": []
+                            },
+                            {
+                                "name": "Analytics & AI Methods at Scale",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Workflows and Ecosystem Services",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Technology Integration",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Software Services Development",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "System Acceptance and User Environment",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "User Access, Outreach, and Communications",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "User Assistance",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Data and Platform Services",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "HPC Clusters",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "HPC Scalable Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "HPC Infrastructure Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "HPC Networking",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "HPC Storage and Archive",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "HPC Cybersecurity and Information Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Advanced Computing for Chemistry and Materials",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Advanced Computing for Nuclear, Particle, and Astrophysics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Algorithms and Performance Analysis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
                             }
                         ]
                     },
@@ -75,7 +561,7 @@
                         "alternativeName": "ASCR",
                         "additionalType": "program",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     }
                 ]
             },
@@ -83,79 +569,573 @@
                 "name": "Energy Science and Technology Directorate",
                 "alternativeName": "ESTD",
                 "additionalType": "directorate",
-                "children": [
+                "member": [
                     {
                         "name": "Buildings and Transportation Division",
                         "alternativeName": "BTSD",
                         "additionalType": "division",
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Building Envelope Materials Research",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Building Equipment Research",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Integrated Building Deployment and Analysis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Multifunctional Equipment Integration",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Applied Catalysis Emissions Controls Research",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Electric Drives Research",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Fuel Science and Engine Technologies Research",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Thermal Energy Storage Research",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Transportation Analytics and Decision Sciences",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Vehicle Power Electronics Research",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Applied Research for Mobility Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Electrification and Energy Infrastructures Division",
                         "alternativeName": "EEID",
                         "additionalType": "division",
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Emerging and Solid-State Batteries",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Energy Storage and Conversion Manufacturing",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Grid Communications and Security",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": " Grid Systems Modeling and Controls",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": " Grid Interactive Controls",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Grid Systems Architecture",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Grid Systems Hardware",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Multimodal Sensor Analytics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Power Systems Resilience",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "RF and Intelligent Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Sensors and Electronics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Manufacturing Science Division",
                         "alternativeName": "MSD",
                         "additionalType": "division",
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Advanced Fiber Manufacturing",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Composites Innovation",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Extreme Environment Materials Process",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Sustainable Manufacturing Technologies",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Chemical Process Scale-Up",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Manufacturing Energy Efficiency Research and Analysis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Deposition Science and Technology",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Disruptive Manufacturing Systems Development",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Intelligent Machine Tools",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Research Application Development",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Manufacturing Systems Analytics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "System Automation and Monitoring Research",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Manufacturing Robotics and Controls",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
-                    { 
-                    "name": "Carbon Fiber Technology Facility",
+                    {
+                        "name": "Carbon Fiber Technology Facility",
                         "alternativeName": "CFTF",
                         "additionalType": "facility",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     },
                     {
                         "name": "National Transportation Research Center",
                         "alternativeName": "NTRC",
                         "additionalType": "facility",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     },
                     {
                         "name": "Building Technologies Research and Integration Center",
                         "alternativeName": "BTRIC",
                         "additionalType": "facility",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     },
                     {
                         "name": "Manufacturing Demonstration Facility",
                         "alternativeName": "MDF",
                         "additionalType": "facility",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     },
                     {
                         "name": "Water Power Program",
                         "alternativeName": "WPP",
                         "additionalType": "program",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     }
-
                 ]
             },
-                    {
+            {
                 "name": "Fusion and Fission Energy and Science Directorate",
                 "alternativeName": "FFESD",
                 "additionalType": "directorate",
-                "children": [
+                "member": [
                     {
                         "name": "Fusion Energy Division",
                         "alternativeName": "FED",
                         "additionalType": "division",
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Advanced Tokamak Physics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Diagnostics and Control",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Plasma Theory and Modeling",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Power Exhaust and Particle Control",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Blanket and Fuel Cycle",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Fusion Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Fusion Technology",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Remote Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Nuclear Energy and Fuel Cycle Division",
                         "alternativeName": "NEFCD",
                         "additionalType": "division",
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Advanced Reactor Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Deployment, Licensing, and Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Energy Systems Development",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Energy Systems Integration and Modeling",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Modern Nuclear Instrumentation and Controls",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Multiphysics CFD Applications",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear Structures and Construction",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Risk Methods and Analysis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Systems Analysis and Optimization",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Fuel Cycle Chemistry Technology",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear Materials Packaging, Transportation and Systems Analysis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Used Fuel and Nuclear Material Disposition",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear Criticality Safety",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear Data",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Radiation Transport",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Advanced Fuel Fabrication",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Fuel Cladding and Core Internals",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Irradiation Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear Fuel Element Performance",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear and Extreme Environment Measurements",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Particle Fuel Forms",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "HPC Methods for Nuclear Applications",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear Code Integration",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear Transmutation and Decay Physics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Power Reactor Modeling",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Research and Test Reactor Physics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Radiation Safety Information Computational Center",
+                                "alternativeName": "RSICC",
+                                "additionalType": "center",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     }
                 ]
             },
@@ -163,18 +1143,67 @@
                 "name": "Isotope Science and Engineering Directorate",
                 "alternativeName": "ISED",
                 "additionalType": "directorate",
-                "children": [
+                "member": [
                     {
                         "name": "Radioisotope Science and Technology Division",
                         "alternativeName": "RSTD",
                         "additionalType": "division",
-                        "children": [
+                        "member": [
                             {
                                 "name": "Radiochemical Engineering Development Center",
                                 "alternativeName": "REDC",
                                 "additionalType": "center",
                                 "keywords": [],
-                                "children": []
+                                "member": []
+                            },
+                            {
+                                "name": "Medical Isotopes Development",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Isotope Applications Research",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Radiochemical Process Development",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Radioisotope Infrastructure Development",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Target Design, Analysis, and Qualification",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Process Coordination",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Project Integration and Material Accountability",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
                             }
                         ]
                     },
@@ -182,19 +1211,267 @@
                         "name": "Isotope Processing and Manufacturing Division",
                         "alternativeName": "IPMD",
                         "additionalType": "division",
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Operations Support",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Building 4501 Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Building 3047 Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "REDC Materials Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "REDC Lab Chemical Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "REDC Hot Cell Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Building 7930 Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Enrichment Science and Engineering Division",
                         "alternativeName": "ESED",
                         "additionalType": "division",
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Dynamic Testing",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Flow, Thermal, and Data Science",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Gas Testing Science",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Mechanical Systems Modeling",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Enriched Gaseous Chemistry",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Plasma Enrichment Deployment and Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Plasma Enrichment Science",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Stable Isotope Enrichment",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Stable Isotope Materials and Chemistry",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Application Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Electrical, Instrumentation, and Controls Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Machine Design Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Testbed Design Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Manufacturing Process Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Prototype Manufacturing",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "R&D Demonstration",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "SIPF Demonstration",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Supply Chain Management",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Nonreactor Nuclear Facilities Division",
                         "alternativeName": "NNFD",
                         "additionalType": "division",
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Facilities Maintenance",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Project Delivery",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Reliability Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Work Coordination",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "3025/3532 Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "System Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Waste Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Design Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Technical Support Services",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Matrixed Environment, Safety, and Health Support",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     }
                 ]
             },
@@ -202,34 +1479,291 @@
                 "name": "National Security Sciences Directorate",
                 "alternativeName": "NSSD",
                 "additionalType": "directorate",
-                "children": [
+                "member": [
                     {
                         "name": "Cyber Resilience and Intelligence Division",
                         "alternativeName": "CRID",
                         "additionalType": "division",
-                        "keywords": ["cyber", "security"],
-                        "children": []
+                        "keywords": [
+                            "cyber",
+                            "security"
+                        ],
+                        "member": [
+                            {
+                                "name": "Data and Software Engineering",
+                                "alternativeName": "DSE",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Data Science and Visualization",
+                                "alternativeName": "DSV",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Emerging Cyber Systems Research",
+                                "alternativeName": "ECSR",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Emerging Cyber Technologies Research",
+                                "alternativeName": "ECTR",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Human Analysis and Biometrics",
+                                "alternativeName": "HAB",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Radar and Computational Imaging",
+                                "alternativeName": "RCI",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Cyber Physical Systems",
+                                "alternativeName": "CPS",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Energy and Control Systems Security",
+                                "alternativeName": "ECSS",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Vulnerability Science",
+                                "alternativeName": "VS",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Field Intelligence Operations Division",
                         "alternativeName": "FIOD",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     },
                     {
                         "name": "Geospatial Science and Human Security Division",
                         "alternativeName": "GSHS",
                         "additionalType": "division",
-                        "keywords": ["geospatial"],
-                        "children": []
+                        "keywords": [],
+                        "member": [
+                            {
+                                "name": "GeoAI",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Remote Sensing",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Resilient Communications",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Autonomous Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Geomatics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Spatial Statistics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Built Environment Characterization",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Geoinformatics Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Human Geography",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Location Intelligence",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Nuclear Nonproliferation Division",
                         "alternativeName": "NND",
                         "additionalType": "division",
-                        "keywords": ["nuclear-nonproliferation"],
-                        "children": []
+                        "keywords": [
+                            "nuclear-nonproliferation"
+                        ],
+                        "member": [
+                            {
+                                "name": "Information Management Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Systems Management",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Mission Applications",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Material Security and Stewardship",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Detonation Forensics and Response",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Process and Material Characterization",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Collection Science and Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Advanced Engineering Technologies",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Facility and Systems Security",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [
+                                    "security"
+                                ],
+                                "member": []
+                            },
+                            {
+                                "name": "Learning Sciences",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Mission Implementation",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Transportation Security Engineering and Analysis",
+                                "alternativeName": "TSEA",
+                                "additionalType": "group",
+                                "keywords": [
+                                    "security"
+                                ],
+                                "member": []
+                            },
+                            {
+                                "name": "Implementation Technologies",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Non-Destructive Analysis R&D",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Strategic Commodities and Technologies",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Verification Technologies",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     }
                 ]
             },
@@ -237,20 +1771,180 @@
                 "name": "Neutron Sciences Directorate",
                 "alternativeName": "NScD",
                 "additionalType": "directorate",
-                "children": [
+                "member": [
                     {
                         "name": "Neutron Scattering Division",
                         "alternativeName": "NSD",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": 
-                        [
+                        "member": [
                             {
                                 "name": "Center for Structural Molecular Biology",
                                 "alternativeName": "CSMB",
                                 "additionalType": "facility",
                                 "keywords": [],
-                                "children": []
+                                "member": []
+                            },
+                            {
+                                "name": "Powder Diffraction",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Single Crystal Diffraction",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "User Programs and Outreach",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "HFIR Instrument Support",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "HFIR Science Support",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Biological Labeling and Scattering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Materials Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Reflectometry",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "SANS and Spin Echo",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "HFIR Low Temperature and Magnets",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "High Pressure",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "High Temperature",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Labs and Soft Matter",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "SNS Low Temperature and Magnets",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Instrument Hall Support",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Neutron Choppers",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "SNS Instrument Support",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "SNS Science Support 1",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "SNS Science Support 2",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "SNS Science Support 3",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Chemical Spectroscopy",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Direct Geometry",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Triple Axis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
                             }
                         ]
                     },
@@ -259,29 +1953,312 @@
                         "alternativeName": "",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Neutronics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Design Services",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Instrument Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Survey, Alignment, and Metrology",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Facilities Management and Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Neutron Optics and Polarization",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Detectors",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "DAQ Integration",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Source Development and Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Manufacturing",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Electrical Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Materials Management",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "DAQ Development",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Research Accelerator Division",
                         "alternativeName": "",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Electrical Power Conversion Group",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "RF Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Controls Integration",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "CF and Vacuum",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Cryogenics and Target",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Electrical Support",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Accelerator Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Integration and Planning",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Protection Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Target Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Cooling Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Target Operations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Mechanical Support",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Vacuum Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Front End Systems",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Superconducting Linac",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Instrumentation",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Accelerator Physics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Mechanical Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Beam Instrumentation",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Research Reactors Division",
                         "alternativeName": "",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Reactor Analysis and Modeling",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "I&C Software Engineering",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Reactor Core Components",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Maintenance Implementation",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Reactor Fuel and Fabrication",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Reactor Certifications and Qualifications",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear Safety and Experiment Analysis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
-                    { 
+                    {
                         "name": "High Flux Isotope Reactor",
                         "ror": "02xn1ny06",
                         "alternativeName": "HFIR",
                         "additionalType": "facility",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     },
                     {
                         "name": "Spallation Neutron Source",
@@ -289,22 +2266,99 @@
                         "alternativeName": "SNS",
                         "additionalType": "facility",
                         "keywords": [],
-                        "children": []
+                        "member": []
                     }
-
                 ]
             },
             {
                 "name": "Physical Sciences Directorate",
                 "alternativeName": "PSD",
                 "additionalType": "directorate",
-                "children": [
+                "member": [
                     {
                         "name": "Chemical Sciences Division",
                         "alternativeName": "CSD",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Energy Storage and Conversion",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Geochemistry and Interfacial Science",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Surface Chemistry and Catalysis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Chemical and Isotopic Mass Spectrometry",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Material Signatures and Isotopic Standards",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Radioactive Materials Analytical Lab",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Transuranium Analytical Lab",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Carbon and Composites",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Chemical Separations",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nanomaterials Chemistry",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Soft Matter",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Center for Nanophase Materials Sciences Division",
@@ -312,14 +2366,69 @@
                         "alternativeName": "CNMSD",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": 
-                        [
+                        "member": [
                             {
                                 "name": "Center for Nanophase Materials Sciences",
                                 "alternativeName": "CNMS",
                                 "additionalType": "facility",
                                 "keywords": [],
-                                "children": []
+                                "member": []
+                            },
+                            {
+                                "name": "electron Microscopy and MicroAnalysis",
+                                "alternativeName": "eMMA",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Functional Atomic Force Microscopy",
+                                "alternativeName": "F-AFM",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Scanning Tunneling Microscopy",
+                                "alternativeName": "STM",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Functional Hybrid Nanomaterials",
+                                "alternativeName": "FHN",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Macromolecular Nanomaterials",
+                                "alternativeName": "Macro",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nanofabrication Research Laboratory",
+                                "alternativeName": "NRL",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nanomaterials Theory Institute",
+                                "alternativeName": "NTI",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Data NanoAnalytics",
+                                "alternativeName": "DNA",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
                             }
                         ]
                     },
@@ -328,14 +2437,170 @@
                         "alternativeName": "MSTD",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Correlated Electron Materials",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Neutron and X-Ray Scattering and Thermophysics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Quantum Heterostructures",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Alloy Behavior and Design",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Materials Joining",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Materials for Advanced Manufacturing",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Metals and Composites Processing",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Surface Engineering and Tribology",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Advanced Nuclear Materials",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Corrosion Science and Technology",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Mechanical Properties and Mechanics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Radiation Effects and Microstructural Analysis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear Energy Materials Microanalysis",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Materials Theory",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Microstructural Evolution Modeling Vision",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     },
                     {
                         "name": "Physics Division",
                         "alternativeName": "",
                         "additionalType": "division",
                         "keywords": [],
-                        "children": []
+                        "member": [
+                            {
+                                "name": "Neutrino Research",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Neutron Symmetries",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Relativistic Nuclear Physics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Theoretical and Computational Physics Group",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Nuclear Structure and Nuclear Astrophysics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Radiation Imaging and Advanced Diagnostics",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            },
+                            {
+                                "name": "Advanced Detection and Applied Data Science",
+                                "alternativeName": "",
+                                "additionalType": "group",
+                                "keywords": [],
+                                "member": []
+                            }
+                        ]
                     }
                 ]
             }
