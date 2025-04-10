@@ -1,4 +1,4 @@
-use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, TableFormatPrint};
+use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
 use acorn_lib::util::cli::Diagnostic;
 use color_eyre::eyre::{Report, Result};
 use tracing::warn;
@@ -15,7 +15,7 @@ pub fn run(fix: &bool, interactive: &bool, check: &[Diagnostic]) -> Result<(), R
         unimplemented!("Interactive mode is not implemented yet");
     }
     if should_run(check, Diagnostic::Software) {
-        SystemInformation::init().print();
+        SystemSoftwareInformation::init().print();
     }
     if should_run(check, Diagnostic::System) {
         SystemInformation::init().print();

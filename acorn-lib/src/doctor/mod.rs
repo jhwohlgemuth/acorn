@@ -10,6 +10,16 @@ pub trait TableFormatPrint {
     fn init() -> Self;
     fn print(self);
 }
+pub struct InstalledSoftwareData {
+    pub version: Option<String>,
+    pub path: Option<String>,
+}
+pub struct InstalledNodeJsData {
+    pub version: Option<String>,
+    pub path: Option<String>,
+    pub npm_version: Option<String>,
+    pub npx_version: Option<String>,
+}
 pub struct MemoryInformation {
     pub total: String,
     pub available: String,
@@ -41,6 +51,12 @@ pub struct SystemInformation {
     pub host_name: String,
     pub cpu_arch: String,
     pub cpu_count: String,
+}
+pub struct SystemSoftwareInformation {
+    pub acorn: InstalledSoftwareData,
+    pub git: InstalledSoftwareData,
+    pub node: InstalledNodeJsData,
+    pub vale: InstalledSoftwareData,
 }
 impl TableFormatPrint for MemoryInformation {
     fn init() -> MemoryInformation {
@@ -157,6 +173,35 @@ impl TableFormatPrint for SystemInformation {
             table.add_row(row);
         });
         println!("=> {} \n{table}", "System".green().bold());
+    }
+}
+impl TableFormatPrint for SystemSoftwareInformation {
+    fn init() -> SystemSoftwareInformation {
+        unimplemented!()
+    }
+    fn print(self) {
+        let SystemSoftwareInformation {
+            acorn: _,
+            git: _,
+            node: _,
+            vale: _,
+        } = self;
+        let rows = [
+            vec!["Acorn", "Y", "v0.0.0", "/path/to/executable"],
+            vec!["Git", "Y", "v0.0.0", "/path/to/executable"],
+            vec!["Node.js", "Y", "v0.0.0", "/path/to/executable"],
+            vec!["Vale", "Y", "v0.0.0", "/path/to/executable"],
+        ];
+        let mut table = Table::new();
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(vec!["Software", "Installed", "Version", "Location"]);
+        rows.into_iter().for_each(|row| {
+            table.add_row(row);
+        });
+        println!("=> {} \n{table}", "Memory".green().bold());
     }
 }
 pub fn print_system_information() {
