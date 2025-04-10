@@ -35,6 +35,8 @@ use validate::*;
 /// - **Should**
 ///     - Not be too specific
 ///     - Be one or two words (ex. `foo` or `foo-bar`)
+///
+/// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/keywords.csv">Full list of keywords</a></div>
 pub type Keyword = String;
 /// U.S. Classified National Security Information Level
 ///
