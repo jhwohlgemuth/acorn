@@ -35,7 +35,7 @@ use validate::*;
 /// - **Should**
 ///     - Not be too specific
 ///     - Be one or two words (ex. `foo` or `foo-bar`)
-type Keyword = String;
+pub type Keyword = String;
 /// U.S. Classified National Security Information Level
 ///
 /// See [President Executive Order 13526](https://www.archives.gov/isoo/policy-documents/cnsi-eo.html)
