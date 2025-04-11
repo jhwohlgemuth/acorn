@@ -61,9 +61,20 @@ fn test_get_singular_form() {
     assert_eq!("vertex", get_singular_form("vertices"));
 }
 #[test]
-fn test_get_syllable_count() {
+fn test_get_syllable_count_simple() {
     assert_eq!(0, get_syllable_count(""));
     assert_eq!(1, get_syllable_count("a"));
+    assert_eq!(1, get_syllable_count("and"));
+    assert_eq!(1, get_syllable_count("is"));
+    assert_eq!(1, get_syllable_count("of"));
+    assert_eq!(1, get_syllable_count("the"));
+    assert_eq!(1, get_syllable_count("wine"));
+    // assert_eq!(2, get_syllable_count("hello"));
+    // assert_eq!(2, get_syllable_count("pizza"));
+    // assert_eq!(2, get_syllable_count("bottle"));
+    // assert_eq!(2, get_syllable_count("project"));
+    // assert_eq!(3, get_syllable_count("syllable"));
+    // assert_eq!(4, get_syllable_count("innovation"));
 }
 #[test]
 fn test_is_ip6() {}
