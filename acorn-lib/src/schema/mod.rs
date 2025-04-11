@@ -191,14 +191,17 @@ pub enum TechnologyReadinessLevel {
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactPoint {
-    /// ### Title (e.g. "Group Lead") of role that the contact fills related to the asscociated research activity.
+    /// ### Job title (e.g. "Group Lead") of role that the contact fills related to the asscociated research activity.
     ///
     /// When the nearest associated title is unclear, job role of the contact can be used (e.g. "Senior Scientist").
     ///
     /// ***Example*** Ideal contact title for a project would be "Primary Investigator"
     ///
     /// ***Example*** Ideal contact title for a group organization would be "Group Lead"
-    pub title: String,
+    ///
+    /// See <https://schema.org/jobTitle>
+    #[serde(alias = "title")]
+    pub job_title: String,
     /// ### First (given) name of contact
     ///
     /// See <https://schema.org/givenName
@@ -209,16 +212,23 @@ pub struct ContactPoint {
     /// See <https://schema.org/familyName>
     #[serde(alias = "last")]
     pub family_name: String,
+    /// ### Email address of contact point
+    ///
+    /// See <https://schema.org/email>
     #[validate(email(message = "Please provide a valid email"))]
     pub email: String,
+    /// ### Phone number of contact point
+    ///
+    /// See <https://schema.org/telephone>
     #[serde(alias = "phone")]
     #[validate(custom(function = "is_phone_number"))]
     pub telephone: String,
     /// ### Profile URL of contact point
     ///
     /// ***Example*** Profile for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
+    #[serde(alias = "profile")]
     #[validate(url(message = "Please provide a valid profile URL"))]
-    pub profile: String,
+    pub url: String,
     pub organization: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -471,7 +481,7 @@ impl View for ContactPoint {
         let ContactPoint {
             given_name,
             family_name,
-            title: role,
+            job_title: role,
             email,
             telephone,
             ..
