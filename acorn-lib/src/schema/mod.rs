@@ -204,7 +204,7 @@ pub struct ContactPoint {
     pub job_title: String,
     /// ### First (given) name of contact
     ///
-    /// See <https://schema.org/givenName
+    /// See <https://schema.org/givenName>
     #[serde(alias = "first")]
     pub given_name: String,
     /// ### Last (family) name of contact
@@ -225,7 +225,7 @@ pub struct ContactPoint {
     pub telephone: String,
     /// ### Profile URL of contact point
     ///
-    /// ***Example*** Profile for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
+    /// ***Example*** Profile URL for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
     #[serde(alias = "profile")]
     #[validate(url(message = "Please provide a valid profile URL"))]
     pub url: String,
@@ -258,7 +258,7 @@ pub struct Metadata {
     pub classification: Option<ClassificationLevel>,
     /// ### Identifier for associated research activity data
     ///
-    /// Should be lower-kebab-case
+    /// Should be [lower-kebab-case](https://developer.mozilla.org/en-US/docs/Glossary/Kebab_case)
     ///
     /// ***Example*** `my-research-project`
     #[serde(alias = "id", rename = "identifier")]
