@@ -1,9 +1,7 @@
-use crate::constants::*;
 use console::Emoji;
 use data_encoding::HEXUPPER;
 use derive_more::Display;
 use duct::cmd;
-use fancy_regex::Regex;
 use glob::glob;
 use is_executable::IsExecutable;
 use owo_colors::{OwoColorize, Style, Styled};
@@ -380,117 +378,6 @@ pub fn get_image_paths(root: PathBuf) -> Vec<PathBuf> {
 }
 pub fn get_parent(path: String) -> String {
     PathBuf::from(PathBuf::from(path).parent().unwrap()).display().to_string()
-}
-/// Get the singular form of a word
-///
-/// Adapted from the PHP library, [Text-Statistics](https://github.com/DaveChild/Text-Statistics)
-pub fn get_singular_form(word: &str) -> String {
-    const SINGULAR: [(&str, &str); 28] = [
-        (r#"(quiz)zes$"#, r#"${1}"#),
-        (r#"(matr)ices$"#, r#"${1}ix"#),
-        (r#"(vert|ind)ices$"#, r#"${1}ex"#),
-        (r#"^(ox)en$"#, r#"${1}"#),
-        (r#"(alias)es$"#, r#"${1}"#),
-        (r#"(octop|vir)i$"#, r#"${1}us"#),
-        (r#"(cris|ax|test)es$"#, r#"${1}is"#),
-        (r#"(shoe)s$"#, r#"${1}"#),
-        (r#"(o)es$"#, r#"${1}"#),
-        (r#"(bus)es$"#, r#"${1}"#),
-        (r#"([m|l])ice$"#, r#"${1}ouse"#),
-        (r#"(x|ch|ss|sh)es$"#, r#"${1}"#),
-        (r#"(m)ovies$"#, r#"${1}ovie"#),
-        (r#"(s)eries$"#, r#"${1}eries"#),
-        (r#"([^aeiouy]|qu)ies$"#, r#"${1}y"#),
-        (r#"([lr])ves$"#, r#"${1}f"#),
-        (r#"(tive)s$"#, r#"${1}"#),
-        (r#"(hive)s$"#, r#"${1}"#),
-        (r#"(li|wi|kni)ves$"#, r#"${1}fe"#),
-        (r#"(shea|loa|lea|thie)ves$"#, r#"${1}f"#),
-        (r#"(^analy)ses$"#, r#"${1}sis"#),
-        (r#"((a)naly|(b)a|(d)iagno|(p)arenthe|(p)rogno|(s)ynop|(t)he)ses$"#, r#"${1}${2}sis"#),
-        (r#"([ti])a$"#, r#"${1}um"#),
-        (r#"(n)ews$"#, r#"${1}ews"#),
-        (r#"(h|bl)ouses$"#, r#"${1}ouse"#),
-        (r#"(corpse)s$"#, r#"${1}"#),
-        (r#"(us)es$"#, r#"${1}"#),
-        (r#"s$"#, r#""#),
-    ];
-    match word.to_lowercase().as_str() {
-        | value if SAME_SINGULAR_PLURAL.contains(&value) => value.to_string(),
-        | value if IRREGULAR_NOUNS.contains_key(&value) => value.to_string(),
-        | value if IRREGULAR_NOUNS_INVERTED.contains_key(&value) => match IRREGULAR_NOUNS_INVERTED.get(value) {
-            | Some(value) => value.to_string(),
-            | None => value.to_string(),
-        },
-        | value => {
-            let pair = SINGULAR.iter().find(|(pattern, _)| match Regex::new(pattern).unwrap().is_match(value) {
-                | Ok(true) => true,
-                | Ok(false) | Err(_) => false,
-            });
-            match pair {
-                | Some((pattern, replacement)) => {
-                    debug!(pattern, replacement, value, "=> {} Singular form conversion", Label::using());
-                    let re = Regex::new(pattern).unwrap();
-                    re.replace_all(value, *replacement).to_string()
-                }
-                | None => value.to_string(),
-            }
-        }
-    }
-}
-pub fn get_syllable_count(text: &str) -> usize {
-    fn tokenize(value: &str) -> Vec<String> {
-        value
-            .replace("é", "-e")
-            .replace("ë", "-e")
-            .split('-')
-            .map(|x| NON_ALPHABETIC.replace_all(x, "").to_lowercase())
-            .collect::<Vec<_>>()
-    }
-    fn get_syllables(word: String) -> usize {
-        let singular = get_singular_form(&word);
-        match word.as_str() {
-            | "" => 0,
-            | value if value.len() < 3 => 1,
-            | value if PROBLEMATIC_WORDS.contains_key(value) => match PROBLEMATIC_WORDS.get(value) {
-                | Some(x) => *x,
-                | None => 0,
-            },
-            | _ if PROBLEMATIC_WORDS.contains_key(&singular.as_str()) => match PROBLEMATIC_WORDS.get(singular.as_str()) {
-                | Some(x) => *x,
-                | None => 0,
-            },
-            | value if NEED_TO_BE_FIXED.contains_key(value) => match NEED_TO_BE_FIXED.get(value) {
-                | Some(x) => *x,
-                | None => 0,
-            },
-            | _ if NEED_TO_BE_FIXED.contains_key(&singular.as_str()) => match NEED_TO_BE_FIXED.get(singular.as_str()) {
-                | Some(x) => *x,
-                | None => 0,
-            },
-            | _ => {
-                let mut input = word;
-                let mut count: isize = 0;
-                // TODO: Combine SINGLE, DOUBLE, and TRIPLE regex operations
-                count += 3 * TRIPLE.find_iter(&input).count() as isize;
-                input = TRIPLE.replace_all(&input, "").to_string();
-                count += 2 * DOUBLE.find_iter(&input).count() as isize;
-                input = DOUBLE.replace_all(&input, "").to_string();
-                count += SINGLE.find_iter(&input).count() as isize;
-                input = SINGLE.replace_all(&input, "").to_string();
-                count -= SINGLE_SYLLABIC_ONE.find_iter(&input).count() as isize;
-                count -= SINGLE_SYLLABIC_TWO.find_iter(&input).count() as isize;
-                count += DOUBLE_SYLLABIC_ONE.find_iter(&input).count() as isize;
-                count += DOUBLE_SYLLABIC_TWO.find_iter(&input).count() as isize;
-                count += DOUBLE_SYLLABIC_THREE.find_iter(&input).count() as isize;
-                count += DOUBLE_SYLLABIC_FOUR.find_iter(&input).count() as isize;
-                count += VOWEL.split(&input).filter(|x| !x.as_ref().unwrap().is_empty()).count() as isize;
-                count as usize
-            }
-        }
-    }
-    let tokens = text.split_whitespace().flat_map(tokenize).collect::<Vec<String>>();
-    tokens.into_iter().map(get_syllables).sum()
 }
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 pub fn make_executable(path: &PathBuf) -> bool {

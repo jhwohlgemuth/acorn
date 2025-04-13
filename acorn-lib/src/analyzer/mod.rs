@@ -18,6 +18,8 @@ use tar::Archive;
 use tracing::{debug, error, info, trace};
 use which::which;
 
+pub mod readability;
+
 pub trait StaticAnalyzer {
     fn command(self) -> String;
     fn analyze(self, id: String, content: String, output: Option<String>) -> bool;
@@ -341,3 +343,6 @@ impl StaticAnalyzerConfig for ValeConfig {
         self
     }
 }
+
+#[cfg(test)]
+mod tests;
