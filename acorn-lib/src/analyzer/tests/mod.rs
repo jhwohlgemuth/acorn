@@ -1,4 +1,4 @@
-use crate::analyzer::readability::{get_singular_form, get_syllable_count};
+use crate::analyzer::readability::*;
 use crate::util::read_file;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -41,8 +41,10 @@ fn test_get_syllable_count_simple() {
     });
     assert_eq!(3, get_syllable_count("Syllable"));
     assert_eq!(3, get_syllable_count("syllable"));
+    assert_eq!(3, get_syllable_count("lethargic"));
     assert_eq!(4, get_syllable_count("Innovation"));
     assert_eq!(4, get_syllable_count("innovation"));
+    assert_eq!(4, get_syllable_count("alacritous"));
 }
 #[test]
 fn test_get_syllables_count_problematic() {
@@ -80,4 +82,77 @@ fn test_get_syllables_count_word_list() {
         }
         | Err(_) => {}
     }
+}
+#[test]
+fn test_get_complex_word_count() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(0, get_complex_word_count(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(2, get_complex_word_count(text));
+}
+#[test]
+fn test_get_long_word_count() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(0, get_long_word_count(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(2, get_long_word_count(text));
+}
+#[test]
+fn test_get_word_count() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(9, get_word_count(text));
+}
+#[test]
+fn test_get_sentence_count() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(1, get_sentence_count(text));
+}
+#[test]
+fn test_automated_readability_index() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(1.39, automated_readability_index(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(6.62, automated_readability_index(text));
+}
+#[test]
+fn test_coleman_liau_index() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(3.78, coleman_liau_index(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(10.31, coleman_liau_index(text));
+}
+#[test]
+fn test_flesch_kincaid_grade_level() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(2.34, flesch_kincaid_grade_level(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(7.59, flesch_kincaid_grade_level(text));
+}
+#[test]
+fn test_flesch_reading_ease_score() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(94.30, flesch_reading_ease_score(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(56.70, flesch_reading_ease_score(text));
+}
+#[test]
+fn test_gunning_fog_index() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(3.60, gunning_fog_index(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(12.49, gunning_fog_index(text));
+}
+#[test]
+fn test_lix() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(9.0, lix(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(31.22, lix(text));
+}
+#[test]
+fn test_smog() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(3.13, smog(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(11.21, smog(text));
 }

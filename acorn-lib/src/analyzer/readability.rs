@@ -161,6 +161,37 @@ lazy_static! {
         ("zoë", 2),
     ].into_iter().collect();
 }
+/// Plural to singular regex patterns
+const PLURAL_TO_SINGULAR: [(&str, &str); 28] = [
+    (r#"(quiz)zes$"#, r#"${1}"#),
+    (r#"(matr)ices$"#, r#"${1}ix"#),
+    (r#"(vert|ind)ices$"#, r#"${1}ex"#),
+    (r#"^(ox)en$"#, r#"${1}"#),
+    (r#"(alias)es$"#, r#"${1}"#),
+    (r#"(octop|vir)i$"#, r#"${1}us"#),
+    (r#"(cris|ax|test)es$"#, r#"${1}is"#),
+    (r#"(shoe)s$"#, r#"${1}"#),
+    (r#"(o)es$"#, r#"${1}"#),
+    (r#"(bus)es$"#, r#"${1}"#),
+    (r#"([m|l])ice$"#, r#"${1}ouse"#),
+    (r#"(x|ch|ss|sh)es$"#, r#"${1}"#),
+    (r#"(m)ovies$"#, r#"${1}ovie"#),
+    (r#"(s)eries$"#, r#"${1}eries"#),
+    (r#"([^aeiouy]|qu)ies$"#, r#"${1}y"#),
+    (r#"([lr])ves$"#, r#"${1}f"#),
+    (r#"(tive)s$"#, r#"${1}"#),
+    (r#"(hive)s$"#, r#"${1}"#),
+    (r#"(li|wi|kni)ves$"#, r#"${1}fe"#),
+    (r#"(shea|loa|lea|thie)ves$"#, r#"${1}f"#),
+    (r#"(^analy)ses$"#, r#"${1}sis"#),
+    (r#"((a)naly|(b)a|(d)iagno|(p)arenthe|(p)rogno|(s)ynop|(t)he)ses$"#, r#"${1}${2}sis"#),
+    (r#"([ti])a$"#, r#"${1}um"#),
+    (r#"(n)ews$"#, r#"${1}ews"#),
+    (r#"(h|bl)ouses$"#, r#"${1}ouse"#),
+    (r#"(corpse)s$"#, r#"${1}"#),
+    (r#"(us)es$"#, r#"${1}"#),
+    (r#"s$"#, r#""#),
+];
 /// ### Nouns with the same singular and plural forms
 pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
     "accommodation",
@@ -274,40 +305,147 @@ pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
     "wood",
     "you",
 ];
+/// Count the number of "complex words"[^complex] in a given text
+///
+/// [^complex]: Words with 3 or more syllables
+pub fn get_complex_word_count(text: &str) -> u32 {
+    get_words(text).iter().filter(|word| get_syllable_count(word) > 2).count() as u32
+}
+/// Count the number of letters in a given text
+///
+/// Does NOT count white space or punctuation
+pub fn get_letter_count(text: &str) -> u32 {
+    text.chars()
+        .filter(|c| !(c.is_whitespace() || NON_ALPHABETIC.is_match(&c.to_string()).unwrap_or_default()))
+        .count() as u32
+}
+/// Count the number of "long words"[^long] in a given text
+///
+/// [^long]: Words with more than 6 letters
+pub fn get_long_word_count(text: &str) -> u32 {
+    get_words(text).iter().filter(|word| word.len() > 6).count() as u32
+}
+/// Count the number of sentences in a given text
+pub fn get_sentence_count(text: &str) -> u32 {
+    text.split('.').filter(|s| !s.is_empty()).collect::<Vec<_>>().len() as u32
+}
+/// Get list of words in a given text
+pub fn get_words(text: &str) -> Vec<String> {
+    text.split_whitespace().map(String::from).collect()
+}
+/// Count the number of words in a given text
+///
+/// See [`get_words`]
+pub fn get_word_count(text: &str) -> u32 {
+    get_words(text).len() as u32
+}
+/// Automated Readability Index (ARI)
+///
+/// The formula was derived from a large dataset of texts used in US schools.
+/// The result is a number that corresponds with a US grade level.
+///
+/// Requires counting letters, words, and sentences
+///
+/// See <https://en.wikipedia.org/wiki/Automated_readability_index> for more information
+pub fn automated_readability_index(text: &str) -> f64 {
+    let letters = get_letter_count(text);
+    let words = get_word_count(text);
+    let sentences = get_sentence_count(text);
+    debug!(letters, words, sentences, "=> {}", Label::using());
+    let score = 4.71 * (letters as f64 / words as f64) + 0.5 * (words as f64 / sentences as f64) - 21.43;
+    format!("{:.2}", score).parse().unwrap()
+}
+/// Coleman-Liau Index (CLI)
+///
+/// Requires counting letters, words, and sentences
+pub fn coleman_liau_index(text: &str) -> f64 {
+    let letters = get_letter_count(text);
+    let words = get_word_count(text);
+    let sentences = get_sentence_count(text);
+    debug!(letters, words, sentences, "=> {}", Label::using());
+    let score = (0.0588 * 100.0 * (letters as f64 / words as f64)) - (0.296 * 100.0 * (sentences as f64 / words as f64)) - 15.8;
+    format!("{:.2}", score).parse().unwrap()
+}
+/// Flesch-Kincaid Grade Level (FKGL)
+///
+/// Arguably the most popular readability test.
+/// The result is a number that corresponds with a US grade level.
+///
+/// Requires counting words, sentences, and syllables
+///
+/// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
+pub fn flesch_kincaid_grade_level(text: &str) -> f64 {
+    let words = get_word_count(text);
+    let sentences = get_sentence_count(text);
+    let syllables = get_syllable_count(text);
+    debug!(words, sentences, syllables, "=> {}", Label::using());
+    let score = 0.39 * (words as f64 / sentences as f64) + 11.8 * (syllables as f64 / words as f64) - 15.59;
+    format!("{:.2}", score).parse().unwrap()
+}
+/// Flesch Reading Ease Score (FRES)
+///
+/// FRES range is 100 (very easy) - 0 (extremely difficult)
+///
+/// Requires counting words, sentences, and syllables
+///
+/// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
+pub fn flesch_reading_ease_score(text: &str) -> f64 {
+    let words = get_word_count(text);
+    let sentences = get_sentence_count(text);
+    let syllables = get_syllable_count(text);
+    debug!(words, sentences, syllables, "=> {}", Label::using());
+    let score = 206.835 - (1.015 * words as f64 / sentences as f64) - (84.6 * syllables as f64 / words as f64);
+    format!("{:.2}", score).parse().unwrap()
+}
+/// Gunning Fog Index (GFI)
+///
+/// Estimates the years of formal education a person needs to understand the text on the first reading
+///
+/// Requires counting words, sentences, and "complex words" (see [get_complex_word_count])
+///
+/// See <https://en.wikipedia.org/wiki/Gunning_fog_index> for more information
+pub fn gunning_fog_index(text: &str) -> f64 {
+    let words = get_word_count(text);
+    let complex_words = get_complex_word_count(text);
+    let sentences = get_sentence_count(text);
+    let score = 0.4 * ((words as f64 / sentences as f64) + (100.0 * (complex_words as f64 / words as f64)));
+    format!("{:.2}", score).parse().unwrap()
+}
+/// Lix
+///
+/// Indicates the difficulty of reading a text
+///
+/// Requires counting words, sentences, and long words (see [get_long_word_count])
+///
+/// "Lix" is an abbreviation of *läsbarhetsindex*, which means "readability index" in Swedish
+///
+/// See <https://en.wikipedia.org/wiki/Lix_(readability_test)> for more information
+pub fn lix(text: &str) -> f64 {
+    let words = get_word_count(text);
+    let sentences = get_sentence_count(text);
+    let long_words = get_long_word_count(text);
+    let score = (words as f64 / sentences as f64) + 100.0 * (long_words as f64 / words as f64);
+    format!("{:.2}", score).parse().unwrap()
+}
+/// Simple Measure of Gobbledygook (SMOG)
+///
+/// Estimates the years of education needed to understand a piece of writing
+///
+/// **Caution**: SMOG formula was normalized on 30-sentence samples
+///
+/// Requires counting sentences, and "complex words" (see [get_complex_word_count])
+///
+/// See <https://en.wikipedia.org/wiki/SMOG> for more information
+pub fn smog(text: &str) -> f64 {
+    let sentences = get_sentence_count(text);
+    let complex_words = get_complex_word_count(text);
+    let score = 1.0430 * (30.0 * (complex_words as f64 / sentences as f64)).sqrt() + 3.1291;
+    format!("{:.2}", score).parse().unwrap()
+}
 /// Get the singular form of a word (e.g. "people" -> "person")
 ///
 /// Adapted from the PHP library, [Text-Statistics](https://github.com/DaveChild/Text-Statistics)
 pub fn get_singular_form(word: &str) -> String {
-    const SINGULAR: [(&str, &str); 28] = [
-        (r#"(quiz)zes$"#, r#"${1}"#),
-        (r#"(matr)ices$"#, r#"${1}ix"#),
-        (r#"(vert|ind)ices$"#, r#"${1}ex"#),
-        (r#"^(ox)en$"#, r#"${1}"#),
-        (r#"(alias)es$"#, r#"${1}"#),
-        (r#"(octop|vir)i$"#, r#"${1}us"#),
-        (r#"(cris|ax|test)es$"#, r#"${1}is"#),
-        (r#"(shoe)s$"#, r#"${1}"#),
-        (r#"(o)es$"#, r#"${1}"#),
-        (r#"(bus)es$"#, r#"${1}"#),
-        (r#"([m|l])ice$"#, r#"${1}ouse"#),
-        (r#"(x|ch|ss|sh)es$"#, r#"${1}"#),
-        (r#"(m)ovies$"#, r#"${1}ovie"#),
-        (r#"(s)eries$"#, r#"${1}eries"#),
-        (r#"([^aeiouy]|qu)ies$"#, r#"${1}y"#),
-        (r#"([lr])ves$"#, r#"${1}f"#),
-        (r#"(tive)s$"#, r#"${1}"#),
-        (r#"(hive)s$"#, r#"${1}"#),
-        (r#"(li|wi|kni)ves$"#, r#"${1}fe"#),
-        (r#"(shea|loa|lea|thie)ves$"#, r#"${1}f"#),
-        (r#"(^analy)ses$"#, r#"${1}sis"#),
-        (r#"((a)naly|(b)a|(d)iagno|(p)arenthe|(p)rogno|(s)ynop|(t)he)ses$"#, r#"${1}${2}sis"#),
-        (r#"([ti])a$"#, r#"${1}um"#),
-        (r#"(n)ews$"#, r#"${1}ews"#),
-        (r#"(h|bl)ouses$"#, r#"${1}ouse"#),
-        (r#"(corpse)s$"#, r#"${1}"#),
-        (r#"(us)es$"#, r#"${1}"#),
-        (r#"s$"#, r#""#),
-    ];
     match word.to_lowercase().as_str() {
         | value if SAME_SINGULAR_PLURAL.contains(&value) => value.to_string(),
         | value if IRREGULAR_NOUNS.contains_key(&value) => value.to_string(),
@@ -316,10 +454,12 @@ pub fn get_singular_form(word: &str) -> String {
             | None => value.to_string(),
         },
         | value => {
-            let pair = SINGULAR.iter().find(|(pattern, _)| match Regex::new(pattern).unwrap().is_match(value) {
-                | Ok(true) => true,
-                | Ok(false) | Err(_) => false,
-            });
+            let pair = PLURAL_TO_SINGULAR
+                .iter()
+                .find(|(pattern, _)| match Regex::new(pattern).unwrap().is_match(value) {
+                    | Ok(true) => true,
+                    | Ok(false) | Err(_) => false,
+                });
             match pair {
                 | Some((pattern, replacement)) => {
                     debug!(pattern, replacement, value, "=> {} Singular form conversion", Label::using());
