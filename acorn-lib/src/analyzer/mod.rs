@@ -228,7 +228,7 @@ impl StaticAnalyzer for Vale {
                 }
                 match File::create(format!("{}/accept.txt", parent)) {
                     | Ok(mut file) => {
-                        // TODO: Concatenate sponsor acronyms to accept file
+                        // TODO: Concatenate acronyms (acronyms, sponsors, partners, organizations) to accept file
                         let content = Constant::read_lines("accept.txt").join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to accept.txt");
                     }

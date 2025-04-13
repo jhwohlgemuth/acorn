@@ -37,6 +37,8 @@ geotag(ged)?
 glovebox(es)?
 graphene
 HPC
+HPE
+IBM
 INSET
 IOTA
 IPs?
