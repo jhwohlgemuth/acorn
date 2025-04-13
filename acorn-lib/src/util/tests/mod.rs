@@ -1,5 +1,7 @@
 use crate::util::*;
+#[cfg(test)]
 use pretty_assertions::assert_eq;
+use rayon::prelude::*;
 use std::path::Path;
 
 const FIXTURES: &str = "../tests/fixtures";
@@ -63,18 +65,55 @@ fn test_get_singular_form() {
 #[test]
 fn test_get_syllable_count_simple() {
     assert_eq!(0, get_syllable_count(""));
-    assert_eq!(1, get_syllable_count("a"));
-    assert_eq!(1, get_syllable_count("and"));
-    assert_eq!(1, get_syllable_count("is"));
-    assert_eq!(1, get_syllable_count("of"));
-    assert_eq!(1, get_syllable_count("the"));
-    assert_eq!(1, get_syllable_count("wine"));
-    // assert_eq!(2, get_syllable_count("hello"));
-    // assert_eq!(2, get_syllable_count("pizza"));
-    // assert_eq!(2, get_syllable_count("bottle"));
-    // assert_eq!(2, get_syllable_count("project"));
-    // assert_eq!(3, get_syllable_count("syllable"));
-    // assert_eq!(4, get_syllable_count("innovation"));
+    const SINGLE_SYLLABLE_WORDS: [&str; 7] = ["a", "and", "is", "of", "Foo", "the", "wine"];
+    const DOUBLE_SYLLABLE_WORDS: [&str; 9] = ["bottle", "cafe", "cafes", "Hello", "hello", "PIZZA", "pizza", "PROJECT", "project"];
+    SINGLE_SYLLABLE_WORDS.par_iter().for_each(|x| {
+        assert_eq!(1, get_syllable_count(x), "=> [REASON] \"{x}\" is NOT a single-syllable word");
+    });
+    DOUBLE_SYLLABLE_WORDS.par_iter().for_each(|x| {
+        assert_eq!(2, get_syllable_count(x), "=> [REASON] \"{x}\" is NOT a double-syllable word");
+    });
+    assert_eq!(3, get_syllable_count("Syllable"));
+    assert_eq!(3, get_syllable_count("syllable"));
+    assert_eq!(4, get_syllable_count("Innovation"));
+    assert_eq!(4, get_syllable_count("innovation"));
+}
+#[test]
+fn test_get_syllables_count_problematic() {
+    assert_eq!(1, get_syllable_count("queue"));
+    assert_eq!(3, get_syllable_count("anyone"));
+    assert_eq!(2, get_syllable_count("maybe"));
+    assert_eq!(2, get_syllable_count("phoebe"));
+    assert_eq!(3, get_syllable_count("simile"));
+    assert_eq!(3, get_syllable_count("distractions"));
+    assert_eq!(5, get_syllable_count("preoccupation"));
+}
+#[test]
+fn test_get_syllables_count_hyphenated() {
+    assert_eq!(3, get_syllable_count("good-natured"));
+    assert_eq!(3, get_syllable_count("ninety-nine"));
+}
+#[test]
+fn test_get_syllables_count_accented() {
+    assert_eq!(2, get_syllable_count("cafés"));
+    assert_eq!(3, get_syllable_count("resumé"));
+    assert_eq!(2, get_syllable_count("Zoë"));
+    assert_eq!(2, get_syllable_count("zoë"));
+}
+#[ignore] // Takes too long (less than 30 seconds)
+#[test]
+fn test_get_syllables_count_word_list() {
+    match read_file(PathBuf::from(FIXTURES).join("words.csv")) {
+        | Ok(content) => {
+            content.lines().map(String::from).collect::<Vec<String>>().par_iter().for_each(|x| {
+                let pair: Vec<String> = x.split(',').map(String::from).collect();
+                let word = &pair[0];
+                let count: usize = pair[1].parse().unwrap();
+                assert_eq!(count, get_syllable_count(word));
+            });
+        }
+        | Err(_) => {}
+    }
 }
 #[test]
 fn test_is_ip6() {}

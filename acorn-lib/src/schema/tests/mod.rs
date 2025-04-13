@@ -236,10 +236,13 @@ fn test_validate_has_image_extension() {
     ];
     let invalid = ["foo.pNg", "bar.jpx", "qux.sVG", "https://example.com/fooPNG"];
     for x in valid.iter() {
-        assert!(has_image_extension(x).is_ok());
+        assert!(
+            has_image_extension(x).is_ok(),
+            "=> [REASON] \"{x}\" does NOT HAVE a valid image extension"
+        );
     }
     for x in invalid.iter() {
-        assert!(has_image_extension(x).is_err());
+        assert!(has_image_extension(x).is_err(), "=> [REASON] \"{x}\" HAS a valid image extension");
     }
 }
 #[test]
@@ -247,10 +250,10 @@ fn test_validate_is_doi() {
     let valid = ["10.1000/182", "10.97812345/99990"];
     let invalid = ["978-12345-99990"];
     for x in valid.iter() {
-        assert!(is_doi(x).is_ok());
+        assert!(is_doi(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid DOI");
     }
     for x in invalid.iter() {
-        assert!(is_doi(x).is_err());
+        assert!(is_doi(x).is_err(), "=> [REASON] \"{x}\" IS a valid DOI");
     }
 }
 #[test]
@@ -263,10 +266,10 @@ fn test_validate_is_ip6() {
     ];
     let invalid = ["192.168.1.1", "127.0.0.1", "test:test:test:test:test:test:test:test"];
     for x in valid.iter() {
-        assert!(is_ip6(x).is_ok());
+        assert!(is_ip6(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid IP6 address");
     }
     for x in invalid.iter() {
-        assert!(is_ip6(x).is_err());
+        assert!(is_ip6(x).is_err(), "=> [REASON] \"{x}\" IS a valid IP6 address");
     }
 }
 #[test]
@@ -274,10 +277,10 @@ fn test_validate_is_kebabcase() {
     let valid = ["this-is-valid", "thisisvalid"];
     let invalid = ["this_is_not_valid", "ThisIsNotValid", "this is not valid", "This-Is-Not-Valid"];
     for x in valid.iter() {
-        assert!(is_kebabcase(x).is_ok());
+        assert!(is_kebabcase(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid kebab-case");
     }
     for x in invalid.iter() {
-        assert!(is_kebabcase(x).is_err());
+        assert!(is_kebabcase(x).is_err(), "=> [REASON] \"{x}\" IS valid kebab-case");
     }
 }
 #[test]
@@ -292,10 +295,10 @@ fn test_validate_is_phone_number() {
     ];
     let invalid = ["42", "1 (555) 123-4567", "1234-567", "123-4567"];
     for x in valid.iter() {
-        assert!(is_phone_number(x).is_ok());
+        assert!(is_phone_number(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid phone number");
     }
     for x in invalid.iter() {
-        assert!(is_phone_number(x).is_err());
+        assert!(is_phone_number(x).is_err(), "=> [REASON] \"{x}\" IS a valid phone number");
     }
 }
 #[test]
@@ -339,9 +342,9 @@ fn test_validate_is_ror() {
         "https://ror.org/01rxfrp27",
     ];
     for x in valid.iter() {
-        assert!(is_ror(x).is_ok());
+        assert!(is_ror(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid ROR");
     }
     for x in invalid.iter() {
-        assert!(is_ror(x).is_err());
+        assert!(is_ror(x).is_err(), "=> [REASON] \"{x}\" IS a valid ROR");
     }
 }

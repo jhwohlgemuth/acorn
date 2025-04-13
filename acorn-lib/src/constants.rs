@@ -166,6 +166,8 @@ lazy_static! {
     pub static ref APOSTROPHE: Regex = Regex::new(r#"['’]"#).unwrap();
     /// Non-alphabetic
     pub static ref NON_ALPHABETIC: Regex = Regex::new(r#"[^a-zA-Z]"#).unwrap();
+    /// Vowels
+    pub static ref VOWEL: Regex = Regex::new(r#"[^aeiouy]+"#).unwrap();
     pub static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
     pub static ref RE_ROR: Regex = Regex::new(r#"^0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2}$"#).unwrap();
     pub static ref RE_IMAGE_EXTENSION: Regex = Regex::new(r#".*[.](png|PNG|jpg|JPG|jpeg|JPEG|svg|SVG)$"#).unwrap();
@@ -207,6 +209,47 @@ lazy_static! {
     ///
     /// Inverted version of [IRREGULAR_NOUNS]
     pub static ref IRREGULAR_NOUNS_INVERTED: HashMap<&'static str, &'static str> = IRREGULAR_NOUNS.clone().into_iter().map(|(k, v)| (v, k)).collect();
+    /// ### Nouns that need to be fixed when counting syllables
+    ///
+    /// All counts are (correct - 1)
+    pub static ref NEED_TO_BE_FIXED: HashMap<&'static str, usize> = vec![
+        ("ayo", 2),
+        ("australian", 3),
+        ("dionysius", 5),
+        ("disbursement", 3),
+        ("discouragement", 4),
+        ("disenfranchisement", 5),
+        ("disengagement", 4),
+        ("disgraceful", 3),
+        ("diskette", 2),
+        ("displacement", 3),
+        ("distasteful", 3),
+        ("distinctiveness", 4),
+        ("distraction", 3),
+        ("geoffrion", 4),
+        ("mcquaid", 2),
+        ("mcquaide", 2),
+        ("mcquaig", 2),
+        ("mcquain", 2),
+        ("nonbusiness", 3),
+        ("nonetheless", 3),
+        ("nonmanagement", 4),
+        ("outplacement", 3),
+        ("outrageously", 4),
+        ("postponement", 3),
+        ("preemption", 3),
+        ("preignition", 4),
+        ("preinvasion", 4),
+        ("preisler", 3),
+        ("preoccupation", 5),
+        ("prevette", 2),
+        ("probusiness", 3),
+        ("procurement", 3),
+        ("pronouncement", 3),
+        ("sidewater", 3),
+        ("sidewinder", 3),
+        ("ungerer", 3),
+    ].into_iter().collect();
     /// ### Nouns with problematic syllable counts
     pub static ref PROBLEMATIC_WORDS: HashMap<&'static str, usize> = vec![
         ("abalone", 4),
@@ -278,46 +321,5 @@ lazy_static! {
         ("viceroyship", 3),
         ("yosemite", 4),
         ("zoë", 2),
-    ].into_iter().collect();
-    /// ### Nouns that need to be fixed when counting syllables
-    ///
-    /// All counts are (correct - 1)
-    pub static ref NEED_TO_BE_FIXED: HashMap<&'static str, usize> = vec![
-        ("ayo", 2),
-        ("australian", 3),
-        ("dionysius", 5),
-        ("disbursement", 3),
-        ("discouragement", 4),
-        ("disenfranchisement", 5),
-        ("disengagement", 4),
-        ("disgraceful", 3),
-        ("diskette", 2),
-        ("displacement", 3),
-        ("distasteful", 3),
-        ("distinctiveness", 4),
-        ("distraction", 3),
-        ("geoffrion", 4),
-        ("mcquaid", 2),
-        ("mcquaide", 2),
-        ("mcquaig", 2),
-        ("mcquain", 2),
-        ("nonbusiness", 3),
-        ("nonetheless", 3),
-        ("nonmanagement", 4),
-        ("outplacement", 3),
-        ("outrageously", 4),
-        ("postponement", 3),
-        ("preemption", 3),
-        ("preignition", 4),
-        ("preinvasion", 4),
-        ("preisler", 3),
-        ("preoccupation", 5),
-        ("prevette", 2),
-        ("probusiness", 3),
-        ("procurement", 3),
-        ("pronouncement", 3),
-        ("sidewater", 3),
-        ("sidewinder", 3),
-        ("ungerer", 3),
     ].into_iter().collect();
 }

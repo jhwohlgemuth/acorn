@@ -1,4 +1,4 @@
-use crate::constants::{IRREGULAR_NOUNS, IRREGULAR_NOUNS_INVERTED, NEED_TO_BE_FIXED, NON_ALPHABETIC, PROBLEMATIC_WORDS, SAME_SINGULAR_PLURAL};
+use crate::constants::*;
 use console::Emoji;
 use data_encoding::HEXUPPER;
 use derive_more::Display;
@@ -439,23 +439,20 @@ pub fn get_singular_form(word: &str) -> String {
     }
 }
 pub fn get_syllable_count(text: &str) -> usize {
-    fn sanitize(value: &str) -> String {
-        NON_ALPHABETIC.replace_all(value, "").to_lowercase()
+    fn tokenize(value: &str) -> Vec<String> {
+        value
+            .replace("é", "-e")
+            .replace("ë", "-e")
+            .split('-')
+            .map(|x| NON_ALPHABETIC.replace_all(x, "").to_lowercase())
+            .collect::<Vec<_>>()
     }
     fn get_syllables(word: String) -> usize {
         let singular = get_singular_form(&word);
         match word.as_str() {
             | "" => 0,
             | value if value.len() < 3 => 1,
-            | value if NEED_TO_BE_FIXED.contains_key(value) => match NEED_TO_BE_FIXED.get(value) {
-                | Some(x) => *x,
-                | None => 0,
-            },
             | value if PROBLEMATIC_WORDS.contains_key(value) => match PROBLEMATIC_WORDS.get(value) {
-                | Some(x) => *x,
-                | None => 0,
-            },
-            | _ if NEED_TO_BE_FIXED.contains_key(&singular.as_str()) => match NEED_TO_BE_FIXED.get(singular.as_str()) {
                 | Some(x) => *x,
                 | None => 0,
             },
@@ -463,14 +460,36 @@ pub fn get_syllable_count(text: &str) -> usize {
                 | Some(x) => *x,
                 | None => 0,
             },
+            | value if NEED_TO_BE_FIXED.contains_key(value) => match NEED_TO_BE_FIXED.get(value) {
+                | Some(x) => *x,
+                | None => 0,
+            },
+            | _ if NEED_TO_BE_FIXED.contains_key(&singular.as_str()) => match NEED_TO_BE_FIXED.get(singular.as_str()) {
+                | Some(x) => *x,
+                | None => 0,
+            },
             | _ => {
-                let mut count = 0;
-                count += 1;
-                count
+                let mut input = word;
+                let mut count: isize = 0;
+                // TODO: Combine SINGLE, DOUBLE, and TRIPLE regex operations
+                count += 3 * TRIPLE.find_iter(&input).count() as isize;
+                input = TRIPLE.replace_all(&input, "").to_string();
+                count += 2 * DOUBLE.find_iter(&input).count() as isize;
+                input = DOUBLE.replace_all(&input, "").to_string();
+                count += SINGLE.find_iter(&input).count() as isize;
+                input = SINGLE.replace_all(&input, "").to_string();
+                count -= SINGLE_SYLLABIC_ONE.find_iter(&input).count() as isize;
+                count -= SINGLE_SYLLABIC_TWO.find_iter(&input).count() as isize;
+                count += DOUBLE_SYLLABIC_ONE.find_iter(&input).count() as isize;
+                count += DOUBLE_SYLLABIC_TWO.find_iter(&input).count() as isize;
+                count += DOUBLE_SYLLABIC_THREE.find_iter(&input).count() as isize;
+                count += DOUBLE_SYLLABIC_FOUR.find_iter(&input).count() as isize;
+                count += VOWEL.split(&input).filter(|x| !x.as_ref().unwrap().is_empty()).count() as isize;
+                count as usize
             }
         }
     }
-    let tokens = text.split_whitespace().map(sanitize).collect::<Vec<String>>();
+    let tokens = text.split_whitespace().flat_map(tokenize).collect::<Vec<String>>();
     tokens.into_iter().map(get_syllables).sum()
 }
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
