@@ -38,6 +38,7 @@ glovebox(es)?
 graphene
 HPC
 HPE
+hackathons?
 IBM
 INSET
 IOTA
