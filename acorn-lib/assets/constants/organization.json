@@ -169,6 +169,7 @@
                 "member": [
                     {
                         "name": "Quantum Science Center",
+                        "alternativeName": "QSC",
                         "additionalType": "center",
                         "keywords": [],
                         "member": []

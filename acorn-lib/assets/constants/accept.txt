@@ -66,6 +66,8 @@ parallel_reduce
 Perlmutter
 PIPE
 POI
+QIS
+QSC
 RAJA
 REDC
 Raman
