@@ -204,16 +204,25 @@ impl Constant {
             | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
             | None => {
                 error!(file_name, "=> {} Import Constant asset", Label::fail());
-                unimplemented!()
+                panic!("Unable to import {}", file_name)
             }
         }
+    }
+    pub fn get_last_values(file_name: &str) -> impl Iterator<Item = String> {
+        Constant::csv(file_name)
+            .into_iter()
+            .map(|x| match x.last() {
+                | Some(value) => value.to_string(),
+                | None => "".to_string(),
+            })
+            .filter(|x| !x.is_empty())
     }
     pub fn read_lines(file_name: &str) -> Vec<String> {
         let data = Constant::from_asset(file_name);
         data.lines().map(String::from).collect()
     }
     pub fn csv(file_name: &str) -> Vec<Vec<String>> {
-        Constant::read_lines(file_name)
+        Constant::read_lines(format!("{}.csv", file_name).as_str())
             .into_iter()
             .map(|x| x.split(",").map(String::from).collect())
             .collect()

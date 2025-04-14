@@ -832,7 +832,7 @@ fn print_resolution(output: Option<String>, value: String, name: String) {
     };
 }
 fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
-    let data = Constant::csv(format!("{}.csv", name).as_str());
+    let data = Constant::csv(&name);
     resolve_from_list_of_lists(value, data)
 }
 fn resolve_from_list_of_lists(value: String, data: Vec<Vec<String>>) -> Option<String> {

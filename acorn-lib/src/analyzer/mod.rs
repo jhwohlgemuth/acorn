@@ -228,8 +228,12 @@ impl StaticAnalyzer for Vale {
                 }
                 match File::create(format!("{}/accept.txt", parent)) {
                     | Ok(mut file) => {
-                        // TODO: Concatenate acronyms (acronyms, sponsors, partners, organizations) to accept file
-                        let content = Constant::read_lines("accept.txt").join("\n");
+                        // TODO: Concatenate organization alternative names to accept file
+                        let acronyms = Constant::get_last_values("acronyms");
+                        let partners = Constant::get_last_values("partners");
+                        let sponsors = Constant::get_last_values("sponsors");
+                        let words = Constant::read_lines("accept.txt");
+                        let content = acronyms.chain(partners).chain(sponsors).chain(words).collect::<Vec<String>>().join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to accept.txt");
                     }
                     | Err(why) => panic!("=> {} Create accept.txt - {}", Label::fail(), why),
