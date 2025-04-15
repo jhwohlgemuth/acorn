@@ -1,3 +1,6 @@
+use comfy_table::modifiers::UTF8_ROUND_CORNERS;
+use comfy_table::presets::UTF8_FULL;
+use comfy_table::*;
 use console::Emoji;
 use data_encoding::HEXUPPER;
 use derive_more::Display;
@@ -417,6 +420,18 @@ pub fn print_changes(old: &str, new: &str) {
             print!("{}", change.1);
         }
     }
+}
+pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<String>>) {
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(headers);
+    rows.into_iter().for_each(|row| {
+        table.add_row(row);
+    });
+    println!("=> {} \n{table}", title.green().bold());
 }
 pub fn read_file(path: PathBuf) -> Result<String, Box<dyn Error>> {
     let mut content = String::new();

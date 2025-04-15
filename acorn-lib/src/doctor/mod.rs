@@ -1,9 +1,6 @@
 use crate::schema::validate::is_ip6;
-use comfy_table::modifiers::UTF8_ROUND_CORNERS;
-use comfy_table::presets::UTF8_FULL;
-use comfy_table::*;
+use crate::util::{print_values_as_table, to_string};
 use human_units::FormatSize;
-use owo_colors::OwoColorize;
 use sysinfo::{Networks, System};
 
 pub trait TableFormatPrint {
@@ -76,22 +73,14 @@ impl TableFormatPrint for MemoryInformation {
             used,
             swap,
         } = self;
-        let rows = [
-            vec!["Total", &total],
-            vec!["Available", &available],
-            vec!["Used", &used],
-            vec!["Swap", &swap],
+        let headers = vec!["Attribute", "Value"];
+        let rows = vec![
+            to_string(vec!["Total", &total]),
+            to_string(vec!["Available", &available]),
+            to_string(vec!["Used", &used]),
+            to_string(vec!["Swap", &swap]),
         ];
-        let mut table = Table::new();
-        table
-            .load_preset(UTF8_FULL)
-            .apply_modifier(UTF8_ROUND_CORNERS)
-            .set_content_arrangement(ContentArrangement::Dynamic)
-            .set_header(vec!["Attribute", "Value"]);
-        rows.into_iter().for_each(|row| {
-            table.add_row(row);
-        });
-        println!("=> {} \n{table}", "Memory".green().bold());
+        print_values_as_table("Memory", headers, rows);
     }
 }
 impl TableFormatPrint for NetworkInformation {
@@ -107,9 +96,10 @@ impl TableFormatPrint for NetworkInformation {
         NetworkInformation { networks }
     }
     fn print(self) {
+        let headers = vec!["Network", "MAC Address", "MTU"];
         let rows = self
             .networks
-            .into_iter()
+            .iter()
             .filter_map(|network| {
                 if network.ip_address.is_empty() {
                     None
@@ -121,16 +111,7 @@ impl TableFormatPrint for NetworkInformation {
                 }
             })
             .collect::<Vec<_>>();
-        let mut table = Table::new();
-        table
-            .load_preset(UTF8_FULL)
-            .apply_modifier(UTF8_ROUND_CORNERS)
-            .set_content_arrangement(ContentArrangement::Dynamic)
-            .set_header(vec!["Network", "MAC Address", "MTU"]);
-        rows.into_iter().for_each(|row| {
-            table.add_row(row);
-        });
-        println!("=> {} \n{table}", "Network".green().bold());
+        print_values_as_table("Network", headers, rows);
     }
 }
 impl TableFormatPrint for SystemInformation {
@@ -155,24 +136,16 @@ impl TableFormatPrint for SystemInformation {
             cpu_arch,
             cpu_count,
         } = self;
-        let rows = [
-            vec!["Name", &name],
-            vec!["Kernel Version", &kernel_version],
-            vec!["OS Version", &os_version],
-            vec!["Host Name", &host_name],
-            vec!["CPU Architecture", &cpu_arch],
-            vec!["CPU Count", &cpu_count],
+        let headers = vec!["Attribute", "Value"];
+        let rows = vec![
+            to_string(vec!["Name", &name]),
+            to_string(vec!["Kernel Version", &kernel_version]),
+            to_string(vec!["OS Version", &os_version]),
+            to_string(vec!["Host Name", &host_name]),
+            to_string(vec!["CPU Architecture", &cpu_arch]),
+            to_string(vec!["CPU Count", &cpu_count]),
         ];
-        let mut table = Table::new();
-        table
-            .load_preset(UTF8_FULL)
-            .apply_modifier(UTF8_ROUND_CORNERS)
-            .set_content_arrangement(ContentArrangement::Dynamic)
-            .set_header(vec!["Attribute", "Value"]);
-        rows.into_iter().for_each(|row| {
-            table.add_row(row);
-        });
-        println!("=> {} \n{table}", "System".green().bold());
+        print_values_as_table("System", headers, rows);
     }
 }
 impl TableFormatPrint for SystemSoftwareInformation {
@@ -186,22 +159,14 @@ impl TableFormatPrint for SystemSoftwareInformation {
             node: _,
             vale: _,
         } = self;
-        let rows = [
-            vec!["Acorn", "Y", "v0.0.0", "/path/to/executable"],
-            vec!["Git", "Y", "v0.0.0", "/path/to/executable"],
-            vec!["Node.js", "Y", "v0.0.0", "/path/to/executable"],
-            vec!["Vale", "Y", "v0.0.0", "/path/to/executable"],
+        let headers = vec!["Software", "Installed", "Version", "Location"];
+        let rows = vec![
+            to_string(vec!["Acorn", "Y", "v0.0.0", "/path/to/executable"]),
+            to_string(vec!["Git", "Y", "v0.0.0", "/path/to/executable"]),
+            to_string(vec!["Node.js", "Y", "v0.0.0", "/path/to/executable"]),
+            to_string(vec!["Vale", "Y", "v0.0.0", "/path/to/executable"]),
         ];
-        let mut table = Table::new();
-        table
-            .load_preset(UTF8_FULL)
-            .apply_modifier(UTF8_ROUND_CORNERS)
-            .set_content_arrangement(ContentArrangement::Dynamic)
-            .set_header(vec!["Software", "Installed", "Version", "Location"]);
-        rows.into_iter().for_each(|row| {
-            table.add_row(row);
-        });
-        println!("=> {} \n{table}", "Memory".green().bold());
+        print_values_as_table("Memory", headers, rows);
     }
 }
 pub fn print_system_information() {
