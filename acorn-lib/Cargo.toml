@@ -25,6 +25,7 @@ default = ["cli"]
 cli = []
 
 [dependencies]
+aho-corasick = "1.1.3"
 bon = "3.3.2"
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
 comfy-table = "7.1.4"
@@ -38,18 +39,21 @@ fancy-regex = "0.14.0"
 flate2 = "1.0.35"
 human-units = "0.3.0"
 is_executable = "1.0.4"
+nanopub = "0.1.4"
 nucleo-matcher = "0.3.1"
 percy-dom = "0.10.0"
-petgraph = "0.7.1"
+petgraph = "0.8.1"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
-ring = "0.17.8"
+ring = "0.17.13"
 rust-ini = "0.21.1"
 similar = "2.7.0"
-sysinfo = "0.33.1"
+sophia = "0.9.0"
+sophia_jsonld = "0.9.0"
+sysinfo = "0.34.2"
 tar = "0.4.43"
 titlecase = "3.4.0"
 validator = { version = "0.20", features = ["derive"] }
-wgpu = "24.0.1"
+wgpu = "25.0.0"
 which = "7.0.2"
 color-eyre = { workspace = true }
 data-encoding = { workspace = true }
