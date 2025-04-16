@@ -46,6 +46,12 @@ pub enum Commands {
     ///     Skip schema validation
     ///     $> acorn check --path /path/to/folder --skip analysis,validation
     ///
+    ///     Check file(s) that were changed in a given Git commit
+    ///     $> acorn format --commit <commit hash>
+    ///
+    ///     Check file(s) that were changed in latest Git commit
+    ///     $> acorn format --commit HEAD
+    ///
     #[clap(verbatim_doc_comment)]
     Check {
         /// Path to check
@@ -91,7 +97,7 @@ pub enum Commands {
         /// Choose to output a JSON issue report to stdout
         #[arg(short, long, value_name = "BOOL")]
         report: bool,
-        /// Skip one or more available diagnostic checks
+        /// Select one or more available diagnostic checks
         #[arg(default_value = "all", short, long, value_name = "LIST", value_delimiter = ',')]
         check: Vec<Diagnostic>,
         #[command(flatten)]
@@ -126,6 +132,12 @@ pub enum Commands {
     ///
     ///     $> acorn export -p /path/to/data -t poster -o /path/to/output
     ///
+    ///     Export file(s) that were changed in a given Git commit
+    ///     $> acorn format --commit <commit hash>
+    ///
+    ///     Export file(s) that were changed in latest Git commit
+    ///     $> acorn format --commit HEAD
+    ///
     #[clap(verbatim_doc_comment)]
     Export {
         /// Path of input files to be exported
@@ -151,6 +163,12 @@ pub enum Commands {
     ///     $> acorn format --path /path/to/file.json
     ///
     ///     $> acorn format --path /path/to/folder
+    ///
+    ///     Format file(s) that were changed in a given Git commit
+    ///     $> acorn format --commit <commit hash>
+    ///
+    ///     Format file(s) that were changed in latest Git commit
+    ///     $> acorn format --commit HEAD
     ///
     #[clap(verbatim_doc_comment)]
     Format {

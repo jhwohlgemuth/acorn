@@ -39,26 +39,43 @@ pub enum Repository {
     #[display("github")]
     GitHub { uri: String },
     #[display("gitlab")]
-    GitLab { id: u64, uri: String },
+    GitLab {
+        /// Integer ID of GitLab project
+        ///
+        /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
+        id: u64,
+        uri: String,
+    },
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BucketsConfig {
     pub buckets: Vec<Bucket>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "camelCase")]
 pub struct Bucket {
-    name: String,
-    repository: Repository,
+    /// Bucket name
+    ///
+    /// See <https://schema.org/name>
+    pub name: String,
+    /// Bucket description
+    ///
+    /// See <https://schema.org/description>
+    pub description: Option<String>,
+    /// Code repository data of bucket
+    ///
+    /// See <https://schema.org/codeRepository>
+    #[serde(alias = "repository")]
+    pub code_repository: Repository,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GitlabTreeEntry {
-    id: String,
-    name: String,
+    pub id: String,
+    pub name: String,
     #[serde(rename = "type")]
-    entry_type: EntryType,
-    path: String,
-    mode: String,
+    pub entry_type: EntryType,
+    pub path: String,
+    pub mode: String,
 }
 impl Bucket {
     fn parse(response: reqwest::blocking::Response) -> Vec<String> {
@@ -84,14 +101,14 @@ impl Bucket {
                 | Repository::GitLab { .. } => "gitlab.com".to_string(),
             }
         }
-        match &self.repository {
+        match &self.code_repository {
             | Repository::GitHub { uri } => match URI::try_from(uri.as_str()) {
                 | Ok(uri) => uri.host().unwrap().to_string(),
-                | Err(_) => default_domain(self.repository.clone()),
+                | Err(_) => default_domain(self.code_repository.clone()),
             },
             | Repository::GitLab { uri, .. } => match URI::try_from(uri.as_str()) {
                 | Ok(uri) => uri.host().unwrap().to_string(),
-                | Err(_) => default_domain(self.repository.clone()),
+                | Err(_) => default_domain(self.code_repository.clone()),
             },
         }
     }
@@ -100,7 +117,7 @@ impl Bucket {
         reqwest::blocking::get(url)
     }
     fn get_tree_url(&self, schema_type: SchemaType, page: u32) -> String {
-        let id = match &self.repository {
+        let id = match &self.code_repository {
             | Repository::GitHub { .. } => todo!(),
             | Repository::GitLab { id, .. } => id.to_string(),
         };
@@ -120,7 +137,7 @@ impl Bucket {
         fn get_suffix(value: usize) -> String {
             (if value == 1 { "" } else { "s" }).to_string()
         }
-        let counts = SCHEMA_TYPES.into_iter().map(|schema_type| match self.repository {
+        let counts = SCHEMA_TYPES.into_iter().map(|schema_type| match self.code_repository {
             | Repository::GitHub { .. } => todo!(),
             | Repository::GitLab { ref uri, .. } => {
                 info!("=> Downloading {} research data from {}...", schema_type, uri.clone());
@@ -189,7 +206,7 @@ impl Bucket {
     // https://docs.gitlab.com/ee/api/repositories.html
     fn get_file_paths(self: Bucket, schema_type: SchemaType) -> Vec<String> {
         const FIRST_PAGE: u32 = 1;
-        match self.repository {
+        match self.code_repository {
             | Repository::GitHub { .. } => unimplemented!(),
             | Repository::GitLab { .. } => {
                 fn get_page_count(response: &reqwest::blocking::Response) -> u32 {

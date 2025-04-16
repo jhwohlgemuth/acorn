@@ -36,6 +36,11 @@ pub fn run(path: &Option<PathBuf>, commit: &Option<String>, skip: &[Check], exit
         // TODO: Use JSON output to create customized and consolidated error count and output
         success = ResearchActivity::analyze(paths);
     }
+    if skip.contains(&Check::Readability) {
+        warn!("=> {} Readability analysis", Label::skip());
+    } else {
+        // TODO: Output readability analysis
+    }
     if total > 0 || !success {
         std::process::exit(exitcode::DATAERR);
     }

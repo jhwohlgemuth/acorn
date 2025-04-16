@@ -39,6 +39,9 @@ pub mod cli {
         /// Static analysis of prose
         #[display("analysis")]
         Analysis,
+        /// Readability of prose
+        #[display("readability")]
+        Readability,
         /// Schema validation via Rust type system
         #[display("validation")]
         Validation,

@@ -13,7 +13,8 @@ fn test_bucket_config() {
 fn test_bucket() {
     let bucket: Bucket = Bucket {
         name: "nssd".to_string(),
-        repository: Repository::GitLab {
+        description: Some("Bucket for NSSD".to_string()),
+        code_repository: Repository::GitLab {
             id: 1234,
             uri: "https://code.ornl.gov/research-enablement/buckets/nssd".to_string(),
         },
@@ -21,7 +22,8 @@ fn test_bucket() {
     assert_eq!(bucket.get_domain(), "code.ornl.gov".to_string());
     let bucket: Bucket = Bucket {
         name: "nssd".to_string(),
-        repository: Repository::GitHub {
+        description: Some("Bucket for NSSD".to_string()),
+        code_repository: Repository::GitHub {
             uri: "https://code.ornl.gov/research-enablement/buckets/nssd".to_string(),
         },
     };
