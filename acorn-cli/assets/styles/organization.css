@@ -138,7 +138,7 @@ footer>.wrapper {
 }
 footer>.wrapper>.logo-wrapper {
     display: grid;
-    grid-template-columns: auto auto 50%;
+    grid-template-columns: auto auto auto;
     grid-template-rows: auto;
     text-align: center;
     height: 66px;

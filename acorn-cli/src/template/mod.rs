@@ -12,15 +12,17 @@ use percy_dom::prelude::*;
 use rust_embed::Embed;
 use tracing::error;
 
-#[derive(Default, Clone, Debug, Display)]
+#[derive(Default, Clone, Copy, Debug, Display)]
 enum TargetLabel {
     #[default]
     #[display("National Security Sciences")]
     Nssd,
     #[display("Biological and Environmental Systems Sciences")]
     Bessd,
-    #[display("Water Power")]
-    WaterPower,
+    #[display("Water Power Program")]
+    Wpp,
+    #[display("Solving Big Problems")]
+    Other,
 }
 struct DataUri {}
 #[derive(Embed)]
@@ -62,11 +64,22 @@ impl DataUri {
         }
     }
 }
+impl TargetLabel {
+    fn get_folder(&self) -> &str {
+        const DEFAULT: &str = "nssd";
+        match self {
+            | TargetLabel::Bessd => "bessd",
+            | TargetLabel::Wpp => "wpp",
+            | TargetLabel::Nssd | TargetLabel::Other => DEFAULT,
+        }
+    }
+}
 impl View for HtmlFooter {
     fn render(&self) -> VirtualNode {
         match self.target {
             | cli::Target::FactSheet => {
-                let style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/footer.jpg"));
+                let path = format!("fact-sheet/{}/footer.jpg", self.label.get_folder());
+                let style = format!("background-image: url({});", DataUri::from_asset(&path));
                 html! {
                     <footer style={ style }>
                         <div class="wrapper">
@@ -146,6 +159,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             ..
         }) => {
             let Research { focus, areas, .. } = research;
+            // TODO: Connect to fact sheet content
             let label = TargetLabel::default();
             let target = target.unwrap_or_default();
             let head = HtmlHead {
@@ -154,7 +168,9 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                 target,
             };
             let footer = HtmlFooter { label, target };
-            let header_style = format!("background-image: url({});", DataUri::from_asset(&format!("{}/header.jpg", target)));
+            let folder = label.get_folder();
+            let path = format!("{}/{}/header.jpg", target, folder);
+            let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
             let graphic = meta.clone().get_first_graphic_href();
             let caption = meta.clone().get_first_graphic_caption();
             let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
@@ -331,6 +347,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             impact,
             facilities,
         }) => {
+            // TODO: Connect to fact sheet content
             let label = TargetLabel::default();
             let target = target.unwrap_or_default();
             let head = HtmlHead {
@@ -339,7 +356,9 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
                 target,
             };
             let footer = HtmlFooter { label, target };
-            let header_style = format!("background-image: url({});", DataUri::from_asset(&format!("{}/header.jpg", target)));
+            let folder = label.get_folder();
+            let path = format!("{}/{}/header.jpg", target, folder);
+            let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
             let graphic = meta.clone().get_first_graphic_href();
             let caption = meta.clone().get_first_graphic_caption();
             let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
@@ -394,8 +413,6 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             }
         }
     };
-
-    // println!("{}", result);
     node.to_string()
 }
 fn generate_font_faces() -> String {
