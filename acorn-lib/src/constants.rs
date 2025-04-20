@@ -1,6 +1,7 @@
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
+pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
 // Base URL for deploying ORNL data
 pub const BASE_URL: &str = "https://research.ornl.gov";
 // ORNL brand colors

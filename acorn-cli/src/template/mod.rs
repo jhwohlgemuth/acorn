@@ -1,9 +1,10 @@
-use acorn_lib::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT};
+use acorn_lib::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
 use acorn_lib::schema::{
     ContactPoint, HighlightSections, Metadata, Notes, OrganizationSections, Other, ProjectSections, Research, ResearchActivity, Sections,
 };
 use acorn_lib::util::{cli, Label, MimeType};
 use data_encoding::BASE64;
+use derive_more::Display;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
@@ -11,6 +12,16 @@ use percy_dom::prelude::*;
 use rust_embed::Embed;
 use tracing::error;
 
+#[derive(Default, Clone, Debug, Display)]
+enum TargetLabel {
+    #[default]
+    #[display("National Security Sciences")]
+    Nssd,
+    #[display("Biological and Environmental Systems Sciences")]
+    Bessd,
+    #[display("Water Power")]
+    WaterPower,
+}
 struct DataUri {}
 #[derive(Embed)]
 #[folder = "assets/images/"]
@@ -22,13 +33,12 @@ struct Font;
 #[folder = "assets/styles/"]
 struct Style;
 struct HtmlFooter {
-    /// TODO: Convert to enum
-    pub organization: String,
+    pub label: TargetLabel,
     pub target: cli::Target,
 }
-struct HtmlHead {
+struct HtmlHead<'a> {
     pub size: cli::Size,
-    pub stylesheet: String,
+    pub stylesheet: &'a str,
     pub target: cli::Target,
 }
 impl DataUri {
@@ -56,16 +66,15 @@ impl View for HtmlFooter {
     fn render(&self) -> VirtualNode {
         match self.target {
             | cli::Target::FactSheet => {
-                let disclaimer = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
-                let style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/footer.jpg"),);
+                let style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/footer.jpg"));
                 html! {
                     <footer style={ style }>
                         <div class="wrapper">
-                            <div id="disclaimer">{ disclaimer }</div>
+                            <div id="disclaimer">{ DISCLAIMER }</div>
                             <div class="logo-wrapper">
                                 <div><img src={ DataUri::from_asset("logo_ornl.svg") } id="logo-ornl"/></div>
                                 <div><img src={ DataUri::from_asset("logo_doe_os.png") } id="logo-doe-os"/></div>
-                                <div id="division">{ &self.organization }</div>
+                                <div id="organization">{ &self.label.to_string() }</div>
                             </div>
                         </div>
                     </footer>
@@ -87,7 +96,7 @@ impl View for HtmlFooter {
         }
     }
 }
-impl View for HtmlHead {
+impl<'a> View for HtmlHead<'a> {
     fn render(&self) -> VirtualNode {
         let page_css = match self.target {
             | cli::Target::FactSheet => "letter portrait",
@@ -119,7 +128,14 @@ impl View for HtmlHead {
     }
 }
 pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Option<cli::Size>) -> String {
-    let ResearchActivity { meta, title, subtitle, .. } = data;
+    let ResearchActivity {
+        meta,
+        title,
+        subtitle,
+        contact,
+        ..
+    } = data;
+    let ContactPoint { .. } = contact;
     let node = match &data.sections {
         | Sections::Project(ProjectSections {
             introduction,
@@ -130,16 +146,15 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             ..
         }) => {
             let Research { focus, areas, .. } = research;
+            let label = TargetLabel::default();
+            let target = target.unwrap_or_default();
             let head = HtmlHead {
                 size: size.unwrap(),
-                stylesheet: "project.css".to_string(),
-                target: target.unwrap(),
+                stylesheet: "project.css",
+                target,
             };
-            let footer = HtmlFooter {
-                organization: "National Security Sciences".to_string(),
-                target: target.unwrap(),
-            };
-            let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
+            let footer = HtmlFooter { label, target };
+            let header_style = format!("background-image: url({});", DataUri::from_asset(&format!("{}/header.jpg", target)));
             let graphic = meta.clone().get_first_graphic_href();
             let caption = meta.clone().get_first_graphic_caption();
             let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
@@ -200,15 +215,14 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
         }) => {
             let Metadata { doi, publication, .. } = &meta;
             let ContactPoint { given_name, family_name, .. } = &data.contact;
+            let label = TargetLabel::default();
+            let target = target.unwrap_or_default();
             let head = HtmlHead {
                 size: size.unwrap(),
-                stylesheet: "highlight.css".to_string(),
-                target: target.unwrap(),
+                stylesheet: "highlight.css",
+                target,
             };
-            let footer = HtmlFooter {
-                organization: "National Security Sciences".to_string(),
-                target: target.unwrap(),
-            };
+            let footer = HtmlFooter { label, target };
             let graphic = meta.clone().get_first_graphic_href();
             let caption = &meta.clone().graphics.unwrap()[0].caption;
             let separator = match subtitle {
@@ -317,16 +331,15 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             impact,
             facilities,
         }) => {
+            let label = TargetLabel::default();
+            let target = target.unwrap_or_default();
             let head = HtmlHead {
                 size: size.unwrap(),
-                stylesheet: "organization.css".to_string(),
-                target: target.unwrap(),
+                stylesheet: "organization.css",
+                target,
             };
-            let footer = HtmlFooter {
-                organization: "National Security Sciences".to_string(),
-                target: target.unwrap(),
-            };
-            let header_style = format!("background-image: url({});", DataUri::from_asset("fact-sheet/header.jpg"));
+            let footer = HtmlFooter { label, target };
+            let header_style = format!("background-image: url({});", DataUri::from_asset(&format!("{}/header.jpg", target)));
             let graphic = meta.clone().get_first_graphic_href();
             let caption = meta.clone().get_first_graphic_caption();
             let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);

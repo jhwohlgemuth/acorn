@@ -14,6 +14,7 @@ dependencies = [
  "clap-verbosity-flag",
  "color-eyre",
  "data-encoding",
+ "derive_more",
  "dotenvy",
  "exitcode",
  "fast_qr",

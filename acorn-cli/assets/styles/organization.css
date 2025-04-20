@@ -2,21 +2,18 @@
     margin: 0;
     size: letter portrait;
 }
-
 html,
 body {
     font-family: "myriad_pro_light";
     margin: 0;
     padding: 0;
 }
-
 h1,
 h2,
 h3 {
     margin: 0;
     padding: 0;
 }
-
 header {
     margin: 0;
     padding: 0;
@@ -29,7 +26,6 @@ header {
     width: 100%;
     top: 0;
 }
-
 .main {
     margin-top: 220px;
     position: absolute;
@@ -38,25 +34,21 @@ header {
     grid-template-rows: auto auto auto;
     grid-gap: 0px;
 }
-
 main {
     font-family: "myriad_pro_light";
     font-size: 10.4pt;
     margin: 0px 0px 0px 50px;
     letter-spacing: 0.1em;
 }
-
 ul {
     display: block;
     list-style-type: disc;
     list-style-position: outside;
 }
-
 li {
     display: list-item;
     margin-left: -20px;
 }
-
 section>h3 {
     color: #16537B;
     font-family: "proxima_nova_bold";
@@ -66,12 +58,10 @@ section>h3 {
     padding-top: 10px;
     text-transform: uppercase;
 }
-
 .main>aside {
     grid-column: 2;
     grid-row: 1;
 }
-
 aside>.graphic {
     background-color: #FFFFFF;
     height: 200px;
@@ -79,15 +69,12 @@ aside>.graphic {
     margin: 20px 20px 0 20px;
     position: relative;
 }
-
 aside>.qrcode {
     text-align: center;
 }
-
 aside>.graphic>img {
     height: 200px;
 }
-
 aside>.caption {
     font-family: "myriad_pro_light";
     font-size: 9pt;
@@ -97,7 +84,6 @@ aside>.caption {
     text-align: left;
     width: 80%;
 }
-
 aside>.research-focus {
     background-color: #e6e7e8;
     height: 200px;
@@ -106,25 +92,21 @@ aside>.research-focus {
     padding: 20px 30px 20px 20px;
     position: relative;
 }
-
 aside>.research-focus>h3 {
     font-size: 13pt;
     font-family: "proxima_nova_bold";
     font-weight: bold;
     letter-spacing: 0.15em;
 }
-
 aside>.research-focus li,
 aside>.research-focus p {
     font-size: 10pt;
 }
-
 aside>div>h3 {
     color: #16537B;
     font-family: "proxima";
     font-size: 10pt;
 }
-
 footer {
     background-position: bottom center;
     background-repeat: no-repeat;
@@ -136,11 +118,9 @@ footer {
     position: fixed;
     width: 100%;
 }
-
 .wrapper {
     display: grid;
 }
-
 header>.wrapper {
     align-items: center;
     grid-gap: 5px;
@@ -148,7 +128,6 @@ header>.wrapper {
     grid-template-rows: auto auto auto;
     margin-top: 35px;
 }
-
 footer>.wrapper {
     align-items: center;
     color: #FFFFFF;
@@ -157,7 +136,6 @@ footer>.wrapper {
     grid-template-rows: auto auto;
     margin-top: 0;
 }
-
 footer>.wrapper>.logo-wrapper {
     display: grid;
     grid-template-columns: auto auto 50%;
@@ -166,7 +144,6 @@ footer>.wrapper>.logo-wrapper {
     height: 66px;
     line-height: 66px;
 }
-
 #contact {
     background-color: #e6e7e8;
     bottom: 110px;
@@ -174,7 +151,6 @@ footer>.wrapper>.logo-wrapper {
     text-align: center;
     width: 100%;
 }
-
 #contact>div {
     align-items: center;
     justify-content: center;
@@ -187,18 +163,15 @@ footer>.wrapper>.logo-wrapper {
     /* weasyprint */
     white-space: nowrap;
 }
-
 #contact .email {
     color: #0378c6;
 }
-
 #contact .label {
     color: #16537B;
     font-family: "proxima_nova_bold";
     font-size: 16pt;
     text-transform: uppercase;
 }
-
 #contact .label+.spacer {
     margin: 0 9px;
     color: #16537B;
@@ -208,23 +181,34 @@ footer>.wrapper>.logo-wrapper {
     background-color: #16537B;
     border: 0px solid #16537B;
 }
-
+#disclaimer {
+    font-family: "myriad_pro_semibold";
+    font-size: 10pt;
+    grid-column: 1;
+    grid-row: 1;
+    height: 31px;
+    line-height: 31px;
+    text-align: center;
+}
 #logo {
     grid-column: 1;
     grid-row: 1 / 4;
     width: 60px;
 }
-
 #logo-doe-os {
     height: 28px;
     padding-top: 15px;
 }
-
 #logo-ornl {
     height: 32px;
     padding-top: 13px;
 }
-
+#organization {
+    font-family: "proxima_nova_semibold";
+    font-size: 12pt;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+}
 #ornl-header {
     grid-column: 2;
     grid-row: 1;
@@ -235,7 +219,6 @@ footer>.wrapper>.logo-wrapper {
     letter-spacing: 0.35em;
     text-transform: uppercase;
 }
-
 #title {
     grid-column: 2;
     grid-row: 2;
@@ -244,7 +227,6 @@ footer>.wrapper>.logo-wrapper {
     font-size: 30pt;
     font-weight: bold;
 }
-
 #subtitle {
     grid-column: 2;
     grid-row: 3;
@@ -253,21 +235,4 @@ footer>.wrapper>.logo-wrapper {
     font-size: 16pt;
     font-style: italic;
     font-weight: normal;
-}
-
-#disclaimer {
-    font-family: "myriad_pro_semibold";
-    font-size: 10pt;
-    grid-column: 1;
-    grid-row: 1;
-    height: 31px;
-    line-height: 31px;
-    text-align: center;
-}
-
-#division {
-    font-family: "proxima_nova_semibold";
-    font-size: 12pt;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
 }
