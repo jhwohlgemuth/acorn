@@ -445,7 +445,7 @@ pub struct ProjectSections {
         message = "Approach is too long, please reduce the length below 600."
     ))]
     pub approach: String,
-    #[validate(length(min = 1), custom(function = "validate_attribute_outcomes"))]
+    #[validate(length(min = 1, max = "MAX_COUNT_OUTCOMES"), custom(function = "validate_attribute_outcomes"))]
     pub outcomes: Vec<String>,
     #[validate(nested)]
     pub research: Research,
@@ -458,7 +458,7 @@ pub struct OrganizationSections {
         message = "Mission is too long, please reduce the length below 250."
     ))]
     pub mission: String,
-    #[validate(length(min = 1), custom(function = "validate_attribute_capabilities"))]
+    #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
     pub capabilities: Vec<String>,
     #[validate(length(min = 1), custom(function = "validate_attribute_impact"))]
     pub impact: Vec<String>,

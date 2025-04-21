@@ -2,7 +2,7 @@ use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
 pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
-// Base URL for deploying ORNL data
+/// Base URL for deploying ORNL data
 pub const BASE_URL: &str = "https://research.ornl.gov";
 // ORNL brand colors
 // https://www.olcf.ornl.gov/about-olcf/media-assets/
@@ -19,6 +19,14 @@ pub const QUALIFIER: &str = "org";
 pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
 // Validation
+/// Maxumum number of capabilities for an organization
+///
+/// See [OrganizationSections::capabilities]
+pub const MAX_COUNT_CAPABILITIES: u64 = 6;
+/// Maxumum number of outcomes for a project
+///
+/// See [ProjectSections::outcomes]
+pub const MAX_COUNT_OUTCOMES: u64 = 6;
 /// Maximum number of characters for a single area description
 pub const MAX_LENGTH_AREA: usize = 40;
 /// Maximum number of characters for a single capability description
@@ -40,13 +48,11 @@ pub const MAX_LENGTH_SECTION_CHALLENGE: u64 = 500;
 /// Maximum number of characters for an approach section
 pub const MAX_LENGTH_SECTION_APPROACH: u64 = 600;
 /// Maximum number of characters for a subtitle
-// TODO: This should be 65
-pub const MAX_LENGTH_SUBTITLE: u64 = 100;
+pub const MAX_LENGTH_SUBTITLE: u64 = 65;
 /// Maximum number of characters for a single technical approach description
 pub const MAX_LENGTH_TECHNICAL: usize = 100;
 /// Maximum number of characters for a title
-/// TODO: This should be 35
-pub const MAX_LENGTH_TITLE: u64 = 50;
+pub const MAX_LENGTH_TITLE: u64 = 35;
 
 lazy_static! {
     /// ### Should match a Digital Object Identifier (DOI)
