@@ -19,7 +19,7 @@ pub const QUALIFIER: &str = "org";
 pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
 // Validation
-/// Maxumum number of [capabilities](/acorn_lib/schema/struct.OrganizationSections.html#structfield.capabilities) for an [organization](/acorn_lib/schema/enum.SchemaType.html#variant.Project)
+/// Maxumum number of [capabilities](/acorn_lib/schema/struct.OrganizationSections.html#structfield.capabilities) for an [organization](/acorn_lib/schema/enum.SchemaType.html#variant.Organization)
 pub const MAX_COUNT_CAPABILITIES: u64 = 6;
 /// Maxumum number of [outcomes](/acorn_lib/schema/struct.ProjectSections.html#structfield.outcomes) for a [project](/acorn_lib/schema/enum.SchemaType.html#variant.Project)
 pub const MAX_COUNT_OUTCOMES: u64 = 6;
@@ -29,11 +29,11 @@ pub const MAX_LENGTH_AREA: usize = 40;
 pub const MAX_LENGTH_CAPABILIY: usize = 300;
 /// Maximum number of characters for a single facility description
 pub const MAX_LENGTH_FACILITY: usize = 40;
-/// Maximum number of characters for a single facility description
+/// Maximum number of characters for a single graphic caption
 pub const MAX_LENGTH_GRAPHIC_CAPTION: u64 = 250;
 /// Maximum number of characters for a single impact description
 pub const MAX_LENGTH_IMPACT: usize = 400;
-/// Maximum number of characters for a single outcome description
+/// Maximum number of characters for a single [outcome](/acorn_lib/schema/struct.ProjectSections.html#structfield.outcomes)  description
 pub const MAX_LENGTH_OUTCOME: usize = 150;
 /// Maximum number of characters for an single research focus description
 pub const MAX_LENGTH_RESEARCH_FOCUS: u64 = 150;
