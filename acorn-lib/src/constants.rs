@@ -19,17 +19,13 @@ pub const QUALIFIER: &str = "org";
 pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
 // Validation
-/// Maxumum number of capabilities for an organization
-///
-/// See [OrganizationSections::capabilities]
+/// Maxumum number of [capabilities](acorn_lib::structs::OrganizationSections::capabilities) for an organization
 pub const MAX_COUNT_CAPABILITIES: u64 = 6;
-/// Maxumum number of outcomes for a project
-///
-/// See [ProjectSections::outcomes]
+/// Maxumum number of [outcomes](acorn_lib::structs::ProjectSections::outcomes) for a project
 pub const MAX_COUNT_OUTCOMES: u64 = 6;
 /// Maximum number of characters for a single area description
 pub const MAX_LENGTH_AREA: usize = 40;
-/// Maximum number of characters for a single capability description
+/// Maximum number of characters for a single [capability](acorn_lib::structs::OrganizationSections::capabilities) description
 pub const MAX_LENGTH_CAPABILIY: usize = 300;
 /// Maximum number of characters for a single facility description
 pub const MAX_LENGTH_FACILITY: usize = 40;
