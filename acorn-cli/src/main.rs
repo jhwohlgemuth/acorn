@@ -88,11 +88,6 @@ fn main() -> Void {
             verbose,
             ..
         }) => commands::format::run(path, commit, *dry_run, verbose),
-        | None => {
-            // use acorn_lib::schema::Organization;
-            // let data = &Organization::divisions();
-            // println!("{:#?}", data);
-            Ok(())
-        }
+        | None => Ok(()),
     }
 }
