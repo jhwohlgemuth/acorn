@@ -109,7 +109,7 @@ impl View for HtmlFooter {
         }
     }
 }
-impl<'a> View for HtmlHead<'a> {
+impl View for HtmlHead<'_> {
     fn render(&self) -> VirtualNode {
         let page_css = match self.target {
             | cli::Target::FactSheet => "letter portrait",

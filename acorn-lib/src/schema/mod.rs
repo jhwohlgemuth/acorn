@@ -473,7 +473,7 @@ pub struct Research {
         message = "Focus is too long, please reduce the length below 150."
     ))]
     pub focus: String,
-    #[validate(length(min = 1), custom(function = "validate_attribute_areas"))]
+    #[validate(length(min = 1, max = "MAX_COUNT_RESEARCH_AREAS"), custom(function = "validate_attribute_areas"))]
     pub areas: Vec<String>,
 }
 impl View for ContactPoint {

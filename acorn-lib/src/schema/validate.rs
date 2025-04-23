@@ -88,7 +88,7 @@ pub fn is_ror(value: &str) -> Result<(), ValidationError> {
     }
 }
 pub fn validate_attribute_areas(value: &[String]) -> Result<(), ValidationError> {
-    const MAX_LENGTH: usize = MAX_LENGTH_AREA;
+    const MAX_LENGTH: usize = MAX_LENGTH_RESEARCH_AREA;
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
         | true => Ok(()),
