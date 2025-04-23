@@ -533,48 +533,6 @@ impl Organization {
     pub fn load() -> Vec<Organization> {
         serde_json::from_str(&Constant::from_asset("organization.json")).unwrap()
     }
-    pub fn divisions() -> Vec<Organization> {
-        Organization::load()[0]
-            .flatten()
-            .into_iter()
-            .filter(|Organization { additional_type, .. }| additional_type.eq(&OrganizationType::Division))
-            .collect::<Vec<_>>()
-    }
-    pub fn flatten(&self) -> Vec<Organization> {
-        let mut items = vec![self.clone()];
-        let directorates = self.member.clone();
-        for directorate in &directorates {
-            items.push(directorate.clone());
-            let divisions = directorate.member.clone();
-            for division in &divisions {
-                items.push(division.clone());
-            }
-        }
-        items
-    }
-    fn _get(data: Vec<Organization>, organization_type: OrganizationType) -> Vec<Organization> {
-        data.into_iter()
-            .filter(|child| match &child.additional_type {
-                | value if value.eq(&organization_type) => true,
-                | _ => false,
-            })
-            .collect::<Vec<_>>()
-    }
-    pub fn get(&self, organization_type: OrganizationType) -> Vec<Organization> {
-        let items = self.member.clone();
-        Organization::_get(items, organization_type)
-    }
-    pub fn get_all(&self, organization_type: OrganizationType) -> Vec<Organization> {
-        let items = self.flatten();
-        Organization::_get(items, organization_type)
-    }
-    pub fn get_all_name_pairs(&self) -> Vec<(String, Option<String>)> {
-        self.flatten()
-            .into_iter()
-            .map(|x| (x.name.clone(), x.alternative_name.clone()))
-            .filter(|(name, alias)| !(name.is_empty() || alias.is_none()))
-            .collect::<Vec<(String, Option<String>)>>()
-    }
     pub fn visit<F: Copy + for<'a> Fn(&'a mut Organization)>(&mut self, f: F) {
         f(self);
         for child in self.member.iter_mut() {
@@ -862,9 +820,20 @@ fn resolve_from_list_of_lists(value: String, data: Vec<Vec<String>>) -> Option<S
     output
 }
 fn resolve_from_organization_json(value: String) -> Option<String> {
-    let data = Organization::load()[0]
-        .get_all_name_pairs()
+    let organization = &Organization::load()[0];
+    let mut items = vec![organization.clone()];
+    let directorates = organization.member.clone();
+    for directorate in &directorates {
+        items.push(directorate.clone());
+        let divisions = directorate.member.clone();
+        for division in &divisions {
+            items.push(division.clone());
+        }
+    }
+    let data = items
         .into_iter()
+        .map(|x| (x.name.clone(), x.alternative_name.clone()))
+        .filter(|(name, alias)| !(name.is_empty() || alias.is_none()))
         .map(|(name, alias)| {
             let alternative_name = match alias {
                 | Some(x) => x.to_string(),
