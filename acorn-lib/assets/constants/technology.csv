@@ -1,17 +1,34 @@
-javascript,js,node.js,language::JavaScript
-python,py,language::Python
-rust,rs,language::Rust
+angular,AngularJS
 astro,astro.js,AstroJS
-react,react.js,ReactJS
+c#,C sharp,programming_language::C#
+c++,C plus plus,programming_language::C++
+css,programming_language::CSS
+cuda,Compute Unified Device Architecture
+fortran,programming_language::Fortran
+go,Golang,programming_language::Go
+html,programming_language::HTML
+java,Oracle Java,programming_language::Java
+javascript,js,NodeJS,node.js,programming_language::JavaScript
+julia,jl,programming_language::Julia
 gdal,Geospatial Data Abstraction Library
-polars,Polars
-pandas,Pandas
-numpy,NumPy
-pytorch,PyTorch
-tensorflow,TensorFlow
 keras,Keras
+latex,LaTeX
+matlab,MATLAB
+matplotlib,Matplotlib
+numpy,NumPy
+pandas,Pandas
+plotly,Plotly
+polars,Polars
+python,py,programming_language::Python
+pytorch,PyTorch
+r,programming_language::R_language
+react,react.js,ReactJS
+rust,rs,programming_language::Rust
 scikit-learn,SciKit-Learn
 scipy,SciPy
-matplotlib,Matplotlib
 seaborn,Seaborn
-plotly,Plotly
+shell,bash,fish,ksh,powershell,pwsh,tcsh,zsh
+tensorflow,TensorFlow
+typescript,programming_language::TypeScript
+vhdl,VHSIC Hardware Description Language,programming_language::VHDL
+visual basic,VB,programming_language::VB

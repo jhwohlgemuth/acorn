@@ -5,6 +5,7 @@ Advanced Scientific Computing Research,ASCR
 Basic Linear Algebra Subprograms,BLAS
 CBI
 Computer Processing Unit,CPU
+Energy Dispersive X-ray Spectroscopy,EDS
 Findable Accessible Interoperable and Reusable,FAIR
 Global Evaluation Analysis Research and Security,GEARS
 Geographic Information System,GIS
@@ -34,12 +35,12 @@ Point of Interest,POI
 RAJA
 Radiochemical Engineering Development Center,REDC
 Situational Awareness of Network System Roles,SANSR
-Energy Dispersive X-ray Spectroscopy,EDS
 Scanning Electron Microscopy,SEM
 Spallation Neutron Source,SNS
 STAR
 Transport Security and Analysis,TSEA
 Unmanned Aerial System,UAS
 United States of America,USA
+VHSIC,Very High Speed Integrated Circuit
 Extreme-Scale Experiment-in-the-Loop,XLOOP
 X-ray Photoelectron Spectroscopy,XPS

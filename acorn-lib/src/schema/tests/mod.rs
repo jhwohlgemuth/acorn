@@ -67,6 +67,43 @@ fn test_read() {
     }
 }
 #[test]
+fn test_fuzzy_matching_techology() {
+    let name = "technology".to_string();
+    let exact: String = "react".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "astro".into()), Some("astro".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "CSS".into()), Some("css".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "React.js".into()), Some("react".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ReactJS".into()), Some("react".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "rs".into()), Some("rust".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "jl".into()), Some("julia".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "VHDL".into()), Some("vhdl".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "programming_language::Rust".into()),
+        Some("rust".into())
+    );
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "programming_language::R_language".into()),
+        Some("r".into())
+    );
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "Geospatial Data Abstraction Lib".into()),
+        Some("gdal".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "node.js".into()), Some("javascript".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "js".into()), Some("javascript".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "language::JavaScript".into()),
+        Some("javascript".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "bash".into()), Some("shell".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "fish".into()), Some("shell".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "pwsh".into()), Some("shell".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "zsh".into()), Some("shell".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "foobarbaz".into()), None);
+    assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
+}
+#[test]
 fn test_fuzzy_matching() {
     //
     // Keywords
@@ -135,28 +172,6 @@ fn test_fuzzy_matching() {
     let exact: String = "Defense Advanced Research Projects Agency".into();
     assert_eq!(resolve_from_csv_asset(name.clone(), "darpa".into()), Some(exact.clone()));
     assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    //
-    // Technology
-    //
-    let name = "technology".to_string();
-    let exact: String = "react".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "astro".into()), Some("astro".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "React.js".into()), Some("react".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ReactJS".into()), Some("react".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "rs".into()), Some("rust".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "Geospatial Data Abstraction Lib".into()),
-        Some("gdal".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "node.js".into()), Some("javascript".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "js".into()), Some("javascript".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "language::JavaScript".into()),
-        Some("javascript".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "foobarbaz".into()), None);
-    assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
 }
 #[test]
 fn test_validate_attribute_areas() {

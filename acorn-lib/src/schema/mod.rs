@@ -326,7 +326,7 @@ pub struct Metadata {
     pub sponsors: Option<Vec<String>>,
     #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<Keyword>,
-    /// ### Software, code languages, and digital tools related to the associated research activity data
+    /// ### Software, programmings languages, and digital resources (e.g. tools, libraries, frameworks, data) related to the associated research activity data
     ///
     /// ***Examples***
     /// - Rust
