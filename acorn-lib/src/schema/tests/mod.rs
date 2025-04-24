@@ -67,6 +67,24 @@ fn test_read() {
     }
 }
 #[test]
+fn test_fuzzy_matching_partners() {
+    let name = "partners".to_string();
+    let exact: String = "National Renewable Energy Laboratory".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "NREL".into()), Some(exact.clone()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "National Renewable Energy Lab".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Indiana University".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "iu".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Kitware Inc".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "kitware".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Kitware, Inc.".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+}
+#[test]
 fn test_fuzzy_matching_sponsors() {
     let name = "sponsors".to_string();
     let exact: String = "Oak Ridge National Laboratory".into();

@@ -849,7 +849,7 @@ fn resolve_from_organization_json(value: String) -> Option<String> {
     resolve_from_list_of_lists(value, data)
 }
 fn sanitize(value: String) -> String {
-    match Regex::new(r"[-_.]") {
+    match Regex::new(r"[-_.,]") {
         | Ok(re) => re.replace_all(&value, "").replace("&", "and").trim().to_string(),
         | Err(err) => err.to_string(),
     }
