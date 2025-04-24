@@ -244,7 +244,7 @@ pub struct Notes {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Graphic {
-    #[validate(length(max = "MAX_LENGTH_GRAPHIC_CAPTION", message = "Caption is too long, please reduce the length below 250."))]
+    #[validate(length(max = "MAX_LENGTH_GRAPHIC_CAPTION", message = "Caption is too long, please reduce the length below 100."))]
     pub caption: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "has_image_extension"))]
@@ -376,7 +376,7 @@ pub struct ResearchActivity {
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 100."))]
+    #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 75."))]
     pub subtitle: Option<String>,
     pub sections: Sections,
     #[validate(nested)]
@@ -442,7 +442,7 @@ pub struct ProjectSections {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_APPROACH",
-        message = "Approach is too long, please reduce the length below 600."
+        message = "Approach is too long, please reduce the length below 500."
     ))]
     pub approach: String,
     #[validate(length(min = 1, max = "MAX_COUNT_OUTCOMES"), custom(function = "validate_attribute_outcomes"))]
