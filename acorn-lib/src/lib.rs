@@ -145,7 +145,7 @@ impl Bucket {
                     .clone()
                     .get_file_paths(schema_type.clone())
                     .into_iter()
-                    .filter(|path| !path.ends_with(".gitkeep") && !path.ends_with(".gitkeep"))
+                    .filter(|path| !(path.ends_with(".gitkeep") || path.ends_with(".DS_Store")))
                     .collect::<Vec<String>>();
                 let progress = ProgressBar::new(paths.len() as u64);
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
