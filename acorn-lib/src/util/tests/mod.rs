@@ -49,6 +49,34 @@ fn test_semantic_version() {
     assert_eq!(version.minor, 2);
     assert_eq!(version.patch, 3);
     assert_eq!(format!("{}", version), "1.2.3");
+    // cargo
+    let version = SemanticVersion::from_string("cargo 1.88.0-nightly (d811228b1 2025-04-15)");
+    assert_eq!(version.major, 1);
+    assert_eq!(version.minor, 88);
+    assert_eq!(version.patch, 0);
+    // Git
+    let version = SemanticVersion::from_string("git version 2.39.5");
+    assert_eq!(version.major, 2);
+    assert_eq!(version.minor, 39);
+    assert_eq!(version.patch, 5);
+    // Pandoc
+    let version = SemanticVersion::from_string(
+        r#"
+    pandoc 3.6.4
+    Features: +server +lua
+    Scripting engine: Lua 5.4
+    User data directory: /root/.local/share/pandoc
+    Copyright (C) 2006-2024 John MacFarlane. Web: https://pandoc.org
+    This is free software; see the source for copying conditions. There is no
+    warranty, not even for merchantability or fitness for a particular purpose.
+    "#,
+    );
+    assert_eq!(version.major, 3);
+    assert_eq!(version.minor, 6);
+    assert_eq!(version.patch, 4);
+    assert!(SemanticVersion::from_command("cargo").is_some());
+    assert!(SemanticVersion::from_command("cargo").unwrap().major >= 1);
+    assert!(SemanticVersion::from_command("not-a-real-command").is_none());
 }
 #[test]
 fn test_test_command() {

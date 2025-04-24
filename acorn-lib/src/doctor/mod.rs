@@ -53,6 +53,7 @@ pub struct SystemSoftwareInformation {
     pub acorn: InstalledSoftwareData,
     pub git: InstalledSoftwareData,
     pub node: InstalledNodeJsData,
+    pub pandoc: InstalledSoftwareData,
     pub vale: InstalledSoftwareData,
 }
 impl TableFormatPrint for MemoryInformation {
@@ -157,6 +158,7 @@ impl TableFormatPrint for SystemSoftwareInformation {
             acorn: _,
             git: _,
             node: _,
+            pandoc: _,
             vale: _,
         } = self;
         let headers = vec!["Software", "Installed", "Version", "Location"];
@@ -164,6 +166,7 @@ impl TableFormatPrint for SystemSoftwareInformation {
             to_string(vec!["Acorn", "Y", "v0.0.0", "/path/to/executable"]),
             to_string(vec!["Git", "Y", "v0.0.0", "/path/to/executable"]),
             to_string(vec!["Node.js", "Y", "v0.0.0", "/path/to/executable"]),
+            to_string(vec!["Pandoc", "Y", "v0.0.0", "/path/to/executable"]),
             to_string(vec!["Vale", "Y", "v0.0.0", "/path/to/executable"]),
         ];
         print_values_as_table("Memory", headers, rows);

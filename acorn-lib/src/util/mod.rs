@@ -1,3 +1,4 @@
+use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::*;
@@ -5,6 +6,7 @@ use console::Emoji;
 use data_encoding::HEXUPPER;
 use derive_more::Display;
 use duct::cmd;
+use fancy_regex::Regex;
 use glob::glob;
 use is_executable::IsExecutable;
 use owo_colors::{OwoColorize, Style, Styled};
@@ -128,14 +130,18 @@ pub struct Label {}
 /// Semantic version
 ///
 /// see <https://semver.org/>
-#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Serialize)]
+#[derive(Builder, Clone, Copy, Debug, Deserialize, Display, Serialize)]
+#[builder(start_fn = init)]
 #[display("{}.{}.{}", major, minor, patch)]
 pub struct SemanticVersion {
     /// Version when you make incompatible API changes
+    #[builder(default = 0)]
     pub major: u32,
     /// Version when you add functionality in a backward compatible manner
+    #[builder(default = 0)]
     pub minor: u32,
     /// Version when you make backward compatible bug fixes
+    #[builder(default = 0)]
     pub patch: u32,
 }
 impl Label {
@@ -251,12 +257,44 @@ impl MimeType {
     }
 }
 impl SemanticVersion {
-    pub fn from_string(version: &str) -> SemanticVersion {
-        let mut parts = version.split('.');
+    pub fn from_command(name: &str) -> Option<SemanticVersion> {
+        if test_command(name.to_owned()) {
+            let result = cmd(name, vec!["--version"]).read();
+            match result {
+                | Ok(value) => {
+                    let first_line = value.lines().collect::<Vec<_>>().first().cloned();
+                    match first_line {
+                        | Some(line) => Some(SemanticVersion::from_string(line)),
+                        | None => None,
+                    }
+                }
+                | Err(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+    pub fn from_string(value: &str) -> SemanticVersion {
+        let value = match Regex::new(r"\d*[.]\d*[.]\d*") {
+            | Ok(re) => match re.find(value) {
+                | Ok(value) => match value {
+                    | Some(value) => value.as_str().to_string(),
+                    | None => unreachable!(),
+                },
+                | Err(_) => unreachable!(),
+            },
+            | Err(_) => unreachable!(),
+        };
+        let mut parts = value.split('.');
         let major = parts.next().unwrap().parse::<u32>().unwrap();
         let minor = parts.next().unwrap().parse::<u32>().unwrap();
         let patch = parts.next().unwrap().parse::<u32>().unwrap();
         SemanticVersion { major, minor, patch }
+    }
+}
+impl Default for SemanticVersion {
+    fn default() -> Self {
+        SemanticVersion::init().build()
     }
 }
 pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, String> {
