@@ -37,6 +37,7 @@ organoiodides?
 parallel_for
 parallel_reduce
 Perlmutter
+QIS
 Raman
 regionalizations?
 reusability
