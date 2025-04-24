@@ -60,6 +60,9 @@ pub enum Commands {
         /// Check files that were changed in a given Git commit
         #[arg(short, long, value_name = "COMMIT")]
         commit: Option<String>,
+        /// Regex pattern for files and folders to ignore
+        #[arg(short, long, value_name = "REGEX")]
+        ignore: Option<String>,
         /// Format JSON files in-place to maintain consistent format
         #[arg(short, long, value_name = "BOOL")]
         format: bool,

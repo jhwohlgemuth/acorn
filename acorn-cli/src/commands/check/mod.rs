@@ -5,7 +5,13 @@ use std::path::PathBuf;
 use tracing::{error, warn};
 
 #[allow(clippy::too_many_arguments)]
-pub fn run(path: &Option<PathBuf>, commit: &Option<String>, skip: &[Check], exit_on_first_error: &bool) -> Result<(), Report> {
+pub fn run(
+    path: &Option<PathBuf>,
+    commit: &Option<String>,
+    ignore: &Option<String>,
+    skip: &[Check],
+    exit_on_first_error: &bool,
+) -> Result<(), Report> {
     let extension = Some("json");
     let paths = match commit {
         | Some(hash) => get_files_from_git(hash, extension),
