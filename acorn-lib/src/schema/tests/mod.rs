@@ -67,6 +67,36 @@ fn test_read() {
     }
 }
 #[test]
+fn test_fuzzy_matching_sponsors() {
+    let name = "sponsors".to_string();
+    let exact: String = "Oak Ridge National Laboratory".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ORNL".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Department of Energy".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept of Energy".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept. of Energy".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Department of Homeland Security".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "DHS".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Environmental Protection Agency".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), " epa".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Office of Intelligence and Counterintelligence".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "IN".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Defense Advanced Research Projects Agency".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "darpa".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    let exact: String = "Office of Energy Efficiency and Renewable Energy".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "eere".into()), Some(exact.clone()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "Energy Efficiency and Renewable Energy".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+}
+#[test]
 fn test_fuzzy_matching_techology() {
     let name = "technology".to_string();
     let exact: String = "react".into();
@@ -152,26 +182,6 @@ fn test_fuzzy_matching() {
         Some(exact.clone())
     );
     assert_eq!(resolve_from_organization_json("PSD".into()), Some("Physical Sciences Directorate".into()));
-    //
-    // Sponsors
-    //
-    let name = "sponsors".to_string();
-    let exact: String = "Oak Ridge National Laboratory".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ORNL".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Department of Energy".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept of Energy".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Dept. of Energy".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Department of Homeland Security".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "DHS".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Environmental Protection Agency".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), " epa".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    let exact: String = "Defense Advanced Research Projects Agency".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "darpa".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
 }
 #[test]
 fn test_validate_attribute_areas() {

@@ -80,6 +80,8 @@ pub enum FuzzyValue {
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
 #[serde(rename_all = "lowercase")]
 pub enum OrganizationType {
+    #[display("agency")]
+    Agency,
     #[display("center")]
     Center,
     #[display("division")]
@@ -88,6 +90,8 @@ pub enum OrganizationType {
     Directorate,
     #[display("group")]
     Group,
+    #[display("office")]
+    Office,
     #[display("program")]
     Program,
     #[display("facility")]
