@@ -1,5 +1,6 @@
 airflows?
 applications?
+beamlines?
 bioeconomy
 bioenerg(y|gies)
 bioengineering
@@ -25,6 +26,7 @@ geotag(ged)?
 glovebox(es)?
 graphene
 hackathons?
+irradiations?
 IPs?
 LLMs?
 Mantid
