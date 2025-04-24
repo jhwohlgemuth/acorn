@@ -140,12 +140,13 @@ impl Bucket {
         let counts = SCHEMA_TYPES.into_iter().map(|schema_type| match self.code_repository {
             | Repository::GitHub { .. } => todo!(),
             | Repository::GitLab { ref uri, .. } => {
+                const IGNORE: [&str; 4] = [".gitignore", ".gitkeep", ".DS_Store", "README.md"];
                 info!("=> Downloading {} research data from {}...", schema_type, uri.clone());
                 let paths = self
                     .clone()
                     .get_file_paths(schema_type.clone())
                     .into_iter()
-                    .filter(|path| !(path.ends_with(".gitkeep") || path.ends_with(".DS_Store")))
+                    .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
                     .collect::<Vec<String>>();
                 let progress = ProgressBar::new(paths.len() as u64);
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
@@ -207,7 +208,7 @@ impl Bucket {
     fn get_file_paths(self: Bucket, schema_type: SchemaType) -> Vec<String> {
         const FIRST_PAGE: u32 = 1;
         match self.code_repository {
-            | Repository::GitHub { .. } => unimplemented!(),
+            | Repository::GitHub { .. } => todo!(),
             | Repository::GitLab { .. } => {
                 fn get_page_count(response: &reqwest::blocking::Response) -> u32 {
                     fn parse_header(headers: &HeaderMap, key: &str) -> u32 {

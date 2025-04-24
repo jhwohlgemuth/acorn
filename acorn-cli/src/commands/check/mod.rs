@@ -8,7 +8,7 @@ use tracing::{error, warn};
 pub fn run(
     path: &Option<PathBuf>,
     commit: &Option<String>,
-    ignore: &Option<String>,
+    _ignore: &Option<String>,
     skip: &[Check],
     exit_on_first_error: &bool,
 ) -> Result<(), Report> {
