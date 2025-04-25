@@ -54,6 +54,35 @@ pub struct SystemSoftwareInformation {
     pub pandoc: InstalledSoftwareData,
     pub vale: InstalledSoftwareData,
 }
+impl InstalledSoftwareData {
+    fn from_command(name: &str) -> InstalledSoftwareData {
+        InstalledSoftwareData {
+            version: match SemanticVersion::from_command(name) {
+                | Some(version) => Some(version.to_string()),
+                | None => None,
+            },
+            path: match which(name) {
+                | Ok(path) => Some(path.display().to_string()),
+                | Err(_) => None,
+            },
+        }
+    }
+    fn as_row(&self, title: &str) -> Vec<String> {
+        to_string(vec![
+            title,
+            &self.clone().is_installed(),
+            &self.clone().version.unwrap_or_else(|| "---".to_string()),
+            &self.clone().path.unwrap_or_else(|| "---".to_string()),
+        ])
+    }
+    fn is_installed(&self) -> String {
+        if self.version.is_some() {
+            Label::CHECKMARK.to_string()
+        } else {
+            Label::CAUTION.to_string()
+        }
+    }
+}
 impl TableFormatPrint for MemoryInformation {
     fn init() -> MemoryInformation {
         let mut sys = System::new_all();
@@ -147,27 +176,6 @@ impl TableFormatPrint for SystemInformation {
         print_values_as_table("System", headers, rows);
     }
 }
-impl InstalledSoftwareData {
-    fn from_command(name: &str) -> InstalledSoftwareData {
-        InstalledSoftwareData {
-            version: match SemanticVersion::from_command(name) {
-                | Some(version) => Some(version.to_string()),
-                | None => None,
-            },
-            path: match which(name) {
-                | Ok(path) => Some(path.display().to_string()),
-                | Err(_) => None,
-            },
-        }
-    }
-    fn is_installed(self) -> String {
-        if self.version.is_some() {
-            Label::CHECKMARK.to_string()
-        } else {
-            Label::CAUTION.to_string()
-        }
-    }
-}
 impl TableFormatPrint for SystemSoftwareInformation {
     fn init() -> SystemSoftwareInformation {
         SystemSoftwareInformation {
@@ -192,48 +200,13 @@ impl TableFormatPrint for SystemSoftwareInformation {
         } = self;
         let headers = vec!["Name", "Installed", "Version", "Location"];
         let rows = vec![
-            to_string(vec![
-                "Acorn",
-                &acorn.clone().is_installed(),
-                &acorn.version.unwrap_or_else(|| "---".to_string()),
-                &acorn.path.unwrap_or_else(|| "---".to_string()),
-            ]),
-            to_string(vec![
-                "Git",
-                &git.clone().is_installed(),
-                &git.version.unwrap_or_else(|| "---".to_string()),
-                &git.path.unwrap_or_else(|| "---".to_string()),
-            ]),
-            to_string(vec![
-                "Node.js",
-                &node.clone().is_installed(),
-                &node.version.unwrap_or_else(|| "---".to_string()),
-                &node.path.unwrap_or_else(|| "---".to_string()),
-            ]),
-            to_string(vec![
-                "npm",
-                &npm.clone().is_installed(),
-                &npm.version.unwrap_or_else(|| "---".to_string()),
-                &npm.path.unwrap_or_else(|| "---".to_string()),
-            ]),
-            to_string(vec![
-                "npx",
-                &npx.clone().is_installed(),
-                &npx.version.unwrap_or_else(|| "---".to_string()),
-                &npx.path.unwrap_or_else(|| "---".to_string()),
-            ]),
-            to_string(vec![
-                "Pandoc",
-                &pandoc.clone().is_installed(),
-                &pandoc.version.unwrap_or_else(|| "---".to_string()),
-                &pandoc.path.unwrap_or_else(|| "---".to_string()),
-            ]),
-            to_string(vec![
-                "Vale",
-                &vale.clone().is_installed(),
-                &vale.version.unwrap_or_else(|| "---".to_string()),
-                &vale.path.unwrap_or_else(|| "---".to_string()),
-            ]),
+            acorn.as_row("Acorn"),
+            git.as_row("Git"),
+            node.as_row("Node.js"),
+            npm.as_row("npm"),
+            npx.as_row("npx"),
+            pandoc.as_row("Pandoc"),
+            vale.as_row("Vale"),
         ];
         print_values_as_table("Software", headers, rows);
     }
