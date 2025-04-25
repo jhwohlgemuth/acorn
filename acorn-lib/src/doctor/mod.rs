@@ -1,21 +1,17 @@
 use crate::schema::validate::is_ip6;
-use crate::util::{print_values_as_table, to_string};
+use crate::util::{print_values_as_table, to_string, Label, SemanticVersion};
 use human_units::FormatSize;
 use sysinfo::{Networks, System};
+use which::which;
 
 pub trait TableFormatPrint {
     fn init() -> Self;
     fn print(self);
 }
+#[derive(Debug, Clone)]
 pub struct InstalledSoftwareData {
     pub version: Option<String>,
     pub path: Option<String>,
-}
-pub struct InstalledNodeJsData {
-    pub version: Option<String>,
-    pub path: Option<String>,
-    pub npm_version: Option<String>,
-    pub npx_version: Option<String>,
 }
 pub struct MemoryInformation {
     pub total: String,
@@ -52,7 +48,9 @@ pub struct SystemInformation {
 pub struct SystemSoftwareInformation {
     pub acorn: InstalledSoftwareData,
     pub git: InstalledSoftwareData,
-    pub node: InstalledNodeJsData,
+    pub node: InstalledSoftwareData,
+    pub npm: InstalledSoftwareData,
+    pub npx: InstalledSoftwareData,
     pub pandoc: InstalledSoftwareData,
     pub vale: InstalledSoftwareData,
 }
@@ -149,27 +147,95 @@ impl TableFormatPrint for SystemInformation {
         print_values_as_table("System", headers, rows);
     }
 }
+impl InstalledSoftwareData {
+    fn from_command(name: &str) -> InstalledSoftwareData {
+        InstalledSoftwareData {
+            version: match SemanticVersion::from_command(name) {
+                | Some(version) => Some(version.to_string()),
+                | None => None,
+            },
+            path: match which(name) {
+                | Ok(path) => Some(path.display().to_string()),
+                | Err(_) => None,
+            },
+        }
+    }
+    fn is_installed(self) -> String {
+        if self.version.is_some() {
+            Label::CHECKMARK.to_string()
+        } else {
+            Label::CAUTION.to_string()
+        }
+    }
+}
 impl TableFormatPrint for SystemSoftwareInformation {
     fn init() -> SystemSoftwareInformation {
-        unimplemented!()
+        SystemSoftwareInformation {
+            acorn: InstalledSoftwareData::from_command("acorn"),
+            git: InstalledSoftwareData::from_command("git"),
+            node: InstalledSoftwareData::from_command("node"),
+            npm: InstalledSoftwareData::from_command("npm"),
+            npx: InstalledSoftwareData::from_command("npx"),
+            pandoc: InstalledSoftwareData::from_command("pandoc"),
+            vale: InstalledSoftwareData::from_command("vale"),
+        }
     }
     fn print(self) {
         let SystemSoftwareInformation {
-            acorn: _,
-            git: _,
-            node: _,
-            pandoc: _,
-            vale: _,
+            acorn,
+            git,
+            node,
+            npm,
+            npx,
+            pandoc,
+            vale,
         } = self;
-        let headers = vec!["Software", "Installed", "Version", "Location"];
+        let headers = vec!["Name", "Installed", "Version", "Location"];
         let rows = vec![
-            to_string(vec!["Acorn", "Y", "v0.0.0", "/path/to/executable"]),
-            to_string(vec!["Git", "Y", "v0.0.0", "/path/to/executable"]),
-            to_string(vec!["Node.js", "Y", "v0.0.0", "/path/to/executable"]),
-            to_string(vec!["Pandoc", "Y", "v0.0.0", "/path/to/executable"]),
-            to_string(vec!["Vale", "Y", "v0.0.0", "/path/to/executable"]),
+            to_string(vec![
+                "Acorn",
+                &acorn.clone().is_installed(),
+                &acorn.version.unwrap_or_else(|| "---".to_string()),
+                &acorn.path.unwrap_or_else(|| "---".to_string()),
+            ]),
+            to_string(vec![
+                "Git",
+                &git.clone().is_installed(),
+                &git.version.unwrap_or_else(|| "---".to_string()),
+                &git.path.unwrap_or_else(|| "---".to_string()),
+            ]),
+            to_string(vec![
+                "Node.js",
+                &node.clone().is_installed(),
+                &node.version.unwrap_or_else(|| "---".to_string()),
+                &node.path.unwrap_or_else(|| "---".to_string()),
+            ]),
+            to_string(vec![
+                "npm",
+                &npm.clone().is_installed(),
+                &npm.version.unwrap_or_else(|| "---".to_string()),
+                &npm.path.unwrap_or_else(|| "---".to_string()),
+            ]),
+            to_string(vec![
+                "npx",
+                &npx.clone().is_installed(),
+                &npx.version.unwrap_or_else(|| "---".to_string()),
+                &npx.path.unwrap_or_else(|| "---".to_string()),
+            ]),
+            to_string(vec![
+                "Pandoc",
+                &pandoc.clone().is_installed(),
+                &pandoc.version.unwrap_or_else(|| "---".to_string()),
+                &pandoc.path.unwrap_or_else(|| "---".to_string()),
+            ]),
+            to_string(vec![
+                "Vale",
+                &vale.clone().is_installed(),
+                &vale.version.unwrap_or_else(|| "---".to_string()),
+                &vale.path.unwrap_or_else(|| "---".to_string()),
+            ]),
         ];
-        print_values_as_table("Memory", headers, rows);
+        print_values_as_table("Software", headers, rows);
     }
 }
 pub fn print_system_information() {
