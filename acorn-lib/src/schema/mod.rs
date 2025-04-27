@@ -788,12 +788,18 @@ impl ResearchActivity {
         let mut clone = self.clone().copy();
         clone.meta.graphics = Some(vec![first_graphic]);
         clone.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
-        clone.meta.partners = Some(self.clone().resolve(FuzzyValue::Partner));
-        clone.meta.sponsors = Some(self.clone().resolve(FuzzyValue::Sponsor));
         clone.meta.technology = self.clone().resolve(FuzzyValue::Technology);
         clone.contact.organization = match resolve_from_organization_json(self.clone().contact.organization) {
             | Some(value) => value,
             | None => "".to_string(),
+        };
+        clone.meta.partners = match self.clone().resolve(FuzzyValue::Partner) {
+            | values if !values.is_empty() => Some(values),
+            | _ => None,
+        };
+        clone.meta.sponsors = match self.clone().resolve(FuzzyValue::Sponsor) {
+            | values if !values.is_empty() => Some(values),
+            | _ => None,
         };
         clone
     }
