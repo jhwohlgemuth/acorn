@@ -1,4 +1,5 @@
-use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig, Vale, ValeConfig};
+use crate::analyzer::vale::{Vale, ValeConfig};
+use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig};
 use crate::constants::*;
 use crate::util::*;
 use bon::Builder;
@@ -545,7 +546,7 @@ impl Organization {
     }
 }
 impl ResearchActivity {
-    pub fn analyze(paths: Vec<PathBuf>) -> bool {
+    pub fn analyze(paths: Vec<PathBuf>) -> usize {
         let config = ValeConfig::default().save();
         let init = Vale::init().build();
         let vale = if test_command("vale".into()) {
@@ -556,18 +557,20 @@ impl ResearchActivity {
         match vale.clone().sync() {
             | Ok(_) => {
                 let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
-                    | Ok(data) => vale.clone().analyze(data.clone().meta.identifier, data.extract_prose(), None),
+                    | Ok(data) => vale
+                        .clone()
+                        .analyze(data.clone().meta.identifier, data.extract_prose(), Some("JSON".into())),
                     | Err(err) => {
                         error!("=> {} Read research activity data at - {}", Label::fail(), err);
-                        false
+                        1
                     }
                 });
-                let output = results.collect::<Vec<bool>>();
-                output.iter().all(|&x| x)
+                let output = results.collect::<Vec<usize>>();
+                output.into_iter().sum()
             }
             | Err(err) => {
                 error!("=> {} Vale sync - {}", Label::fail(), err);
-                false
+                1
             }
         }
     }
@@ -618,7 +621,20 @@ impl ResearchActivity {
                 impact,
                 technical,
             }) => {
-                format!("{}\n{}\n{}", achievement, impact, technical.join(", "))
+                format!(
+                    r#"
+## Achievement
+{}
+
+## Impact
+{}
+
+## Technical Approach
+{}"#,
+                    achievement,
+                    impact,
+                    technical.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
+                )
             }
             | Sections::Project(ProjectSections {
                 introduction,
@@ -630,13 +646,30 @@ impl ResearchActivity {
             }) => {
                 let Research { focus, areas } = research;
                 format!(
-                    "{}\n{}\n{}\n{}\n{}\n{}",
+                    r#"
+<!-- Introduction -->
+{}
+
+<!-- Challenge -->
+{}
+
+<!-- Approach -->
+{}
+
+<!-- Outcomes -->
+{}
+
+<!-- Focus -->
+{}
+
+<!-- Areas -->
+{}"#,
                     introduction,
                     challenge,
                     approach,
-                    outcomes.join(", "),
+                    outcomes.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
                     focus,
-                    areas.join(", ")
+                    areas.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
                 )
             }
             | Sections::Organization(OrganizationSections {
@@ -646,16 +679,37 @@ impl ResearchActivity {
                 facilities,
             }) => {
                 format!(
-                    "{}\n{}\n{}\n{}",
+                    r#"
+## Mission
+{}
+
+## Capabilities
+{}
+
+## Impact
+{}
+
+## Facilities
+{}"#,
                     mission,
-                    capabilities.join(", "),
-                    impact.join(", "),
-                    facilities.unwrap_or_default().join(", ")
+                    capabilities.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
+                    impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
+                    facilities
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|x| format!("- {}", x))
+                        .collect::<Vec<String>>()
+                        .join("\n")
                 )
             }
         };
         match self.subtitle {
-            | Some(subtitle) => format!("The subtitle is \"{}\". {}", subtitle, sections),
+            | Some(subtitle) => format!(
+                r#"# {}
+> {}
+{}"#,
+                self.title, subtitle, sections
+            ),
             | None => sections.to_string(),
         }
     }

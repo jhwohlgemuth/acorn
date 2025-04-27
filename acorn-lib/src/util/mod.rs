@@ -1,3 +1,4 @@
+use bat::PrettyPrinter;
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
@@ -121,6 +122,17 @@ pub enum MimeType {
     Svg,
     #[display("text/plain")]
     Text,
+}
+#[derive(Clone, Copy, Debug, Display)]
+pub enum ProgrammingLanguage {
+    #[display("html")]
+    Html,
+    #[display("markdown")]
+    Markdown,
+    #[display("json")]
+    Json,
+    #[display("yaml")]
+    Yaml,
 }
 #[derive(Embed)]
 #[folder = "assets/constants/"]
@@ -450,6 +462,20 @@ pub fn path_to_string(path: PathBuf) -> String {
         | Err(_) => path,
     };
     result.to_str().unwrap().to_string()
+}
+pub fn pretty_print(text: &str, syntax: ProgrammingLanguage, highlight: Vec<usize>) {
+    let input = format!("{}\n", text);
+    let language = syntax.to_string();
+    let mut printer = PrettyPrinter::new();
+    printer
+        .input_from_bytes(input.as_bytes())
+        .theme("zenburn")
+        .language(&language)
+        .line_numbers(true);
+    for line in highlight {
+        printer.highlight(line);
+    }
+    printer.print().unwrap();
 }
 pub fn print_changes(old: &str, new: &str) {
     let changes = get_changes(old, new);

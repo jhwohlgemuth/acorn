@@ -1,10 +1,9 @@
 use crate::constants::*;
 use crate::util::{
-    download_binary, get_checksum, get_extension, make_executable, path_to_string, test_command, to_string, Constant, Label, SemanticVersion,
+    download_binary, get_checksum, get_extension, make_executable, path_to_string, pretty_print, test_command, to_string, Constant, Label,
+    ProgrammingLanguage, SemanticVersion,
 };
-use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
-use derive_more::Display;
 use directories::ProjectDirs;
 use duct::cmd;
 use flate2::read::GzDecoder;
@@ -15,14 +14,18 @@ use std::fs::{create_dir_all, remove_file};
 use std::io::prelude::*;
 use std::path::PathBuf;
 use tar::Archive;
+use titlecase::Titlecase;
 use tracing::{debug, error, info, trace};
 use which::which;
 
 pub mod readability;
+pub mod vale;
+
+use vale::{parse_vale_output, print_vale_output, Vale, ValeConfig};
 
 pub trait StaticAnalyzer {
     fn command(self) -> String;
-    fn analyze(self, id: String, content: String, output: Option<String>) -> bool;
+    fn analyze(&self, id: String, content: String, output: Option<String>) -> usize;
     fn download(self, config: Option<ValeConfig>) -> Self;
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
@@ -37,36 +40,15 @@ pub trait StaticAnalyzerConfig {
     fn ini(self) -> Ini;
     fn save(self) -> ValeConfig;
 }
-#[derive(Builder, Clone, Debug, Default, Display)]
-#[display("{:?}", version)]
-#[builder(start_fn = init)]
-pub struct Vale {
-    pub version: Option<SemanticVersion>,
-    pub binary: Option<PathBuf>,
-    pub config: Option<ValeConfig>,
-}
-#[derive(Builder, Clone, Debug, Display)]
-#[display("{:?}", path)]
-#[builder(start_fn = init)]
-pub struct ValeConfig {
-    #[builder(default = PathBuf::from("./.vale/.vale.ini"))]
-    pub path: PathBuf,
-    #[builder(default = Vec::<String>::new())]
-    pub packages: Vec<String>,
-    #[builder(default = Vec::<String>::new())]
-    pub vocabularies: Vec<String>,
-    #[builder(default = Vec::<String>::new())]
-    pub disabled: Vec<String>,
-}
 impl StaticAnalyzer for Vale {
     fn command(self) -> String {
         "vale".to_string()
     }
-    fn analyze(self, id: String, content: String, output: Option<String>) -> bool {
+    fn analyze(&self, id: String, content: String, output: Option<String>) -> usize {
         match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
             | Some(dirs) => {
                 let cache = dirs.cache_dir().to_path_buf();
-                let path = cache.join(format!("{}.json", id)); // Note: Not actually JSON data
+                let path = cache.join(&id);
                 match create_dir_all(cache.clone()) {
                     | Ok(_) => {}
                     | Err(why) => error!(directory = path_to_string(cache), "=> {} Create - {}", Label::fail(), why),
@@ -77,33 +59,66 @@ impl StaticAnalyzer for Vale {
                 };
                 file.write_all(content.as_bytes())
                     .expect("Unable to write to cache directory project file");
-                let binary = match self.binary {
+                let binary = match &self.binary {
                     | Some(value) => value,
                     | None => {
-                        error!("=> {} {} binary", Label::not_found(), self.command());
+                        error!("=> {} {} binary", Label::not_found(), self.clone().command());
                         std::process::exit(exitcode::UNAVAILABLE);
                     }
                 };
-                match self.config {
+                match &self.config {
                     | Some(config) => {
                         let result = match output {
-                            | Some(value) => cmd!(binary, "--no-wrap", "--config", config.path, "--output", value, path).run(),
-                            | None => cmd!(binary, "--no-wrap", "--config", config.path, path).run(),
+                            | Some(value) => cmd!(
+                                binary,
+                                "--no-wrap",
+                                "--config",
+                                config.clone().path,
+                                "--output",
+                                value,
+                                path.clone(),
+                                "--ext",
+                                ".md",
+                                "--no-exit",
+                            )
+                            .read(),
+                            | None => cmd!(
+                                binary,
+                                "--no-wrap",
+                                "--config",
+                                config.clone().path,
+                                path.clone(),
+                                "--ext",
+                                ".md",
+                                "--no-exit"
+                            )
+                            .read(),
                         };
                         match result {
-                            | Ok(_) => {
-                                let message = format!("=> {} No errors found in {} data", Label::pass(), id.to_string().underline());
-                                println!("{}", message);
-                                true
+                            | Ok(output) => {
+                                let parsed = parse_vale_output(path, &output);
+                                if parsed.is_empty() {
+                                    let message = format!("=> {} No issues found in {}", Label::pass(), id.to_string().underline());
+                                    info!("{}", message);
+                                    0
+                                } else {
+                                    error!("=> {} {} issues found in {}", Label::fail(), parsed.len(), id.to_string().underline());
+                                    print_vale_output(parsed.clone());
+                                    let highlight = parsed.clone().into_iter().map(|item| item.line as usize).collect::<Vec<_>>();
+                                    pretty_print(&content, ProgrammingLanguage::Markdown, highlight);
+                                    println!("\n");
+                                    parsed.len()
+                                }
                             }
-                            | Err(_) => {
-                                error!("=> {} {} data = {}\n", Label::using(), Label::fmt_fail(&id.to_string()), content);
-                                false
+                            | Err(output) => {
+                                error!("=> {} Analyze - {}", Label::fail(), output);
+                                1
                             }
                         }
                     }
                     | None => {
-                        error!("=> {} Vale configuration", Label::not_found());
+                        let title = self.clone().command().titlecase();
+                        error!("=> {} {} configuration", Label::not_found(), title);
                         std::process::exit(exitcode::UNAVAILABLE);
                     }
                 }
@@ -128,7 +143,14 @@ impl StaticAnalyzer for Vale {
             | Some(value) => value,
             | None => SemanticVersion::from_string(VALE_VERSION),
         };
-        let url = format!("{}/download/v{}/vale_{}_{}", VALE_RELEASES_URL, release, release, platform);
+        let url = format!(
+            "{}/download/v{}/{}_{}_{}",
+            VALE_RELEASES_URL,
+            release,
+            self.clone().command(),
+            release,
+            platform
+        );
         info!(url, "=> {} Vale release v{}", Label::using(), release);
         let binary = match download_binary(url.clone(), PathBuf::from(".")) {
             | Ok(path) => {
@@ -177,7 +199,13 @@ impl StaticAnalyzer for Vale {
             | Some(value) => value,
             | None => SemanticVersion::from_string(VALE_VERSION),
         };
-        let url = format!("{}/download/v{}/vale_{}_checksums.txt", VALE_RELEASES_URL, release, release);
+        let url = format!(
+            "{}/download/v{}/{}_{}_checksums.txt",
+            VALE_RELEASES_URL,
+            release,
+            self.clone().command(),
+            release
+        );
         let client = reqwest::blocking::Client::new();
         let response = client.get(url).send().unwrap();
         let content = response.text().unwrap();
@@ -188,7 +216,12 @@ impl StaticAnalyzer for Vale {
             acc.insert(key, value);
             acc
         });
-        debug!("=> {} Vale checksums {:#?}", Label::using(), checksums.dimmed().cyan());
+        debug!(
+            "=> {} {} checksums {:#?}",
+            Label::using(),
+            self.command().titlecase(),
+            checksums.dimmed().cyan()
+        );
         Ok(checksums)
     }
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
@@ -202,7 +235,8 @@ impl StaticAnalyzer for Vale {
                     | Some(value) => path_to_string(value),
                     | None => "./.vale/".to_string(),
                 };
-                archive.unpack(parent.clone()).expect("Unable to extract vale binary");
+                let message = format!("Unable to extract {} binary", self.clone().command());
+                archive.unpack(parent.clone()).expect(&message);
                 debug!(parent, "=> {} Extracted {} binary", Label::using(), self.command());
                 PathBuf::from(format!("{}/vale", parent))
             }
@@ -269,7 +303,7 @@ impl StaticAnalyzer for Vale {
             let offset = "vale version ".len();
             let version = cmd!(name.clone(), "--version").read().unwrap()[offset..].to_string();
             self.version = Some(SemanticVersion::from_string(&version));
-            info!(
+            debug!(
                 path = path_to_string(path),
                 "=> {} System {} (v{}) command",
                 Label::using(),
@@ -287,13 +321,14 @@ impl StaticAnalyzer for Vale {
 impl StaticAnalyzerConfig for ValeConfig {
     fn default() -> Self {
         let config = ValeConfig::init()
-            .packages(to_string(vec!["Google", "proselint", "write-good", "Readability", "Joblint"]))
+            .packages(to_string(vec!["Google", "proselint", "write-good", "Joblint"]))
             .vocabularies(to_string(vec![APPLICATION]))
             .disabled(to_string(vec![
                 "Vale.Terms",
                 "Google.EmDash",
                 "Google.Contractions",
                 "Google.GenderBias",
+                "Google.Headings",
                 "Google.Parens",
                 "Google.Quotes",
                 "Google.We",

@@ -1,4 +1,5 @@
 use crate::analyzer::readability::*;
+use crate::analyzer::vale::*;
 use crate::util::read_file;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -7,6 +8,70 @@ use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
 
+#[test]
+fn test_parse_vale_output() {
+    let path = "/root/.cache/acorn/acornProject";
+    let data = r#"
+{
+  "/root/.cache/acorn/acornProject": [
+    {
+      "Action": {
+        "Name": "",
+        "Params": null
+      },
+      "Span": [
+        192,
+        254
+      ],
+      "Check": "Google.OxfordComma",
+      "Description": "",
+      "Link": "https://developers.google.com/style/commas",
+      "Message": "Use the Oxford comma in 'Once created, there is often no version control, stewardship or'.",
+      "Severity": "warning",
+      "Match": "Once created, there is often no version control, stewardship or",
+      "Line": 8
+    },
+    {
+      "Action": {
+        "Name": "",
+        "Params": null
+      },
+      "Span": [
+        360,
+        46
+      ],
+      "Check": "Vale.Avoid",
+      "Description": "",
+      "Link": "",
+      "Message": "Avoid using 'geo-spatial'.",
+      "Severity": "error",
+      "Match": "geo-spatial",
+      "Line": 170
+    },
+    {
+      "Action": {
+        "Name": "",
+        "Params": null
+      },
+      "Span": [
+        36,
+        46
+      ],
+      "Check": "Vale.Avoid",
+      "Description": "",
+      "Link": "",
+      "Message": "Avoid using 'geo-spatial'.",
+      "Severity": "suggestion",
+      "Match": "geo-spatial",
+      "Line": 17
+    }
+  ]
+}
+    "#;
+    let parsed: Vec<ValeOutputItem> = parse_vale_output(PathBuf::from(path), data);
+    print_vale_output(parsed.clone());
+    assert_eq!(parsed.len(), 3);
+}
 #[test]
 fn test_get_singular_form() {
     assert_eq!("", get_singular_form(""));
