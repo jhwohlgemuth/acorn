@@ -1,6 +1,6 @@
 {
   "meta": {
-    "id": "some-organization",
+    "id": "valid-organization",
     "type": "organization",
     "archive": false,
     "draft": true,
@@ -19,7 +19,7 @@
     "sponsors": [],
     "technology": []
   },
-  "title": "Some Organization",
+  "title": "Valid Organization",
   "subtitle": "This is a subtitle",
   "sections": {
     "mission": "This is your mission.",

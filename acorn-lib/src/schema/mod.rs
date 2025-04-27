@@ -12,6 +12,8 @@ use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
+use serde_trim::*;
+use serde_with::skip_serializing_none;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::PathBuf;
@@ -205,96 +207,98 @@ pub struct ContactPoint {
     /// ***Example*** Ideal contact title for a group organization would be "Group Lead"
     ///
     /// See <https://schema.org/jobTitle>
-    #[serde(alias = "title")]
+    #[serde(alias = "title", deserialize_with = "string_trim")]
     pub job_title: String,
     /// ### First (given) name of contact
     ///
     /// See <https://schema.org/givenName>
-    #[serde(alias = "first")]
+    #[serde(alias = "first", deserialize_with = "string_trim")]
     pub given_name: String,
     /// ### Last (family) name of contact
     ///
     /// See <https://schema.org/familyName>
-    #[serde(alias = "last")]
+    #[serde(alias = "last", deserialize_with = "string_trim")]
     pub family_name: String,
     /// ### Email address of contact point
     ///
     /// See <https://schema.org/email>
     #[validate(email(message = "Please provide a valid email"))]
+    #[serde(deserialize_with = "string_trim")]
     pub email: String,
     /// ### Phone number of contact point
     ///
     /// See <https://schema.org/telephone>
-    #[serde(alias = "phone")]
     #[validate(custom(function = "is_phone_number"))]
+    #[serde(alias = "phone", deserialize_with = "string_trim")]
     pub telephone: String,
     /// ### Profile URL of contact point
     ///
     /// ***Example*** Profile URL for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
-    #[serde(alias = "profile")]
     #[validate(url(message = "Please provide a valid profile URL"))]
+    #[serde(alias = "profile", deserialize_with = "string_trim")]
     pub url: String,
+    #[serde(deserialize_with = "string_trim")]
     pub organization: String,
 }
+#[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Notes {
     /// ### [ASCR](https://www.energy.gov/science/ascr/advanced-scientific-computing-research) highlight attribute
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub managers: Option<Vec<String>>,
     /// ### Collection of capabilities aimed at achieving a specific cross-cutting research outcome
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub programs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, deserialize_with = "option_string_trim")]
     pub presentation: Option<String>,
 }
+#[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Graphic {
     #[validate(length(max = "MAX_LENGTH_GRAPHIC_CAPTION", message = "Caption is too long, please reduce the length below 100."))]
+    #[serde(deserialize_with = "string_trim")]
     pub caption: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "has_image_extension"))]
+    #[serde(default, deserialize_with = "option_string_trim")]
     pub href: Option<String>,
 }
+#[skip_serializing_none]
 #[derive(Clone, Builder, Debug, Serialize, Deserialize, Validate)]
 #[builder(start_fn = init)]
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub classification: Option<ClassificationLevel>,
     /// ### Identifier for associated research activity data
     ///
     /// Should be [lower-kebab-case](https://developer.mozilla.org/en-US/docs/Glossary/Kebab_case)
     ///
     /// ***Example*** `my-research-project`
-    #[serde(alias = "id", rename = "identifier")]
     #[validate(custom(function = "is_kebabcase"))]
+    #[serde(alias = "id", rename = "identifier", deserialize_with = "string_trim")]
     pub identifier: String,
-    #[serde(alias = "type", rename = "type")]
     #[builder(default = SchemaType::default())]
+    #[serde(alias = "type", rename = "type")]
     pub schema_type: SchemaType,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub additional_type: Option<OrganizationType>,
     /// ### Digital Object Identifier
     ///
     /// See <https://www.doi.org/> for more information
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_doi"))]
+    #[serde(default, deserialize_with = "option_string_trim")]
     pub doi: Option<String>,
     /// ### Research Activity Identifier
     ///
     /// See <https://www.raid.org/> for more information
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_raid"))]
+    #[serde(default, deserialize_with = "option_string_trim")]
     pub raid: Option<String>,
     /// ### Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(custom(function = "is_ror"))]
+    #[serde(default, deserialize_with = "option_string_trim")]
     pub ror: Option<String>,
     /// ### URL of internet location where associated publication can be found
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(url(message = "Please provide a valid URL"))]
+    #[serde(default, deserialize_with = "option_string_trim")]
     pub publication: Option<String>,
     /// ### Describes the active status of the associated research activity data
     ///
@@ -307,28 +311,11 @@ pub struct Metadata {
     #[builder(default = true)]
     pub draft: bool,
     /// <abbr title"Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub trl: Option<TechnologyReadinessLevel>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
     pub websites: Option<Vec<Website>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(nested)]
     pub graphics: Option<Vec<Graphic>>,
-    /// ### Organization(s related to the associated research activity data
-    ///
-    /// ***Examples***
-    /// - Los Alamos National Laboratory
-    /// - University of Tennessee
-    /// - IBM
-    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub partners: Option<Vec<String>>,
-    /// ### Organization(s) responsible for funding associated research activity data
-    ///
-    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sponsors: Option<Vec<String>>,
     #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<Keyword>,
     /// ### Software, programmings languages, and digital resources (e.g. tools, libraries, frameworks, data) related to the associated research activity data
@@ -342,10 +329,26 @@ pub struct Metadata {
     ///
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/technology.csv">Full list of technologies</a></div>
     #[builder(default = Vec::<String>::new())]
+    #[serde(deserialize_with = "vec_string_trim")]
     pub technology: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// ### Organization(s) responsible for funding associated research activity data
+    ///
+    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
+    pub sponsors: Option<Vec<String>>,
+    /// ### Organization(s related to the associated research activity data
+    ///
+    /// ***Examples***
+    /// - Los Alamos National Laboratory
+    /// - University of Tennessee
+    /// - IBM
+    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
+    pub partners: Option<Vec<String>>,
+    /// Related resarch activity data
+    ///
+    /// <div class="warning">WIP</div>
     pub related: Option<Vec<String>>,
 }
+#[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
 #[display("Organization ({additional_type}) - {name})")]
 #[serde(rename_all = "camelCase")]
@@ -353,14 +356,17 @@ pub struct Organization {
     /// ### Full name of the organization
     ///
     /// See <https://schema.org/name>
+    #[serde(deserialize_with = "string_trim")]
     pub name: String,
     /// ### Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
+    #[serde(default, deserialize_with = "option_string_trim")]
     pub ror: Option<String>,
     /// ### Organization alias (e.g. acronym or nickname)
     ///
     /// See <https://schema.org/alternateName>
+    #[serde(default, deserialize_with = "option_string_trim")]
     pub alternative_name: Option<String>,
     /// ### Organization sub-type
     ///
@@ -372,21 +378,21 @@ pub struct Organization {
     /// See <https://schema.org/member>
     pub member: Vec<Organization>,
 }
-// TODO: Trim whitespace with desaerialize_with derive - https://serde.rs/impl-serialize.html
+#[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate)]
 #[builder(start_fn = init)]
 pub struct ResearchActivity {
     #[validate(nested)]
     pub meta: Metadata,
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
+    #[serde(deserialize_with = "string_trim")]
     pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 75."))]
+    #[serde(default, deserialize_with = "option_string_trim")]
     pub subtitle: Option<String>,
     pub sections: Sections,
     #[validate(nested)]
     pub contact: ContactPoint,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<Other>,
 }
 /// Website link and title description
@@ -412,22 +418,24 @@ pub struct Website {
     /// Brief description of webpage content
     ///
     /// See <https://schema.org/description>
-    #[serde(alias = "title")]
+    #[serde(alias = "title", deserialize_with = "string_trim")]
     pub description: String,
     #[validate(url(message = "Please provide a valid URL"))]
+    #[serde(deserialize_with = "string_trim")]
     pub url: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct HighlightSections {
-    #[serde(alias = "scientific achievement")]
+    #[serde(alias = "scientific achievement", deserialize_with = "string_trim")]
     pub achievement: String,
-    #[serde(alias = "significance & impact")]
+    #[serde(alias = "significance & impact", deserialize_with = "string_trim")]
     pub impact: String,
     #[validate(
         length(max = 6, message = "Please limit the number of methods to 6"),
         custom(function = "validate_attribute_technical")
     )]
     #[serde(alias = "technical approach")]
+    #[serde(deserialize_with = "vec_string_trim")]
     pub technical: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
@@ -437,20 +445,24 @@ pub struct ProjectSections {
         max = "MAX_LENGTH_SECTION_INTRODUCTION",
         message = "Introduction is too long, please reduce the length below 250."
     ))]
+    #[serde(deserialize_with = "string_trim")]
     pub introduction: String,
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_CHALLENGE",
         message = "Challenge is too long, please reduce the length below 500."
     ))]
+    #[serde(deserialize_with = "string_trim")]
     pub challenge: String,
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_APPROACH",
         message = "Approach is too long, please reduce the length below 500."
     ))]
+    #[serde(deserialize_with = "string_trim")]
     pub approach: String,
     #[validate(length(min = 1, max = "MAX_COUNT_OUTCOMES"), custom(function = "validate_attribute_outcomes"))]
+    #[serde(deserialize_with = "vec_string_trim")]
     pub outcomes: Vec<String>,
     #[validate(nested)]
     pub research: Research,
@@ -462,10 +474,13 @@ pub struct OrganizationSections {
         max = "MAX_LENGTH_SECTION_INTRODUCTION",
         message = "Mission is too long, please reduce the length below 250."
     ))]
+    #[serde(deserialize_with = "string_trim")]
     pub mission: String,
     #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
+    #[serde(deserialize_with = "vec_string_trim")]
     pub capabilities: Vec<String>,
     #[validate(length(min = 1), custom(function = "validate_attribute_impact"))]
+    #[serde(deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
     #[validate(custom(function = "validate_attribute_facilities"))]
     pub facilities: Option<Vec<String>>,
@@ -477,8 +492,10 @@ pub struct Research {
         max = "MAX_LENGTH_RESEARCH_FOCUS",
         message = "Focus is too long, please reduce the length below 150."
     ))]
+    #[serde(deserialize_with = "string_trim")]
     pub focus: String,
     #[validate(length(min = 1, max = "MAX_COUNT_RESEARCH_AREAS"), custom(function = "validate_attribute_areas"))]
+    #[serde(deserialize_with = "vec_string_trim")]
     pub areas: Vec<String>,
 }
 impl View for ContactPoint {

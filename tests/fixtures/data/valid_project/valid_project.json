@@ -1,6 +1,6 @@
 {
   "meta": {
-    "id": "acorn",
+    "id": "valid-project",
     "type": "project",
     "trl": 3,
     "archive": false,
@@ -39,8 +39,8 @@
       "rs "
     ]
   },
-  "title": "ACORN",
-  "subtitle": "Accessible Content Organization for Research Needs",
+  "title": "Valid Project",
+  "subtitle": "When you need validity choose this project",
   "sections": {
     "introduction": "ACORN standardizes and automates the research content creation process to better communicate projects, capabilities, technology and, therefore, the people at ORNL.",
     "challenge": "Research project communication mediums should be straightforward and standardized. However, the creation process is often cumbersome, involving multiple editing rounds among different teams. Once created, there is often no version control, stewardship, or central content repository.",

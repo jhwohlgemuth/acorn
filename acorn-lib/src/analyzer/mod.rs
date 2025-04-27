@@ -98,7 +98,7 @@ impl StaticAnalyzer for Vale {
                             | Ok(output) => {
                                 let parsed = parse_vale_output(path, &output);
                                 if parsed.is_empty() {
-                                    let message = format!("=> {} No issues found in {}", Label::pass(), id.to_string().underline());
+                                    let message = format!("=> {} {} has {}", Label::pass(), id.to_string().underline(), "no prose issues".green(),);
                                     info!("{}", message);
                                     0
                                 } else {

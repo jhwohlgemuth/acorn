@@ -67,6 +67,53 @@ fn test_read() {
     }
 }
 #[test]
+fn test_fuzzy_matching_keywords() {
+    let name = "keywords".to_string();
+    let exact: String = "critical-infrastructure".into();
+    let misspelled: String = "cyb".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+    assert_eq!(resolve_from_csv_asset(name.clone(), misspelled), Some("cyber".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "machine-learn".into()),
+        Some("machine-learning".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Automation".into()), Some("automation".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "math".into()), Some("mathematics".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "mathematics".into()), Some("mathematics".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ml".into()), Some("machine-learning".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "ai".into()), Some("artificial-intelligence".into()));
+    let exact: String = "high-performance-computing".into();
+    assert_eq!(resolve_from_csv_asset(name.clone(), "hpc".into()), Some(exact.clone()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "high-performance-computi".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
+}
+#[test]
+fn test_fuzzy_matching_organizations() {
+    let exact: String = "Oak Ridge National Laboratory".into();
+    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
+    assert_eq!(resolve_from_organization_json("ORNL".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_organization_json("Oak Ridge National Laborato".into()), Some(exact.clone()));
+    let exact: String = "Geospatial Science and Human Security Division".into();
+    assert_eq!(resolve_from_organization_json("GSHS".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
+    assert_eq!(
+        resolve_from_organization_json("Geospatial Science & Human Security".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(
+        resolve_from_organization_json("Geospatial Science and Human Security".into()),
+        Some(exact.clone())
+    );
+    assert_eq!(
+        resolve_from_organization_json("Geospatial Science and Human Security".to_lowercase()),
+        Some(exact.clone())
+    );
+    assert_eq!(resolve_from_organization_json("PSD".into()), Some("Physical Sciences Directorate".into()));
+}
+#[test]
 fn test_fuzzy_matching_partners() {
     let name = "partners".to_string();
     let exact: String = "National Renewable Energy Laboratory".into();
@@ -150,56 +197,6 @@ fn test_fuzzy_matching_techology() {
     assert_eq!(resolve_from_csv_asset(name.clone(), "zsh".into()), Some("shell".into()));
     assert_eq!(resolve_from_csv_asset(name.clone(), "foobarbaz".into()), None);
     assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
-}
-#[test]
-fn test_fuzzy_matching() {
-    //
-    // Keywords
-    //
-    let name = "keywords".to_string();
-    let exact: String = "critical-infrastructure".into();
-    let misspelled: String = "cyb".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    assert_eq!(resolve_from_csv_asset(name.clone(), misspelled), Some("cyber".into()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "machine-learn".into()),
-        Some("machine-learning".into())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), "Automation".into()), Some("automation".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "math".into()), Some("mathematics".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "mathematics".into()), Some("mathematics".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ml".into()), Some("machine-learning".into()));
-    assert_eq!(resolve_from_csv_asset(name.clone(), "ai".into()), Some("artificial-intelligence".into()));
-    let exact: String = "high-performance-computing".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "hpc".into()), Some(exact.clone()));
-    assert_eq!(
-        resolve_from_csv_asset(name.clone(), "high-performance-computi".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
-    //
-    // Organizations
-    //
-    let exact: String = "Oak Ridge National Laboratory".into();
-    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
-    assert_eq!(resolve_from_organization_json("ORNL".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_organization_json("Oak Ridge National Laborato".into()), Some(exact.clone()));
-    let exact: String = "Geospatial Science and Human Security Division".into();
-    assert_eq!(resolve_from_organization_json("GSHS".into()), Some(exact.clone()));
-    assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
-    assert_eq!(
-        resolve_from_organization_json("Geospatial Science & Human Security".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(
-        resolve_from_organization_json("Geospatial Science and Human Security".into()),
-        Some(exact.clone())
-    );
-    assert_eq!(
-        resolve_from_organization_json("Geospatial Science and Human Security".to_lowercase()),
-        Some(exact.clone())
-    );
-    assert_eq!(resolve_from_organization_json("PSD".into()), Some("Physical Sciences Directorate".into()));
 }
 #[test]
 fn test_validate_attribute_areas() {

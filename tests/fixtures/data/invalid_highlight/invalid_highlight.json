@@ -1,6 +1,6 @@
 {
     "meta": {
-        "id": "some-highlight",
+        "id": "invalid-highlight",
         "doi": "Not a valid DOI",
         "type": "highlight",
         "archive": false,
@@ -26,7 +26,7 @@
         "programs": [],
         "managers": []
     },
-    "title": "Some Highlight",
+    "title": "Invalid Highlight",
     "subtitle": "This is a subtitle",
     "sections": {
         "achievement": "Put your achievement here.",
