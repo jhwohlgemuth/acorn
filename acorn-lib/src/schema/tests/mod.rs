@@ -1,3 +1,4 @@
+use crate::schema::graph::*;
 use crate::schema::validate::*;
 use crate::schema::*;
 use glob::glob;
@@ -56,6 +57,14 @@ fn test_organization() {
     let data = Organization::load();
     assert_eq!(data.len(), 1);
     assert_eq!(data[0].name, "Oak Ridge National Laboratory".to_string());
+}
+#[test]
+fn test_organization_graph() {
+    let graph = Organization::to_graph();
+    let parent = get_node_parent_name(&graph, "Geospatial Science and Human Security Division");
+    assert_eq!(parent, "National Security Sciences Directorate");
+    let parent = get_node_parent_name(&graph, "Spatial Statistics");
+    assert_eq!(parent, "Geospatial Science and Human Security Division");
 }
 #[test]
 fn test_read() {

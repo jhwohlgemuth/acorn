@@ -9,19 +9,20 @@ use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher};
 use owo_colors::OwoColorize;
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
+use petgraph::graph::Graph;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use serde_trim::*;
 use serde_with::skip_serializing_none;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::path::PathBuf;
 use std::result::Result;
 use titlecase::Titlecase;
 use tracing::{debug, error, info, trace};
 use validator::{Validate, ValidationErrorsKind};
 
+pub mod graph;
 pub mod validate;
 use validate::*;
 
@@ -79,29 +80,6 @@ pub enum FuzzyValue {
     Sponsor,
     #[display("technology")]
     Technology,
-}
-#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
-#[serde(rename_all = "lowercase")]
-pub enum OrganizationType {
-    #[display("agency")]
-    Agency,
-    #[display("center")]
-    Center,
-    #[display("division")]
-    Division,
-    #[display("directorate")]
-    Directorate,
-    #[display("group")]
-    Group,
-    #[display("office")]
-    Office,
-    #[display("program")]
-    Program,
-    #[display("facility")]
-    Facility,
-    /// Federally Funded Research and Development Center
-    #[display("FFRDC")]
-    Ffrdc,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -242,16 +220,6 @@ pub struct ContactPoint {
 }
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
-pub struct Notes {
-    /// ### [ASCR](https://www.energy.gov/science/ascr/advanced-scientific-computing-research) highlight attribute
-    pub managers: Option<Vec<String>>,
-    /// ### Collection of capabilities aimed at achieving a specific cross-cutting research outcome
-    pub programs: Option<Vec<String>>,
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub presentation: Option<String>,
-}
-#[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
 pub struct Graphic {
     #[validate(length(max = "MAX_LENGTH_GRAPHIC_CAPTION", message = "Caption is too long, please reduce the length below 100."))]
     #[serde(deserialize_with = "string_trim")]
@@ -349,6 +317,16 @@ pub struct Metadata {
     pub related: Option<Vec<String>>,
 }
 #[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+pub struct Notes {
+    /// ### [ASCR](https://www.energy.gov/science/ascr/advanced-scientific-computing-research) highlight attribute
+    pub managers: Option<Vec<String>>,
+    /// ### Collection of capabilities aimed at achieving a specific cross-cutting research outcome
+    pub programs: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub presentation: Option<String>,
+}
+#[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
 #[display("Organization ({additional_type}) - {name})")]
 #[serde(rename_all = "camelCase")]
@@ -377,6 +355,29 @@ pub struct Organization {
     ///
     /// See <https://schema.org/member>
     pub member: Vec<Organization>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
+#[serde(rename_all = "lowercase")]
+pub enum OrganizationType {
+    #[display("agency")]
+    Agency,
+    #[display("center")]
+    Center,
+    #[display("division")]
+    Division,
+    #[display("directorate")]
+    Directorate,
+    #[display("group")]
+    Group,
+    #[display("office")]
+    Office,
+    #[display("program")]
+    Program,
+    #[display("facility")]
+    Facility,
+    /// Federally Funded Research and Development Center
+    #[display("FFRDC")]
+    Ffrdc,
 }
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate)]
@@ -559,6 +560,40 @@ impl Organization {
         f(self);
         for child in self.member.iter_mut() {
             child.visit(f);
+        }
+    }
+    pub fn to_graph() -> Graph<String, u8> {
+        let mut graph: Graph<String, u8, petgraph::Directed> = Graph::new();
+        let organization = &Organization::load()[0];
+        let root = graph.add_node(organization.name.clone());
+        for directorate in organization.member.iter() {
+            let a = graph.add_node(directorate.name.clone());
+            graph.add_edge(root, a, 0);
+            for division in directorate.member.iter() {
+                let b = graph.add_node(division.name.clone());
+                graph.add_edge(a, b, 0);
+                for group in division.member.iter() {
+                    let c = graph.add_node(group.name.clone());
+                    graph.add_edge(b, c, 0);
+                }
+            }
+        }
+        graph
+    }
+}
+impl OrganizationType {
+    pub fn from_string(value: String) -> OrganizationType {
+        match value.to_lowercase().as_str() {
+            | "agency" => OrganizationType::Agency,
+            | "center" => OrganizationType::Center,
+            | "division" => OrganizationType::Division,
+            | "directorate" => OrganizationType::Directorate,
+            | "group" => OrganizationType::Group,
+            | "office" => OrganizationType::Office,
+            | "program" => OrganizationType::Program,
+            | "facility" => OrganizationType::Facility,
+            | "ffrdc" => OrganizationType::Ffrdc,
+            | _ => unreachable!(),
         }
     }
 }
