@@ -51,6 +51,7 @@ test:
     changes:
       - acorn-cli/**/*
       - acorn-lib/**/*
+      - Cargo.toml
   script: make test-ci
 
 build-release:
