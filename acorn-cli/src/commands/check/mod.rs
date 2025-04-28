@@ -28,31 +28,22 @@ pub fn run(
         0
     } else {
         let issues = ResearchActivity::check(paths.clone());
-        if issues > 0 {
-            if *exit_on_first_error {
-                error!("=> {} Found {} schema issues", Label::fail(), issues);
-                std::process::exit(exitcode::DATAERR);
-            }
-            issues
-        } else {
-            0
+        if issues > 0 && *exit_on_first_error {
+            error!("=> {} Found {} schema validation errors", Label::fail(), issues);
+            std::process::exit(exitcode::DATAERR);
         }
+        issues
     };
     let analysis_issues = if skip.contains(&Check::Analysis) {
         warn!("=> {} Prose analysis", Label::skip());
         0
     } else {
         let issues = ResearchActivity::analyze(paths);
-        if issues > 0 {
-            if *exit_on_first_error {
-                error!("=> {} Found {} prose issues", Label::fail(), issues);
-                std::process::exit(exitcode::DATAERR);
-            } else {
-                issues
-            }
-        } else {
-            0
+        if issues > 0 && *exit_on_first_error {
+            error!("=> {} Found {} prose issues", Label::fail(), issues);
+            std::process::exit(exitcode::DATAERR);
         }
+        issues
     };
     let readability_issues = if skip.contains(&Check::Readability) {
         warn!("=> {} Readability analysis", Label::skip());
@@ -61,8 +52,7 @@ pub fn run(
         // TODO: Output readability analysis
         0
     };
-    let total: usize = analysis_issues + validation_issues + readability_issues;
-    if total > 0 {
+    if analysis_issues + validation_issues + readability_issues > 0 {
         let headers = vec!["Issue Type", "Issue Count"];
         let rows = vec![
             to_string(vec!["Schema Validation", &validation_issues.to_string()]),
