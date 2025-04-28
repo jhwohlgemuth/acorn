@@ -51,8 +51,6 @@ test:
     changes:
       - acorn-cli/**/*
       - acorn-lib/**/*
-  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    when: manual
   script: make test-ci
 
 build-release:
