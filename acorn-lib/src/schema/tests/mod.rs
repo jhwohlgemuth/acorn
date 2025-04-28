@@ -157,7 +157,7 @@ fn test_fuzzy_matching_sponsors() {
     assert_eq!(resolve_from_csv_asset(name.clone(), " epa".into()), Some(exact.clone()));
     assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
     let exact: String = "Office of Intelligence and Counterintelligence".into();
-    assert_eq!(resolve_from_csv_asset(name.clone(), "IN".into()), Some(exact.clone()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "DOE-IN".into()), Some(exact.clone()));
     assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
     let exact: String = "Defense Advanced Research Projects Agency".into();
     assert_eq!(resolve_from_csv_asset(name.clone(), "darpa".into()), Some(exact.clone()));

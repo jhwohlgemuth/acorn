@@ -675,13 +675,13 @@ impl ResearchActivity {
             }) => {
                 format!(
                     r#"
-## Achievement
+<!-- Achievement -->
 {}
 
-## Impact
+<!-- Impact -->
 {}
 
-## Technical Approach
+<!-- Technical Approach -->
 {}"#,
                     achievement,
                     impact,
@@ -732,16 +732,16 @@ impl ResearchActivity {
             }) => {
                 format!(
                     r#"
-## Mission
+<!-- Mission -->
 {}
 
-## Capabilities
+<!-- Capabilities -->
 {}
 
-## Impact
+<!-- Impact -->
 {}
 
-## Facilities
+<!-- Facilities -->
 {}"#,
                     mission,
                     capabilities.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
