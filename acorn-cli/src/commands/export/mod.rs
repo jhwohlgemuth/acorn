@@ -67,7 +67,7 @@ pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, commit: &Option<Str
                     | Some(x) => x.clone(),
                     | None => PathBuf::from("."),
                 };
-                get_all_files(value, extension)
+                get_all_files(value, extension, None)
             }
         }
     }

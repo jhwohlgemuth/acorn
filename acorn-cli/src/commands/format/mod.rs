@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use tracing::{error, info};
 
 #[allow(clippy::too_many_arguments)]
-pub fn run(path: &Option<PathBuf>, commit: &Option<String>, dry_run: bool, verbose: &Verbosity) -> Result<(), Report> {
+pub fn run(path: &Option<PathBuf>, commit: &Option<String>, ignore: &Option<String>, dry_run: bool, verbose: &Verbosity) -> Result<(), Report> {
     let extension = Some("json");
     let paths = match commit {
         | Some(hash) => get_files_from_git(hash, extension),
@@ -19,7 +19,7 @@ pub fn run(path: &Option<PathBuf>, commit: &Option<String>, dry_run: bool, verbo
                 | Some(x) => x.clone(),
                 | None => PathBuf::from("."),
             };
-            get_all_files(value, extension)
+            get_all_files(value, extension, ignore.clone())
         }
     };
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {

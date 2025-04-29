@@ -8,7 +8,7 @@ use tracing::{error, warn};
 pub fn run(
     path: &Option<PathBuf>,
     commit: &Option<String>,
-    _ignore: &Option<String>,
+    ignore: &Option<String>,
     skip: &[Check],
     exit_on_first_error: &bool,
 ) -> Result<(), Report> {
@@ -20,7 +20,7 @@ pub fn run(
                 | Some(x) => x.clone(),
                 | None => PathBuf::from("."),
             };
-            get_all_files(value, extension)
+            get_all_files(value, extension, ignore.clone())
         }
     };
     let validation_issues = if skip.contains(&Check::Validation) {

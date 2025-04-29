@@ -86,10 +86,11 @@ fn main() -> Void {
         | Some(Commands::Format {
             path,
             commit,
+            ignore,
             dry_run,
             verbose,
             ..
-        }) => commands::format::run(path, commit, *dry_run, verbose),
+        }) => commands::format::run(path, commit, ignore, *dry_run, verbose),
         | None => Ok(()),
     }
 }

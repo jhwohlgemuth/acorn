@@ -60,7 +60,12 @@ pub enum Commands {
         /// Check files that were changed in a given Git commit
         #[arg(short, long, value_name = "COMMIT")]
         commit: Option<String>,
-        /// Regex pattern for files and folders to ignore
+        /// Regex pattern applied to absolute paths of files that determines whether they should be included in checking process
+        ///
+        /// Only applies to `--path` values that point to a directory
+        ///
+        /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
+        /// Example: --ignore "[/]valid.json$"
         #[arg(short, long, value_name = "REGEX")]
         ignore: Option<String>,
         /// Format JSON files in-place to maintain consistent format
@@ -181,6 +186,14 @@ pub enum Commands {
         /// Format files that were changed in a given Git commit
         #[arg(short, long, value_name = "COMMIT")]
         commit: Option<String>,
+        /// Regex pattern applied to absolute paths of files that determines whether they should be included in formatting process
+        ///
+        /// Only applies to `--path` values that point to a directory
+        ///
+        /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
+        /// Example: --ignore "[/]valid.json$"
+        #[arg(short, long, value_name = "REGEX")]
+        ignore: Option<String>,
         /// Run format without making changes to target file(s). Will print a diff of changes.
         #[arg(short, long = "dry-run", value_name = "BOOL")]
         dry_run: bool,

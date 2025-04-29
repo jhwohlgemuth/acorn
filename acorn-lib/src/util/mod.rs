@@ -332,7 +332,10 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
     let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.join(filename))
 }
-pub fn get_all_files(path: PathBuf, extension: Option<&str>) -> Vec<PathBuf> {
+pub fn get_all_files(path: PathBuf, extension: Option<&str>, ignore: Option<String>) -> Vec<PathBuf> {
+    fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
+        paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
+    }
     if path.is_dir() {
         let ext = match extension {
             | Some(value) => &value.to_lowercase(),
@@ -341,16 +344,39 @@ pub fn get_all_files(path: PathBuf, extension: Option<&str>) -> Vec<PathBuf> {
         let pattern = format!("{}/**/*.{}", path_to_string(path), ext);
         debug!(pattern, "=> {}", Label::using());
         let paths = glob(&pattern);
-        match paths {
-            | Ok(values) => values.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>(),
-            | Err(_) => vec![],
+        match ignore {
+            | Some(ignore_pattern) => match Regex::new(&ignore_pattern) {
+                | Ok(re) => match paths {
+                    | Ok(values) => paths_to_vec(values)
+                        .into_iter()
+                        .filter(|path| !re.is_match(&path_to_string(path.to_path_buf())).unwrap())
+                        .collect(),
+                    | Err(why) => {
+                        error!("=> {} Get all files - {why}", Label::fail());
+                        vec![]
+                    }
+                },
+                | Err(why) => {
+                    error!("=> {} get_all_files Regex - {why}", Label::fail());
+                    vec![]
+                }
+            },
+            | None => match paths {
+                | Ok(values) => paths_to_vec(values),
+                | Err(why) => {
+                    error!("=> {} Get all files - {why}", Label::fail());
+                    vec![]
+                }
+            },
         }
     } else {
-        debug!(
-            path = path_to_string(path.clone()),
-            "=> {} Extension passed with single file to get_all_files() - make sure this is desired",
-            Label::using()
-        );
+        if extension.is_some() {
+            warn!(
+                path = path_to_string(path.clone()),
+                "=> {} Extension passed with single file to get_all_files() - please make sure this is desired",
+                Label::using()
+            );
+        }
         vec![path]
     }
 }
