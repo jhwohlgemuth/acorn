@@ -301,6 +301,8 @@ pub struct Metadata {
     pub technology: Vec<String>,
     /// ### Organization(s) responsible for funding associated research activity data
     ///
+    /// Includes any office within a US cabinet-level department that has leadership appointed by the president and confirmed by the Senate, e.g., NNSA or Office of Science. 
+    /// 
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
     pub sponsors: Option<Vec<String>>,
     /// ### Organization(s related to the associated research activity data
