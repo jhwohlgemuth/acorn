@@ -57,7 +57,14 @@ pub async fn create_pdf(page: &Page, options: cli::Options) {
     };
     let _remove = remove_file(index);
 }
-pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, commit: &Option<String>, size: &Size, target: &Target) -> Result<(), Report> {
+pub fn run(
+    output: &Option<PathBuf>,
+    path: &Option<PathBuf>,
+    commit: &Option<String>,
+    size: &Size,
+    target: &Target,
+    schema: &bool,
+) -> Result<(), Report> {
     fn get_paths_from_options(path: &Option<PathBuf>, commit: &Option<String>) -> Vec<PathBuf> {
         let extension = Some("json");
         match commit {
@@ -70,6 +77,10 @@ pub fn run(output: &Option<PathBuf>, path: &Option<PathBuf>, commit: &Option<Str
                 get_all_files(value, extension, None)
             }
         }
+    }
+    if *schema {
+        ResearchActivity::to_schema();
+        std::process::exit(exitcode::OK);
     }
     match target {
         | Target::FactSheet => {

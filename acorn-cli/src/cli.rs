@@ -163,6 +163,11 @@ pub enum Commands {
         /// Path to output directory where the export artifacts should be saved
         #[arg(default_value = "./export", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         output: Option<PathBuf>,
+        /// Print JSON schema for research activity data
+        ///
+        /// Note: Passing --schema will cause ACORN to exit after schema is printed
+        #[arg(long, value_name = "BOOL")]
+        schema: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },

@@ -11,6 +11,7 @@ use owo_colors::OwoColorize;
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use petgraph::graph::Graph;
 use rayon::prelude::*;
+use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use serde_trim::*;
@@ -45,7 +46,7 @@ pub type Keyword = String;
 /// U.S. Classified National Security Information Level
 ///
 /// See [President Executive Order 13526](https://www.archives.gov/isoo/policy-documents/cnsi-eo.html)
-#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ClassificationLevel {
     /// ### Unclassified (U)
@@ -81,20 +82,20 @@ pub enum FuzzyValue {
     #[display("technology")]
     Technology,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Other {
     Unformatted(String),
     Formatted(Notes),
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Sections {
     Highlight(HighlightSections),
     Project(ProjectSections),
     Organization(OrganizationSections),
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Display, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Display, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 /// The schema type informs the sections and fields that apply to the associated research activity data
 pub enum SchemaType {
@@ -115,7 +116,7 @@ pub enum SchemaType {
 /// The "optimal point" to introduce technology depends on technology maturity (TRL) and program requirements. That point can be virtually anywhere in the acquisition process.
 ///
 /// See [Technology Readiness for Machine Learning Systems](https://doi.org/10.1038/s41467-022-33128-9) for applying TRLs to machine learning (ML) systems
-#[derive(Clone, Debug, Default, Display, Serialize_repr, Deserialize_repr, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Default, Display, Serialize_repr, Deserialize_repr, PartialEq, PartialOrd, JsonSchema)]
 #[repr(u8)]
 pub enum TechnologyReadinessLevel {
     /// A stage for greenfield research
@@ -173,7 +174,7 @@ pub enum TechnologyReadinessLevel {
 /// Contact point (i.e. "point of contact") for research activity
 ///
 /// See <https://schema.org/ContactPoint>
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactPoint {
     /// ### Job title (e.g. "Group Lead") of role that the contact fills related to the asscociated research activity.
@@ -219,7 +220,7 @@ pub struct ContactPoint {
     pub organization: String,
 }
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Graphic {
     #[validate(length(max = "MAX_LENGTH_GRAPHIC_CAPTION", message = "Caption is too long, please reduce the length below 100."))]
     #[serde(deserialize_with = "string_trim")]
@@ -229,7 +230,7 @@ pub struct Graphic {
     pub href: Option<String>,
 }
 #[skip_serializing_none]
-#[derive(Clone, Builder, Debug, Serialize, Deserialize, Validate)]
+#[derive(Clone, Builder, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
@@ -301,8 +302,8 @@ pub struct Metadata {
     pub technology: Vec<String>,
     /// ### Organization(s) responsible for funding associated research activity data
     ///
-    /// Includes any office within a US cabinet-level department that has leadership appointed by the president and confirmed by the Senate, e.g., NNSA or Office of Science. 
-    /// 
+    /// Includes any office within a US cabinet-level department that has leadership appointed by the president and confirmed by the Senate, e.g., NNSA or Office of Science.
+    ///
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
     pub sponsors: Option<Vec<String>>,
     /// ### Organization(s related to the associated research activity data
@@ -319,7 +320,7 @@ pub struct Metadata {
     pub related: Option<Vec<String>>,
 }
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Notes {
     /// ### [ASCR](https://www.energy.gov/science/ascr/advanced-scientific-computing-research) highlight attribute
     pub managers: Option<Vec<String>>,
@@ -358,7 +359,7 @@ pub struct Organization {
     /// See <https://schema.org/member>
     pub member: Vec<Organization>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum OrganizationType {
     #[display("agency")]
@@ -382,7 +383,7 @@ pub enum OrganizationType {
     Ffrdc,
 }
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 pub struct ResearchActivity {
     #[validate(nested)]
@@ -416,7 +417,7 @@ pub struct ResearchActivity {
 /// }
 /// ```
 ///
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
 pub struct Website {
     /// Brief description of webpage content
     ///
@@ -427,7 +428,7 @@ pub struct Website {
     #[serde(deserialize_with = "string_trim")]
     pub url: String,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct HighlightSections {
     #[serde(alias = "scientific achievement", deserialize_with = "string_trim")]
     pub achievement: String,
@@ -441,7 +442,7 @@ pub struct HighlightSections {
     #[serde(deserialize_with = "vec_string_trim")]
     pub technical: Vec<String>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct ProjectSections {
     #[validate(length(
         min = 10,
@@ -470,7 +471,7 @@ pub struct ProjectSections {
     #[validate(nested)]
     pub research: Research,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct OrganizationSections {
     #[validate(length(
         min = 10,
@@ -488,7 +489,7 @@ pub struct OrganizationSections {
     #[validate(custom(function = "validate_attribute_facilities"))]
     pub facilities: Option<Vec<String>>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Research {
     #[validate(length(
         min = 10,
@@ -600,6 +601,10 @@ impl OrganizationType {
     }
 }
 impl ResearchActivity {
+    pub fn to_schema() {
+        let schema = schema_for!(ResearchActivity);
+        println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+    }
     pub fn analyze(paths: Vec<PathBuf>) -> usize {
         let config = ValeConfig::default().save();
         let init = Vale::init().build();
