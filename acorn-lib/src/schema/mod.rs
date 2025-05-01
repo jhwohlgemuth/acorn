@@ -306,7 +306,7 @@ pub struct Metadata {
     ///
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
     pub sponsors: Option<Vec<String>>,
-    /// ### Organization(s related to the associated research activity data
+    /// ### Organization(s) related to the associated research activity data
     ///
     /// ***Examples***
     /// - Los Alamos National Laboratory
@@ -382,6 +382,9 @@ pub enum OrganizationType {
     #[display("FFRDC")]
     Ffrdc,
 }
+/// ### Research activity is an identifiable package of work involving organized, systematic investigation.
+/// 
+/// See <https://www.raid.org/> for more information
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
