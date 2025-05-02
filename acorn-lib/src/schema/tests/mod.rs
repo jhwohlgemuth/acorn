@@ -1,4 +1,3 @@
-use crate::schema::graph::*;
 use crate::schema::validate::*;
 use crate::schema::*;
 use glob::glob;
@@ -54,17 +53,36 @@ fn test_metadata() {
 }
 #[test]
 fn test_organization() {
+    const ORNL_ORGANIZATION_COUNT: usize = 368;
     let data = Organization::load();
+    let ornl = data[0].clone();
     assert_eq!(data.len(), 1);
-    assert_eq!(data[0].name, "Oak Ridge National Laboratory".to_string());
+    assert_eq!(ornl.name, "Oak Ridge National Laboratory".to_string());
+    let ornl_members = ornl.clone().get_members();
+    assert_eq!(ornl_members.len(), ORNL_ORGANIZATION_COUNT);
+    let directorates = ornl_members
+        .into_iter()
+        .filter(|Organization { additional_type, .. }| *additional_type == OrganizationType::Directorate)
+        .collect::<Vec<Organization>>();
+    assert_eq!(directorates.len(), 8);
+    let center = ornl.get_member("Quantum Science Center").unwrap();
+    assert_eq!(center.alternative_name, Some("QSC".to_string()));
+    assert!(OrganizationType::Group.order() < OrganizationType::Division.order());
 }
 #[test]
 fn test_organization_graph() {
-    let graph = Organization::to_graph();
-    let parent = get_node_parent_name(&graph, "Geospatial Science and Human Security Division");
-    assert_eq!(parent, "National Security Sciences Directorate");
-    let parent = get_node_parent_name(&graph, "Spatial Statistics");
-    assert_eq!(parent, "Geospatial Science and Human Security Division");
+    let nssd = "National Security Sciences Directorate";
+    let gshs = "Geospatial Science and Human Security Division";
+    let nssd_group = "Spatial Statistics";
+    let ornl = Organization::load()[0].clone();
+    let group = ornl.clone().get_member(nssd_group).unwrap();
+    assert_eq!(group.name, nssd_group);
+    assert_eq!(group.clone().get_nearest(OrganizationType::Group).unwrap().name, nssd_group);
+    assert_eq!(group.clone().get_nearest(OrganizationType::Division).unwrap().name, gshs);
+    assert_eq!(group.clone().get_nearest(OrganizationType::Directorate).unwrap().name, nssd);
+    assert_eq!(group.get_nearest(OrganizationType::Ffrdc).unwrap().name, ornl.name);
+    assert!(ornl.clone().get_nearest(OrganizationType::Group).is_none());
+    assert!(ornl.get_nearest(OrganizationType::Directorate).is_none());
 }
 #[test]
 fn test_read() {

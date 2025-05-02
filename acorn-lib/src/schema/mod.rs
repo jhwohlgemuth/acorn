@@ -25,6 +25,7 @@ use validator::{Validate, ValidationErrorsKind};
 
 pub mod graph;
 pub mod validate;
+use graph::*;
 use validate::*;
 
 /// ### Core concepts related to the associated research activity
@@ -366,24 +367,24 @@ pub enum OrganizationType {
     Agency,
     #[display("center")]
     Center,
-    #[display("division")]
-    Division,
     #[display("directorate")]
     Directorate,
+    #[display("division")]
+    Division,
+    #[display("facility")]
+    Facility,
+    /// Federally Funded Research and Development Center
+    #[display("FFRDC")]
+    Ffrdc,
     #[display("group")]
     Group,
     #[display("office")]
     Office,
     #[display("program")]
     Program,
-    #[display("facility")]
-    Facility,
-    /// Federally Funded Research and Development Center
-    #[display("FFRDC")]
-    Ffrdc,
 }
 /// ### Research activity is an identifiable package of work involving organized, systematic investigation.
-/// 
+///
 /// See <https://www.raid.org/> for more information
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -568,9 +569,68 @@ impl Organization {
             child.visit(f);
         }
     }
-    pub fn to_graph() -> Graph<String, u8> {
+    pub fn get_member(self, label: &str) -> Option<Organization> {
+        self.get_members().into_iter().find(|Organization { name, .. }| name == label)
+    }
+    pub fn get_members(self) -> Vec<Organization> {
+        let organization = self;
+        let mut items = vec![organization.clone()];
+        let directorates = organization.member.clone();
+        for directorate in &directorates {
+            items.push(directorate.clone());
+            let divisions = directorate.member.clone();
+            for division in &divisions {
+                items.push(division.clone());
+                let groups = division.member.clone();
+                for group in &groups {
+                    items.push(group.clone());
+                }
+            }
+        }
+        items
+    }
+    pub fn get_nearest(self, organization_type: OrganizationType) -> Option<Organization> {
+        let a = self.clone().additional_type.order();
+        let b = organization_type.order();
+        if a > b {
+            None
+        } else {
+            let ornl = Organization::load()[0].clone();
+            let graph = ornl.clone().to_graph();
+            let name = match b - a {
+                | 3 => Some(ornl.clone().name),
+                | 2 => match get_node_from_label(&graph, &self.name) {
+                    | Some(node) => match get_node_parent(&graph, node) {
+                        | Some(parent) => match get_node_parent(&graph, parent) {
+                            | Some(grandparent) => get_node_name(&graph, grandparent),
+                            | None => None,
+                        },
+                        | None => None,
+                    },
+                    | None => None,
+                },
+                | 1 => match get_node_from_label(&graph, &self.name) {
+                    | Some(node) => match get_node_parent(&graph, node) {
+                        | Some(parent) => get_node_name(&graph, parent),
+                        | None => None,
+                    },
+                    | None => None,
+                },
+                | 0 => Some(self.name),
+                | _ => None,
+            };
+            match name {
+                | Some(value) => match ornl.get_member(&value) {
+                    | Some(organization) => Some(organization),
+                    | None => None,
+                },
+                | None => None,
+            }
+        }
+    }
+    pub fn to_graph(self) -> Graph<String, u8> {
         let mut graph: Graph<String, u8, petgraph::Directed> = Graph::new();
-        let organization = &Organization::load()[0];
+        let organization = &self;
         let root = graph.add_node(organization.name.clone());
         for directorate in organization.member.iter() {
             let a = graph.add_node(directorate.name.clone());
@@ -600,6 +660,14 @@ impl OrganizationType {
             | "facility" => OrganizationType::Facility,
             | "ffrdc" => OrganizationType::Ffrdc,
             | _ => unreachable!(),
+        }
+    }
+    pub fn order(self) -> u8 {
+        match self {
+            | OrganizationType::Ffrdc | OrganizationType::Agency | OrganizationType::Office => 4,
+            | OrganizationType::Directorate => 3,
+            | OrganizationType::Division => 2,
+            | OrganizationType::Group | OrganizationType::Center | OrganizationType::Program | OrganizationType::Facility => 1,
         }
     }
 }
