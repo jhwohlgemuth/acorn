@@ -65,6 +65,7 @@ pub enum Commands {
         /// Only applies to `--path` values that point to a directory
         ///
         /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
+        ///
         /// Example: --ignore "[/]valid.json$"
         #[arg(short, long, value_name = "REGEX")]
         ignore: Option<String>,
@@ -196,6 +197,7 @@ pub enum Commands {
         /// Only applies to `--path` values that point to a directory
         ///
         /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
+        ///
         /// Example: --ignore "[/]valid.json$"
         #[arg(short, long, value_name = "REGEX")]
         ignore: Option<String>,

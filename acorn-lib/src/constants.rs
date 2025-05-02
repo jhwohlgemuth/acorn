@@ -16,6 +16,7 @@ pub const APPLICATION: &str = "acorn";
 pub const ORGANIZATION: &str = "ornl";
 pub const QUALIFIER: &str = "org";
 // Schema defaults
+pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
 pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
 // Validation

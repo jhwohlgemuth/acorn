@@ -217,8 +217,18 @@ pub struct ContactPoint {
     #[validate(url(message = "Please provide a valid profile URL"))]
     #[serde(alias = "profile", deserialize_with = "string_trim")]
     pub url: String,
+    /// ### Organization of contact point
+    ///
+    /// See [Organization]
     #[serde(deserialize_with = "string_trim")]
     pub organization: String,
+    /// ### Affiliation of associated research activity data
+    ///
+    /// Where organization applies to the contact point, affiliation applies to the research activity the contact point is associated with
+    ///
+    /// See <https://schema.org/affiliation>
+    #[serde(default = "default_affiliation", deserialize_with = "string_trim")]
+    pub affiliation: String,
 }
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -962,6 +972,9 @@ impl ResearchActivity {
             }
         }
     }
+}
+fn default_affiliation() -> String {
+    DEFAULT_AFFILIATION.to_string()
 }
 fn get_match_list(value: String, values: Vec<String>) -> Vec<(String, u32)> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
