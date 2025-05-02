@@ -227,8 +227,7 @@ pub struct ContactPoint {
     /// Where organization applies to the contact point, affiliation applies to the research activity the contact point is associated with
     ///
     /// See <https://schema.org/affiliation>
-    #[serde(default = "default_affiliation", deserialize_with = "string_trim")]
-    pub affiliation: String,
+    pub affiliation: Option<String>,
 }
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -676,8 +675,8 @@ impl OrganizationType {
         match self {
             | OrganizationType::Ffrdc | OrganizationType::Agency | OrganizationType::Office => 4,
             | OrganizationType::Directorate => 3,
-            | OrganizationType::Division => 2,
-            | OrganizationType::Group | OrganizationType::Center | OrganizationType::Program | OrganizationType::Facility => 1,
+            | OrganizationType::Division | OrganizationType::Center | OrganizationType::Program | OrganizationType::Facility => 2,
+            | OrganizationType::Group => 1,
         }
     }
 }
@@ -853,27 +852,6 @@ impl ResearchActivity {
             | None => sections.to_string(),
         }
     }
-    fn resolve(self, value_type: FuzzyValue) -> Vec<String> {
-        let values: Vec<_> = match value_type {
-            | FuzzyValue::Keyword => self.meta.keywords,
-            | FuzzyValue::Partner => match self.meta.partners {
-                | Some(values) => values,
-                | None => vec![],
-            },
-            | FuzzyValue::Sponsor => match self.meta.sponsors {
-                | Some(values) => values,
-                | None => vec![],
-            },
-            | FuzzyValue::Technology => self.meta.technology,
-        };
-        let mut data: Vec<_> = values
-            .into_iter()
-            .flat_map(|x| resolve_from_csv_asset(format!("{}", value_type), x))
-            .collect();
-        data.sort();
-        data.dedup();
-        data
-    }
     pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
         let path = match path {
             | Some(value) => value,
@@ -915,6 +893,28 @@ impl ResearchActivity {
         clone.contact.organization = match resolve_from_organization_json(self.clone().contact.organization) {
             | Some(value) => value,
             | None => "".to_string(),
+        };
+        clone.contact.affiliation = match self.clone().contact.affiliation {
+            | Some(ref affiliation) => match resolve_from_organization_json(affiliation.to_string()) {
+                | Some(resolved) => Some(resolved),
+                | None => {
+                    error!(affiliation, "=> {} Affiliation", Label::not_found());
+                    Some(DEFAULT_AFFILIATION.to_string())
+                }
+            },
+            | None => {
+                let ornl = &Organization::load()[0];
+                match ornl.clone().get_member(&clone.contact.organization) {
+                    | Some(organization) => match organization.get_nearest(OrganizationType::Directorate) {
+                        | Some(Organization { name, .. }) => Some(name),
+                        | None => Some(DEFAULT_AFFILIATION.to_string()),
+                    },
+                    | None => {
+                        error!("=> {} Nearest directorate", Label::not_found());
+                        Some(DEFAULT_AFFILIATION.to_string())
+                    }
+                }
+            }
         };
         clone.meta.partners = match self.clone().resolve(FuzzyValue::Partner) {
             | values if !values.is_empty() => Some(values),
@@ -972,9 +972,27 @@ impl ResearchActivity {
             }
         }
     }
-}
-fn default_affiliation() -> String {
-    DEFAULT_AFFILIATION.to_string()
+    fn resolve(self, value_type: FuzzyValue) -> Vec<String> {
+        let values: Vec<_> = match value_type {
+            | FuzzyValue::Keyword => self.meta.keywords,
+            | FuzzyValue::Partner => match self.meta.partners {
+                | Some(values) => values,
+                | None => vec![],
+            },
+            | FuzzyValue::Sponsor => match self.meta.sponsors {
+                | Some(values) => values,
+                | None => vec![],
+            },
+            | FuzzyValue::Technology => self.meta.technology,
+        };
+        let mut data: Vec<_> = values
+            .into_iter()
+            .flat_map(|x| resolve_from_csv_asset(format!("{}", value_type), x))
+            .collect();
+        data.sort();
+        data.dedup();
+        data
+    }
 }
 fn get_match_list(value: String, values: Vec<String>) -> Vec<(String, u32)> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
