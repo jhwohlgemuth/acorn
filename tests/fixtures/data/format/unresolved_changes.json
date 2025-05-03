@@ -1,0 +1,62 @@
+{
+    "meta": {
+        "id": "project-needs-fixing",
+        "type": "project",
+        "trl": 1,
+        "archive": false,
+        "draft": true,
+        "websites": [
+            {
+                "title": "Project Repository",
+                "url": "https://code.ornl.gov/research-enablement"
+            }
+        ],
+        "graphics": [{
+            "caption": ""
+        }],
+        "keywords": [
+            "automation",
+            "cybr",
+            "gearssss",
+            "not-a-valid-keyword"
+        ],
+        "sponsors": [
+            "not a valid sponsor"
+        ],
+        "technology": [
+            "astro",
+            "React.js",
+            "foobarbaz",
+            "Geospatial Data Abstraction Lib",
+            "rs "
+        ]
+    },
+    "title": "Valid Project",
+    "subtitle": "When you need validity choose this project",
+    "sections": {
+        "introduction": "ORNL does lots of big science with big impact.",
+        "challenge": "Doing big science with big impact is not easy.",
+        "approach": "ORNL finds big problems and does big science with big impact.",
+        "outcomes": [
+            "Big science",
+            "Big impact"
+        ],
+        "research": {
+            "focus": "Solving big problems",
+            "areas": [
+                "Big science",
+                "Big impact"
+            ]
+        }
+    },
+    "contact": {
+        "title": "Primary Investigator",
+        "first": "Audson",
+        "last": "Cargohlmuth",
+        "email": "wohlgemuthjh@ornl.gov",
+        "phone": "865.576.7658",
+        "profile": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+        "organization": "Not an actual organization",
+        "affiliation": "Not an actual affiliation"
+    }
+}
