@@ -853,12 +853,11 @@ impl ResearchActivity {
         }
     }
     pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
-        let path = match path {
-            | Some(value) => value,
+        let parent = match path {
+            | Some(value) => value.parent().unwrap().to_path_buf(),
             | None => PathBuf::from("."),
         };
-        let parent = path.parent().unwrap().to_path_buf();
-        let name = match get_image_paths(parent) {
+        let name = match get_image_paths(parent.clone()) {
             | value if !value.is_empty() => value[0].file_name().unwrap().to_string_lossy().to_string(),
             | _ => DEFAULT_GRAPHIC_HREF.to_string(),
         };
@@ -872,7 +871,7 @@ impl ResearchActivity {
                         trimmed
                     }
                     | Some(_) | None => {
-                        error!(path = path.to_str().unwrap(), "=> {} Caption", Label::not_found());
+                        error!(path = parent.to_str().unwrap(), "=> {} Caption", Label::not_found());
                         &"".to_string()
                     }
                 };

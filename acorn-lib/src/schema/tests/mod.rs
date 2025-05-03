@@ -3,6 +3,8 @@ use crate::schema::*;
 use glob::glob;
 use pretty_assertions::assert_eq;
 
+const FIXTURES: &str = "../tests/fixtures";
+
 #[test]
 fn test_classification() {
     assert_eq!(ClassificationLevel::Secret.to_string(), "SECRET");
@@ -10,88 +12,6 @@ fn test_classification() {
     assert!(ClassificationLevel::Unclassified < ClassificationLevel::Confidential);
     assert!(ClassificationLevel::Confidential < ClassificationLevel::Secret);
     assert!(ClassificationLevel::Secret < ClassificationLevel::TopSecret);
-}
-#[test]
-fn test_trl() {
-    assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("0").unwrap());
-    assert_eq!(TechnologyReadinessLevel::MissionCapable, serde_json::from_str("9").unwrap());
-    assert_eq!(TechnologyReadinessLevel::MissionCapable.to_string(), "Mission Capable");
-    assert!(TechnologyReadinessLevel::Research < TechnologyReadinessLevel::MissionCapable);
-}
-#[test]
-#[should_panic]
-fn test_trl_panic() {
-    assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("10").unwrap());
-}
-#[test]
-fn test_metadata() {
-    const DEFAULT_HREF: &str = "00.png";
-    const DEFAULT_CAPTION: &str = "";
-    let meta = Metadata::init().identifier("test-data".to_string()).build();
-    assert_eq!(meta.identifier, "test-data".to_string());
-    assert_eq!(meta.schema_type, SchemaType::Project);
-    assert_eq!(meta.get_first_graphic_href(), DEFAULT_HREF);
-    let href = "abc.png";
-    let caption = "hello world";
-    let graphics = vec![Graphic {
-        href: Some(href.to_owned()),
-        caption: caption.to_owned(),
-    }];
-    let meta = Metadata::init().identifier("test-data".to_string()).graphics(graphics).build();
-    assert_eq!(meta.clone().get_first_graphic_href(), href);
-    assert_eq!(meta.get_first_graphic_caption(), caption);
-    let meta = Metadata::init().identifier("test-data".to_string()).graphics(vec![]).build();
-    assert_eq!(meta.clone().get_first_graphic_href(), DEFAULT_HREF);
-    assert_eq!(meta.get_first_graphic_caption(), DEFAULT_CAPTION);
-    let graphics = vec![Graphic {
-        href: None,
-        caption: "".to_string(),
-    }];
-    let meta = Metadata::init().identifier("test-data".to_string()).graphics(graphics).build();
-    assert_eq!(meta.clone().get_first_graphic_href(), DEFAULT_HREF);
-    assert_eq!(meta.get_first_graphic_caption(), DEFAULT_CAPTION);
-}
-#[test]
-fn test_organization() {
-    const ORNL_ORGANIZATION_COUNT: usize = 368;
-    let data = Organization::load();
-    let ornl = data[0].clone();
-    assert_eq!(data.len(), 1);
-    assert_eq!(ornl.name, "Oak Ridge National Laboratory".to_string());
-    let ornl_members = ornl.clone().get_members();
-    assert_eq!(ornl_members.len(), ORNL_ORGANIZATION_COUNT);
-    let directorates = ornl_members
-        .into_iter()
-        .filter(|Organization { additional_type, .. }| *additional_type == OrganizationType::Directorate)
-        .collect::<Vec<Organization>>();
-    assert_eq!(directorates.len(), 8);
-    let center = ornl.get_member("Quantum Science Center").unwrap();
-    assert_eq!(center.alternative_name, Some("QSC".to_string()));
-    assert!(OrganizationType::Group.order() < OrganizationType::Division.order());
-}
-#[test]
-fn test_organization_graph() {
-    let nssd = "National Security Sciences Directorate";
-    let gshs = "Geospatial Science and Human Security Division";
-    let nssd_group = "Spatial Statistics";
-    let ornl = Organization::load()[0].clone();
-    let group = ornl.clone().get_member(nssd_group).unwrap();
-    assert_eq!(group.name, nssd_group);
-    assert_eq!(group.clone().get_nearest(OrganizationType::Group).unwrap().name, nssd_group);
-    assert_eq!(group.clone().get_nearest(OrganizationType::Division).unwrap().name, gshs);
-    assert_eq!(group.clone().get_nearest(OrganizationType::Directorate).unwrap().name, nssd);
-    assert_eq!(group.get_nearest(OrganizationType::Ffrdc).unwrap().name, ornl.name);
-    assert!(ornl.clone().get_nearest(OrganizationType::Group).is_none());
-    assert!(ornl.get_nearest(OrganizationType::Directorate).is_none());
-}
-#[test]
-fn test_read() {
-    for entry in glob("./**/*").expect("Failed to read glob pattern") {
-        match entry {
-            | Ok(path) => println!("{:?}", path.display()),
-            | Err(e) => println!("{:?}", e),
-        }
-    }
 }
 #[test]
 fn test_fuzzy_matching_keywords() {
@@ -224,6 +144,110 @@ fn test_fuzzy_matching_techology() {
     assert_eq!(resolve_from_csv_asset(name.clone(), "zsh".into()), Some("shell".into()));
     assert_eq!(resolve_from_csv_asset(name.clone(), "foobarbaz".into()), None);
     assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
+}
+#[test]
+fn test_metadata() {
+    const DEFAULT_HREF: &str = "00.png";
+    const DEFAULT_CAPTION: &str = "";
+    let meta = Metadata::init().identifier("test-data".to_string()).build();
+    assert_eq!(meta.identifier, "test-data".to_string());
+    assert_eq!(meta.schema_type, SchemaType::Project);
+    assert_eq!(meta.get_first_graphic_href(), DEFAULT_HREF);
+    let href = "abc.png";
+    let caption = "hello world";
+    let graphics = vec![Graphic {
+        href: Some(href.to_owned()),
+        caption: caption.to_owned(),
+    }];
+    let meta = Metadata::init().identifier("test-data".to_string()).graphics(graphics).build();
+    assert_eq!(meta.clone().get_first_graphic_href(), href);
+    assert_eq!(meta.get_first_graphic_caption(), caption);
+    let meta = Metadata::init().identifier("test-data".to_string()).graphics(vec![]).build();
+    assert_eq!(meta.clone().get_first_graphic_href(), DEFAULT_HREF);
+    assert_eq!(meta.get_first_graphic_caption(), DEFAULT_CAPTION);
+    let graphics = vec![Graphic {
+        href: None,
+        caption: "".to_string(),
+    }];
+    let meta = Metadata::init().identifier("test-data".to_string()).graphics(graphics).build();
+    assert_eq!(meta.clone().get_first_graphic_href(), DEFAULT_HREF);
+    assert_eq!(meta.get_first_graphic_caption(), DEFAULT_CAPTION);
+}
+#[test]
+fn test_organization() {
+    const ORNL_ORGANIZATION_COUNT: usize = 368;
+    let data = Organization::load();
+    let ornl = data[0].clone();
+    assert_eq!(data.len(), 1);
+    assert_eq!(ornl.name, "Oak Ridge National Laboratory".to_string());
+    let ornl_members = ornl.clone().get_members();
+    assert_eq!(ornl_members.len(), ORNL_ORGANIZATION_COUNT);
+    let directorates = ornl_members
+        .into_iter()
+        .filter(|Organization { additional_type, .. }| *additional_type == OrganizationType::Directorate)
+        .collect::<Vec<Organization>>();
+    assert_eq!(directorates.len(), 8);
+    let center = ornl.get_member("Quantum Science Center").unwrap();
+    assert_eq!(center.alternative_name, Some("QSC".to_string()));
+    assert!(OrganizationType::Group.order() < OrganizationType::Division.order());
+}
+#[test]
+fn test_organization_graph() {
+    let nssd = "National Security Sciences Directorate";
+    let gshs = "Geospatial Science and Human Security Division";
+    let nssd_group = "Spatial Statistics";
+    let ornl = Organization::load()[0].clone();
+    let group = ornl.clone().get_member(nssd_group).unwrap();
+    assert_eq!(group.name, nssd_group);
+    assert_eq!(group.clone().get_nearest(OrganizationType::Group).unwrap().name, nssd_group);
+    assert_eq!(group.clone().get_nearest(OrganizationType::Division).unwrap().name, gshs);
+    assert_eq!(group.clone().get_nearest(OrganizationType::Directorate).unwrap().name, nssd);
+    assert_eq!(group.get_nearest(OrganizationType::Ffrdc).unwrap().name, ornl.name);
+    assert!(ornl.clone().get_nearest(OrganizationType::Group).is_none());
+    assert!(ornl.get_nearest(OrganizationType::Directorate).is_none());
+}
+#[test]
+fn test_read() {
+    for entry in glob("./**/*").expect("Failed to read glob pattern") {
+        match entry {
+            | Ok(path) => println!("{:?}", path.display()),
+            | Err(e) => println!("{:?}", e),
+        }
+    }
+}
+#[test]
+fn test_research_activity() {
+    let path = Some(PathBuf::from(FIXTURES).join("data/format/"));
+    //
+    // with changes
+    //
+    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/changes.json")).unwrap();
+    assert!(pre.meta.graphics.as_ref().unwrap()[0].href.is_none());
+    assert!(pre.contact.affiliation.is_none());
+    let post = pre.format(path.clone());
+    assert_eq!(post.meta.graphics.as_ref().unwrap()[0].href, Some("00.png".to_string()));
+    assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
+    //
+    // without changes
+    //
+    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/no_changes.json")).unwrap();
+    assert_eq!(pre.meta.graphics.as_ref().unwrap()[0].href, Some("00.png".to_string()));
+    assert_eq!(pre.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
+    let post = pre.format(path);
+    assert_eq!(post.meta.graphics.as_ref().unwrap()[0].href, Some("00.png".to_string()));
+    assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
+}
+#[test]
+fn test_trl() {
+    assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("0").unwrap());
+    assert_eq!(TechnologyReadinessLevel::MissionCapable, serde_json::from_str("9").unwrap());
+    assert_eq!(TechnologyReadinessLevel::MissionCapable.to_string(), "Mission Capable");
+    assert!(TechnologyReadinessLevel::Research < TechnologyReadinessLevel::MissionCapable);
+}
+#[test]
+#[should_panic]
+fn test_trl_panic() {
+    assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("10").unwrap());
 }
 #[test]
 fn test_validate_attribute_areas() {

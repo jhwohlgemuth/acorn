@@ -45,6 +45,15 @@ fn test_get_files_from_git() {
     assert!(files.is_empty());
 }
 #[test]
+fn test_get_image_paths() {
+    let path = PathBuf::from(FIXTURES).join("data/empty/");
+    let files = get_image_paths(path);
+    assert_eq!(files.len(), 0);
+    let path = PathBuf::from(".");
+    let files = get_image_paths(path);
+    assert_eq!(files.len(), 0);
+}
+#[test]
 fn test_is_ip6() {}
 #[test]
 fn test_semantic_version() {
