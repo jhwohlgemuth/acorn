@@ -906,7 +906,7 @@ impl ResearchActivity {
                 match ornl.clone().get_member(&clone.contact.organization) {
                     | Some(organization) => match organization.get_nearest(OrganizationType::Directorate) {
                         | Some(Organization { name, .. }) => Some(name),
-                        | None => unreachable!(),
+                        | None => Some(DEFAULT_AFFILIATION.to_string()),
                     },
                     | None => {
                         error!("=> {} Nearest directorate", Label::not_found());

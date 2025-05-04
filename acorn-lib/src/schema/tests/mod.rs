@@ -247,6 +247,15 @@ fn test_research_activity_format() {
     assert_eq!(post.contact.organization, "".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
     //
+    // with ORNL as organization and no affiliation
+    //
+    let mut pre = post.clone().copy();
+    pre.contact.organization = "Oak Ridge National Laboratory".to_string();
+    pre.contact.affiliation = None;
+    let post = pre.format(None);
+    assert_eq!(post.contact.organization, "Oak Ridge National Laboratory".to_string());
+    assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
+    //
     // without changes
     //
     let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/no_changes.json")).unwrap();

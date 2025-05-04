@@ -22,7 +22,7 @@ enum TargetLabel {
     #[display("Water Power Program")]
     Wpp,
     #[display("Solving Big Problems")]
-    Other,
+    Ornl,
 }
 struct DataUri {}
 #[derive(Embed)]
@@ -65,12 +65,21 @@ impl DataUri {
     }
 }
 impl TargetLabel {
-    fn get_folder(&self) -> &str {
-        const DEFAULT: &str = "nssd";
+    fn get_folder(self) -> String {
         match self {
-            | TargetLabel::Bessd => "bessd",
-            | TargetLabel::Wpp => "wpp",
-            | TargetLabel::Nssd | TargetLabel::Other => DEFAULT,
+            | TargetLabel::Bessd => "bessd".to_string(),
+            | TargetLabel::Wpp => "wpp".to_string(),
+            | TargetLabel::Nssd => "nssd".to_string(),
+            | TargetLabel::Ornl => TargetLabel::default().get_folder().to_owned(),
+        }
+    }
+    fn from_organization(name: &str) -> Self {
+        match name {
+            | "Biological and Environmental Systems Science Directorate" => TargetLabel::Bessd,
+            | "National Security Sciences Division" => TargetLabel::Nssd,
+            | "Oak Ridge National Laboratory" => TargetLabel::Ornl,
+            | "Water Power Program" => TargetLabel::Wpp,
+            | _ => TargetLabel::default(),
         }
     }
 }
@@ -148,7 +157,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
         contact,
         ..
     } = data;
-    let ContactPoint { .. } = contact;
+    let ContactPoint { affiliation, .. } = contact;
     let node = match &data.sections {
         | Sections::Project(ProjectSections {
             introduction,
@@ -159,8 +168,10 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             ..
         }) => {
             let Research { focus, areas, .. } = research;
-            // TODO: Connect to fact sheet content
-            let label = TargetLabel::default();
+            let label = match affiliation {
+                | Some(affiliation) => TargetLabel::from_organization(affiliation),
+                | None => TargetLabel::default(),
+            };
             let target = target.unwrap_or_default();
             let head = HtmlHead {
                 size: size.unwrap(),
@@ -230,8 +241,16 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             technical,
         }) => {
             let Metadata { doi, publication, .. } = &meta;
-            let ContactPoint { given_name, family_name, .. } = &data.contact;
-            let label = TargetLabel::default();
+            let ContactPoint {
+                given_name,
+                family_name,
+                affiliation,
+                ..
+            } = &data.contact;
+            let label = match affiliation {
+                | Some(affiliation) => TargetLabel::from_organization(affiliation),
+                | None => TargetLabel::default(),
+            };
             let target = target.unwrap_or_default();
             let head = HtmlHead {
                 size: size.unwrap(),
@@ -347,8 +366,11 @@ pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Opti
             impact,
             facilities,
         }) => {
-            // TODO: Connect to fact sheet content
-            let label = TargetLabel::default();
+            let ContactPoint { affiliation, .. } = &data.contact;
+            let label = match affiliation {
+                | Some(affiliation) => TargetLabel::from_organization(affiliation),
+                | None => TargetLabel::default(),
+            };
             let target = target.unwrap_or_default();
             let head = HtmlHead {
                 size: size.unwrap(),
