@@ -1,10 +1,10 @@
+use crate::util::{Size, Target, TargetLabel};
 use acorn_lib::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
 use acorn_lib::schema::{
     ContactPoint, HighlightSections, Metadata, Notes, OrganizationSections, Other, ProjectSections, Research, ResearchActivity, Sections,
 };
-use acorn_lib::util::{cli, Label, MimeType};
+use acorn_lib::util::{Label, MimeType};
 use data_encoding::BASE64;
-use derive_more::Display;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
@@ -12,18 +12,6 @@ use percy_dom::prelude::*;
 use rust_embed::Embed;
 use tracing::error;
 
-#[derive(Default, Clone, Copy, Debug, Display)]
-enum TargetLabel {
-    #[default]
-    #[display("National Security Sciences")]
-    Nssd,
-    #[display("Biological and Environmental Systems Sciences")]
-    Bessd,
-    #[display("Water Power Program")]
-    Wpp,
-    #[display("Solving Big Problems")]
-    Ornl,
-}
 struct DataUri {}
 #[derive(Embed)]
 #[folder = "assets/images/"]
@@ -36,12 +24,12 @@ struct Font;
 struct Style;
 struct HtmlFooter {
     pub label: TargetLabel,
-    pub target: cli::Target,
+    pub target: Target,
 }
 struct HtmlHead<'a> {
-    pub size: cli::Size,
+    pub size: Size,
     pub stylesheet: &'a str,
-    pub target: cli::Target,
+    pub target: Target,
 }
 impl DataUri {
     fn from_bytes(data: &[u8], mime: MimeType) -> String {
@@ -64,29 +52,10 @@ impl DataUri {
         }
     }
 }
-impl TargetLabel {
-    fn get_folder(self) -> String {
-        match self {
-            | TargetLabel::Bessd => "bessd".to_string(),
-            | TargetLabel::Wpp => "wpp".to_string(),
-            | TargetLabel::Nssd => "nssd".to_string(),
-            | TargetLabel::Ornl => TargetLabel::default().get_folder().to_owned(),
-        }
-    }
-    fn from_organization(name: &str) -> Self {
-        match name {
-            | "Biological and Environmental Systems Science Directorate" => TargetLabel::Bessd,
-            | "National Security Sciences Division" => TargetLabel::Nssd,
-            | "Oak Ridge National Laboratory" => TargetLabel::Ornl,
-            | "Water Power Program" => TargetLabel::Wpp,
-            | _ => TargetLabel::default(),
-        }
-    }
-}
 impl View for HtmlFooter {
     fn render(&self) -> VirtualNode {
         match self.target {
-            | cli::Target::FactSheet => {
+            | Target::FactSheet => {
                 let path = format!("fact-sheet/{}/footer.jpg", self.label.get_folder());
                 let style = format!("background-image: url({});", DataUri::from_asset(&path));
                 html! {
@@ -102,7 +71,7 @@ impl View for HtmlFooter {
                     </footer>
                 }
             }
-            | cli::Target::Highlight => html! {
+            | Target::Highlight => html! {
                 <footer>
                     <div class="wrapper">
                         <div class="logo-wrapper">
@@ -112,7 +81,7 @@ impl View for HtmlFooter {
                     </div>
                 </footer>
             },
-            | cli::Target::Poster => html! {
+            | Target::Poster => html! {
                 <footer></footer>
             },
         }
@@ -121,15 +90,15 @@ impl View for HtmlFooter {
 impl View for HtmlHead<'_> {
     fn render(&self) -> VirtualNode {
         let page_css = match self.target {
-            | cli::Target::FactSheet => "letter portrait",
-            | cli::Target::Highlight => {
+            | Target::FactSheet => "letter portrait",
+            | Target::Highlight => {
                 let size = match self.size {
-                    | cli::Size::Standard => "10in 7.5in",
-                    | cli::Size::Widescreen => "13.33in 7.5in",
+                    | Size::Standard => "10in 7.5in",
+                    | Size::Widescreen => "13.33in 7.5in",
                 };
                 &format!("\n@page {{ margin: 0; size: {}; }}\n", size)
             }
-            | cli::Target::Poster => "",
+            | Target::Poster => "",
         };
         let styles = get_stylesheet(self.stylesheet.to_string());
         let style = html! {
@@ -149,7 +118,7 @@ impl View for HtmlHead<'_> {
         }
     }
 }
-pub fn get_html(data: &ResearchActivity, target: Option<cli::Target>, size: Option<cli::Size>) -> String {
+pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Size>) -> String {
     let ResearchActivity {
         meta,
         title,

@@ -79,11 +79,12 @@ fn main() -> Void {
             output,
             path,
             commit,
+            format,
             size,
             target,
             schema,
             ..
-        }) => commands::export::run(output, path, commit, size, target, schema),
+        }) => commands::export::run(output, path, commit, format, size, target, schema),
         | Some(Commands::Format {
             path,
             commit,

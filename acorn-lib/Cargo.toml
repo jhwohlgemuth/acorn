@@ -20,10 +20,6 @@ version.workspace = true
 [badges]
 maintenance = { status = "actively-developed" }
 
-[features]
-default = ["cli"]
-cli = []
-
 [dependencies]
 aho-corasick = "1.1.3"
 bat = "0.25.0"

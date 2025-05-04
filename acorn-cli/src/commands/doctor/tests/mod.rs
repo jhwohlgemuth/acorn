@@ -1,6 +1,6 @@
 use crate::commands::doctor::{run, should_run};
+use crate::util::Diagnostic;
 use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, TableFormatPrint};
-use acorn_lib::util::cli::Diagnostic;
 use color_eyre::eyre::Result;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 

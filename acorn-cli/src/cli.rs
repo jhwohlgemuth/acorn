@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use std::path::PathBuf;
 
-use acorn_lib::util::cli::*;
+use crate::util::*;
 
 /// Multitool for maintaining sustainable research activity data
 ///
@@ -137,7 +137,7 @@ pub enum Commands {
     ///
     ///     $> acorn export --path /path/to/data/data.json -vv
     ///
-    ///     $> acorn export --path /path/to/data --target highlight --size widescreen
+    ///     $> acorn export --path /path/to/data --target highlight --format ppt
     ///
     ///     $> acorn export -p /path/to/data -t poster -o /path/to/output
     ///
@@ -155,6 +155,9 @@ pub enum Commands {
         /// Export files that were changed in a given Git commit
         #[arg(short, long, value_name = "COMMIT")]
         commit: Option<String>,
+        /// Export target file format
+        #[arg(default_value_t, short, long, value_name = "FORMAT")]
+        format: FileFormat,
         /// Export target type
         #[arg(default_value_t, short, long, value_name = "TARGET")]
         target: Target,

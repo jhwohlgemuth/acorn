@@ -8,6 +8,7 @@ version = "0.1.12"
 dependencies = [
  "acorn-lib",
  "assert_cmd",
+ "bon",
  "clap",
  "clap-help",
  "clap-verbosity-flag",

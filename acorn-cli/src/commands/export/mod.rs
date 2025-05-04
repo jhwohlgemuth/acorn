@@ -1,8 +1,7 @@
 use crate::template::get_html;
+use crate::util::{FileFormat, Options, Size, Target};
 use acorn_lib::schema::ResearchActivity;
-use acorn_lib::util::cli::{Options, Size, Target};
-use acorn_lib::util::{cli, path_to_string};
-use acorn_lib::util::{get_all_files, get_files_from_git, tokio_runtime, Label};
+use acorn_lib::util::{get_all_files, get_files_from_git, path_to_string, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
@@ -11,8 +10,8 @@ use std::fs::{create_dir_all, remove_file, File};
 use std::path::{self, PathBuf};
 use tracing::{debug, error};
 
-pub async fn create_pdf(page: &Page, options: cli::Options) {
-    let cli::Options { output, size, target, .. } = options;
+pub async fn create_pdf(page: &Page, options: Options) {
+    let Options { output, size, target, .. } = options;
     let path = match options.path {
         | Some(value) => value,
         | None => unimplemented!(),
@@ -61,6 +60,7 @@ pub fn run(
     output: &Option<PathBuf>,
     path: &Option<PathBuf>,
     commit: &Option<String>,
+    _format: &FileFormat,
     size: &Size,
     target: &Target,
     schema: &bool,
