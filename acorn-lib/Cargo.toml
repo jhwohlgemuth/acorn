@@ -38,7 +38,6 @@ human-units = "0.3.0"
 is_executable = "1.0.4"
 nanopub = "0.1.4"
 nucleo-matcher = "0.3.1"
-pandoc = "0.8.11"
 percy-dom = "0.10.0"
 petgraph = "0.8.1"
 reqwest = { version = "0.12", features = ["blocking", "json"] }

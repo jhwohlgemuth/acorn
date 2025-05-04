@@ -1,7 +1,7 @@
 use crate::template::get_html;
 use crate::util::{FileFormat, Options, Size, Target};
 use acorn_lib::schema::ResearchActivity;
-use acorn_lib::util::{get_all_files, get_files_from_git, path_to_string, tokio_runtime, Label};
+use acorn_lib::util::{get_all_files, get_files_from_git, path_to_string, test_command, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
@@ -56,11 +56,22 @@ pub async fn create_pdf(page: &Page, options: Options) {
     };
     let _remove = remove_file(index);
 }
+fn create_powerpoint() {
+    if test_command("pandoc".to_string()) {
+        // TODO: (onetime) Create powerpoint reference template
+        // TODO: Load powerpoint reference template (local? remote? both?)
+        // TODO: Execute pandoc command to craeate powerpoint
+        todo!("Create powerpoint from highlight data");
+    } else {
+        error!("=> {} pandoc command not found", Label::fail());
+        std::process::exit(exitcode::UNAVAILABLE);
+    }
+}
 pub fn run(
     output: &Option<PathBuf>,
     path: &Option<PathBuf>,
     commit: &Option<String>,
-    _format: &FileFormat,
+    format: &FileFormat,
     size: &Size,
     target: &Target,
     schema: &bool,
@@ -112,31 +123,39 @@ pub fn run(
         }
         | Target::Poster => Ok(()),
         | Target::Highlight => {
-            tokio_runtime().block_on(async {
-                let playwright = Playwright::initialize().await.unwrap();
-                playwright.install_chromium().unwrap(); // Install browsers
-                let chromium = playwright.chromium();
-                let browser = chromium.launcher().headless(true).launch().await.unwrap();
-                let context = browser.context_builder().build().await.unwrap();
-                let page = context.new_page().await.unwrap();
-                let paths = get_paths_from_options(path, commit);
-                let progress = ProgressBar::new(paths.len() as u64);
-                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                for path in paths {
-                    progress.set_message(format!("Generating PDF for {}", path.display()));
-                    let options = Options::init()
-                        .path(path.clone())
-                        .maybe_output(output.clone())
-                        .size(size.clone())
-                        .target(*target)
-                        .build();
-                    create_pdf(&page, options.clone()).await;
-                    progress.inc(1);
+            match format {
+                | FileFormat::Pdf => {
+                    tokio_runtime().block_on(async {
+                        let playwright = Playwright::initialize().await.unwrap();
+                        playwright.install_chromium().unwrap(); // Install browsers
+                        let chromium = playwright.chromium();
+                        let browser = chromium.launcher().headless(true).launch().await.unwrap();
+                        let context = browser.context_builder().build().await.unwrap();
+                        let page = context.new_page().await.unwrap();
+                        let paths = get_paths_from_options(path, commit);
+                        let progress = ProgressBar::new(paths.len() as u64);
+                        progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+                        for path in paths {
+                            progress.set_message(format!("Generating PDF for {}", path.display()));
+                            let options = Options::init()
+                                .path(path.clone())
+                                .maybe_output(output.clone())
+                                .size(size.clone())
+                                .target(*target)
+                                .build();
+                            create_pdf(&page, options.clone()).await;
+                            progress.inc(1);
+                        }
+                        progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+                        let _close = page.close(Some(false)).await;
+                    });
+                    Ok(())
                 }
-                progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                let _close = page.close(Some(false)).await;
-            });
-            Ok(())
+                | FileFormat::Ppt => {
+                    create_powerpoint();
+                    Ok(())
+                }
+            }
         }
     }
 }
