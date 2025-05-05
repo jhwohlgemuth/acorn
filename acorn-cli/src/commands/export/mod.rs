@@ -1,12 +1,14 @@
 use crate::template::get_html;
 use crate::util::{FileFormat, Options, Size, Target};
-use acorn_lib::schema::ResearchActivity;
+use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::{get_all_files, get_files_from_git, path_to_string, test_command, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
+use duct::cmd;
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
 use playwright::Playwright;
 use std::fs::{create_dir_all, remove_file, File};
+use std::io::prelude::*;
 use std::path::{self, PathBuf};
 use tracing::{debug, error};
 
@@ -56,12 +58,58 @@ pub async fn create_pdf(page: &Page, options: Options) {
     };
     let _remove = remove_file(index);
 }
-fn create_powerpoint() {
+fn create_powerpoint(options: Options) {
     if test_command("pandoc".to_string()) {
-        // TODO: (onetime) Create powerpoint reference template
-        // TODO: Load powerpoint reference template (local? remote? both?)
-        // TODO: Execute pandoc command to craeate powerpoint
-        todo!("Create powerpoint from highlight data");
+        let Options { path, output, .. } = options;
+        let input_path = match path {
+            | Some(value) => value,
+            | None => unimplemented!(),
+        };
+        let data = match ResearchActivity::read(input_path.clone()) {
+            | Ok(value) => value.format(Some(input_path.clone())),
+            | Err(err) => {
+                error!(path = path_to_string(input_path), "=> {} {err}", Label::fail());
+                std::process::exit(exitcode::UNAVAILABLE);
+            }
+        };
+        // TODO: Update to_markdown to return full markdown
+        let content = data.clone().to_markdown();
+        // TODO: Save content to temporary file ("/tmp/{id}.md")
+        let filename = "temp.md";
+        let mut file = match File::create(filename) {
+            | Ok(file) => file,
+            | Err(_) => todo!(),
+        };
+        match file.write_all(content.as_bytes()) {
+            | Ok(_) => {}
+            | Err(_) => todo!(),
+        };
+        let root = input_path.parent().unwrap().to_path_buf().parent().unwrap().to_path_buf();
+        let reference_path = root.join("reference.pptx");
+        let output_path = match output {
+            | Some(value) => match create_dir_all(value.clone()) {
+                | Ok(_) => {
+                    let Metadata { identifier, .. } = data.meta;
+                    let path = format!("{}/{}.pptx", value.display(), identifier);
+                    debug!(path, "=> {} Output", Label::using());
+                    path
+                }
+                | Err(err) => {
+                    let path = value.clone().into_os_string().into_string().unwrap();
+                    error!(path, "=> {} Create directory - {err}", Label::fail());
+                    std::process::exit(exitcode::UNAVAILABLE);
+                }
+            },
+            | None => unreachable!(),
+        };
+        let result = cmd!("pandoc", filename, "--reference-doc", reference_path, "--output", output_path).run();
+        match result {
+            | Ok(_) => {}
+            | Err(why) => {
+                error!(path = path_to_string(input_path), "=> {} {why}", Label::fail());
+                std::process::exit(exitcode::UNAVAILABLE);
+            }
+        }
     } else {
         error!("=> {} pandoc command not found", Label::fail());
         std::process::exit(exitcode::UNAVAILABLE);
@@ -121,7 +169,7 @@ pub fn run(
             });
             Ok(())
         }
-        | Target::Poster => Ok(()),
+        | Target::Poster => todo!("Create poster from research activity data"),
         | Target::Highlight => {
             match format {
                 | FileFormat::Pdf => {
@@ -136,7 +184,7 @@ pub fn run(
                         let progress = ProgressBar::new(paths.len() as u64);
                         progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                         for path in paths {
-                            progress.set_message(format!("Generating PDF for {}", path.display()));
+                            progress.set_message(format!("Generating {} for {}", format, path.display()));
                             let options = Options::init()
                                 .path(path.clone())
                                 .maybe_output(output.clone())
@@ -151,8 +199,21 @@ pub fn run(
                     });
                     Ok(())
                 }
-                | FileFormat::Ppt => {
-                    create_powerpoint();
+                | FileFormat::Powerpoint => {
+                    let paths = get_paths_from_options(path, &None);
+                    let progress = ProgressBar::new(paths.len() as u64);
+                    progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+                    for path in paths {
+                        progress.set_message(format!("Generating {} for {}", format, path.display()));
+                        let options = Options::init()
+                            .path(path.clone())
+                            .maybe_output(output.clone())
+                            .size(size.clone())
+                            .target(*target)
+                            .build();
+                        create_powerpoint(options);
+                        progress.inc(1);
+                    }
                     Ok(())
                 }
             }

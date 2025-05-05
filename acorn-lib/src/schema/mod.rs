@@ -992,6 +992,10 @@ impl ResearchActivity {
         data.dedup();
         data
     }
+    pub fn to_markdown(self) -> String {
+        let ResearchActivity { title, .. } = self.clone();
+        format!("# {}", title)
+    }
 }
 fn get_match_list(value: String, values: Vec<String>) -> Vec<(String, u32)> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);

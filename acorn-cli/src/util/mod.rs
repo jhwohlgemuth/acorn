@@ -50,7 +50,7 @@ pub enum FileFormat {
     ///
     /// Only available for certain targets (e.g. highlights)
     #[display("PowerPoint")]
-    Ppt,
+    Powerpoint,
 }
 #[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
 #[serde(rename_all = "lowercase")]

@@ -137,7 +137,7 @@ pub enum Commands {
     ///
     ///     $> acorn export --path /path/to/data/data.json -vv
     ///
-    ///     $> acorn export --path /path/to/data --target highlight --format ppt
+    ///     $> acorn export --path /path/to/data --target highlight --format powerpoint
     ///
     ///     $> acorn export -p /path/to/data -t poster -o /path/to/output
     ///
@@ -165,7 +165,7 @@ pub enum Commands {
         #[arg(default_value_t, short, long, value_name = "SIZE")]
         size: Size,
         /// Path to output directory where the export artifacts should be saved
-        #[arg(default_value = "./export", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        #[arg(default_value = "./export", short, long, value_name = "DIRECTORY", value_hint = ValueHint::DirPath)]
         output: Option<PathBuf>,
         /// Print JSON schema for research activity data
         ///
