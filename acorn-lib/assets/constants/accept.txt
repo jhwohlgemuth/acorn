@@ -18,7 +18,7 @@ downscaled?
 drywell
 fluence
 GPUs?
-gemoatics?
+[Gg]eomatics?
 geometrical
 geopositioning
 geoprocessing
@@ -31,7 +31,7 @@ hackathons?
 Hydrosource
 irradiations?
 IPs?
-lidar
+[Ll]idar
 LLMs?
 Mantid
 misconfigurations?
