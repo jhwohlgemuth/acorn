@@ -184,7 +184,7 @@ pub fn run(
                         let progress = ProgressBar::new(paths.len() as u64);
                         progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                         for path in paths {
-                            progress.set_message(format!("Generating {} for {}", format, path.display()));
+                            progress.set_message(format!("Generating PDF for {}", path.display()));
                             let options = Options::init()
                                 .path(path.clone())
                                 .maybe_output(output.clone())
@@ -204,7 +204,7 @@ pub fn run(
                     let progress = ProgressBar::new(paths.len() as u64);
                     progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                     for path in paths {
-                        progress.set_message(format!("Generating {} for {}", format, path.display()));
+                        progress.set_message(format!("Generating PowerPoint for {}", path.display()));
                         let options = Options::init()
                             .path(path.clone())
                             .maybe_output(output.clone())

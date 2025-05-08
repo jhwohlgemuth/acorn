@@ -40,16 +40,15 @@ pub enum Diagnostic {
     Software,
 }
 #[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
-#[serde(rename_all = "lowercase")]
 pub enum FileFormat {
     /// Portable Document Format
     #[default]
-    #[display("PDF")]
+    #[display("pdf")]
     Pdf,
     /// Microsoft PowerPoint
     ///
     /// Only available for certain targets (e.g. highlights)
-    #[display("PowerPoint")]
+    #[display("powerpoint")]
     Powerpoint,
 }
 #[derive(Clone, Debug, Default, Display, ValueEnum, Serialize)]
