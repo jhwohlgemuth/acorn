@@ -18,7 +18,9 @@ downscaled?
 drywell
 fluence
 GPUs?
+gemoatics?
 geometrical
+geopositioning
 geoprocessing
 geoscience
 geospatial
@@ -29,6 +31,7 @@ hackathons?
 Hydrosource
 irradiations?
 IPs?
+lidar
 LLMs?
 Mantid
 misconfigurations?
@@ -38,6 +41,9 @@ organoiodides?
 parallel_for
 parallel_reduce
 Perlmutter
+photogrammetric
+photogrammetrically
+photogrammetry
 QIS
 Raman
 regionalizations?
