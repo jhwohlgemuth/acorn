@@ -85,8 +85,8 @@ publish-docs:
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        - acorn-cli/**/*
-        - acorn-lib/**/*
+        - acorn-cli/**/*.rs
+        - acorn-lib/**/*.rs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
   script:
