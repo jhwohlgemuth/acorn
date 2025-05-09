@@ -41,8 +41,7 @@ organoiodides?
 parallel_for
 parallel_reduce
 Perlmutter
-photogrammetric
-photogrammetrically
+photogrammetric(ally)?
 photogrammetry
 QIS
 Raman
