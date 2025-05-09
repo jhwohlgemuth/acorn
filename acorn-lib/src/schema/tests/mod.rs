@@ -290,8 +290,8 @@ fn test_validate_attribute_areas() {
 }
 #[test]
 fn test_validate_attribute_facilities() {
-    let valid = ["x".repeat(10), "x".repeat(40)];
-    let invalid = ["x".repeat(41), "x".repeat(100)];
+    let valid = ["x".repeat(10), "x".repeat(50)];
+    let invalid = ["x".repeat(51), "x".repeat(100)];
     for x in valid.iter() {
         assert!(validate_attribute_facilities(&[x.clone()]).is_ok());
     }
