@@ -29,7 +29,7 @@ pub const MAX_COUNT_RESEARCH_AREAS: u64 = 3;
 /// Maximum number of characters for a single [capability](/acorn_lib/schema/struct.OrganizationSections.html#structfield.capabilities) description
 pub const MAX_LENGTH_CAPABILIY: usize = 300;
 /// Maximum number of characters for a single facility description
-pub const MAX_LENGTH_FACILITY: usize = 40;
+pub const MAX_LENGTH_FACILITY: usize = 50;
 /// Maximum number of characters for a single graphic caption
 pub const MAX_LENGTH_GRAPHIC_CAPTION: u64 = 100;
 /// Maximum number of characters for a single impact description
