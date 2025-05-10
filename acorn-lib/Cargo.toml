@@ -30,7 +30,6 @@ console = { version = "0.15.7", default-features = false, features = [
   "ansi-parsing",
 ] }
 directories = "6.0.0"
-duct = "0.13.7"
 eserde = { version = "0.1.2", features = ["json"] }
 fancy-regex = "0.14.0"
 flate2 = "1.0.35"
@@ -49,7 +48,7 @@ serde_with = "3.12.0"
 similar = "2.7.0"
 sophia = "0.9.0"
 sophia_jsonld = "0.9.0"
-sysinfo = "0.34.2"
+sysinfo = "0.35.0"
 tar = "0.4.43"
 titlecase = "3.4.0"
 validator = { version = "0.20", features = ["derive"] }
@@ -58,6 +57,7 @@ which = "7.0.2"
 color-eyre = { workspace = true }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
+duct = { workspace = true }
 exitcode = { workspace = true }
 glob = { workspace = true }
 indicatif = { workspace = true }
