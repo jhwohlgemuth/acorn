@@ -12,6 +12,7 @@ use duct::cmd;
 use fancy_regex::Regex;
 use glob::glob;
 use is_executable::IsExecutable;
+use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
 use ring::digest::{Context, SHA256};
 use rust_embed::Embed;
@@ -259,6 +260,15 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
     let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.join(filename))
 }
+pub fn generate_guid() -> String {
+    let alphabet = [
+        '-', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'T', 'U', 'V', 'W', 'X', 'Y', 'a', 'b', 'c', 'd',
+        'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 't', 'w', 'x', 'y', 'z', '3', '4', '6', '7', '8', '9',
+    ];
+    let id = nanoid!(10, &alphabet);
+    debug!(id, "=> {}", Label::using());
+    id
+}
 pub fn get_all_files(path: PathBuf, extension: Option<&str>, ignore: Option<String>) -> Vec<PathBuf> {
     fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
@@ -358,7 +368,7 @@ pub fn get_command_folder(task: &str, default: Option<PathBuf>) -> PathBuf {
         | Ok(_) => {}
         | Err(why) => error!(directory = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
     };
-    root
+    root.join(generate_guid())
 }
 /// Get file extension
 ///

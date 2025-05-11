@@ -54,6 +54,11 @@ fn test_get_image_paths() {
     assert_eq!(files.len(), 0);
 }
 #[test]
+fn test_generate_guid() {
+    let id = generate_guid();
+    assert_eq!(id.len(), 10);
+}
+#[test]
 fn test_is_ip6() {}
 #[test]
 fn test_semantic_version() {

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use tracing::{debug, error, info};
 use zip::ZipArchive;
 
-pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let root = get_command_folder("extract", destination);
     match File::open(path.clone()) {
         | Ok(zip_file) => match ZipArchive::new(zip_file) {
@@ -29,7 +29,7 @@ pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<(), Box<dy
                     }
                 }
                 info!(path = root.to_str().unwrap(), "=> {} Extract zip archive", Label::pass());
-                Ok(())
+                Ok(root)
             }
             | Err(err) => {
                 error!(
