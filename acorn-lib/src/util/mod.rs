@@ -1,3 +1,4 @@
+use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 use bat::PrettyPrinter;
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
@@ -6,6 +7,7 @@ use comfy_table::*;
 use console::Emoji;
 use data_encoding::HEXUPPER;
 use derive_more::Display;
+use directories::ProjectDirs;
 use duct::cmd;
 use fancy_regex::Regex;
 use glob::glob;
@@ -19,6 +21,7 @@ use similar::{
     TextDiff,
 };
 use std::error::Error;
+use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::copy;
 use std::io::Cursor;
@@ -342,6 +345,20 @@ pub fn get_checksum(path: PathBuf) -> String {
             "".to_string()
         }
     }
+}
+pub fn get_command_folder(task: &str, default: Option<PathBuf>) -> PathBuf {
+    let root = match default {
+        | Some(value) => value,
+        | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
+            | Some(dirs) => dirs.cache_dir().join(task).to_path_buf(),
+            | None => PathBuf::from(format!("./{}", task)),
+        },
+    };
+    match create_dir_all(root.clone()) {
+        | Ok(_) => {}
+        | Err(why) => error!(directory = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
+    };
+    root
 }
 /// Get file extension
 ///

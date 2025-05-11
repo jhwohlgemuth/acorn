@@ -1,10 +1,9 @@
-use crate::constants::*;
+use crate::constants::{APPLICATION, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{
-    download_binary, get_checksum, get_extension, make_executable, path_to_string, pretty_print, test_command, to_string, Constant, Label,
-    ProgrammingLanguage, SemanticVersion,
+    download_binary, get_checksum, get_command_folder, get_extension, make_executable, path_to_string, pretty_print, test_command, to_string,
+    Constant, Label, ProgrammingLanguage, SemanticVersion,
 };
 use color_eyre::owo_colors::OwoColorize;
-use directories::ProjectDirs;
 use duct::cmd;
 use flate2::read::GzDecoder;
 use ini::Ini;
@@ -45,85 +44,81 @@ impl StaticAnalyzer for Vale {
         "vale".to_string()
     }
     fn analyze(&self, id: String, content: String, output: Option<String>) -> usize {
-        match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
-            | Some(dirs) => {
-                let cache = dirs.cache_dir().to_path_buf();
-                let path = cache.join(&id);
-                match create_dir_all(cache.clone()) {
-                    | Ok(_) => {}
-                    | Err(why) => error!(directory = path_to_string(cache), "=> {} Create - {}", Label::fail(), why),
-                }
-                let mut file = match File::create(&path) {
-                    | Ok(file) => file,
-                    | Err(why) => panic!("=> {} Create file {} - {}", Label::fail(), path.display(), why),
+        let root = get_command_folder("check", None);
+        match create_dir_all(root.clone()) {
+            | Ok(_) => {}
+            | Err(why) => error!(path = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
+        }
+        let path = root.join(&id);
+        let mut file = match File::create(&path) {
+            | Ok(file) => file,
+            | Err(why) => panic!("=> {} Create file {} - {}", Label::fail(), path.display(), why),
+        };
+        file.write_all(content.as_bytes())
+            .expect("Unable to write to cache directory project file");
+        let binary = match &self.binary {
+            | Some(value) => value,
+            | None => {
+                error!("=> {} {} binary", Label::not_found(), self.clone().command());
+                std::process::exit(exitcode::UNAVAILABLE);
+            }
+        };
+        match &self.config {
+            | Some(config) => {
+                let result = match output {
+                    | Some(value) => cmd!(
+                        binary,
+                        "--no-wrap",
+                        "--config",
+                        config.clone().path,
+                        "--output",
+                        value,
+                        path.clone(),
+                        "--ext",
+                        ".md",
+                        "--no-exit",
+                    )
+                    .read(),
+                    | None => cmd!(
+                        binary,
+                        "--no-wrap",
+                        "--config",
+                        config.clone().path,
+                        path.clone(),
+                        "--ext",
+                        ".md",
+                        "--no-exit"
+                    )
+                    .read(),
                 };
-                file.write_all(content.as_bytes())
-                    .expect("Unable to write to cache directory project file");
-                let binary = match &self.binary {
-                    | Some(value) => value,
-                    | None => {
-                        error!("=> {} {} binary", Label::not_found(), self.clone().command());
-                        std::process::exit(exitcode::UNAVAILABLE);
-                    }
-                };
-                match &self.config {
-                    | Some(config) => {
-                        let result = match output {
-                            | Some(value) => cmd!(
-                                binary,
-                                "--no-wrap",
-                                "--config",
-                                config.clone().path,
-                                "--output",
-                                value,
-                                path.clone(),
-                                "--ext",
-                                ".md",
-                                "--no-exit",
-                            )
-                            .read(),
-                            | None => cmd!(
-                                binary,
-                                "--no-wrap",
-                                "--config",
-                                config.clone().path,
-                                path.clone(),
-                                "--ext",
-                                ".md",
-                                "--no-exit"
-                            )
-                            .read(),
-                        };
-                        match result {
-                            | Ok(output) => {
-                                let parsed = parse_vale_output(path, &output);
-                                if parsed.is_empty() {
-                                    let message = format!("=> {} {} has {}", Label::pass(), id.to_string().underline(), "no prose issues".green(),);
-                                    info!("{}", message);
-                                    0
-                                } else {
-                                    error!("=> {} {} issues found in {}", Label::fail(), parsed.len(), id.to_string().underline());
-                                    print_vale_output(parsed.clone());
-                                    let highlight = parsed.clone().into_iter().map(|item| item.line as usize).collect::<Vec<_>>();
-                                    pretty_print(&content, ProgrammingLanguage::Markdown, highlight);
-                                    println!("\n");
-                                    parsed.len()
-                                }
-                            }
-                            | Err(output) => {
-                                error!("=> {} Analyze - {}", Label::fail(), output);
-                                1
-                            }
+                match result {
+                    | Ok(output) => {
+                        let parsed = parse_vale_output(path, &output);
+                        if parsed.is_empty() {
+                            let message = format!("=> {} {} has {}", Label::pass(), id.to_string().underline(), "no prose issues".green(),);
+                            info!("{}", message);
+                            0
+                        } else {
+                            error!("=> {} {} issues found in {}", Label::fail(), parsed.len(), id.to_string().underline());
+                            print_vale_output(parsed.clone());
+                            let highlight = parsed.clone().into_iter().map(|item| item.line as usize).collect::<Vec<_>>();
+                            println!();
+                            pretty_print(&content, ProgrammingLanguage::Markdown, highlight);
+                            println!("\n");
+                            parsed.len()
                         }
                     }
-                    | None => {
-                        let title = self.clone().command().titlecase();
-                        error!("=> {} {} configuration", Label::not_found(), title);
-                        std::process::exit(exitcode::UNAVAILABLE);
+                    | Err(output) => {
+                        error!("=> {} Analyze - {}", Label::fail(), output);
+                        1
                     }
                 }
             }
-            | None => unreachable!(),
+            | None => {
+                let title = self.clone().command().titlecase();
+                error!("=> {} {} configuration", Label::not_found(), title);
+                std::process::exit(exitcode::UNAVAILABLE);
+            }
         }
     }
     // TODO: Check if binary has already been downloaded

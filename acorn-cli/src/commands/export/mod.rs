@@ -1,9 +1,9 @@
 use crate::template::get_html;
 use crate::util::{FileFormat, Options, Size, Target};
+use acorn_lib::powerpoint::extract;
 use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::{get_all_files, get_files_from_git, path_to_string, test_command, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
-use duct::cmd;
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
 use playwright::Playwright;
@@ -102,14 +102,17 @@ fn create_powerpoint(options: Options) {
             },
             | None => unreachable!(),
         };
-        let result = cmd!("pandoc", filename, "--reference-doc", reference_path, "--output", output_path).run();
-        match result {
-            | Ok(_) => {}
-            | Err(why) => {
-                error!(path = path_to_string(input_path), "=> {} {why}", Label::fail());
-                std::process::exit(exitcode::UNAVAILABLE);
-            }
-        }
+        println!("Output Path: {}", output_path);
+        // let _ = read_pptx(reference_path);
+        let _ = extract(reference_path, Some(PathBuf::from("./extract")));
+        // let result = cmd!("pandoc", filename, "--reference-doc", reference_path, "--output", output_path).run();
+        // match result {
+        //     | Ok(_) => {}
+        //     | Err(why) => {
+        //         error!(path = path_to_string(input_path), "=> {} {why}", Label::fail());
+        //         std::process::exit(exitcode::UNAVAILABLE);
+        //     }
+        // }
     } else {
         error!("=> {} pandoc command not found", Label::fail());
         std::process::exit(exitcode::UNAVAILABLE);

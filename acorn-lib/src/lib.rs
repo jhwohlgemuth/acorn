@@ -17,6 +17,7 @@ use uriparse::URI;
 pub mod analyzer;
 pub mod constants;
 pub mod doctor;
+pub mod powerpoint;
 pub mod schema;
 pub mod util;
 
