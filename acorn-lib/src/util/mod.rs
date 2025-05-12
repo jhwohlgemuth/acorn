@@ -274,11 +274,15 @@ pub fn get_all_files(path: PathBuf, extension: Option<&str>, ignore: Option<Stri
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
     }
     if path.is_dir() {
-        let ext = match extension {
-            | Some(value) => &value.to_lowercase(),
-            | None => "json",
+        let pattern = match extension {
+            | Some(value) => {
+                let ext = &value.to_lowercase();
+                format!("{}/**/*.{}", path_to_string(path), ext)
+            }
+            | None => {
+                format!("{}/**/*", path_to_string(path))
+            }
         };
-        let pattern = format!("{}/**/*.{}", path_to_string(path), ext);
         debug!(pattern, "=> {}", Label::using());
         let paths = glob(&pattern);
         match ignore {

@@ -1,6 +1,6 @@
 use crate::template::get_html;
 use crate::util::{FileFormat, Options, Size, Target};
-use acorn_lib::powerpoint::extract;
+use acorn_lib::powerpoint::{archive, extract};
 use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::{get_all_files, get_files_from_git, path_to_string, test_command, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
@@ -104,7 +104,8 @@ fn create_powerpoint(options: Options) {
         };
         println!("Output Path: {}", output_path);
         // let _ = read_pptx(reference_path);
-        let _ = extract(reference_path, Some(PathBuf::from("./extract")));
+        let path = extract(reference_path, Some(PathBuf::from("./extract")));
+        let _ = archive(path.unwrap(), None);
         // let result = cmd!("pandoc", filename, "--reference-doc", reference_path, "--output", output_path).run();
         // match result {
         //     | Ok(_) => {}

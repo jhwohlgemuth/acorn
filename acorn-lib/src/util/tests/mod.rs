@@ -8,11 +8,12 @@ const FIXTURES: &str = "../tests/fixtures";
 #[test]
 fn test_get_all_files() {
     // Directory
-    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), None, None);
+    let extension = Some("json");
+    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, None);
     assert_eq!(files.len(), 3);
-    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), None, Some("[/]a.json$".to_string()));
+    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/]a.json$".to_string()));
     assert_eq!(files.len(), 2);
-    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), None, Some("[/](a|b).json$".to_string()));
+    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/](a|b).json$".to_string()));
     assert_eq!(files.len(), 1);
     let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), Some("jpg"), None);
     assert_eq!(files.len(), 1);

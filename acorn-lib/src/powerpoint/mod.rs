@@ -1,11 +1,13 @@
-use crate::util::{get_command_folder, path_to_string, read_file, Label};
+use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, Label};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs::create_dir_all;
 use std::fs::File;
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use tracing::{debug, error, info};
-use zip::ZipArchive;
+use zip::write::SimpleFileOptions;
+use zip::{ZipArchive, ZipWriter};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -22,6 +24,27 @@ pub struct Relationship {
     #[serde(rename = "@Target")]
     target: String,
 }
+pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let zip_file_path = match destination {
+        | Some(value) => value,
+        | None => path.with_extension("zip"),
+    };
+    let zip_file = File::create(&zip_file_path)?;
+    let mut zip = ZipWriter::new(zip_file);
+    let files = get_all_files(path, None, None).into_iter().filter(|x| x.is_file());
+    for path in files {
+        debug!(path = path.to_str().unwrap(), "=> {} Add file to archive", Label::using());
+        let file = File::open(path.clone())?;
+        // TODO: Create zip archive from relative paths
+        zip.start_file_from_path(path, options)?;
+        let mut buffer = Vec::new();
+        io::copy(&mut file.take(u64::MAX), &mut buffer)?;
+        zip.write_all(&buffer)?;
+    }
+    zip.finish()?;
+    Ok(zip_file_path)
+}
 pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let root = get_command_folder("extract", destination);
     match File::open(path.clone()) {
@@ -37,7 +60,7 @@ pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
                             }
                         }
                         if let Ok(mut output_file) = File::create(&target) {
-                            std::io::copy(&mut file, &mut output_file).unwrap();
+                            io::copy(&mut file, &mut output_file).unwrap();
                         } else {
                             error!(path = path_to_string(target), "=> {} Create file", Label::fail());
                             std::process::exit(exitcode::UNAVAILABLE);

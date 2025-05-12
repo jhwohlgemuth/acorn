@@ -3,6 +3,12 @@ use crate::powerpoint::*;
 const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
+fn test_archive() {
+    let path = PathBuf::from(FIXTURES).join("data");
+    let output_file = archive(path, None).unwrap();
+    assert_eq!(output_file.file_name().unwrap().to_str().unwrap(), "data.zip");
+}
+#[test]
 fn test_extract() {
     let path = PathBuf::from(FIXTURES).join("reference.pptx");
     let result = extract(path, None);
