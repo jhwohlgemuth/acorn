@@ -1,4 +1,5 @@
-use crate::util::{get_command_folder, path_to_string, Label};
+use crate::util::{get_command_folder, path_to_string, read_file, Label};
+use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs::create_dir_all;
 use std::fs::File;
@@ -6,6 +7,21 @@ use std::path::PathBuf;
 use tracing::{debug, error, info};
 use zip::ZipArchive;
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Relationships {
+    relationship: Vec<Relationship>,
+}
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Relationship {
+    #[serde(rename = "@Id")]
+    id: String,
+    #[serde(rename = "@Type")]
+    relationship_type: String,
+    #[serde(rename = "@Target")]
+    target: String,
+}
 pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let root = get_command_folder("extract", destination);
     match File::open(path.clone()) {
@@ -47,15 +63,18 @@ pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
         }
     }
 }
-pub fn read_pptx(path: PathBuf) -> Result<(), Box<dyn Error>> {
-    debug!(path = path.to_str().unwrap(), "=> {}", Label::read());
-    let file = File::open(&path)?;
-    let mut archive = ZipArchive::new(file).unwrap();
-    for i in 0..archive.len() {
-        let file = archive.by_index(i).unwrap();
-        println!("File name: {}", file.name());
+pub fn read_xml_rel(path: PathBuf) -> Result<Relationships, quick_xml::DeError> {
+    match read_file(path) {
+        | Ok(content) => {
+            let parsed = quick_xml::de::from_str::<Relationships>(&content);
+            debug!("=> {} Relationships = {:#?}", Label::using(), parsed);
+            parsed
+        }
+        | Err(why) => {
+            error!("=> {} Cannot read xml.rels file - {why}", Label::fail());
+            std::process::exit(exitcode::IOERR);
+        }
     }
-    Ok(())
 }
 
 #[cfg(test)]
