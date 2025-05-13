@@ -30,20 +30,49 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
         | Some(value) => value,
         | None => path.with_extension("zip"),
     };
-    let zip_file = File::create(&zip_file_path)?;
-    let mut zip = ZipWriter::new(zip_file);
-    let files = get_all_files(path, None, None).into_iter().filter(|x| x.is_file());
-    for path in files {
-        debug!(path = path.to_str().unwrap(), "=> {} Add file to archive", Label::using());
-        let file = File::open(path.clone())?;
-        // TODO: Create zip archive from relative paths
-        zip.start_file_from_path(path, options)?;
-        let mut buffer = Vec::new();
-        io::copy(&mut file.take(u64::MAX), &mut buffer)?;
-        zip.write_all(&buffer)?;
+    let mut zip = match File::create(&zip_file_path) {
+        | Ok(zip_file) => ZipWriter::new(zip_file),
+        | Err(why) => {
+            error!(file = path_to_string(path), "=> {} Create zip archive - {why}", Label::fail());
+            std::process::exit(exitcode::IOERR);
+        }
+    };
+    let files = get_all_files(path.clone(), None, None).into_iter().filter(|x| x.is_file());
+    for file_path in files {
+        if let Ok(file) = File::open(file_path.clone()) {
+            let name = match path.canonicalize() {
+                | Ok(relative) => file_path.strip_prefix(relative).unwrap_or_else(|_| &file_path),
+                | Err(_) => &file_path,
+            };
+            debug!(file = path_to_string(name.to_path_buf()), "=> {} Add file to archive", Label::using());
+            match zip.start_file_from_path(name, options) {
+                | Ok(_) => {
+                    let mut buffer = Vec::new();
+                    match io::copy(&mut file.take(u64::MAX), &mut buffer) {
+                        | Ok(_) => match zip.write_all(&buffer) {
+                            | Ok(_) => {}
+                            | Err(why) => {
+                                error!(file = path_to_string(file_path), "=> {} Write zip archive - {why}", Label::fail())
+                            }
+                        },
+                        | Err(why) => {
+                            error!("=> {} Copy buffer - {why}", Label::fail())
+                        }
+                    }
+                }
+                | Err(why) => {
+                    error!(file = path_to_string(file_path), "=> {} Start zip archive - {why}", Label::fail());
+                }
+            }
+        }
     }
-    zip.finish()?;
-    Ok(zip_file_path)
+    match zip.finish() {
+        | Ok(_) => Ok(zip_file_path),
+        | Err(why) => {
+            error!(file = path_to_string(path), "=> {} Finish zip archive - {why}", Label::fail());
+            Err(why.into())
+        }
+    }
 }
 pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let root = get_command_folder("extract", destination);

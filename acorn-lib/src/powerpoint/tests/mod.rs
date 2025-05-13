@@ -5,7 +5,7 @@ const FIXTURES: &str = "../tests/fixtures";
 #[test]
 fn test_archive() {
     let path = PathBuf::from(FIXTURES).join("data");
-    let output_file = archive(path, None).unwrap();
+    let output_file = archive(path.clone(), None).unwrap();
     assert_eq!(output_file.file_name().unwrap().to_str().unwrap(), "data.zip");
 }
 #[test]
