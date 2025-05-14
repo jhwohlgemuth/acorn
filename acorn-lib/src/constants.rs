@@ -25,7 +25,7 @@ pub const MAX_COUNT_CAPABILITIES: u64 = 6;
 /// Maxumum number of [outcomes](/acorn_lib/schema/struct.ProjectSections.html#structfield.outcomes) for a [project](/acorn_lib/schema/enum.SchemaType.html#variant.Project)
 pub const MAX_COUNT_OUTCOMES: u64 = 6;
 /// Maximum number of [research areas](/acorn_lib/schema/struct.Research.html#structfield.areas)
-pub const MAX_COUNT_RESEARCH_AREAS: u64 = 3;
+pub const MAX_COUNT_RESEARCH_AREAS: u64 = 4;
 /// Maximum number of characters for a single [capability](/acorn_lib/schema/struct.OrganizationSections.html#structfield.capabilities) description
 pub const MAX_LENGTH_CAPABILIY: usize = 300;
 /// Maximum number of characters for a single facility description
@@ -51,7 +51,7 @@ pub const MAX_LENGTH_SUBTITLE: u64 = 75;
 /// Maximum number of characters for a single technical approach description
 pub const MAX_LENGTH_TECHNICAL: usize = 100;
 /// Maximum number of characters for a title
-pub const MAX_LENGTH_TITLE: u64 = 35;
+pub const MAX_LENGTH_TITLE: u64 = 45;
 
 lazy_static! {
     /// ### Should match a Digital Object Identifier (DOI)
