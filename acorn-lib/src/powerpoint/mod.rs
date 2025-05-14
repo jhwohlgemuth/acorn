@@ -23,6 +23,8 @@ pub struct Relationship {
     relationship_type: String,
     #[serde(rename = "@Target")]
     target: String,
+    #[serde(rename = "@TargetMode")]
+    target_mode: Option<String>,
 }
 pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);

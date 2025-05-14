@@ -88,7 +88,10 @@ fn create_powerpoint(options: Options) {
         },
         | None => unreachable!(),
     };
-    if let Ok(path) = extract(reference_path, Some(PathBuf::from("./extract"))) {
+    if let Ok(path) = extract(reference_path, None) {
+        // TODO: Copy image to ppt/media folder
+        // TODO: Get ID of image
+        // TODO: Interpolate data values
         let _ = archive(path, Some(PathBuf::from(output_path)));
     }
 }
