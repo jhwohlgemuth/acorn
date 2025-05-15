@@ -123,7 +123,7 @@ pub enum Commands {
     #[clap(verbatim_doc_comment)]
     Download {
         /// Path to buckets configuration file
-        #[arg(default_value = "./buckets.json", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        #[arg(default_value = "./buckets.json", short, long, value_name = "PATH", value_hint = ValueHint::FilePath)]
         buckets: Option<PathBuf>,
         /// Path to output directory where the downloaded content should be saved
         #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
@@ -142,10 +142,10 @@ pub enum Commands {
     ///     $> acorn export -p /path/to/data -t poster -o /path/to/output
     ///
     ///     Export file(s) that were changed in a given Git commit
-    ///     $> acorn format --commit <commit hash>
+    ///     $> acorn export --commit <commit hash>
     ///
     ///     Export file(s) that were changed in latest Git commit
-    ///     $> acorn format --commit HEAD
+    ///     $> acorn export --commit HEAD
     ///
     #[clap(verbatim_doc_comment)]
     Export {
@@ -158,20 +158,27 @@ pub enum Commands {
         /// Export target file format
         #[arg(default_value_t, short, long, value_name = "FORMAT")]
         format: FileFormat,
-        /// Export target type
-        #[arg(default_value_t, short, long, value_name = "TARGET")]
-        target: Target,
-        /// Value to use when creating export artifacts that require an aspect ratio (only applies to `--target highlight`)
-        #[arg(default_value_t, short, long, value_name = "SIZE")]
-        size: Size,
         /// Path to output directory where the export artifacts should be saved
         #[arg(default_value = "./export", short, long, value_name = "DIRECTORY", value_hint = ValueHint::DirPath)]
         output: Option<PathBuf>,
+        /// Path to reference file to be used when exporting to PowerPoint
+        ///
+        /// Only applies to `--format powerpoint`
+        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath)]
+        reference: Option<PathBuf>,
+        /// Value to use when creating export artifacts that require an aspect ratio
+        ///
+        /// Only applies to `--target highlight`
+        #[arg(default_value_t, short, long, value_name = "SIZE")]
+        size: Size,
         /// Print JSON schema for research activity data
         ///
         /// Note: Passing --schema will cause ACORN to exit after schema is printed
         #[arg(long, value_name = "BOOL")]
         schema: bool,
+        /// Export target type
+        #[arg(default_value_t, short, long, value_name = "TARGET")]
+        target: Target,
         #[command(flatten)]
         verbose: Verbosity,
     },

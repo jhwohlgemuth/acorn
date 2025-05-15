@@ -90,6 +90,7 @@ pub enum TargetLabel {
 pub struct Options {
     pub path: Option<PathBuf>,
     pub output: Option<PathBuf>,
+    pub reference: Option<PathBuf>,
     pub size: Option<Size>,
     pub target: Option<Target>,
 }

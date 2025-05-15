@@ -70,8 +70,13 @@ fn create_powerpoint(options: Options) {
             std::process::exit(exitcode::UNAVAILABLE);
         }
     };
-    let root = input_path.parent().unwrap().to_path_buf().parent().unwrap().to_path_buf();
-    let reference_path = root.join("reference.pptx");
+    let reference_path = match options.reference {
+        | Some(value) => value,
+        | None => {
+            let root = input_path.parent().unwrap().to_path_buf().parent().unwrap().to_path_buf();
+            root.join("reference.pptx")
+        }
+    };
     let output_path = match output {
         | Some(value) => match create_dir_all(value.clone()) {
             | Ok(_) => {
@@ -100,6 +105,7 @@ pub fn run(
     path: &Option<PathBuf>,
     commit: &Option<String>,
     format: &FileFormat,
+    reference: &Option<PathBuf>,
     size: &Size,
     target: &Target,
     schema: &bool,
@@ -188,6 +194,7 @@ pub fn run(
                         let options = Options::init()
                             .path(path.clone())
                             .maybe_output(output.clone())
+                            .maybe_reference(reference.clone())
                             .size(size.clone())
                             .target(*target)
                             .build();
