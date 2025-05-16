@@ -9,22 +9,22 @@ use tracing::{debug, error, info};
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Relationships {
-    relationship: Vec<Relationship>,
+    pub relationship: Vec<Relationship>,
 }
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Relationship {
     #[serde(rename = "@Id")]
-    id: String,
+    pub id: String,
     #[serde(rename = "@Type")]
-    relationship_type: String,
+    pub relationship_type: String,
     #[serde(rename = "@Target")]
-    target: String,
+    pub target: String,
     #[serde(rename = "@TargetMode")]
-    target_mode: Option<String>,
+    pub target_mode: Option<String>,
 }
 pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);

@@ -1,6 +1,6 @@
 use crate::template::get_html;
 use crate::util::{FileFormat, Options, Size, Target};
-use acorn_lib::powerpoint::{archive, extract};
+use acorn_lib::powerpoint::{archive, extract, read_xml_rel, Relationship, Relationships};
 use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::{get_all_files, get_files_from_git, path_to_string, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
@@ -80,7 +80,7 @@ fn create_powerpoint(options: Options) {
     let output_path = match output {
         | Some(value) => match create_dir_all(value.clone()) {
             | Ok(_) => {
-                let Metadata { identifier, .. } = data.meta;
+                let Metadata { identifier, .. } = data.meta.clone();
                 let path = format!("{}/{}.pptx", value.display(), identifier);
                 debug!(path, "=> {} Output", Label::using());
                 path
@@ -94,8 +94,32 @@ fn create_powerpoint(options: Options) {
         | None => unreachable!(),
     };
     if let Ok(path) = extract(reference_path, None) {
-        // TODO: Copy image to ppt/media folder
-        // TODO: Get ID of image
+        let xml_rels_path = path.join("ppt/slides/_rels/slide1.xml.rels");
+        let image_path = match read_xml_rel(xml_rels_path.clone()) {
+            | Ok(Relationships { relationship }) => match relationship.clone().into_iter().find(|x| x.target.ends_with(".png")) {
+                | Some(Relationship { target, .. }) => match path.join("ppt/slides").join(target.clone()).canonicalize() {
+                    | Ok(value) => value,
+                    | Err(err) => {
+                        error!(target = target.clone(), "=> {} Find image - {err}", Label::fail());
+                        std::process::exit(exitcode::NOINPUT);
+                    }
+                },
+                | None => {
+                    error!(path = path_to_string(xml_rels_path), "=> {} Find image relationship", Label::fail());
+                    std::process::exit(exitcode::DATAERR);
+                }
+            },
+            | Err(err) => {
+                error!(
+                    path = path_to_string(xml_rels_path),
+                    "=> {} Read PowerPoint slide relationships - {err}",
+                    Label::fail()
+                );
+                std::process::exit(exitcode::NOINPUT);
+            }
+        };
+        let from = input_path.parent().unwrap().join(data.meta.get_first_graphic_href());
+        std::fs::copy(from, image_path).unwrap();
         // TODO: Interpolate data values
         let _ = archive(path, Some(PathBuf::from(output_path)));
     }
