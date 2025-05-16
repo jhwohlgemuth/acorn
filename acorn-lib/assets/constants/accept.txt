@@ -1,5 +1,6 @@
 airflows?
 applications?
+basemaps?
 beamlines?
 bioeconomy
 bioenerg(y|gies)
@@ -12,6 +13,7 @@ CPUs?
 coproduct
 cyber
 [Cc]ybersecurity
+deepfakes?
 deliverables?
 disable
 downscaled?
