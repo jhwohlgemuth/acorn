@@ -71,14 +71,23 @@ impl ValeOutputItemSeverity {
         }
     }
 }
+#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
+pub fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
+    output.replace(path.to_str().unwrap(), "items")
+}
+#[cfg(windows)]
+pub fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
+    let input = path.as_path().display().to_string().replace("\\", "/");
+    output.replace("\\\\", "/").replace(&input, "items")
+}
 pub fn parse_vale_output(path: PathBuf, output: &str) -> Vec<ValeOutputItem> {
-    let processed = output.replace(path.to_str().unwrap(), "items");
+    let processed = preprocess_vale_output(path, output);
     if processed != "{}" {
         let parsed: serde_json::Result<ValeOutput> = serde_json::from_str(&processed);
         match parsed {
             | Ok(ValeOutput { items }) => items,
-            | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} Parse Vale output - {}", Label::fail(), output);
+            | Err(why) => {
+                error!("=> {} Parse Vale output - {why}", Label::fail());
                 vec![]
             }
         }
@@ -96,7 +105,7 @@ pub fn print_vale_output(items: Vec<ValeOutputItem>) {
             span,
             ..
         } = item;
-        let location = format!("{}:{}", line, span[0]);
-        println!("{:<8} {:<21} {} {}", location, severity.colored(), message, check.dimmed());
+        let location = format!("Line {}, Character {}", line, span[0]);
+        println!("{:<24} {:<21} {} {}", location, severity.colored(), message, check.dimmed());
     }
 }
