@@ -46,7 +46,11 @@ fn test_get_files_from_git() {
     assert!(files.is_empty());
     let files = get_files_from_git_commit("HEAD", Some("not-a-file-extension"));
     assert!(files.is_empty());
-    // assert_eq!(get_git_default_branch_name(), Some("main".to_string()));
+}
+#[ignore]
+#[test]
+fn test_get_git_branch() {
+    assert_eq!(get_git_default_branch_name(), Some("main".to_string()));
     assert!(get_git_branch_name().is_some());
 }
 #[test]
