@@ -1,8 +1,8 @@
 use crate::template::get_html;
-use crate::util::{FileFormat, Options, Size, Target};
+use crate::util::{get_paths_from_options, FileFormat, Options, Size, Target};
 use acorn_lib::powerpoint::{archive, extract, read_xml_rel, Relationship, Relationships};
 use acorn_lib::schema::{Metadata, ResearchActivity};
-use acorn_lib::util::{get_all_files, get_files_from_git_commit, path_to_string, tokio_runtime, Label};
+use acorn_lib::util::{path_to_string, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
@@ -124,33 +124,30 @@ fn create_powerpoint(options: Options) {
         let _ = archive(path, Some(PathBuf::from(output_path)));
     }
 }
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     output: &Option<PathBuf>,
     path: &Option<PathBuf>,
+    branch: &Option<String>,
     commit: &Option<String>,
     format: &FileFormat,
     reference: &Option<PathBuf>,
     size: &Size,
     target: &Target,
+    merge_request: &bool,
     schema: &bool,
 ) -> Result<(), Report> {
-    fn get_paths_from_options(path: &Option<PathBuf>, commit: &Option<String>) -> Vec<PathBuf> {
-        let extension = Some("json");
-        match commit {
-            | Some(hash) => get_files_from_git_commit(hash, extension),
-            | None => {
-                let value = match path {
-                    | Some(x) => x.clone(),
-                    | None => PathBuf::from("."),
-                };
-                get_all_files(value, extension, None)
-            }
-        }
-    }
-    if *schema {
+    let options = Options::init()
+        .maybe_branch(branch.clone())
+        .maybe_commit(commit.clone())
+        .merge_request(*merge_request)
+        .schema(*schema)
+        .build();
+    if options.schema {
         ResearchActivity::to_schema();
         std::process::exit(exitcode::OK);
     }
+    let paths = get_paths_from_options(path, &Some(options));
     match target {
         | Target::FactSheet => {
             tokio_runtime().block_on(async {
@@ -160,18 +157,17 @@ pub fn run(
                 let browser = chromium.launcher().headless(true).launch().await.unwrap();
                 let context = browser.context_builder().build().await.unwrap();
                 let page = context.new_page().await.unwrap();
-                let paths = get_paths_from_options(path, commit);
                 let progress = ProgressBar::new(paths.len() as u64);
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 for path in paths {
                     progress.set_message(format!("Generating PDF for {}", path.display()));
-                    let options = Options::init()
+                    let pdf_options = Options::init()
                         .path(path.clone())
                         .maybe_output(output.clone())
                         .size(size.clone())
                         .target(*target)
                         .build();
-                    create_pdf(&page, options.clone()).await;
+                    create_pdf(&page, pdf_options).await;
                     progress.inc(1);
                 }
                 progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
@@ -190,18 +186,17 @@ pub fn run(
                         let browser = chromium.launcher().headless(true).launch().await.unwrap();
                         let context = browser.context_builder().build().await.unwrap();
                         let page = context.new_page().await.unwrap();
-                        let paths = get_paths_from_options(path, commit);
                         let progress = ProgressBar::new(paths.len() as u64);
                         progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                         for path in paths {
                             progress.set_message(format!("Generating PDF for {}", path.display()));
-                            let options = Options::init()
+                            let pdf_options = Options::init()
                                 .path(path.clone())
                                 .maybe_output(output.clone())
                                 .size(size.clone())
                                 .target(*target)
                                 .build();
-                            create_pdf(&page, options.clone()).await;
+                            create_pdf(&page, pdf_options).await;
                             progress.inc(1);
                         }
                         progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
@@ -210,19 +205,18 @@ pub fn run(
                     Ok(())
                 }
                 | FileFormat::Powerpoint => {
-                    let paths = get_paths_from_options(path, &None);
                     let progress = ProgressBar::new(paths.len() as u64);
                     progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                     for path in paths {
                         progress.set_message(format!("Generating PowerPoint for {}", path.display()));
-                        let options = Options::init()
+                        let powerpoint_options = Options::init()
                             .path(path.clone())
                             .maybe_output(output.clone())
                             .maybe_reference(reference.clone())
                             .size(size.clone())
                             .target(*target)
                             .build();
-                        create_powerpoint(options);
+                        create_powerpoint(powerpoint_options);
                         progress.inc(1);
                     }
                     progress.finish_with_message(format!("{}Done", Label::CHECKMARK));

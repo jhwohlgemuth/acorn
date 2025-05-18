@@ -67,33 +67,39 @@ fn main() -> Void {
     match &args.command {
         | Some(Commands::Check {
             path,
+            branch,
             commit,
             ignore,
             skip,
             exit_on_first_error,
+            merge_request,
             ..
-        }) => commands::check::run(path, commit, ignore, skip, exit_on_first_error),
+        }) => commands::check::run(path, branch, commit, ignore, skip, exit_on_first_error, merge_request),
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check),
         | Some(Commands::Download { buckets, output, .. }) => commands::download::run(buckets, output),
         | Some(Commands::Export {
             output,
             path,
+            branch,
             commit,
             format,
             reference,
             size,
             target,
+            merge_request,
             schema,
             ..
-        }) => commands::export::run(output, path, commit, format, reference, size, target, schema),
+        }) => commands::export::run(output, path, branch, commit, format, reference, size, target, merge_request, schema),
         | Some(Commands::Format {
             path,
+            branch,
             commit,
             ignore,
             dry_run,
+            merge_request,
             verbose,
             ..
-        }) => commands::format::run(path, commit, ignore, *dry_run, verbose),
+        }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose),
         | None => Ok(()),
     }
 }

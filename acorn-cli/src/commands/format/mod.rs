@@ -1,5 +1,6 @@
+use crate::util::{get_paths_from_options, Options};
 use acorn_lib::schema::ResearchActivity;
-use acorn_lib::util::{get_all_files, get_files_from_git_commit, path_to_string, print_changes, Label};
+use acorn_lib::util::{path_to_string, print_changes, Label};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
@@ -10,18 +11,22 @@ use std::path::PathBuf;
 use tracing::{error, info};
 
 #[allow(clippy::too_many_arguments)]
-pub fn run(path: &Option<PathBuf>, commit: &Option<String>, ignore: &Option<String>, dry_run: bool, verbose: &Verbosity) -> Result<(), Report> {
-    let extension = Some("json");
-    let paths = match commit {
-        | Some(hash) => get_files_from_git_commit(hash, extension),
-        | None => {
-            let value = match path {
-                | Some(x) => x.clone(),
-                | None => PathBuf::from("."),
-            };
-            get_all_files(value, extension, ignore.clone())
-        }
-    };
+pub fn run(
+    path: &Option<PathBuf>,
+    branch: &Option<String>,
+    commit: &Option<String>,
+    ignore: &Option<String>,
+    dry_run: bool,
+    merge_request: &bool,
+    verbose: &Verbosity,
+) -> Result<(), Report> {
+    let options = Options::init()
+        .maybe_branch(branch.clone())
+        .maybe_commit(commit.clone())
+        .maybe_ignore(ignore.clone())
+        .merge_request(*merge_request)
+        .build();
+    let paths = get_paths_from_options(path, &Some(options));
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
         | Ok(data) => {
             let old_content = serde_json::to_string_pretty(&data.clone()).unwrap();

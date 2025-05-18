@@ -1,6 +1,6 @@
-use crate::util::Check;
+use crate::util::{get_paths_from_options, Check, Options};
 use acorn_lib::schema::ResearchActivity;
-use acorn_lib::util::{get_all_files, get_files_from_git_commit, print_values_as_table, to_string, Label};
+use acorn_lib::util::{print_values_as_table, to_string, Label};
 use color_eyre::eyre::{Report, Result};
 use std::path::PathBuf;
 use tracing::{error, warn};
@@ -8,28 +8,27 @@ use tracing::{error, warn};
 #[allow(clippy::too_many_arguments)]
 pub fn run(
     path: &Option<PathBuf>,
+    branch: &Option<String>,
     commit: &Option<String>,
     ignore: &Option<String>,
     skip: &[Check],
     exit_on_first_error: &bool,
+    merge_request: &bool,
 ) -> Result<(), Report> {
-    let extension = Some("json");
-    let paths = match commit {
-        | Some(hash) => get_files_from_git_commit(hash, extension),
-        | None => {
-            let value = match path {
-                | Some(x) => x.clone(),
-                | None => PathBuf::from("."),
-            };
-            get_all_files(value, extension, ignore.clone())
-        }
-    };
+    let options = Options::init()
+        .maybe_branch(branch.clone())
+        .maybe_commit(commit.clone())
+        .maybe_ignore(ignore.clone())
+        .exit_on_first_error(*exit_on_first_error)
+        .merge_request(*merge_request)
+        .build();
+    let paths = get_paths_from_options(path, &Some(options.clone()));
     let validation_issues = if skip.contains(&Check::Validation) {
         warn!("=> {} Schema validation", Label::skip());
         0
     } else {
         let issues = ResearchActivity::check(paths.clone());
-        if issues > 0 && *exit_on_first_error {
+        if issues > 0 && options.clone().exit_on_first_error {
             error!("=> {} Found {} schema validation errors", Label::fail(), issues);
             std::process::exit(exitcode::DATAERR);
         }
@@ -40,7 +39,7 @@ pub fn run(
         0
     } else {
         let issues = ResearchActivity::analyze(paths);
-        if issues > 0 && *exit_on_first_error {
+        if issues > 0 && options.exit_on_first_error {
             error!("=> {} Found {} prose issues", Label::fail(), issues);
             std::process::exit(exitcode::DATAERR);
         }

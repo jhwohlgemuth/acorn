@@ -57,9 +57,15 @@ pub enum Commands {
         /// Path to check
         #[arg(default_value = "./", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
+        /// Check files that were changed in a given Git branch
+        #[arg(short, long, value_name = "BRANCH")]
+        branch: Option<String>,
         /// Check files that were changed in a given Git commit
         #[arg(short, long, value_name = "COMMIT")]
         commit: Option<String>,
+        /// Exit on first error
+        #[arg(short, long = "exit-on-first-error", value_name = "BOOL")]
+        exit_on_first_error: bool,
         /// Regex pattern applied to absolute paths of files that determines whether they should be included in checking process
         ///
         /// Only applies to `--path` values that point to a directory
@@ -72,12 +78,12 @@ pub enum Commands {
         /// Format JSON files in-place to maintain consistent format
         #[arg(short, long, value_name = "BOOL")]
         format: bool,
+        /// Format files that were changed in a given merge request (Gitlab) or pull request (Github)
+        #[arg(short, long = "merge-request", value_name = "BOOL")]
+        merge_request: bool,
         /// Skip one or more available quality checks
         #[arg(short, long, value_name = "LIST", value_delimiter = ',')]
         skip: Vec<Check>,
-        /// Exit on first error
-        #[arg(short, long = "exit-on-first-error", value_name = "BOOL")]
-        exit_on_first_error: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -152,12 +158,18 @@ pub enum Commands {
         /// Path of input files to be exported
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
+        /// Export files that were changed in a given Git branch
+        #[arg(short, long, value_name = "BRANCH")]
+        branch: Option<String>,
         /// Export files that were changed in a given Git commit
         #[arg(short, long, value_name = "COMMIT")]
         commit: Option<String>,
         /// Export target file format
         #[arg(default_value_t, short, long, value_name = "FORMAT")]
         format: FileFormat,
+        /// Export files that were changed in a given merge request (Gitlab) or pull request (Github)
+        #[arg(short, long = "merge-request", value_name = "BOOL")]
+        merge_request: bool,
         /// Path to output directory where the export artifacts should be saved
         #[arg(default_value = "./export", short, long, value_name = "DIRECTORY", value_hint = ValueHint::DirPath)]
         output: Option<PathBuf>,
@@ -199,9 +211,15 @@ pub enum Commands {
         /// Path to look for files to format
         #[arg(default_value = "./", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
+        /// Format files that were changed in a given Git branch
+        #[arg(short, long, value_name = "BRANCH")]
+        branch: Option<String>,
         /// Format files that were changed in a given Git commit
         #[arg(short, long, value_name = "COMMIT")]
         commit: Option<String>,
+        /// Run format without making changes to target file(s). Will print a diff of changes.
+        #[arg(short, long = "dry-run", value_name = "BOOL")]
+        dry_run: bool,
         /// Regex pattern applied to absolute paths of files that determines whether they should be included in formatting process
         ///
         /// Only applies to `--path` values that point to a directory
@@ -211,9 +229,9 @@ pub enum Commands {
         /// Example: --ignore "[/]valid.json$"
         #[arg(short, long, value_name = "REGEX")]
         ignore: Option<String>,
-        /// Run format without making changes to target file(s). Will print a diff of changes.
-        #[arg(short, long = "dry-run", value_name = "BOOL")]
-        dry_run: bool,
+        /// Format files that were changed in a given merge request (Gitlab) or pull request (Github)
+        #[arg(short, long = "merge-request", value_name = "BOOL")]
+        merge_request: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },
