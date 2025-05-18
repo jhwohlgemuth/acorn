@@ -1,6 +1,6 @@
 use crate::util::Check;
 use acorn_lib::schema::ResearchActivity;
-use acorn_lib::util::{get_all_files, get_files_from_git, print_values_as_table, to_string, Label};
+use acorn_lib::util::{get_all_files, get_files_from_git_commit, print_values_as_table, to_string, Label};
 use color_eyre::eyre::{Report, Result};
 use std::path::PathBuf;
 use tracing::{error, warn};
@@ -15,7 +15,7 @@ pub fn run(
 ) -> Result<(), Report> {
     let extension = Some("json");
     let paths = match commit {
-        | Some(hash) => get_files_from_git(hash, extension),
+        | Some(hash) => get_files_from_git_commit(hash, extension),
         | None => {
             let value = match path {
                 | Some(x) => x.clone(),

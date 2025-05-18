@@ -389,26 +389,76 @@ pub fn get_command_folder(task: &str, default: Option<PathBuf>) -> PathBuf {
 pub fn get_extension(path: &Path) -> String {
     path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string()
 }
-pub fn get_files_from_git(commit: &str, extension: Option<&str>) -> Vec<PathBuf> {
+fn filter_git_command_result(result: Result<String, std::io::Error>, extension: Option<&str>) -> Vec<PathBuf> {
+    match result {
+        | Ok(value) => match extension {
+            | Some(ext) => value
+                .to_lowercase()
+                .split("\n")
+                .map(PathBuf::from)
+                .filter(|x| get_extension(Path::new(x)) == ext)
+                .collect::<Vec<_>>(),
+            | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
+        },
+        | Err(_) => vec![],
+    }
+}
+pub fn get_files_from_git_branch(value: &str, extension: Option<&str>) -> Vec<PathBuf> {
     if test_command("git".to_owned()) {
-        let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", commit];
+        let default_branch = match get_git_default_branch_name() {
+            | Some(value) => value,
+            | None => "main".to_string(),
+        };
+        let args = vec!["diff", "--name-only", &default_branch, "--merge-base", value];
         let result = cmd("git", args).read();
-        match result {
-            | Ok(value) => {
-                let ext = match extension {
-                    | Some(value) => &value.to_lowercase(),
-                    | None => "json",
-                };
-                value
-                    .split("\n")
-                    .map(PathBuf::from)
-                    .filter(|x| get_extension(Path::new(x)) == ext)
-                    .collect::<Vec<_>>()
-            }
-            | Err(_) => vec![],
-        }
+        filter_git_command_result(result, extension)
     } else {
         vec![]
+    }
+}
+pub fn get_files_from_git_commit(value: &str, extension: Option<&str>) -> Vec<PathBuf> {
+    if test_command("git".to_owned()) {
+        let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
+        let result = cmd("git", args).read();
+        filter_git_command_result(result, extension)
+    } else {
+        vec![]
+    }
+}
+pub fn get_git_branch_name() -> Option<String> {
+    if test_command("git".to_owned()) {
+        let args = vec!["symbolic-ref", "--short", "HEAD"];
+        let result = cmd("git", args).read();
+        match result {
+            | Ok(ref value) => {
+                let name = match value.clone().split("/").last() {
+                    | Some(x) => Some(x.to_string()),
+                    | None => None,
+                };
+                name
+            }
+            | Err(_) => None,
+        }
+    } else {
+        None
+    }
+}
+pub fn get_git_default_branch_name() -> Option<String> {
+    if test_command("git".to_owned()) {
+        let args = vec!["symbolic-ref", "refs/remotes/origin/HEAD", "--short"];
+        let result = cmd("git", args).read();
+        match result {
+            | Ok(ref value) => {
+                let name = match value.clone().split("/").last() {
+                    | Some(x) => Some(x.to_string()),
+                    | None => None,
+                };
+                name
+            }
+            | Err(_) => None,
+        }
+    } else {
+        None
     }
 }
 pub fn get_image_paths(root: PathBuf) -> Vec<PathBuf> {

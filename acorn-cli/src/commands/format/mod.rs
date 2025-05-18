@@ -1,5 +1,5 @@
 use acorn_lib::schema::ResearchActivity;
-use acorn_lib::util::{get_all_files, get_files_from_git, path_to_string, print_changes, Label};
+use acorn_lib::util::{get_all_files, get_files_from_git_commit, path_to_string, print_changes, Label};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
@@ -13,7 +13,7 @@ use tracing::{error, info};
 pub fn run(path: &Option<PathBuf>, commit: &Option<String>, ignore: &Option<String>, dry_run: bool, verbose: &Verbosity) -> Result<(), Report> {
     let extension = Some("json");
     let paths = match commit {
-        | Some(hash) => get_files_from_git(hash, extension),
+        | Some(hash) => get_files_from_git_commit(hash, extension),
         | None => {
             let value = match path {
                 | Some(x) => x.clone(),

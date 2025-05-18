@@ -2,7 +2,7 @@ use crate::template::get_html;
 use crate::util::{FileFormat, Options, Size, Target};
 use acorn_lib::powerpoint::{archive, extract, read_xml_rel, Relationship, Relationships};
 use acorn_lib::schema::{Metadata, ResearchActivity};
-use acorn_lib::util::{get_all_files, get_files_from_git, path_to_string, tokio_runtime, Label};
+use acorn_lib::util::{get_all_files, get_files_from_git_commit, path_to_string, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
@@ -137,7 +137,7 @@ pub fn run(
     fn get_paths_from_options(path: &Option<PathBuf>, commit: &Option<String>) -> Vec<PathBuf> {
         let extension = Some("json");
         match commit {
-            | Some(hash) => get_files_from_git(hash, extension),
+            | Some(hash) => get_files_from_git_commit(hash, extension),
             | None => {
                 let value = match path {
                     | Some(x) => x.clone(),
