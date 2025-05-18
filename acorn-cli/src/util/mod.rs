@@ -1,4 +1,4 @@
-use acorn_lib::util::{get_all_files, get_files_from_git_branch, get_files_from_git_commit, get_git_default_branch_name};
+use acorn_lib::util::{get_all_files, get_files_from_git_branch, get_files_from_git_commit, get_git_branch_name};
 use bon::Builder;
 use clap::ValueEnum;
 use derive_more::Display;
@@ -134,7 +134,7 @@ pub fn get_paths_from_options(path: &Option<PathBuf>, options: &Option<Options>)
             ..
         }) => {
             if *merge_request {
-                match get_git_default_branch_name() {
+                match get_git_branch_name() {
                     | Some(name) => get_files_from_git_branch(&name, extension),
                     | None => vec![],
                 }
