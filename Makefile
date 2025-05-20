@@ -26,6 +26,9 @@ build: clean
 	@cargo build --release --target $(DEFAULT_TARGET)
 	@mv target/$(DEFAULT_TARGET)/release/acorn-cli ./bin/acorn-v$(VERSION)
 
+bucket-image:
+	@docker build -t bucket:$(VERSION) -f Dockerfile.bucket .
+
 release: clean
 	@echo "Under Construction"
 

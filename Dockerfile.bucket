@@ -10,8 +10,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 #
 # %post
 #
-RUN apt-get update \
-    && apt-get install --no-install-recommends --yes \
+RUN apt-get update && apt-get install --no-install-recommends --yes \
         curl \
         git \
         npm \
