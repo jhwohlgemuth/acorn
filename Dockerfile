@@ -1,0 +1,24 @@
+FROM bitnami/minideb:bookworm
+#
+# %labels
+#
+LABEL author="Jason Wohlgemuth"
+#
+# %arguments
+#
+ARG DEBIAN_FRONTEND=noninteractive
+#
+# %post
+#
+RUN apt-get update \
+    && apt-get install --no-install-recommends --yes \
+        curl \
+        git \
+        npm \
+    && npx playwright install-deps \
+    && apt-get clean \
+    && rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/* \
+    && rm -rf /usr/share/man/?? \
+    && rm -rf /usr/share/man/??_*
+HEALTHCHECK NONE
+CMD ["/bin/bash"]
