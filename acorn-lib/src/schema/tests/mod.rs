@@ -128,6 +128,7 @@ fn test_fuzzy_matching_techology() {
         resolve_from_csv_asset(name.clone(), "programming_language::R_language".into()),
         Some("r".into())
     );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "r".into()), Some("r".into()));
     assert_eq!(
         resolve_from_csv_asset(name.clone(), "Geospatial Data Abstraction Lib".into()),
         Some("gdal".into())

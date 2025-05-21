@@ -1019,23 +1019,28 @@ fn print_resolution(output: Option<String>, value: String, name: String) {
 }
 fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
     let data = Constant::csv(&name);
-    resolve_from_list_of_lists(value, data)
+    resolve_from_list_of_lists(value, data, name)
 }
-fn resolve_from_list_of_lists(value: String, data: Vec<Vec<String>>) -> Option<String> {
+fn resolve_from_list_of_lists(value: String, data: Vec<Vec<String>>, name: String) -> Option<String> {
     let output = data
         .into_iter()
         .flat_map(|values| {
             let sanitized = sanitize(value.clone());
             let matched = get_match_list(sanitized, values.clone());
+            trace!("{} => {:?}", value.clone(), matched.clone());
             if matched.clone().is_empty() {
                 None
             } else {
                 match values.first() {
                     | Some(x) => {
-                        let score = matched.into_iter().map(|(_, score)| score).max();
-                        match score {
-                            | Some(value) if value > 0 => Some((x.to_string(), value)),
-                            | Some(_) | None => None,
+                        if value.eq(x) {
+                            Some((x.into(), 10000))
+                        } else {
+                            let score = matched.into_iter().map(|(_, score)| score).max();
+                            match score {
+                                | Some(value) if value > 0 => Some((x.to_string(), value)),
+                                | Some(_) | None => None,
+                            }
                         }
                     }
                     | None => None,
@@ -1044,7 +1049,7 @@ fn resolve_from_list_of_lists(value: String, data: Vec<Vec<String>>) -> Option<S
         })
         .max_by_key(|(_, score)| *score)
         .map(|(x, _)| x.to_string());
-    print_resolution(output.clone(), value, "organization".to_string());
+    print_resolution(output.clone(), value, name);
     output
 }
 fn resolve_from_organization_json(value: String) -> Option<String> {
@@ -1070,7 +1075,7 @@ fn resolve_from_organization_json(value: String) -> Option<String> {
             vec![name, alternative_name]
         })
         .collect::<Vec<Vec<String>>>();
-    resolve_from_list_of_lists(value, data)
+    resolve_from_list_of_lists(value, data, "organization".to_string())
 }
 fn sanitize(value: String) -> String {
     match Regex::new(r"[-_.,]") {

@@ -4,6 +4,7 @@ c#,C sharp,programming_language::C#
 c++,C plus plus,programming_language::C++
 css,programming_language::CSS
 cuda,Compute Unified Device Architecture
+duckdb,DuckDB
 fortran,programming_language::Fortran
 go,Golang,programming_language::Go
 html,programming_language::HTML
@@ -19,6 +20,7 @@ numpy,NumPy
 pandas,Pandas
 plotly,Plotly
 polars,Polars
+postgresql,PostgreSQL
 python,py,programming_language::Python
 pytorch,PyTorch
 r,programming_language::R_language
@@ -28,6 +30,7 @@ scikit-learn,SciKit-Learn
 scipy,SciPy
 seaborn,Seaborn
 shell,bash,fish,ksh,powershell,pwsh,tcsh,zsh
+sql,SQL
 tensorflow,TensorFlow
 typescript,programming_language::TypeScript
 vhdl,VHSIC Hardware Description Language,programming_language::VHDL
