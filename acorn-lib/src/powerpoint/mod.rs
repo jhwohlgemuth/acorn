@@ -1,4 +1,5 @@
-use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, Label};
+use crate::schema::ResearchActivity;
+use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, write_file, Label};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs::create_dir_all;
@@ -114,6 +115,25 @@ pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
         | Err(err) => {
             error!(error = err.to_string(), path = path.to_str().unwrap(), "=> {} Read file", Label::fail());
             std::process::exit(exitcode::UNAVAILABLE);
+        }
+    }
+}
+pub fn interpolate_xml(path: PathBuf, data: ResearchActivity) {
+    let updated = match read_file(path.clone()) {
+        | Ok(content) => {
+            let ResearchActivity { title, .. } = data.clone();
+            content.replace("Title for ASCR Highlight", &title)
+        }
+        | Err(why) => {
+            error!("=> {} Cannot read XML for interpolation - {why}", Label::fail());
+            std::process::exit(exitcode::IOERR);
+        }
+    };
+    match write_file(path.clone(), updated) {
+        | Ok(_) => {}
+        | Err(why) => {
+            error!("=> {} Cannot write XML for interpolation - {why}", Label::fail());
+            std::process::exit(exitcode::IOERR);
         }
     }
 }

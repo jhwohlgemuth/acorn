@@ -118,9 +118,11 @@ fn create_powerpoint(options: Options) {
                 std::process::exit(exitcode::NOINPUT);
             }
         };
-        let from = input_path.parent().unwrap().join(data.meta.get_first_graphic_href());
+        let from = input_path.parent().unwrap().join(data.clone().meta.get_first_graphic_href());
         std::fs::copy(from, image_path).unwrap();
         // TODO: Interpolate data values
+        use acorn_lib::powerpoint::interpolate_xml;
+        interpolate_xml(path.clone().join("ppt/slides/slide1.xml"), data);
         let _ = archive(path, Some(PathBuf::from(output_path)));
     }
 }

@@ -21,12 +21,9 @@ use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
 };
-use std::error::Error;
 use std::fs::create_dir_all;
 use std::fs::File;
-use std::io::copy;
-use std::io::Cursor;
-use std::io::{BufReader, Read};
+use std::io::{copy, BufReader, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use tracing::{debug, error, warn};
 use which::which;
@@ -531,16 +528,16 @@ pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<Stri
     });
     println!("=> {} \n{table}", title.green().bold());
 }
-pub fn read_file(path: PathBuf) -> Result<String, Box<dyn Error>> {
+pub fn read_file(path: PathBuf) -> Result<String, std::io::Error> {
     let mut content = String::new();
     let _ = match File::open(path.clone()) {
         | Ok(mut file) => {
-            debug!(path = path.to_str().unwrap(), "=> {}", Label::read());
+            debug!(path = path_to_string(path), "=> {}", Label::read());
             file.read_to_string(&mut content)
         }
-        | Err(err) => {
-            error!(path = path.to_str().unwrap(), "=> {} Cannot read file", Label::fail());
-            Err(err)
+        | Err(why) => {
+            error!(path = path_to_string(path), "=> {} Cannot read file", Label::fail());
+            Err(why)
         }
     };
     Ok(content)
@@ -572,6 +569,18 @@ pub fn tokio_runtime() -> tokio::runtime::Runtime {
 }
 pub fn to_string(values: Vec<&str>) -> Vec<String> {
     values.iter().map(|s| s.to_string()).collect()
+}
+pub fn write_file(path: PathBuf, content: String) -> Result<(), std::io::Error> {
+    match File::create(path.clone()) {
+        | Ok(mut file) => {
+            file.write_all(content.as_bytes()).unwrap();
+            file.flush()
+        }
+        | Err(why) => {
+            error!("=> {} Cannot create file - {why}", Label::fail());
+            Err(why)
+        }
+    }
 }
 
 #[cfg(test)]
