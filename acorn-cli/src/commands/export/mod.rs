@@ -1,6 +1,6 @@
 use crate::template::get_html;
 use crate::util::{get_paths_from_options, FileFormat, Options, Size, Target};
-use acorn_lib::powerpoint::{archive, extract, read_xml_rel, Relationship, Relationships};
+use acorn_lib::powerpoint::{archive, extract, interpolate_values, read_xml_rel, Relationship, Relationships};
 use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::{path_to_string, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
@@ -121,8 +121,7 @@ fn create_powerpoint(options: Options) {
         let from = input_path.parent().unwrap().join(data.clone().meta.get_first_graphic_href());
         std::fs::copy(from, image_path).unwrap();
         // TODO: Interpolate data values
-        use acorn_lib::powerpoint::interpolate_xml;
-        interpolate_xml(path.clone().join("ppt/slides/slide1.xml"), data);
+        interpolate_values(path.clone().join("ppt/slides/slide1.xml"), data);
         let _ = archive(path, Some(PathBuf::from(output_path)));
     }
 }

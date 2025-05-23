@@ -24,3 +24,15 @@ fn test_read_xml_rel() {
         assert_eq!(content.relationship[0].id, "rId8");
     }
 }
+#[test]
+fn test_replace() {
+    let content = "{{ title }}";
+    let result = replace(content, "title", "test");
+    assert_eq!(result, "test");
+    let content = "{{title}}";
+    let result = replace(content, "title", "test");
+    assert_eq!(result, "test");
+    let content = "{{title}} {{ title }}";
+    let result = replace(content, "title", "test");
+    assert_eq!(result, "test test");
+}
