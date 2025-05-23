@@ -1,4 +1,4 @@
-use crate::schema::ResearchActivity;
+use crate::schema::{ContactPoint, ResearchActivity};
 use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, write_file, Label};
 use fancy_regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -130,9 +130,19 @@ pub fn replace(content: &str, name: &str, value: &str) -> String {
 }
 pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
     let updated = match read_file(path.clone()) {
-        | Ok(content) => {
-            let ResearchActivity { title, .. } = data.clone();
-            replace(&content, "title", &title)
+        | Ok(mut content) => {
+            let ResearchActivity { contact, title, .. } = data.clone();
+            let ContactPoint {
+                given_name: first,
+                family_name: last,
+                email,
+                ..
+            } = contact;
+            content = replace(&content, "title", &title);
+            content = replace(&content, "first", &first);
+            content = replace(&content, "last", &last);
+            content = replace(&content, "email", &email);
+            content
         }
         | Err(why) => {
             error!("=> {} Cannot read file for interpolation - {why}", Label::fail());
