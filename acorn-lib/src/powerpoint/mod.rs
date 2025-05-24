@@ -1,4 +1,4 @@
-use crate::schema::{ContactPoint, ResearchActivity};
+use crate::schema::{ContactPoint, Notes, Other, ResearchActivity};
 use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, write_file, Label};
 use fancy_regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -131,7 +131,14 @@ pub fn replace(content: &str, name: &str, value: &str) -> String {
 pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
     let updated = match read_file(path.clone()) {
         | Ok(mut content) => {
-            let ResearchActivity { contact, meta, title, subtitle, .. } = data.clone();
+            let ResearchActivity {
+                contact,
+                meta,
+                notes,
+                title,
+                subtitle,
+                ..
+            } = data.clone();
             let ContactPoint {
                 given_name: first,
                 family_name: last,
@@ -139,12 +146,23 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 ..
             } = contact;
             let caption = meta.get_first_graphic_caption();
+            let presentation_notes = match notes {
+                | Some(value) => match value {
+                    | Other::Formatted(Notes { presentation, .. }) => match presentation {
+                        | Some(value) => value,
+                        | None => "".to_string(),
+                    },
+                    | Other::Unformatted(notes) => notes,
+                },
+                | None => "".to_string(),
+            };
             content = replace(&content, "title", &title);
             content = replace(&content, "subtitle", &subtitle.unwrap_or_else(|| "".to_string()));
             content = replace(&content, "first", &first);
             content = replace(&content, "last", &last);
             content = replace(&content, "email", &email);
             content = replace(&content, "caption", &caption);
+            content = replace(&content, "notes", &presentation_notes);
             content
         }
         | Err(why) => {

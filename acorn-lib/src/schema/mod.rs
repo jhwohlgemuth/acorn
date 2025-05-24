@@ -83,6 +83,29 @@ pub enum FuzzyValue {
     #[display("technology")]
     Technology,
 }
+#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum OrganizationType {
+    #[display("agency")]
+    Agency,
+    #[display("center")]
+    Center,
+    #[display("directorate")]
+    Directorate,
+    #[display("division")]
+    Division,
+    #[display("facility")]
+    Facility,
+    /// Federally Funded Research and Development Center
+    #[display("FFRDC")]
+    Ffrdc,
+    #[display("group")]
+    Group,
+    #[display("office")]
+    Office,
+    #[display("program")]
+    Program,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Other {
@@ -368,29 +391,6 @@ pub struct Organization {
     ///
     /// See <https://schema.org/member>
     pub member: Vec<Organization>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum OrganizationType {
-    #[display("agency")]
-    Agency,
-    #[display("center")]
-    Center,
-    #[display("directorate")]
-    Directorate,
-    #[display("division")]
-    Division,
-    #[display("facility")]
-    Facility,
-    /// Federally Funded Research and Development Center
-    #[display("FFRDC")]
-    Ffrdc,
-    #[display("group")]
-    Group,
-    #[display("office")]
-    Office,
-    #[display("program")]
-    Program,
 }
 /// ### Research activity is an identifiable package of work involving organized, systematic investigation.
 ///

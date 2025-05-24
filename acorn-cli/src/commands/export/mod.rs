@@ -93,7 +93,8 @@ fn create_powerpoint(options: Options) {
         },
         | None => unreachable!(),
     };
-    if let Ok(path) = extract(reference_path, None) {
+    let destination = Some(PathBuf::from("./extract"));
+    if let Ok(path) = extract(reference_path, destination) {
         let xml_rels_path = path.join("ppt/slides/_rels/slide1.xml.rels");
         let image_path = match read_xml_rel(xml_rels_path.clone()) {
             | Ok(Relationships { relationship }) => match relationship.clone().into_iter().find(|x| x.target.ends_with(".png")) {
@@ -121,7 +122,11 @@ fn create_powerpoint(options: Options) {
         let from = input_path.parent().unwrap().join(data.clone().meta.get_first_graphic_href());
         std::fs::copy(from, image_path).unwrap();
         // TODO: Interpolate data values
-        interpolate_values(path.clone().join("ppt/slides/slide1.xml"), data);
+        ["ppt/slides/slide1.xml", "ppt/notesSlides/notesSlide1.xml"]
+            .into_iter()
+            .for_each(|fragment| {
+                interpolate_values(path.clone().join(fragment), data.clone());
+            });
         let _ = archive(path, Some(PathBuf::from(output_path)));
     }
 }
