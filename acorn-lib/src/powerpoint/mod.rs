@@ -131,17 +131,20 @@ pub fn replace(content: &str, name: &str, value: &str) -> String {
 pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
     let updated = match read_file(path.clone()) {
         | Ok(mut content) => {
-            let ResearchActivity { contact, title, .. } = data.clone();
+            let ResearchActivity { contact, meta, title, subtitle, .. } = data.clone();
             let ContactPoint {
                 given_name: first,
                 family_name: last,
                 email,
                 ..
             } = contact;
+            let caption = meta.get_first_graphic_caption();
             content = replace(&content, "title", &title);
+            content = replace(&content, "subtitle", &subtitle.unwrap_or_else(|| "".to_string()));
             content = replace(&content, "first", &first);
             content = replace(&content, "last", &last);
             content = replace(&content, "email", &email);
+            content = replace(&content, "caption", &caption);
             content
         }
         | Err(why) => {
