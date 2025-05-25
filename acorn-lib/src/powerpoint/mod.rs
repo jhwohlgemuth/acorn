@@ -2,6 +2,7 @@ use crate::schema::{ContactPoint, Notes, Other, ResearchActivity};
 use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, write_file, Label};
 use fancy_regex::Regex;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use std::error::Error;
 use std::fs::create_dir_all;
 use std::fs::File;
@@ -11,6 +12,43 @@ use tracing::{debug, error, info};
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
+// TODO: Add end paragraph run properties sub elements
+// TODO: Make attributes optional, do same to similar structs
+/// OOXML End Paragraph Run Properties (`a:endParaRPr`)
+///
+/// See <https://datypic.com/sc/ooxml/e-a_endParaRPr-1.html>
+#[skip_serializing_none]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct EndParagraphRunProperties {
+    #[serde(rename = "@baseline")]
+    pub baseline: String,
+    #[serde(rename = "@b")]
+    pub bold: String,
+    #[serde(rename = "@cap")]
+    pub capitalization: String,
+    #[serde(rename = "@dirty")]
+    pub dirty: String,
+    #[serde(rename = "@i")]
+    pub italic: String,
+    #[serde(rename = "@kern")]
+    pub kerning: String,
+    #[serde(rename = "@kumimoji")]
+    pub kumimoji: String,
+    #[serde(rename = "@lang")]
+    pub language: Option<String>,
+    #[serde(rename = "@noProof")]
+    pub no_proofing: String,
+    #[serde(rename = "@normalizeH")]
+    pub normalize_heights: String,
+    #[serde(rename = "@spc")]
+    pub spacing: String,
+    #[serde(rename = "@sz")]
+    pub size: String,
+    #[serde(rename = "@strike")]
+    pub strikethrough: String,
+    #[serde(rename = "@u")]
+    pub underline: String,
+}
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Relationships {
@@ -27,6 +65,82 @@ pub struct Relationship {
     pub target: String,
     #[serde(rename = "@TargetMode")]
     pub target_mode: Option<String>,
+}
+// TODO: Add more sub elements
+/// OOXML Text Character Properties (`a:rPr`)
+///
+/// See <https://www.datypic.com/sc/ooxml/e-a_rPr-2.html>
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TextCharacterProperties {
+    #[serde(rename = "@baseline")]
+    pub baseline: String,
+    #[serde(rename = "@b")]
+    pub bold: String,
+    #[serde(rename = "@cap")]
+    pub capitalization: String,
+    #[serde(rename = "@dirty")]
+    pub dirty: String,
+    #[serde(rename = "@i")]
+    pub italic: String,
+    #[serde(rename = "@kern")]
+    pub kerning: String,
+    #[serde(rename = "@kumimoji")]
+    pub kumimoji: String,
+    #[serde(rename = "@lang")]
+    pub language: String,
+    #[serde(rename = "@noProof")]
+    pub no_proofing: String,
+    #[serde(rename = "@normalizeH")]
+    pub normalize_heights: String,
+    #[serde(rename = "@spc")]
+    pub spacing: String,
+    #[serde(rename = "@sz")]
+    pub size: String,
+    #[serde(rename = "@strike")]
+    pub strikethrough: String,
+    #[serde(rename = "@u")]
+    pub underline: String,
+}
+/// OOXML Text Paragraph (`a:p`)
+///
+/// See <https://datypic.com/sc/ooxml/e-a_p-1.html>
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename = "a:p")]
+pub struct TextParagraph {
+    #[serde(rename(serialize = "a:pPr", deserialize = "pPr"))]
+    pub text_paragraph_properties: Vec<TextParagraphProperties>,
+    #[serde(rename(serialize = "a:r", deserialize = "r"))]
+    pub text_run: Vec<TextRun>,
+    #[serde(rename(serialize = "a:endParaRPr", deserialize = "endParaRPr"))]
+    end_paragraph_run_properties: EndParagraphRunProperties,
+}
+/// OOXML Text Paragraph Properties (`a:pPr`)
+///
+/// See <https://datypic.com/sc/ooxml/e-a_pPr-1.html>
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TextParagraphProperties {
+    #[serde(rename = "@indent")]
+    pub indent: String,
+    #[serde(rename = "@marL")]
+    pub margin_left: String,
+}
+/// OOXML Text Run (`a:r`)
+///
+/// See <https://datypic.com/sc/ooxml/e-a_r-1.html>
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TextRun {
+    #[serde(rename(serialize = "a:rPr", deserialize = "rPr"))]
+    pub text_run_properties: Vec<TextCharacterProperties>,
+    #[serde(rename(serialize = "a:t", deserialize = "t"))]
+    pub text: TextString,
+}
+/// OOXML Text String (`a:t`)
+///
+/// See <https://datypic.com/sc/ooxml/e-a_t-1.html>
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TextString {
+    #[serde(rename = "$value")]
+    pub value: String,
 }
 pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -177,6 +291,11 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
             std::process::exit(exitcode::IOERR);
         }
     }
+}
+pub fn parse_ooxml_paragraph(content: &str) -> Result<TextParagraph, quick_xml::DeError> {
+    let parsed = quick_xml::de::from_str::<TextParagraph>(content);
+    debug!("=> {} OOXMLParagraph = {:#?}", Label::using(), parsed);
+    parsed
 }
 pub fn read_xml_rel(path: PathBuf) -> Result<Relationships, quick_xml::DeError> {
     match read_file(path) {
