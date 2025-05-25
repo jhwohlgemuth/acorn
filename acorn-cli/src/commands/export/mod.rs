@@ -1,6 +1,7 @@
 use crate::template::get_html;
 use crate::util::{get_paths_from_options, FileFormat, Options, Size, Target};
-use acorn_lib::powerpoint::{archive, extract, interpolate_values, read_xml_rel, Relationship, Relationships};
+use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
+use acorn_lib::powerpoint::{archive, extract, interpolate_values, read_xml_rel};
 use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::{path_to_string, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};

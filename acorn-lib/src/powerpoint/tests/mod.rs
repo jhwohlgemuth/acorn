@@ -29,7 +29,7 @@ fn test_parse() {
     </a:pPr>
     <a:r>
         <a:rPr kumimoji="0" lang="en-US" sz="1400" b="0" i="0" u="none"
-            strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+            strike="noStrike" kern="0" cap="all" spc="0" normalizeH="0"
             baseline="0" noProof="0" dirty="0">
             <a:ln>
                 <a:noFill />
@@ -41,15 +41,14 @@ fn test_parse() {
             <a:cs typeface="Arial" />
             <a:sym typeface="Arial" />
         </a:rPr>
-        <a:t>Make sure that it is clear what open science question you have
-            answered, or made progress toward answering, along with the </a:t>
+        <a:t>Make sure that it is clear what open science question you have answered, or made progress toward answering, along with the </a:t>
     </a:r>
     <a:r>
         <a:rPr kumimoji="0" lang="en-US" sz="1400" b="0" i="1" u="none"
             strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
             baseline="0" noProof="0" dirty="0">
             <a:ln>
-                <a:noFill />
+                <a:gradFill />
             </a:ln>
             <a:effectLst />
             <a:uLnTx />
@@ -62,7 +61,7 @@ fn test_parse() {
     </a:r>
     <a:r>
         <a:rPr kumimoji="0" lang="en-US" sz="1400" b="0" i="0" u="none"
-            strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+            strike="noStrike" kern="0" cap="small" spc="0" normalizeH="0"
             baseline="0" noProof="0" dirty="0">
             <a:ln>
                 <a:noFill />
@@ -114,7 +113,11 @@ fn test_parse() {
         <a:ln>
             <a:noFill />
         </a:ln>
-        <a:effectLst />
+        <a:effectLst>
+            <a:blur/>
+            <a:glow/>
+            <a:reflection/>
+        </a:effectLst>
         <a:uLnTx />
         <a:uFillTx />
         <a:cs typeface="Arial" />
@@ -123,7 +126,8 @@ fn test_parse() {
 </a:p>
     "#;
     let result = parse_ooxml_paragraph(paragraph);
-    println!("{:?}", quick_xml::se::to_string(&result.unwrap()));
+    let text = quick_xml::se::to_string(&result.unwrap()).unwrap();
+    println!("{:#?}", &text);
 }
 #[test]
 fn test_read_xml_rel() {
