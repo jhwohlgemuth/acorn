@@ -1,6 +1,8 @@
 use crate::schema::{ContactPoint, HighlightSections, Notes, Other, ResearchActivity, Sections};
 use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, write_file, Label};
 use fancy_regex::Regex;
+use quick_xml::events::Event;
+use quick_xml::{Reader, Writer};
 use std::error::Error;
 use std::fs::create_dir_all;
 use std::fs::File;
@@ -172,6 +174,25 @@ pub fn parse_ooxml_paragraph(content: &str) -> Result<TextParagraph, quick_xml::
     debug!("=> {} OOXMLParagraph = {:#?}", Label::using(), parsed);
     parsed
 }
+pub fn prettify_xml(xml: &str) -> String {
+    let mut buf: Vec<u8> = Vec::new();
+    let mut reader = Reader::from_str(xml);
+    let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
+    loop {
+        let ev = reader.read_event();
+        match ev {
+            | Ok(Event::Eof) => break, // exits the loop when reaching end of file
+            | Ok(event) => writer.write_event(event),
+            | Err(e) => panic!("Error at position {}: {:?}", reader.buffer_position(), e),
+        }
+        .expect("Failed to parse XML");
+        buf.clear();
+    }
+    let result = std::str::from_utf8(&writer.into_inner())
+        .expect("Failed to convert a slice of bytes to a string slice")
+        .to_string();
+    result
+}
 pub fn read_xml_rel(path: PathBuf) -> Result<Relationships, quick_xml::DeError> {
     match read_file(path) {
         | Ok(content) => {
@@ -193,6 +214,19 @@ pub fn replace(content: &str, name: &str, value: &str) -> String {
             content.to_string()
         }
     }
+}
+pub fn replace_paragraph_in_xml(xml: &str, tag: &str, element: TextParagraph) -> String {
+    let paragraphs = match Regex::new(r#"<a:p>(?:(?!<a:p>|</a:p>)[\s\S])*</a:p>"#) {
+        | Ok(re) => re
+            .find_iter(xml)
+            .flat_map(|m| m.ok())
+            .map(|m| m.as_str().to_string())
+            .collect::<Vec<String>>(),
+        | Err(_) => unreachable!(),
+    };
+    let chosen = paragraphs.into_iter().find(|x| x.contains(tag)).unwrap().to_string();
+    let value = quick_xml::se::to_string(&element).unwrap();
+    xml.replace(&chosen, &prettify_xml(&value))
 }
 
 #[cfg(test)]
