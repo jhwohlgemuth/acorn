@@ -1,0 +1,1118 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+    xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+    <p:cSld>
+        <p:spTree>
+            <p:nvGrpSpPr>
+                <p:cNvPr id="1" name="" />
+                <p:cNvGrpSpPr />
+                <p:nvPr />
+            </p:nvGrpSpPr>
+            <p:grpSpPr>
+                <a:xfrm>
+                    <a:off x="0" y="0" />
+                    <a:ext cx="0" cy="0" />
+                    <a:chOff x="0" y="0" />
+                    <a:chExt cx="0" cy="0" />
+                </a:xfrm>
+            </p:grpSpPr>
+            <p:sp>
+                <p:nvSpPr>
+                    <p:cNvPr id="16" name="Rectangle 15">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{46110527-3D5E-DE8A-91D6-0E66981F1564}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvSpPr />
+                    <p:nvPr />
+                </p:nvSpPr>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="6932427" y="4720433" />
+                        <a:ext cx="4989335" cy="1348384" />
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                        <a:avLst />
+                    </a:prstGeom>
+                    <a:solidFill>
+                        <a:srgbClr val="8281BD">
+                            <a:alpha val="12941" />
+                        </a:srgbClr>
+                    </a:solidFill>
+                    <a:ln>
+                        <a:noFill />
+                    </a:ln>
+                </p:spPr>
+                <p:style>
+                    <a:lnRef idx="0">
+                        <a:scrgbClr r="0" g="0" b="0" />
+                    </a:lnRef>
+                    <a:fillRef idx="0">
+                        <a:scrgbClr r="0" g="0" b="0" />
+                    </a:fillRef>
+                    <a:effectRef idx="0">
+                        <a:scrgbClr r="0" g="0" b="0" />
+                    </a:effectRef>
+                    <a:fontRef idx="minor">
+                        <a:schemeClr val="lt1" />
+                    </a:fontRef>
+                </p:style>
+                <p:txBody>
+                    <a:bodyPr rtlCol="0" anchor="ctr" />
+                    <a:lstStyle />
+                    <a:p>
+                        <a:pPr algn="ctr" />
+                        <a:endParaRPr lang="en-US" />
+                    </a:p>
+                </p:txBody>
+            </p:sp>
+            <p:sp>
+                <p:nvSpPr>
+                    <p:cNvPr id="2" name="Title 1">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{0C7CB983-3D4F-3FB4-37F0-5EBAA0E93936}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvSpPr>
+                        <a:spLocks noGrp="1" />
+                    </p:cNvSpPr>
+                    <p:nvPr>
+                        <p:ph type="title" idx="4294967295" />
+                    </p:nvPr>
+                </p:nvSpPr>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="162044" y="69211" />
+                        <a:ext cx="10515600" cy="657336" />
+                    </a:xfrm>
+                </p:spPr>
+                <p:txBody>
+                    <a:bodyPr>
+                        <a:normAutofit />
+                    </a:bodyPr>
+                    <a:lstStyle />
+                    <a:p>
+                        <a:r>
+                            <a:rPr lang="en-US" sz="4000" dirty="0" />
+                            <a:t>{{ title }}</a:t>
+                        </a:r>
+                    </a:p>
+                </p:txBody>
+            </p:sp>
+            <p:sp>
+                <p:nvSpPr>
+                    <p:cNvPr id="4" name="TextBox 3">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{7A3928D5-0D5A-21A1-33A7-B36236255477}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvSpPr txBox="1" />
+                    <p:nvPr />
+                </p:nvSpPr>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="320054" y="682853" />
+                        <a:ext cx="5068866" cy="369332" />
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                        <a:avLst />
+                    </a:prstGeom>
+                    <a:noFill />
+                </p:spPr>
+                <p:txBody>
+                    <a:bodyPr wrap="square" rtlCol="0">
+                        <a:spAutoFit />
+                    </a:bodyPr>
+                    <a:lstStyle />
+                    <a:p>
+                        <a:r>
+                            <a:rPr lang="en-US" dirty="0" />
+                            <a:t>{{ subtitle }}</a:t>
+                        </a:r>
+                    </a:p>
+                </p:txBody>
+            </p:sp>
+            <p:sp>
+                <p:nvSpPr>
+                    <p:cNvPr id="5" name="Google Shape;31;p1">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{05753278-FC72-9EB0-E7BD-709A00592B82}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvSpPr txBox="1" />
+                    <p:nvPr />
+                </p:nvSpPr>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="9725064" y="136269" />
+                        <a:ext cx="1062321" cy="523220" />
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                        <a:avLst />
+                    </a:prstGeom>
+                    <a:solidFill>
+                        <a:schemeClr val="bg1" />
+                    </a:solidFill>
+                    <a:ln>
+                        <a:noFill />
+                    </a:ln>
+                </p:spPr>
+                <p:txBody>
+                    <a:bodyPr spcFirstLastPara="1" wrap="square" lIns="91425" tIns="45700"
+                        rIns="91425" bIns="45700" anchor="t" anchorCtr="0">
+                        <a:spAutoFit />
+                    </a:bodyPr>
+                    <a:lstStyle />
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="ctr" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="1400" b="1" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:latin typeface="Calibri" />
+                                <a:ea typeface="Calibri" />
+                                <a:cs typeface="Calibri" />
+                                <a:sym typeface="Calibri" />
+                            </a:rPr>
+                            <a:t>Institution Logo #1</a:t>
+                        </a:r>
+                        <a:endParaRPr kumimoji="0" sz="1400" b="1" i="0" u="none" strike="noStrike"
+                            kern="0" cap="none" spc="0" normalizeH="0" baseline="0" noProof="0"
+                            dirty="0">
+                            <a:ln>
+                                <a:noFill />
+                            </a:ln>
+                            <a:effectLst />
+                            <a:uLnTx />
+                            <a:uFillTx />
+                            <a:latin typeface="Arial" />
+                            <a:cs typeface="Arial" />
+                            <a:sym typeface="Arial" />
+                        </a:endParaRPr>
+                    </a:p>
+                </p:txBody>
+            </p:sp>
+            <p:sp>
+                <p:nvSpPr>
+                    <p:cNvPr id="6" name="Google Shape;32;p1">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{05E5441F-64DC-9F29-B6CA-621C0545A60E}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvSpPr txBox="1" />
+                    <p:nvPr />
+                </p:nvSpPr>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="10920409" y="131976" />
+                        <a:ext cx="1062321" cy="523220" />
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                        <a:avLst />
+                    </a:prstGeom>
+                    <a:solidFill>
+                        <a:schemeClr val="bg1" />
+                    </a:solidFill>
+                    <a:ln>
+                        <a:noFill />
+                    </a:ln>
+                </p:spPr>
+                <p:txBody>
+                    <a:bodyPr spcFirstLastPara="1" wrap="square" lIns="91425" tIns="45700"
+                        rIns="91425" bIns="45700" anchor="t" anchorCtr="0">
+                        <a:spAutoFit />
+                    </a:bodyPr>
+                    <a:lstStyle />
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="ctr" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="1400" b="1" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:latin typeface="Calibri" />
+                                <a:ea typeface="Calibri" />
+                                <a:cs typeface="Calibri" />
+                                <a:sym typeface="Calibri" />
+                            </a:rPr>
+                            <a:t>Institution Logo #2</a:t>
+                        </a:r>
+                        <a:endParaRPr kumimoji="0" sz="1400" b="1" i="0" u="none" strike="noStrike"
+                            kern="0" cap="none" spc="0" normalizeH="0" baseline="0" noProof="0"
+                            dirty="0">
+                            <a:ln>
+                                <a:noFill />
+                            </a:ln>
+                            <a:effectLst />
+                            <a:uLnTx />
+                            <a:uFillTx />
+                            <a:latin typeface="Arial" />
+                            <a:cs typeface="Arial" />
+                            <a:sym typeface="Arial" />
+                        </a:endParaRPr>
+                    </a:p>
+                </p:txBody>
+            </p:sp>
+            <p:sp>
+                <p:nvSpPr>
+                    <p:cNvPr id="7" name="Google Shape;25;p1">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{35E5E467-2727-969B-98F3-BA95D001A982}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvSpPr />
+                    <p:nvPr />
+                </p:nvSpPr>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="245185" y="1144497" />
+                        <a:ext cx="6453289" cy="615513" />
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                        <a:avLst />
+                    </a:prstGeom>
+                    <a:noFill />
+                    <a:ln>
+                        <a:noFill />
+                    </a:ln>
+                </p:spPr>
+                <p:txBody>
+                    <a:bodyPr spcFirstLastPara="1" wrap="square" lIns="91425" tIns="45700"
+                        rIns="91425" bIns="45700" anchor="t" anchorCtr="0">
+                        <a:spAutoFit />
+                    </a:bodyPr>
+                    <a:lstStyle />
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="l" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="2000" b="1" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="Arial" />
+                                <a:cs typeface="Arial" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>Scientific Achievement</a:t>
+                        </a:r>
+                        <a:endParaRPr kumimoji="0" sz="1400" b="0" i="0" u="none" strike="noStrike"
+                            kern="0" cap="none" spc="0" normalizeH="0" baseline="0" noProof="0"
+                            dirty="0">
+                            <a:ln>
+                                <a:noFill />
+                            </a:ln>
+                            <a:effectLst />
+                            <a:uLnTx />
+                            <a:uFillTx />
+                            <a:cs typeface="Arial" />
+                            <a:sym typeface="Arial" />
+                        </a:endParaRPr>
+                    </a:p>
+                    <a:p>
+                        <a:pPr marL="285750" indent="-285750">
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buFont typeface="Arial" panose="020B0604020202020204"
+                                pitchFamily="34" charset="0" />
+                            <a:buChar char="•" />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr lang="en-US" sz="1400" kern="0" dirty="0">
+                                <a:cs typeface="Arial" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>{{ achievement }}</a:t>
+                        </a:r>
+                        <a:endParaRPr kumimoji="0" sz="1400" b="0" i="0" u="none" strike="noStrike"
+                            kern="0" cap="none" spc="0" normalizeH="0" baseline="0" noProof="0"
+                            dirty="0">
+                            <a:ln>
+                                <a:noFill />
+                            </a:ln>
+                            <a:effectLst />
+                            <a:uLnTx />
+                            <a:uFillTx />
+                            <a:cs typeface="Arial" />
+                            <a:sym typeface="Arial" />
+                        </a:endParaRPr>
+                    </a:p>
+                </p:txBody>
+            </p:sp>
+            <p:sp>
+                <p:nvSpPr>
+                    <p:cNvPr id="8" name="Google Shape;26;p1">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{0607B843-0CBD-294A-51EC-D86D699F90C2}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvSpPr />
+                    <p:nvPr />
+                </p:nvSpPr>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="238507" y="2724485" />
+                        <a:ext cx="6693919" cy="615513" />
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                        <a:avLst />
+                    </a:prstGeom>
+                    <a:noFill />
+                    <a:ln>
+                        <a:noFill />
+                    </a:ln>
+                </p:spPr>
+                <p:txBody>
+                    <a:bodyPr spcFirstLastPara="1" wrap="square" lIns="91425" tIns="45700"
+                        rIns="91425" bIns="45700" anchor="t" anchorCtr="0">
+                        <a:spAutoFit />
+                    </a:bodyPr>
+                    <a:lstStyle />
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="l" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="2000" b="1" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="Arial" />
+                                <a:cs typeface="Arial" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>Significance and Impact</a:t>
+                        </a:r>
+                        <a:endParaRPr kumimoji="0" sz="1400" b="0" i="0" u="none" strike="noStrike"
+                            kern="0" cap="none" spc="0" normalizeH="0" baseline="0" noProof="0"
+                            dirty="0">
+                            <a:ln>
+                                <a:noFill />
+                            </a:ln>
+                            <a:effectLst />
+                            <a:uLnTx />
+                            <a:uFillTx />
+                            <a:cs typeface="Arial" />
+                            <a:sym typeface="Arial" />
+                        </a:endParaRPr>
+                    </a:p>
+                    <a:p>
+                        <a:pPr marL="285750" marR="0" lvl="0" indent="-285750" algn="l"
+                            defTabSz="914400" rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0"
+                            hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" panose="020B0604020202020204"
+                                pitchFamily="34" charset="0" />
+                            <a:buChar char="•" />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="1400" b="0" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="Arial" />
+                                <a:cs typeface="Arial" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>{{ impact }}</a:t>
+                        </a:r>
+                        <a:endParaRPr kumimoji="0" sz="1400" b="0" i="0" u="none" strike="noStrike"
+                            kern="0" cap="none" spc="0" normalizeH="0" baseline="0" noProof="0"
+                            dirty="0">
+                            <a:ln>
+                                <a:noFill />
+                            </a:ln>
+                            <a:effectLst />
+                            <a:uLnTx />
+                            <a:uFillTx />
+                            <a:cs typeface="Arial" />
+                            <a:sym typeface="Arial" />
+                        </a:endParaRPr>
+                    </a:p>
+                </p:txBody>
+            </p:sp>
+            <p:sp>
+                <p:nvSpPr>
+                    <p:cNvPr id="9" name="Google Shape;27;p1">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{34B9808A-90A5-22A7-F1DB-47BF387DC938}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvSpPr txBox="1" />
+                    <p:nvPr />
+                </p:nvSpPr>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="7467989" y="3692139" />
+                        <a:ext cx="4560581" cy="246181" />
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                        <a:avLst />
+                    </a:prstGeom>
+                    <a:noFill />
+                    <a:ln>
+                        <a:noFill />
+                    </a:ln>
+                </p:spPr>
+                <p:txBody>
+                    <a:bodyPr spcFirstLastPara="1" wrap="square" lIns="91425" tIns="45700"
+                        rIns="91425" bIns="45700" anchor="t" anchorCtr="0">
+                        <a:spAutoFit />
+                    </a:bodyPr>
+                    <a:lstStyle />
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="l" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="1000" b="0" i="1" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:solidFill>
+                                    <a:srgbClr val="000000" />
+                                </a:solidFill>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="Arial" />
+                                <a:cs typeface="Arial" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>{{ caption }}</a:t>
+                        </a:r>
+                        <a:endParaRPr kumimoji="0" sz="1400" b="0" i="0" u="none" strike="noStrike"
+                            kern="0" cap="none" spc="0" normalizeH="0" baseline="0" noProof="0"
+                            dirty="0">
+                            <a:ln>
+                                <a:noFill />
+                            </a:ln>
+                            <a:solidFill>
+                                <a:srgbClr val="000000" />
+                            </a:solidFill>
+                            <a:effectLst />
+                            <a:uLnTx />
+                            <a:uFillTx />
+                            <a:cs typeface="Arial" />
+                            <a:sym typeface="Arial" />
+                        </a:endParaRPr>
+                    </a:p>
+                </p:txBody>
+            </p:sp>
+            <p:pic>
+                <p:nvPicPr>
+                    <p:cNvPr id="10" name="Google Shape;28;p1"
+                        descr="A picture containing graphical user interface&#xA;&#xA;Description automatically generated">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{B65D9E82-8CC3-FB65-BB90-813719EFA841}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvPicPr preferRelativeResize="0" />
+                    <p:nvPr />
+                </p:nvPicPr>
+                <p:blipFill rotWithShape="1">
+                    <a:blip r:embed="rId3">
+                        <a:alphaModFix />
+                    </a:blip>
+                    <a:srcRect />
+                    <a:stretch />
+                </p:blipFill>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="7574798" y="824120" />
+                        <a:ext cx="4346965" cy="2775343" />
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                        <a:avLst />
+                    </a:prstGeom>
+                    <a:noFill />
+                    <a:ln w="9525" cap="flat" cmpd="sng">
+                        <a:noFill />
+                        <a:prstDash val="solid" />
+                        <a:round />
+                        <a:headEnd type="none" w="sm" len="sm" />
+                        <a:tailEnd type="none" w="sm" len="sm" />
+                    </a:ln>
+                </p:spPr>
+            </p:pic>
+            <p:sp>
+                <p:nvSpPr>
+                    <p:cNvPr id="11" name="Google Shape;29;p1">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{F719EDE8-762E-1830-067F-4414F9F31C7C}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvSpPr />
+                    <p:nvPr />
+                </p:nvSpPr>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="238507" y="4304474" />
+                        <a:ext cx="6693919" cy="615513" />
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                        <a:avLst />
+                    </a:prstGeom>
+                    <a:noFill />
+                    <a:ln>
+                        <a:noFill />
+                    </a:ln>
+                </p:spPr>
+                <p:txBody>
+                    <a:bodyPr spcFirstLastPara="1" wrap="square" lIns="91425" tIns="45700"
+                        rIns="91425" bIns="45700" anchor="t" anchorCtr="0">
+                        <a:spAutoFit />
+                    </a:bodyPr>
+                    <a:lstStyle />
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="l" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="2000" b="1" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="Arial" />
+                                <a:cs typeface="Arial" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>Technical Approach</a:t>
+                        </a:r>
+                        <a:endParaRPr kumimoji="0" sz="1400" b="0" i="0" u="none" strike="noStrike"
+                            kern="0" cap="none" spc="0" normalizeH="0" baseline="0" noProof="0"
+                            dirty="0">
+                            <a:ln>
+                                <a:noFill />
+                            </a:ln>
+                            <a:effectLst />
+                            <a:uLnTx />
+                            <a:uFillTx />
+                            <a:cs typeface="Arial" />
+                            <a:sym typeface="Arial" />
+                        </a:endParaRPr>
+                    </a:p>
+                    <a:p>
+                        <a:pPr marL="285750" marR="0" lvl="0" indent="-285750" algn="l"
+                            defTabSz="914400" rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0"
+                            hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzPts val="1400" />
+                            <a:buFont typeface="Arial" />
+                            <a:buChar char="•" />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="1400" b="0" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="Arial" />
+                                <a:cs typeface="Arial" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>{{ technical }}</a:t>
+                        </a:r>
+                        <a:endParaRPr kumimoji="0" sz="1400" b="0" i="0" u="none" strike="noStrike"
+                            kern="0" cap="none" spc="0" normalizeH="0" baseline="0" noProof="0"
+                            dirty="0">
+                            <a:ln>
+                                <a:noFill />
+                            </a:ln>
+                            <a:effectLst />
+                            <a:uLnTx />
+                            <a:uFillTx />
+                            <a:cs typeface="Arial" />
+                            <a:sym typeface="Arial" />
+                        </a:endParaRPr>
+                    </a:p>
+                </p:txBody>
+            </p:sp>
+            <p:sp>
+                <p:nvSpPr>
+                    <p:cNvPr id="15" name="TextBox 14">
+                        <a:extLst>
+                            <a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
+                                <a16:creationId
+                                    xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main"
+                                    id="{1C742054-4F8C-D401-63CE-FEFFCD6C2810}" />
+                            </a:ext>
+                        </a:extLst>
+                    </p:cNvPr>
+                    <p:cNvSpPr txBox="1" />
+                    <p:nvPr />
+                </p:nvSpPr>
+                <p:spPr>
+                    <a:xfrm>
+                        <a:off x="6932427" y="4791544" />
+                        <a:ext cx="4989335" cy="938719" />
+                    </a:xfrm>
+                    <a:prstGeom prst="rect">
+                        <a:avLst />
+                    </a:prstGeom>
+                    <a:noFill />
+                </p:spPr>
+                <p:txBody>
+                    <a:bodyPr wrap="square">
+                        <a:spAutoFit />
+                    </a:bodyPr>
+                    <a:lstStyle />
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="l" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="1100" b="0" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:solidFill>
+                                    <a:srgbClr val="000000" />
+                                </a:solidFill>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="+mn-ea" />
+                                <a:cs typeface="+mn-cs" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>PI(s)/Facility Lead(s): </a:t>
+                        </a:r>
+                        <a:r>
+                            <a:rPr lang="en-US" sz="1100" kern="0" dirty="0">
+                                <a:solidFill>
+                                    <a:srgbClr val="000000" />
+                                </a:solidFill>
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>{{ first }} {{ last }}</a:t>
+                        </a:r>
+                        <a:endParaRPr kumimoji="0" lang="en-US" sz="1100" b="0" i="0" u="none"
+                            strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                            baseline="0" noProof="0" dirty="0">
+                            <a:ln>
+                                <a:noFill />
+                            </a:ln>
+                            <a:solidFill>
+                                <a:srgbClr val="000000" />
+                            </a:solidFill>
+                            <a:effectLst />
+                            <a:uLnTx />
+                            <a:uFillTx />
+                            <a:ea typeface="+mn-ea" />
+                            <a:cs typeface="+mn-cs" />
+                            <a:sym typeface="Arial" />
+                        </a:endParaRPr>
+                    </a:p>
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="l" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="1100" b="0" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:solidFill>
+                                    <a:srgbClr val="000000" />
+                                </a:solidFill>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="+mn-ea" />
+                                <a:cs typeface="+mn-cs" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>Collaborating Institutions: {{ partners }}</a:t>
+                        </a:r>
+                    </a:p>
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="l" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="1100" b="0" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:solidFill>
+                                    <a:srgbClr val="000000" />
+                                </a:solidFill>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="+mn-ea" />
+                                <a:cs typeface="+mn-cs" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>ASCR Program: {{ programs }}</a:t>
+                        </a:r>
+                    </a:p>
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="l" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="1100" b="0" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:solidFill>
+                                    <a:srgbClr val="000000" />
+                                </a:solidFill>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="+mn-ea" />
+                                <a:cs typeface="+mn-cs" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>ASCR PM: {{ managers }}</a:t>
+                        </a:r>
+                    </a:p>
+                    <a:p>
+                        <a:pPr marL="0" marR="0" lvl="0" indent="0" algn="l" defTabSz="914400"
+                            rtl="0" eaLnBrk="1" fontAlgn="auto" latinLnBrk="0" hangingPunct="1">
+                            <a:lnSpc>
+                                <a:spcPct val="100000" />
+                            </a:lnSpc>
+                            <a:spcBef>
+                                <a:spcPts val="0" />
+                            </a:spcBef>
+                            <a:spcAft>
+                                <a:spcPts val="0" />
+                            </a:spcAft>
+                            <a:buClr>
+                                <a:srgbClr val="000000" />
+                            </a:buClr>
+                            <a:buSzTx />
+                            <a:buFont typeface="Arial" />
+                            <a:buNone />
+                            <a:tabLst />
+                            <a:defRPr />
+                        </a:pPr>
+                        <a:r>
+                            <a:rPr kumimoji="0" lang="en-US" sz="1100" b="0" i="0" u="none"
+                                strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0"
+                                baseline="0" noProof="0" dirty="0">
+                                <a:ln>
+                                    <a:noFill />
+                                </a:ln>
+                                <a:solidFill>
+                                    <a:srgbClr val="000000" />
+                                </a:solidFill>
+                                <a:effectLst />
+                                <a:uLnTx />
+                                <a:uFillTx />
+                                <a:ea typeface="+mn-ea" />
+                                <a:cs typeface="+mn-cs" />
+                                <a:sym typeface="Arial" />
+                            </a:rPr>
+                            <a:t>Publication(s) for this work: {{ citation }}</a:t>
+                        </a:r>
+                    </a:p>
+                </p:txBody>
+            </p:sp>
+        </p:spTree>
+        <p:extLst>
+            <p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}">
+                <p14:creationId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main"
+                    val="3201699841" />
+            </p:ext>
+        </p:extLst>
+    </p:cSld>
+    <p:clrMapOvr>
+        <a:masterClrMapping />
+    </p:clrMapOvr>
+    <p:transition />
+</p:sld>

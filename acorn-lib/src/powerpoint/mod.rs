@@ -1,4 +1,4 @@
-use crate::schema::{ContactPoint, Notes, Other, ResearchActivity};
+use crate::schema::{ContactPoint, HighlightSections, Notes, Other, ResearchActivity, Sections};
 use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, write_file, Label};
 use fancy_regex::Regex;
 use std::error::Error;
@@ -113,6 +113,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 notes,
                 title,
                 subtitle,
+                sections,
                 ..
             } = data.clone();
             let ContactPoint {
@@ -139,6 +140,18 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
             content = replace(&content, "email", &email);
             content = replace(&content, "caption", &caption);
             content = replace(&content, "notes", &presentation_notes);
+            match sections {
+                | Sections::Highlight(HighlightSections { .. }) => {
+                    let name = "achievement";
+                    match Regex::new(&format!(r"{{{{\s*{}\s*}}}}", name)) {
+                        | Ok(_) => {}
+                        | Err(err) => {
+                            error!("=> {} Regex replacement - {err}", Label::fail());
+                        }
+                    }
+                }
+                | _ => {}
+            }
             content
         }
         | Err(why) => {

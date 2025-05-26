@@ -1,4 +1,5 @@
 use crate::powerpoint::*;
+use crate::util::read_file;
 
 const FIXTURES: &str = "../tests/fixtures";
 
@@ -150,4 +151,14 @@ fn test_replace() {
     let content = "{{title}} {{ title }}";
     let result = replace(content, "title", "test");
     assert_eq!(result, "test test");
+}
+#[test]
+fn test_replace_xml() {
+    let path = PathBuf::from(FIXTURES).join("slide.xml");
+    match read_file(path) {
+        | Ok(content) => {
+            println!("{}", content);
+        }
+        | Err(_) => {}
+    }
 }
