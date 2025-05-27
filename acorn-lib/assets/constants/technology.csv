@@ -17,6 +17,7 @@ latex,LaTeX
 matlab,MATLAB
 matplotlib,Matplotlib
 numpy,NumPy
+opendb,OpenDB
 pandas,Pandas
 plotly,Plotly
 polars,Polars
