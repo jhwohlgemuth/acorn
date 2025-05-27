@@ -70,7 +70,7 @@ pub enum TextUnderline {
 }
 /// OOXML Bullet Character (`a:buChar`)
 ///
-/// See <>
+/// See <https://www.datypic.com/sc/ooxml/e-a_buChar-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BulletCharacter {
     #[serde(rename = "@char")]
@@ -78,12 +78,15 @@ pub struct BulletCharacter {
 }
 /// OOXML Bullet Color (`a:buClr`)
 ///
-/// See <>
+/// See <https://www.datypic.com/sc/ooxml/e-a_buClr-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct BulletColor {}
+pub struct BulletColor {
+    #[serde(rename(serialize = "a:srgbClr", deserialize = "srgbClr"))]
+    pub color: Color,
+}
 /// OOXML Bullet Font (`a:buFont`)
 ///
-/// See <>
+/// See <https://www.datypic.com/sc/ooxml/e-a_buFont-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BulletFont {
@@ -95,6 +98,14 @@ pub struct BulletFont {
     pub similar_font_family: String,
     #[serde(rename = "@charset")]
     pub charset: String,
+}
+/// OOXML RGB Color - Hex variant (`a:srgbClr`)
+///
+/// See <https://www.datypic.com/sc/ooxml/e-a_srgbClr-1.html>
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Color {
+    #[serde(rename = "@val")]
+    pub value: String,
 }
 /// OOXML Effect Container (`a:effectLst`)
 ///
@@ -163,37 +174,37 @@ pub struct Relationship {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TextCharacterProperties {
     #[serde(rename = "@baseline")]
-    pub baseline: String,
+    pub baseline: Option<String>,
     #[serde(rename = "@b")]
-    pub bold: String,
+    pub bold: Option<String>,
     #[serde(rename = "@cap")]
-    pub capitalization: Capitalization,
+    pub capitalization: Option<Capitalization>,
     #[serde(rename = "@dirty")]
     pub dirty: String,
     #[serde(rename = "@i")]
-    pub italic: String,
+    pub italic: Option<String>,
     #[serde(rename = "@kern")]
     pub kerning: String,
     #[serde(rename = "@kumimoji")]
-    pub kumimoji: String,
+    pub kumimoji: Option<String>,
     #[serde(rename = "@lang")]
     pub language: Option<String>,
     #[serde(rename = "@noProof")]
-    pub no_proofing: String,
+    pub no_proofing: Option<String>,
     #[serde(rename = "@normalizeH")]
-    pub normalize_heights: String,
+    pub normalize_heights: Option<String>,
     #[serde(rename = "@spc")]
-    pub spacing: String,
+    pub spacing: Option<String>,
     #[serde(rename = "@sz")]
     pub size: String,
     #[serde(rename = "@strike")]
-    pub strikethrough: Strikethrough,
+    pub strikethrough: Option<Strikethrough>,
     #[serde(rename = "@u")]
-    pub underline: String,
+    pub underline: Option<String>,
     #[serde(rename(serialize = "a:ln", deserialize = "ln"))]
-    pub line: Line,
+    pub line: Option<Line>,
     #[serde(rename(serialize = "a:effectlst", deserialize = "effectLst"))]
-    pub effect_list: EffectContainer,
+    pub effect_list: Option<EffectContainer>,
     #[serde(rename(serialize = "a:uLnTx", deserialize = "uLnTx"))]
     pub underline_follows_text: Option<UnderlineFollowsText>,
     #[serde(rename(serialize = "a:uLn", deserialize = "uLn"))]

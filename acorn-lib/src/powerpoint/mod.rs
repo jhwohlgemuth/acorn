@@ -206,8 +206,8 @@ pub fn read_xml_rel(path: PathBuf) -> Result<Relationships, quick_xml::DeError> 
         }
     }
 }
-pub fn replace(content: &str, name: &str, value: &str) -> String {
-    match Regex::new(&format!(r"{{{{\s*{}\s*}}}}", name)) {
+pub fn replace(content: &str, placeholder: &str, value: &str) -> String {
+    match Regex::new(&format!(r"{{{{\s*{}\s*}}}}", placeholder)) {
         | Ok(re) => re.replace_all(content, value).to_string(),
         | Err(err) => {
             error!("=> {} Regex replacement - {err}", Label::fail());
@@ -215,7 +215,7 @@ pub fn replace(content: &str, name: &str, value: &str) -> String {
         }
     }
 }
-pub fn replace_paragraph_in_xml(xml: &str, tag: &str, element: TextParagraph) -> String {
+pub fn replace_paragraph_in_xml(xml: &str, placeholder: &str, value: TextParagraph) -> String {
     let paragraphs = match Regex::new(r#"<a:p>(?:(?!<a:p>|</a:p>)[\s\S])*</a:p>"#) {
         | Ok(re) => re
             .find_iter(xml)
@@ -224,9 +224,26 @@ pub fn replace_paragraph_in_xml(xml: &str, tag: &str, element: TextParagraph) ->
             .collect::<Vec<String>>(),
         | Err(_) => unreachable!(),
     };
-    let chosen = paragraphs.into_iter().find(|x| x.contains(tag)).unwrap().to_string();
-    let value = quick_xml::se::to_string(&element).unwrap();
-    xml.replace(&chosen, &prettify_xml(&value))
+    let selected = match paragraphs
+        .into_iter()
+        .find(|x| match Regex::new(&format!(r"{{{{\s*{}\s*}}}}", placeholder)) {
+            | Ok(re) => re.is_match(x).unwrap_or_default(),
+            | Err(_) => false,
+        }) {
+        | Some(value) => value,
+        | None => "".to_string(),
+    };
+    let element = match parse_ooxml_paragraph(&selected) {
+        | Ok(value) => value,
+        | Err(why) => {
+            error!("=> {} Parse OOXML Paragraph - {why}", Label::fail());
+            std::process::exit(exitcode::IOERR);
+        }
+    };
+    println!("{}", selected);
+    println!("{:#?}", element);
+    let formatted = prettify_xml(&quick_xml::se::to_string(&value).unwrap());
+    xml.replace(&selected, &formatted)
 }
 
 #[cfg(test)]
