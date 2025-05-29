@@ -1,12 +1,14 @@
+use bon::{builder, Builder};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 /// OOXML Text Capitalization Type
 ///
 /// See <https://datypic.com/sc/ooxml/t-a_ST_TextCapsType.html>
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Capitalization {
+    #[default]
     #[serde(rename = "none")]
     NoCap,
     All,
@@ -32,9 +34,10 @@ pub enum Effect {
     #[serde(rename(serialize = "a:reflection", deserialize = "reflection"))]
     Reflection,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LineFill {
+    #[default]
     #[serde(rename(serialize = "a:noFill", deserialize = "noFill"))]
     NoFill,
     #[serde(rename(serialize = "a:solidFill", deserialize = "solidFill"))]
@@ -47,9 +50,10 @@ pub enum LineFill {
 /// OOXML Text Strike Type
 ///
 /// See <https://datypic.com/sc/ooxml/t-a_ST_TextStrikeType.html>
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Strikethrough {
+    #[default]
     #[serde(rename = "noStrike")]
     NoStrike,
     #[serde(rename = "sngStrike")]
@@ -171,7 +175,8 @@ pub struct Relationship {
 ///
 /// See <https://www.datypic.com/sc/ooxml/e-a_rPr-2.html>
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[builder(start_fn = init)]
 pub struct TextCharacterProperties {
     #[serde(rename = "@baseline")]
     pub baseline: Option<String>,
@@ -179,10 +184,12 @@ pub struct TextCharacterProperties {
     pub bold: Option<String>,
     #[serde(rename = "@cap")]
     pub capitalization: Option<Capitalization>,
+    #[builder(default = "0".to_string())]
     #[serde(rename = "@dirty")]
     pub dirty: String,
     #[serde(rename = "@i")]
     pub italic: Option<String>,
+    #[builder(default = "0".to_string())]
     #[serde(rename = "@kern")]
     pub kerning: String,
     #[serde(rename = "@kumimoji")]
@@ -196,7 +203,7 @@ pub struct TextCharacterProperties {
     #[serde(rename = "@spc")]
     pub spacing: Option<String>,
     #[serde(rename = "@sz")]
-    pub size: String,
+    pub size: Option<String>,
     #[serde(rename = "@strike")]
     pub strikethrough: Option<Strikethrough>,
     #[serde(rename = "@u")]
@@ -223,28 +230,35 @@ pub struct TextCharacterProperties {
 /// OOXML Text Paragraph (`a:p`)
 ///
 /// See <https://datypic.com/sc/ooxml/e-a_p-1.html>
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[builder(start_fn = init)]
 #[serde(rename = "a:p")]
 pub struct TextParagraph {
+    #[builder(default = Vec::new())]
     #[serde(rename(serialize = "a:pPr", deserialize = "pPr"))]
     pub text_paragraph_properties: Vec<TextParagraphProperties>,
+    #[builder(default = Vec::new())]
     #[serde(rename(serialize = "a:r", deserialize = "r"))]
     pub text_run: Vec<TextRun>,
     /// OOXML End Paragraph Run Properties (`a:endParaRPr`)
     ///
     /// See <https://datypic.com/sc/ooxml/e-a_endParaRPr-1.html>
     #[serde(rename(serialize = "a:endParaRPr", deserialize = "endParaRPr"))]
-    end_paragraph_run_properties: TextCharacterProperties,
+    pub end_paragraph_run_properties: Option<TextCharacterProperties>,
 }
 /// OOXML Text Paragraph Properties (`a:pPr`)
 ///
 /// See <https://datypic.com/sc/ooxml/e-a_pPr-1.html>
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[builder(start_fn = init)]
 pub struct TextParagraphProperties {
     #[serde(rename = "@indent")]
+    #[builder(default = "0".to_string())]
     pub indent: String,
     #[serde(rename = "@marL")]
+    #[builder(default = "0".to_string())]
     pub margin_left: String,
     #[serde(rename(serialize = "a:buClr", deserialize = "buClr"))]
     pub bullet_color: Option<BulletColor>,
@@ -258,10 +272,13 @@ pub struct TextParagraphProperties {
 /// OOXML Text Run (`a:r`)
 ///
 /// See <https://datypic.com/sc/ooxml/e-a_r-1.html>
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[builder(start_fn = init)]
 pub struct TextRun {
+    #[builder(default = Vec::new())]
     #[serde(rename(serialize = "a:rPr", deserialize = "rPr"))]
     pub text_run_properties: Vec<TextCharacterProperties>,
+    #[builder(default = TextString::init().build())]
     #[serde(rename(serialize = "a:t", deserialize = "t"))]
     pub text: TextString,
 }
@@ -273,8 +290,10 @@ pub struct TextRunPropertiesDefault {}
 /// OOXML Text String (`a:t`)
 ///
 /// See <https://datypic.com/sc/ooxml/e-a_t-1.html>
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[builder(start_fn = init)]
 pub struct TextString {
+    #[builder(default = "".to_string())]
     #[serde(rename = "$text")]
     pub value: String,
 }

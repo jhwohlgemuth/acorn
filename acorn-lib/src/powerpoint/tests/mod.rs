@@ -11,7 +11,7 @@ fn test_archive() {
 }
 #[test]
 fn test_extract() {
-    let path = PathBuf::from(FIXTURES).join("reference.pptx");
+    let path = PathBuf::from(FIXTURES).join("data/highlight/reference.pptx");
     let result = extract(path, None);
     assert!(result.is_ok());
 }
@@ -197,9 +197,11 @@ fn test_replace_paragraph_in_xml() {
                 </a:endParaRPr>
             </a:p>
             "#;
-            let value = parse_ooxml_paragraph(paragraph).unwrap();
-            let result = replace_paragraph_in_xml(&content, "achievement", value);
-            assert!(result.contains("FOOBARBAZ"));
+            let _value = parse_ooxml_paragraph(paragraph).unwrap();
+            let result = replace_paragraph_in_xml(&content, "achievement", None);
+            assert!(result.contains("FOO"));
+            assert!(result.contains("BAR"));
+            assert!(result.contains("BAZ"));
             assert!(!result.contains("achievement"));
         }
         | Err(_) => {}

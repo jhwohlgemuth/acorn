@@ -1,5 +1,5 @@
 use crate::schema::{ContactPoint, HighlightSections, Notes, Other, ResearchActivity, Sections};
-use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, write_file, Label};
+use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, to_string, write_file, Label};
 use fancy_regex::Regex;
 use quick_xml::events::Event;
 use quick_xml::{Reader, Writer};
@@ -144,13 +144,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
             content = replace(&content, "notes", &presentation_notes);
             match sections {
                 | Sections::Highlight(HighlightSections { .. }) => {
-                    let name = "achievement";
-                    match Regex::new(&format!(r"{{{{\s*{}\s*}}}}", name)) {
-                        | Ok(_) => {}
-                        | Err(err) => {
-                            error!("=> {} Regex replacement - {err}", Label::fail());
-                        }
-                    }
+                    content = replace_paragraph_in_xml(&content, "achievement", None);
                 }
                 | _ => {}
             }
@@ -215,7 +209,7 @@ pub fn replace(content: &str, placeholder: &str, value: &str) -> String {
         }
     }
 }
-pub fn replace_paragraph_in_xml(xml: &str, placeholder: &str, value: TextParagraph) -> String {
+pub fn replace_paragraph_in_xml(xml: &str, placeholder: &str, _paragraph: Option<TextParagraph>) -> String {
     let paragraphs = match Regex::new(r#"<a:p>(?:(?!<a:p>|</a:p>)[\s\S])*</a:p>"#) {
         | Ok(re) => re
             .find_iter(xml)
@@ -233,17 +227,50 @@ pub fn replace_paragraph_in_xml(xml: &str, placeholder: &str, value: TextParagra
         | Some(value) => value,
         | None => "".to_string(),
     };
-    let element = match parse_ooxml_paragraph(&selected) {
-        | Ok(value) => value,
-        | Err(why) => {
-            error!("=> {} Parse OOXML Paragraph - {why}", Label::fail());
-            std::process::exit(exitcode::IOERR);
+    match parse_ooxml_paragraph(&selected) {
+        | Ok(paragraph) => {
+            let TextParagraph {
+                text_paragraph_properties,
+                text_run,
+                end_paragraph_run_properties,
+                ..
+            } = paragraph.clone();
+            let bullet_properties = match text_paragraph_properties.first() {
+                | Some(value) => value,
+                | None => &TextParagraphProperties::init().build(),
+            };
+            let first_text_run = match text_run.first() {
+                | Some(value) => value,
+                | None => &TextRun::init().build(),
+            };
+            let text_properties = match first_text_run.text_run_properties.first() {
+                | Some(value) => value,
+                | None => todo!(),
+            };
+            let values = vec!["ONE!", "TWO!"];
+            let content: Vec<String> = to_string(values)
+                .into_iter()
+                .map(|value| {
+                    let run = TextRun::init()
+                        .text_run_properties(vec![text_properties.clone()])
+                        .text(TextString { value })
+                        .build();
+                    let interpolated = TextParagraph::init()
+                        .text_paragraph_properties(vec![bullet_properties.clone()])
+                        .text_run(vec![run])
+                        .maybe_end_paragraph_run_properties(end_paragraph_run_properties.clone())
+                        .build();
+                    prettify_xml(&quick_xml::se::to_string(&interpolated).unwrap())
+                })
+                .collect();
+            let formatted = content.join("x");
+            xml.replace(&selected, &formatted)
         }
-    };
-    println!("{}", selected);
-    println!("{:#?}", element);
-    let formatted = prettify_xml(&quick_xml::se::to_string(&value).unwrap());
-    xml.replace(&selected, &formatted)
+        | Err(why) => {
+            debug!("=> {} Parse OOXML Paragraph - {why}", Label::fail());
+            xml.to_string()
+        }
+    }
 }
 
 #[cfg(test)]
