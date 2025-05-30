@@ -38,6 +38,9 @@ LLMs?
 Mantid
 misconfigurations?
 multimodal
+[Nn]anophase
+[Nn]anoscale
+nanomaterials?
 operationalize
 organoiodides?
 parallel_for
