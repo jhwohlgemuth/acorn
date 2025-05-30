@@ -307,11 +307,11 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
                             <main>
                                 <section>
                                     <h3>{ "Scientific Achievement" }</h3>
-                                    <p>{ achievement }</p>
+                                    <p>{ achievement.join("</li><li>") }</p>
                                 </section>
                                 <section>
                                     <h3>{ "Significance and Impact" }</h3>
-                                    <p>{ impact }</p>
+                                    <p>{ impact.join("</li><li>") }</p>
                                 </section>
                                 <section>
                                     <h3>{ "Technical Approach" }</h3>

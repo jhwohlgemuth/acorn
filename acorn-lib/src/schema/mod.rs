@@ -443,12 +443,14 @@ pub struct Website {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct HighlightSections {
-    #[serde(alias = "scientific achievement", deserialize_with = "string_trim")]
-    pub achievement: String,
-    #[serde(alias = "significance & impact", deserialize_with = "string_trim")]
-    pub impact: String,
+    #[validate(length(max = 4, message = "Please limit the number of achievements to 4"))]
+    #[serde(alias = "scientific achievement", deserialize_with = "vec_string_trim")]
+    pub achievement: Vec<String>,
+    #[validate(length(max = 4, message = "Please limit the number of impacts to 4"))]
+    #[serde(alias = "significance & impact", deserialize_with = "vec_string_trim")]
+    pub impact: Vec<String>,
     #[validate(
-        length(max = 6, message = "Please limit the number of methods to 6"),
+        length(max = 6, message = "Please limit the number of approaches to 6"),
         custom(function = "validate_attribute_technical")
     )]
     #[serde(alias = "technical approach")]
@@ -770,8 +772,8 @@ impl ResearchActivity {
 
 <!-- Technical Approach -->
 {}"#,
-                    achievement,
-                    impact,
+                    achievement.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
+                    impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
                     technical.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
                 )
             }

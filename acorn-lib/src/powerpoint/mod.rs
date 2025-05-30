@@ -1,5 +1,5 @@
-use crate::schema::{ContactPoint, HighlightSections, Notes, Other, ResearchActivity, Sections};
-use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, to_string, write_file, Label};
+use crate::schema::{ContactPoint, HighlightSections, Metadata, Notes, Other, ResearchActivity, Sections};
+use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, write_file, Label};
 use fancy_regex::Regex;
 use quick_xml::events::Event;
 use quick_xml::{Reader, Writer};
@@ -118,6 +118,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 sections,
                 ..
             } = data.clone();
+            let Metadata { doi, partners, .. } = meta.clone();
             let ContactPoint {
                 given_name: first,
                 family_name: last,
@@ -125,7 +126,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 ..
             } = contact;
             let caption = meta.get_first_graphic_caption();
-            let presentation_notes = match notes {
+            let presentation_notes = match notes.clone() {
                 | Some(value) => match value {
                     | Other::Formatted(Notes { presentation, .. }) => match presentation {
                         | Some(value) => value,
@@ -135,22 +136,45 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 },
                 | None => "".to_string(),
             };
+            let managers = match notes.clone() {
+                | Some(value) => match value {
+                    | Other::Formatted(Notes { managers, .. }) => match managers {
+                        | Some(value) => value,
+                        | None => vec![],
+                    },
+                    | _ => vec![],
+                },
+                | None => vec![],
+            };
+            let programs = match notes {
+                | Some(value) => match value {
+                    | Other::Formatted(Notes { programs, .. }) => match programs {
+                        | Some(value) => value,
+                        | None => vec![],
+                    },
+                    | _ => vec![],
+                },
+                | None => vec![],
+            };
             content = replace_placeholder_with_string(&content, "title", &title);
             content = replace_placeholder_with_string(&content, "subtitle", &subtitle.unwrap_or_else(|| "".to_string()));
             content = replace_placeholder_with_string(&content, "first", &first);
             content = replace_placeholder_with_string(&content, "last", &last);
             content = replace_placeholder_with_string(&content, "email", &email);
+            content = replace_placeholder_with_string(&content, "partners", &partners.unwrap().join(", "));
+            content = replace_placeholder_with_string(&content, "programs", &programs.join(" and "));
+            content = replace_placeholder_with_string(&content, "managers", &managers.join(" and "));
+            // TODO: Use CiteAs API to get in Chicago format
+            content = replace_placeholder_with_string(&content, "citation", &doi.unwrap());
             content = replace_placeholder_with_string(&content, "caption", &caption);
             content = replace_placeholder_with_string(&content, "notes", &presentation_notes);
             match sections {
                 | Sections::Highlight(HighlightSections {
-                    achievement: _,
-                    impact: _,
+                    achievement,
+                    impact,
                     technical,
                     ..
                 }) => {
-                    let achievement = to_string(vec!["ONE!", "TWO!", "THREE!", "FOUR!"]);
-                    let impact = to_string(vec!["ONE!", "TWO!", "THREE!", "FOUR!"]);
                     content = replace_placeholder_with_bullets(&content, "achievement", achievement);
                     content = replace_placeholder_with_bullets(&content, "impact", impact);
                     content = replace_placeholder_with_bullets(&content, "technical", technical);
