@@ -135,16 +135,25 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 },
                 | None => "".to_string(),
             };
-            content = replace(&content, "title", &title);
-            content = replace(&content, "subtitle", &subtitle.unwrap_or_else(|| "".to_string()));
-            content = replace(&content, "first", &first);
-            content = replace(&content, "last", &last);
-            content = replace(&content, "email", &email);
-            content = replace(&content, "caption", &caption);
-            content = replace(&content, "notes", &presentation_notes);
+            content = replace_placeholder_with_string(&content, "title", &title);
+            content = replace_placeholder_with_string(&content, "subtitle", &subtitle.unwrap_or_else(|| "".to_string()));
+            content = replace_placeholder_with_string(&content, "first", &first);
+            content = replace_placeholder_with_string(&content, "last", &last);
+            content = replace_placeholder_with_string(&content, "email", &email);
+            content = replace_placeholder_with_string(&content, "caption", &caption);
+            content = replace_placeholder_with_string(&content, "notes", &presentation_notes);
             match sections {
-                | Sections::Highlight(HighlightSections { .. }) => {
-                    content = replace_paragraph_in_xml(&content, "achievement", None);
+                | Sections::Highlight(HighlightSections {
+                    achievement: _,
+                    impact: _,
+                    technical,
+                    ..
+                }) => {
+                    let achievement = to_string(vec!["ONE!", "TWO!", "THREE!", "FOUR!"]);
+                    let impact = to_string(vec!["ONE!", "TWO!", "THREE!", "FOUR!"]);
+                    content = replace_placeholder_with_bullets(&content, "achievement", achievement);
+                    content = replace_placeholder_with_bullets(&content, "impact", impact);
+                    content = replace_placeholder_with_bullets(&content, "technical", technical);
                 }
                 | _ => {}
             }
@@ -200,16 +209,7 @@ pub fn read_xml_rel(path: PathBuf) -> Result<Relationships, quick_xml::DeError> 
         }
     }
 }
-pub fn replace(content: &str, placeholder: &str, value: &str) -> String {
-    match Regex::new(&format!(r"{{{{\s*{}\s*}}}}", placeholder)) {
-        | Ok(re) => re.replace_all(content, value).to_string(),
-        | Err(err) => {
-            error!("=> {} Regex replacement - {err}", Label::fail());
-            content.to_string()
-        }
-    }
-}
-pub fn replace_paragraph_in_xml(xml: &str, placeholder: &str, _paragraph: Option<TextParagraph>) -> String {
+pub fn replace_placeholder_with_bullets(xml: &str, placeholder: &str, values: Vec<String>) -> String {
     let paragraphs = match Regex::new(r#"<a:p>(?:(?!<a:p>|</a:p>)[\s\S])*</a:p>"#) {
         | Ok(re) => re
             .find_iter(xml)
@@ -239,36 +239,43 @@ pub fn replace_paragraph_in_xml(xml: &str, placeholder: &str, _paragraph: Option
                 | Some(value) => value,
                 | None => &TextParagraphProperties::init().build(),
             };
-            let first_text_run = match text_run.first() {
-                | Some(value) => value,
-                | None => &TextRun::init().build(),
-            };
-            let text_properties = match first_text_run.text_run_properties.first() {
-                | Some(value) => value,
+            let text_properties = match text_run.first() {
+                | Some(first) => match first.text_run_properties.first() {
+                    | Some(value) => value,
+                    | None => todo!(),
+                },
                 | None => todo!(),
             };
-            let values = vec!["ONE!", "TWO!"];
-            let content: Vec<String> = to_string(values)
+            let content: Vec<String> = values
                 .into_iter()
                 .map(|value| {
                     let run = TextRun::init()
                         .text_run_properties(vec![text_properties.clone()])
                         .text(TextString { value })
                         .build();
-                    let interpolated = TextParagraph::init()
+                    let custom = TextParagraph::init()
                         .text_paragraph_properties(vec![bullet_properties.clone()])
                         .text_run(vec![run])
                         .maybe_end_paragraph_run_properties(end_paragraph_run_properties.clone())
                         .build();
-                    prettify_xml(&quick_xml::se::to_string(&interpolated).unwrap())
+                    prettify_xml(&quick_xml::se::to_string(&custom).unwrap())
                 })
                 .collect();
-            let formatted = content.join("x");
+            let formatted = content.join("");
             xml.replace(&selected, &formatted)
         }
         | Err(why) => {
-            debug!("=> {} Parse OOXML Paragraph - {why}", Label::fail());
+            debug!(selected, "=> {} Parse OOXML Paragraph - {why}", Label::fail());
             xml.to_string()
+        }
+    }
+}
+pub fn replace_placeholder_with_string(content: &str, placeholder: &str, value: &str) -> String {
+    match Regex::new(&format!(r"{{{{\s*{}\s*}}}}", placeholder)) {
+        | Ok(re) => re.replace_all(content, value).to_string(),
+        | Err(err) => {
+            error!("=> {} Regex replacement - {err}", Label::fail());
+            content.to_string()
         }
     }
 }

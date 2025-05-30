@@ -1,5 +1,5 @@
 use crate::powerpoint::*;
-use crate::util::read_file;
+use crate::util::{read_file, to_string};
 
 const FIXTURES: &str = "../tests/fixtures";
 
@@ -141,64 +141,24 @@ fn test_read_xml_rel() {
     }
 }
 #[test]
-fn test_replace() {
+fn test_replace_placeholder_with_string() {
     let content = "{{ title }}";
-    let result = replace(content, "title", "test");
+    let result = replace_placeholder_with_string(content, "title", "test");
     assert_eq!(result, "test");
     let content = "{{title}}";
-    let result = replace(content, "title", "test");
+    let result = replace_placeholder_with_string(content, "title", "test");
     assert_eq!(result, "test");
     let content = "{{title}} {{ title }}";
-    let result = replace(content, "title", "test");
+    let result = replace_placeholder_with_string(content, "title", "test");
     assert_eq!(result, "test test");
 }
 #[test]
-fn test_replace_paragraph_in_xml() {
+fn test_replace_placeholder_with_bullets() {
     let path = PathBuf::from(FIXTURES).join("slide.xml");
     match read_file(path) {
         | Ok(content) => {
-            let paragraph = r#"
-            <a:p>
-                <a:pPr marL="285750" indent="-285750">
-                    <a:buClr>
-                        <a:srgbClr val="000000" />
-                    </a:buClr>
-                    <a:buFont typeface="Arial" panose="020B0604020202020204" pitchFamily="34" charset="0" />
-                    <a:buChar char="•" />
-                    <a:defRPr />
-                </a:pPr>
-                <a:r>
-                    <a:rPr kumimoji="0" lang="en-US" sz="1400" b="0" i="0" u="none" strike="noStrike" kern="0" cap="all" spc="0" normalizeH="0" baseline="0" noProof="0" dirty="0">
-                        <a:ln>
-                            <a:noFill />
-                        </a:ln>
-                        <a:effectLst />
-                        <a:uLnTx />
-                        <a:uFillTx />
-                        <a:ea typeface="Arial" />
-                        <a:cs typeface="Arial" />
-                        <a:sym typeface="Arial" />
-                    </a:rPr>
-                    <a:t>FOOBARBAZ</a:t>
-                </a:r>
-                <a:endParaRPr kumimoji="0" sz="1400" b="0" i="0" u="none" strike="noStrike" kern="0" cap="none" spc="0" normalizeH="0" baseline="0" noProof="0" dirty="0">
-                    <a:ln>
-                        <a:noFill />
-                    </a:ln>
-                    <a:effectLst>
-                        <a:blur/>
-                        <a:glow/>
-                        <a:reflection/>
-                    </a:effectLst>
-                    <a:uLnTx />
-                    <a:uFillTx />
-                    <a:cs typeface="Arial" />
-                    <a:sym typeface="Arial" />
-                </a:endParaRPr>
-            </a:p>
-            "#;
-            let _value = parse_ooxml_paragraph(paragraph).unwrap();
-            let result = replace_paragraph_in_xml(&content, "achievement", None);
+            let values = to_string(vec!["FOO", "BAR", "BAZ"]);
+            let result = replace_placeholder_with_bullets(&content, "achievement", values);
             assert!(result.contains("FOO"));
             assert!(result.contains("BAR"));
             assert!(result.contains("BAZ"));
