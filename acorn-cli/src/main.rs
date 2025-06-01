@@ -64,6 +64,7 @@ fn main() -> Void {
                 .init();
         }
     }
+    let Arguments { offline, .. } = args;
     match &args.command {
         | Some(Commands::Check {
             path,
@@ -74,9 +75,9 @@ fn main() -> Void {
             exit_on_first_error,
             merge_request,
             ..
-        }) => commands::check::run(path, branch, commit, ignore, skip, exit_on_first_error, merge_request),
-        | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check),
-        | Some(Commands::Download { buckets, output, .. }) => commands::download::run(buckets, output),
+        }) => commands::check::run(path, branch, commit, ignore, skip, exit_on_first_error, merge_request, &offline),
+        | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline),
+        | Some(Commands::Download { buckets, output, .. }) => commands::download::run(buckets, output, &offline),
         | Some(Commands::Export {
             output,
             path,
@@ -89,7 +90,19 @@ fn main() -> Void {
             merge_request,
             schema,
             ..
-        }) => commands::export::run(output, path, branch, commit, format, reference, size, target, merge_request, schema),
+        }) => commands::export::run(
+            output,
+            path,
+            branch,
+            commit,
+            format,
+            reference,
+            size,
+            target,
+            merge_request,
+            schema,
+            &offline,
+        ),
         | Some(Commands::Format {
             path,
             branch,
@@ -99,7 +112,7 @@ fn main() -> Void {
             merge_request,
             verbose,
             ..
-        }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose),
+        }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose, &offline),
         | None => Ok(()),
     }
 }

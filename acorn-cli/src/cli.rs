@@ -24,6 +24,11 @@ use crate::util::*;
 #[derive(Debug, Parser)]
 #[command(author, version, about, verbatim_doc_comment)]
 pub struct Arguments {
+    /// Prevent communication with the internet - intended for disconnected local environments
+    ///
+    /// Note: Use of --offline may require extra configuration options for certain commands
+    #[arg(long, value_name = "BOOL")]
+    pub offline: bool,
     #[command(flatten)]
     pub verbose: Verbosity,
     #[command(subcommand)]

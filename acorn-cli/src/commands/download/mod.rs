@@ -6,7 +6,11 @@ use std::path::PathBuf;
 use tracing::error;
 
 #[allow(clippy::too_many_arguments)]
-pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>) -> Result<(), Report> {
+pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) -> Result<(), Report> {
+    if *offline {
+        println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
+        unimplemented!("Offline mode is not implemented yet");
+    }
     if let Some(path) = buckets {
         match BucketsConfig::read_json(path.clone()) {
             | Ok(content) => {

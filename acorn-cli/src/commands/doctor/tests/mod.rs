@@ -4,6 +4,8 @@ use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation
 use color_eyre::eyre::Result;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
+const OFFLINE: bool = false;
+
 #[test]
 fn test_should_run() {
     // Test for specific diagnostics
@@ -32,40 +34,40 @@ fn test_should_run() {
 #[test]
 fn test_run_with_valid_diagnostics() -> Result<()> {
     // Test with individual diagnostics
-    let result = run(&false, &false, &[Diagnostic::System]);
+    let result = run(&false, &false, &[Diagnostic::System], &OFFLINE);
     assert!(result.is_ok());
-    let result = run(&false, &false, &[Diagnostic::Memory]);
+    let result = run(&false, &false, &[Diagnostic::Memory], &OFFLINE);
     assert!(result.is_ok());
-    let result = run(&false, &false, &[Diagnostic::Network]);
+    let result = run(&false, &false, &[Diagnostic::Network], &OFFLINE);
     assert!(result.is_ok());
     // Test with multiple diagnostics
-    let result = run(&false, &false, &[Diagnostic::System, Diagnostic::Memory]);
+    let result = run(&false, &false, &[Diagnostic::System, Diagnostic::Memory], &OFFLINE);
     assert!(result.is_ok());
     // Test with All diagnostic
-    let result = run(&false, &false, &[Diagnostic::All]);
+    let result = run(&false, &false, &[Diagnostic::All], &OFFLINE);
     assert!(result.is_ok());
     Ok(())
 }
 #[test]
 fn test_gpu_diagnostic_warning() -> Result<()> {
     // GPU is not implemented yet, but should not fail
-    let result = run(&false, &false, &[Diagnostic::Gpu]);
+    let result = run(&false, &false, &[Diagnostic::Gpu], &OFFLINE);
     assert!(result.is_ok());
     Ok(())
 }
 #[test]
 fn test_unimplemented_features() {
     // Test fix option - should panic with unimplemented message
-    let result = catch_unwind(AssertUnwindSafe(|| run(&true, &false, &[Diagnostic::System])));
+    let result = catch_unwind(AssertUnwindSafe(|| run(&true, &false, &[Diagnostic::System], &OFFLINE)));
     assert!(result.is_err());
     // Test interactive option - should panic with unimplemented message
-    let result = catch_unwind(AssertUnwindSafe(|| run(&false, &true, &[Diagnostic::System])));
+    let result = catch_unwind(AssertUnwindSafe(|| run(&false, &true, &[Diagnostic::System], &OFFLINE)));
     assert!(result.is_err());
 }
 #[test]
 fn test_run_with_empty_diagnostics() -> Result<()> {
     // With empty diagnostics list, nothing should run but it should not error
-    let result = run(&false, &false, &[]);
+    let result = run(&false, &false, &[], &OFFLINE);
     assert!(result.is_ok());
     Ok(())
 }
@@ -131,7 +133,7 @@ fn test_diagnostic_combinations() -> Result<()> {
         vec![Diagnostic::All],
     ];
     for diagnostics in test_cases {
-        let result = run(&false, &false, &diagnostics);
+        let result = run(&false, &false, &diagnostics, &OFFLINE);
         assert!(result.is_ok(), "Failed with diagnostics: {:?}", diagnostics);
     }
     Ok(())
@@ -140,10 +142,10 @@ fn test_diagnostic_combinations() -> Result<()> {
 fn test_edge_case_invalid_combination() -> Result<()> {
     // Test Gpu (unimplemented) with other valid diagnostics
     // Should not fail, but will log a warning
-    let result = run(&false, &false, &[Diagnostic::System, Diagnostic::Gpu]);
+    let result = run(&false, &false, &[Diagnostic::System, Diagnostic::Gpu], &OFFLINE);
     assert!(result.is_ok());
     // Test with Software diagnostic
-    let result = run(&false, &false, &[Diagnostic::Software]);
+    let result = run(&false, &false, &[Diagnostic::Software], &OFFLINE);
     assert!(result.is_ok());
     Ok(())
 }

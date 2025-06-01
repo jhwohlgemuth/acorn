@@ -1,5 +1,6 @@
 use crate::util::Diagnostic;
 use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
+use acorn_lib::util::Label;
 use color_eyre::eyre::{Report, Result};
 use tracing::warn;
 
@@ -7,7 +8,11 @@ fn should_run(checks: &[Diagnostic], diagnostic: Diagnostic) -> bool {
     [diagnostic, Diagnostic::All].iter().any(|&x| checks.contains(&x))
 }
 #[allow(clippy::too_many_arguments)]
-pub fn run(fix: &bool, interactive: &bool, check: &[Diagnostic]) -> Result<(), Report> {
+pub fn run(fix: &bool, interactive: &bool, check: &[Diagnostic], offline: &bool) -> Result<(), Report> {
+    if *offline {
+        println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
+        unimplemented!("Offline mode is not implemented yet");
+    }
     if *fix {
         unimplemented!("Autofix is not implemented yet");
     }

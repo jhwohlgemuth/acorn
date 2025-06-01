@@ -143,7 +143,12 @@ pub fn run(
     target: &Target,
     merge_request: &bool,
     schema: &bool,
+    offline: &bool,
 ) -> Result<(), Report> {
+    if *offline {
+        println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
+        unimplemented!("Offline mode is not implemented yet");
+    }
     let options = Options::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())

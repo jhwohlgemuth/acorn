@@ -14,7 +14,12 @@ pub fn run(
     skip: &[Check],
     exit_on_first_error: &bool,
     merge_request: &bool,
+    offline: &bool,
 ) -> Result<(), Report> {
+    if *offline {
+        println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
+        unimplemented!("Offline mode is not implemented yet");
+    }
     let options = Options::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
