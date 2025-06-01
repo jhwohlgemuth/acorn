@@ -29,8 +29,16 @@
     "title": "Valid Highlight",
     "subtitle": "This is a subtitle",
     "sections": {
-        "achievement": "This is an achievement.",
-        "impact": "This is the impact.",
+        "achievement": [
+            "This is an achievement",
+            "This is another achievement",
+            "This is yet another achievement"
+        ],
+        "impact": [
+            "This is an impact",
+            "This is another impact",
+            "This is yet another impact"
+        ],
         "technical": [
             "Here is a technical approach",
             "Here is more technical approach",

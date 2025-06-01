@@ -29,8 +29,18 @@
     "title": "Invalid Highlight",
     "subtitle": "This is a subtitle",
     "sections": {
-        "achievement": "Put your achievement here.",
-        "impact": "Put your impact here.",
+        "achievement": [
+            "Put your achievement here.",
+            "Can have ",
+            "Up to",
+            "Four",
+            "Bullets"
+        ],
+        "impact": [
+            "This is an impact statement.",
+            "This is another impact",
+            "This is yet another impact"
+        ],
         "technical": [
             "Technical",
             "Approach",
