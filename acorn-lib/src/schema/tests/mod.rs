@@ -413,7 +413,20 @@ fn test_validate_is_phone_number() {
         "+15551234567",
         "(555) 123-4567",
     ];
-    let invalid = ["42", "1 (555) 123-4567", "1234-567", "123-4567"];
+    let invalid = [
+        // Just a number
+        "42",
+        // Missing country code sign
+        "1 (555) 123-4567",
+        // Wrong number of digits
+        "1234-567",
+        // Missing area code
+        "123-4567",
+        // Fake
+        "555.555.5555",
+        // Fake
+        "555-555-5555",
+    ];
     for x in valid.iter() {
         assert!(is_phone_number(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid phone number");
     }

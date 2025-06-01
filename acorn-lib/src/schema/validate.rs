@@ -68,8 +68,12 @@ pub fn is_kebabcase(value: &str) -> Result<(), ValidationError> {
 }
 pub fn is_phone_number(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid phone number";
+    let is_fake = match RE_FAKE_PHONE.is_match(value) {
+        | Ok(value) if value => true,
+        | _ => false,
+    };
     match RE_PHONE.is_match(value) {
-        | Ok(value) if value => Ok(()),
+        | Ok(value) if value && !is_fake => Ok(()),
         | _ => Err(ValidationError::new("phone").with_message(MESSAGE.into())),
     }
 }
