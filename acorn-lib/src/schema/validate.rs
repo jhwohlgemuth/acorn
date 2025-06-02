@@ -12,6 +12,37 @@ pub fn format_errors(found: Vec<Option<HashMap<String, ValidationErrorsKind>>>) 
         acc
     })
 }
+pub fn format_phone_number(value: &str) -> Result<String, ()> {
+    match RE_PHONE.captures(value) {
+        | Ok(value) => match value {
+            | Some(captures) => {
+                let country_code = match captures.name("country") {
+                    | Some(value) => Some(value.as_str().trim().to_string()),
+                    | None => None,
+                };
+                let area_code = match captures.name("area") {
+                    | Some(value) => Some(value.as_str().replace("(", "").replace(")", "")),
+                    | None => None,
+                };
+                let prefix = match captures.name("prefix") {
+                    | Some(value) => Some(value.as_str().to_string()),
+                    | None => None,
+                };
+                let line = match captures.name("line") {
+                    | Some(value) => Some(value.as_str().to_string()),
+                    | None => None,
+                };
+                Ok([country_code, area_code, prefix, line]
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<String>>()
+                    .join("."))
+            }
+            | None => Err(()),
+        },
+        | _ => Err(()),
+    }
+}
 pub fn get_validation_errors<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
     match attribute.validate() {
         | Ok(_) => None,

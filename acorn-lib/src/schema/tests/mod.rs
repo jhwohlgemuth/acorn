@@ -14,6 +14,17 @@ fn test_classification() {
     assert!(ClassificationLevel::Secret < ClassificationLevel::TopSecret);
 }
 #[test]
+fn test_format_phone_number() {
+    let no_country_code = ["555-123-4567", "555.123.4567", "(555) 123-4567"];
+    for x in no_country_code.iter() {
+        assert_eq!(format_phone_number(x), Ok("555.123.4567".to_string()));
+    }
+    let with_country_code = ["+1 (555) 123-4567", "+1 (555) 123.4567", "+15551234567"];
+    for x in with_country_code.iter() {
+        assert_eq!(format_phone_number(x), Ok("+1.555.123.4567".to_string()));
+    }
+}
+#[test]
 fn test_fuzzy_matching_keywords() {
     let name = "keywords".to_string();
     let exact: String = "critical-infrastructure".into();

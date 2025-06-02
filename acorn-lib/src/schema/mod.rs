@@ -891,6 +891,13 @@ impl ResearchActivity {
         clone.meta.graphics = Some(vec![first_graphic]);
         clone.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
         clone.meta.technology = self.clone().resolve(FuzzyValue::Technology);
+        clone.contact.telephone = match format_phone_number(&self.contact.telephone) {
+            | Ok(value) => value,
+            | Err(_) => {
+                error!(value = self.contact.telephone, "=> {} Phone number", Label::invalid());
+                self.contact.telephone.to_string()
+            }
+        };
         clone.contact.organization = match resolve_from_organization_json(self.clone().contact.organization) {
             | Some(value) => value,
             | None => "".to_string(),
