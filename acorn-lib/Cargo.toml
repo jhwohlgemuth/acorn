@@ -75,6 +75,9 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 uriparse = { workspace = true }
 
+[target.'cfg(unix)'.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+
 [dev-dependencies]
 mockall = "0.13.1"
 pretty_assertions = "1.4.1"
