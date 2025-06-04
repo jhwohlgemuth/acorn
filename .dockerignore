@@ -1,0 +1,10 @@
+.DS_store
+.env
+/.vale
+/.vscode
+/.vale
+/bin
+/content
+/export
+/extract
+/target
