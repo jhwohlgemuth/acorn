@@ -277,7 +277,7 @@ impl StaticAnalyzer for Vale {
                 Ok(())
             }
             | Err(why) => {
-                error!("=> {} Vale sync - {}", Label::fail(), why);
+                error!(config = path_to_string(config_path), "=> {} Vale sync - {}", Label::fail(), why);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
