@@ -24,7 +24,7 @@ pub mod util;
 use crate::schema::SchemaType;
 use crate::util::*;
 
-const SCHEMA_TYPES: [SchemaType; 3] = [SchemaType::Project, SchemaType::Organization, SchemaType::Highlight];
+const SCHEMA_TYPES: [SchemaType; 2] = [SchemaType::Project, SchemaType::Organization];
 
 #[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 #[serde(rename_all = "lowercase")]
@@ -157,10 +157,17 @@ impl Bucket {
                     progress.set_message(format!("Downloading {}", path));
                     let folder = format!("{}/{}", output.display(), get_parent(path.clone()));
                     std::fs::create_dir_all(folder.clone()).unwrap();
-                    let mut file = File::create(format!("{}/{}", output.display(), path)).unwrap();
-                    let response = client.get(url).send().unwrap();
-                    let mut content = Cursor::new(response.bytes().unwrap());
-                    let _ = copy(&mut content, &mut file);
+                    if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
+                        let bytes = match client.get(url).send() {
+                            | Ok(response) => match response.bytes() {
+                                | Ok(bytes) => bytes,
+                                | Err(why) => panic!("Failed to convert to bytes {} - {why}", path),
+                            },
+                            | Err(why) => panic!("Failed to download {} - {why}", path),
+                        };
+                        let mut content = Cursor::new(bytes);
+                        let _ = copy(&mut content, &mut file);
+                    };
                     progress.inc(1);
                 });
                 let total_data: usize = paths.clone().into_iter().filter(|path| path.to_lowercase().ends_with(".json")).count();
