@@ -24,6 +24,7 @@ pub mod util;
 use crate::schema::SchemaType;
 use crate::util::*;
 
+const IGNORE: [&str; 4] = [".gitignore", ".gitkeep", ".DS_Store", "README.md"];
 const SCHEMA_TYPES: [SchemaType; 2] = [SchemaType::Project, SchemaType::Organization];
 
 #[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
@@ -139,9 +140,8 @@ impl Bucket {
             (if value == 1 { "" } else { "s" }).to_string()
         }
         let counts = SCHEMA_TYPES.into_iter().map(|schema_type| match self.code_repository {
-            | Repository::GitHub { .. } => todo!(),
+            | Repository::GitHub { ref uri, .. } => todo!("Add support for GitHub repositories like {uri}"),
             | Repository::GitLab { ref uri, .. } => {
-                const IGNORE: [&str; 4] = [".gitignore", ".gitkeep", ".DS_Store", "README.md"];
                 info!("=> Downloading {} research data from {}...", schema_type, uri.clone());
                 let paths = self
                     .clone()
@@ -158,15 +158,20 @@ impl Bucket {
                     let folder = format!("{}/{}", output.display(), get_parent(path.clone()));
                     std::fs::create_dir_all(folder.clone()).unwrap();
                     if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
-                        let bytes = match client.get(url).send() {
+                        match client.get(url).send() {
                             | Ok(response) => match response.bytes() {
-                                | Ok(bytes) => bytes,
-                                | Err(why) => panic!("Failed to convert to bytes {} - {why}", path),
+                                | Ok(bytes) => {
+                                    let mut content = Cursor::new(bytes);
+                                    let _ = copy(&mut content, &mut file);
+                                }
+                                | Err(why) => {
+                                    error!(path, "=> {} Failed to convert to bytes - {why}", Label::fail());
+                                }
                             },
-                            | Err(why) => panic!("Failed to download {} - {why}", path),
-                        };
-                        let mut content = Cursor::new(bytes);
-                        let _ = copy(&mut content, &mut file);
+                            | Err(why) => {
+                                error!(path, "=> {} Failed to download - {why}", Label::fail());
+                            }
+                        }
                     };
                     progress.inc(1);
                 });
