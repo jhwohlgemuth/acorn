@@ -33,7 +33,7 @@
     "title": "Export Ready Project",
     "subtitle": "When you need validity choose this project",
     "sections": {
-        "introduction": "ORNL does lots of big science with big impact.",
+        "mission": "ORNL does lots of big science with big impact.",
         "challenge": "Doing big science with big impact is not easy.",
         "approach": "ORNL finds big problems and does big science with big impact.",
         "outcomes": [

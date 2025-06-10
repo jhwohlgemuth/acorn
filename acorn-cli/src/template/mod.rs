@@ -129,7 +129,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
     let ContactPoint { affiliation, .. } = contact;
     let node = match &data.sections {
         | Sections::Project(ProjectSections {
-            introduction,
+            mission,
             challenge,
             approach,
             outcomes,
@@ -169,7 +169,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
                         <div class="main">
                             <main>
                                 <section>
-                                    <p>{ introduction }</p>
+                                    <p>{ mission }</p>
                                 </section>
                                 <section>
                                     <h3>{ "Challenge" }</h3>

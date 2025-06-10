@@ -464,8 +464,8 @@ pub struct ProjectSections {
         max = "MAX_LENGTH_SECTION_INTRODUCTION",
         message = "Introduction is too long, please reduce the length below 250."
     ))]
-    #[serde(deserialize_with = "string_trim")]
-    pub introduction: String,
+    #[serde(alias = "introduction", deserialize_with = "string_trim")]
+    pub mission: String,
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_CHALLENGE",
@@ -776,7 +776,7 @@ impl ResearchActivity {
                 )
             }
             | Sections::Project(ProjectSections {
-                introduction,
+                mission,
                 challenge,
                 approach,
                 outcomes,
@@ -803,7 +803,7 @@ impl ResearchActivity {
 
 <!-- Areas -->
 {}"#,
-                    introduction,
+                    mission,
                     challenge,
                     approach,
                     outcomes.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),

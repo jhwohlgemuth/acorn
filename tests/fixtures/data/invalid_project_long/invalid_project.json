@@ -36,7 +36,7 @@
   "title": "Invalid Project",
   "subtitle": "The subtitle for this project is fun but with a subtile that is way too long, that is it contains too many characters and should trigger an error",
   "sections": {
-    "introduction": "ACORN standardizes and automates the research content creation process to better communicate projects, capabilities, technology and, therefore, the people at ORNL.",
+    "mmission": "ACORN standardizes and automates the research content creation process to better communicate projects, capabilities, technology and, therefore, the people at ORNL.",
     "challenge": "Research project communication mediums should be straightforward and standardized. However, the creation process is often cumbersome, involving multiple editing rounds among different teams. Once created, there is often no version control, stewardship or central content repository.",
     "approach": "ACORN encompasses a project workflow with automated JSON schema builds, language and structure validation, and GitLab accessibility. Through ACORN's automation and collaboration features, teams can maintain accurate, creative, standardized content products and repositories.",
     "outcomes": [
