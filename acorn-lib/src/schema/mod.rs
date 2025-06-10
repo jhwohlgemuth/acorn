@@ -501,8 +501,6 @@ pub struct OrganizationSections {
     #[validate(length(min = 1), custom(function = "validate_attribute_impact"))]
     #[serde(deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
-    #[validate(custom(function = "validate_attribute_facilities"))]
-    pub facilities: Option<Vec<String>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Research {
@@ -817,7 +815,6 @@ impl ResearchActivity {
                 mission,
                 capabilities,
                 impact,
-                facilities,
             }) => {
                 format!(
                     r#"
@@ -828,19 +825,10 @@ impl ResearchActivity {
 {}
 
 <!-- Impact -->
-{}
-
-<!-- Facilities -->
 {}"#,
                     mission,
                     capabilities.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
                     impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
-                    facilities
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(|x| format!("- {}", x))
-                        .collect::<Vec<String>>()
-                        .join("\n")
                 )
             }
         };

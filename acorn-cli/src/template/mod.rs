@@ -333,7 +333,6 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
             mission,
             capabilities,
             impact,
-            facilities,
         }) => {
             let ContactPoint { affiliation, .. } = &data.contact;
             let label = match affiliation {
@@ -372,10 +371,6 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
                 <aside>
                     <div class="graphic"><img src={ graphic }/></div>
                     <div class="caption">{ caption }</div>
-                    <div class="research-focus">
-                        <h3>{ "Facilities" }</h3>
-                        <ul><li>{ facilities.clone().unwrap_or_default().join("</li><li>") }</li></ul>
-                    </div>
                     <div class="qrcode">
                         <img src={ qrcode }/>
                     </div>
