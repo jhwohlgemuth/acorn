@@ -18,8 +18,12 @@ exclude = [".vale", ".vscode"]
 # cargo = "warn"
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+missing-docs = "allow"
 rust-2018-idioms = "warn"
+unsafe_code = "forbid"
+
+[workspace.lints.rustdoc]
+broken-intra-doc-links = "forbid"
 
 [workspace.dependencies]
 color-eyre = "0.6.3"

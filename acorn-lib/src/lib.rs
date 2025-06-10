@@ -1,3 +1,6 @@
+//! # ACORN Library
+//!
+//! This library provides functions for working with [ACORN](https://acorn.ornl.gov) data and supports the ACORN CLI.
 use color_eyre::eyre;
 use derive_more::Display;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -24,35 +27,85 @@ pub mod util;
 use crate::schema::SchemaType;
 use crate::util::*;
 
-const IGNORE: [&str; 4] = [".gitignore", ".gitkeep", ".DS_Store", "README.md"];
+/// Files to ignore
+///
+/// - `.gitignore`
+/// - `.gitkeep`
+/// - `.DS_Store`
+/// - `README.md`
+pub const IGNORE: [&str; 4] = [".gitignore", ".gitkeep", ".DS_Store", "README.md"];
 const SCHEMA_TYPES: [SchemaType; 2] = [SchemaType::Project, SchemaType::Organization];
 
+/// Type for GitLab tree entry
 #[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 #[serde(rename_all = "lowercase")]
 pub enum EntryType {
+    /// List of files and directories
+    ///
+    /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
     #[display("tree")]
     Tree,
+    /// Base64 enoded content
+    ///
+    /// See <https://docs.gitlab.com/api/repositories/#get-a-blob-from-repository>
     #[display("blob")]
     Blob,
 }
+/// Git hosting repository data
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
 #[serde(tag = "provider", rename_all = "lowercase")]
 pub enum Repository {
+    /// GitHub
+    /// 
+    /// See <https://docs.github.com/en/rest/reference/repos>
     #[display("github")]
-    GitHub { uri: String },
+    GitHub {
+        /// Repository URI
+        uri: String
+    },
+    /// GitLab
+    /// 
+    /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
     #[display("gitlab")]
     GitLab {
         /// Integer ID of GitLab project
         ///
         /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
         id: u64,
+        /// Repository URI
         uri: String,
     },
 }
+/// Struct for buckets configuration
+///
+/// ### Example buckets.json
+/// ```json
+/// {
+///     "buckets": [
+///         {
+///             "name": "example",
+///             "repository": {
+///                 "provider": "github",
+///                 "uri": "https://github.com/username/example"
+///             }
+///         },
+///         {
+///             "name": "example",
+///             "repository": {
+///                 "provider": "gitlab",
+///                 "id": 12345,
+///                 "uri": "https://gitlab.com/username/example"
+///             }
+///         }
+///     ]
+/// }
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BucketsConfig {
+    /// List of buckets
     pub buckets: Vec<Bucket>,
 }
+/// Struct for bucket data
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Bucket {
@@ -70,16 +123,29 @@ pub struct Bucket {
     #[serde(alias = "repository")]
     pub code_repository: Repository,
 }
+/// Struct for GitLab tree entry
+///
+/// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GitlabTreeEntry {
+    /// Integer ID of GitLab project
+    /// 
+    /// See <https://docs.gitlab.com/api/projects/#get-a-single-project>
     pub id: String,
+    /// Name of tree entry
     pub name: String,
+    /// Type of tree entry
     #[serde(rename = "type")]
     pub entry_type: EntryType,
+    /// Path of tree entry
+    /// 
+    /// The path inside the repository. Used to get content of subdirectories.
     pub path: String,
+    /// Mode of tree entry
     pub mode: String,
 }
 impl Bucket {
+    /// Parse GitLab tree entries
     fn parse(response: reqwest::blocking::Response) -> Vec<String> {
         let content = response.text().unwrap();
         let data: Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
@@ -96,6 +162,7 @@ impl Bucket {
             }
         }
     }
+    /// Get hosting domain from bucket struct
     fn get_domain(&self) -> String {
         fn default_domain(repository: Repository) -> String {
             match repository {
@@ -135,6 +202,9 @@ impl Bucket {
         debug!(url = url.as_str(), "=> {}", Label::using());
         url
     }
+    /// Download files from bucket to local directory
+    ///
+    /// Ignores files listed in [`IGNORE`]
     pub fn download_files(self: Bucket, output: PathBuf) -> usize {
         fn get_suffix(value: usize) -> String {
             (if value == 1 { "" } else { "s" }).to_string()
@@ -217,7 +287,6 @@ impl Bucket {
         });
         counts.into_iter().sum()
     }
-    // https://docs.gitlab.com/ee/api/repositories.html
     fn get_file_paths(self: Bucket, schema_type: SchemaType) -> Vec<String> {
         const FIRST_PAGE: u32 = 1;
         match self.code_repository {
@@ -276,6 +345,7 @@ impl Bucket {
     }
 }
 impl BucketsConfig {
+    /// Read buckets configuration using Serde and [`BucketsConfig`] struct
     pub fn read_json(path: PathBuf) -> Result<BucketsConfig> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,

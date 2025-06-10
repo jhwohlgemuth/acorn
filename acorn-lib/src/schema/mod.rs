@@ -28,7 +28,8 @@ pub mod validate;
 use graph::*;
 use validate::*;
 
-/// ### Core concepts related to the associated research activity
+/// ## Keywords
+/// > Core concepts related to the associated research activity
 ///
 /// Could be used to filter research activity data and/or power data analytics through concept composition
 ///
@@ -135,7 +136,8 @@ pub enum SchemaType {
     #[display("organization")]
     Organization,
 }
-/// Technology readiness levels (TRLs) are a method for estimating the maturity of technologies during the acquisition phase of a program.
+/// ## TRL
+/// > Technology readiness levels (TRLs) are a method for estimating the maturity of technologies during the acquisition phase of a program.
 ///
 /// The "optimal point" to introduce technology depends on technology maturity (TRL) and program requirements. That point can be virtually anywhere in the acquisition process.
 ///
@@ -312,7 +314,7 @@ pub struct Metadata {
     /// Draft content typically will be omitted from public artifacts such as <https://research.ornl.gov>
     #[builder(default = true)]
     pub draft: bool,
-    /// <abbr title"Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
+    /// <abbr title="Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
     pub trl: Option<TechnologyReadinessLevel>,
     #[validate(nested)]
     pub websites: Option<Vec<Website>>,
@@ -392,7 +394,8 @@ pub struct Organization {
     /// See <https://schema.org/member>
     pub member: Vec<Organization>,
 }
-/// ### Research activity is an identifiable package of work involving organized, systematic investigation.
+/// ## Research Activity
+/// > Research activity is an identifiable package of work involving organized, systematic investigation.
 ///
 /// See <https://www.raid.org/> for more information
 #[skip_serializing_none]
@@ -412,7 +415,8 @@ pub struct ResearchActivity {
     pub contact: ContactPoint,
     pub notes: Option<Other>,
 }
-/// Website link and title description
+/// ## Website
+/// > Website link and title description
 ///
 /// **Example**: When deserializing research activity data, websites can be provided as a list of JSON objects.
 /// ```json

@@ -54,11 +54,13 @@ pub const MAX_LENGTH_TECHNICAL: usize = 100;
 pub const MAX_LENGTH_TITLE: u64 = 45;
 
 lazy_static! {
-    /// ### Should match a Digital Object Identifier (DOI)
+    /// ### DOI
+    /// > Should match a Digital Object Identifier (DOI)
     ///
     /// See <https://www.doi.org/> for more information
     pub static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
-    /// ### Should match a Research Organization Registry (ROR)
+    /// ### ROR
+    /// > Should match a Research Organization Registry (ROR)
     ///
     /// See <https://www.ror.org/> for more information
     pub static ref RE_ROR: Regex = Regex::new(r#"^0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2}$"#).unwrap();
