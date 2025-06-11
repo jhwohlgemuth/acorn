@@ -56,15 +56,15 @@ pub enum EntryType {
 #[serde(tag = "provider", rename_all = "lowercase")]
 pub enum Repository {
     /// GitHub
-    /// 
+    ///
     /// See <https://docs.github.com/en/rest/reference/repos>
     #[display("github")]
     GitHub {
         /// Repository URI
-        uri: String
+        uri: String,
     },
     /// GitLab
-    /// 
+    ///
     /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
     #[display("gitlab")]
     GitLab {
@@ -129,7 +129,7 @@ pub struct Bucket {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GitlabTreeEntry {
     /// Integer ID of GitLab project
-    /// 
+    ///
     /// See <https://docs.gitlab.com/api/projects/#get-a-single-project>
     pub id: String,
     /// Name of tree entry
@@ -138,7 +138,7 @@ pub struct GitlabTreeEntry {
     #[serde(rename = "type")]
     pub entry_type: EntryType,
     /// Path of tree entry
-    /// 
+    ///
     /// The path inside the repository. Used to get content of subdirectories.
     pub path: String,
     /// Mode of tree entry

@@ -144,6 +144,7 @@ pub enum SchemaType {
 /// See [Technology Readiness for Machine Learning Systems](https://doi.org/10.1038/s41467-022-33128-9) for applying TRLs to machine learning (ML) systems
 #[derive(Clone, Debug, Default, Display, Serialize_repr, Deserialize_repr, PartialEq, PartialOrd, JsonSchema)]
 #[repr(u8)]
+#[serde(deny_unknown_fields)]
 pub enum TechnologyReadinessLevel {
     /// A stage for greenfield research
     ///
@@ -201,7 +202,7 @@ pub enum TechnologyReadinessLevel {
 ///
 /// See <https://schema.org/ContactPoint>
 #[derive(Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ContactPoint {
     /// ### Job title (e.g. "Group Lead") of role that the contact fills related to the asscociated research activity.
     ///
@@ -256,6 +257,7 @@ pub struct ContactPoint {
 }
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields)]
 pub struct Graphic {
     #[validate(length(max = "MAX_LENGTH_GRAPHIC_CAPTION", message = "Caption is too long, please reduce the length below 100."))]
     #[serde(deserialize_with = "string_trim")]
@@ -267,7 +269,7 @@ pub struct Graphic {
 #[skip_serializing_none]
 #[derive(Clone, Builder, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Metadata {
     pub classification: Option<ClassificationLevel>,
     /// ### Identifier for associated research activity data
@@ -356,6 +358,7 @@ pub struct Metadata {
 }
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields)]
 pub struct Notes {
     /// ### [ASCR](https://www.energy.gov/science/ascr/advanced-scientific-computing-research) highlight attribute
     pub managers: Option<Vec<String>>,
@@ -367,7 +370,7 @@ pub struct Notes {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
 #[display("Organization ({additional_type}) - {name})")]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Organization {
     /// ### Full name of the organization
     ///
@@ -401,6 +404,7 @@ pub struct Organization {
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
+#[serde(deny_unknown_fields)]
 pub struct ResearchActivity {
     #[validate(nested)]
     pub meta: Metadata,
@@ -435,6 +439,7 @@ pub struct ResearchActivity {
 /// ```
 ///
 #[derive(Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Website {
     /// Brief description of webpage content
     ///
@@ -446,6 +451,7 @@ pub struct Website {
     pub url: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields)]
 pub struct HighlightSections {
     #[validate(length(max = 4, message = "Please limit the number of achievements to 4"))]
     #[serde(alias = "scientific achievement", deserialize_with = "vec_string_trim")]
@@ -462,6 +468,7 @@ pub struct HighlightSections {
     pub technical: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields)]
 pub struct ProjectSections {
     #[validate(length(
         min = 10,
@@ -491,6 +498,7 @@ pub struct ProjectSections {
     pub research: Research,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields)]
 pub struct OrganizationSections {
     #[validate(length(
         min = 10,
@@ -507,6 +515,7 @@ pub struct OrganizationSections {
     pub impact: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields)]
 pub struct Research {
     #[validate(length(
         min = 10,
