@@ -22,8 +22,8 @@ pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
 // Validation
 /// Maxumum number of [capabilities](/acorn_lib/schema/struct.OrganizationSections.html#structfield.capabilities) for an [organization](/acorn_lib/schema/enum.SchemaType.html#variant.Organization)
 pub const MAX_COUNT_CAPABILITIES: u64 = 6;
-/// Maxumum number of [outcomes](/acorn_lib/schema/struct.ProjectSections.html#structfield.outcomes) for a [project](/acorn_lib/schema/enum.SchemaType.html#variant.Project)
-pub const MAX_COUNT_OUTCOMES: u64 = 6;
+/// Maxumum number of [impact statements](/acorn_lib/schema/struct.ProjectSections.html#structfield.impact) for a [project](/acorn_lib/schema/enum.SchemaType.html#variant.Project)
+pub const MAX_COUNT_IMPACT: u64 = 6;
 /// Maximum number of [research areas](/acorn_lib/schema/struct.Research.html#structfield.areas)
 pub const MAX_COUNT_RESEARCH_AREAS: u64 = 4;
 /// Maximum number of characters for a single [capability](/acorn_lib/schema/struct.OrganizationSections.html#structfield.capabilities) description
@@ -33,9 +33,7 @@ pub const MAX_LENGTH_FACILITY: usize = 50;
 /// Maximum number of characters for a single graphic caption
 pub const MAX_LENGTH_GRAPHIC_CAPTION: u64 = 100;
 /// Maximum number of characters for a single impact description
-pub const MAX_LENGTH_IMPACT: usize = 400;
-/// Maximum number of characters for a single [outcome](/acorn_lib/schema/struct.ProjectSections.html#structfield.outcomes) description
-pub const MAX_LENGTH_OUTCOME: usize = 150;
+pub const MAX_LENGTH_IMPACT: usize = 150;
 /// Maximum number of characters for a single [research area](/acorn_lib/schema/struct.Research.html#structfield.areas) description
 pub const MAX_LENGTH_RESEARCH_AREA: usize = 40;
 /// Maximum number of characters for an single [research focus](/acorn_lib/schema/struct.Research.html#structfield.focus) description

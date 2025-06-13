@@ -324,14 +324,26 @@ fn test_validate_attribute_capabilities() {
 }
 #[test]
 fn test_validate_attribute_impact() {
-    let valid = ["x".repeat(10), "x".repeat(400)];
-    let invalid = ["x".repeat(401), "x".repeat(500)];
+    let valid = ["x".repeat(10), "x".repeat(150)];
+    let invalid = ["x".repeat(151), "x".repeat(500)];
     for x in valid.iter() {
         assert!(validate_attribute_impact(&[x.clone()]).is_ok());
     }
     for x in invalid.iter() {
         assert!(validate_attribute_impact(&[x.clone()]).is_err());
     }
+    assert!(validate_attribute_impact(&[
+        "This is an impact statement with no period".to_string(),
+        "This is another impact statement with no period".to_string(),
+        "This is a third impact statement with no period".to_string(),
+    ])
+    .is_ok());
+    assert!(validate_attribute_impact(&[
+        "This is an impact statement with no period".to_string(),
+        "This is another impact statement with no period".to_string(),
+        "This is an impact statement with a period.".to_string(),
+    ])
+    .is_err());
 }
 #[test]
 fn test_validate_attribute_technical_approach() {
@@ -342,17 +354,6 @@ fn test_validate_attribute_technical_approach() {
     }
     for x in invalid.iter() {
         assert!(validate_attribute_technical(&[x.clone()]).is_err());
-    }
-}
-#[test]
-fn test_validate_attribute_outcomes() {
-    let valid = [&"x".repeat(10), &"x".repeat(150), "this is a valid outcome"];
-    let invalid = [&"x".repeat(151), &"x".repeat(500), "outcome should not be a sentence."];
-    for x in valid.iter() {
-        assert!(validate_attribute_outcomes(&[x.to_string()]).is_ok());
-    }
-    for x in invalid.iter() {
-        assert!(validate_attribute_outcomes(&[x.to_string()]).is_err());
     }
 }
 #[test]

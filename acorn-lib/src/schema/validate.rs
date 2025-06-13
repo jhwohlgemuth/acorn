@@ -146,12 +146,23 @@ pub fn validate_attribute_facilities(value: &[String]) -> Result<(), ValidationE
         | _ => Err(ValidationError::new("facility").with_message(format!("Each facility should be less than {} characters", MAX_LENGTH).into())),
     }
 }
+// TODO: Check that statments start with capital letter (use regex for period and captial?)
 pub fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_IMPACT;
-    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("impact").with_message(format!("Each impact item should be less than {} characters", MAX_LENGTH).into())),
+    match value.iter().all(|x| x.len() <= MAX_LENGTH) {
+        | true => {
+            let all_periods = value.iter().all(|x| x.trim().ends_with("."));
+            let no_periods = value.iter().all(|x| !x.trim().ends_with("."));
+            let is_valid = all_periods || no_periods;
+            match is_valid {
+                | true => Ok(()),
+                | _ => Err(ValidationError::new("impact")
+                    .with_message("Impact statements should be all sentences with periods or all phrases without periods".into())),
+            }
+        }
+        | _ => {
+            Err(ValidationError::new("impact").with_message(format!("Each impact statement should be less than {} characters", MAX_LENGTH).into()))
+        }
     }
 }
 pub fn validate_attribute_technical(value: &[String]) -> Result<(), ValidationError> {
@@ -161,18 +172,5 @@ pub fn validate_attribute_technical(value: &[String]) -> Result<(), ValidationEr
         | true => Ok(()),
         | _ => Err(ValidationError::new("technical approach")
             .with_message(format!("Each element of technical approach should be less than {} characters", MAX_LENGTH).into())),
-    }
-}
-pub fn validate_attribute_outcomes(value: &[String]) -> Result<(), ValidationError> {
-    const MAX_LENGTH: usize = MAX_LENGTH_OUTCOME;
-    match value.iter().all(|x| x.len() <= MAX_LENGTH) {
-        | true => {
-            let is_valid = value.iter().all(|x| !x.trim().ends_with("."));
-            match is_valid {
-                | true => Ok(()),
-                | _ => Err(ValidationError::new("outcome").with_message("Outcomes should be phrases that do not end in periods".into())),
-            }
-        }
-        | _ => Err(ValidationError::new("outcome").with_message(format!("Each outcome should be less than {} characters", MAX_LENGTH).into())),
     }
 }

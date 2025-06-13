@@ -491,9 +491,9 @@ pub struct ProjectSections {
     ))]
     #[serde(deserialize_with = "string_trim")]
     pub approach: String,
-    #[validate(length(min = 1, max = "MAX_COUNT_OUTCOMES"), custom(function = "validate_attribute_outcomes"))]
-    #[serde(deserialize_with = "vec_string_trim")]
-    pub outcomes: Vec<String>,
+    #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
+    #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
+    pub impact: Vec<String>,
     #[validate(nested)]
     pub research: Research,
 }
@@ -510,7 +510,7 @@ pub struct OrganizationSections {
     #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
     #[serde(deserialize_with = "vec_string_trim")]
     pub capabilities: Vec<String>,
-    #[validate(length(min = 1), custom(function = "validate_attribute_impact"))]
+    #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
     #[serde(deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
 }
@@ -792,7 +792,7 @@ impl ResearchActivity {
                 mission,
                 challenge,
                 approach,
-                outcomes,
+                impact,
                 research,
                 ..
             }) => {
@@ -808,7 +808,7 @@ impl ResearchActivity {
 <!-- Approach -->
 {}
 
-<!-- Outcomes -->
+<!-- Impact -->
 {}
 
 <!-- Focus -->
@@ -819,7 +819,7 @@ impl ResearchActivity {
                     mission,
                     challenge,
                     approach,
-                    outcomes.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
+                    impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
                     focus,
                     areas.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
                 )

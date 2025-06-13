@@ -132,7 +132,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
             mission,
             challenge,
             approach,
-            outcomes,
+            impact,
             research,
             ..
         }) => {
@@ -180,9 +180,8 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
                                     <p>{ approach }</p>
                                 </section>
                                 <section>
-                                    <h3>{ "Outcomes" }</h3>
-                                    <p>{ "Previous and expected future outcomes include" }</p>
-                                    <ul><li>{ outcomes.join("</li><li>") }</li></ul>
+                                    <h3>{ "Impact" }</h3>
+                                    <ul><li>{ impact.join("</li><li>") }</li></ul>
                                 </section>
                             </main>
                             <aside>
