@@ -463,17 +463,17 @@ pub struct HighlightSections {
         length(max = 6, message = "Please limit the number of approaches to 6"),
         custom(function = "validate_attribute_technical")
     )]
-    #[serde(alias = "technical approach")]
     #[serde(deserialize_with = "vec_string_trim")]
-    pub technical: Vec<String>,
+    pub approach: Vec<String>,
 }
+#[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectSections {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_INTRODUCTION",
-        message = "Introduction is too long, please reduce the length below 250."
+        message = "Mission is too long, please reduce the length below 250."
     ))]
     #[serde(alias = "introduction", deserialize_with = "string_trim")]
     pub mission: String,
@@ -484,18 +484,16 @@ pub struct ProjectSections {
     ))]
     #[serde(deserialize_with = "string_trim")]
     pub challenge: String,
-    #[validate(length(
-        min = 10,
-        max = "MAX_LENGTH_SECTION_APPROACH",
-        message = "Approach is too long, please reduce the length below 500."
-    ))]
-    #[serde(deserialize_with = "string_trim")]
-    pub approach: String,
+    #[validate(
+        length(min = 1, max = "MAX_COUNT_APPROACH", message = "Please limit the number of approaches to 6"),
+        custom(function = "validate_attribute_approach")
+    )]
+    #[serde(deserialize_with = "vec_string_trim")]
+    pub approach: Vec<String>,
     #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
     #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
-    #[validate(length(max = 4, message = "Please limit the number of achievements to 4"))]
-    #[serde(alias = "scientific achievement")]
+    #[validate(length(min = 1, max = 4, message = "Please limit the number of achievements to 4"))]
     pub achievement: Option<Vec<String>>,
     #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
     pub capabilities: Option<Vec<String>>,
@@ -775,7 +773,7 @@ impl ResearchActivity {
             | Sections::Highlight(HighlightSections {
                 achievement,
                 impact,
-                technical,
+                approach,
             }) => {
                 format!(
                     r#"
@@ -795,7 +793,7 @@ impl ResearchActivity {
                         .collect::<Vec<String>>()
                         .join("\n"),
                     impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
-                    technical.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
+                    approach.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
                 )
             }
             | Sections::Project(ProjectSections {
@@ -828,7 +826,7 @@ impl ResearchActivity {
 {}"#,
                     mission,
                     challenge,
-                    approach,
+                    approach.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
                     impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
                     focus,
                     areas.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")

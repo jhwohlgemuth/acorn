@@ -177,7 +177,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
                                 </section>
                                 <section>
                                     <h3>{ "Approach" }</h3>
-                                    <p>{ approach }</p>
+                                    <p>{ approach.join("</li><li>") }</p>
                                 </section>
                                 <section>
                                     <h3>{ "Impact" }</h3>
@@ -206,7 +206,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
         | Sections::Highlight(HighlightSections {
             achievement,
             impact,
-            technical,
+            approach,
         }) => {
             let Metadata { doi, publication, .. } = &meta;
             let ContactPoint {
@@ -314,7 +314,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
                                 </section>
                                 <section>
                                     <h3>{ "Technical Approach" }</h3>
-                                    <ul><li>{ technical.join("</li><li>") }</li></ul>
+                                    <ul><li>{ approach.join("</li><li>") }</li></ul>
                                 </section>
                             </main>
                             <aside>

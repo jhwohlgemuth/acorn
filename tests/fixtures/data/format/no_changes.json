@@ -35,7 +35,7 @@
     "sections": {
         "mission": "ORNL does lots of big science with big impact.",
         "challenge": "Doing big science with big impact is not easy.",
-        "approach": "ORNL finds big problems and does big science with big impact.",
+        "approach": ["ORNL finds big problems and does big science with big impact."],
         "impact": [
             "Big science",
             "Big impact"
