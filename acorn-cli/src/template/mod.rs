@@ -306,7 +306,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
                             <main>
                                 <section>
                                     <h3>{ "Scientific Achievement" }</h3>
-                                    <p>{ achievement.join("</li><li>") }</p>
+                                    <p>{ achievement.clone().unwrap_or_else(std::vec::Vec::new).join("</li><li>") }</p>
                                 </section>
                                 <section>
                                     <h3>{ "Significance and Impact" }</h3>
@@ -358,7 +358,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
                     </section>
                     <section>
                         <h3>{ "Capabilities" }</h3>
-                        <ul><li>{ capabilities.join("</li><li>") }</li></ul>
+                        <ul><li>{ capabilities.clone().unwrap_or_else(std::vec::Vec::new).join("</li><li>") }</li></ul>
                     </section>
                     <section>
                         <h3>{ "Impact" }</h3>

@@ -454,8 +454,8 @@ pub struct Website {
 #[serde(deny_unknown_fields)]
 pub struct HighlightSections {
     #[validate(length(max = 4, message = "Please limit the number of achievements to 4"))]
-    #[serde(alias = "scientific achievement", deserialize_with = "vec_string_trim")]
-    pub achievement: Vec<String>,
+    #[serde(alias = "scientific achievement")]
+    pub achievement: Option<Vec<String>>,
     #[validate(length(max = 4, message = "Please limit the number of impacts to 4"))]
     #[serde(alias = "significance & impact", deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
@@ -494,6 +494,11 @@ pub struct ProjectSections {
     #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
     #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
+    #[validate(length(max = 4, message = "Please limit the number of achievements to 4"))]
+    #[serde(alias = "scientific achievement")]
+    pub achievement: Option<Vec<String>>,
+    #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
+    pub capabilities: Option<Vec<String>>,
     #[validate(nested)]
     pub research: Research,
 }
@@ -508,8 +513,7 @@ pub struct OrganizationSections {
     #[serde(deserialize_with = "string_trim")]
     pub mission: String,
     #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
-    #[serde(deserialize_with = "vec_string_trim")]
-    pub capabilities: Vec<String>,
+    pub capabilities: Option<Vec<String>>,
     #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
     #[serde(deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
@@ -783,7 +787,13 @@ impl ResearchActivity {
 
 <!-- Technical Approach -->
 {}"#,
-                    achievement.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
+                    achievement
+                        .clone()
+                        .unwrap_or_else(std::vec::Vec::new)
+                        .into_iter()
+                        .map(|x| format!("- {}", x))
+                        .collect::<Vec<String>>()
+                        .join("\n"),
                     impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
                     technical.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
                 )
@@ -840,7 +850,12 @@ impl ResearchActivity {
 <!-- Impact -->
 {}"#,
                     mission,
-                    capabilities.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
+                    capabilities
+                        .unwrap_or_else(std::vec::Vec::new)
+                        .into_iter()
+                        .map(|x| format!("- {}", x))
+                        .collect::<Vec<String>>()
+                        .join("\n"),
                     impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
                 )
             }

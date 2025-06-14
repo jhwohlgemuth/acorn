@@ -175,7 +175,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                     technical,
                     ..
                 }) => {
-                    content = replace_placeholder_with_bullets(&content, "achievement", achievement);
+                    content = replace_placeholder_with_bullets(&content, "achievement", achievement.unwrap_or_else(std::vec::Vec::new));
                     content = replace_placeholder_with_bullets(&content, "impact", impact);
                     content = replace_placeholder_with_bullets(&content, "technical", technical);
                 }
