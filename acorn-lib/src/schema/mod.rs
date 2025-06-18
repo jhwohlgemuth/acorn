@@ -479,6 +479,7 @@ pub struct ProjectSections {
     pub impact: Vec<String>,
     #[validate(length(min = 1, max = 4, message = "Please limit the number of achievements to 4"))]
     pub achievement: Option<Vec<String>>,
+    /// ### Expertise as applied to technology in a given mission space
     #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
     pub capabilities: Option<Vec<String>>,
     #[validate(nested)]
