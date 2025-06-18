@@ -24,7 +24,6 @@ pub mod powerpoint;
 pub mod schema;
 pub mod util;
 
-use crate::schema::SchemaType;
 use crate::util::*;
 
 /// Files to ignore
@@ -34,7 +33,7 @@ use crate::util::*;
 /// - `.DS_Store`
 /// - `README.md`
 pub const IGNORE: [&str; 4] = [".gitignore", ".gitkeep", ".DS_Store", "README.md"];
-const SCHEMA_TYPES: [SchemaType; 2] = [SchemaType::Project, SchemaType::Organization];
+const SCHEMA_TYPES: [&str; 2] = ["project", "organization"];
 
 /// Type for GitLab tree entry
 #[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
@@ -181,11 +180,11 @@ impl Bucket {
             },
         }
     }
-    fn get_tree(&self, schema_type: SchemaType, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
+    fn get_tree(&self, schema_type: &str, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
         let url = self.get_tree_url(schema_type, page);
         reqwest::blocking::get(url)
     }
-    fn get_tree_url(&self, schema_type: SchemaType, page: u32) -> String {
+    fn get_tree_url(&self, schema_type: &str, page: u32) -> String {
         let id = match &self.code_repository {
             | Repository::GitHub { .. } => todo!(),
             | Repository::GitLab { id, .. } => id.to_string(),
@@ -215,7 +214,7 @@ impl Bucket {
                 info!("=> Downloading {} research data from {}...", schema_type, uri.clone());
                 let paths = self
                     .clone()
-                    .get_file_paths(schema_type.clone())
+                    .get_file_paths(schema_type)
                     .into_iter()
                     .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
                     .collect::<Vec<String>>();
@@ -287,7 +286,7 @@ impl Bucket {
         });
         counts.into_iter().sum()
     }
-    fn get_file_paths(self: Bucket, schema_type: SchemaType) -> Vec<String> {
+    fn get_file_paths(self: Bucket, schema_type: &str) -> Vec<String> {
         const FIRST_PAGE: u32 = 1;
         match self.code_repository {
             | Repository::GitHub { .. } => todo!(),
@@ -306,13 +305,13 @@ impl Bucket {
                     let headers = response.headers();
                     parse_header(headers, "x-total-pages")
                 }
-                match self.get_tree(schema_type.clone(), FIRST_PAGE) {
+                match self.get_tree(schema_type, FIRST_PAGE) {
                     | Ok(response) if response.status().is_success() => (FIRST_PAGE..=get_page_count(&response))
                         .into_par_iter()
-                        .map(|page| self.clone().get_file_paths_for_page(schema_type.clone(), page))
+                        .map(|page| self.clone().get_file_paths_for_page(schema_type, page))
                         .reduce(std::vec::Vec::new, |a, b| [a, b].concat()),
                     | Ok(_) | Err(_) => {
-                        let url = self.get_tree_url(schema_type.clone(), FIRST_PAGE);
+                        let url = self.get_tree_url(schema_type, FIRST_PAGE);
                         debug!(url, "=> {}", Label::using());
                         error!(
                             "=> {} Failed to get file paths for {} {} bucket",
@@ -326,12 +325,12 @@ impl Bucket {
             }
         }
     }
-    fn get_file_paths_for_page(self: Bucket, schema_type: SchemaType, page: u32) -> Vec<String> {
-        match self.get_tree(schema_type.clone(), page) {
-            | Ok(response) if response.status().is_success() => match self.get_tree(schema_type.clone(), page) {
+    fn get_file_paths_for_page(self: Bucket, schema_type: &str, page: u32) -> Vec<String> {
+        match self.get_tree(schema_type, page) {
+            | Ok(response) if response.status().is_success() => match self.get_tree(schema_type, page) {
                 | Ok(response) if response.status().is_success() => Bucket::parse(response),
                 | Ok(_) | Err(_) => {
-                    let url = self.get_tree_url(schema_type.clone(), 1);
+                    let url = self.get_tree_url(schema_type, 1);
                     error!(url, page, "=> {} Failed to get paths", Label::fail());
                     vec![]
                 }

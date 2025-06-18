@@ -120,22 +120,6 @@ pub enum Sections {
     Project(ProjectSections),
     Organization(OrganizationSections),
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Display, PartialEq, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-/// The schema type informs the sections and fields that apply to the associated research activity data
-pub enum SchemaType {
-    /// ### WIP
-    /// <div class="warning">May be revised/removed in the future</div>
-    #[display("highlight")]
-    Highlight,
-    /// Projects describe research capability applications to solve a challenge or challenges resulting in measurable outcomes and impact
-    #[default]
-    #[display("project")]
-    Project,
-    /// Organizations describe research-related groupings of people and resources
-    #[display("organization")]
-    Organization,
-}
 /// ## TRL
 /// > Technology readiness levels (TRLs) are a method for estimating the maturity of technologies during the acquisition phase of a program.
 ///
@@ -280,9 +264,9 @@ pub struct Metadata {
     #[validate(custom(function = "is_kebabcase"))]
     #[serde(alias = "id", rename = "identifier", deserialize_with = "string_trim")]
     pub identifier: String,
-    #[builder(default = SchemaType::default())]
+    #[deprecated]
     #[serde(alias = "type", rename = "type")]
-    pub schema_type: SchemaType,
+    pub schema_type: Option<String>,
     pub additional_type: Option<OrganizationType>,
     /// ### Digital Object Identifier
     ///

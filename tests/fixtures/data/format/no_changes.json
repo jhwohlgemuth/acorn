@@ -1,7 +1,6 @@
 {
     "meta": {
         "identifier": "export-ready-project",
-        "type": "project",
         "archive": false,
         "draft": true,
         "trl": 5,

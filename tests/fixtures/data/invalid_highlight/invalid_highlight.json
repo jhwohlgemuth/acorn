@@ -2,7 +2,6 @@
     "meta": {
         "id": "invalid-highlight",
         "doi": "Not a valid DOI",
-        "type": "highlight",
         "archive": false,
         "draft": false,
         "websites": [
