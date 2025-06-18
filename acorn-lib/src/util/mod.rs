@@ -479,7 +479,7 @@ pub fn make_executable(path: &PathBuf) -> bool {
     path.is_executable()
 }
 #[cfg(windows)]
-pub fn make_executable(path: &PathBuf) -> bool {
+pub fn make_executable(path: &Path) -> bool {
     // TODO: Add windows support...pass through?
     path.is_executable()
 }

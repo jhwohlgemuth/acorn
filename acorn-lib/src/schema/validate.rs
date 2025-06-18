@@ -12,7 +12,8 @@ pub fn format_errors(found: Vec<Option<HashMap<String, ValidationErrorsKind>>>) 
         acc
     })
 }
-pub fn format_phone_number(value: &str) -> Result<String, ()> {
+pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
+    const MESSAGE: &str = "Unable to format telephone number";
     match RE_PHONE.captures(value) {
         | Ok(value) => match value {
             | Some(captures) => {
@@ -38,9 +39,9 @@ pub fn format_phone_number(value: &str) -> Result<String, ()> {
                     .collect::<Vec<String>>()
                     .join("."))
             }
-            | None => Err(()),
+            | None => Err(ValidationError::new("telephone").with_message(MESSAGE.into())),
         },
-        | _ => Err(()),
+        | _ => Err(ValidationError::new("telephone").with_message(MESSAGE.into())),
     }
 }
 pub fn get_validation_errors<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
