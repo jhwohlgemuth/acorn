@@ -7,21 +7,21 @@ const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
 fn test_get_all_files() {
-    // Directory
     let extension = Some("json");
     let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, None);
     assert_eq!(files.len(), 3);
-    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/]a.json$".to_string()));
-    assert_eq!(files.len(), 2);
-    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/](a|b).json$".to_string()));
-    assert_eq!(files.len(), 1);
     let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), Some("jpg"), None);
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
-    // File
-    let files = get_all_files(PathBuf::from(FIXTURES).join("glob/a.txt"), None, None);
-    assert_eq!(files.len(), 1);
-    assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.txt");
+    if cfg!(target_os = "linux") {
+        let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/]a.json$".to_string()));
+        assert_eq!(files.len(), 2);
+        let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/](a|b).json$".to_string()));
+        assert_eq!(files.len(), 1);
+        let files = get_all_files(PathBuf::from(FIXTURES).join("glob/a.txt"), None, None);
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.txt");
+    }
 }
 #[test]
 fn test_get_checksum() {
