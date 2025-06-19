@@ -1,4 +1,4 @@
-use acorn_lib::util::Label;
+use acorn_lib::util::{get_suffix, Label};
 use acorn_lib::BucketsConfig;
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
@@ -20,12 +20,7 @@ pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) 
                         total += bucket.download_files(path.to_path_buf());
                     }
                 });
-                println!(
-                    "\n\n   => {} Downloaded {} item{}\n",
-                    Label::pass(),
-                    total.green(),
-                    if total == 1 { "" } else { "s" }
-                );
+                println!("\n\n   => {} Downloaded {} item{}\n", Label::pass(), total.green(), get_suffix(total));
             }
             | Err(err) => {
                 error!("=> {} Failed to download data - {}", Label::fail(), err);

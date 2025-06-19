@@ -472,6 +472,9 @@ pub fn get_image_paths(root: PathBuf) -> Vec<PathBuf> {
 pub fn get_parent(path: String) -> String {
     PathBuf::from(PathBuf::from(path).parent().unwrap()).display().to_string()
 }
+pub fn get_suffix(value: usize) -> String {
+    (if value == 1 { "" } else { "s" }).to_string()
+}
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 pub fn make_executable(path: &PathBuf) -> bool {
     use std::os::unix::fs::PermissionsExt;

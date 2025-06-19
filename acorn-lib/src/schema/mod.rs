@@ -724,12 +724,11 @@ impl ResearchActivity {
                     }
                     | Err(found) => {
                         let count = get_error_count(found.clone());
-                        let plurality = if count == 1 { "" } else { "s" };
                         error!(
                             "=> {} Found {} error{} in {}: {:#?}",
                             Label::fail(),
                             count.red(),
-                            plurality,
+                            get_suffix(count),
                             path.display(),
                             found
                         );

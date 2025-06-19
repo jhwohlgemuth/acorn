@@ -204,9 +204,6 @@ impl Bucket {
     ///
     /// Ignores files listed in [`IGNORE`]
     pub fn download_files(self: Bucket, output: PathBuf) -> usize {
-        fn get_suffix(value: usize) -> String {
-            (if value == 1 { "" } else { "s" }).to_string()
-        }
         match self.code_repository {
             | Repository::GitHub { ref uri, .. } => todo!("Add support for GitHub repositories like {uri}"),
             | Repository::GitLab { ref uri, .. } => {

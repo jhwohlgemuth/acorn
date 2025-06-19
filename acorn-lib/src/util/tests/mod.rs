@@ -63,6 +63,12 @@ fn test_get_image_paths() {
     assert_eq!(files.len(), 0);
 }
 #[test]
+fn test_get_suffix() {
+    assert_eq!(get_suffix(0), "s");
+    assert_eq!(get_suffix(1), "");
+    assert_eq!(get_suffix(2), "s");
+}
+#[test]
 fn test_generate_guid() {
     let id = generate_guid();
     assert_eq!(id.len(), 10);
