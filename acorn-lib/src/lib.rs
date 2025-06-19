@@ -32,8 +32,7 @@ use crate::util::*;
 /// - `.gitkeep`
 /// - `.DS_Store`
 /// - `README.md`
-pub const IGNORE: [&str; 4] = [".gitignore", ".gitkeep", ".DS_Store", "README.md"];
-const SCHEMA_TYPES: [&str; 2] = ["project", "organization"];
+pub const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
 
 /// Type for GitLab tree entry
 #[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
@@ -180,11 +179,11 @@ impl Bucket {
             },
         }
     }
-    fn get_tree(&self, schema_type: &str, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
-        let url = self.get_tree_url(schema_type, page);
+    fn get_tree(&self, directory: &str, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
+        let url = self.get_tree_url(directory, page);
         reqwest::blocking::get(url)
     }
-    fn get_tree_url(&self, schema_type: &str, page: u32) -> String {
+    fn get_tree_url(&self, directory: &str, page: u32) -> String {
         let id = match &self.code_repository {
             | Repository::GitHub { .. } => todo!(),
             | Repository::GitLab { id, .. } => id.to_string(),
@@ -196,7 +195,7 @@ impl Bucket {
             id,
             per_page,
             page,
-            schema_type
+            directory
         );
         debug!(url = url.as_str(), "=> {}", Label::using());
         url
@@ -208,13 +207,13 @@ impl Bucket {
         fn get_suffix(value: usize) -> String {
             (if value == 1 { "" } else { "s" }).to_string()
         }
-        let counts = SCHEMA_TYPES.into_iter().map(|schema_type| match self.code_repository {
+        match self.code_repository {
             | Repository::GitHub { ref uri, .. } => todo!("Add support for GitHub repositories like {uri}"),
             | Repository::GitLab { ref uri, .. } => {
-                info!("=> Downloading {} research data from {}...", schema_type, uri.clone());
+                info!("=> Downloading research data from {}...", uri.clone());
                 let paths = self
                     .clone()
-                    .get_file_paths(schema_type)
+                    .get_file_paths("")
                     .into_iter()
                     .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
                     .collect::<Vec<String>>();
@@ -269,7 +268,7 @@ impl Bucket {
                 };
                 progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
                 progress.finish_with_message(format!(
-                    "  {}Downloaded {} {} {} file{}{}",
+                    "  {}Downloaded {} {} file{}{}",
                     if total > 0 { Label::CHECKMARK } else { Label::CAUTION },
                     if total > 0 {
                         total.green().to_string()
@@ -277,16 +276,14 @@ impl Bucket {
                         total.yellow().to_string()
                     },
                     self.clone().name.to_uppercase(),
-                    schema_type,
                     get_suffix(total),
                     message,
                 ));
                 total
             }
-        });
-        counts.into_iter().sum()
+        }
     }
-    fn get_file_paths(self: Bucket, schema_type: &str) -> Vec<String> {
+    fn get_file_paths(self: Bucket, directory: &str) -> Vec<String> {
         const FIRST_PAGE: u32 = 1;
         match self.code_repository {
             | Repository::GitHub { .. } => todo!(),
@@ -305,19 +302,18 @@ impl Bucket {
                     let headers = response.headers();
                     parse_header(headers, "x-total-pages")
                 }
-                match self.get_tree(schema_type, FIRST_PAGE) {
+                match self.get_tree(directory, FIRST_PAGE) {
                     | Ok(response) if response.status().is_success() => (FIRST_PAGE..=get_page_count(&response))
                         .into_par_iter()
-                        .map(|page| self.clone().get_file_paths_for_page(schema_type, page))
+                        .map(|page| self.clone().get_file_paths_for_page(directory, page))
                         .reduce(std::vec::Vec::new, |a, b| [a, b].concat()),
                     | Ok(_) | Err(_) => {
-                        let url = self.get_tree_url(schema_type, FIRST_PAGE);
+                        let url = self.get_tree_url(directory, FIRST_PAGE);
                         debug!(url, "=> {}", Label::using());
                         error!(
-                            "=> {} Failed to get file paths for {} {} bucket",
+                            "=> {} Failed to get file paths for {} bucket",
                             Label::fail(),
                             self.name.to_uppercase().red(),
-                            schema_type.red()
                         );
                         vec![]
                     }
@@ -325,18 +321,18 @@ impl Bucket {
             }
         }
     }
-    fn get_file_paths_for_page(self: Bucket, schema_type: &str, page: u32) -> Vec<String> {
-        match self.get_tree(schema_type, page) {
-            | Ok(response) if response.status().is_success() => match self.get_tree(schema_type, page) {
+    fn get_file_paths_for_page(self: Bucket, directory: &str, page: u32) -> Vec<String> {
+        match self.get_tree(directory, page) {
+            | Ok(response) if response.status().is_success() => match self.get_tree(directory, page) {
                 | Ok(response) if response.status().is_success() => Bucket::parse(response),
                 | Ok(_) | Err(_) => {
-                    let url = self.get_tree_url(schema_type, 1);
+                    let url = self.get_tree_url(directory, 1);
                     error!(url, page, "=> {} Failed to get paths", Label::fail());
                     vec![]
                 }
             },
             | Ok(_) | Err(_) => {
-                let url = self.get_tree_url(schema_type, page);
+                let url = self.get_tree_url(directory, page);
                 error!(url, page, "=> {} Failed to get paths", Label::fail());
                 vec![]
             }
