@@ -1,8 +1,6 @@
 use crate::util::{Size, Target, TargetLabel};
 use acorn_lib::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
-use acorn_lib::schema::{
-    ContactPoint, HighlightSections, Metadata, Notes, OrganizationSections, Other, ProjectSections, Research, ResearchActivity, Sections,
-};
+use acorn_lib::schema::{ContactPoint, Research, ResearchActivity, Sections};
 use acorn_lib::util::{Label, MimeType};
 use data_encoding::BASE64;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
@@ -127,276 +125,79 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
         ..
     } = data;
     let ContactPoint { affiliation, .. } = contact;
-    let node = match &data.sections {
-        | Sections::Project(ProjectSections {
-            mission,
-            challenge,
-            approach,
-            impact,
-            research,
-            ..
-        }) => {
-            let Research { focus, areas, .. } = research;
-            let label = match affiliation {
-                | Some(affiliation) => TargetLabel::from_organization(affiliation),
-                | None => TargetLabel::default(),
-            };
-            let target = target.unwrap_or_default();
-            let head = HtmlHead {
-                size: size.unwrap(),
-                stylesheet: "project.css",
-                target,
-            };
-            let footer = HtmlFooter { label, target };
-            let folder = label.get_folder();
-            let path = format!("{}/{}/header.jpg", target, folder);
-            let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
-            let graphic = meta.clone().get_first_graphic_href();
-            let caption = meta.clone().get_first_graphic_caption();
-            let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
-            html! {
-                <html>
-                    { head }
-                    <body>
-                        <header style={ header_style }>
-                            <div class="wrapper">
-                                <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
-                                <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
-                                <div id="title">{ title }</div>
-                                <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
-                            </div>
-                        </header>
-                        <div class="main">
-                            <main>
-                                <section>
-                                    <p>{ mission }</p>
-                                </section>
-                                <section>
-                                    <h3>{ "Challenge" }</h3>
-                                    <p>{ challenge }</p>
-                                </section>
-                                <section>
-                                    <h3>{ "Approach" }</h3>
-                                    <p>{ approach.join("</li><li>") }</p>
-                                </section>
-                                <section>
-                                    <h3>{ "Impact" }</h3>
-                                    <ul><li>{ impact.join("</li><li>") }</li></ul>
-                                </section>
-                            </main>
-                            <aside>
-                                <div class="graphic"><img src={ graphic }/></div>
-                                <div class="caption">{ caption }</div>
-                                <div class="research-focus">
-                                    <h3>{ "Research Focus" }</h3>
-                                    <p>{ focus }</p>
-                                    <ul><li>{ areas.join("</li><li>") }</li></ul>
-                                </div>
-                                <div class="qrcode">
-                                    <img src={ qrcode }/>
-                                </div>
-                            </aside>
-                        </div>
-                        { data.clone().contact }
-                        { footer }
-                    </body>
-                </html>
-            }
-        }
-        | Sections::Highlight(HighlightSections {
-            achievement,
-            impact,
-            approach,
-        }) => {
-            let Metadata { doi, publication, .. } = &meta;
-            let ContactPoint {
-                given_name,
-                family_name,
-                affiliation,
-                ..
-            } = &data.contact;
-            let label = match affiliation {
-                | Some(affiliation) => TargetLabel::from_organization(affiliation),
-                | None => TargetLabel::default(),
-            };
-            let target = target.unwrap_or_default();
-            let head = HtmlHead {
-                size: size.unwrap(),
-                stylesheet: "highlight.css",
-                target,
-            };
-            let footer = HtmlFooter { label, target };
-            let graphic = meta.clone().get_first_graphic_href();
-            let caption = &meta.clone().graphics.unwrap()[0].caption;
-            let separator = match subtitle {
-                | Some(value) if !value.is_empty() => ": ".to_string(),
-                | _ => "".to_string(),
-            };
-            let contact_block = match &data.notes {
-                | Some(Other::Unformatted(value)) => {
-                    html!(
-                        <div class="contact">
-                            <div>{ value }</div>
-                        </div>
-                    )
-                }
-                | Some(Other::Formatted(Notes { managers, programs, .. })) => {
-                    let maybe_managers = match managers {
-                        | Some(value) if !value.is_empty() => {
-                            html! {
-                                <div>
-                                    <span>{ "Managers" }</span>
-                                    <span>{ value.join(", ") }</span>
-                                </div>
-                            }
-                        }
-                        | _ => html! { <div></div> },
-                    };
-                    let maybe_programs = match programs {
-                        | Some(value) if !value.is_empty() => {
-                            html! {
-                                <div>
-                                    <span>{ "Programs" }</span>
-                                    <span>{ value.join(", ") }</span>
-                                </div>
-                            }
-                        }
-                        | _ => html! { <div></div> },
-                    };
-                    let maybe_publication = match publication {
-                        | Some(value) if !value.is_empty() => {
-                            html! {
-                                <div>
-                                    <span>{ "Publication" }</span>
-                                    <span>{ value }</span>
-                                </div>
-                            }
-                        }
-                        | _ => html! { <div></div> },
-                    };
-                    html!(
-                        <div class="contact">
-                            <div>
-                                <span>{ "PI" }</span>
-                                <span>{ given_name }&nbsp;{ family_name }</span>
-                            </div>
-                            { maybe_programs }
-                            { maybe_managers }
-                            { maybe_publication }
-                            <div>
-                                <span>{ "DOI" }</span>
-                                <span>{ doi.clone().unwrap() }</span>
-                            </div>
-                        </div>
-                    )
-                }
-                | None => html!(<div></div>),
-            };
-            html! {
-                <html>
-                    { head }
-                    <body>
-                        <header>
-                            <h1>
-                                <span>{ title }{ separator }</span>
-                                <span>{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</span>
-                            </h1>
-                        </header>
-                        <div class="main">
-                            <main>
-                                <section>
-                                    <h3>{ "Scientific Achievement" }</h3>
-                                    <p>{ achievement.clone().unwrap_or_else(std::vec::Vec::new).join("</li><li>") }</p>
-                                </section>
-                                <section>
-                                    <h3>{ "Significance and Impact" }</h3>
-                                    <p>{ impact.join("</li><li>") }</p>
-                                </section>
-                                <section>
-                                    <h3>{ "Technical Approach" }</h3>
-                                    <ul><li>{ approach.join("</li><li>") }</li></ul>
-                                </section>
-                            </main>
-                            <aside>
-                                <div class="graphic"><img src={ graphic }/></div>
-                                <div class="caption">{ caption }</div>
-                                { contact_block }
-                            </aside>
-                        </div>
-                        { footer }
-                    </body>
-                </html>
-            }
-        }
-        | Sections::Organization(OrganizationSections {
-            mission,
-            capabilities,
-            impact,
-        }) => {
-            let ContactPoint { affiliation, .. } = &data.contact;
-            let label = match affiliation {
-                | Some(affiliation) => TargetLabel::from_organization(affiliation),
-                | None => TargetLabel::default(),
-            };
-            let target = target.unwrap_or_default();
-            let head = HtmlHead {
-                size: size.unwrap(),
-                stylesheet: "organization.css",
-                target,
-            };
-            let footer = HtmlFooter { label, target };
-            let folder = label.get_folder();
-            let path = format!("{}/{}/header.jpg", target, folder);
-            let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
-            let graphic = meta.clone().get_first_graphic_href();
-            let caption = meta.clone().get_first_graphic_caption();
-            let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
-            let main = html! {
-                <main>
-                    <section>
-                        <p>{ mission }</p>
-                    </section>
-                    <section>
-                        <h3>{ "Capabilities" }</h3>
-                        <ul><li>{ capabilities.clone().unwrap_or_else(std::vec::Vec::new).join("</li><li>") }</li></ul>
-                    </section>
-                    <section>
-                        <h3>{ "Impact" }</h3>
-                        <ul><li>{ impact.join("</li><li>") }</li></ul>
-                    </section>
-                </main>
-            };
-            let aside = html! {
-                <aside>
-                    <div class="graphic"><img src={ graphic }/></div>
-                    <div class="caption">{ caption }</div>
-                    <div class="qrcode">
-                        <img src={ qrcode }/>
+    let Sections {
+        mission,
+        challenge,
+        approach,
+        impact,
+        research,
+        ..
+    } = &data.sections;
+    let Research { focus, areas, .. } = research;
+    let label = match affiliation {
+        | Some(affiliation) => TargetLabel::from_organization(affiliation),
+        | None => TargetLabel::default(),
+    };
+    let target = target.unwrap_or_default();
+    let head = HtmlHead {
+        size: size.unwrap(),
+        stylesheet: "project.css",
+        target,
+    };
+    let footer = HtmlFooter { label, target };
+    let folder = label.get_folder();
+    let path = format!("{}/{}/header.jpg", target, folder);
+    let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
+    let graphic = meta.clone().get_first_graphic_href();
+    let caption = meta.clone().get_first_graphic_caption();
+    let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
+    let node = html! {
+        <html>
+            { head }
+            <body>
+                <header style={ header_style }>
+                    <div class="wrapper">
+                        <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
+                        <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
+                        <div id="title">{ title }</div>
+                        <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
                     </div>
-                </aside>
-            };
-            html! {
-                <html>
-                    { head }
-                    <body>
-                        <header style={ header_style }>
-                            <div class="wrapper">
-                                <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
-                                <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
-                                <div id="title">{ title }</div>
-                                <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
-                            </div>
-                        </header>
-                        <div class="main">
-                            { main }
-                            { aside }
+                </header>
+                <div class="main">
+                    <main>
+                        <section>
+                            <p>{ mission }</p>
+                        </section>
+                        <section>
+                            <h3>{ "Challenge" }</h3>
+                            <p>{ challenge }</p>
+                        </section>
+                        <section>
+                            <h3>{ "Approach" }</h3>
+                            <p>{ approach.join("</li><li>") }</p>
+                        </section>
+                        <section>
+                            <h3>{ "Impact" }</h3>
+                            <ul><li>{ impact.join("</li><li>") }</li></ul>
+                        </section>
+                    </main>
+                    <aside>
+                        <div class="graphic"><img src={ graphic }/></div>
+                        <div class="caption">{ caption }</div>
+                        <div class="research-focus">
+                            <h3>{ "Research Focus" }</h3>
+                            <p>{ focus }</p>
+                            <ul><li>{ areas.join("</li><li>") }</li></ul>
                         </div>
-                        { data.clone().contact }
-                        { footer }
-                    </body>
-                </html>
-            }
-        }
+                        <div class="qrcode">
+                            <img src={ qrcode }/>
+                        </div>
+                    </aside>
+                </div>
+                { data.clone().contact }
+                { footer }
+            </body>
+        </html>
     };
     node.to_string()
 }

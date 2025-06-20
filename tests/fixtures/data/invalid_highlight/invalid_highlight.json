@@ -26,6 +26,16 @@
     "title": "Invalid Highlight",
     "subtitle": "This is a subtitle",
     "sections": {
+        "mission": "Placeholder",
+        "challenge": "Placeholder",
+        "research": {
+            "focus": "Placeholder",
+            "areas": [
+                "foo",
+                "bar",
+                "baz"
+            ]
+        },
         "achievement": [
             "Put your achievement here.",
             "Can have ",

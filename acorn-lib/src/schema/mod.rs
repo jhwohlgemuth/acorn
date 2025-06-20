@@ -113,13 +113,6 @@ pub enum Other {
     Unformatted(String),
     Formatted(Notes),
 }
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(untagged)]
-pub enum Sections {
-    Highlight(HighlightSections),
-    Project(ProjectSections),
-    Organization(OrganizationSections),
-}
 /// ## TRL
 /// > Technology readiness levels (TRLs) are a method for estimating the maturity of technologies during the acquisition phase of a program.
 ///
@@ -398,6 +391,7 @@ pub struct ResearchActivity {
     #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 75."))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub subtitle: Option<String>,
+    #[validate(nested)]
     pub sections: Sections,
     #[validate(nested)]
     pub contact: ContactPoint,
@@ -434,26 +428,10 @@ pub struct Website {
     #[serde(deserialize_with = "string_trim")]
     pub url: String,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
-#[serde(deny_unknown_fields)]
-pub struct HighlightSections {
-    #[validate(length(max = 4, message = "Please limit the number of achievements to 4"))]
-    #[serde(alias = "scientific achievement")]
-    pub achievement: Option<Vec<String>>,
-    #[validate(length(max = 4, message = "Please limit the number of impacts to 4"))]
-    #[serde(alias = "significance & impact", deserialize_with = "vec_string_trim")]
-    pub impact: Vec<String>,
-    #[validate(
-        length(max = 6, message = "Please limit the number of approaches to 6"),
-        custom(function = "validate_attribute_technical")
-    )]
-    #[serde(deserialize_with = "vec_string_trim")]
-    pub approach: Vec<String>,
-}
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields)]
-pub struct ProjectSections {
+pub struct Sections {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_INTRODUCTION",
@@ -484,22 +462,6 @@ pub struct ProjectSections {
     pub capabilities: Option<Vec<String>>,
     #[validate(nested)]
     pub research: Research,
-}
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
-#[serde(deny_unknown_fields)]
-pub struct OrganizationSections {
-    #[validate(length(
-        min = 10,
-        max = "MAX_LENGTH_SECTION_INTRODUCTION",
-        message = "Mission is too long, please reduce the length below 250."
-    ))]
-    #[serde(deserialize_with = "string_trim")]
-    pub mission: String,
-    #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
-    pub capabilities: Option<Vec<String>>,
-    #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
-    #[serde(deserialize_with = "vec_string_trim")]
-    pub impact: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields)]
@@ -761,44 +723,17 @@ impl ResearchActivity {
             .build()
     }
     pub fn extract_prose(self) -> String {
-        let sections = match self.sections {
-            | Sections::Highlight(HighlightSections {
-                achievement,
-                impact,
-                approach,
-            }) => {
-                format!(
-                    r#"
-<!-- Achievement -->
-{}
-
-<!-- Impact -->
-{}
-
-<!-- Technical Approach -->
-{}"#,
-                    achievement
-                        .clone()
-                        .unwrap_or_else(std::vec::Vec::new)
-                        .into_iter()
-                        .map(|x| format!("- {}", x))
-                        .collect::<Vec<String>>()
-                        .join("\n"),
-                    impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
-                    approach.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
-                )
-            }
-            | Sections::Project(ProjectSections {
-                mission,
-                challenge,
-                approach,
-                impact,
-                research,
-                ..
-            }) => {
-                let Research { focus, areas } = research;
-                format!(
-                    r#"
+        let Sections {
+            mission,
+            challenge,
+            approach,
+            impact,
+            research,
+            ..
+        } = self.sections;
+        let Research { focus, areas } = research;
+        let sections = format!(
+            r#"
 <!-- Introduction -->
 {}
 
@@ -816,40 +751,13 @@ impl ResearchActivity {
 
 <!-- Areas -->
 {}"#,
-                    mission,
-                    challenge,
-                    approach.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
-                    impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
-                    focus,
-                    areas.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
-                )
-            }
-            | Sections::Organization(OrganizationSections {
-                mission,
-                capabilities,
-                impact,
-            }) => {
-                format!(
-                    r#"
-<!-- Mission -->
-{}
-
-<!-- Capabilities -->
-{}
-
-<!-- Impact -->
-{}"#,
-                    mission,
-                    capabilities
-                        .unwrap_or_else(std::vec::Vec::new)
-                        .into_iter()
-                        .map(|x| format!("- {}", x))
-                        .collect::<Vec<String>>()
-                        .join("\n"),
-                    impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
-                )
-            }
-        };
+            mission,
+            challenge,
+            approach.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
+            impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
+            focus,
+            areas.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
+        );
         match self.subtitle {
             | Some(subtitle) => format!(
                 r#"# {}
@@ -941,19 +849,10 @@ impl ResearchActivity {
         clone
     }
     pub fn get_errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
-        let mut found: Vec<Option<HashMap<String, ValidationErrorsKind>>> = vec![];
-        found.push(get_validation_errors::<ResearchActivity>(self.clone()));
-        match self.clone().sections {
-            | Sections::Highlight(sections) => {
-                found.push(get_validation_errors::<HighlightSections>(sections));
-            }
-            | Sections::Project(sections) => {
-                found.push(get_validation_errors::<ProjectSections>(sections));
-            }
-            | Sections::Organization(sections) => {
-                found.push(get_validation_errors::<OrganizationSections>(sections));
-            }
-        };
+        let found = vec![
+            get_validation_errors::<ResearchActivity>(self.clone()),
+            get_validation_errors::<Sections>(self.sections),
+        ];
         let errors = format_errors(found.clone());
         if !errors.is_empty() {
             Err(errors)

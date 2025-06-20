@@ -1,4 +1,4 @@
-use crate::schema::{ContactPoint, HighlightSections, Metadata, Notes, Other, ResearchActivity, Sections};
+use crate::schema::{ContactPoint, Metadata, Notes, Other, ResearchActivity, Sections};
 use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, write_file, Label};
 use fancy_regex::Regex;
 use quick_xml::events::Event;
@@ -119,6 +119,12 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 ..
             } = data.clone();
             let Metadata { doi, partners, .. } = meta.clone();
+            let Sections {
+                achievement,
+                impact,
+                approach,
+                ..
+            } = sections;
             let ContactPoint {
                 given_name: first,
                 family_name: last,
@@ -168,19 +174,9 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
             content = replace_placeholder_with_string(&content, "citation", &doi.unwrap());
             content = replace_placeholder_with_string(&content, "caption", &caption);
             content = replace_placeholder_with_string(&content, "notes", &presentation_notes);
-            match sections {
-                | Sections::Highlight(HighlightSections {
-                    achievement,
-                    impact,
-                    approach,
-                    ..
-                }) => {
-                    content = replace_placeholder_with_bullets(&content, "achievement", achievement.unwrap_or_else(std::vec::Vec::new));
-                    content = replace_placeholder_with_bullets(&content, "impact", impact);
-                    content = replace_placeholder_with_bullets(&content, "technical", approach);
-                }
-                | _ => {}
-            }
+            content = replace_placeholder_with_bullets(&content, "achievement", achievement.unwrap_or_else(std::vec::Vec::new));
+            content = replace_placeholder_with_bullets(&content, "impact", impact);
+            content = replace_placeholder_with_bullets(&content, "technical", approach);
             content
         }
         | Err(why) => {

@@ -26,6 +26,16 @@
     "title": "Valid Highlight",
     "subtitle": "This is a subtitle",
     "sections": {
+        "mission": "Placeholder",
+        "challenge": "Placeholder",
+        "research": {
+            "focus": "Placeholder",
+            "areas": [
+                "foo",
+                "bar",
+                "baz"
+            ]
+        },
         "achievement": [
             "This is an achievement",
             "This is another achievement",

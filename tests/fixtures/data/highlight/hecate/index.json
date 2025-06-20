@@ -27,6 +27,8 @@
   "title": "HECATE: Path to Truly Self-Driving Networks",
   "subtitle": "Machine learning to optimize network flows in real time",
   "sections": {
+    "mission": "Placeholder",
+    "challenge": "Placeholder",
     "achievement": [
       "Researchers presented a new method for improving network traffic management for software-defined networking tools, Hecate and PolKA.",
       "By analyzing real-time traffic data, Hecate calculates the best paths for data while PolKA directs the traffic.",
@@ -41,7 +43,15 @@
       "Researchers proposed a novel framework that integrates PolKA with Hecate AI/ML optimization tool.",
       "Novel machine learning library API",
       "Dynamic switching and routing among multiple flow paths for autonomous, optimized routing decisions."
-    ]
+    ],
+    "research": {
+      "focus": "Placeholder",
+      "areas": [
+        "foo",
+        "bar",
+        "baz"
+      ]
+    }
   },
   "contact": {
     "jobTitle": "Primary Investigator",
