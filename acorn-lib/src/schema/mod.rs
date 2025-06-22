@@ -17,6 +17,7 @@ use serde_repr::*;
 use serde_trim::*;
 use serde_with::skip_serializing_none;
 use std::collections::HashMap;
+use std::num::NonZeroU64;
 use std::path::PathBuf;
 use std::result::Result;
 use titlecase::Titlecase;
@@ -83,6 +84,13 @@ pub enum FuzzyValue {
     Sponsor,
     #[display("technology")]
     Technology,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum MediaObject {
+    Image(ImageObject),
+    Data(DataObject),
+    Video(VideoObject),
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd, JsonSchema)]
 #[serde(rename_all = "lowercase")]
@@ -232,6 +240,26 @@ pub struct ContactPoint {
     /// See <https://schema.org/affiliation>
     pub affiliation: Option<String>,
 }
+/// Data media object
+///
+/// Useful for data files and datasets
+///
+/// e.g. CSV, JSON, XML, ZIP, etc.
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct DataObject {
+    /// File size in kilobytes
+    ///
+    /// See <https://schema.org/contentSize>
+    #[serde(alias = "size")]
+    content_size: NonZeroU64,
+    #[validate(url)]
+    #[serde(alias = "url", alias = "href", deserialize_with = "option_string_trim")]
+    content_url: Option<String>,
+    #[serde(deserialize_with = "string_trim")]
+    description: String,
+}
+// #[deprecated]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields)]
@@ -242,6 +270,28 @@ pub struct Graphic {
     #[validate(custom(function = "has_image_extension"))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub href: Option<String>,
+}
+/// Image format media
+///
+/// e.g. PNG, JPEG, SVG, etc.
+///
+/// See <https://schema.org/ImageObject>
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct ImageObject {
+    #[serde(deserialize_with = "string_trim")]
+    caption: String,
+    /// File size in kilobytes
+    ///
+    /// See <https://schema.org/contentSize>
+    #[serde(alias = "size")]
+    content_size: NonZeroU64,
+    #[validate(url)]
+    #[serde(alias = "url", alias = "href", deserialize_with = "option_string_trim")]
+    content_url: Option<String>,
+    exif_data: Option<String>,
+    height: NonZeroU64,
+    width: NonZeroU64,
 }
 #[skip_serializing_none]
 #[derive(Clone, Builder, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -396,6 +446,32 @@ pub struct ResearchActivity {
     #[validate(nested)]
     pub contact: ContactPoint,
     pub notes: Option<Other>,
+}
+/// Video format media
+///
+/// e.g. MP4, AVI, MOV, GIF, etc.
+///
+/// See <https://schema.org/VideoObject>
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct VideoObject {
+    /// File size in kilobytes
+    ///
+    /// See <https://schema.org/contentSize>
+    #[serde(alias = "size")]
+    content_size: NonZeroU64,
+    #[validate(url)]
+    #[serde(alias = "url", alias = "href", deserialize_with = "option_string_trim")]
+    content_url: Option<String>,
+    #[serde(deserialize_with = "string_trim")]
+    description: String,
+    // TODO: Create ISO 8601 struct and/or validator
+    /// Duration of video in [ISO 8601 format](https://en.wikipedia.org/wiki/ISO_8601)
+    ///
+    /// See <https://schema.org/duration>
+    duration: Option<String>,
+    height: NonZeroU64,
+    width: NonZeroU64,
 }
 /// ## Website
 /// > Website link and title description
