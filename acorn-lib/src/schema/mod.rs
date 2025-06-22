@@ -85,11 +85,10 @@ pub enum FuzzyValue {
     #[display("technology")]
     Technology,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", untagged)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
 pub enum MediaObject {
     Image(ImageObject),
-    Data(DataObject),
     Video(VideoObject),
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd, JsonSchema)]
@@ -240,44 +239,15 @@ pub struct ContactPoint {
     /// See <https://schema.org/affiliation>
     pub affiliation: Option<String>,
 }
-/// Data media object
-///
-/// Useful for data files and datasets
-///
-/// e.g. CSV, JSON, XML, ZIP, etc.
-#[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
-pub struct DataObject {
-    /// File size in kilobytes
-    ///
-    /// See <https://schema.org/contentSize>
-    #[serde(alias = "size")]
-    content_size: NonZeroU64,
-    #[validate(url)]
-    #[serde(alias = "url", alias = "href", deserialize_with = "option_string_trim")]
-    content_url: Option<String>,
-    #[serde(deserialize_with = "string_trim")]
-    description: String,
-}
-// #[deprecated]
-#[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
-#[serde(deny_unknown_fields)]
-pub struct Graphic {
-    #[validate(length(max = "MAX_LENGTH_GRAPHIC_CAPTION", message = "Caption is too long, please reduce the length below 100."))]
-    #[serde(deserialize_with = "string_trim")]
-    pub caption: String,
-    #[validate(custom(function = "has_image_extension"))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub href: Option<String>,
-}
 /// Image format media
 ///
 /// e.g. PNG, JPEG, SVG, etc.
 ///
 /// See <https://schema.org/ImageObject>
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ImageObject {
     #[serde(deserialize_with = "string_trim")]
     caption: String,
@@ -285,16 +255,16 @@ pub struct ImageObject {
     ///
     /// See <https://schema.org/contentSize>
     #[serde(alias = "size")]
-    content_size: NonZeroU64,
+    content_size: Option<NonZeroU64>,
     #[validate(url)]
-    #[serde(alias = "url", alias = "href", deserialize_with = "option_string_trim")]
+    #[serde(alias = "url", alias = "href")]
     content_url: Option<String>,
     exif_data: Option<String>,
-    height: NonZeroU64,
-    width: NonZeroU64,
+    height: Option<NonZeroU64>,
+    width: Option<NonZeroU64>,
 }
 #[skip_serializing_none]
-#[derive(Clone, Builder, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Metadata {
@@ -347,8 +317,8 @@ pub struct Metadata {
     pub trl: Option<TechnologyReadinessLevel>,
     #[validate(nested)]
     pub websites: Option<Vec<Website>>,
-    #[validate(nested)]
-    pub graphics: Option<Vec<Graphic>>,
+    #[serde(alias = "graphics")]
+    pub media: Option<Vec<MediaObject>>,
     #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<Keyword>,
     /// ### Software, programmings languages, and digital resources (e.g. tools, libraries, frameworks, data) related to the associated research activity data
@@ -454,14 +424,15 @@ pub struct ResearchActivity {
 /// See <https://schema.org/VideoObject>
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct VideoObject {
     /// File size in kilobytes
     ///
     /// See <https://schema.org/contentSize>
     #[serde(alias = "size")]
-    content_size: NonZeroU64,
+    content_size: Option<NonZeroU64>,
     #[validate(url)]
-    #[serde(alias = "url", alias = "href", deserialize_with = "option_string_trim")]
+    #[serde(alias = "url", alias = "href")]
     content_url: Option<String>,
     #[serde(deserialize_with = "string_trim")]
     description: String,
@@ -470,8 +441,8 @@ pub struct VideoObject {
     ///
     /// See <https://schema.org/duration>
     duration: Option<String>,
-    height: NonZeroU64,
-    width: NonZeroU64,
+    height: Option<NonZeroU64>,
+    width: Option<NonZeroU64>,
 }
 /// ## Website
 /// > Website link and title description
@@ -580,29 +551,52 @@ impl View for ContactPoint {
         }
     }
 }
+impl MediaObject {
+    pub fn get_content_url(self) -> Option<String> {
+        match self {
+            | MediaObject::Image(ImageObject { content_url, .. }) => content_url,
+            | MediaObject::Video(VideoObject { content_url, .. }) => content_url,
+        }
+    }
+    pub fn get_description(self) -> String {
+        match self {
+            | MediaObject::Image(ImageObject { caption, .. }) => caption,
+            | MediaObject::Video(VideoObject { description, .. }) => description,
+        }
+    }
+    pub fn is_image(self) -> bool {
+        match self {
+            | MediaObject::Image(_) => true,
+            | _ => false,
+        }
+    }
+}
 impl Metadata {
-    fn get_first_graphic(self) -> Option<Graphic> {
-        match self.graphics {
-            | Some(values) => values.first().cloned(),
+    fn get_first_graphic(self) -> Option<MediaObject> {
+        match self.media {
+            | Some(values) => values.into_iter().filter(|x| x.clone().is_image()).collect::<Vec<_>>().first().cloned(),
             | None => None,
         }
     }
     pub fn get_first_graphic_href(self) -> String {
         match self.get_first_graphic() {
-            | Some(Graphic { href, .. }) => match href.clone() {
-                | Some(href) => href.clone(),
-                | None => DEFAULT_GRAPHIC_HREF.to_string(),
+            | Some(media) => match media {
+                | MediaObject::Image(ImageObject { content_url, .. }) => match content_url {
+                    | Some(value) if !value.is_empty() => value.clone().trim().to_string(),
+                    | Some(_) | None => DEFAULT_GRAPHIC_HREF.to_string(),
+                },
+                | _ => DEFAULT_GRAPHIC_HREF.to_string(),
             },
             | None => DEFAULT_GRAPHIC_HREF.to_string(),
         }
     }
     pub fn get_first_graphic_caption(self) -> String {
         match self.get_first_graphic() {
-            | Some(Graphic { caption, .. }) => match caption.clone() {
+            | Some(MediaObject::Image(ImageObject { caption, .. })) => match caption.clone() {
                 | value if !value.is_empty() => value.clone(),
                 | _ => DEFAULT_GRAPHIC_CAPTION.to_string(),
             },
-            | None => DEFAULT_GRAPHIC_CAPTION.to_string(),
+            | Some(_) | None => DEFAULT_GRAPHIC_CAPTION.to_string(),
         }
     }
 }
@@ -854,31 +848,20 @@ impl ResearchActivity {
             | _ => DEFAULT_GRAPHIC_HREF.to_string(),
         };
         debug!(name, "=> {} First image", Label::using());
-        let first_graphic = match self.meta.clone().graphics {
+        let first_graphic = match self.meta.clone().media {
             | Some(values) if !values.is_empty() => {
-                let caption = match values.first() {
-                    | Some(Graphic { caption, .. }) if !caption.is_empty() => {
-                        let trimmed = caption.trim();
-                        trace!(caption = trimmed, "=> {}", Label::using());
-                        trimmed
-                    }
-                    | Some(_) | None => {
-                        error!(path = parent.to_str().unwrap(), "=> {} Caption", Label::not_found());
-                        &"".to_string()
-                    }
-                };
-                Graphic {
-                    href: Some(name.clone()),
-                    caption: caption.to_string(),
-                }
+                let caption = self.meta.clone().get_first_graphic_caption();
+                let image_data = ImageObject::init().caption(caption.to_string()).content_url(name.clone()).build();
+                MediaObject::Image(image_data)
             }
-            | Some(_) | None => Graphic {
-                href: Some(name.clone()),
-                caption: "".to_string(),
-            },
+            | Some(_) | None => {
+                let image_data = ImageObject::init().caption("".to_string()).content_url(name.clone()).build();
+                MediaObject::Image(image_data)
+            }
         };
         let mut clone = self.clone().copy();
-        clone.meta.graphics = Some(vec![first_graphic]);
+        // TODO: Add rest of media objects to clone.meta.media
+        clone.meta.media = Some(vec![first_graphic]);
         clone.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
         clone.meta.technology = self.clone().resolve(FuzzyValue::Technology);
         clone.contact.telephone = match format_phone_number(&self.contact.telephone) {

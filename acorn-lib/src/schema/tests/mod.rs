@@ -166,21 +166,17 @@ fn test_metadata() {
     assert_eq!(meta.get_first_graphic_href(), DEFAULT_HREF);
     let href = "abc.png";
     let caption = "hello world";
-    let graphics = vec![Graphic {
-        href: Some(href.to_owned()),
-        caption: caption.to_owned(),
-    }];
-    let meta = Metadata::init().identifier("test-data".to_string()).graphics(graphics).build();
+    let graphics = vec![MediaObject::Image(
+        ImageObject::init().caption(caption.to_owned()).content_url(href.to_owned()).build(),
+    )];
+    let meta = Metadata::init().identifier("test-data".to_string()).media(graphics).build();
     assert_eq!(meta.clone().get_first_graphic_href(), href);
     assert_eq!(meta.get_first_graphic_caption(), caption);
-    let meta = Metadata::init().identifier("test-data".to_string()).graphics(vec![]).build();
+    let meta = Metadata::init().identifier("test-data".to_string()).media(vec![]).build();
     assert_eq!(meta.clone().get_first_graphic_href(), DEFAULT_HREF);
     assert_eq!(meta.get_first_graphic_caption(), DEFAULT_CAPTION);
-    let graphics = vec![Graphic {
-        href: None,
-        caption: "".to_string(),
-    }];
-    let meta = Metadata::init().identifier("test-data".to_string()).graphics(graphics).build();
+    let graphics = vec![MediaObject::Image(ImageObject::init().caption("".to_owned()).build())];
+    let meta = Metadata::init().identifier("test-data".to_string()).media(graphics).build();
     assert_eq!(meta.clone().get_first_graphic_href(), DEFAULT_HREF);
     assert_eq!(meta.get_first_graphic_caption(), DEFAULT_CAPTION);
 }
@@ -233,47 +229,47 @@ fn test_research_activity_format() {
     // with changes
     //
     let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/changes.json")).unwrap();
-    assert!(pre.meta.graphics.is_none());
+    assert!(pre.meta.media.is_none());
     assert!(pre.contact.affiliation.is_none());
     let post = pre.format(path.clone());
-    assert_eq!(post.meta.graphics.as_ref().unwrap()[0].href, Some("00.png".to_string()));
+    assert_eq!(post.meta.media.unwrap()[0].clone().get_content_url(), Some("00.png".to_string()));
     assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
     //
     // with unresolved changes
     //
     let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/unresolved_changes.json")).unwrap();
-    assert!(pre.meta.graphics.is_some());
+    assert!(pre.meta.media.is_some());
     assert_eq!(pre.contact.affiliation, Some("Not an actual affiliation".to_string()));
     let post = pre.format(None);
-    assert_eq!(post.meta.graphics.as_ref().unwrap()[0].href, Some("00.png".to_string()));
-    assert_eq!(post.meta.graphics.as_ref().unwrap()[0].caption, "".to_string());
+    assert_eq!(post.clone().meta.media.unwrap()[0].clone().get_content_url(), Some("00.png".to_string()));
+    assert_eq!(post.clone().meta.get_first_graphic().unwrap().get_description(), "".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
-    //
-    // with more unresolved changes
-    //
+    // //
+    // // with more unresolved changes
+    // //
     let mut pre = post.clone().copy();
     pre.contact.organization = "Not an actual organization".to_string();
     pre.contact.affiliation = None;
     let post = pre.format(None);
     assert_eq!(post.contact.organization, "".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
-    //
-    // with ORNL as organization and no affiliation
-    //
+    // //
+    // // with ORNL as organization and no affiliation
+    // //
     let mut pre = post.clone().copy();
     pre.contact.organization = "Oak Ridge National Laboratory".to_string();
     pre.contact.affiliation = None;
     let post = pre.format(None);
     assert_eq!(post.contact.organization, "Oak Ridge National Laboratory".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
-    //
-    // without changes
-    //
+    // //
+    // // without changes
+    // //
     let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/no_changes.json")).unwrap();
-    assert_eq!(pre.meta.graphics.as_ref().unwrap()[0].href, Some("00.png".to_string()));
+    assert_eq!(pre.clone().meta.media.unwrap()[0].clone().get_content_url(), Some("00.png".to_string()));
     assert_eq!(pre.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
-    let post = pre.format(path);
-    assert_eq!(post.meta.graphics.as_ref().unwrap()[0].href, Some("00.png".to_string()));
+    let post = pre.clone().format(path);
+    assert_eq!(post.meta.media.unwrap()[0].clone().get_content_url(), Some("00.png".to_string()));
     assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
 }
 #[test]
