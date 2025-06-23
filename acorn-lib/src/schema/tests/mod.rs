@@ -163,22 +163,22 @@ fn test_metadata() {
     const DEFAULT_CAPTION: &str = "";
     let meta = Metadata::init().identifier("test-data".to_string()).build();
     assert_eq!(meta.identifier, "test-data".to_string());
-    assert_eq!(meta.get_first_graphic_href(), DEFAULT_HREF);
+    assert_eq!(meta.get_first_image_content_url(), DEFAULT_HREF);
     let href = "abc.png";
     let caption = "hello world";
     let graphics = vec![MediaObject::Image(
         ImageObject::init().caption(caption.to_owned()).content_url(href.to_owned()).build(),
     )];
     let meta = Metadata::init().identifier("test-data".to_string()).media(graphics).build();
-    assert_eq!(meta.clone().get_first_graphic_href(), href);
-    assert_eq!(meta.get_first_graphic_caption(), caption);
+    assert_eq!(meta.clone().get_first_image_content_url(), href);
+    assert_eq!(meta.get_first_image_caption(), caption);
     let meta = Metadata::init().identifier("test-data".to_string()).media(vec![]).build();
-    assert_eq!(meta.clone().get_first_graphic_href(), DEFAULT_HREF);
-    assert_eq!(meta.get_first_graphic_caption(), DEFAULT_CAPTION);
+    assert_eq!(meta.clone().get_first_image_content_url(), DEFAULT_HREF);
+    assert_eq!(meta.get_first_image_caption(), DEFAULT_CAPTION);
     let graphics = vec![MediaObject::Image(ImageObject::init().caption("".to_owned()).build())];
     let meta = Metadata::init().identifier("test-data".to_string()).media(graphics).build();
-    assert_eq!(meta.clone().get_first_graphic_href(), DEFAULT_HREF);
-    assert_eq!(meta.get_first_graphic_caption(), DEFAULT_CAPTION);
+    assert_eq!(meta.clone().get_first_image_content_url(), DEFAULT_HREF);
+    assert_eq!(meta.get_first_image_caption(), DEFAULT_CAPTION);
 }
 #[test]
 fn test_organization() {
@@ -242,7 +242,7 @@ fn test_research_activity_format() {
     assert_eq!(pre.contact.affiliation, Some("Not an actual affiliation".to_string()));
     let post = pre.format(None);
     assert_eq!(post.clone().meta.media.unwrap()[0].clone().get_content_url(), Some("00.png".to_string()));
-    assert_eq!(post.clone().meta.get_first_graphic().unwrap().get_description(), "".to_string());
+    assert_eq!(post.clone().meta.get_first_image().unwrap().get_description(), "".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
     // //
     // // with more unresolved changes

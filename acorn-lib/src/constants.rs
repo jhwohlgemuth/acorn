@@ -33,8 +33,8 @@ pub const MAX_LENGTH_APPROACH: usize = 150;
 pub const MAX_LENGTH_CAPABILIY: usize = 300;
 /// Maximum number of characters for a single facility description
 pub const MAX_LENGTH_FACILITY: usize = 50;
-/// Maximum number of characters for a single graphic caption
-pub const MAX_LENGTH_GRAPHIC_CAPTION: u64 = 100;
+/// Maximum number of characters for a single image caption
+pub const MAX_LENGTH_IMAGE_CAPTION: u64 = 100;
 /// Maximum number of characters for a single impact description
 pub const MAX_LENGTH_IMPACT: usize = 150;
 /// Maximum number of characters for a single [research area](/acorn_lib/schema/struct.Research.html#structfield.areas) description
@@ -64,7 +64,7 @@ lazy_static! {
     /// See <https://www.ror.org/> for more information
     pub static ref RE_ROR: Regex = Regex::new(r#"^0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2}$"#).unwrap();
     /// ### Should match an image extension (e.g. .png, .jpg, .jpeg, .svg)
-    pub static ref RE_IMAGE_EXTENSION: Regex = Regex::new(r#".*[.](png|PNG|jpg|JPG|jpeg|JPEG|svg|SVG)$"#).unwrap();
+    pub static ref RE_IMAGE_EXTENSION: Regex = Regex::new(r#".*[.](png|PNG|jpg|JPG|jpeg|JPEG|svg|SVG|gif|GIF|webp|WEBP|tiff|TIFF)$"#).unwrap();
     /// ### Should match an IP6 address
     pub static ref RE_IP6: Regex = Regex::new(r#"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"#).unwrap();
     /// ### Should match a phone number (with optional country and area codes)

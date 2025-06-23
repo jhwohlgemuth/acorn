@@ -85,6 +85,9 @@ pub enum FuzzyValue {
     #[display("technology")]
     Technology,
 }
+/// Media object such as image or video
+///
+/// See <https://schema.org/MediaObject>
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum MediaObject {
@@ -249,18 +252,31 @@ pub struct ContactPoint {
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ImageObject {
+    /// ### Image caption
+    #[validate(length(max = "MAX_LENGTH_IMAGE_CAPTION", message = "Caption is too long, please reduce the length below 100."))]
     #[serde(deserialize_with = "string_trim")]
     caption: String,
-    /// File size in kilobytes
+    /// ### File size in kilobytes
+    ///
+    /// > **Note**: Will be overwritten by running `acorn format`
     ///
     /// See <https://schema.org/contentSize>
     #[serde(alias = "size")]
     content_size: Option<NonZeroU64>,
-    #[validate(url)]
+    #[validate(custom(function = "has_image_extension"))]
     #[serde(alias = "url", alias = "href")]
     content_url: Option<String>,
-    exif_data: Option<String>,
+    /// ### Image height in pixels
+    ///
+    /// **Note**: Will be overwritten by running `acorn format`
+    ///
+    /// See <https://schema.org/height>
     height: Option<NonZeroU64>,
+    /// ### Image width in pixels
+    ///
+    /// > **Note**: Will be overwritten by running `acorn format`
+    ///
+    /// See <https://schema.org/width>
     width: Option<NonZeroU64>,
 }
 #[skip_serializing_none]
@@ -434,6 +450,9 @@ pub struct VideoObject {
     #[validate(url)]
     #[serde(alias = "url", alias = "href")]
     content_url: Option<String>,
+    /// ### Video description
+    ///
+    /// See <https://schema.org/description>
     #[serde(deserialize_with = "string_trim")]
     description: String,
     // TODO: Create ISO 8601 struct and/or validator
@@ -441,7 +460,13 @@ pub struct VideoObject {
     ///
     /// See <https://schema.org/duration>
     duration: Option<String>,
+    /// ### Video height in pixels
+    ///
+    /// See <https://schema.org/height>
     height: Option<NonZeroU64>,
+    /// ### Video width in pixels
+    ///
+    /// See <https://schema.org/width>
     width: Option<NonZeroU64>,
 }
 /// ## Website
@@ -572,14 +597,14 @@ impl MediaObject {
     }
 }
 impl Metadata {
-    fn get_first_graphic(self) -> Option<MediaObject> {
+    fn get_first_image(self) -> Option<MediaObject> {
         match self.media {
             | Some(values) => values.into_iter().filter(|x| x.clone().is_image()).collect::<Vec<_>>().first().cloned(),
             | None => None,
         }
     }
-    pub fn get_first_graphic_href(self) -> String {
-        match self.get_first_graphic() {
+    pub fn get_first_image_content_url(self) -> String {
+        match self.get_first_image() {
             | Some(media) => match media {
                 | MediaObject::Image(ImageObject { content_url, .. }) => match content_url {
                     | Some(value) if !value.is_empty() => value.clone().trim().to_string(),
@@ -590,8 +615,8 @@ impl Metadata {
             | None => DEFAULT_GRAPHIC_HREF.to_string(),
         }
     }
-    pub fn get_first_graphic_caption(self) -> String {
-        match self.get_first_graphic() {
+    pub fn get_first_image_caption(self) -> String {
+        match self.get_first_image() {
             | Some(MediaObject::Image(ImageObject { caption, .. })) => match caption.clone() {
                 | value if !value.is_empty() => value.clone(),
                 | _ => DEFAULT_GRAPHIC_CAPTION.to_string(),
@@ -850,7 +875,7 @@ impl ResearchActivity {
         debug!(name, "=> {} First image", Label::using());
         let first_graphic = match self.meta.clone().media {
             | Some(values) if !values.is_empty() => {
-                let caption = self.meta.clone().get_first_graphic_caption();
+                let caption = self.meta.clone().get_first_image_caption();
                 let image_data = ImageObject::init().caption(caption.to_string()).content_url(name.clone()).build();
                 MediaObject::Image(image_data)
             }
@@ -908,10 +933,14 @@ impl ResearchActivity {
         clone
     }
     pub fn get_errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
-        let found = vec![
-            get_validation_errors::<ResearchActivity>(self.clone()),
-            get_validation_errors::<Sections>(self.sections),
-        ];
+        let mut found = vec![get_validation_errors::<ResearchActivity>(self.clone())];
+        match self.meta.media {
+            | Some(values) => values.iter().for_each(|media| match media {
+                | MediaObject::Image(x) => found.push(get_validation_errors::<ImageObject>(x.clone())),
+                | MediaObject::Video(x) => found.push(get_validation_errors::<VideoObject>(x.clone())),
+            }),
+            | None => {}
+        }
         let errors = format_errors(found.clone());
         if !errors.is_empty() {
             Err(errors)

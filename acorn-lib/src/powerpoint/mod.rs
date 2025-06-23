@@ -131,7 +131,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 email,
                 ..
             } = contact;
-            let caption = meta.get_first_graphic_caption();
+            let caption = meta.get_first_image_caption();
             let presentation_notes = match notes.clone() {
                 | Some(value) => match value {
                     | Other::Formatted(Notes { presentation, .. }) => match presentation {

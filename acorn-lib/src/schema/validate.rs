@@ -67,7 +67,7 @@ pub fn get_error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
         .sum()
 }
 pub fn has_image_extension(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide a path with a PNG, JPEG, or SVG extension";
+    const MESSAGE: &str = "Please provide a path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension";
     match RE_IMAGE_EXTENSION.is_match(value) {
         | Ok(value) if value => Ok(()),
         | _ => Err(ValidationError::new("image").with_message(MESSAGE.into())),
