@@ -40,27 +40,27 @@ pub enum Commands {
     /// Perform static analysis on research activity data and apply standardized best practices
     ///
     ///     Check a file
-    ///     $> acorn check --path /path/to/file.json
+    ///     $> acorn check /path/to/file.json
     ///
     ///     Check all supported files in a folder
-    ///     $> acorn check --path /path/to/folder
+    ///     $> acorn check /path/to/folder
     ///
     ///     Skip static analysis
-    ///     $> acorn check --path /path/to/folder --skip validation
+    ///     $> acorn check /path/to/folder --skip validation
     ///
     ///     Skip schema validation
-    ///     $> acorn check --path /path/to/folder --skip analysis,validation
+    ///     $> acorn check /path/to/folder --skip analysis,validation
     ///
     ///     Check file(s) that were changed in a given Git commit
-    ///     $> acorn format --commit <commit hash>
+    ///     $> acorn check --commit <commit hash>
     ///
     ///     Check file(s) that were changed in latest Git commit
-    ///     $> acorn format --commit HEAD
+    ///     $> acorn check --commit HEAD
     ///
     #[clap(verbatim_doc_comment)]
     Check {
         /// Path to check
-        #[arg(default_value = "./", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        #[arg(default_value = "./", required = true, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
         /// Check files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH")]
@@ -144,13 +144,13 @@ pub enum Commands {
     },
     /// Export research activity data to a specific target
     ///
-    ///     $> acorn export --path /path/to/data
+    ///     $> acorn export /path/to/data
     ///
-    ///     $> acorn export --path /path/to/data/data.json -vv
+    ///     $> acorn export /path/to/data/data.json -vv
     ///
-    ///     $> acorn export --path /path/to/data --target highlight --format powerpoint
+    ///     $> acorn export /path/to/data --target highlight --format powerpoint
     ///
-    ///     $> acorn export -p /path/to/data -t poster -o /path/to/output
+    ///     $> acorn export /path/to/data -t poster -o /path/to/output
     ///
     ///     Export file(s) that were changed in a given Git commit
     ///     $> acorn export --commit <commit hash>
@@ -161,7 +161,7 @@ pub enum Commands {
     #[clap(verbatim_doc_comment)]
     Export {
         /// Path of input files to be exported
-        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        #[arg(required = true, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
         /// Export files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH")]
@@ -201,9 +201,9 @@ pub enum Commands {
     },
     /// Formats research activity data in place (inherently includes some elements of `acorn check`)
     ///
-    ///     $> acorn format --path /path/to/file.json
+    ///     $> acorn format /path/to/file.json
     ///
-    ///     $> acorn format --path /path/to/folder
+    ///     $> acorn format /path/to/folder --dry-run
     ///
     ///     Format file(s) that were changed in a given Git commit
     ///     $> acorn format --commit <commit hash>
@@ -214,7 +214,7 @@ pub enum Commands {
     #[clap(verbatim_doc_comment)]
     Format {
         /// Path to look for files to format
-        #[arg(default_value = "./", short, long, value_name = "PATH", value_hint = ValueHint::DirPath)]
+        #[arg(default_value = "./", required = true, value_name = "PATH", value_hint = ValueHint::DirPath)]
         path: Option<PathBuf>,
         /// Format files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH")]
@@ -227,7 +227,7 @@ pub enum Commands {
         dry_run: bool,
         /// Regex pattern applied to absolute paths of files that determines whether they should be included in formatting process
         ///
-        /// Only applies to `--path` values that point to a directory
+        /// Only applies to path values that point to a directory
         ///
         /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
         ///

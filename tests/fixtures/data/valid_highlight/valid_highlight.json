@@ -32,8 +32,7 @@
             "focus": "Placeholder",
             "areas": [
                 "foo",
-                "bar",
-                "baz"
+                "bar"
             ]
         },
         "achievement": [
