@@ -293,9 +293,6 @@ pub struct Metadata {
     #[validate(custom(function = "is_kebabcase"))]
     #[serde(alias = "id", rename = "identifier", deserialize_with = "string_trim")]
     pub identifier: String,
-    #[deprecated]
-    #[serde(alias = "type", rename = "type")]
-    pub schema_type: Option<String>,
     pub additional_type: Option<OrganizationType>,
     /// ### Digital Object Identifier
     ///
