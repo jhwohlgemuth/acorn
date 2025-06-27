@@ -11,6 +11,9 @@ pub enum Check {
     /// Static analysis of prose
     #[display("analysis")]
     Analysis,
+    /// Folder structure and file naming
+    #[display("conventions")]
+    Conventions,
     /// Readability of prose
     #[display("readability")]
     Readability,

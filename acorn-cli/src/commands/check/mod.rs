@@ -28,6 +28,12 @@ pub fn run(
         .merge_request(*merge_request)
         .build();
     let paths = get_paths_from_options(path, &Some(options.clone()));
+    let conventions_issues = if skip.contains(&Check::Conventions) {
+        warn!("=> {} Conventions verification", Label::skip());
+        0
+    } else {
+        0
+    };
     let validation_issues = if skip.contains(&Check::Validation) {
         warn!("=> {} Schema validation", Label::skip());
         0
@@ -62,6 +68,7 @@ pub fn run(
         let rows = vec![
             to_string(vec!["Schema Validation", &validation_issues.to_string()]),
             to_string(vec!["Prose Analysis", &analysis_issues.to_string()]),
+            to_string(vec!["Conventions", &conventions_issues.to_string()]),
             to_string(vec!["Readability", "---"]),
         ];
         println!("\n");
