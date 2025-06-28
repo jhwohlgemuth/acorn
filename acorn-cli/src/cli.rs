@@ -1,8 +1,17 @@
 use clap::{Parser, Subcommand, ValueHint};
+use clap::builder::styling::{Ansi256Color, AnsiColor};
+use clap::builder::Styles;
 use clap_verbosity_flag::Verbosity;
 use std::path::PathBuf;
 
 use crate::util::*;
+
+const PRIMARY_COLOR: u8 = 135;
+const STYLES: Styles = Styles::styled()
+	.header(Ansi256Color(PRIMARY_COLOR).on_default().bold())
+	.usage(Ansi256Color(PRIMARY_COLOR).on_default().bold())
+	.literal(AnsiColor::White.on_default())
+	.placeholder(AnsiColor::Green.on_default());
 
 /// Multitool for maintaining sustainable research activity data
 ///
@@ -22,7 +31,7 @@ use crate::util::*;
 /// ⠀ ⣿⣿⠿⠿⠿⠿⠿⠿⠟⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ///
 #[derive(Debug, Parser)]
-#[command(author, version, about, verbatim_doc_comment)]
+#[command(author, version, about, verbatim_doc_comment, styles(STYLES))]
 pub struct Arguments {
     /// Prevent communication with the internet - intended for disconnected local environments
     ///
