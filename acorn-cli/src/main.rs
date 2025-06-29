@@ -1,5 +1,5 @@
 // #![deny(missing_docs)]
-use clap::Parser;
+use clap::{crate_version, Parser};
 use color_eyre::eyre;
 use dotenvy::dotenv;
 use tracing::instrument;
@@ -31,6 +31,10 @@ const DISPLAY_THREAD_NAME: bool = false;
 fn main() -> Void {
     color_eyre::install()?;
     let args = Arguments::parse();
+    if args.version {
+        println!("{}", crate_version!());
+        std::process::exit(exitcode::OK);
+    }
     match dotenv() {
         | Ok(_) if !dotenvy::var(LOG_LEVEL).unwrap_or_default().is_empty() => {
             // Configure tracing with a .env file
