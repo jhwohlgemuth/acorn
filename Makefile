@@ -1,4 +1,6 @@
+#!make
 .PHONY: clean lint test coverage doc build release version
+-include .env
 
 clean:
 	@rm -rf ./bin
@@ -36,6 +38,9 @@ bucket-image:
 
 release: clean
 	@echo "Under Construction"
+
+changelog:
+	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN}
 
 version: 
 	@echo $(VERSION)

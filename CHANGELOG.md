@@ -32,6 +32,7 @@
 
 ### 📚 Documentation
 
+- Add CHANGELOG generated using git-cliff - ([f0fda39](https://code.ornl.gov/research-enablement/acorn/commit/f0fda39327cb19fb5105a49b43837c9347db1c10))
 - Improve help grouping and coloring; add minimal tests - ([18de14a](https://code.ornl.gov/research-enablement/acorn/commit/18de14a789e2fd0063e248bcec5b7edc784eb145))
 - Add style to help output - ([996265b](https://code.ornl.gov/research-enablement/acorn/commit/996265b70b44aefab1ef30dd0502c915c0dde1e1))
 - Add inline docs for meta.capabilities - ([a7157ff](https://code.ornl.gov/research-enablement/acorn/commit/a7157ffda136f357ce363a9d91b95db105dac556))
