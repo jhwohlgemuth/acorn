@@ -1,5 +1,5 @@
-ACORN
-=====
+# ACORN
+[![Latest Release](https://code.ornl.gov/research-enablement/acorn/-/badges/release.svg?style=flat-square)](https://code.ornl.gov/research-enablement/acorn/-/releases)
 > Accessible Content Optimization for Research Needs
 
 ## Quick Start
