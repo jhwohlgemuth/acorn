@@ -2,7 +2,7 @@ use crate::analyzer::vale::{Vale, ValeConfig};
 use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig};
 use crate::constants::*;
 use crate::util::*;
-use bon::Builder;
+use bon::{builder, Builder};
 use derive_more::Display;
 use fancy_regex::Regex;
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
@@ -17,6 +17,7 @@ use serde_repr::*;
 use serde_trim::*;
 use serde_with::skip_serializing_none;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use std::result::Result;
@@ -188,7 +189,8 @@ pub enum TechnologyReadinessLevel {
 /// Contact point (i.e. "point of contact") for research activity
 ///
 /// See <https://schema.org/ContactPoint>
-#[derive(Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
+#[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ContactPoint {
     /// ### Job title (e.g. "Group Lead") of role that the contact fills related to the asscociated research activity.
@@ -200,39 +202,46 @@ pub struct ContactPoint {
     /// ***Example*** Ideal contact title for a group organization would be "Group Lead"
     ///
     /// See <https://schema.org/jobTitle>
+    #[builder(default = "Researcher".to_string())]
     #[serde(alias = "title", deserialize_with = "string_trim")]
     pub job_title: String,
     /// ### First (given) name of contact
     ///
     /// See <https://schema.org/givenName>
+    #[builder(default = "First".to_string())]
     #[serde(alias = "first", deserialize_with = "string_trim")]
     pub given_name: String,
     /// ### Last (family) name of contact
     ///
     /// See <https://schema.org/familyName>
+    #[builder(default = "Last".to_string())]
     #[serde(alias = "last", deserialize_with = "string_trim")]
     pub family_name: String,
     /// ### Email address of contact point
     ///
     /// See <https://schema.org/email>
     #[validate(email(message = "Please provide a valid email"))]
+    #[builder(default = "first_last@example.com".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub email: String,
     /// ### Phone number of contact point
     ///
     /// See <https://schema.org/telephone>
     #[validate(custom(function = "is_phone_number"))]
+    #[builder(default = "123-456-7890".to_string())]
     #[serde(alias = "phone", deserialize_with = "string_trim")]
     pub telephone: String,
     /// ### Profile URL of contact point
     ///
     /// ***Example*** Profile URL for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
     #[validate(url(message = "Please provide a valid profile URL"))]
+    #[builder(default = "https://example.com".to_string())]
     #[serde(alias = "profile", deserialize_with = "string_trim")]
     pub url: String,
     /// ### Organization of contact point
     ///
     /// See [Organization]
+    #[builder(default = "Some Organization".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub organization: String,
     /// ### Affiliation of associated research activity data
@@ -291,6 +300,7 @@ pub struct Metadata {
     ///
     /// ***Example*** `my-research-project`
     #[validate(custom(function = "is_kebabcase"))]
+    #[builder(default = "some-research-project".to_string())]
     #[serde(alias = "id", rename = "identifier", deserialize_with = "string_trim")]
     pub identifier: String,
     pub additional_type: Option<OrganizationType>,
@@ -367,7 +377,7 @@ pub struct Metadata {
     pub related: Option<Vec<String>>,
 }
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct Notes {
     /// ### [ASCR](https://www.energy.gov/science/ascr/advanced-scientific-computing-research) highlight attribute
@@ -412,21 +422,26 @@ pub struct Organization {
 ///
 /// See <https://www.raid.org/> for more information
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Display, Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
+#[display("Research Activity ({title})")]
 #[serde(deny_unknown_fields)]
 pub struct ResearchActivity {
     #[validate(nested)]
+    #[builder(default)]
     pub meta: Metadata,
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
+    #[builder(default = "Research Activity Title".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub title: String,
     #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 75."))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub subtitle: Option<String>,
     #[validate(nested)]
+    #[builder(default)]
     pub sections: Sections,
     #[validate(nested)]
+    #[builder(default)]
     pub contact: ContactPoint,
     pub notes: Option<Other>,
 }
@@ -498,7 +513,8 @@ pub struct Website {
     pub url: String,
 }
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init)]
 #[serde(deny_unknown_fields)]
 pub struct Sections {
     #[validate(length(
@@ -506,6 +522,7 @@ pub struct Sections {
         max = "MAX_LENGTH_SECTION_INTRODUCTION",
         message = "Mission is too long, please reduce the length below 250."
     ))]
+    #[builder(default = "Purpose of the research".to_string())]
     #[serde(alias = "introduction", deserialize_with = "string_trim")]
     pub mission: String,
     #[validate(length(
@@ -513,15 +530,18 @@ pub struct Sections {
         max = "MAX_LENGTH_SECTION_CHALLENGE",
         message = "Challenge is too long, please reduce the length below 500."
     ))]
+    #[builder(default = "Reason for the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub challenge: String,
     #[validate(
         length(min = 1, max = "MAX_COUNT_APPROACH", message = "Please limit the number of approaches to 6"),
         custom(function = "validate_attribute_approach")
     )]
+    #[builder(default = vec!["List of actions taken to perform the research".to_string()])]
     #[serde(deserialize_with = "vec_string_trim")]
     pub approach: Vec<String>,
     #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
+    #[builder(default = vec!["List of tangible proof that validates the research approach".to_string()])]
     #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
     #[validate(length(min = 1, max = 4, message = "Please limit the number of achievements to 4"))]
@@ -530,9 +550,11 @@ pub struct Sections {
     #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
     pub capabilities: Option<Vec<String>>,
     #[validate(nested)]
+    #[builder(default = Research::init().build())]
     pub research: Research,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init)]
 #[serde(deny_unknown_fields)]
 pub struct Research {
     #[validate(length(
@@ -540,37 +562,37 @@ pub struct Research {
         max = "MAX_LENGTH_RESEARCH_FOCUS",
         message = "Focus is too long, please reduce the length below 150."
     ))]
+    #[builder(default = "Focus of the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub focus: String,
     #[validate(length(min = 1, max = "MAX_COUNT_RESEARCH_AREAS"), custom(function = "validate_attribute_areas"))]
+    #[builder(default = vec!["Areas of research".to_string()])]
     #[serde(deserialize_with = "vec_string_trim")]
     pub areas: Vec<String>,
 }
-impl View for ContactPoint {
-    fn render(&self) -> VirtualNode {
-        let ContactPoint {
-            given_name,
-            family_name,
-            job_title: role,
-            email,
-            telephone,
-            ..
-        } = self;
-        html! {
-            <section id="contact">
-                <div>
-                    <span class="label">Contact</span>
-                    <span class="spacer"> </span>
-                    <span class="name">{ format!("{} {}", given_name, family_name) }</span>
-                    <span class="spacer">|</span>
-                    <span class="title">{ role }</span>
-                    <span class="spacer">|</span>
-                    <span class="email">{ email }</span>
-                    <span class="spacer">|</span>
-                    <span class="phone">{ telephone }</span>
-                </div>
-            </section>
-        }
+impl Default for ContactPoint {
+    fn default() -> Self {
+        Self::init().build()
+    }
+}
+impl Default for Metadata {
+    fn default() -> Self {
+        Metadata::init().build()
+    }
+}
+impl Default for ResearchActivity {
+    fn default() -> Self {
+        ResearchActivity::init().build()
+    }
+}
+impl Default for Sections {
+    fn default() -> Self {
+        Sections::init().build()
+    }
+}
+impl Hash for ResearchActivity {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.meta.identifier.hash(state);
     }
 }
 impl MediaObject {
@@ -735,6 +757,9 @@ impl OrganizationType {
     }
 }
 impl ResearchActivity {
+    pub fn new() -> Self {
+        ResearchActivity::default()
+    }
     pub fn to_schema() {
         let schema = schema_for!(ResearchActivity);
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
@@ -994,6 +1019,33 @@ impl ResearchActivity {
     pub fn to_markdown(self) -> String {
         let ResearchActivity { title, .. } = self.clone();
         format!("# {title}")
+    }
+}
+impl View for ContactPoint {
+    fn render(&self) -> VirtualNode {
+        let ContactPoint {
+            given_name,
+            family_name,
+            job_title: role,
+            email,
+            telephone,
+            ..
+        } = self;
+        html! {
+            <section id="contact">
+                <div>
+                    <span class="label">Contact</span>
+                    <span class="spacer"> </span>
+                    <span class="name">{ format!("{} {}", given_name, family_name) }</span>
+                    <span class="spacer">|</span>
+                    <span class="title">{ role }</span>
+                    <span class="spacer">|</span>
+                    <span class="email">{ email }</span>
+                    <span class="spacer">|</span>
+                    <span class="phone">{ telephone }</span>
+                </div>
+            </section>
+        }
     }
 }
 fn match_list(value: String, values: Vec<String>) -> Vec<(String, u32)> {

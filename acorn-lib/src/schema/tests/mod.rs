@@ -223,6 +223,11 @@ fn test_read() {
     }
 }
 #[test]
+fn test_research_activity_default() {
+    let data = ResearchActivity::default();
+    assert_eq!(data.to_markdown(), "# Research Activity Title");
+}
+#[test]
 fn test_research_activity_format() {
     let path = Some(PathBuf::from(FIXTURES).join("data/format/"));
     //
