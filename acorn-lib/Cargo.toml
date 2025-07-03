@@ -26,9 +26,7 @@ bat = "0.25.0"
 bon = "3.3.2"
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
 comfy-table = "7.1.4"
-console = { version = "0.15.7", default-features = false, features = [
-  "ansi-parsing",
-] }
+console = { version = "0.16.0", features = ["ansi-parsing"] }
 directories = "6.0.0"
 eserde = { version = "0.1.2", features = ["json"] }
 fancy-regex = "0.14.0"
@@ -40,7 +38,7 @@ nanopub = "0.1.4"
 nucleo-matcher = "0.3.1"
 percy-dom = "0.10.0"
 petgraph = "0.8.1"
-quick-xml = {version = "0.37.5", features = ["serialize"] }
+quick-xml = { version = "0.38.0", features = ["serialize"] }
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 ring = "0.17.13"
 rust-ini = "0.21.1"
@@ -55,7 +53,7 @@ tar = "0.4.43"
 titlecase = "3.4.0"
 validator = { version = "0.20", features = ["derive"] }
 wgpu = "25.0.0"
-which = "7.0.2"
+which = "8.0.0"
 zip = "4.2.0"
 color-eyre = { workspace = true }
 data-encoding = { workspace = true }
