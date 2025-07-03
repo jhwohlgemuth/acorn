@@ -8,24 +8,24 @@ const FIXTURES: &str = "../tests/fixtures";
 #[test]
 fn test_get_all_files() {
     let extension = Some("json");
-    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, None);
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, None);
     assert_eq!(files.len(), 3);
-    let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), Some("jpg"), None);
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), Some("jpg"), None);
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
     if cfg!(target_os = "linux") {
-        let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/]a.json$".to_string()));
+        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/]a.json$".to_string()));
         assert_eq!(files.len(), 2);
-        let files = get_all_files(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/](a|b).json$".to_string()));
+        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/](a|b).json$".to_string()));
         assert_eq!(files.len(), 1);
-        let files = get_all_files(PathBuf::from(FIXTURES).join("glob/a.txt"), None, None);
+        let files = files_all(PathBuf::from(FIXTURES).join("glob/a.txt"), None, None);
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.txt");
     }
 }
 #[test]
 fn test_get_checksum() {
-    let checksum = get_checksum(PathBuf::from(FIXTURES).join("glob/a.txt"));
+    let checksum = checksum(PathBuf::from(FIXTURES).join("glob/a.txt"));
     if cfg!(target_os = "windows") {
         assert_eq!(checksum.len(), 64);
     } else {
@@ -35,38 +35,38 @@ fn test_get_checksum() {
 }
 #[test]
 fn test_get_extension() {
-    assert_eq!("txt", get_extension(Path::new("hello.txt")));
-    assert_eq!("md", get_extension(Path::new("README.md")));
-    assert_eq!("", get_extension(Path::new(".dotfile")));
-    assert_eq!("", get_extension(Path::new("/path/to/folder")));
+    assert_eq!("txt", extension(Path::new("hello.txt")));
+    assert_eq!("md", extension(Path::new("README.md")));
+    assert_eq!("", extension(Path::new(".dotfile")));
+    assert_eq!("", extension(Path::new("/path/to/folder")));
 }
 #[test]
 fn test_get_files_from_git() {
-    let files = get_files_from_git_branch("main", Some("not-a-file-extension"));
+    let files = files_from_git_branch("main", Some("not-a-file-extension"));
     assert!(files.is_empty());
-    let files = get_files_from_git_commit("HEAD", Some("not-a-file-extension"));
+    let files = files_from_git_commit("HEAD", Some("not-a-file-extension"));
     assert!(files.is_empty());
 }
 #[ignore]
 #[test]
 fn test_get_git_branch() {
-    assert_eq!(get_git_default_branch_name(), Some("main".to_string()));
-    assert!(get_git_branch_name().is_some());
+    assert_eq!(git_default_branch_name(), Some("main".to_string()));
+    assert!(git_branch_name().is_some());
 }
 #[test]
 fn test_get_image_paths() {
     let path = PathBuf::from(FIXTURES).join("data/empty/");
-    let files = get_image_paths(path);
+    let files = image_paths(path);
     assert_eq!(files.len(), 0);
     let path = PathBuf::from(".");
-    let files = get_image_paths(path);
+    let files = image_paths(path);
     assert_eq!(files.len(), 0);
 }
 #[test]
 fn test_get_suffix() {
-    assert_eq!(get_suffix(0), "s");
-    assert_eq!(get_suffix(1), "");
-    assert_eq!(get_suffix(2), "s");
+    assert_eq!(suffix(0), "s");
+    assert_eq!(suffix(1), "");
+    assert_eq!(suffix(2), "s");
 }
 #[test]
 fn test_generate_guid() {

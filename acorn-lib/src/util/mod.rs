@@ -157,7 +157,7 @@ impl Constant {
             }
         }
     }
-    pub fn get_last_values(file_name: &str) -> impl Iterator<Item = String> {
+    pub fn last_values(file_name: &str) -> impl Iterator<Item = String> {
         Constant::csv(file_name)
             .into_iter()
             .map(|x| match x.last() {
@@ -180,7 +180,7 @@ impl Constant {
 impl MimeType {
     pub fn from_path(file_name: &str) -> MimeType {
         let name = &file_name.to_lowercase();
-        match get_extension(Path::new(name)).as_str() {
+        match extension(Path::new(name)).as_str() {
             | "csv" => MimeType::Csv,
             | "jpg" | "jpeg" => MimeType::Jpeg,
             | "json" => MimeType::Json,
@@ -234,6 +234,45 @@ impl Default for SemanticVersion {
         SemanticVersion::init().build()
     }
 }
+// Get SHA256 hash of a file
+// https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html
+pub fn checksum(path: PathBuf) -> String {
+    match File::open(path.clone()) {
+        | Ok(file) => {
+            let mut buffer = [0; 1024];
+            let mut context = Context::new(&SHA256);
+            let mut reader = BufReader::new(file);
+            loop {
+                let count = reader.read(&mut buffer).unwrap();
+                if count == 0 {
+                    break;
+                }
+                context.update(&buffer[..count]);
+            }
+            let digest = context.finish();
+            let result = HEXUPPER.encode(digest.as_ref());
+            result.to_lowercase()
+        }
+        | Err(err) => {
+            error!(error = err.to_string(), path = path_to_string(path), "=> {} Read file", Label::fail());
+            "".to_string()
+        }
+    }
+}
+pub fn command_folder(task: &str, default: Option<PathBuf>) -> PathBuf {
+    let root = match default {
+        | Some(value) => value,
+        | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
+            | Some(dirs) => dirs.cache_dir().join(task).to_path_buf(),
+            | None => PathBuf::from(format!("./{task}")),
+        },
+    };
+    match create_dir_all(root.clone()) {
+        | Ok(_) => {}
+        | Err(why) => error!(directory = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
+    };
+    root.join(generate_guid())
+}
 pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, String> {
     async fn download(url: String, destination: PathBuf) -> Result<(), String> {
         let client = reqwest::Client::new();
@@ -257,16 +296,22 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
     let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.join(filename))
 }
-pub fn generate_guid() -> String {
-    let alphabet = [
-        '-', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'T', 'U', 'V', 'W', 'X', 'Y', 'a', 'b', 'c', 'd',
-        'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 't', 'w', 'x', 'y', 'z', '3', '4', '6', '7', '8', '9',
-    ];
-    let id = nanoid!(10, &alphabet);
-    debug!(id, "=> {}", Label::using());
-    id
+/// Get file extension
+///
+/// # Examples
+/// ```
+/// use std::path::Path;
+/// use acorn_lib::util::extension;
+///
+/// assert_eq!("txt", extension(Path::new("hello.txt")));
+/// assert_eq!("md", extension(Path::new("README.md")));
+/// assert_eq!("", extension(Path::new(".dotfile")));
+/// assert_eq!("", extension(Path::new("/path/to/folder")));
+/// ```
+pub fn extension(path: &Path) -> String {
+    path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string()
 }
-pub fn get_all_files(path: PathBuf, extension: Option<&str>, ignore: Option<String>) -> Vec<PathBuf> {
+pub fn files_all(path: PathBuf, extension: Option<&str>, ignore: Option<String>) -> Vec<PathBuf> {
     fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
     }
@@ -318,91 +363,9 @@ pub fn get_all_files(path: PathBuf, extension: Option<&str>, ignore: Option<Stri
         vec![path]
     }
 }
-pub fn get_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
-    TextDiff::from_lines(old, new)
-        .iter_all_changes()
-        .map(|line| {
-            let tag = line.tag();
-            let text = match tag {
-                | Delete => format!("- {line}").red().to_string(),
-                | Insert => format!("+ {line}").green().to_string(),
-                | Equal => format!("  {line}").dimmed().to_string(),
-            };
-            (tag, text)
-        })
-        .collect::<Vec<_>>()
-}
-// Get SHA256 hash of a file
-// https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html
-pub fn get_checksum(path: PathBuf) -> String {
-    match File::open(path.clone()) {
-        | Ok(file) => {
-            let mut buffer = [0; 1024];
-            let mut context = Context::new(&SHA256);
-            let mut reader = BufReader::new(file);
-            loop {
-                let count = reader.read(&mut buffer).unwrap();
-                if count == 0 {
-                    break;
-                }
-                context.update(&buffer[..count]);
-            }
-            let digest = context.finish();
-            let result = HEXUPPER.encode(digest.as_ref());
-            result.to_lowercase()
-        }
-        | Err(err) => {
-            error!(error = err.to_string(), path = path_to_string(path), "=> {} Read file", Label::fail());
-            "".to_string()
-        }
-    }
-}
-pub fn get_command_folder(task: &str, default: Option<PathBuf>) -> PathBuf {
-    let root = match default {
-        | Some(value) => value,
-        | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
-            | Some(dirs) => dirs.cache_dir().join(task).to_path_buf(),
-            | None => PathBuf::from(format!("./{task}")),
-        },
-    };
-    match create_dir_all(root.clone()) {
-        | Ok(_) => {}
-        | Err(why) => error!(directory = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
-    };
-    root.join(generate_guid())
-}
-/// Get file extension
-///
-/// # Examples
-/// ```
-/// use std::path::Path;
-/// use acorn_lib::util::get_extension;
-///
-/// assert_eq!("txt", get_extension(Path::new("hello.txt")));
-/// assert_eq!("md", get_extension(Path::new("README.md")));
-/// assert_eq!("", get_extension(Path::new(".dotfile")));
-/// assert_eq!("", get_extension(Path::new("/path/to/folder")));
-/// ```
-pub fn get_extension(path: &Path) -> String {
-    path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string()
-}
-fn filter_git_command_result(result: Result<String, std::io::Error>, extension: Option<&str>) -> Vec<PathBuf> {
-    match result {
-        | Ok(value) => match extension {
-            | Some(ext) => value
-                .to_lowercase()
-                .split("\n")
-                .map(PathBuf::from)
-                .filter(|x| get_extension(Path::new(x)) == ext)
-                .collect::<Vec<_>>(),
-            | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
-        },
-        | Err(_) => vec![],
-    }
-}
-pub fn get_files_from_git_branch(value: &str, extension: Option<&str>) -> Vec<PathBuf> {
+pub fn files_from_git_branch(value: &str, extension: Option<&str>) -> Vec<PathBuf> {
     if test_command("git".to_owned()) {
-        let default_branch = match get_git_default_branch_name() {
+        let default_branch = match git_default_branch_name() {
             | Some(value) => value,
             | None => "main".to_string(),
         };
@@ -413,7 +376,7 @@ pub fn get_files_from_git_branch(value: &str, extension: Option<&str>) -> Vec<Pa
         vec![]
     }
 }
-pub fn get_files_from_git_commit(value: &str, extension: Option<&str>) -> Vec<PathBuf> {
+pub fn files_from_git_commit(value: &str, extension: Option<&str>) -> Vec<PathBuf> {
     if test_command("git".to_owned()) {
         let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
         let result = cmd("git", args).read();
@@ -422,7 +385,30 @@ pub fn get_files_from_git_commit(value: &str, extension: Option<&str>) -> Vec<Pa
         vec![]
     }
 }
-pub fn get_git_branch_name() -> Option<String> {
+fn filter_git_command_result(result: Result<String, std::io::Error>, file_extension: Option<&str>) -> Vec<PathBuf> {
+    match result {
+        | Ok(value) => match file_extension {
+            | Some(ext) => value
+                .to_lowercase()
+                .split("\n")
+                .map(PathBuf::from)
+                .filter(|x| extension(Path::new(x)) == ext)
+                .collect::<Vec<_>>(),
+            | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
+        },
+        | Err(_) => vec![],
+    }
+}
+pub fn generate_guid() -> String {
+    let alphabet = [
+        '-', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'T', 'U', 'V', 'W', 'X', 'Y', 'a', 'b', 'c', 'd',
+        'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 't', 'w', 'x', 'y', 'z', '3', '4', '6', '7', '8', '9',
+    ];
+    let id = nanoid!(10, &alphabet);
+    debug!(id, "=> {}", Label::using());
+    id
+}
+pub fn git_branch_name() -> Option<String> {
     if test_command("git".to_owned()) {
         let args = vec!["symbolic-ref", "--short", "HEAD"];
         let result = cmd("git", args).read();
@@ -440,7 +426,7 @@ pub fn get_git_branch_name() -> Option<String> {
         None
     }
 }
-pub fn get_git_default_branch_name() -> Option<String> {
+pub fn git_default_branch_name() -> Option<String> {
     if test_command("git".to_owned()) {
         let args = vec!["symbolic-ref", "refs/remotes/origin/HEAD", "--short"];
         let result = cmd("git", args).read();
@@ -458,7 +444,7 @@ pub fn get_git_default_branch_name() -> Option<String> {
         None
     }
 }
-pub fn get_image_paths(root: PathBuf) -> Vec<PathBuf> {
+pub fn image_paths(root: PathBuf) -> Vec<PathBuf> {
     let extensions = ["jpg", "jpeg", "png", "svg"];
     let mut files = extensions
         .iter()
@@ -468,12 +454,6 @@ pub fn get_image_paths(root: PathBuf) -> Vec<PathBuf> {
         .collect::<Vec<PathBuf>>();
     files.sort();
     files
-}
-pub fn get_parent(path: String) -> String {
-    PathBuf::from(PathBuf::from(path).parent().unwrap()).display().to_string()
-}
-pub fn get_suffix(value: usize) -> String {
-    (if value == 1 { "" } else { "s" }).to_string()
 }
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 pub fn make_executable(path: &PathBuf) -> bool {
@@ -485,6 +465,9 @@ pub fn make_executable(path: &PathBuf) -> bool {
 pub fn make_executable(path: &Path) -> bool {
     // TODO: Add windows support...pass through?
     path.is_executable()
+}
+pub fn parent(path: String) -> String {
+    PathBuf::from(PathBuf::from(path).parent().unwrap()).display().to_string()
 }
 pub fn path_to_string(path: PathBuf) -> String {
     // NOTE: fs::canonicalize might cause problems on Windows
@@ -509,7 +492,7 @@ pub fn pretty_print(text: &str, syntax: ProgrammingLanguage, highlight: Vec<usiz
     printer.print().unwrap();
 }
 pub fn print_changes(old: &str, new: &str) {
-    let changes = get_changes(old, new);
+    let changes = text_diff_changes(old, new);
     let has_no_changes = changes.clone().into_iter().all(|(tag, _)| tag == Equal);
     if has_no_changes {
         debug!("=> {}No format changes", Label::skip());
@@ -545,6 +528,9 @@ pub fn read_file(path: PathBuf) -> Result<String, std::io::Error> {
     };
     Ok(content)
 }
+pub fn suffix(value: usize) -> String {
+    (if value == 1 { "" } else { "s" }).to_string()
+}
 pub fn test_command(name: String) -> bool {
     match which(&name) {
         | Ok(value) => {
@@ -565,6 +551,20 @@ pub fn test_command(name: String) -> bool {
             false
         }
     }
+}
+pub fn text_diff_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
+    TextDiff::from_lines(old, new)
+        .iter_all_changes()
+        .map(|line| {
+            let tag = line.tag();
+            let text = match tag {
+                | Delete => format!("- {line}").red().to_string(),
+                | Insert => format!("+ {line}").green().to_string(),
+                | Equal => format!("  {line}").dimmed().to_string(),
+            };
+            (tag, text)
+        })
+        .collect::<Vec<_>>()
 }
 pub fn tokio_runtime() -> tokio::runtime::Runtime {
     debug!("=> {} Tokio runtime", Label::using());

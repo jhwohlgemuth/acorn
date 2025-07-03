@@ -1,4 +1,4 @@
-use acorn_lib::util::{get_all_files, get_files_from_git_branch, get_files_from_git_commit, get_git_branch_name};
+use acorn_lib::util::{files_all, files_from_git_branch, files_from_git_commit, git_branch_name};
 use bon::Builder;
 use clap::ValueEnum;
 use derive_more::Display;
@@ -135,21 +135,21 @@ pub fn get_paths_from_options(path: &Option<PathBuf>, options: &Option<Options>)
             ..
         }) => {
             if *merge_request {
-                match get_git_branch_name() {
-                    | Some(name) => get_files_from_git_branch(&name, extension),
+                match git_branch_name() {
+                    | Some(name) => files_from_git_branch(&name, extension),
                     | None => vec![],
                 }
             } else {
                 match commit {
-                    | Some(hash) => get_files_from_git_commit(hash, extension),
+                    | Some(hash) => files_from_git_commit(hash, extension),
                     | None => match branch {
-                        | Some(name) => get_files_from_git_branch(name, extension),
+                        | Some(name) => files_from_git_branch(name, extension),
                         | None => {
                             let value = match path {
                                 | Some(x) => x.clone(),
                                 | None => PathBuf::from("."),
                             };
-                            get_all_files(value, extension, ignore.clone())
+                            files_all(value, extension, ignore.clone())
                         }
                     },
                 }
@@ -160,7 +160,7 @@ pub fn get_paths_from_options(path: &Option<PathBuf>, options: &Option<Options>)
                 | Some(x) => x.clone(),
                 | None => PathBuf::from("."),
             };
-            get_all_files(value, extension, None)
+            files_all(value, extension, None)
         }
     }
 }

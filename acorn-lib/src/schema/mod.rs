@@ -782,7 +782,7 @@ impl ResearchActivity {
                             "=> {} Found {} error{} in {}: {:#?}",
                             Label::fail(),
                             count.red(),
-                            get_suffix(count),
+                            suffix(count),
                             path.display(),
                             found
                         );
@@ -865,7 +865,7 @@ impl ResearchActivity {
             | Some(value) => value.parent().unwrap().to_path_buf(),
             | None => PathBuf::from("."),
         };
-        let name = match get_image_paths(parent.clone()) {
+        let name = match image_paths(parent.clone()) {
             | value if !value.is_empty() => value[0].file_name().unwrap().to_string_lossy().to_string(),
             | _ => DEFAULT_GRAPHIC_HREF.to_string(),
         };

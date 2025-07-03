@@ -216,7 +216,7 @@ impl Bucket {
                 paths.par_iter().for_each(|path| {
                     let url = format!("{uri}/-/raw/main/{path}");
                     progress.set_message(format!("Downloading {path}"));
-                    let folder = format!("{}/{}", output.display(), get_parent(path.clone()));
+                    let folder = format!("{}/{}", output.display(), parent(path.clone()));
                     std::fs::create_dir_all(folder.clone()).unwrap();
                     if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
                         match client.get(url).send() {
@@ -251,9 +251,9 @@ impl Bucket {
                     format!(
                         " ({} data file{}, {} image{} - {})",
                         total_data.yellow(),
-                        get_suffix(total_data),
+                        suffix(total_data),
                         total_images.yellow(),
-                        get_suffix(total_images),
+                        suffix(total_images),
                         recommendation.italic(),
                     )
                 } else {
@@ -269,7 +269,7 @@ impl Bucket {
                         total.yellow().to_string()
                     },
                     self.clone().name.to_uppercase(),
-                    get_suffix(total),
+                    suffix(total),
                     message,
                 ));
                 total

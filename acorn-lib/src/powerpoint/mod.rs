@@ -1,5 +1,5 @@
 use crate::schema::{ContactPoint, Metadata, Notes, Other, ResearchActivity, Sections};
-use crate::util::{get_all_files, get_command_folder, path_to_string, read_file, write_file, Label};
+use crate::util::{command_folder, files_all, path_to_string, read_file, write_file, Label};
 use fancy_regex::Regex;
 use quick_xml::events::Event;
 use quick_xml::{Reader, Writer};
@@ -28,7 +28,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
             std::process::exit(exitcode::IOERR);
         }
     };
-    let files = get_all_files(path.clone(), None, None).into_iter().filter(|x| x.is_file());
+    let files = files_all(path.clone(), None, None).into_iter().filter(|x| x.is_file());
     for file_path in files {
         if let Ok(file) = File::open(file_path.clone()) {
             let name = match path.canonicalize() {
@@ -66,7 +66,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
     }
 }
 pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
-    let root = get_command_folder("extract", destination);
+    let root = command_folder("extract", destination);
     match File::open(path.clone()) {
         | Ok(zip_file) => match ZipArchive::new(zip_file) {
             | Ok(mut archive) => {

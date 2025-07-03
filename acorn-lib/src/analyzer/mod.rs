@@ -1,7 +1,7 @@
 use crate::constants::{APPLICATION, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{
-    download_binary, get_checksum, get_command_folder, get_extension, make_executable, path_to_string, pretty_print, test_command, to_string,
-    Constant, Label, ProgrammingLanguage, SemanticVersion,
+    checksum, command_folder, download_binary, extension, make_executable, path_to_string, pretty_print, test_command, to_string, Constant, Label,
+    ProgrammingLanguage, SemanticVersion,
 };
 use color_eyre::owo_colors::OwoColorize;
 use duct::cmd;
@@ -44,7 +44,7 @@ impl StaticAnalyzer for Vale {
         "vale".to_string()
     }
     fn analyze(&self, id: String, content: String, output: Option<String>) -> usize {
-        let root = get_command_folder("check", None);
+        let root = command_folder("check", None);
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
             | Err(why) => error!(path = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
@@ -149,17 +149,17 @@ impl StaticAnalyzer for Vale {
         info!(url, "=> {} Vale release v{}", Label::using(), release);
         let binary = match download_binary(url.clone(), PathBuf::from(".")) {
             | Ok(path) => {
-                let checksum = match self.clone().download_checksums() {
+                let dowloaded_checksums = match self.clone().download_checksums() {
                     | Ok(value) => value.get(platform).unwrap().to_string(),
                     | Err(_) => "".to_string(),
                 };
-                let calculated = get_checksum(path.clone());
-                if !checksum.eq(&calculated) {
-                    error!(checksum, calculated, "=> {}", Label::invalid());
+                let calculated = checksum(path.clone());
+                if !dowloaded_checksums.eq(&calculated) {
+                    error!(dowloaded_checksums, calculated, "=> {}", Label::invalid());
                     let _cleanup = remove_file(path);
                     std::process::exit(exitcode::USAGE);
                 } else {
-                    info!(checksum, "=> {}", Label::pass());
+                    info!(dowloaded_checksums, "=> {}", Label::pass());
                 }
                 // TODO: Provide option to save to cache project directory
                 let destination = match config.clone() {
@@ -220,7 +220,7 @@ impl StaticAnalyzer for Vale {
         Ok(checksums)
     }
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
-        match get_extension(&path).as_str() {
+        match extension(&path).as_str() {
             | "zip" => unimplemented!(),
             | _ => {
                 let tar_gz = File::open(path).unwrap();
@@ -258,9 +258,9 @@ impl StaticAnalyzer for Vale {
                 match File::create(format!("{parent}/accept.txt")) {
                     | Ok(mut file) => {
                         // TODO: Concatenate organization alternative names to accept file
-                        let acronyms = Constant::get_last_values("acronyms");
-                        let partners = Constant::get_last_values("partners");
-                        let sponsors = Constant::get_last_values("sponsors");
+                        let acronyms = Constant::last_values("acronyms");
+                        let partners = Constant::last_values("partners");
+                        let sponsors = Constant::last_values("sponsors");
                         let words = Constant::read_lines("accept.txt");
                         let content = acronyms.chain(partners).chain(sponsors).chain(words).collect::<Vec<String>>().join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to accept.txt");
