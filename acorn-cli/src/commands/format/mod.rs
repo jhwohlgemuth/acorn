@@ -1,5 +1,5 @@
-use crate::util::{paths_from_options, Options};
 use acorn_lib::schema::ResearchActivity;
+use acorn_lib::util::cli::{paths_from_options, Options};
 use acorn_lib::util::{path_to_string, print_changes, Label};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};

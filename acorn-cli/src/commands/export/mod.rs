@@ -1,8 +1,8 @@
-use crate::template::to_html;
-use crate::util::{paths_from_options, FileFormat, Options, Size, Target};
+use crate::template::Convert;
 use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
 use acorn_lib::powerpoint::{archive, extract, interpolate_values, read_xml_rel};
 use acorn_lib::schema::{Metadata, ResearchActivity};
+use acorn_lib::util::cli::{paths_from_options, FileFormat, Options, Size, Target};
 use acorn_lib::util::{path_to_string, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -25,7 +25,7 @@ pub async fn create_pdf(page: &Page, options: Options) {
             std::process::exit(exitcode::UNAVAILABLE);
         }
     };
-    let content = to_html(&data, target, size);
+    let content = data.to_html(target, size).to_string();
     // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
     let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
     if File::create(&index).is_ok() {

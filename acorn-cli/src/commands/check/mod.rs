@@ -1,5 +1,5 @@
-use crate::util::{paths_from_options, Check, Options};
 use acorn_lib::schema::ResearchActivity;
+use acorn_lib::util::cli::{paths_from_options, Check, Options};
 use acorn_lib::util::{print_values_as_table, to_string, Label};
 use color_eyre::eyre::{Report, Result};
 use std::path::PathBuf;

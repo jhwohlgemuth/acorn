@@ -1,6 +1,5 @@
-use crate::util::Diagnostic;
 use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
-use acorn_lib::util::Label;
+use acorn_lib::util::{cli::Diagnostic, Label};
 use color_eyre::eyre::{Report, Result};
 use tracing::warn;
 

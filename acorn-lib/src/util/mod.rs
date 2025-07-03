@@ -28,6 +28,9 @@ use std::path::{Path, PathBuf};
 use tracing::{debug, error, warn};
 use which::which;
 
+#[cfg(feature = "cli")]
+pub mod cli;
+
 /// See <https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types>
 #[derive(Clone, Debug, Display)]
 pub enum MimeType {

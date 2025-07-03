@@ -1,6 +1,6 @@
-use crate::util::{Size, Target, TargetLabel};
 use acorn_lib::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
 use acorn_lib::schema::{ContactPoint, Research, ResearchActivity, Sections};
+use acorn_lib::util::cli::{Size, Target, TargetLabel};
 use acorn_lib::util::{Label, MimeType};
 use data_encoding::BASE64;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
@@ -10,6 +10,9 @@ use percy_dom::prelude::*;
 use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;
 
+pub trait Convert {
+    fn to_html(&self, target: Option<Target>, size: Option<Size>) -> VirtualNode;
+}
 struct DataUri {}
 #[derive(Embed)]
 #[folder = "assets/images/"]
@@ -128,90 +131,92 @@ impl View for HtmlHead<'_> {
         }
     }
 }
-pub fn to_html(data: &ResearchActivity, target: Option<Target>, size: Option<Size>) -> String {
-    let ResearchActivity {
-        meta,
-        title,
-        subtitle,
-        contact,
-        ..
-    } = data;
-    let ContactPoint { affiliation, .. } = contact;
-    let Sections {
-        mission,
-        challenge,
-        approach,
-        impact,
-        research,
-        ..
-    } = &data.sections;
-    let Research { focus, areas, .. } = research;
-    let label = match affiliation {
-        | Some(affiliation) => TargetLabel::from_organization(affiliation),
-        | None => TargetLabel::default(),
-    };
-    let target = target.unwrap_or_default();
-    let head = HtmlHead {
-        size: size.unwrap(),
-        stylesheet: "project.css",
-        target,
-    };
-    let footer = HtmlFooter { label, target };
-    let folder = label.folder();
-    let path = format!("{target}/{folder}/header.jpg");
-    let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
-    let graphic = meta.clone().first_image_content_url();
-    let caption = meta.clone().first_image_caption();
-    let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
-    let node = html! {
-        <html>
-            { head }
-            <body>
-                <header style={ header_style }>
-                    <div class="wrapper">
-                        <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
-                        <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
-                        <div id="title">{ title }</div>
-                        <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
+impl Convert for ResearchActivity {
+    fn to_html(&self, target: Option<Target>, size: Option<Size>) -> VirtualNode {
+        let ResearchActivity {
+            meta,
+            title,
+            subtitle,
+            contact,
+            ..
+        } = self;
+        let ContactPoint { affiliation, .. } = contact;
+        let Sections {
+            mission,
+            challenge,
+            approach,
+            impact,
+            research,
+            ..
+        } = &self.sections;
+        let Research { focus, areas, .. } = research;
+        let label = match affiliation {
+            | Some(affiliation) => TargetLabel::from_organization(affiliation),
+            | None => TargetLabel::default(),
+        };
+        let target = target.unwrap_or_default();
+        let head = HtmlHead {
+            size: size.unwrap(),
+            stylesheet: "project.css",
+            target,
+        };
+        let footer = HtmlFooter { label, target };
+        let folder = label.folder();
+        let path = format!("{target}/{folder}/header.jpg");
+        let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
+        let graphic = meta.clone().first_image_content_url();
+        let caption = meta.clone().first_image_caption();
+        let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
+        let node = html! {
+            <html>
+                { head }
+                <body>
+                    <header style={ header_style }>
+                        <div class="wrapper">
+                            <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
+                            <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
+                            <div id="title">{ title }</div>
+                            <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
+                        </div>
+                    </header>
+                    <div class="main">
+                        <main>
+                            <section>
+                                <p>{ mission }</p>
+                            </section>
+                            <section>
+                                <h3>{ "Challenge" }</h3>
+                                <p>{ challenge }</p>
+                            </section>
+                            <section>
+                                <h3>{ "Approach" }</h3>
+                                <p>{ approach.join("</li><li>") }</p>
+                            </section>
+                            <section>
+                                <h3>{ "Impact" }</h3>
+                                <ul><li>{ impact.join("</li><li>") }</li></ul>
+                            </section>
+                        </main>
+                        <aside>
+                            <div class="graphic"><img src={ graphic }/></div>
+                            <div class="caption">{ caption }</div>
+                            <div class="research-focus">
+                                <h3>{ "Research Focus" }</h3>
+                                <p>{ focus }</p>
+                                <ul><li>{ areas.join("</li><li>") }</li></ul>
+                            </div>
+                            <div class="qrcode">
+                                <img src={ qrcode }/>
+                            </div>
+                        </aside>
                     </div>
-                </header>
-                <div class="main">
-                    <main>
-                        <section>
-                            <p>{ mission }</p>
-                        </section>
-                        <section>
-                            <h3>{ "Challenge" }</h3>
-                            <p>{ challenge }</p>
-                        </section>
-                        <section>
-                            <h3>{ "Approach" }</h3>
-                            <p>{ approach.join("</li><li>") }</p>
-                        </section>
-                        <section>
-                            <h3>{ "Impact" }</h3>
-                            <ul><li>{ impact.join("</li><li>") }</li></ul>
-                        </section>
-                    </main>
-                    <aside>
-                        <div class="graphic"><img src={ graphic }/></div>
-                        <div class="caption">{ caption }</div>
-                        <div class="research-focus">
-                            <h3>{ "Research Focus" }</h3>
-                            <p>{ focus }</p>
-                            <ul><li>{ areas.join("</li><li>") }</li></ul>
-                        </div>
-                        <div class="qrcode">
-                            <img src={ qrcode }/>
-                        </div>
-                    </aside>
-                </div>
-                { data.clone().contact }
-                { footer }
-            </body>
-        </html>
-    };
-    node.to_string()
+                    { self.clone().contact }
+                    { footer }
+                </body>
+            </html>
+        };
+        node
+    }
 }
 fn generate_font_faces() -> String {
     format!(

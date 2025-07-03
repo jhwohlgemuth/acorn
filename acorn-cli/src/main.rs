@@ -13,7 +13,6 @@ use tracing_subscriber::EnvFilter;
 mod cli;
 mod commands;
 mod template;
-mod util;
 
 use cli::{Arguments, Commands};
 
