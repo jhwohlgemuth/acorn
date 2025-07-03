@@ -19,7 +19,7 @@ fn test_bucket() {
             uri: "https://code.ornl.gov/research-enablement/buckets/nssd".to_string(),
         },
     };
-    assert_eq!(bucket.get_domain(), "code.ornl.gov".to_string());
+    assert_eq!(bucket.domain(), "code.ornl.gov".to_string());
     let bucket: Bucket = Bucket {
         name: "nssd".to_string(),
         description: Some("Bucket for NSSD".to_string()),
@@ -27,7 +27,7 @@ fn test_bucket() {
             uri: "https://code.ornl.gov/research-enablement/buckets/nssd".to_string(),
         },
     };
-    assert_eq!(bucket.get_domain(), "code.ornl.gov".to_string());
+    assert_eq!(bucket.domain(), "code.ornl.gov".to_string());
 }
 #[test]
 fn test_gitlab_tree_entry() {
@@ -39,5 +39,5 @@ fn test_gitlab_tree_entry() {
         mode: "example".to_string(),
     };
     assert!(!entry.is_blob());
-    assert_eq!(entry.get_path(), "acorn".to_string());
+    assert_eq!(entry.path(), "acorn".to_string());
 }

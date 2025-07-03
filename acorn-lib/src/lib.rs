@@ -149,11 +149,7 @@ impl Bucket {
         let data: Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
         debug!("=> {} {} GitLab tree entries", Label::found(), data.as_ref().unwrap().len());
         match data {
-            | Ok(entries) => entries
-                .into_iter()
-                .filter(GitlabTreeEntry::is_blob)
-                .map(GitlabTreeEntry::get_path)
-                .collect(),
+            | Ok(entries) => entries.into_iter().filter(GitlabTreeEntry::is_blob).map(GitlabTreeEntry::path).collect(),
             | Err(_) => {
                 error!("=> {} Failed to process GitLab tree entries", Label::fail());
                 vec![]
@@ -161,7 +157,7 @@ impl Bucket {
         }
     }
     /// Get hosting domain from bucket struct
-    fn get_domain(&self) -> String {
+    fn domain(&self) -> String {
         fn default_domain(repository: Repository) -> String {
             match repository {
                 | Repository::GitHub { .. } => "github.com".to_string(),
@@ -179,11 +175,11 @@ impl Bucket {
             },
         }
     }
-    fn get_tree(&self, directory: &str, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
-        let url = self.get_tree_url(directory, page);
+    fn tree(&self, directory: &str, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
+        let url = self.tree_url(directory, page);
         reqwest::blocking::get(url)
     }
-    fn get_tree_url(&self, directory: &str, page: u32) -> String {
+    fn tree_url(&self, directory: &str, page: u32) -> String {
         let id = match &self.code_repository {
             | Repository::GitHub { .. } => todo!(),
             | Repository::GitLab { id, .. } => id.to_string(),
@@ -191,7 +187,7 @@ impl Bucket {
         let per_page = 100;
         let url = format!(
             "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path={}",
-            self.get_domain(),
+            self.domain(),
             id,
             per_page,
             page,
@@ -210,7 +206,7 @@ impl Bucket {
                 info!("=> Downloading research data from {}...", uri.clone());
                 let paths = self
                     .clone()
-                    .get_file_paths("")
+                    .file_paths("")
                     .into_iter()
                     .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
                     .collect::<Vec<String>>();
@@ -280,12 +276,12 @@ impl Bucket {
             }
         }
     }
-    fn get_file_paths(self: Bucket, directory: &str) -> Vec<String> {
+    fn file_paths(self: Bucket, directory: &str) -> Vec<String> {
         const FIRST_PAGE: u32 = 1;
         match self.code_repository {
             | Repository::GitHub { .. } => todo!(),
             | Repository::GitLab { .. } => {
-                fn get_page_count(response: &reqwest::blocking::Response) -> u32 {
+                fn page_count(response: &reqwest::blocking::Response) -> u32 {
                     fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
                         match headers.get(key) {
                             | Some(val) if !val.is_empty() => {
@@ -299,13 +295,13 @@ impl Bucket {
                     let headers = response.headers();
                     parse_header(headers, "x-total-pages")
                 }
-                match self.get_tree(directory, FIRST_PAGE) {
-                    | Ok(response) if response.status().is_success() => (FIRST_PAGE..=get_page_count(&response))
+                match self.tree(directory, FIRST_PAGE) {
+                    | Ok(response) if response.status().is_success() => (FIRST_PAGE..=page_count(&response))
                         .into_par_iter()
                         .map(|page| self.clone().get_file_paths_for_page(directory, page))
                         .reduce(std::vec::Vec::new, |a, b| [a, b].concat()),
                     | Ok(_) | Err(_) => {
-                        let url = self.get_tree_url(directory, FIRST_PAGE);
+                        let url = self.tree_url(directory, FIRST_PAGE);
                         debug!(url, "=> {}", Label::using());
                         error!(
                             "=> {} Failed to get file paths for {} bucket",
@@ -319,17 +315,17 @@ impl Bucket {
         }
     }
     fn get_file_paths_for_page(self: Bucket, directory: &str, page: u32) -> Vec<String> {
-        match self.get_tree(directory, page) {
-            | Ok(response) if response.status().is_success() => match self.get_tree(directory, page) {
+        match self.tree(directory, page) {
+            | Ok(response) if response.status().is_success() => match self.tree(directory, page) {
                 | Ok(response) if response.status().is_success() => Bucket::parse(response),
                 | Ok(_) | Err(_) => {
-                    let url = self.get_tree_url(directory, 1);
+                    let url = self.tree_url(directory, 1);
                     error!(url, page, "=> {} Failed to get paths", Label::fail());
                     vec![]
                 }
             },
             | Ok(_) | Err(_) => {
-                let url = self.get_tree_url(directory, page);
+                let url = self.tree_url(directory, page);
                 error!(url, page, "=> {} Failed to get paths", Label::fail());
                 vec![]
             }
@@ -360,7 +356,7 @@ impl BucketsConfig {
     }
 }
 impl GitlabTreeEntry {
-    fn get_path(self) -> String {
+    fn path(self) -> String {
         self.path
     }
     fn is_blob(&self) -> bool {
