@@ -4,6 +4,17 @@ use std::collections::HashMap;
 use validator::ValidationError;
 use validator::{Validate, ValidationErrorsKind};
 
+pub fn error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
+    errors
+        .clone()
+        .into_values()
+        .map(|v| match v {
+            | ValidationErrorsKind::Field(_) => 1,
+            | ValidationErrorsKind::Struct(errors) => errors.into_errors().len(),
+            | ValidationErrorsKind::List(_) => 0,
+        })
+        .sum()
+}
 pub fn format_errors(found: Vec<Option<HashMap<String, ValidationErrorsKind>>>) -> HashMap<String, ValidationErrorsKind> {
     found.clone().into_iter().flatten().fold(HashMap::new(), |mut acc, x| {
         for (key, value) in x.iter() {
@@ -43,28 +54,6 @@ pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
         },
         | _ => Err(ValidationError::new("telephone").with_message(MESSAGE.into())),
     }
-}
-pub fn get_validation_errors<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
-    match attribute.validate() {
-        | Ok(_) => None,
-        | Err(err) => Some(
-            err.into_errors()
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect::<HashMap<String, ValidationErrorsKind>>(),
-        ),
-    }
-}
-pub fn get_error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
-    errors
-        .clone()
-        .into_values()
-        .map(|v| match v {
-            | ValidationErrorsKind::Field(_) => 1,
-            | ValidationErrorsKind::Struct(errors) => errors.into_errors().len(),
-            | ValidationErrorsKind::List(_) => 0,
-        })
-        .sum()
 }
 pub fn has_image_extension(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension";
@@ -180,5 +169,16 @@ pub fn validate_attribute_technical(value: &[String]) -> Result<(), ValidationEr
         | true => Ok(()),
         | _ => Err(ValidationError::new("technical approach")
             .with_message(format!("Each element of technical approach should be less than {MAX_LENGTH} characters").into())),
+    }
+}
+pub fn validation_errors<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
+    match attribute.validate() {
+        | Ok(_) => None,
+        | Err(err) => Some(
+            err.into_errors()
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect::<HashMap<String, ValidationErrorsKind>>(),
+        ),
     }
 }

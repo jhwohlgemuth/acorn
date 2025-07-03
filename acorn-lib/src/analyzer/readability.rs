@@ -308,13 +308,13 @@ pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
 /// Count the number of "complex words"[^complex] in a given text
 ///
 /// [^complex]: Words with 3 or more syllables
-pub fn get_complex_word_count(text: &str) -> u32 {
-    get_words(text).iter().filter(|word| get_syllable_count(word) > 2).count() as u32
+pub fn complex_word_count(text: &str) -> u32 {
+    words(text).iter().filter(|word| syllable_count(word) > 2).count() as u32
 }
 /// Count the number of letters in a given text
 ///
 /// Does NOT count white space or punctuation
-pub fn get_letter_count(text: &str) -> u32 {
+pub fn letter_count(text: &str) -> u32 {
     text.chars()
         .filter(|c| !(c.is_whitespace() || NON_ALPHABETIC.is_match(&c.to_string()).unwrap_or_default()))
         .count() as u32
@@ -322,22 +322,22 @@ pub fn get_letter_count(text: &str) -> u32 {
 /// Count the number of "long words"[^long] in a given text
 ///
 /// [^long]: Words with more than 6 letters
-pub fn get_long_word_count(text: &str) -> u32 {
-    get_words(text).iter().filter(|word| word.len() > 6).count() as u32
+pub fn long_word_count(text: &str) -> u32 {
+    words(text).iter().filter(|word| word.len() > 6).count() as u32
 }
 /// Count the number of sentences in a given text
-pub fn get_sentence_count(text: &str) -> u32 {
+pub fn sentence_count(text: &str) -> u32 {
     text.split('.').filter(|s| !s.is_empty()).collect::<Vec<_>>().len() as u32
 }
 /// Get list of words in a given text
-pub fn get_words(text: &str) -> Vec<String> {
+pub fn words(text: &str) -> Vec<String> {
     text.split_whitespace().map(String::from).collect()
 }
 /// Count the number of words in a given text
 ///
-/// See [`get_words`]
-pub fn get_word_count(text: &str) -> u32 {
-    get_words(text).len() as u32
+/// See [`words`]
+pub fn word_count(text: &str) -> u32 {
+    words(text).len() as u32
 }
 /// Automated Readability Index (ARI)
 ///
@@ -348,9 +348,9 @@ pub fn get_word_count(text: &str) -> u32 {
 ///
 /// See <https://en.wikipedia.org/wiki/Automated_readability_index> for more information
 pub fn automated_readability_index(text: &str) -> f64 {
-    let letters = get_letter_count(text);
-    let words = get_word_count(text);
-    let sentences = get_sentence_count(text);
+    let letters = letter_count(text);
+    let words = word_count(text);
+    let sentences = sentence_count(text);
     debug!(letters, words, sentences, "=> {}", Label::using());
     let score = 4.71 * (letters as f64 / words as f64) + 0.5 * (words as f64 / sentences as f64) - 21.43;
     format!("{score:.2}").parse().unwrap()
@@ -359,9 +359,9 @@ pub fn automated_readability_index(text: &str) -> f64 {
 ///
 /// Requires counting letters, words, and sentences
 pub fn coleman_liau_index(text: &str) -> f64 {
-    let letters = get_letter_count(text);
-    let words = get_word_count(text);
-    let sentences = get_sentence_count(text);
+    let letters = letter_count(text);
+    let words = word_count(text);
+    let sentences = sentence_count(text);
     debug!(letters, words, sentences, "=> {}", Label::using());
     let score = (0.0588 * 100.0 * (letters as f64 / words as f64)) - (0.296 * 100.0 * (sentences as f64 / words as f64)) - 15.8;
     format!("{score:.2}").parse().unwrap()
@@ -375,9 +375,9 @@ pub fn coleman_liau_index(text: &str) -> f64 {
 ///
 /// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
 pub fn flesch_kincaid_grade_level(text: &str) -> f64 {
-    let words = get_word_count(text);
-    let sentences = get_sentence_count(text);
-    let syllables = get_syllable_count(text);
+    let words = word_count(text);
+    let sentences = sentence_count(text);
+    let syllables = syllable_count(text);
     debug!(words, sentences, syllables, "=> {}", Label::using());
     let score = 0.39 * (words as f64 / sentences as f64) + 11.8 * (syllables as f64 / words as f64) - 15.59;
     format!("{score:.2}").parse().unwrap()
@@ -390,9 +390,9 @@ pub fn flesch_kincaid_grade_level(text: &str) -> f64 {
 ///
 /// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
 pub fn flesch_reading_ease_score(text: &str) -> f64 {
-    let words = get_word_count(text);
-    let sentences = get_sentence_count(text);
-    let syllables = get_syllable_count(text);
+    let words = word_count(text);
+    let sentences = sentence_count(text);
+    let syllables = syllable_count(text);
     debug!(words, sentences, syllables, "=> {}", Label::using());
     let score = 206.835 - (1.015 * words as f64 / sentences as f64) - (84.6 * syllables as f64 / words as f64);
     format!("{score:.2}").parse().unwrap()
@@ -401,13 +401,13 @@ pub fn flesch_reading_ease_score(text: &str) -> f64 {
 ///
 /// Estimates the years of formal education a person needs to understand the text on the first reading
 ///
-/// Requires counting words, sentences, and "complex words" (see [get_complex_word_count])
+/// Requires counting words, sentences, and "complex words" (see [complex_word_count])
 ///
 /// See <https://en.wikipedia.org/wiki/Gunning_fog_index> for more information
 pub fn gunning_fog_index(text: &str) -> f64 {
-    let words = get_word_count(text);
-    let complex_words = get_complex_word_count(text);
-    let sentences = get_sentence_count(text);
+    let words = word_count(text);
+    let complex_words = complex_word_count(text);
+    let sentences = sentence_count(text);
     let score = 0.4 * ((words as f64 / sentences as f64) + (100.0 * (complex_words as f64 / words as f64)));
     format!("{score:.2}").parse().unwrap()
 }
@@ -415,15 +415,15 @@ pub fn gunning_fog_index(text: &str) -> f64 {
 ///
 /// Indicates the difficulty of reading a text
 ///
-/// Requires counting words, sentences, and long words (see [get_long_word_count])
+/// Requires counting words, sentences, and long words (see [long_word_count])
 ///
 /// "Lix" is an abbreviation of *läsbarhetsindex*, which means "readability index" in Swedish
 ///
 /// See <https://en.wikipedia.org/wiki/Lix_(readability_test)> for more information
 pub fn lix(text: &str) -> f64 {
-    let words = get_word_count(text);
-    let sentences = get_sentence_count(text);
-    let long_words = get_long_word_count(text);
+    let words = word_count(text);
+    let sentences = sentence_count(text);
+    let long_words = long_word_count(text);
     let score = (words as f64 / sentences as f64) + 100.0 * (long_words as f64 / words as f64);
     format!("{score:.2}").parse().unwrap()
 }
@@ -433,19 +433,19 @@ pub fn lix(text: &str) -> f64 {
 ///
 /// **Caution**: SMOG formula was normalized on 30-sentence samples
 ///
-/// Requires counting sentences, and "complex words" (see [get_complex_word_count])
+/// Requires counting sentences, and "complex words" (see [complex_word_count])
 ///
 /// See <https://en.wikipedia.org/wiki/SMOG> for more information
 pub fn smog(text: &str) -> f64 {
-    let sentences = get_sentence_count(text);
-    let complex_words = get_complex_word_count(text);
+    let sentences = sentence_count(text);
+    let complex_words = complex_word_count(text);
     let score = 1.0430 * (30.0 * (complex_words as f64 / sentences as f64)).sqrt() + 3.1291;
     format!("{score:.2}").parse().unwrap()
 }
 /// Get the singular form of a word (e.g. "people" -> "person")
 ///
 /// Adapted from the PHP library, [Text-Statistics](https://github.com/DaveChild/Text-Statistics)
-pub fn get_singular_form(word: &str) -> String {
+pub fn singular_form(word: &str) -> String {
     match word.to_lowercase().as_str() {
         | value if SAME_SINGULAR_PLURAL.contains(&value) => value.to_string(),
         | value if IRREGULAR_NOUNS.contains_key(&value) => value.to_string(),
@@ -471,9 +471,9 @@ pub fn get_singular_form(word: &str) -> String {
         }
     }
 }
-pub fn get_syllable_count(text: &str) -> usize {
-    fn get_syllables(word: String) -> usize {
-        let singular = get_singular_form(&word);
+pub fn syllable_count(text: &str) -> usize {
+    fn syllables(word: String) -> usize {
+        let singular = singular_form(&word);
         match word.as_str() {
             | "" => 0,
             | value if value.len() < 3 => 1,
@@ -515,7 +515,7 @@ pub fn get_syllable_count(text: &str) -> usize {
         }
     }
     let tokens = text.split_whitespace().flat_map(tokenize).collect::<Vec<String>>();
-    tokens.into_iter().map(get_syllables).sum()
+    tokens.into_iter().map(syllables).sum()
 }
 // TODO: Expand acronyms into words
 /// Break text into tokens

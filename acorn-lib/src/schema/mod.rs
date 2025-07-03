@@ -574,13 +574,13 @@ impl View for ContactPoint {
     }
 }
 impl MediaObject {
-    pub fn get_content_url(self) -> Option<String> {
+    pub fn content_url(self) -> Option<String> {
         match self {
             | MediaObject::Image(ImageObject { content_url, .. }) => content_url,
             | MediaObject::Video(VideoObject { content_url, .. }) => content_url,
         }
     }
-    pub fn get_description(self) -> String {
+    pub fn description(self) -> String {
         match self {
             | MediaObject::Image(ImageObject { caption, .. }) => caption,
             | MediaObject::Video(VideoObject { description, .. }) => description,
@@ -594,14 +594,14 @@ impl MediaObject {
     }
 }
 impl Metadata {
-    fn get_first_image(self) -> Option<MediaObject> {
+    fn first_image(self) -> Option<MediaObject> {
         match self.media {
             | Some(values) => values.into_iter().filter(|x| x.clone().is_image()).collect::<Vec<_>>().first().cloned(),
             | None => None,
         }
     }
-    pub fn get_first_image_content_url(self) -> String {
-        match self.get_first_image() {
+    pub fn first_image_content_url(self) -> String {
+        match self.first_image() {
             | Some(media) => match media {
                 | MediaObject::Image(ImageObject { content_url, .. }) => match content_url {
                     | Some(value) if !value.is_empty() => value.clone().trim().to_string(),
@@ -612,8 +612,8 @@ impl Metadata {
             | None => DEFAULT_GRAPHIC_HREF.to_string(),
         }
     }
-    pub fn get_first_image_caption(self) -> String {
-        match self.get_first_image() {
+    pub fn first_image_caption(self) -> String {
+        match self.first_image() {
             | Some(MediaObject::Image(ImageObject { caption, .. })) => match caption.clone() {
                 | value if !value.is_empty() => value.clone(),
                 | _ => DEFAULT_GRAPHIC_CAPTION.to_string(),
@@ -632,10 +632,10 @@ impl Organization {
             child.visit(f);
         }
     }
-    pub fn get_member(self, label: &str) -> Option<Organization> {
-        self.get_members().into_iter().find(|Organization { name, .. }| name == label)
+    pub fn member(self, label: &str) -> Option<Organization> {
+        self.members().into_iter().find(|Organization { name, .. }| name == label)
     }
-    pub fn get_members(self) -> Vec<Organization> {
+    pub fn members(self) -> Vec<Organization> {
         let organization = self;
         let mut items = vec![organization.clone()];
         let directorates = organization.member.clone();
@@ -652,7 +652,7 @@ impl Organization {
         }
         items
     }
-    pub fn get_nearest(self, organization_type: OrganizationType) -> Option<Organization> {
+    pub fn nearest(self, organization_type: OrganizationType) -> Option<Organization> {
         let a = self.clone().additional_type.order();
         let b = organization_type.order();
         if a > b {
@@ -662,19 +662,19 @@ impl Organization {
             let graph = ornl.clone().to_graph();
             let name = match b - a {
                 | 3 => Some(ornl.clone().name),
-                | 2 => match get_node_from_label(&graph, &self.name) {
-                    | Some(node) => match get_node_parent(&graph, node) {
-                        | Some(parent) => match get_node_parent(&graph, parent) {
-                            | Some(grandparent) => get_node_name(&graph, grandparent),
+                | 2 => match node_from_label(&graph, &self.name) {
+                    | Some(node) => match node_parent(&graph, node) {
+                        | Some(parent) => match node_parent(&graph, parent) {
+                            | Some(grandparent) => node_name(&graph, grandparent),
                             | None => None,
                         },
                         | None => None,
                     },
                     | None => None,
                 },
-                | 1 => match get_node_from_label(&graph, &self.name) {
-                    | Some(node) => match get_node_parent(&graph, node) {
-                        | Some(parent) => get_node_name(&graph, parent),
+                | 1 => match node_from_label(&graph, &self.name) {
+                    | Some(node) => match node_parent(&graph, node) {
+                        | Some(parent) => node_name(&graph, parent),
                         | None => None,
                     },
                     | None => None,
@@ -683,7 +683,7 @@ impl Organization {
                 | _ => None,
             };
             match name {
-                | Some(value) => match ornl.get_member(&value) {
+                | Some(value) => match ornl.member(&value) {
                     | Some(organization) => Some(organization),
                     | None => None,
                 },
@@ -771,13 +771,13 @@ impl ResearchActivity {
         paths
             .par_iter()
             .map(|path| match ResearchActivity::read(path.into()) {
-                | Ok(data) => match data.clone().get_errors() {
+                | Ok(data) => match data.clone().errors() {
                     | Ok(_) => {
                         info!("=> {} {} has {}", Label::pass(), path.display(), "no schema errors".green().bold());
                         0
                     }
                     | Err(found) => {
-                        let count = get_error_count(found.clone());
+                        let count = error_count(found.clone());
                         error!(
                             "=> {} Found {} error{} in {}: {:#?}",
                             Label::fail(),
@@ -872,7 +872,7 @@ impl ResearchActivity {
         debug!(name, "=> {} First image", Label::using());
         let first_graphic = match self.meta.clone().media {
             | Some(values) if !values.is_empty() => {
-                let caption = self.meta.clone().get_first_image_caption();
+                let caption = self.meta.clone().first_image_caption();
                 let image_data = ImageObject::init().caption(caption.to_string()).content_url(name.clone()).build();
                 MediaObject::Image(image_data)
             }
@@ -907,8 +907,8 @@ impl ResearchActivity {
             },
             | None => {
                 let ornl = &Organization::load()[0];
-                match ornl.clone().get_member(&clone.contact.organization) {
-                    | Some(organization) => match organization.get_nearest(OrganizationType::Directorate) {
+                match ornl.clone().member(&clone.contact.organization) {
+                    | Some(organization) => match organization.nearest(OrganizationType::Directorate) {
                         | Some(Organization { name, .. }) => Some(name),
                         | None => Some(DEFAULT_AFFILIATION.to_string()),
                     },
@@ -929,12 +929,12 @@ impl ResearchActivity {
         };
         clone
     }
-    pub fn get_errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
-        let mut found = vec![get_validation_errors::<ResearchActivity>(self.clone())];
+    pub fn errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
+        let mut found = vec![validation_errors::<ResearchActivity>(self.clone())];
         match self.meta.media {
             | Some(values) => values.iter().for_each(|media| match media {
-                | MediaObject::Image(x) => found.push(get_validation_errors::<ImageObject>(x.clone())),
-                | MediaObject::Video(x) => found.push(get_validation_errors::<VideoObject>(x.clone())),
+                | MediaObject::Image(x) => found.push(validation_errors::<ImageObject>(x.clone())),
+                | MediaObject::Video(x) => found.push(validation_errors::<VideoObject>(x.clone())),
             }),
             | None => {}
         }
@@ -996,7 +996,7 @@ impl ResearchActivity {
         format!("# {title}")
     }
 }
-fn get_match_list(value: String, values: Vec<String>) -> Vec<(String, u32)> {
+fn match_list(value: String, values: Vec<String>) -> Vec<(String, u32)> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
     let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
     pattern.match_list(values.clone(), &mut matcher)
@@ -1025,7 +1025,7 @@ fn resolve_from_list_of_lists(value: String, data: Vec<Vec<String>>, name: Strin
         .into_iter()
         .flat_map(|values| {
             let sanitized = sanitize(value.clone());
-            let matched = get_match_list(sanitized, values.clone());
+            let matched = match_list(sanitized, values.clone());
             trace!("{} => {:?}", value.clone(), matched.clone());
             if matched.clone().is_empty() {
                 None

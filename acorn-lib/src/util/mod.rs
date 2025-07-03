@@ -340,7 +340,7 @@ pub fn files_all(path: PathBuf, extension: Option<&str>, ignore: Option<String>)
                     }
                 },
                 | Err(why) => {
-                    error!("=> {} get_all_files Regex - {why}", Label::fail());
+                    error!("=> {} Get all files (Regex) - {why}", Label::fail());
                     vec![]
                 }
             },
@@ -356,7 +356,7 @@ pub fn files_all(path: PathBuf, extension: Option<&str>, ignore: Option<String>)
         if extension.is_some() {
             warn!(
                 path = path_to_string(path.clone()),
-                "=> {} Extension passed with single file to get_all_files() - please make sure this is desired",
+                "=> {} Extension passed with single file to files_all() - please make sure this is desired",
                 Label::using()
             );
         }

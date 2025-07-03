@@ -148,8 +148,8 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
     let folder = label.get_folder();
     let path = format!("{target}/{folder}/header.jpg");
     let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
-    let graphic = meta.clone().get_first_image_content_url();
-    let caption = meta.clone().get_first_image_caption();
+    let graphic = meta.clone().first_image_content_url();
+    let caption = meta.clone().first_image_caption();
     let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
     let node = html! {
         <html>

@@ -298,7 +298,7 @@ impl Bucket {
                 match self.tree(directory, FIRST_PAGE) {
                     | Ok(response) if response.status().is_success() => (FIRST_PAGE..=page_count(&response))
                         .into_par_iter()
-                        .map(|page| self.clone().get_file_paths_for_page(directory, page))
+                        .map(|page| self.clone().file_paths_for_page(directory, page))
                         .reduce(std::vec::Vec::new, |a, b| [a, b].concat()),
                     | Ok(_) | Err(_) => {
                         let url = self.tree_url(directory, FIRST_PAGE);
@@ -314,7 +314,7 @@ impl Bucket {
             }
         }
     }
-    fn get_file_paths_for_page(self: Bucket, directory: &str, page: u32) -> Vec<String> {
+    fn file_paths_for_page(self: Bucket, directory: &str, page: u32) -> Vec<String> {
         match self.tree(directory, page) {
             | Ok(response) if response.status().is_success() => match self.tree(directory, page) {
                 | Ok(response) if response.status().is_success() => Bucket::parse(response),

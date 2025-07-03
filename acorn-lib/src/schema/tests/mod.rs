@@ -163,22 +163,22 @@ fn test_metadata() {
     const DEFAULT_CAPTION: &str = "";
     let meta = Metadata::init().identifier("test-data".to_string()).build();
     assert_eq!(meta.identifier, "test-data".to_string());
-    assert_eq!(meta.get_first_image_content_url(), DEFAULT_HREF);
+    assert_eq!(meta.first_image_content_url(), DEFAULT_HREF);
     let href = "abc.png";
     let caption = "hello world";
     let graphics = vec![MediaObject::Image(
         ImageObject::init().caption(caption.to_owned()).content_url(href.to_owned()).build(),
     )];
     let meta = Metadata::init().identifier("test-data".to_string()).media(graphics).build();
-    assert_eq!(meta.clone().get_first_image_content_url(), href);
-    assert_eq!(meta.get_first_image_caption(), caption);
+    assert_eq!(meta.clone().first_image_content_url(), href);
+    assert_eq!(meta.first_image_caption(), caption);
     let meta = Metadata::init().identifier("test-data".to_string()).media(vec![]).build();
-    assert_eq!(meta.clone().get_first_image_content_url(), DEFAULT_HREF);
-    assert_eq!(meta.get_first_image_caption(), DEFAULT_CAPTION);
+    assert_eq!(meta.clone().first_image_content_url(), DEFAULT_HREF);
+    assert_eq!(meta.first_image_caption(), DEFAULT_CAPTION);
     let graphics = vec![MediaObject::Image(ImageObject::init().caption("".to_owned()).build())];
     let meta = Metadata::init().identifier("test-data".to_string()).media(graphics).build();
-    assert_eq!(meta.clone().get_first_image_content_url(), DEFAULT_HREF);
-    assert_eq!(meta.get_first_image_caption(), DEFAULT_CAPTION);
+    assert_eq!(meta.clone().first_image_content_url(), DEFAULT_HREF);
+    assert_eq!(meta.first_image_caption(), DEFAULT_CAPTION);
 }
 #[test]
 fn test_organization() {
@@ -187,14 +187,14 @@ fn test_organization() {
     let ornl = data[0].clone();
     assert_eq!(data.len(), 1);
     assert_eq!(ornl.name, "Oak Ridge National Laboratory".to_string());
-    let ornl_members = ornl.clone().get_members();
+    let ornl_members = ornl.clone().members();
     assert_eq!(ornl_members.len(), ORNL_ORGANIZATION_COUNT);
     let directorates = ornl_members
         .into_iter()
         .filter(|Organization { additional_type, .. }| *additional_type == OrganizationType::Directorate)
         .collect::<Vec<Organization>>();
     assert_eq!(directorates.len(), 8);
-    let center = ornl.get_member("Quantum Science Center").unwrap();
+    let center = ornl.member("Quantum Science Center").unwrap();
     assert_eq!(center.alternative_name, Some("QSC".to_string()));
     assert!(OrganizationType::Group.order() < OrganizationType::Division.order());
 }
@@ -204,14 +204,14 @@ fn test_organization_graph() {
     let gshs = "Geospatial Science and Human Security Division";
     let nssd_group = "Spatial Statistics";
     let ornl = Organization::load()[0].clone();
-    let group = ornl.clone().get_member(nssd_group).unwrap();
+    let group = ornl.clone().member(nssd_group).unwrap();
     assert_eq!(group.name, nssd_group);
-    assert_eq!(group.clone().get_nearest(OrganizationType::Group).unwrap().name, nssd_group);
-    assert_eq!(group.clone().get_nearest(OrganizationType::Division).unwrap().name, gshs);
-    assert_eq!(group.clone().get_nearest(OrganizationType::Directorate).unwrap().name, nssd);
-    assert_eq!(group.get_nearest(OrganizationType::Ffrdc).unwrap().name, ornl.name);
-    assert!(ornl.clone().get_nearest(OrganizationType::Group).is_none());
-    assert!(ornl.get_nearest(OrganizationType::Directorate).is_none());
+    assert_eq!(group.clone().nearest(OrganizationType::Group).unwrap().name, nssd_group);
+    assert_eq!(group.clone().nearest(OrganizationType::Division).unwrap().name, gshs);
+    assert_eq!(group.clone().nearest(OrganizationType::Directorate).unwrap().name, nssd);
+    assert_eq!(group.nearest(OrganizationType::Ffrdc).unwrap().name, ornl.name);
+    assert!(ornl.clone().nearest(OrganizationType::Group).is_none());
+    assert!(ornl.nearest(OrganizationType::Directorate).is_none());
 }
 #[test]
 fn test_read() {
@@ -232,7 +232,7 @@ fn test_research_activity_format() {
     assert!(pre.meta.media.is_none());
     assert!(pre.contact.affiliation.is_none());
     let post = pre.format(path.clone());
-    assert_eq!(post.meta.media.unwrap()[0].clone().get_content_url(), Some("00.png".to_string()));
+    assert_eq!(post.meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
     assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
     //
     // with unresolved changes
@@ -241,8 +241,8 @@ fn test_research_activity_format() {
     assert!(pre.meta.media.is_some());
     assert_eq!(pre.contact.affiliation, Some("Not an actual affiliation".to_string()));
     let post = pre.format(None);
-    assert_eq!(post.clone().meta.media.unwrap()[0].clone().get_content_url(), Some("00.png".to_string()));
-    assert_eq!(post.clone().meta.get_first_image().unwrap().get_description(), "".to_string());
+    assert_eq!(post.clone().meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
+    assert_eq!(post.clone().meta.first_image().unwrap().description(), "".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
     // //
     // // with more unresolved changes
@@ -266,10 +266,10 @@ fn test_research_activity_format() {
     // // without changes
     // //
     let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/no_changes.json")).unwrap();
-    assert_eq!(pre.clone().meta.media.unwrap()[0].clone().get_content_url(), Some("00.png".to_string()));
+    assert_eq!(pre.clone().meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
     assert_eq!(pre.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
     let post = pre.clone().format(path);
-    assert_eq!(post.meta.media.unwrap()[0].clone().get_content_url(), Some("00.png".to_string()));
+    assert_eq!(post.meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
     assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
 }
 #[test]

@@ -73,104 +73,104 @@ fn test_parse_vale_output() {
     assert_eq!(parsed.len(), 3);
 }
 #[test]
-fn test_get_singular_form() {
-    assert_eq!("", get_singular_form(""));
-    assert_eq!("man", get_singular_form("men"));
-    assert_eq!("aborigine", get_singular_form("aborigines"));
-    assert_eq!("banana", get_singular_form("banana"));
-    assert_eq!("banana", get_singular_form("bananas"));
-    assert_eq!("buffalo", get_singular_form("buffalo"));
-    assert_eq!("cafe", get_singular_form("cafes"));
-    assert_eq!("goose", get_singular_form("geese"));
-    assert_eq!("goose", get_singular_form("goose"));
-    assert_eq!("house", get_singular_form("houses"));
-    assert_eq!("index", get_singular_form("indices"));
-    assert_eq!("matrix", get_singular_form("matrices"));
-    assert_eq!("mouse", get_singular_form("mice"));
-    assert_eq!("money", get_singular_form("money"));
-    assert_eq!("quiz", get_singular_form("quiz"));
-    assert_eq!("quiz", get_singular_form("quizzes"));
-    assert_eq!("radius", get_singular_form("radii"));
-    assert_eq!("vertex", get_singular_form("vertices"));
+fn test_singular_form() {
+    assert_eq!("", singular_form(""));
+    assert_eq!("man", singular_form("men"));
+    assert_eq!("aborigine", singular_form("aborigines"));
+    assert_eq!("banana", singular_form("banana"));
+    assert_eq!("banana", singular_form("bananas"));
+    assert_eq!("buffalo", singular_form("buffalo"));
+    assert_eq!("cafe", singular_form("cafes"));
+    assert_eq!("goose", singular_form("geese"));
+    assert_eq!("goose", singular_form("goose"));
+    assert_eq!("house", singular_form("houses"));
+    assert_eq!("index", singular_form("indices"));
+    assert_eq!("matrix", singular_form("matrices"));
+    assert_eq!("mouse", singular_form("mice"));
+    assert_eq!("money", singular_form("money"));
+    assert_eq!("quiz", singular_form("quiz"));
+    assert_eq!("quiz", singular_form("quizzes"));
+    assert_eq!("radius", singular_form("radii"));
+    assert_eq!("vertex", singular_form("vertices"));
 }
 #[test]
-fn test_get_syllable_count_simple() {
-    assert_eq!(0, get_syllable_count(""));
+fn test_syllable_count_simple() {
+    assert_eq!(0, syllable_count(""));
     const SINGLE_SYLLABLE_WORDS: [&str; 7] = ["a", "and", "is", "of", "Foo", "the", "wine"];
     const DOUBLE_SYLLABLE_WORDS: [&str; 9] = ["bottle", "cafe", "cafes", "Hello", "hello", "PIZZA", "pizza", "PROJECT", "project"];
     SINGLE_SYLLABLE_WORDS.par_iter().for_each(|x| {
-        assert_eq!(1, get_syllable_count(x), "=> [REASON] \"{x}\" is NOT a single-syllable word");
+        assert_eq!(1, syllable_count(x), "=> [REASON] \"{x}\" is NOT a single-syllable word");
     });
     DOUBLE_SYLLABLE_WORDS.par_iter().for_each(|x| {
-        assert_eq!(2, get_syllable_count(x), "=> [REASON] \"{x}\" is NOT a double-syllable word");
+        assert_eq!(2, syllable_count(x), "=> [REASON] \"{x}\" is NOT a double-syllable word");
     });
-    assert_eq!(3, get_syllable_count("Syllable"));
-    assert_eq!(3, get_syllable_count("syllable"));
-    assert_eq!(3, get_syllable_count("lethargic"));
-    assert_eq!(4, get_syllable_count("Innovation"));
-    assert_eq!(4, get_syllable_count("innovation"));
-    assert_eq!(4, get_syllable_count("alacritous"));
+    assert_eq!(3, syllable_count("Syllable"));
+    assert_eq!(3, syllable_count("syllable"));
+    assert_eq!(3, syllable_count("lethargic"));
+    assert_eq!(4, syllable_count("Innovation"));
+    assert_eq!(4, syllable_count("innovation"));
+    assert_eq!(4, syllable_count("alacritous"));
 }
 #[test]
-fn test_get_syllables_count_problematic() {
-    assert_eq!(1, get_syllable_count("queue"));
-    assert_eq!(3, get_syllable_count("anyone"));
-    assert_eq!(2, get_syllable_count("maybe"));
-    assert_eq!(2, get_syllable_count("phoebe"));
-    assert_eq!(3, get_syllable_count("simile"));
-    assert_eq!(3, get_syllable_count("distractions"));
-    assert_eq!(5, get_syllable_count("preoccupation"));
+fn test_syllables_count_problematic() {
+    assert_eq!(1, syllable_count("queue"));
+    assert_eq!(3, syllable_count("anyone"));
+    assert_eq!(2, syllable_count("maybe"));
+    assert_eq!(2, syllable_count("phoebe"));
+    assert_eq!(3, syllable_count("simile"));
+    assert_eq!(3, syllable_count("distractions"));
+    assert_eq!(5, syllable_count("preoccupation"));
 }
 #[test]
-fn test_get_syllables_count_hyphenated() {
-    assert_eq!(3, get_syllable_count("good-natured"));
-    assert_eq!(3, get_syllable_count("ninety-nine"));
+fn test_syllables_count_hyphenated() {
+    assert_eq!(3, syllable_count("good-natured"));
+    assert_eq!(3, syllable_count("ninety-nine"));
 }
 #[test]
-fn test_get_syllables_count_accented() {
-    assert_eq!(2, get_syllable_count("cafés"));
-    assert_eq!(3, get_syllable_count("resumé"));
-    assert_eq!(2, get_syllable_count("Zoë"));
-    assert_eq!(2, get_syllable_count("zoë"));
+fn test_syllables_count_accented() {
+    assert_eq!(2, syllable_count("cafés"));
+    assert_eq!(3, syllable_count("resumé"));
+    assert_eq!(2, syllable_count("Zoë"));
+    assert_eq!(2, syllable_count("zoë"));
 }
 #[ignore] // Takes too long (less than 30 seconds)
 #[test]
-fn test_get_syllables_count_word_list() {
+fn test_syllables_count_word_list() {
     match read_file(PathBuf::from(FIXTURES).join("words.csv")) {
         | Ok(content) => {
             content.lines().map(String::from).collect::<Vec<String>>().par_iter().for_each(|x| {
                 let pair: Vec<String> = x.split(',').map(String::from).collect();
                 let word = &pair[0];
                 let count: usize = pair[1].parse().unwrap();
-                assert_eq!(count, get_syllable_count(word));
+                assert_eq!(count, syllable_count(word));
             });
         }
         | Err(_) => {}
     }
 }
 #[test]
-fn test_get_complex_word_count() {
+fn test_complex_word_count() {
     let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(0, get_complex_word_count(text));
+    assert_eq!(0, complex_word_count(text));
     let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(2, get_complex_word_count(text));
+    assert_eq!(2, complex_word_count(text));
 }
 #[test]
-fn test_get_long_word_count() {
+fn test_long_word_count() {
     let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(0, get_long_word_count(text));
+    assert_eq!(0, long_word_count(text));
     let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(2, get_long_word_count(text));
+    assert_eq!(2, long_word_count(text));
 }
 #[test]
-fn test_get_word_count() {
+fn test_word_count() {
     let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(9, get_word_count(text));
+    assert_eq!(9, word_count(text));
 }
 #[test]
-fn test_get_sentence_count() {
+fn test_sentence_count() {
     let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(1, get_sentence_count(text));
+    assert_eq!(1, sentence_count(text));
 }
 #[test]
 fn test_automated_readability_index() {
