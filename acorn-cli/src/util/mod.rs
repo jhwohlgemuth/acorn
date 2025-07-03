@@ -104,8 +104,6 @@ pub struct Options {
     pub exit_on_first_error: bool,
     #[builder(default)]
     pub merge_request: bool,
-    #[builder(default)]
-    pub schema: bool,
 }
 impl TargetLabel {
     pub fn get_folder(self) -> String {

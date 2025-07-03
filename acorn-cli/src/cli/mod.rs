@@ -216,11 +216,6 @@ pub enum Commands {
         /// Only applies to `--target highlight`
         #[arg(default_value_t, short, long, value_name = "SIZE", help_heading = "OPTIONS")]
         size: Size,
-        /// Print JSON schema for research activity data
-        ///
-        /// Note: Passing --schema will cause ACORN to exit after schema is printed
-        #[arg(long, value_name = "BOOL", help_heading = "FLAGS", help_heading = "OPTIONS")]
-        schema: bool,
         /// Export target type
         #[arg(default_value_t, short, long, value_name = "TARGET", help_heading = "OPTIONS")]
         target: Target,
@@ -268,6 +263,10 @@ pub enum Commands {
         #[command(flatten)]
         verbose: Verbosity,
     },
+    /// Print research activity data (RAD) JSON schema
+    ///
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Schema {},
 }
 
 #[cfg(test)]

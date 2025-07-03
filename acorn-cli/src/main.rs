@@ -92,21 +92,8 @@ fn main() -> Void {
             size,
             target,
             merge_request,
-            schema,
             ..
-        }) => commands::export::run(
-            output,
-            path,
-            branch,
-            commit,
-            format,
-            reference,
-            size,
-            target,
-            merge_request,
-            schema,
-            &offline,
-        ),
+        }) => commands::export::run(output, path, branch, commit, format, reference, size, target, merge_request, &offline),
         | Some(Commands::Format {
             path,
             branch,
@@ -117,6 +104,7 @@ fn main() -> Void {
             verbose,
             ..
         }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose, &offline),
+        | Some(Commands::Schema {}) => commands::schema::run(),
         | None => Ok(()),
     }
 }

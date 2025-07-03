@@ -142,7 +142,6 @@ pub fn run(
     size: &Size,
     target: &Target,
     merge_request: &bool,
-    schema: &bool,
     offline: &bool,
 ) -> Result<(), Report> {
     if *offline {
@@ -153,12 +152,7 @@ pub fn run(
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
         .merge_request(*merge_request)
-        .schema(*schema)
         .build();
-    if options.schema {
-        ResearchActivity::to_schema();
-        std::process::exit(exitcode::OK);
-    }
     let paths = get_paths_from_options(path, &Some(options));
     match target {
         | Target::FactSheet => {
