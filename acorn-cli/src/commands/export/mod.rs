@@ -1,5 +1,5 @@
-use crate::template::get_html;
-use crate::util::{get_paths_from_options, FileFormat, Options, Size, Target};
+use crate::template::to_html;
+use crate::util::{paths_from_options, FileFormat, Options, Size, Target};
 use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
 use acorn_lib::powerpoint::{archive, extract, interpolate_values, read_xml_rel};
 use acorn_lib::schema::{Metadata, ResearchActivity};
@@ -25,7 +25,7 @@ pub async fn create_pdf(page: &Page, options: Options) {
             std::process::exit(exitcode::UNAVAILABLE);
         }
     };
-    let content = get_html(&data, target, size);
+    let content = to_html(&data, target, size);
     // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
     let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
     if File::create(&index).is_ok() {
@@ -153,7 +153,7 @@ pub fn run(
         .maybe_commit(commit.clone())
         .merge_request(*merge_request)
         .build();
-    let paths = get_paths_from_options(path, &Some(options));
+    let paths = paths_from_options(path, &Some(options));
     match target {
         | Target::FactSheet => {
             tokio_runtime().block_on(async {

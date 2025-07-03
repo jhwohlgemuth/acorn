@@ -1,4 +1,4 @@
-use crate::util::{get_paths_from_options, Options};
+use crate::util::{paths_from_options, Options};
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::{path_to_string, print_changes, Label};
 use clap_verbosity_flag::{log::Level, Verbosity};
@@ -31,7 +31,7 @@ pub fn run(
         .maybe_ignore(ignore.clone())
         .merge_request(*merge_request)
         .build();
-    let paths = get_paths_from_options(path, &Some(options));
+    let paths = paths_from_options(path, &Some(options));
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
         | Ok(data) => {
             let old_content = serde_json::to_string_pretty(&data.clone()).unwrap();

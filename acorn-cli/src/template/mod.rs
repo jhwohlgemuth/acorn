@@ -7,7 +7,7 @@ use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::*;
-use rust_embed::Embed;
+use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;
 
 struct DataUri {}
@@ -50,11 +50,23 @@ impl DataUri {
         }
     }
 }
+impl Style {
+    pub fn to_string(file_name: String) -> String {
+        let data = match Style::get(&file_name) {
+            | Some(EmbeddedFile { data, .. }) => data,
+            | None => {
+                error!(file_name, "=> {} Import Style asset", Label::fail());
+                unimplemented!()
+            }
+        };
+        String::from_utf8_lossy(data.as_ref()).into_owned()
+    }
+}
 impl View for HtmlFooter {
     fn render(&self) -> VirtualNode {
         match self.target {
             | Target::FactSheet => {
-                let path = format!("fact-sheet/{}/footer.jpg", self.label.get_folder());
+                let path = format!("fact-sheet/{}/footer.jpg", self.label.folder());
                 let style = format!("background-image: url({});", DataUri::from_asset(&path));
                 html! {
                     <footer style={ style }>
@@ -98,7 +110,7 @@ impl View for HtmlHead<'_> {
             }
             | Target::Poster => "",
         };
-        let styles = get_stylesheet(self.stylesheet.to_string());
+        let styles = Style::to_string(self.stylesheet.to_string());
         let style = html! {
             <style>
                 { generate_font_faces() }
@@ -116,7 +128,7 @@ impl View for HtmlHead<'_> {
         }
     }
 }
-pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Size>) -> String {
+pub fn to_html(data: &ResearchActivity, target: Option<Target>, size: Option<Size>) -> String {
     let ResearchActivity {
         meta,
         title,
@@ -145,7 +157,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
         target,
     };
     let footer = HtmlFooter { label, target };
-    let folder = label.get_folder();
+    let folder = label.folder();
     let path = format!("{target}/{folder}/header.jpg");
     let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
     let graphic = meta.clone().first_image_content_url();
@@ -231,14 +243,4 @@ fn generate_qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
         .margin(0)
         .fit_width(125)
         .to_bytes(&code)
-}
-pub fn get_stylesheet(file_name: String) -> String {
-    let data = match Style::get(&file_name) {
-        | Some(value) => value.data,
-        | None => {
-            error!(file_name, "=> {} Import Style asset", Label::fail());
-            unimplemented!()
-        }
-    };
-    String::from_utf8_lossy(data.as_ref()).into_owned()
 }

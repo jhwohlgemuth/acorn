@@ -106,12 +106,12 @@ pub struct Options {
     pub merge_request: bool,
 }
 impl TargetLabel {
-    pub fn get_folder(self) -> String {
+    pub fn folder(self) -> String {
         match self {
             | TargetLabel::Bessd => "bessd".to_string(),
             | TargetLabel::Wpp => "wpp".to_string(),
             | TargetLabel::Nssd => "nssd".to_string(),
-            | TargetLabel::Ornl => TargetLabel::default().get_folder().to_owned(),
+            | TargetLabel::Ornl => TargetLabel::default().folder().to_owned(),
         }
     }
     pub fn from_organization(name: &str) -> Self {
@@ -124,7 +124,7 @@ impl TargetLabel {
         }
     }
 }
-pub fn get_paths_from_options(path: &Option<PathBuf>, options: &Option<Options>) -> Vec<PathBuf> {
+pub fn paths_from_options(path: &Option<PathBuf>, options: &Option<Options>) -> Vec<PathBuf> {
     let extension = Some("json");
     match options {
         | Some(Options {

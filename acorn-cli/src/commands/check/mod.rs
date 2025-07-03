@@ -1,4 +1,4 @@
-use crate::util::{get_paths_from_options, Check, Options};
+use crate::util::{paths_from_options, Check, Options};
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::{print_values_as_table, to_string, Label};
 use color_eyre::eyre::{Report, Result};
@@ -27,7 +27,7 @@ pub fn run(
         .exit_on_first_error(*exit_on_first_error)
         .merge_request(*merge_request)
         .build();
-    let paths = get_paths_from_options(path, &Some(options.clone()));
+    let paths = paths_from_options(path, &Some(options.clone()));
     let conventions_issues = if skip.contains(&Check::Conventions) {
         warn!("=> {} Conventions verification", Label::skip());
         0
