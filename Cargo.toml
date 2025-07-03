@@ -5,7 +5,6 @@ resolver = "2"
 [workspace.package]
 version = "0.1.21"
 license = "MIT"
-license-file = "LICENSE"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
 description = "Accessible Content Optimization for Research Needs - Multitool for maintaining sustainable research activity data"
 documentation = "https://acorn.ornl.gov"

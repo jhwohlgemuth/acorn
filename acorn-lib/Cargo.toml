@@ -15,7 +15,6 @@ authors.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 license.workspace = true
-license-file.workspace = true
 version.workspace = true
 
 [badges]
