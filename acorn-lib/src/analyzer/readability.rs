@@ -353,7 +353,7 @@ pub fn automated_readability_index(text: &str) -> f64 {
     let sentences = get_sentence_count(text);
     debug!(letters, words, sentences, "=> {}", Label::using());
     let score = 4.71 * (letters as f64 / words as f64) + 0.5 * (words as f64 / sentences as f64) - 21.43;
-    format!("{:.2}", score).parse().unwrap()
+    format!("{score:.2}").parse().unwrap()
 }
 /// Coleman-Liau Index (CLI)
 ///
@@ -364,7 +364,7 @@ pub fn coleman_liau_index(text: &str) -> f64 {
     let sentences = get_sentence_count(text);
     debug!(letters, words, sentences, "=> {}", Label::using());
     let score = (0.0588 * 100.0 * (letters as f64 / words as f64)) - (0.296 * 100.0 * (sentences as f64 / words as f64)) - 15.8;
-    format!("{:.2}", score).parse().unwrap()
+    format!("{score:.2}").parse().unwrap()
 }
 /// Flesch-Kincaid Grade Level (FKGL)
 ///
@@ -380,7 +380,7 @@ pub fn flesch_kincaid_grade_level(text: &str) -> f64 {
     let syllables = get_syllable_count(text);
     debug!(words, sentences, syllables, "=> {}", Label::using());
     let score = 0.39 * (words as f64 / sentences as f64) + 11.8 * (syllables as f64 / words as f64) - 15.59;
-    format!("{:.2}", score).parse().unwrap()
+    format!("{score:.2}").parse().unwrap()
 }
 /// Flesch Reading Ease Score (FRES)
 ///
@@ -395,7 +395,7 @@ pub fn flesch_reading_ease_score(text: &str) -> f64 {
     let syllables = get_syllable_count(text);
     debug!(words, sentences, syllables, "=> {}", Label::using());
     let score = 206.835 - (1.015 * words as f64 / sentences as f64) - (84.6 * syllables as f64 / words as f64);
-    format!("{:.2}", score).parse().unwrap()
+    format!("{score:.2}").parse().unwrap()
 }
 /// Gunning Fog Index (GFI)
 ///
@@ -409,7 +409,7 @@ pub fn gunning_fog_index(text: &str) -> f64 {
     let complex_words = get_complex_word_count(text);
     let sentences = get_sentence_count(text);
     let score = 0.4 * ((words as f64 / sentences as f64) + (100.0 * (complex_words as f64 / words as f64)));
-    format!("{:.2}", score).parse().unwrap()
+    format!("{score:.2}").parse().unwrap()
 }
 /// Lix
 ///
@@ -425,7 +425,7 @@ pub fn lix(text: &str) -> f64 {
     let sentences = get_sentence_count(text);
     let long_words = get_long_word_count(text);
     let score = (words as f64 / sentences as f64) + 100.0 * (long_words as f64 / words as f64);
-    format!("{:.2}", score).parse().unwrap()
+    format!("{score:.2}").parse().unwrap()
 }
 /// Simple Measure of Gobbledygook (SMOG)
 ///
@@ -440,7 +440,7 @@ pub fn smog(text: &str) -> f64 {
     let sentences = get_sentence_count(text);
     let complex_words = get_complex_word_count(text);
     let score = 1.0430 * (30.0 * (complex_words as f64 / sentences as f64)).sqrt() + 3.1291;
-    format!("{:.2}", score).parse().unwrap()
+    format!("{score:.2}").parse().unwrap()
 }
 /// Get the singular form of a word (e.g. "people" -> "person")
 ///

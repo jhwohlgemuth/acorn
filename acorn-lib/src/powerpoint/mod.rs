@@ -240,7 +240,7 @@ pub fn replace_placeholder_with_bullets(xml: &str, placeholder: &str, values: Ve
     };
     let selected = match paragraphs
         .into_iter()
-        .find(|x| match Regex::new(&format!(r"{{{{\s*{}\s*}}}}", placeholder)) {
+        .find(|x| match Regex::new(&format!(r"{{{{\s*{placeholder}\s*}}}}")) {
             | Ok(re) => re.is_match(x).unwrap_or_default(),
             | Err(_) => false,
         }) {
@@ -291,7 +291,7 @@ pub fn replace_placeholder_with_bullets(xml: &str, placeholder: &str, values: Ve
     }
 }
 pub fn replace_placeholder_with_string(content: &str, placeholder: &str, value: &str) -> String {
-    match Regex::new(&format!(r"{{{{\s*{}\s*}}}}", placeholder)) {
+    match Regex::new(&format!(r"{{{{\s*{placeholder}\s*}}}}")) {
         | Ok(re) => re.replace_all(content, value).to_string(),
         | Err(err) => {
             error!("=> {} Regex replacement - {err}", Label::fail());

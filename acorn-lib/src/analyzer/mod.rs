@@ -233,7 +233,7 @@ impl StaticAnalyzer for Vale {
                 let message = format!("Unable to extract {} binary", self.clone().command());
                 archive.unpack(parent.clone()).expect(&message);
                 debug!(parent, "=> {} Extracted {} binary", Label::using(), self.command());
-                PathBuf::from(format!("{}/vale", parent))
+                PathBuf::from(format!("{parent}/vale"))
             }
         }
     }
@@ -255,7 +255,7 @@ impl StaticAnalyzer for Vale {
                     | Ok(_) => {}
                     | Err(why) => error!(directory = parent, "=> {} Create - {}", Label::fail(), why),
                 }
-                match File::create(format!("{}/accept.txt", parent)) {
+                match File::create(format!("{parent}/accept.txt")) {
                     | Ok(mut file) => {
                         // TODO: Concatenate organization alternative names to accept file
                         let acronyms = Constant::get_last_values("acronyms");
@@ -267,7 +267,7 @@ impl StaticAnalyzer for Vale {
                     }
                     | Err(why) => panic!("=> {} Create accept.txt - {}", Label::fail(), why),
                 }
-                match File::create(format!("{}/reject.txt", parent)) {
+                match File::create(format!("{parent}/reject.txt")) {
                     | Ok(mut file) => {
                         let content = Constant::read_lines("reject.txt").join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to reject.txt");

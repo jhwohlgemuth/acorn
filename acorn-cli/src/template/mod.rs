@@ -94,7 +94,7 @@ impl View for HtmlHead<'_> {
                     | Size::Standard => "10in 7.5in",
                     | Size::Widescreen => "13.33in 7.5in",
                 };
-                &format!("\n@page {{ margin: 0; size: {}; }}\n", size)
+                &format!("\n@page {{ margin: 0; size: {size}; }}\n")
             }
             | Target::Poster => "",
         };
@@ -146,7 +146,7 @@ pub fn get_html(data: &ResearchActivity, target: Option<Target>, size: Option<Si
     };
     let footer = HtmlFooter { label, target };
     let folder = label.get_folder();
-    let path = format!("{}/{}/header.jpg", target, folder);
+    let path = format!("{target}/{folder}/header.jpg");
     let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
     let graphic = meta.clone().get_first_image_content_url();
     let caption = meta.clone().get_first_image_caption();
@@ -222,7 +222,7 @@ fn generate_font_faces() -> String {
 fn generate_qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
     let code = match QRBuilder::new(text).build() {
         | Ok(data) => data,
-        | Err(err) => panic!("Failed to generate QR code: {}", err),
+        | Err(err) => panic!("Failed to generate QR code: {err}"),
     };
     ImageBuilder::default()
         .shape(Shape::RoundedSquare)

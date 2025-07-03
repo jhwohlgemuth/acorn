@@ -101,7 +101,7 @@ impl Label {
     }
     pub fn fmt_fail(value: &str) -> String {
         let style = Style::new().white().on_red();
-        format!(" ✗ {} ", value).style(style).to_string()
+        format!(" ✗ {value} ").style(style).to_string()
     }
     pub fn found() -> Styled<&'static &'static str> {
         let style = Style::new().green().on_default_color();
@@ -153,7 +153,7 @@ impl Constant {
             | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
             | None => {
                 error!(file_name, "=> {} Import Constant asset", Label::fail());
-                panic!("Unable to import {}", file_name)
+                panic!("Unable to import {file_name}")
             }
         }
     }
@@ -171,7 +171,7 @@ impl Constant {
         data.lines().map(String::from).collect()
     }
     pub fn csv(file_name: &str) -> Vec<Vec<String>> {
-        Constant::read_lines(format!("{}.csv", file_name).as_str())
+        Constant::read_lines(format!("{file_name}.csv").as_str())
             .into_iter()
             .map(|x| x.split(",").map(String::from).collect())
             .collect()
@@ -324,9 +324,9 @@ pub fn get_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
         .map(|line| {
             let tag = line.tag();
             let text = match tag {
-                | Delete => format!("- {}", line).red().to_string(),
-                | Insert => format!("+ {}", line).green().to_string(),
-                | Equal => format!("  {}", line).dimmed().to_string(),
+                | Delete => format!("- {line}").red().to_string(),
+                | Insert => format!("+ {line}").green().to_string(),
+                | Equal => format!("  {line}").dimmed().to_string(),
             };
             (tag, text)
         })
@@ -362,7 +362,7 @@ pub fn get_command_folder(task: &str, default: Option<PathBuf>) -> PathBuf {
         | Some(value) => value,
         | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
             | Some(dirs) => dirs.cache_dir().join(task).to_path_buf(),
-            | None => PathBuf::from(format!("./{}", task)),
+            | None => PathBuf::from(format!("./{task}")),
         },
     };
     match create_dir_all(root.clone()) {
@@ -495,7 +495,7 @@ pub fn path_to_string(path: PathBuf) -> String {
     result.to_str().unwrap().to_string()
 }
 pub fn pretty_print(text: &str, syntax: ProgrammingLanguage, highlight: Vec<usize>) {
-    let input = format!("{}\n", text);
+    let input = format!("{text}\n");
     let language = syntax.to_string();
     let mut printer = PrettyPrinter::new();
     printer

@@ -214,8 +214,8 @@ impl Bucket {
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 let client = Client::new();
                 paths.par_iter().for_each(|path| {
-                    let url = format!("{}/-/raw/main/{}", uri, path);
-                    progress.set_message(format!("Downloading {}", path));
+                    let url = format!("{uri}/-/raw/main/{path}");
+                    progress.set_message(format!("Downloading {path}"));
                     let folder = format!("{}/{}", output.display(), get_parent(path.clone()));
                     std::fs::create_dir_all(folder.clone()).unwrap();
                     if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {

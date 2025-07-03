@@ -125,7 +125,7 @@ pub fn is_ror(value: &str) -> Result<(), ValidationError> {
 }
 pub fn validate_attribute_approach(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_APPROACH;
-    let message: String = format!("Each approach statement should be less than {} characters", MAX_LENGTH);
+    let message: String = format!("Each approach statement should be less than {MAX_LENGTH} characters");
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
         | true => Ok(()),
@@ -137,7 +137,7 @@ pub fn validate_attribute_areas(value: &[String]) -> Result<(), ValidationError>
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("area").with_message(format!("Each area should be less than {} characters", MAX_LENGTH).into())),
+        | _ => Err(ValidationError::new("area").with_message(format!("Each area should be less than {MAX_LENGTH} characters").into())),
     }
 }
 pub fn validate_attribute_capabilities(value: &[String]) -> Result<(), ValidationError> {
@@ -145,7 +145,7 @@ pub fn validate_attribute_capabilities(value: &[String]) -> Result<(), Validatio
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("capability").with_message(format!("Each capability should be less than {} characters", MAX_LENGTH).into())),
+        | _ => Err(ValidationError::new("capability").with_message(format!("Each capability should be less than {MAX_LENGTH} characters").into())),
     }
 }
 pub fn validate_attribute_facilities(value: &[String]) -> Result<(), ValidationError> {
@@ -153,7 +153,7 @@ pub fn validate_attribute_facilities(value: &[String]) -> Result<(), ValidationE
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("facility").with_message(format!("Each facility should be less than {} characters", MAX_LENGTH).into())),
+        | _ => Err(ValidationError::new("facility").with_message(format!("Each facility should be less than {MAX_LENGTH} characters").into())),
     }
 }
 // TODO: Check that statments start with capital letter (use regex for period and captial?)
@@ -170,9 +170,7 @@ pub fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError
                     .with_message("Impact statements should be all sentences with periods or all phrases without periods".into())),
             }
         }
-        | _ => {
-            Err(ValidationError::new("impact").with_message(format!("Each impact statement should be less than {} characters", MAX_LENGTH).into()))
-        }
+        | _ => Err(ValidationError::new("impact").with_message(format!("Each impact statement should be less than {MAX_LENGTH} characters").into())),
     }
 }
 pub fn validate_attribute_technical(value: &[String]) -> Result<(), ValidationError> {
@@ -181,6 +179,6 @@ pub fn validate_attribute_technical(value: &[String]) -> Result<(), ValidationEr
     match is_valid {
         | true => Ok(()),
         | _ => Err(ValidationError::new("technical approach")
-            .with_message(format!("Each element of technical approach should be less than {} characters", MAX_LENGTH).into())),
+            .with_message(format!("Each element of technical approach should be less than {MAX_LENGTH} characters").into())),
     }
 }

@@ -134,7 +134,7 @@ fn test_diagnostic_combinations() -> Result<()> {
     ];
     for diagnostics in test_cases {
         let result = run(&false, &false, &diagnostics, &OFFLINE);
-        assert!(result.is_ok(), "Failed with diagnostics: {:?}", diagnostics);
+        assert!(result.is_ok(), "Failed with diagnostics: {diagnostics:?}");
     }
     Ok(())
 }

@@ -845,10 +845,10 @@ impl ResearchActivity {
 {}"#,
             mission,
             challenge,
-            approach.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
-            impact.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n"),
+            approach.into_iter().map(|x| format!("- {x}")).collect::<Vec<String>>().join("\n"),
+            impact.into_iter().map(|x| format!("- {x}")).collect::<Vec<String>>().join("\n"),
             focus,
-            areas.into_iter().map(|x| format!("- {}", x)).collect::<Vec<String>>().join("\n")
+            areas.into_iter().map(|x| format!("- {x}")).collect::<Vec<String>>().join("\n")
         );
         match self.subtitle {
             | Some(subtitle) => format!(
@@ -985,7 +985,7 @@ impl ResearchActivity {
         };
         let mut data: Vec<_> = values
             .into_iter()
-            .flat_map(|x| resolve_from_csv_asset(format!("{}", value_type), x))
+            .flat_map(|x| resolve_from_csv_asset(format!("{value_type}"), x))
             .collect();
         data.sort();
         data.dedup();
@@ -993,7 +993,7 @@ impl ResearchActivity {
     }
     pub fn to_markdown(self) -> String {
         let ResearchActivity { title, .. } = self.clone();
-        format!("# {}", title)
+        format!("# {title}")
     }
 }
 fn get_match_list(value: String, values: Vec<String>) -> Vec<(String, u32)> {
