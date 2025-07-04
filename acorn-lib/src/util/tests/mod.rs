@@ -77,6 +77,13 @@ fn test_image_paths() {
 #[test]
 fn test_is_ip6() {}
 #[test]
+fn test_mimetype() {
+    let mime = MimeType::from_path("a.txt");
+    assert_eq!(mime, MimeType::Text);
+    let mime = MimeType::from_path("font.otf".to_string());
+    assert_eq!(mime, MimeType::Otf);
+}
+#[test]
 fn test_semantic_version() {
     let version = SemanticVersion::from_string("1.2.3");
     assert_eq!(version.major, 1);
@@ -134,7 +141,7 @@ fn test_test_command() {
     if cfg!(target_os = "windows") {
         assert!(command_exists("cmd".to_string()));
     } else {
-        assert!(command_exists("ls".to_string()));
+        assert!(command_exists("ls"));
         assert!(command_exists("cargo".to_string()));
     }
 }

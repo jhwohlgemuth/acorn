@@ -39,7 +39,7 @@ pub mod cli;
 /// Supports an incomplete list of common MIME types
 ///
 /// See <https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types>
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug, Display, PartialEq)]
 pub enum MimeType {
     /// Comma Separated Values (CSV)
     #[display("text/csv")]
@@ -288,8 +288,11 @@ impl MimeType {
     /// # Panics
     ///
     /// Panics if the file extension is not supported.
-    pub fn from_path(file_name: &str) -> MimeType {
-        let name = &file_name.to_lowercase();
+    pub fn from_path<S>(file_name: S) -> MimeType
+    where
+        S: Into<String>,
+    {
+        let name = &file_name.into().to_lowercase();
         match extension(Path::new(name)).as_str() {
             | "csv" => MimeType::Csv,
             | "jpg" | "jpeg" => MimeType::Jpeg,
@@ -308,8 +311,11 @@ impl SemanticVersion {
     /// of the given executable name.
     ///
     /// <div class="warning">this function only supports commands that provide a `--version` flag</div>
-    pub fn from_command(name: &str) -> Option<SemanticVersion> {
-        if command_exists(name.to_owned()) {
+    pub fn from_command<S>(name: S) -> Option<SemanticVersion>
+    where
+        S: Into<String> + duct::IntoExecutablePath + std::marker::Copy,
+    {
+        if command_exists(name.into()) {
             let result = cmd(name, vec!["--version"]).read();
             match result {
                 | Ok(value) => {
@@ -326,9 +332,12 @@ impl SemanticVersion {
         }
     }
     /// Parses a string into a `SemanticVersion` value
-    pub fn from_string(value: &str) -> SemanticVersion {
+    pub fn from_string<S>(value: S) -> SemanticVersion
+    where
+        S: Into<String>,
+    {
         let value = match Regex::new(r"\d*[.]\d*[.]\d*") {
-            | Ok(re) => match re.find(value) {
+            | Ok(re) => match re.find(&value.into()) {
                 | Ok(value) => match value {
                     | Some(value) => value.as_str().to_string(),
                     | None => unreachable!(),
@@ -422,8 +431,9 @@ where
 /// # Returns
 ///
 /// A `Result` containing a `PathBuf` to the downloaded file on success, or a string error message on failure.
-pub fn download_binary<P>(url: String, destination: P) -> Result<PathBuf, String>
+pub fn download_binary<S, P>(url: S, destination: P) -> Result<PathBuf, String>
 where
+    S: Into<String> + Clone + std::marker::Copy,
     P: Into<PathBuf> + Clone,
 {
     async fn download<P>(url: String, destination: P) -> Result<(), String>
@@ -447,8 +457,8 @@ where
         }
     }
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-    let _ = runtime.block_on(download(url.clone(), destination.clone()));
-    let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
+    let _ = runtime.block_on(download(url.into(), destination.clone()));
+    let filename = PathBuf::from(url.into()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.into().join(filename))
 }
 /// Get file extension

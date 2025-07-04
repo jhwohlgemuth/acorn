@@ -147,7 +147,7 @@ impl StaticAnalyzer for Vale {
             platform
         );
         info!(url, "=> {} Vale release v{}", Label::using(), release);
-        let binary = match download_binary(url.clone(), ".") {
+        let binary = match download_binary(&url, ".") {
             | Ok(path) => {
                 let dowloaded_checksums = match self.clone().download_checksums() {
                     | Ok(value) => value.get(platform).unwrap().to_string(),
