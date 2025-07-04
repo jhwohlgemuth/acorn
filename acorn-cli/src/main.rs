@@ -1,4 +1,8 @@
-// #![deny(missing_docs)]
+//! # ACORN CLI
+//!
+//! The ACORN command line interface (CLI) provides a set of commands for maintaining research activity data and leveraging ACORN schemas.
+//!
+//! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use clap::{crate_version, Parser};
 use color_eyre::eyre;
 use dotenvy::dotenv;
@@ -16,6 +20,7 @@ mod template;
 
 use cli::{Arguments, Commands};
 
+/// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
 
 // Environment variables

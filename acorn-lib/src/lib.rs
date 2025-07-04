@@ -1,6 +1,6 @@
 //! # ACORN Library
 //!
-//! This library provides functions for working with [ACORN](https://acorn.ornl.gov) data and supports the ACORN CLI.
+//! `acorn-lib` provides functions for working with [ACORN](https://acorn.ornl.gov) data and supports the ACORN CLI.
 use color_eyre::eyre;
 use derive_more::Display;
 use indicatif::{ProgressBar, ProgressStyle};

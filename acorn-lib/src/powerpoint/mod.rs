@@ -1,5 +1,5 @@
 use crate::schema::{ContactPoint, Metadata, Notes, Other, ResearchActivity, Sections};
-use crate::util::{command_folder, files_all, path_to_string, read_file, write_file, Label};
+use crate::util::{files_all, path_to_string, read_file, standard_project_folder, write_file, Label};
 use fancy_regex::Regex;
 use quick_xml::events::Event;
 use quick_xml::{Reader, Writer};
@@ -66,7 +66,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
     }
 }
 pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
-    let root = command_folder("extract", destination);
+    let root = standard_project_folder("extract", destination);
     match File::open(path.clone()) {
         | Ok(zip_file) => match ZipArchive::new(zip_file) {
             | Ok(mut archive) => {

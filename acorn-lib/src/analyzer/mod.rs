@@ -1,7 +1,7 @@
 use crate::constants::{APPLICATION, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{
-    checksum, command_folder, download_binary, extension, make_executable, path_to_string, pretty_print, test_command, to_string, Constant, Label,
-    ProgrammingLanguage, SemanticVersion,
+    checksum, command_exists, download_binary, extension, make_executable, path_to_string, pretty_print, standard_project_folder, to_string,
+    Constant, Label, ProgrammingLanguage, SemanticVersion,
 };
 use color_eyre::owo_colors::OwoColorize;
 use duct::cmd;
@@ -44,7 +44,7 @@ impl StaticAnalyzer for Vale {
         "vale".to_string()
     }
     fn analyze(&self, id: String, content: String, output: Option<String>) -> usize {
-        let root = command_folder("check", None);
+        let root = standard_project_folder("check", None);
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
             | Err(why) => error!(path = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
@@ -292,7 +292,7 @@ impl StaticAnalyzer for Vale {
     }
     fn with_system_command(mut self) -> Self {
         let name = self.clone().command();
-        if test_command(name.clone()) {
+        if command_exists(name.clone()) {
             let path = which(name.clone()).unwrap().to_path_buf();
             self.binary = Some(path.clone());
             let offset = "vale version ".len();

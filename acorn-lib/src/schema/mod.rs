@@ -767,7 +767,7 @@ impl ResearchActivity {
     pub fn analyze(paths: Vec<PathBuf>) -> usize {
         let config = ValeConfig::default().save();
         let init = Vale::init().build();
-        let vale = if test_command("vale".into()) {
+        let vale = if command_exists("vale") {
             init.with_config(config).with_system_command()
         } else {
             init.download(Some(config))

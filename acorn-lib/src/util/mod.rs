@@ -1,3 +1,6 @@
+//! # Common utilities
+//!
+//! Common utilities and structs used within the ACORN library
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 use bat::PrettyPrinter;
 use bon::Builder;
@@ -31,41 +34,83 @@ use which::which;
 #[cfg(feature = "cli")]
 pub mod cli;
 
+/// MIME types
+///
+/// Supports an incomplete list of common MIME types
+///
 /// See <https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types>
 #[derive(Clone, Debug, Display)]
 pub enum MimeType {
+    /// Comma Separated Values (CSV)
     #[display("text/csv")]
     Csv,
+    /// Linked Data [JSON](https://www.json.org/json-en.html)
+    ///
+    /// See <https://json-ld.org/>
     #[display("application/ld+json")]
     LdJson,
+    /// Joint Photographic Experts Group (JPEG)
     #[display("image/jpeg")]
     Jpeg,
+    /// JavaScript Object Notation (JSON)
+    ///
+    /// See <https://www.json.org/json-en.html>
     #[display("application/json")]
     Json,
+    /// OpenType Font (OTF)
     #[display("font/otf")]
     Otf,
+    /// Portable Network Graphic (PNG)
     #[display("image/png")]
     Png,
+    /// Scalable Vector Graphic (SVG)
     #[display("image/svg+xml")]
     Svg,
+    /// Plain Text
+    ///
+    /// Just plain old text
     #[display("text/plain")]
     Text,
 }
+/// Programming languages
+///
+/// Provides a small subset of common programming languages available for syntax highlighting
 #[derive(Clone, Copy, Debug, Display)]
 pub enum ProgrammingLanguage {
+    /// HyperText Markup Language (HTML)
     #[display("html")]
     Html,
+    /// Markdown
+    ///
+    /// See <https://www.markdownguide.org/>
     #[display("markdown")]
     Markdown,
+    /// JavaScript Object Notation (JSON)
+    ///
+    /// See <https://www.json.org/json-en.html>
     #[display("json")]
     Json,
+    /// YAM Ain't Markup Language (YAML)
+    ///
+    /// See <https://yaml.org/>
     #[display("yaml")]
     Yaml,
 }
+/// Struct for using and sharing constants
+///
+/// See <https://git.sr.ht/~pyrossh/rust-embed>
 #[derive(Embed)]
 #[folder = "assets/constants/"]
 pub struct Constant;
-/// Struct for using and sharing colorized logging labels
+/// # Struct for using and sharing colorized logging labels
+///
+/// # Labels (without foreground/background coloring)
+/// | Name    | Example Output |
+/// |---------|----------------|
+/// | Dry run | "=> DRY_RUN ■ Pretending to do a thing" |
+/// | Skip    | "=> ⚠️  Thing was skipped" |
+/// | Pass    | "=> ✅ Thing passed " |
+/// | Fail    | "=> ✗ Thing failed " |
 pub struct Label {}
 /// Semantic version
 ///
@@ -85,72 +130,99 @@ pub struct SemanticVersion {
     pub patch: u32,
 }
 impl Label {
+    /// Emoji for use when logging a warning, caution, etc.
     pub const CAUTION: Emoji<'_, '_> = Emoji("⚠️ ", "!!! ");
+    /// Emoji for use when logging a success, pass, etc.
     pub const CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
+    /// Template string to customize the progress bar
+    ///
+    /// See <https://docs.rs/indicatif/latest/indicatif/#templates>
     pub const PROGRESS_BAR_TEMPLATE: &str = "  {spinner:.green}{pos:>5} of{len:^5}[{bar:40.green}] {msg}";
+    /// "Dry run" label
     pub fn dry_run() -> Styled<&'static &'static str> {
         let style = Style::new().black().on_yellow();
         " DRY_RUN ■ ".style(style)
     }
+    /// "Invalid" label
     pub fn invalid() -> String {
         Label::fmt_invalid("INVALID")
     }
+    /// "Invalid" label formatting
     pub fn fmt_invalid(value: &str) -> String {
         let style = Style::new().red().on_default_color();
         value.style(style).to_string()
     }
+    /// "Fail" label
     pub fn fail() -> String {
         Label::fmt_fail("FAIL")
     }
+    /// "Fail" label formatting
     pub fn fmt_fail(value: &str) -> String {
         let style = Style::new().white().on_red();
         format!(" ✗ {value} ").style(style).to_string()
     }
+    /// "Found" label
     pub fn found() -> Styled<&'static &'static str> {
         let style = Style::new().green().on_default_color();
         "FOUND".style(style)
     }
+    /// "Not found" label
     pub fn not_found() -> String {
         Label::fmt_not_found("NOT_FOUND")
     }
+    /// "Not found" label formatting
     pub fn fmt_not_found(value: &str) -> String {
         let style = Style::new().red().on_default_color();
         value.style(style).to_string()
     }
+    /// "Output" label
     pub fn output() -> String {
         Label::fmt_output("OUTPUT")
     }
+    /// "Output" label formatting
     pub fn fmt_output(value: &str) -> String {
         let style = Style::new().cyan().dimmed().on_default_color();
         value.style(style).to_string()
     }
+    /// "Pass" label
     pub fn pass() -> String {
         Label::fmt_pass("SUCCESS")
     }
+    /// "Pass" label formatting
     pub fn fmt_pass(value: &str) -> String {
         let style = Style::new().green().bold().on_default_color();
         format!("{}{}", Label::CHECKMARK, value).style(style).to_string()
     }
+    /// "Read" label
     pub fn read() -> Styled<&'static &'static str> {
         let style = Style::new().green().on_default_color();
         "READ".style(style)
     }
+    /// "Skip" label
     pub fn skip() -> String {
         Label::fmt_skip("SKIP")
     }
+    /// "Skip" label formatting
     pub fn fmt_skip(value: &str) -> String {
         let style = Style::new().yellow().on_default_color();
         format!("{}{} ", Label::CAUTION, value).style(style).to_string()
     }
+    /// "Using" label
     pub fn using() -> String {
         Label::fmt_using("USING")
     }
+    /// "Using" label formatting
     pub fn fmt_using(value: &str) -> String {
         let style = Style::new().cyan();
         value.style(style).to_string()
     }
 }
 impl Constant {
+    /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the file does not exist in the asset folder.
     pub fn from_asset(file_name: &str) -> String {
         match Constant::get(file_name) {
             | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
@@ -160,6 +232,9 @@ impl Constant {
             }
         }
     }
+    /// Returns an iterator over the last values of each row in the given file.
+    ///
+    /// If a row is empty, an empty string is returned.
     pub fn last_values(file_name: &str) -> impl Iterator<Item = String> {
         Constant::csv(file_name)
             .into_iter()
@@ -169,10 +244,25 @@ impl Constant {
             })
             .filter(|x| !x.is_empty())
     }
+    /// Reads a file from the asset folder and returns its contents as an iterator over individual lines.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the file does not exist in the asset folder.
     pub fn read_lines(file_name: &str) -> Vec<String> {
         let data = Constant::from_asset(file_name);
         data.lines().map(String::from).collect()
     }
+    /// Reads a CSV file from the asset folder and returns its contents as a `Vec` of `Vec<String>`,
+    /// where each inner vector represents a row and each string within the inner vector represents a cell value.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_name` - A string slice representing the name of the CSV file (without extension).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the file does not exist in the asset folder.
     pub fn csv(file_name: &str) -> Vec<Vec<String>> {
         Constant::read_lines(format!("{file_name}.csv").as_str())
             .into_iter()
@@ -181,6 +271,23 @@ impl Constant {
     }
 }
 impl MimeType {
+    /// Returns a `MimeType` value based on the file extension of the given file name.
+    ///
+    /// # Supported MIME types
+    ///
+    /// * `csv` - `text/csv`
+    /// * `jpg` - `image/jpeg`
+    /// * `jpeg` - `image/jpeg`
+    /// * `json` - `application/json`
+    /// * `jsonld` - `application/ld+json`
+    /// * `otf` - `font/otf`
+    /// * `png` - `image/png`
+    /// * `svg` - `image/svg+xml`
+    /// * `txt` - `text/plain`
+    ///
+    /// # Panics
+    ///
+    /// Panics if the file extension is not supported.
     pub fn from_path(file_name: &str) -> MimeType {
         let name = &file_name.to_lowercase();
         match extension(Path::new(name)).as_str() {
@@ -197,8 +304,12 @@ impl MimeType {
     }
 }
 impl SemanticVersion {
+    /// Returns a `SemanticVersion` value based on the output of the `--version` command-line flag
+    /// of the given executable name.
+    ///
+    /// <div class="warning">this function only supports commands that provide a `--version` flag</div>
     pub fn from_command(name: &str) -> Option<SemanticVersion> {
-        if test_command(name.to_owned()) {
+        if command_exists(name.to_owned()) {
             let result = cmd(name, vec!["--version"]).read();
             match result {
                 | Ok(value) => {
@@ -214,6 +325,7 @@ impl SemanticVersion {
             None
         }
     }
+    /// Parses a string into a `SemanticVersion` value
     pub fn from_string(value: &str) -> SemanticVersion {
         let value = match Regex::new(r"\d*[.]\d*[.]\d*") {
             | Ok(re) => match re.find(value) {
@@ -237,8 +349,9 @@ impl Default for SemanticVersion {
         SemanticVersion::init().build()
     }
 }
-// Get SHA256 hash of a file
-// https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html
+/// Get SHA256 hash of a file
+///
+/// See <https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html>
 pub fn checksum<P>(path: P) -> String
 where
     P: Into<PathBuf>,
@@ -266,20 +379,49 @@ where
         }
     }
 }
-pub fn command_folder(task: &str, default: Option<PathBuf>) -> PathBuf {
-    let root = match default {
-        | Some(value) => value,
-        | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
-            | Some(dirs) => dirs.cache_dir().join(task).to_path_buf(),
-            | None => PathBuf::from(format!("./{task}")),
-        },
-    };
-    match create_dir_all(root.clone()) {
-        | Ok(_) => {}
-        | Err(why) => error!(directory = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
-    };
-    root.join(generate_guid())
+/// Checks if a given command exists in current terminal context.
+///
+/// # Arguments
+///
+/// * `name` - A string slice or `String` containing the name of the command to be checked.
+///
+/// # Return
+///
+/// A boolean indicating whether the command exists or not.
+pub fn command_exists<S>(name: S) -> bool
+where
+    S: Into<String> + AsRef<std::ffi::OsStr> + tracing::Value,
+{
+    match which(&name) {
+        | Ok(value) => {
+            let path = path_to_string(value.clone());
+            match value.try_exists() {
+                | Ok(true) => {
+                    debug!(path, "=> {} Command", Label::found());
+                    true
+                }
+                | _ => {
+                    debug!(path, "=> {} Command", Label::not_found());
+                    false
+                }
+            }
+        }
+        | Err(_) => {
+            warn!(name, "=> {} Command", Label::not_found());
+            false
+        }
+    }
 }
+/// Downloads a binary file from the given URL to the destination path.
+///
+/// # Arguments
+///
+/// * `url` - A string slice representing the URL of the binary to download.
+/// * `destination` - A path to the root directory where the file should be saved.
+///
+/// # Returns
+///
+/// A `Result` containing a `PathBuf` to the downloaded file on success, or a string error message on failure.
 pub fn download_binary<P>(url: String, destination: P) -> Result<PathBuf, String>
 where
     P: Into<PathBuf> + Clone,
@@ -324,6 +466,17 @@ where
 pub fn extension(path: &Path) -> String {
     path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string()
 }
+/// Returns a vector of `PathBuf` containing all files in a directory that match the given extension and do not match the ignore pattern.
+///
+/// # Arguments
+///
+/// * `path` - A `PathBuf` to the directory to search.
+/// * `extension` - An `Option` containing a string slice representing the file extension to search for.
+/// * `ignore` - An `Option` containing a string representing a regex pattern to ignore files matching.
+///
+/// # Returns
+///
+/// A `Vec` containing `PathBuf` values of all files in the given directory that match the given extension and do not match the ignore pattern.
 pub fn files_all(path: PathBuf, extension: Option<&str>, ignore: Option<String>) -> Vec<PathBuf> {
     fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
@@ -376,8 +529,14 @@ pub fn files_all(path: PathBuf, extension: Option<&str>, ignore: Option<String>)
         vec![path]
     }
 }
+/// Returns a vector of `PathBuf` containing all files changed in the given Git branch relative to the default branch.
+///
+/// # Arguments
+///
+/// * `value` - A string slice representing the name of the Git branch to check.
+/// * `extension` - An `Option` containing a string slice representing the file extension to filter results by.
 pub fn files_from_git_branch(value: &str, extension: Option<&str>) -> Vec<PathBuf> {
-    if test_command("git".to_owned()) {
+    if command_exists("git".to_owned()) {
         let default_branch = match git_default_branch_name() {
             | Some(value) => value,
             | None => "main".to_string(),
@@ -389,8 +548,14 @@ pub fn files_from_git_branch(value: &str, extension: Option<&str>) -> Vec<PathBu
         vec![]
     }
 }
+/// Returns a vector of `PathBuf` containing all files changed in the given Git commit.
+///
+/// # Arguments
+///
+/// * `value` - A string slice representing the Git commit hash to check.
+/// * `extension` - An `Option` containing a string slice representing the file extension to filter results by.
 pub fn files_from_git_commit(value: &str, extension: Option<&str>) -> Vec<PathBuf> {
-    if test_command("git".to_owned()) {
+    if command_exists("git".to_owned()) {
         let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
         let result = cmd("git", args).read();
         filter_git_command_result(result, extension)
@@ -412,6 +577,15 @@ fn filter_git_command_result(result: Result<String, std::io::Error>, file_extens
         | Err(_) => vec![],
     }
 }
+/// Generates a random GUID using a custom alphabet.
+///
+/// The generated GUID is a 10-character string composed of a mix of uppercase
+/// letters, lowercase letters, digits, and a hyphen. The function uses the
+/// [nanoid](https://github.com/ai/nanoid) library to ensure randomness and uniqueness of the GUID.
+///
+/// # Returns
+///
+/// A `String` representing a randomly generated GUID.
 pub fn generate_guid() -> String {
     let alphabet = [
         '-', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'T', 'U', 'V', 'W', 'X', 'Y', 'a', 'b', 'c', 'd',
@@ -421,8 +595,13 @@ pub fn generate_guid() -> String {
     debug!(id, "=> {}", Label::using());
     id
 }
+/// Returns the current Git branch name if the `git` command is available and executed successfully.
+///
+/// This function executes the `git symbolic-ref --short HEAD` command to retrieve the name of
+/// the current Git branch. If the command is successful, the branch name is extracted and returned
+/// as a `String`. If the command fails or if `git` is not available, the function returns `None`.
 pub fn git_branch_name() -> Option<String> {
-    if test_command("git".to_owned()) {
+    if command_exists("git".to_owned()) {
         let args = vec!["symbolic-ref", "--short", "HEAD"];
         let result = cmd("git", args).read();
         match result {
@@ -439,8 +618,13 @@ pub fn git_branch_name() -> Option<String> {
         None
     }
 }
+/// Returns the default Git branch name if the `git` command is available and executed successfully.
+///
+/// This function executes the `git symbolic-ref refs/remotes/origin/HEAD --short` command to retrieve
+/// the default Git branch name. If the command is successful, the branch name is extracted and returned
+/// as a `String`. If the command fails or if `git` is not available, the function returns `None`.
 pub fn git_default_branch_name() -> Option<String> {
-    if test_command("git".to_owned()) {
+    if command_exists("git".to_owned()) {
         let args = vec!["symbolic-ref", "refs/remotes/origin/HEAD", "--short"];
         let result = cmd("git", args).read();
         match result {
@@ -457,6 +641,17 @@ pub fn git_default_branch_name() -> Option<String> {
         None
     }
 }
+/// Returns a vector of `PathBuf` representing paths to all images found in the given
+/// directory and all of its subdirectories.
+///
+/// # Arguments
+///
+/// * `root` - A value that can be converted into a `PathBuf` and implements the `Clone` trait. This is the directory in which the search for images is performed.
+///
+/// # Returns
+///
+/// A vector of `PathBuf` representing paths to all images found in the given directory and
+/// all of its subdirectories. The paths are sorted alphabetically.
 pub fn image_paths<P>(root: P) -> Vec<PathBuf>
 where
     P: Into<PathBuf> + Clone,
@@ -471,20 +666,59 @@ where
     files.sort();
     files
 }
+/// Makes the given file executable.
+///
+/// # Platform support
+///
+/// Platforms that support this function are:
+///
+/// * Unix
+/// * WASI
+/// * Redox
+///
+/// # Parameters
+///
+/// * `path` - A `PathBuf` containing the path to the file to be made executable.
+///
+/// # Return
+///
+/// A boolean indicating whether the file is executable after calling this function.
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-pub fn make_executable(path: &PathBuf) -> bool {
+pub fn make_executable<P>(path: P) -> bool
+where
+    P: Into<PathBuf> + Clone,
+{
     use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
-    path.is_executable()
+    std::fs::set_permissions(path.clone().into(), std::fs::Permissions::from_mode(0o755)).unwrap();
+    path.into().is_executable()
 }
 #[cfg(windows)]
-pub fn make_executable(path: &Path) -> bool {
+pub fn make_executable<P>(path: P) -> bool
+where
+    P: Into<PathBuf> + Clone,
+{
     // TODO: Add windows support...pass through?
-    path.is_executable()
+    path.into().is_executable()
 }
-pub fn parent(path: String) -> String {
-    PathBuf::from(PathBuf::from(path).parent().unwrap()).display().to_string()
+/// Returns the parent directory of the given path.
+pub fn parent<P>(path: P) -> String
+where
+    P: Into<PathBuf>,
+{
+    PathBuf::from(path.into().parent().unwrap()).display().to_string()
 }
+/// Converts a `PathBuf` into a `String` representation of the absolute path.
+///
+/// This function attempts to canonicalize the provided path, which resolves any symbolic links
+/// and returns an absolute path. If canonicalization fails, the original path is returned as a string.
+///
+/// # Arguments
+///
+/// * `path` - A `PathBuf` representing the file system path to be converted.
+///
+/// # Returns
+///
+/// A `String` containing the absolute path if canonicalization succeeds, or the original path as a string otherwise.
 pub fn path_to_string(path: PathBuf) -> String {
     // NOTE: fs::canonicalize might cause problems on Windows
     let result = match std::fs::canonicalize(path.as_path()) {
@@ -493,6 +727,9 @@ pub fn path_to_string(path: PathBuf) -> String {
     };
     result.to_str().unwrap().to_string()
 }
+/// Prints `text` to stdout using syntax highlighting for the specified `syntax`.
+///
+/// `highlight` is an iterator of line numbers to highlight in the output.
 pub fn pretty_print<I: IntoIterator<Item = usize>>(text: &str, syntax: ProgrammingLanguage, highlight: I) {
     let input = format!("{text}\n");
     let language = syntax.to_string();
@@ -507,6 +744,12 @@ pub fn pretty_print<I: IntoIterator<Item = usize>>(text: &str, syntax: Programmi
     }
     printer.print().unwrap();
 }
+/// Prints a diff of changes between two strings.
+///
+/// If there are no changes between `old` and `new`, prints a debug message indicating so.
+/// Otherwise, prints a unified diff of the changes, with `+` indicating lines that are
+/// present in `new` but not `old`, `-` indicating lines that are present in `old` but
+/// not `new`, and lines that are the same in both are prefixed with a space.
 pub fn print_changes(old: &str, new: &str) {
     let changes = text_diff_changes(old, new);
     let has_no_changes = changes.clone().into_iter().all(|(tag, _)| tag == Equal);
@@ -519,6 +762,13 @@ pub fn print_changes(old: &str, new: &str) {
     }
 }
 // TODO: Improve flexibility (see https://rust-lang.github.io/api-guidelines/flexibility.html#c-generic)
+/// Prints the given values as a table.
+///
+/// # Arguments
+///
+/// * `title` - The title of the table.
+/// * `headers` - The headers of the table.
+/// * `rows` - The rows of the table as a vector of vectors of strings.
 pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<String>>) {
     let mut table = Table::new();
     table
@@ -531,6 +781,16 @@ pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<Stri
     });
     println!("=> {} \n{table}", title.green().bold());
 }
+/// Reads the given file and returns its contents as a string.
+///
+/// # Parameters
+///
+/// * `path` - A `PathBuf` or string slice containing the path to the file to be read.
+///
+/// # Return
+///
+/// A `Result` containing the contents of the file as a string if the file is readable, or an
+/// `std::io::Error` otherwise.
 pub fn read_file<P>(path: P) -> Result<String, std::io::Error>
 where
     P: Into<PathBuf> + Clone,
@@ -548,30 +808,55 @@ where
     };
     Ok(content)
 }
+/// Returns path to a folder in the operating system's cache directory that is unique to the given
+/// `namespace` with a random UUID as the name of the final folder.
+///
+/// The folder is ***not*** created.
+///
+/// Used primarily by ACORN CLI where `namespace` is of a subcommand task. e.g. "check", "extract", etc.
+///
+/// # Arguments
+///
+/// * `namespace` - A string slice representing the name of the namespace.
+/// * `default` - An optional `PathBuf` to use as the root directory instead of the cache directory.
+///
+/// # Returns
+///
+/// A `PathBuf` to the folder.
+pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> PathBuf {
+    let root = match default {
+        | Some(value) => value,
+        | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
+            | Some(dirs) => dirs.cache_dir().join(namespace).to_path_buf(),
+            | None => PathBuf::from(format!("./{namespace}")),
+        },
+    };
+    match create_dir_all(root.clone()) {
+        | Ok(_) => {}
+        | Err(why) => error!(directory = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
+    };
+    root.join(generate_guid())
+}
+/// Returns "s" if the given value is not 1, otherwise returns an empty string.
 pub fn suffix(value: usize) -> String {
     (if value == 1 { "" } else { "s" }).to_string()
 }
-pub fn test_command(name: String) -> bool {
-    match which(&name) {
-        | Ok(value) => {
-            let path = path_to_string(value.clone());
-            match value.try_exists() {
-                | Ok(true) => {
-                    debug!(path, "=> {} Command", Label::found());
-                    true
-                }
-                | _ => {
-                    debug!(path, "=> {} Command", Label::not_found());
-                    false
-                }
-            }
-        }
-        | Err(_) => {
-            warn!(name, "=> {} Command", Label::not_found());
-            false
-        }
-    }
-}
+/// Computes the differences between two strings line by line and returns a vector of changes.
+///
+/// Each change is represented as a tuple containing a `ChangeTag` indicating the type of change
+/// (deletion, insertion, or equality) and a `String` with the formatted line prefixed with a
+/// symbol indicating the type of change (`-` for deletions, `+` for insertions, and a space for equal lines).
+///
+/// The formatted string is also colored: red for deletions, green for insertions, and dimmed for equal lines.
+///
+/// # Arguments
+///
+/// * `old` - A string slice representing the original text.
+/// * `new` - A string slice representing the modified text.
+///
+/// # Returns
+///
+/// A vector of tuples, each containing a `ChangeTag` and a formatted `String` representing the changes.
 pub fn text_diff_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
     TextDiff::from_lines(old, new)
         .iter_all_changes()
@@ -586,13 +871,26 @@ pub fn text_diff_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
         })
         .collect::<Vec<_>>()
 }
+/// Create a new [Tokio](https://tokio.rs/) runtime
 pub fn tokio_runtime() -> tokio::runtime::Runtime {
     debug!("=> {} Tokio runtime", Label::using());
     tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap()
 }
+/// Convert a vector of string slices to a vector of strings
 pub fn to_string(values: Vec<&str>) -> Vec<String> {
     values.iter().map(|s| s.to_string()).collect()
 }
+/// Writes the given content to a file at the given path.
+///
+/// # Arguments
+///
+/// * `path` - A `PathBuf` or string slice containing the path to the file to be written.
+/// * `content` - A `String` containing the content to be written to the file.
+///
+/// # Return
+///
+/// A `Result` containing a unit value if the file is written successfully, or an
+/// `std::io::Error` otherwise.
 pub fn write_file<P>(path: P, content: String) -> Result<(), std::io::Error>
 where
     P: Into<PathBuf>,

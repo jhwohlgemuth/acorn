@@ -6,24 +6,6 @@ use std::path::Path;
 const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
-fn test_all_files() {
-    let extension = Some("json");
-    let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, None);
-    assert_eq!(files.len(), 3);
-    let files = files_all(PathBuf::from(FIXTURES).join("glob"), Some("jpg"), None);
-    assert_eq!(files.len(), 1);
-    assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
-    if cfg!(target_os = "linux") {
-        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/]a.json$".to_string()));
-        assert_eq!(files.len(), 2);
-        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/](a|b).json$".to_string()));
-        assert_eq!(files.len(), 1);
-        let files = files_all(PathBuf::from(FIXTURES).join("glob/a.txt"), None, None);
-        assert_eq!(files.len(), 1);
-        assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.txt");
-    }
-}
-#[test]
 fn test_checksum() {
     let calculated = checksum(PathBuf::from(FIXTURES).join("glob/a.txt"));
     if cfg!(target_os = "windows") {
@@ -48,11 +30,34 @@ fn test_extension() {
     assert_eq!("", extension(Path::new("/path/to/folder")));
 }
 #[test]
+fn test_files_all() {
+    let extension = Some("json");
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, None);
+    assert_eq!(files.len(), 3);
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), Some("jpg"), None);
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
+    if cfg!(target_os = "linux") {
+        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/]a.json$".to_string()));
+        assert_eq!(files.len(), 2);
+        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/](a|b).json$".to_string()));
+        assert_eq!(files.len(), 1);
+        let files = files_all(PathBuf::from(FIXTURES).join("glob/a.txt"), None, None);
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.txt");
+    }
+}
+#[test]
 fn test_files_from_git() {
     let files = files_from_git_branch("main", Some("not-a-file-extension"));
     assert!(files.is_empty());
     let files = files_from_git_commit("HEAD", Some("not-a-file-extension"));
     assert!(files.is_empty());
+}
+#[test]
+fn test_generate_guid() {
+    let id = generate_guid();
+    assert_eq!(id.len(), 10);
 }
 #[ignore]
 #[test]
@@ -68,17 +73,6 @@ fn test_image_paths() {
     let path = PathBuf::from(".");
     let files = image_paths(path);
     assert_eq!(files.len(), 0);
-}
-#[test]
-fn test_suffix() {
-    assert_eq!(suffix(0), "s");
-    assert_eq!(suffix(1), "");
-    assert_eq!(suffix(2), "s");
-}
-#[test]
-fn test_generate_guid() {
-    let id = generate_guid();
-    assert_eq!(id.len(), 10);
 }
 #[test]
 fn test_is_ip6() {}
@@ -119,13 +113,28 @@ fn test_semantic_version() {
     assert!(SemanticVersion::from_command("not-a-real-command").is_none());
 }
 #[test]
+fn test_parent() {
+    let path = "../tests/fixtures";
+    assert_eq!(parent(path), "../tests");
+    let path = "../tests/fixtures".to_string();
+    assert_eq!(parent(path), "../tests");
+    let path = PathBuf::from(FIXTURES);
+    assert_eq!(parent(&path), "../tests");
+}
+#[test]
+fn test_suffix() {
+    assert_eq!(suffix(0), "s");
+    assert_eq!(suffix(1), "");
+    assert_eq!(suffix(2), "s");
+}
+#[test]
 fn test_test_command() {
     let nonexistent = "does-not-exist".to_string();
-    assert!(!test_command(nonexistent));
+    assert!(!command_exists(nonexistent));
     if cfg!(target_os = "windows") {
-        assert!(test_command("cmd".to_string()));
+        assert!(command_exists("cmd".to_string()));
     } else {
-        assert!(test_command("ls".to_string()));
-        assert!(test_command("cargo".to_string()));
+        assert!(command_exists("ls".to_string()));
+        assert!(command_exists("cargo".to_string()));
     }
 }
