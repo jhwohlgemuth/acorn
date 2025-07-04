@@ -1048,7 +1048,7 @@ impl View for ContactPoint {
         }
     }
 }
-fn match_list(value: String, values: Vec<String>) -> Vec<(String, u32)> {
+fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
     let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
     pattern.match_list(values.clone(), &mut matcher)
@@ -1072,7 +1072,7 @@ fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
     let data = Constant::csv(&name);
     resolve_from_list_of_lists(value, data, name)
 }
-fn resolve_from_list_of_lists(value: String, data: Vec<Vec<String>>, name: String) -> Option<String> {
+fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I, name: String) -> Option<String> {
     let output = data
         .into_iter()
         .flat_map(|values| {

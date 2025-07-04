@@ -229,7 +229,7 @@ pub fn read_xml_rel(path: PathBuf) -> Result<Relationships, quick_xml::DeError> 
         }
     }
 }
-pub fn replace_placeholder_with_bullets(xml: &str, placeholder: &str, values: Vec<String>) -> String {
+pub fn replace_placeholder_with_bullets<I: IntoIterator<Item = String>>(xml: &str, placeholder: &str, values: I) -> String {
     let paragraphs = match Regex::new(r#"<a:p>(?:(?!<a:p>|</a:p>)[\s\S])*</a:p>"#) {
         | Ok(re) => re
             .find_iter(xml)

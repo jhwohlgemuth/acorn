@@ -25,12 +25,19 @@ fn test_all_files() {
 }
 #[test]
 fn test_checksum() {
-    let checksum = checksum(PathBuf::from(FIXTURES).join("glob/a.txt"));
+    let calculated = checksum(PathBuf::from(FIXTURES).join("glob/a.txt"));
     if cfg!(target_os = "windows") {
-        assert_eq!(checksum.len(), 64);
+        assert_eq!(calculated.len(), 64);
     } else {
         let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
-        assert_eq!(checksum, expected);
+        assert_eq!(calculated, expected);
+    }
+    let calculated = checksum("../tests/fixtures/glob/a.txt");
+    if cfg!(target_os = "windows") {
+        assert_eq!(calculated.len(), 64);
+    } else {
+        let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
+        assert_eq!(calculated, expected);
     }
 }
 #[test]

@@ -346,17 +346,6 @@ fn test_validate_attribute_impact() {
     .is_err());
 }
 #[test]
-fn test_validate_attribute_technical_approach() {
-    let valid = ["x".repeat(10), "x".repeat(100)];
-    let invalid = ["x".repeat(101), "x".repeat(500)];
-    for x in valid.iter() {
-        assert!(validate_attribute_technical(&[x.clone()]).is_ok());
-    }
-    for x in invalid.iter() {
-        assert!(validate_attribute_technical(&[x.clone()]).is_err());
-    }
-}
-#[test]
 fn test_validate_has_image_extension() {
     let valid = [
         "foo.png",

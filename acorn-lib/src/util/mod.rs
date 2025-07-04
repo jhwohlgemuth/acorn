@@ -239,8 +239,12 @@ impl Default for SemanticVersion {
 }
 // Get SHA256 hash of a file
 // https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html
-pub fn checksum(path: PathBuf) -> String {
-    match File::open(path.clone()) {
+pub fn checksum<P>(path: P) -> String
+where
+    P: Into<PathBuf>,
+{
+    let value = path.into();
+    match File::open(value.clone()) {
         | Ok(file) => {
             let mut buffer = [0; 1024];
             let mut context = Context::new(&SHA256);
@@ -257,7 +261,7 @@ pub fn checksum(path: PathBuf) -> String {
             result.to_lowercase()
         }
         | Err(err) => {
-            error!(error = err.to_string(), path = path_to_string(path), "=> {} Read file", Label::fail());
+            error!(error = err.to_string(), path = path_to_string(value), "=> {} Read file", Label::fail());
             "".to_string()
         }
     }
@@ -276,15 +280,21 @@ pub fn command_folder(task: &str, default: Option<PathBuf>) -> PathBuf {
     };
     root.join(generate_guid())
 }
-pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, String> {
-    async fn download(url: String, destination: PathBuf) -> Result<(), String> {
+pub fn download_binary<P>(url: String, destination: P) -> Result<PathBuf, String>
+where
+    P: Into<PathBuf> + Clone,
+{
+    async fn download<P>(url: String, destination: P) -> Result<(), String>
+    where
+        P: Into<PathBuf>,
+    {
         let client = reqwest::Client::new();
         let response = client.get(url.clone()).send();
         let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
         match response.await {
             | Ok(data) => match data.bytes().await {
                 | Ok(content) => {
-                    let mut output = File::create(destination.join(filename.clone())).unwrap();
+                    let mut output = File::create(destination.into().join(filename.clone())).unwrap();
                     let _ = copy(&mut Cursor::new(content.clone()), &mut output);
                     debug!(filename = filename, "=> {} Downloaded", Label::output());
                     Ok(())
@@ -297,7 +307,7 @@ pub fn download_binary(url: String, destination: PathBuf) -> Result<PathBuf, Str
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
     let _ = runtime.block_on(download(url.clone(), destination.clone()));
     let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
-    Ok(destination.join(filename))
+    Ok(destination.into().join(filename))
 }
 /// Get file extension
 ///
@@ -447,11 +457,14 @@ pub fn git_default_branch_name() -> Option<String> {
         None
     }
 }
-pub fn image_paths(root: PathBuf) -> Vec<PathBuf> {
+pub fn image_paths<P>(root: P) -> Vec<PathBuf>
+where
+    P: Into<PathBuf> + Clone,
+{
     let extensions = ["jpg", "jpeg", "png", "svg"];
     let mut files = extensions
         .iter()
-        .flat_map(|ext| glob(&format!("{}/**/*.{}", root.display(), ext)))
+        .flat_map(|ext| glob(&format!("{}/**/*.{}", root.clone().into().display(), ext)))
         .flat_map(|paths| paths.collect::<Vec<_>>())
         .flatten()
         .collect::<Vec<PathBuf>>();
@@ -480,7 +493,7 @@ pub fn path_to_string(path: PathBuf) -> String {
     };
     result.to_str().unwrap().to_string()
 }
-pub fn pretty_print(text: &str, syntax: ProgrammingLanguage, highlight: Vec<usize>) {
+pub fn pretty_print<I: IntoIterator<Item = usize>>(text: &str, syntax: ProgrammingLanguage, highlight: I) {
     let input = format!("{text}\n");
     let language = syntax.to_string();
     let mut printer = PrettyPrinter::new();
@@ -505,6 +518,7 @@ pub fn print_changes(old: &str, new: &str) {
         }
     }
 }
+// TODO: Improve flexibility (see https://rust-lang.github.io/api-guidelines/flexibility.html#c-generic)
 pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<String>>) {
     let mut table = Table::new();
     table
@@ -517,15 +531,18 @@ pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<Stri
     });
     println!("=> {} \n{table}", title.green().bold());
 }
-pub fn read_file(path: PathBuf) -> Result<String, std::io::Error> {
+pub fn read_file<P>(path: P) -> Result<String, std::io::Error>
+where
+    P: Into<PathBuf> + Clone,
+{
     let mut content = String::new();
-    let _ = match File::open(path.clone()) {
+    let _ = match File::open(path.clone().into()) {
         | Ok(mut file) => {
-            debug!(path = path_to_string(path), "=> {}", Label::read());
+            debug!(path = path_to_string(path.into()), "=> {}", Label::read());
             file.read_to_string(&mut content)
         }
         | Err(why) => {
-            error!(path = path_to_string(path), "=> {} Cannot read file", Label::fail());
+            error!(path = path_to_string(path.into()), "=> {} Cannot read file", Label::fail());
             Err(why)
         }
     };
@@ -576,8 +593,11 @@ pub fn tokio_runtime() -> tokio::runtime::Runtime {
 pub fn to_string(values: Vec<&str>) -> Vec<String> {
     values.iter().map(|s| s.to_string()).collect()
 }
-pub fn write_file(path: PathBuf, content: String) -> Result<(), std::io::Error> {
-    match File::create(path.clone()) {
+pub fn write_file<P>(path: P, content: String) -> Result<(), std::io::Error>
+where
+    P: Into<PathBuf>,
+{
+    match File::create(path.into().clone()) {
         | Ok(mut file) => {
             file.write_all(content.as_bytes()).unwrap();
             file.flush()

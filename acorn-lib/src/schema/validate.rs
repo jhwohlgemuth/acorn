@@ -162,15 +162,6 @@ pub fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError
         | _ => Err(ValidationError::new("impact").with_message(format!("Each impact statement should be less than {MAX_LENGTH} characters").into())),
     }
 }
-pub fn validate_attribute_technical(value: &[String]) -> Result<(), ValidationError> {
-    const MAX_LENGTH: usize = MAX_LENGTH_TECHNICAL;
-    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("technical approach")
-            .with_message(format!("Each element of technical approach should be less than {MAX_LENGTH} characters").into())),
-    }
-}
 pub fn validation_errors<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
     match attribute.validate() {
         | Ok(_) => None,
