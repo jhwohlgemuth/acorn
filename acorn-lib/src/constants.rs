@@ -20,16 +20,17 @@ pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
 pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
 // Validation
+/// Maxumum number of [approaches](/acorn_lib/schema/struct.Sections.html#structfield.approach)
 pub const MAX_COUNT_APPROACH: u64 = 6;
-/// Maxumum number of [capabilities](/acorn_lib/schema/struct.OrganizationSections.html#structfield.capabilities) for an [organization](/acorn_lib/schema/enum.SchemaType.html#variant.Organization)
+/// Maxumum number of [capabilities](/acorn_lib/schema/struct.Sections.html#structfield.capabilities)
 pub const MAX_COUNT_CAPABILITIES: u64 = 6;
-/// Maxumum number of [impact statements](/acorn_lib/schema/struct.ProjectSections.html#structfield.impact) for a [project](/acorn_lib/schema/enum.SchemaType.html#variant.Project)
+/// Maxumum number of [impact statements](/acorn_lib/schema/struct.Sections.html#structfield.impact)
 pub const MAX_COUNT_IMPACT: u64 = 6;
 /// Maximum number of [research areas](/acorn_lib/schema/struct.Research.html#structfield.areas)
 pub const MAX_COUNT_RESEARCH_AREAS: u64 = 4;
 /// Maximum number of characters for an approach statement
 pub const MAX_LENGTH_APPROACH: usize = 150;
-/// Maximum number of characters for a single [capability](/acorn_lib/schema/struct.OrganizationSections.html#structfield.capabilities) description
+/// Maximum number of characters for a single [capability](/acorn_lib/schema/struct.Sections.html#structfield.capabilities) description
 pub const MAX_LENGTH_CAPABILIY: usize = 300;
 /// Maximum number of characters for a single facility description
 pub const MAX_LENGTH_FACILITY: usize = 50;
@@ -58,6 +59,11 @@ lazy_static! {
     ///
     /// See <https://www.doi.org/> for more information
     pub static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
+    /// ### RAiD
+    /// > Should match a Research Activity Identifier (RAiD)
+    ///
+    /// See <https://raid.org/> for more information
+    pub static ref RE_RAID: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
     /// ### ROR
     /// > Should match a Research Organization Registry (ROR)
     ///

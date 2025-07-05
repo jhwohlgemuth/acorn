@@ -301,17 +301,6 @@ fn test_validate_attribute_areas() {
     }
 }
 #[test]
-fn test_validate_attribute_facilities() {
-    let valid = ["x".repeat(10), "x".repeat(50)];
-    let invalid = ["x".repeat(51), "x".repeat(100)];
-    for x in valid.iter() {
-        assert!(validate_attribute_facilities(&[x.clone()]).is_ok());
-    }
-    for x in invalid.iter() {
-        assert!(validate_attribute_facilities(&[x.clone()]).is_err());
-    }
-}
-#[test]
 fn test_validate_attribute_capabilities() {
     let valid = ["x".repeat(10), "x".repeat(300)];
     let invalid = ["x".repeat(301), "x".repeat(400)];

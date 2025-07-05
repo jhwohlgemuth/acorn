@@ -955,15 +955,15 @@ impl ResearchActivity {
         clone
     }
     pub fn errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
-        let mut found = vec![validation_errors::<ResearchActivity>(self.clone())];
+        let mut found = vec![errors_collect::<ResearchActivity>(self.clone())];
         match self.meta.media {
             | Some(values) => values.iter().for_each(|media| match media {
-                | MediaObject::Image(x) => found.push(validation_errors::<ImageObject>(x.clone())),
-                | MediaObject::Video(x) => found.push(validation_errors::<VideoObject>(x.clone())),
+                | MediaObject::Image(x) => found.push(errors_collect::<ImageObject>(x.clone())),
+                | MediaObject::Video(x) => found.push(errors_collect::<VideoObject>(x.clone())),
             }),
             | None => {}
         }
-        let errors = format_errors(found.clone());
+        let errors = errors_format(found.clone());
         if !errors.is_empty() {
             Err(errors)
         } else {
@@ -1047,6 +1047,36 @@ impl View for ContactPoint {
             </section>
         }
     }
+}
+fn error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
+    errors
+        .clone()
+        .into_values()
+        .map(|v| match v {
+            | ValidationErrorsKind::Field(_) => 1,
+            | ValidationErrorsKind::Struct(errors) => errors.into_errors().len(),
+            | ValidationErrorsKind::List(_) => 0,
+        })
+        .sum()
+}
+fn errors_collect<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
+    match attribute.validate() {
+        | Ok(_) => None,
+        | Err(err) => Some(
+            err.into_errors()
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect::<HashMap<String, ValidationErrorsKind>>(),
+        ),
+    }
+}
+fn errors_format(found: Vec<Option<HashMap<String, ValidationErrorsKind>>>) -> HashMap<String, ValidationErrorsKind> {
+    found.clone().into_iter().flatten().fold(HashMap::new(), |mut acc, x| {
+        for (key, value) in x.iter() {
+            acc.insert(key.clone(), value.clone());
+        }
+        acc
+    })
 }
 fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
