@@ -1,4 +1,4 @@
-//! ## PowerPoint utilities
+//! ## OOXML data structures
 //!
 //! Data structures for modeling [`OOXML`].
 //!
