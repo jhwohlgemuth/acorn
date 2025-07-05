@@ -1,3 +1,8 @@
+//! ## PowerPoint utilities
+//!
+//! This module provides functions for working with [`OOXML`] and creating PowerPoint documents.
+//!
+//! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::schema::{ContactPoint, Metadata, Notes, Other, ResearchActivity, Sections};
 use crate::util::{files_all, path_to_string, read_file, standard_project_folder, write_file, Label};
 use fancy_regex::Regex;

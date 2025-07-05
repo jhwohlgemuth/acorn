@@ -1,3 +1,6 @@
+//! # Vale interface
+//!
+//! Provides programmtic access to [Vale prose analyzer](https://vale.sh/).
 use crate::util::{Label, SemanticVersion};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;

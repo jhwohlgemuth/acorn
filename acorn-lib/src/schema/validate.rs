@@ -124,7 +124,9 @@ pub fn validate_attribute_areas(value: &[String]) -> Result<(), ValidationError>
         | _ => Err(ValidationError::new("area").with_message(format!("Each area should be less than {MAX_LENGTH} characters").into())),
     }
 }
-/// Custom validator function for `ReseaarchActivity` [capabilities](/acorn_lib/schema/struct.Sections.html#structfield.capabilities)
+/// Custom validator function for [`ResearchActivity`] [capabilities](/acorn_lib/schema/struct.Sections.html#structfield.capabilities)
+///
+/// [`ResearchActivity`]: ../struct.ResearchActivity.html
 pub fn validate_attribute_capabilities(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_CAPABILIY;
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
@@ -134,7 +136,9 @@ pub fn validate_attribute_capabilities(value: &[String]) -> Result<(), Validatio
     }
 }
 // TODO: Check that statments start with capital letter (use regex for period and captial?)
-/// Custom validator function for `ReseaarchActivity` [impact](/acorn_lib/schema/struct.Sections.html#structfield.impact)
+/// Custom validator function for [`ResearchActivity`] [impact](/acorn_lib/schema/struct.Sections.html#structfield.impact)
+///
+/// [`ResearchActivity`]: ../struct.ResearchActivity.html
 pub fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_IMPACT;
     match value.iter().all(|x| x.len() <= MAX_LENGTH) {

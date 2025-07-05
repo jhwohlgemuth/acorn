@@ -1,3 +1,6 @@
+//! # Readability utilities
+//!
+//! Analyze readabilty of prose using modern readability metrics.
 use crate::util::Label;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
@@ -411,7 +414,7 @@ pub fn gunning_fog_index(text: &str) -> f64 {
     let score = 0.4 * ((words as f64 / sentences as f64) + (100.0 * (complex_words as f64 / words as f64)));
     format!("{score:.2}").parse().unwrap()
 }
-/// Lix
+/// Lix (abbreviation of Swedish läsbarhetsindex)
 ///
 /// Indicates the difficulty of reading a text
 ///
@@ -471,6 +474,7 @@ pub fn singular_form(word: &str) -> String {
         }
     }
 }
+/// Count the number of syllables in a given text
 pub fn syllable_count(text: &str) -> usize {
     fn syllables(word: String) -> usize {
         let singular = singular_form(&word);

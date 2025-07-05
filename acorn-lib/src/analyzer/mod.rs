@@ -1,3 +1,6 @@
+//! # Prose analyzer module
+//!
+//! This module provides interfaces for the Vale prose analyzer and functions for analyzing readability.
 use crate::constants::{APPLICATION, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{
     checksum, command_exists, download_binary, extension, make_executable, path_to_string, pretty_print, standard_project_folder, to_string,

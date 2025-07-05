@@ -102,15 +102,17 @@ pub enum ProgrammingLanguage {
 #[derive(Embed)]
 #[folder = "assets/constants/"]
 pub struct Constant;
-/// # Struct for using and sharing colorized logging labels
+/// Struct for using and sharing colorized logging labels
 ///
-/// # Labels (without foreground/background coloring)
+/// ### Labels [^1]
 /// | Name    | Example Output |
 /// |---------|----------------|
 /// | Dry run | "=> DRY_RUN ■ Pretending to do a thing" |
 /// | Skip    | "=> ⚠️  Thing was skipped" |
 /// | Pass    | "=> ✅ Thing passed " |
 /// | Fail    | "=> ✗ Thing failed " |
+///
+/// [^1]: Incomplete list of examples without foreground/background coloring
 pub struct Label {}
 /// Semantic version
 ///

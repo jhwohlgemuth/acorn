@@ -1,3 +1,6 @@
+//! ## Research activity schema
+//!
+//! This module provides structs and functions for representing research activity data and performing schema validation.
 use crate::analyzer::vale::{Vale, ValeConfig};
 use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig};
 use crate::constants::*;
@@ -519,7 +522,7 @@ pub struct Website {
 pub struct Sections {
     #[validate(length(
         min = 10,
-        max = "MAX_LENGTH_SECTION_INTRODUCTION",
+        max = "MAX_LENGTH_SECTION_MISSION",
         message = "Mission is too long, please reduce the length below 250."
     ))]
     #[builder(default = "Purpose of the research".to_string())]

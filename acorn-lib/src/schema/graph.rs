@@ -1,3 +1,8 @@
+//! ## Graph Utilities
+//!
+//! This module provides functions for working with graph data structures.
+//!
+//! <div class="warning">Primary use is to model organizational data as a graph.</div>
 use petgraph::stable_graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use petgraph::{graph::Graph, Direction};

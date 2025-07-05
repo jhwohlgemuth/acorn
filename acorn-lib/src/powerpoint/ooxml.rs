@@ -1,3 +1,8 @@
+//! ## PowerPoint utilities
+//!
+//! Data structures for modeling [`OOXML`].
+//!
+//! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use bon::{builder, Builder};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
