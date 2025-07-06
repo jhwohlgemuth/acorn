@@ -86,7 +86,7 @@ pub struct SystemSoftwareInformation {
     ///
     /// The subject of this documentation
     ///
-    /// <div class="warning">See these <a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">installation instructions</a> for information on how to install the ACORN CLI application</div>
+    /// <div class="warning">See these <a href="https://code.ornl.gov/research-enablement/acorn#installation">installation instructions</a> for information on how to install the ACORN CLI application</div>
     pub acorn: InstalledSoftwareData,
     /// ### Git
     ///
