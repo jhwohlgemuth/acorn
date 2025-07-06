@@ -13,10 +13,13 @@ use serde_with::skip_serializing_none;
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Capitalization {
+    /// No capitalization
     #[default]
     #[serde(rename = "none")]
     NoCap,
+    /// All capitalized
     All,
+    /// Small caps
     Small,
 }
 /// OOXML Text Effect
@@ -27,8 +30,10 @@ pub enum Effect {
     /// See <https://datypic.com/sc/ooxml/e-a_blur-1.html>
     #[serde(rename(serialize = "a:blur", deserialize = "blur"))]
     Blur {
+        /// Blur radius
         #[serde(rename = "@rad")]
         radius: Option<String>,
+        /// Grow bounds
         #[serde(rename = "@grow")]
         grow_bounds: Option<String>,
     },
@@ -39,16 +44,23 @@ pub enum Effect {
     #[serde(rename(serialize = "a:reflection", deserialize = "reflection"))]
     Reflection,
 }
+/// OOXML Line fill properties
+///
+/// See <https://datypic.com/sc/ooxml/g-a_EG_LineFillProperties.html>
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LineFill {
+    /// No fill
     #[default]
     #[serde(rename(serialize = "a:noFill", deserialize = "noFill"))]
     NoFill,
+    /// Solid fill
     #[serde(rename(serialize = "a:solidFill", deserialize = "solidFill"))]
     Solid,
+    /// Gradient fill
     #[serde(rename(serialize = "a:gradFill", deserialize = "gradFill"))]
     Gradient,
+    /// Pattern fill
     #[serde(rename(serialize = "a:pattFill", deserialize = "pattFill"))]
     Pattern,
 }
@@ -58,11 +70,14 @@ pub enum LineFill {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Strikethrough {
+    /// No strike
     #[default]
     #[serde(rename = "noStrike")]
     NoStrike,
+    /// Single strike
     #[serde(rename = "sngStrike")]
     Single,
+    /// Double strike
     #[serde(rename = "dblStrike")]
     Double,
 }
@@ -72,8 +87,10 @@ pub enum Strikethrough {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TextUnderline {
+    /// Underline follows text
     #[serde(rename(serialize = "a:uLnTx", deserialize = "uLnTx"))]
     FollowsText,
+    /// Underline stroke
     #[serde(rename(serialize = "a:uLn", deserialize = "uLn"))]
     Stroke,
 }
@@ -82,6 +99,7 @@ pub enum TextUnderline {
 /// See <https://www.datypic.com/sc/ooxml/e-a_buChar-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BulletCharacter {
+    /// Bullet character
     #[serde(rename = "@char")]
     pub character: String,
 }
@@ -90,6 +108,9 @@ pub struct BulletCharacter {
 /// See <https://www.datypic.com/sc/ooxml/e-a_buClr-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BulletColor {
+    /// RGB color model - hex variant
+    ///
+    /// See <https://www.datypic.com/sc/ooxml/e-a_srgbClr-1.html>
     #[serde(rename(serialize = "a:srgbClr", deserialize = "srgbClr"))]
     pub color: Color,
 }
@@ -99,12 +120,18 @@ pub struct BulletColor {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BulletFont {
+    /// Text typeface
     #[serde(rename = "@typeface")]
     pub typeface: String,
+    /// Panose setting
+    ///
+    /// See <https://en.wikipedia.org/wiki/PANOSE>
     #[serde(rename = "@panose")]
     pub panose: String,
+    /// Similar font family
     #[serde(rename = "@pitchFamily")]
     pub similar_font_family: String,
+    /// Similar character set
     #[serde(rename = "@charset")]
     pub charset: String,
 }
@@ -113,6 +140,7 @@ pub struct BulletFont {
 /// See <https://www.datypic.com/sc/ooxml/e-a_srgbClr-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Color {
+    /// Hex color
     #[serde(rename = "@val")]
     pub value: String,
 }
@@ -123,6 +151,7 @@ pub struct Color {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EffectContainer {
+    /// Effects (e.g. blur, glow, etc.)
     #[serde(rename = "$value")]
     pub effect: Option<Vec<Effect>>,
 }
@@ -131,6 +160,7 @@ pub struct EffectContainer {
 /// See <https://www.datypic.com/sc/ooxml/e-a_cs-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct FontComplexScript {
+    /// Text typeface
     #[serde(rename = "@typeface")]
     pub typeface: String,
 }
@@ -139,6 +169,7 @@ pub struct FontComplexScript {
 /// See <https://www.datypic.com/sc/ooxml/e-a_ea-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct FontEastAsian {
+    /// Text typeface
     #[serde(rename = "@typeface")]
     pub typeface: String,
 }
@@ -147,6 +178,7 @@ pub struct FontEastAsian {
 /// See <https://www.datypic.com/sc/ooxml/e-a_sym-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct FontSymbol {
+    /// Text typeface
     #[serde(rename = "@typeface")]
     pub typeface: String,
 }
@@ -159,20 +191,29 @@ pub struct Line {
     #[serde(rename = "$value")]
     line_fill: LineFill,
 }
+/// Struct for parsing OOXML relationships from .rel files
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Relationships {
+    /// List of relationships
     pub relationship: Vec<Relationship>,
 }
+/// Relationships describe references from parts to other internal resources in the package or to external resources
+///
+/// See <https://ooxml.info/docs/9/9.2/>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Relationship {
+    /// Relationship identifier
     #[serde(rename = "@Id")]
     pub id: String,
+    /// Relationship type
     #[serde(rename = "@Type")]
     pub relationship_type: String,
+    /// Target resource identifier
     #[serde(rename = "@Target")]
     pub target: String,
+    /// Target mode
     #[serde(rename = "@TargetMode")]
     pub target_mode: Option<String>,
 }
@@ -183,52 +224,77 @@ pub struct Relationship {
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[builder(start_fn = init)]
 pub struct TextCharacterProperties {
+    /// Baseline
     #[serde(rename = "@baseline")]
     pub baseline: Option<String>,
+    /// Bold
     #[serde(rename = "@b")]
     pub bold: Option<String>,
+    /// Text capitalization type
     #[serde(rename = "@cap")]
     pub capitalization: Option<Capitalization>,
+    /// Dirty
     #[builder(default = "0".to_string())]
     #[serde(rename = "@dirty")]
     pub dirty: String,
+    /// Italic
     #[serde(rename = "@i")]
     pub italic: Option<String>,
+    /// Kerning
     #[builder(default = "0".to_string())]
     #[serde(rename = "@kern")]
     pub kerning: String,
+    /// Kumimoji
     #[serde(rename = "@kumimoji")]
     pub kumimoji: Option<String>,
+    /// Language identifier
     #[serde(rename = "@lang")]
     pub language: Option<String>,
+    /// No proofing
     #[serde(rename = "@noProof")]
     pub no_proofing: Option<String>,
+    /// Normalized heights
     #[serde(rename = "@normalizeH")]
     pub normalize_heights: Option<String>,
+    /// Spacing
     #[serde(rename = "@spc")]
     pub spacing: Option<String>,
+    /// Font size
     #[serde(rename = "@sz")]
     pub size: Option<String>,
+    /// Strikethrough
     #[serde(rename = "@strike")]
     pub strikethrough: Option<Strikethrough>,
+    /// Underline
     #[serde(rename = "@u")]
     pub underline: Option<String>,
+    /// OOXML Line (`a:ln`)
+    ///
+    /// See <https://www.datypic.com/sc/ooxml/e-a_ln-5.html>
     #[serde(rename(serialize = "a:ln", deserialize = "ln"))]
     pub line: Option<Line>,
+    /// Effect list
     #[serde(rename(serialize = "a:effectlst", deserialize = "effectLst"))]
     pub effect_list: Option<EffectContainer>,
+    /// Underline follows text
     #[serde(rename(serialize = "a:uLnTx", deserialize = "uLnTx"))]
     pub underline_follows_text: Option<UnderlineFollowsText>,
+    /// Underline stroke
     #[serde(rename(serialize = "a:uLn", deserialize = "uLn"))]
     pub underline_stroke: Option<UnderlineStroke>,
+    /// Underline fill properties follow text
     #[serde(rename(serialize = "a:uFillTx", deserialize = "uFillTx"))]
     pub underline_fill_properties_follow_text: Option<UnderlineFillPropertiesFollowText>,
+    /// Underline fill
     #[serde(rename(serialize = "a:uFill", deserialize = "uFill"))]
     pub underline_fill: Option<UnderlineFill>,
+    /// Complext script font
     #[serde(rename(serialize = "a:cs", deserialize = "cs"))]
     pub font_complex_script: Option<FontComplexScript>,
+    /// East Asian font
     #[serde(rename(serialize = "a:ea", deserialize = "ea"))]
     pub font_east_asian: Option<FontEastAsian>,
+    /// Symbol font
     #[serde(rename(serialize = "a:sym", deserialize = "sym"))]
     pub font_symbol: Option<FontSymbol>,
 }
@@ -240,9 +306,11 @@ pub struct TextCharacterProperties {
 #[builder(start_fn = init)]
 #[serde(rename = "a:p")]
 pub struct TextParagraph {
+    /// Text paragraph properties
     #[builder(default = Vec::new())]
     #[serde(rename(serialize = "a:pPr", deserialize = "pPr"))]
     pub text_paragraph_properties: Vec<TextParagraphProperties>,
+    /// Text runs
     #[builder(default = Vec::new())]
     #[serde(rename(serialize = "a:r", deserialize = "r"))]
     pub text_run: Vec<TextRun>,
@@ -259,18 +327,24 @@ pub struct TextParagraph {
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[builder(start_fn = init)]
 pub struct TextParagraphProperties {
+    /// Indent
     #[serde(rename = "@indent")]
     #[builder(default = "0".to_string())]
     pub indent: String,
+    /// Left margin
     #[serde(rename = "@marL")]
     #[builder(default = "0".to_string())]
     pub margin_left: String,
+    /// Bullet color
     #[serde(rename(serialize = "a:buClr", deserialize = "buClr"))]
     pub bullet_color: Option<BulletColor>,
+    /// Bullet font
     #[serde(rename(serialize = "a:buFont", deserialize = "buFont"))]
     pub bullet_font: Option<BulletFont>,
+    /// Bullet character
     #[serde(rename(serialize = "a:buChar", deserialize = "buChar"))]
     pub bullet_character: Option<BulletCharacter>,
+    /// Default text run properties
     #[serde(rename(serialize = "a:defRPr", deserialize = "defRPr"))]
     pub default_text_run_properties: Option<TextRunPropertiesDefault>,
 }
@@ -280,9 +354,11 @@ pub struct TextParagraphProperties {
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[builder(start_fn = init)]
 pub struct TextRun {
+    /// Text run properties
     #[builder(default = Vec::new())]
     #[serde(rename(serialize = "a:rPr", deserialize = "rPr"))]
     pub text_run_properties: Vec<TextCharacterProperties>,
+    /// Text
     #[builder(default = TextString::init().build())]
     #[serde(rename(serialize = "a:t", deserialize = "t"))]
     pub text: TextString,
@@ -298,6 +374,7 @@ pub struct TextRunPropertiesDefault {}
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[builder(start_fn = init)]
 pub struct TextString {
+    /// Text value
     #[builder(default = "".to_string())]
     #[serde(rename = "$text")]
     pub value: String,

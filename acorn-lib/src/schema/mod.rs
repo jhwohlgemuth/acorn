@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! ## Research activity schema
 //!
 //! This module provides structs and functions for representing research activity data and performing schema validation.
@@ -78,7 +79,7 @@ pub enum ClassificationLevel {
     TopSecret,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Display)]
-pub enum FuzzyValue {
+enum FuzzyValue {
     #[display("partners")]
     Partner,
     /// See [Keyword]
@@ -95,36 +96,51 @@ pub enum FuzzyValue {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum MediaObject {
+    /// Image format media
     Image(ImageObject),
+    /// Video format media
     Video(VideoObject),
 }
+// TODO: How are agency, center, office, and program different?
+/// Organization sub type
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum OrganizationType {
+    /// Agency
     #[display("agency")]
     Agency,
+    /// Center
     #[display("center")]
     Center,
+    /// Top-level organizational unit that contains one or more divisions
     #[display("directorate")]
     Directorate,
+    /// Mid-level organizational unit that contains one or more sections and groups
     #[display("division")]
     Division,
+    /// Building, room, array of equipment, or a number of such things, designed to serve a particular function
     #[display("facility")]
     Facility,
     /// Federally Funded Research and Development Center
     #[display("FFRDC")]
     Ffrdc,
+    /// Low-level organizational unit that contains a small number of people that function as a team
     #[display("group")]
     Group,
+    /// Office
     #[display("office")]
     Office,
+    /// Program
     #[display("program")]
     Program,
 }
+/// "Other" content not easily placed into the schema
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Other {
+    /// Free-form test
     Unformatted(String),
+    /// Structured container for miscellaneaous things
     Formatted(Notes),
 }
 /// ## TRL
@@ -291,11 +307,13 @@ pub struct ImageObject {
     /// See <https://schema.org/width>
     width: Option<NonZeroU64>,
 }
+/// ## Research Activity Metadata
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Metadata {
+    /// Classification level of associated research activity data
     pub classification: Option<ClassificationLevel>,
     /// ### Identifier for associated research activity data
     ///
@@ -306,6 +324,9 @@ pub struct Metadata {
     #[builder(default = "some-research-project".to_string())]
     #[serde(alias = "id", rename = "identifier", deserialize_with = "string_trim")]
     pub identifier: String,
+    /// ### Additional type
+    ///
+    /// Type of associated research activity data when directly associated with an organization
     pub additional_type: Option<OrganizationType>,
     /// ### Digital Object Identifier
     ///
@@ -341,10 +362,13 @@ pub struct Metadata {
     pub draft: bool,
     /// <abbr title="Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
     pub trl: Option<TechnologyReadinessLevel>,
+    /// ### Websites related to the associated research activity data
     #[validate(nested)]
     pub websites: Option<Vec<Website>>,
+    /// ### Images, videos, and other media related to the associated research activity data
     #[serde(alias = "graphics")]
     pub media: Option<Vec<MediaObject>>,
+    /// See [Keyword]
     #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<Keyword>,
     /// ### Software, programmings languages, and digital resources (e.g. tools, libraries, frameworks, data) related to the associated research activity data
@@ -379,6 +403,9 @@ pub struct Metadata {
     /// <div class="warning">WIP</div>
     pub related: Option<Vec<String>>,
 }
+/// ### Notes
+///
+/// Structured container for information not easily captured in other fields
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields)]
@@ -387,9 +414,15 @@ pub struct Notes {
     pub managers: Option<Vec<String>>,
     /// ### Collection of capabilities aimed at achieving a specific cross-cutting research outcome
     pub programs: Option<Vec<String>>,
+    /// ### (PowerPoint) presentation notes
     #[serde(default, deserialize_with = "option_string_trim")]
     pub presentation: Option<String>,
 }
+/// ### Organization
+///
+/// Structured container for information about an organization
+///
+/// See also [OrganizationType]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
 #[display("Organization ({additional_type}) - {name})")]
@@ -414,6 +447,7 @@ pub struct Organization {
     ///
     /// See <https://schema.org/additionalType>
     pub additional_type: OrganizationType,
+    /// See [Keyword]
     pub keywords: Option<Vec<Keyword>>,
     /// ### Distinct part(s) of the associated containing organization
     ///
@@ -430,22 +464,28 @@ pub struct Organization {
 #[display("Research Activity ({title})")]
 #[serde(deny_unknown_fields)]
 pub struct ResearchActivity {
+    /// ### Associated metadata
     #[validate(nested)]
     #[builder(default)]
     pub meta: Metadata,
+    /// ### Heading that identifies and describes the associated research activity
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
     #[builder(default = "Research Activity Title".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub title: String,
+    /// ### Short description that augments the title of the associated research activity
     #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 75."))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub subtitle: Option<String>,
+    /// ### Prose components of associated research activity
     #[validate(nested)]
     #[builder(default)]
     pub sections: Sections,
+    /// ### Contact point (i.e. "point of contact") for research activity
     #[validate(nested)]
     #[builder(default)]
     pub contact: ContactPoint,
+    /// ### Other information related to the associated research activity not easily captured in structured areas of the schema
     pub notes: Option<Other>,
 }
 /// Video format media
@@ -506,20 +546,23 @@ pub struct VideoObject {
 #[derive(Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Website {
-    /// Brief description of webpage content
+    /// ### Brief description of webpage content
     ///
     /// See <https://schema.org/description>
     #[serde(alias = "title", deserialize_with = "string_trim")]
     pub description: String,
+    /// ### Associated website URL
     #[validate(url(message = "Please provide a valid URL"))]
     #[serde(deserialize_with = "string_trim")]
     pub url: String,
 }
+/// Research activity prose components that describe the activity using natural language
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields)]
 pub struct Sections {
+    /// ### Purpose of the research
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_MISSION",
@@ -528,6 +571,7 @@ pub struct Sections {
     #[builder(default = "Purpose of the research".to_string())]
     #[serde(alias = "introduction", deserialize_with = "string_trim")]
     pub mission: String,
+    /// ### Reason for the research
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_CHALLENGE",
@@ -536,6 +580,7 @@ pub struct Sections {
     #[builder(default = "Reason for the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub challenge: String,
+    /// ### List of actions taken to perform the research
     #[validate(
         length(min = 1, max = "MAX_COUNT_APPROACH", message = "Please limit the number of approaches to 6"),
         custom(function = "validate_attribute_approach")
@@ -543,23 +588,28 @@ pub struct Sections {
     #[builder(default = vec!["List of actions taken to perform the research".to_string()])]
     #[serde(deserialize_with = "vec_string_trim")]
     pub approach: Vec<String>,
+    /// ### List of tangible proof that validates the research approach
     #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
     #[builder(default = vec!["List of tangible proof that validates the research approach".to_string()])]
     #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
+    /// ### Tangible results of research activity
     #[validate(length(min = 1, max = 4, message = "Please limit the number of achievements to 4"))]
     pub achievement: Option<Vec<String>>,
     /// ### Expertise as applied to technology in a given mission space
     #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
     pub capabilities: Option<Vec<String>>,
+    /// ### Overview of research focus and areas
     #[validate(nested)]
     #[builder(default = Research::init().build())]
     pub research: Research,
 }
+/// Overview of research focus and areas
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields)]
 pub struct Research {
+    /// ### Focus of the research
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_RESEARCH_FOCUS",
@@ -568,6 +618,7 @@ pub struct Research {
     #[builder(default = "Focus of the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub focus: String,
+    /// ### Areas of research
     #[validate(length(min = 1, max = "MAX_COUNT_RESEARCH_AREAS"), custom(function = "validate_attribute_areas"))]
     #[builder(default = vec!["Areas of research".to_string()])]
     #[serde(deserialize_with = "vec_string_trim")]
@@ -599,18 +650,21 @@ impl Hash for ResearchActivity {
     }
 }
 impl MediaObject {
+    /// Returns the content URL of the media object
     pub fn content_url(self) -> Option<String> {
         match self {
             | MediaObject::Image(ImageObject { content_url, .. }) => content_url,
             | MediaObject::Video(VideoObject { content_url, .. }) => content_url,
         }
     }
+    /// Returns the description of the media object
     pub fn description(self) -> String {
         match self {
             | MediaObject::Image(ImageObject { caption, .. }) => caption,
             | MediaObject::Video(VideoObject { description, .. }) => description,
         }
     }
+    /// Returns true if the media object is an image, false otherwise
     pub fn is_image(self) -> bool {
         match self {
             | MediaObject::Image(_) => true,
@@ -625,6 +679,7 @@ impl Metadata {
             | None => None,
         }
     }
+    /// Returns the content URL of the first image in the list of media objects, or a default value if none are present.
     pub fn first_image_content_url(self) -> String {
         match self.first_image() {
             | Some(media) => match media {
@@ -637,6 +692,7 @@ impl Metadata {
             | None => DEFAULT_GRAPHIC_HREF.to_string(),
         }
     }
+    /// Returns the caption of the first image in the list of media objects, or a default value if none are present.
     pub fn first_image_caption(self) -> String {
         match self.first_image() {
             | Some(MediaObject::Image(ImageObject { caption, .. })) => match caption.clone() {
@@ -648,18 +704,24 @@ impl Metadata {
     }
 }
 impl Organization {
+    /// Returns a list of all organizations, loaded from the organization.json asset file
     pub fn load() -> Vec<Organization> {
         serde_json::from_str(&Constant::from_asset("organization.json")).unwrap()
     }
-    pub fn visit<F: Copy + for<'a> Fn(&'a mut Organization)>(&mut self, f: F) {
+    fn visit<F: Copy + for<'a> Fn(&'a mut Organization)>(&mut self, f: F) {
         f(self);
         for child in self.member.iter_mut() {
             child.visit(f);
         }
     }
+    /// Finds the first organization in the hierarchy with the given label.
     pub fn member(self, label: &str) -> Option<Organization> {
         self.members().into_iter().find(|Organization { name, .. }| name == label)
     }
+    /// Returns a flattened vector of the organization hierarchy.
+    ///
+    /// This function collects the organization, its directorates, divisions, and groups
+    /// into a single vector, maintaining their hierarchical order.
     pub fn members(self) -> Vec<Organization> {
         let organization = self;
         let mut items = vec![organization.clone()];
@@ -677,6 +739,7 @@ impl Organization {
         }
         items
     }
+    /// Returns the nearest organization of the given type in the organization hierarchy.
     pub fn nearest(self, organization_type: OrganizationType) -> Option<Organization> {
         let a = self.clone().additional_type.order();
         let b = organization_type.order();
@@ -716,6 +779,7 @@ impl Organization {
             }
         }
     }
+    /// Returns a graph representation of the organization hierarchy.
     pub fn to_graph(self) -> Graph<String, u8> {
         let mut graph: Graph<String, u8, petgraph::Directed> = Graph::new();
         let organization = &self;
@@ -736,6 +800,7 @@ impl Organization {
     }
 }
 impl OrganizationType {
+    /// Parses a string into an `OrganizationType` value
     pub fn from_string(value: String) -> OrganizationType {
         match value.to_lowercase().as_str() {
             | "agency" => OrganizationType::Agency,
@@ -750,6 +815,7 @@ impl OrganizationType {
             | _ => unreachable!(),
         }
     }
+    /// Returns the order of an `OrganizationType` value
     pub fn order(self) -> u8 {
         match self {
             | OrganizationType::Ffrdc | OrganizationType::Agency | OrganizationType::Office => 4,
@@ -760,13 +826,16 @@ impl OrganizationType {
     }
 }
 impl ResearchActivity {
+    /// Creates a new `ResearchActivity`
     pub fn new() -> Self {
         ResearchActivity::default()
     }
+    /// Print research activity schema as JSON schema
     pub fn to_schema() {
         let schema = schema_for!(ResearchActivity);
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
+    /// Analyzes a list of research activity files
     pub fn analyze(paths: Vec<PathBuf>) -> usize {
         let config = ValeConfig::default().save();
         let init = Vale::init().build();
@@ -795,6 +864,7 @@ impl ResearchActivity {
             }
         }
     }
+    /// Checks a list of research activity files
     pub fn check(paths: Vec<PathBuf>) -> usize {
         paths
             .par_iter()
@@ -824,6 +894,7 @@ impl ResearchActivity {
             })
             .sum()
     }
+    /// Creates a copy of a `ResearchActivity`
     pub fn copy(self) -> ResearchActivity {
         let ResearchActivity {
             meta,
@@ -842,6 +913,7 @@ impl ResearchActivity {
             .maybe_notes(notes)
             .build()
     }
+    /// Extracts prose from a `ResearchActivity`
     pub fn extract_prose(self) -> String {
         let Sections {
             mission,
@@ -888,6 +960,7 @@ impl ResearchActivity {
             | None => sections.to_string(),
         }
     }
+    /// Format research activity data
     pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
         let parent = match path {
             | Some(value) => value.parent().unwrap().to_path_buf(),
@@ -957,22 +1030,7 @@ impl ResearchActivity {
         };
         clone
     }
-    pub fn errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
-        let mut found = vec![errors_collect::<ResearchActivity>(self.clone())];
-        match self.meta.media {
-            | Some(values) => values.iter().for_each(|media| match media {
-                | MediaObject::Image(x) => found.push(errors_collect::<ImageObject>(x.clone())),
-                | MediaObject::Video(x) => found.push(errors_collect::<VideoObject>(x.clone())),
-            }),
-            | None => {}
-        }
-        let errors = errors_format(found.clone());
-        if !errors.is_empty() {
-            Err(errors)
-        } else {
-            Ok(())
-        }
-    }
+    /// Read research activity data
     pub fn read(path: PathBuf) -> serde_json::Result<ResearchActivity> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
@@ -998,6 +1056,7 @@ impl ResearchActivity {
             }
         }
     }
+    /// Resolve values to intended values according to controlled vocabularies and conventions
     fn resolve(self, value_type: FuzzyValue) -> Vec<String> {
         let values: Vec<_> = match value_type {
             | FuzzyValue::Keyword => self.meta.keywords,
@@ -1019,9 +1078,26 @@ impl ResearchActivity {
         data.dedup();
         data
     }
+    /// Export to markdown
     pub fn to_markdown(self) -> String {
         let ResearchActivity { title, .. } = self.clone();
         format!("# {title}")
+    }
+    fn errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
+        let mut found = vec![errors_collect::<ResearchActivity>(self.clone())];
+        match self.meta.media {
+            | Some(values) => values.iter().for_each(|media| match media {
+                | MediaObject::Image(x) => found.push(errors_collect::<ImageObject>(x.clone())),
+                | MediaObject::Video(x) => found.push(errors_collect::<VideoObject>(x.clone())),
+            }),
+            | None => {}
+        }
+        let errors = errors_format(found.clone());
+        if !errors.is_empty() {
+            Err(errors)
+        } else {
+            Ok(())
+        }
     }
 }
 impl View for ContactPoint {
