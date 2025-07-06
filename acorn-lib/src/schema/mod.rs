@@ -708,12 +708,6 @@ impl Organization {
     pub fn load() -> Vec<Organization> {
         serde_json::from_str(&Constant::from_asset("organization.json")).unwrap()
     }
-    fn visit<F: Copy + for<'a> Fn(&'a mut Organization)>(&mut self, f: F) {
-        f(self);
-        for child in self.member.iter_mut() {
-            child.visit(f);
-        }
-    }
     /// Finds the first organization in the hierarchy with the given label.
     pub fn member(self, label: &str) -> Option<Organization> {
         self.members().into_iter().find(|Organization { name, .. }| name == label)

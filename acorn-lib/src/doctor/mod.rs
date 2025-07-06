@@ -1,57 +1,132 @@
+//! # Doctor module
+//!
+//! The purpose of this module is to enable the user to more easily use ACORN in more contexts.
+//!
+//! Toward this end, `acorn doctor` will
+//! * gather information about the system,
+//! * display information about the system,
+//! * and semi-automatically repair issues with the system.
 use crate::schema::validate::is_ip6;
 use crate::util::{print_values_as_table, to_string, Label, SemanticVersion};
 use human_units::FormatSize;
 use sysinfo::{Networks, System};
 use which::which;
 
+/// Trait for printing tables
 pub trait TableFormatPrint {
+    /// Initializes the struct
     fn init() -> Self;
+    /// Prints the table
     fn print(self);
 }
+/// Information about installed software
 #[derive(Debug, Clone)]
 pub struct InstalledSoftwareData {
+    /// Software version
     pub version: Option<String>,
+    /// Path to software executable
     pub path: Option<String>,
 }
+/// Information about system memory
 pub struct MemoryInformation {
+    /// Total memory
     pub total: String,
+    /// Available memory
     pub available: String,
+    /// Used memory
     pub used: String,
+    /// Swap memory
     pub swap: String,
 }
+/// Network details
 #[derive(Debug, Clone)]
 pub struct Network {
+    /// IP Address
     pub ip_address: Vec<String>,
+    /// MAC Address
     pub mac_address: String,
+    /// Maximum transmission unit (MTU)
     pub mtu: String,
 }
+/// Information about system network
 #[derive(Debug, Clone)]
 pub struct NetworkInformation {
+    /// List of networks
     pub networks: Vec<Network>,
 }
 // TODO: Add detailed CPU information printer
 /// Information about microprocessor
 #[derive(Debug, Clone)]
 pub struct Processor {
+    /// CPU frequency (GHz)
     pub frequency: u64,
-    pub vendor: String,
+    /// CPU brand (e.g. AMD, Intel, etc...)
     pub brand: String,
+    /// CPU vendor (e.g. Dell, Lenovo, etc...)
+    pub vendor: String,
 }
+/// Information about system
 pub struct SystemInformation {
+    /// System name
     pub name: String,
+    /// Kernel version
     pub kernel_version: String,
+    /// Operating system (OS) version
     pub os_version: String,
+    /// Host name
     pub host_name: String,
+    /// CPU architecture
     pub cpu_arch: String,
+    /// CPU count (number of cores)
     pub cpu_count: String,
 }
+/// Details of specific installed software applicable to ACORN
 pub struct SystemSoftwareInformation {
+    /// ### ACORN
+    ///
+    /// The subject of this documentation
+    ///
+    /// <div class="warning">See these <a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">installation instructions</a> for information on how to install the ACORN CLI application</div>
     pub acorn: InstalledSoftwareData,
+    /// ### Git
+    ///
+    /// Version control system
+    ///
+    /// See <https://git-scm.com/>
     pub git: InstalledSoftwareData,
+    /// ### Node.js
+    ///
+    /// Scripting language runtime
+    ///
+    /// See <https://nodejs.org/en>
     pub node: InstalledSoftwareData,
+    /// ### npm
+    ///
+    /// [`Node.js`] package manager
+    ///
+    /// See <https://www.npmjs.com/>
+    ///
+    /// [`Node.js`]: ./struct.SystemSoftwareInformation.html#structfield.node
     pub npm: InstalledSoftwareData,
+    /// ### npx
+    ///
+    /// Run a command from a local or remote npm package
+    ///
+    /// Bundled with [`npm`]
+    ///
+    /// [`npm`]: ./struct.SystemSoftwareInformation.html#structfield.npm
     pub npx: InstalledSoftwareData,
+    /// ### Pandoc
+    ///
+    /// File conversion tool
+    ///
+    /// See <https://pandoc.org/>
     pub pandoc: InstalledSoftwareData,
+    /// ### Vale
+    ///
+    /// Prose linter
+    ///
+    /// See <https://vale.sh/>
     pub vale: InstalledSoftwareData,
 }
 impl InstalledSoftwareData {
@@ -210,11 +285,6 @@ impl TableFormatPrint for SystemSoftwareInformation {
         ];
         print_values_as_table("Software", headers, rows);
     }
-}
-pub fn print_system_information() {
-    SystemInformation::init().print();
-    NetworkInformation::init().print();
-    MemoryInformation::init().print();
 }
 fn parse_network_addresses(data: &sysinfo::NetworkData) -> Vec<String> {
     data.ip_networks()

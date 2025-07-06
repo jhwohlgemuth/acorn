@@ -2,25 +2,34 @@
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
+/// ORNL disclaimer
 pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
 /// Base URL for deploying ORNL data
 pub const BASE_URL: &str = "https://research.ornl.gov";
-// ORNL brand colors
-// https://www.olcf.ornl.gov/about-olcf/media-assets/
+/// RGB color for transparency
 pub const COLOR_TRANSPARENT: [u8; 4] = [255, 255, 255, 0];
+/// RGB ORNL brand primary color
+///
+// See <https://www.olcf.ornl.gov/about-olcf/media-assets/>
 pub const COLOR_PRIMARY: [u8; 4] = [0, 121, 52, 255];
-// Vale
+/// URL for Vale releases
 pub const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
+/// Version of Vale to use with ACORN
 pub const VALE_VERSION: &str = "3.9.4";
 // Project folder values
+/// Application name
 pub const APPLICATION: &str = "acorn";
+/// Organization name
 pub const ORGANIZATION: &str = "ornl";
+/// Organization qualifier
 pub const QUALIFIER: &str = "org";
 // Schema defaults
+/// Default affiliation
 pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
+/// Default graphic content URL (href)
 pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
+/// Default graphic caption
 pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
-// Validation
 /// Maxumum number of [`ResearchActivity`] [`approaches`]
 ///
 /// [`ResearchActivity`]: ../schema/struct.ResearchActivity.html

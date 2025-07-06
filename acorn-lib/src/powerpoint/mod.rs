@@ -20,6 +20,7 @@ use zip::{ZipArchive, ZipWriter};
 pub mod ooxml;
 use ooxml::*;
 
+/// Creates zip archive from directory
 pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
     let zip_file_path = match destination {
@@ -70,6 +71,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
         }
     }
 }
+/// Extract zip archive
 pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let root = standard_project_folder("extract", destination);
     match File::open(path.clone()) {
@@ -111,6 +113,7 @@ pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
         }
     }
 }
+/// Interpolate research activity data into PowerPoint template
 pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
     let updated = match read_file(path.clone()) {
         | Ok(mut content) => {
@@ -197,11 +200,13 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
         }
     }
 }
+/// Parse OOXML paragraph object
 pub fn parse_ooxml_paragraph(content: &str) -> Result<TextParagraph, quick_xml::DeError> {
     let parsed = quick_xml::de::from_str::<TextParagraph>(content);
     debug!("=> {} OOXMLParagraph = {:#?}", Label::using(), parsed);
     parsed
 }
+/// Prettify XML
 pub fn prettify_xml(xml: &str) -> String {
     let mut buf: Vec<u8> = Vec::new();
     let mut reader = Reader::from_str(xml);
@@ -221,6 +226,7 @@ pub fn prettify_xml(xml: &str) -> String {
         .to_string();
     result
 }
+/// Read OOXML relationships XML file
 pub fn read_xml_rel(path: PathBuf) -> Result<Relationships, quick_xml::DeError> {
     match read_file(path) {
         | Ok(content) => {
@@ -234,6 +240,7 @@ pub fn read_xml_rel(path: PathBuf) -> Result<Relationships, quick_xml::DeError> 
         }
     }
 }
+/// Replace placeholder with bullet values in PowerPoint template
 pub fn replace_placeholder_with_bullets<I: IntoIterator<Item = String>>(xml: &str, placeholder: &str, values: I) -> String {
     let paragraphs = match Regex::new(r#"<a:p>(?:(?!<a:p>|</a:p>)[\s\S])*</a:p>"#) {
         | Ok(re) => re
@@ -295,6 +302,7 @@ pub fn replace_placeholder_with_bullets<I: IntoIterator<Item = String>>(xml: &st
         }
     }
 }
+/// Replace placeholder with string value in PowerPoint template
 pub fn replace_placeholder_with_string(content: &str, placeholder: &str, value: &str) -> String {
     match Regex::new(&format!(r"{{{{\s*{placeholder}\s*}}}}")) {
         | Ok(re) => re.replace_all(content, value).to_string(),

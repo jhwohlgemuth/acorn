@@ -704,6 +704,21 @@ where
     std::fs::set_permissions(path.clone().into(), std::fs::Permissions::from_mode(0o755)).unwrap();
     path.into().is_executable()
 }
+/// Makes the given file executable.
+///
+/// # Platform support
+///
+/// Platforms that support this function are:
+///
+/// * Windows
+///
+/// # Parameters
+///
+/// * `path` - A `PathBuf` containing the path to the file to be made executable.
+///
+/// # Return
+///
+/// A boolean indicating whether the file is executable after calling this function.
 #[cfg(windows)]
 pub fn make_executable<P>(path: P) -> bool
 where

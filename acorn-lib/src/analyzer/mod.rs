@@ -25,21 +25,36 @@ pub mod vale;
 
 use vale::{parse_vale_output, print_vale_output, Vale, ValeConfig};
 
+/// Trait for static analyzers (e.g. Vale)
 pub trait StaticAnalyzer {
+    /// Get command name (e.g. "vale")
     fn command(self) -> String;
+    /// Analyze content
     fn analyze(&self, id: String, content: String, output: Option<String>) -> usize;
+    /// Download binary
     fn download(self, config: Option<ValeConfig>) -> Self;
+    /// Download checksum values
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
+    /// Extract binary
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
+    /// Perform sync operation (only applies to Vale)
     fn sync(self) -> Result<(), std::io::Error>;
+    /// Set binary
     fn with_binary(self, path: PathBuf) -> Self;
+    /// Set config
     fn with_config(self, value: ValeConfig) -> Self;
+    /// Set system command
     fn with_system_command(self) -> Self;
+    /// Set version
     fn with_version(self, value: String) -> Self;
 }
+/// Trait for static analyzer configuration (e.g. .vale.ini)
 pub trait StaticAnalyzerConfig {
+    /// Get default configuration
     fn default() -> ValeConfig;
+    /// Convert to INI
     fn ini(self) -> Ini;
+    /// Save configuration
     fn save(self) -> ValeConfig;
 }
 impl StaticAnalyzer for Vale {
