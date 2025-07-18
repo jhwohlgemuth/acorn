@@ -87,7 +87,7 @@ pub enum Commands {
     )]
     Check {
         /// Path to check
-        #[arg(default_value = "./", required = true, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
         path: Option<PathBuf>,
         /// Check files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
@@ -188,7 +188,7 @@ pub enum Commands {
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Export {
         /// Path of input files to be exported
-        #[arg(required = true, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
         path: Option<PathBuf>,
         /// Export files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
@@ -236,7 +236,7 @@ pub enum Commands {
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Format {
         /// Path to look for files to format
-        #[arg(default_value = "./", required = true, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
         path: Option<PathBuf>,
         /// Format files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
