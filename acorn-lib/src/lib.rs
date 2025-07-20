@@ -180,6 +180,7 @@ impl Bucket {
         reqwest::blocking::get(url)
     }
     fn tree_url(&self, directory: &str, page: u32) -> String {
+        // TODO: Replace id with url-encoded project path - https://docs.gitlab.com/api/rest/#namespaced-paths
         let id = match &self.code_repository {
             | Repository::GitHub { .. } => todo!(),
             | Repository::GitLab { id, .. } => id.to_string(),
