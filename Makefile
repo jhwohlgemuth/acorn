@@ -1,6 +1,9 @@
 #!make
-.PHONY: clean lint test coverage doc build release version
+.PHONY: audit clean lint test coverage doc build release version
 -include .env
+
+audit:
+	@cargo audit
 
 clean:
 	@rm -rf ./bin

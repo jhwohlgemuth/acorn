@@ -46,6 +46,12 @@ tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 uriparse = "0.6.4"
 
+[workspace.dev-dependencies]
+cargo-audit = "0.21.2"
+cargo-auditable = "0.7.0"
+cargo-nextest = "0.9.101"
+cargo-tarpaulin = "0.32.8"
+
 [workspace.metadata.cross.build]
 default-target = "x86_64-unknown-linux-gnu"
 debug-assertions = true
