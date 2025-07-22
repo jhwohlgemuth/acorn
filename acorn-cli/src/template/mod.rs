@@ -76,8 +76,8 @@ impl View for HtmlFooter {
                         <div class="wrapper">
                             <div id="disclaimer">{ DISCLAIMER }</div>
                             <div class="logo-wrapper">
-                                <div><img src={ DataUri::from_asset("logo_ornl.svg") } id="logo-ornl"/></div>
-                                <div><img src={ DataUri::from_asset("logo_doe_os.png") } id="logo-doe-os"/></div>
+                                <div><img src={ DataUri::from_asset("logo_ornl_white.svg") } id="logo-ornl"/></div>
+                                <div><img src={ DataUri::from_asset("logo_doe_white.png") } id="logo-doe"/></div>
                                 <div id="organization">{ &self.label.to_string() }</div>
                             </div>
                         </div>
@@ -88,8 +88,8 @@ impl View for HtmlFooter {
                 <footer>
                     <div class="wrapper">
                         <div class="logo-wrapper">
-                            <div><img src={ DataUri::from_asset("logo_doe_os_green.png") } id="logo-doe-os"/></div>
-                            <div><img src={ DataUri::from_asset("logo_ornl_green.svg") } id="logo-ornl"/></div>
+                            <div><img src={ DataUri::from_asset("logo_doe_ocolor.png") } id="logo-doe"/></div>
+                            <div><img src={ DataUri::from_asset("logo_ornl_color.svg") } id="logo-ornl"/></div>
                         </div>
                     </div>
                 </footer>
@@ -190,7 +190,7 @@ impl Convert for ResearchActivity {
                             </section>
                             <section>
                                 <h3>{ "Approach" }</h3>
-                                <p>{ approach.join("</li><li>") }</p>
+                                <ul><li>{ approach.join("</li><li>") }</li></ul>
                             </section>
                             <section>
                                 <h3>{ "Impact" }</h3>
