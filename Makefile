@@ -6,7 +6,6 @@ audit:
 	@cargo audit
 
 clean:
-	@rm -rf ./bin
 	@cargo clean
 
 lint:

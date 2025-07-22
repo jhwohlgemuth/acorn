@@ -70,6 +70,10 @@ fn test_fuzzy_matching_organizations() {
         Some(exact.clone())
     );
     assert_eq!(resolve_from_organization_json("PSD".into()), Some("Physical Sciences Directorate".into()));
+    assert_eq!(
+        resolve_from_organization_json("Research Accelerator Division".into()),
+        Some("Research Accelerator Division".into())
+    );
 }
 #[test]
 fn test_fuzzy_matching_partners() {
@@ -211,7 +215,12 @@ fn test_organization_graph() {
     assert_eq!(group.clone().nearest(OrganizationType::Directorate).unwrap().name, nssd);
     assert_eq!(group.nearest(OrganizationType::Ffrdc).unwrap().name, ornl.name);
     assert!(ornl.clone().nearest(OrganizationType::Group).is_none());
-    assert!(ornl.nearest(OrganizationType::Directorate).is_none());
+    assert!(ornl.clone().nearest(OrganizationType::Directorate).is_none());
+    let division = ornl.member("Research Accelerator Division").unwrap();
+    assert_eq!(
+        division.nearest(OrganizationType::Directorate).unwrap().name,
+        "Neutron Sciences Directorate"
+    );
 }
 #[test]
 fn test_read() {

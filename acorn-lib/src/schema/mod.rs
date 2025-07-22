@@ -1220,7 +1220,7 @@ fn resolve_from_organization_json(value: String) -> Option<String> {
     let data = items
         .into_iter()
         .map(|x| (x.name.clone(), x.alternative_name.clone()))
-        .filter(|(name, alias)| !(name.is_empty() || alias.is_none()))
+        .filter(|(name, alias)| !(name.is_empty() && alias.is_none()))
         .map(|(name, alias)| {
             let alternative_name = match alias {
                 | Some(x) => x.to_string(),
