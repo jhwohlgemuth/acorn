@@ -1,7 +1,7 @@
 //! # Prose analyzer module
 //!
 //! This module provides interfaces for the Vale prose analyzer and functions for analyzing readability.
-use crate::constants::{APPLICATION, VALE_RELEASES_URL, VALE_VERSION};
+use crate::constants::{APPLICATION, CUSTOM_VALE_PACKAGE_NAME, CUSTOM_VALE_PACKAGE_URL, ORGANIZATION, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{
     checksum, command_exists, download_binary, extension, make_executable, path_to_string, pretty_print, standard_project_folder, to_string,
     Constant, Label, ProgrammingLanguage, SemanticVersion,
@@ -335,7 +335,7 @@ impl StaticAnalyzerConfig for ValeConfig {
     fn default() -> Self {
         let config = ValeConfig::init()
             .packages(to_string(vec!["Google", "proselint", "write-good", "Joblint"]))
-            .vocabularies(to_string(vec![APPLICATION]))
+            .vocabularies(to_string(vec![&ORGANIZATION.to_uppercase(), APPLICATION]))
             .disabled(to_string(vec![
                 "Vale.Terms",
                 "Google.EmDash",
@@ -368,9 +368,9 @@ impl StaticAnalyzerConfig for ValeConfig {
         conf.with_section::<String>(None)
             .set("StylesPath", "styles")
             .set("Vocab", vocabularies.join(", "))
-            .set("Packages", packages.join(", "));
+            .set("Packages", format!("{}, {}", packages.join(", "), CUSTOM_VALE_PACKAGE_URL));
         conf.with_section(Some("*"))
-            .set("BasedOnStyles", format!("Vale, {}", packages.join(", ")));
+            .set("BasedOnStyles", format!("Vale, {}, {}", CUSTOM_VALE_PACKAGE_NAME, packages.join(", ")));
         disabled.iter().for_each(|rule| {
             conf.with_section(Some("*")).set(rule, "NO");
         });

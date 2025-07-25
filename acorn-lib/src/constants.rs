@@ -16,6 +16,10 @@ pub const COLOR_PRIMARY: [u8; 4] = [0, 121, 52, 255];
 pub const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
 /// Version of Vale to use with ACORN
 pub const VALE_VERSION: &str = "3.9.4";
+/// URL for custom ORNL Science Vale package
+pub const CUSTOM_VALE_PACKAGE_URL: &str = "https://code.ornl.gov/research-enablement/vale-package/-/archive/v0.0.1/vale-package-v0.0.1.zip";
+/// Custom Vale package name
+pub const CUSTOM_VALE_PACKAGE_NAME: &str = "Science";
 // Project folder values
 /// Application name
 pub const APPLICATION: &str = "acorn";
