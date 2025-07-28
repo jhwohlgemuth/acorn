@@ -15,7 +15,7 @@ fn test_bucket() {
         name: "nssd".to_string(),
         description: Some("Bucket for NSSD".to_string()),
         code_repository: Repository::GitLab {
-            id: 1234,
+            id: Some(1234_u64),
             uri: "https://code.ornl.gov/research-enablement/buckets/nssd".to_string(),
         },
     };
@@ -45,7 +45,7 @@ fn test_gitlab_tree_entry() {
 fn test_repository() {
     let gitlab = Repository::GitLab {
         // id: "research-enablement%2Fvale-package",
-        id: 18243,
+        id: Some(18243_u64),
         uri: "https://code.ornl.gov/research-enablement/vale-package".to_string(),
     };
     let release = gitlab.latest_release();

@@ -354,16 +354,13 @@ impl StaticAnalyzerConfig for ValeConfig {
         } = self;
         let mut conf = Ini::new();
         let package_repository = Repository::GitLab {
-            id: 18243,
+            id: None,
             uri: "https://code.ornl.gov/research-enablement/vale-package".to_string(),
         };
         let package_url = match package_repository.latest_release() {
             | Some(release) => {
                 let tag = release.tag_name;
-                format!(
-                    "https://code.ornl.gov/research-enablement/vale-package/-/archive/{}/vale-package-{}.zip",
-                    tag, tag
-                )
+                format!("https://code.ornl.gov/research-enablement/vale-package/-/archive/{tag}/vale-package-{tag}.zip")
             }
             | None => DEFAULT_VALE_PACKAGE_URL.to_string(),
         };

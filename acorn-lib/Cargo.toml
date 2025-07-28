@@ -72,6 +72,7 @@ serde_repr = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 uriparse = { workspace = true }
+urlencoding = "2.1.3"
 
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }

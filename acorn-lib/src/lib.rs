@@ -15,8 +15,9 @@ use std::fs::File;
 use std::io::{copy, Cursor};
 use std::path::PathBuf;
 use std::vec;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 use uriparse::URI;
+use urlencoding::encode;
 
 pub mod analyzer;
 pub mod constants;
@@ -67,11 +68,10 @@ pub enum Repository {
     /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
     #[display("gitlab")]
     GitLab {
-        // TODO: Accept URL encoded project path instead of numeric ID (https://docs.gitlab.com/api/rest/#namespaced-paths)
         /// Integer ID of GitLab project
         ///
         /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
-        id: u64,
+        id: Option<u64>,
         /// Repository URI
         uri: String,
     },
@@ -144,14 +144,21 @@ pub struct GitlabTreeEntry {
     /// Mode of tree entry
     pub mode: String,
 }
-/// Struct for GitLab/GitHub release data
+/// Struct for release data from GitLab or GitHub
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct Release {
+pub struct Release {
+    /// Name of release
     pub name: String,
+    /// Tag name of release
+    ///
+    /// Example: `v1.0.0.`
     pub tag_name: String,
+    /// Prose description of release
     #[serde(alias = "body")]
     pub description: String,
+    /// Date of release creation
     pub created_at: String,
+    /// Date of release publication
     #[serde(alias = "published_at")]
     pub released_at: String,
 }
@@ -190,25 +197,24 @@ impl Bucket {
     }
     fn tree(&self, directory: &str, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
         let url = self.tree_url(directory, page);
-        reqwest::blocking::get(url)
+        reqwest::blocking::get(url.unwrap_or_default())
     }
-    fn tree_url(&self, directory: &str, page: u32) -> String {
-        // TODO: Replace id with url-encoded project path - https://docs.gitlab.com/api/rest/#namespaced-paths
-        let id = match &self.code_repository {
-            | Repository::GitHub { .. } => todo!(),
-            | Repository::GitLab { id, .. } => id.to_string(),
-        };
-        let per_page = 100;
-        let url = format!(
-            "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path={}",
-            self.domain(),
-            id,
-            per_page,
-            page,
-            directory
-        );
-        debug!(url = url.as_str(), "=> {}", Label::using());
-        url
+    fn tree_url(&self, directory: &str, page: u32) -> Option<String> {
+        if let Some(id) = &self.code_repository.id() {
+            let per_page = 100;
+            let url = format!(
+                "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path={}",
+                self.domain(),
+                id,
+                per_page,
+                page,
+                directory
+            );
+            debug!(url = url.as_str(), "=> {}", Label::using());
+            Some(url)
+        } else {
+            None
+        }
     }
     /// Download files from bucket to local directory
     ///
@@ -378,53 +384,83 @@ impl GitlabTreeEntry {
     }
 }
 impl Repository {
-    fn latest_release(self) -> Option<Release> {
+    /// Get metadata for latest release of a Gitlab or GitHub repository
+    pub fn latest_release(self) -> Option<Release> {
         match self.releases() {
             | releases if releases.is_empty() => None,
-            | releases => Some(releases[0].clone()),
+            | releases => {
+                let release = releases[0].clone();
+                trace!("=> {} Latest {:#?}", Label::using(), release);
+                Some(release)
+            }
+        }
+    }
+    fn id(&self) -> Option<String> {
+        match self {
+            | Repository::GitHub { .. } => todo!(),
+            | Repository::GitLab { id, uri } => match URI::try_from(uri.as_str()) {
+                | Ok(value) => {
+                    let mut path = value.path().to_string();
+                    path.remove(0);
+                    let encoded = encode(&path).to_string();
+                    trace!(encoded, "=> {} ID", Label::using());
+                    Some(encoded)
+                }
+                | Err(why) => {
+                    warn!(uri, "=> {} Parse GitLab URI - {why}", Label::fail());
+                    match id {
+                        | Some(value) => Some(value.to_string()),
+                        | None => None,
+                    }
+                }
+            },
         }
     }
     fn releases(self) -> Vec<Release> {
-        let url = match &self {
+        let maybe_url = match &self {
             | Repository::GitHub { uri } => match URI::try_from(uri.as_str()) {
                 | Ok(uri) => {
                     let host = uri.host().unwrap().to_string();
                     let path = uri.path();
-                    format!("https://api.{}/repos{}/releases", host, path)
+                    Some(format!("https://api.{host}/repos{path}/releases"))
                 }
                 | Err(_) => {
                     error!(uri, "=> {} Parse GitHub URI", Label::fail());
-                    uri.to_string()
+                    None
                 }
             },
-            | Repository::GitLab { id, .. } => {
-                format!("https://code.ornl.gov/api/v4/projects/{}/releases", id)
-            }
+            | Repository::GitLab { .. } => match self.id() {
+                | Some(id) => Some(format!("https://code.ornl.gov/api/v4/projects/{id}/releases")),
+                | None => None,
+            },
         };
-        debug!(url, "=> {}", Label::using());
-        let client = Client::new();
-        match client.get(url).header(USER_AGENT, "rust-web-api-client").send() {
-            | Ok(response) => match response.text() {
-                | Ok(text) => {
-                    trace!(text, "=> {}", Label::using());
-                    let releases: Vec<Release> = match serde_json::from_str(&text) {
-                        | Ok(values) => values,
-                        | Err(why) => {
-                            error!("=> {} Parse {} API JSON response - {why}", self, Label::fail());
-                            vec![]
-                        }
-                    };
-                    releases
-                }
+        if let Some(url) = maybe_url {
+            debug!(url, "=> {}", Label::using());
+            let client = Client::new();
+            match client.get(url).header(USER_AGENT, "rust-web-api-client").send() {
+                | Ok(response) => match response.text() {
+                    | Ok(text) => {
+                        let releases: Vec<Release> = match serde_json::from_str(&text) {
+                            | Ok(values) => values,
+                            | Err(why) => {
+                                error!("=> {} Parse {} API JSON response - {why}", self, Label::fail());
+                                vec![]
+                            }
+                        };
+                        releases
+                    }
+                    | Err(why) => {
+                        error!("=> {} Parse {} API text response - {why}", self, Label::fail());
+                        vec![]
+                    }
+                },
                 | Err(why) => {
-                    error!("=> {} Parse {} API text response - {why}", self, Label::fail());
+                    error!("=> {} Download {} releases - {why}", self, Label::fail());
                     vec![]
                 }
-            },
-            | Err(why) => {
-                error!("=> {} Download {} releases - {why}", self, Label::fail());
-                vec![]
             }
+        } else {
+            vec![]
         }
     }
 }
