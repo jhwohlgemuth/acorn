@@ -1,11 +1,15 @@
 //! # Prose analyzer module
 //!
 //! This module provides interfaces for the Vale prose analyzer and functions for analyzing readability.
-use crate::constants::{APPLICATION, CUSTOM_VALE_PACKAGE_NAME, CUSTOM_VALE_PACKAGE_URL, ORGANIZATION, VALE_RELEASES_URL, VALE_VERSION};
+use crate::constants::{
+    APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION, VALE_RELEASES_URL,
+    VALE_VERSION,
+};
 use crate::util::{
     checksum, command_exists, download_binary, extension, make_executable, path_to_string, pretty_print, standard_project_folder, to_string,
     Constant, Label, ProgrammingLanguage, SemanticVersion,
 };
+use crate::Repository;
 use color_eyre::owo_colors::OwoColorize;
 use duct::cmd;
 use flate2::read::GzDecoder;
@@ -334,24 +338,9 @@ impl StaticAnalyzer for Vale {
 impl StaticAnalyzerConfig for ValeConfig {
     fn default() -> Self {
         let config = ValeConfig::init()
-            .packages(to_string(vec!["Google", "proselint", "write-good", "Joblint"]))
+            .packages(to_string(ENABLED_VALE_PACKAGES.to_vec()))
             .vocabularies(to_string(vec![&ORGANIZATION.to_uppercase(), APPLICATION]))
-            .disabled(to_string(vec![
-                "Vale.Terms",
-                "Google.EmDash",
-                "Google.Contractions",
-                "Google.GenderBias",
-                "Google.Headings",
-                "Google.Parens",
-                "Google.Quotes",
-                "Google.We",
-                "Joblint.Competitive",
-                "proselint.GenderBias",
-                "write-good.E-Prime",
-                "write-good.Passive",
-                "write-good.TooWordy",
-                "write-good.Weasel",
-            ]))
+            .disabled(to_string(DISABLED_VALE_RULES.to_vec()))
             .build();
         trace!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
         config
@@ -364,11 +353,25 @@ impl StaticAnalyzerConfig for ValeConfig {
             ..
         } = self;
         let mut conf = Ini::new();
+        let package_repository = Repository::GitLab {
+            id: 18243,
+            uri: "https://code.ornl.gov/research-enablement/vale-package".to_string(),
+        };
+        let package_url = match package_repository.latest_release() {
+            | Some(release) => {
+                let tag = release.tag_name;
+                format!(
+                    "https://code.ornl.gov/research-enablement/vale-package/-/archive/{}/vale-package-{}.zip",
+                    tag, tag
+                )
+            }
+            | None => DEFAULT_VALE_PACKAGE_URL.to_string(),
+        };
         // CAUTION: Order of attributes in INI file matter. "StylesPath" must come before "Vocab"
         conf.with_section::<String>(None)
             .set("StylesPath", "styles")
             .set("Vocab", vocabularies.join(", "))
-            .set("Packages", format!("{}, {}", packages.join(", "), CUSTOM_VALE_PACKAGE_URL));
+            .set("Packages", format!("{}, {}", packages.join(", "), package_url));
         conf.with_section(Some("*"))
             .set("BasedOnStyles", format!("Vale, {}, {}", CUSTOM_VALE_PACKAGE_NAME, packages.join(", ")));
         disabled.iter().for_each(|rule| {

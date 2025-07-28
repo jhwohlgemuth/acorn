@@ -7,13 +7,14 @@ use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use rayon::prelude::*;
 use reqwest::blocking::Client;
-use reqwest::header::HeaderMap;
+use reqwest::header::{HeaderMap, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::{copy, Cursor};
 use std::path::PathBuf;
+use std::vec;
 use tracing::{debug, error, info, trace};
 use uriparse::URI;
 
@@ -66,6 +67,7 @@ pub enum Repository {
     /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
     #[display("gitlab")]
     GitLab {
+        // TODO: Accept URL encoded project path instead of numeric ID (https://docs.gitlab.com/api/rest/#namespaced-paths)
         /// Integer ID of GitLab project
         ///
         /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
@@ -141,6 +143,17 @@ pub struct GitlabTreeEntry {
     pub path: String,
     /// Mode of tree entry
     pub mode: String,
+}
+/// Struct for GitLab/GitHub release data
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Release {
+    pub name: String,
+    pub tag_name: String,
+    #[serde(alias = "body")]
+    pub description: String,
+    pub created_at: String,
+    #[serde(alias = "published_at")]
+    pub released_at: String,
 }
 impl Bucket {
     /// Parse GitLab tree entries
@@ -362,6 +375,57 @@ impl GitlabTreeEntry {
     }
     fn is_blob(&self) -> bool {
         self.entry_type.eq(&EntryType::Blob)
+    }
+}
+impl Repository {
+    fn latest_release(self) -> Option<Release> {
+        match self.releases() {
+            | releases if releases.is_empty() => None,
+            | releases => Some(releases[0].clone()),
+        }
+    }
+    fn releases(self) -> Vec<Release> {
+        let url = match &self {
+            | Repository::GitHub { uri } => match URI::try_from(uri.as_str()) {
+                | Ok(uri) => {
+                    let host = uri.host().unwrap().to_string();
+                    let path = uri.path();
+                    format!("https://api.{}/repos{}/releases", host, path)
+                }
+                | Err(_) => {
+                    error!(uri, "=> {} Parse GitHub URI", Label::fail());
+                    uri.to_string()
+                }
+            },
+            | Repository::GitLab { id, .. } => {
+                format!("https://code.ornl.gov/api/v4/projects/{}/releases", id)
+            }
+        };
+        debug!(url, "=> {}", Label::using());
+        let client = Client::new();
+        match client.get(url).header(USER_AGENT, "rust-web-api-client").send() {
+            | Ok(response) => match response.text() {
+                | Ok(text) => {
+                    trace!(text, "=> {}", Label::using());
+                    let releases: Vec<Release> = match serde_json::from_str(&text) {
+                        | Ok(values) => values,
+                        | Err(why) => {
+                            error!("=> {} Parse {} API JSON response - {why}", self, Label::fail());
+                            vec![]
+                        }
+                    };
+                    releases
+                }
+                | Err(why) => {
+                    error!("=> {} Parse {} API text response - {why}", self, Label::fail());
+                    vec![]
+                }
+            },
+            | Err(why) => {
+                error!("=> {} Download {} releases - {why}", self, Label::fail());
+                vec![]
+            }
+        }
     }
 }
 
