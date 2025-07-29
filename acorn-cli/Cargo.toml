@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "acorn-cli"
+name = "acorn"
 readme = "README.md"
 description = "ACORN command line interface"
 repository = "https://code.ornl.gov/research-enablement/acorn"
