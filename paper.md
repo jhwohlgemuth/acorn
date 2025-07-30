@@ -1,11 +1,13 @@
 ---
 title: 'ACORN: Accessible Content Optimization for Research Needs'
+
 tags:
   - Rust
   - schema
   - JSON
   - automation
   - science communications
+
 authors:
   - name: Jason Wohlgemuth
     orcid: 0000-0002-2057-9115
@@ -15,6 +17,7 @@ authors:
     orcid: 0009-0005-5568-6526
     equal-contrib: true # (This is how you can denote equal contributions between multiple authors)
     affiliation: 1
+
 
 affiliations:
  - name: Oak Ridge National Laboratory
