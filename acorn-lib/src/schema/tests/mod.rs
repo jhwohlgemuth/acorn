@@ -40,6 +40,8 @@ fn test_fuzzy_matching_keywords() {
     assert_eq!(resolve_from_csv_asset(name.clone(), "mathematics".into()), Some("mathematics".into()));
     assert_eq!(resolve_from_csv_asset(name.clone(), "ml".into()), Some("machine-learning".into()));
     assert_eq!(resolve_from_csv_asset(name.clone(), "ai".into()), Some("artificial-intelligence".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "stats".into()), Some("statistics".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "statistics".into()), Some("statistics".into()));
     let exact: String = "high-performance-computing".into();
     assert_eq!(resolve_from_csv_asset(name.clone(), "hpc".into()), Some(exact.clone()));
     assert_eq!(
