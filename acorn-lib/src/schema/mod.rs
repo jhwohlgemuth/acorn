@@ -109,9 +109,12 @@ pub enum OrganizationType {
     /// Agency
     #[display("agency")]
     Agency,
-    /// Center
+    /// Initiative that involves multiple DOE laboratories partnering together for a shared purpose
     #[display("center")]
     Center,
+    /// Laboratory, public, and private partners
+    #[display("consortium")]
+    Consortium,
     /// Top-level organizational unit that contains one or more divisions
     #[display("directorate")]
     Directorate,
@@ -119,6 +122,8 @@ pub enum OrganizationType {
     #[display("division")]
     Division,
     /// Building, room, array of equipment, or a number of such things, designed to serve a particular function
+    ///
+    /// Includes DOE-designated user facilities
     #[display("facility")]
     Facility,
     /// Federally Funded Research and Development Center
@@ -799,6 +804,7 @@ impl OrganizationType {
         match value.to_lowercase().as_str() {
             | "agency" => OrganizationType::Agency,
             | "center" => OrganizationType::Center,
+            | "consortium" => OrganizationType::Consortium,
             | "division" => OrganizationType::Division,
             | "directorate" => OrganizationType::Directorate,
             | "group" => OrganizationType::Group,
@@ -812,7 +818,7 @@ impl OrganizationType {
     /// Returns the order of an `OrganizationType` value
     pub fn order(self) -> u8 {
         match self {
-            | OrganizationType::Ffrdc | OrganizationType::Agency | OrganizationType::Office => 4,
+            | OrganizationType::Ffrdc | OrganizationType::Agency | OrganizationType::Consortium | OrganizationType::Office => 4,
             | OrganizationType::Directorate => 3,
             | OrganizationType::Division | OrganizationType::Center | OrganizationType::Program | OrganizationType::Facility => 2,
             | OrganizationType::Group => 1,
