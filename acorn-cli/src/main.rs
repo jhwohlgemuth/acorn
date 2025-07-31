@@ -108,6 +108,15 @@ fn main() -> Void {
             verbose,
             ..
         }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose, &offline),
+        | Some(Commands::Link {
+            path,
+            branch,
+            commit,
+            ignore,
+            dry_run,
+            merge_request,
+            ..
+        }) => commands::link::run(path, branch, commit, ignore, *dry_run, *merge_request),
         | Some(Commands::Schema {}) => commands::schema::run(),
         | None => Ok(()),
     }

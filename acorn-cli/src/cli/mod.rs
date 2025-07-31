@@ -262,8 +262,41 @@ pub enum Commands {
         #[command(flatten)]
         verbose: Verbosity,
     },
+    /// Add linked data context to research activity data
+    ///
+    ///     $> acorn link /path/to/data/
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Link {
+        /// Path to look for files to process
+        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+        path: Option<PathBuf>,
+        /// Process files that were changed in a given Git branch
+        #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
+        branch: Option<String>,
+        /// Process files that were changed in a given Git commit
+        #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
+        commit: Option<String>,
+        /// Run link without making changes to target file(s). Will print a diff of changes.
+        #[arg(short, long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+        dry_run: bool,
+        /// Regex pattern applied to absolute paths of files that determines whether they should be included in processing
+        ///
+        /// Only applies to path values that point to a directory
+        ///
+        /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
+        ///
+        /// Example: --ignore "[/]valid.json$"
+        #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
+        ignore: Option<String>,
+        /// Processes files that were changed in a given merge request (Gitlab) or pull request (Github)
+        #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
+        merge_request: bool,
+        #[command(flatten)]
+        verbose: Verbosity,
+    },
     /// Print research activity data (RAD) JSON schema
     ///
+    ///     $> acorn schema
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Schema {},
 }
