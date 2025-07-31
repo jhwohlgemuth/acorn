@@ -257,30 +257,30 @@ fn test_research_activity_format() {
     assert!(pre.meta.media.is_some());
     assert_eq!(pre.contact.affiliation, Some("Not an actual affiliation".to_string()));
     let post = pre.format(None);
-    assert_eq!(post.clone().meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
+    assert!(post.clone().meta.media.unwrap()[0].clone().content_url().is_none());
     assert_eq!(post.clone().meta.first_image().unwrap().description(), "".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
-    // //
-    // // with more unresolved changes
-    // //
+    //
+    // with more unresolved changes
+    //
     let mut pre = post.clone().copy();
     pre.contact.organization = "Not an actual organization".to_string();
     pre.contact.affiliation = None;
     let post = pre.format(None);
     assert_eq!(post.contact.organization, "".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
-    // //
-    // // with ORNL as organization and no affiliation
-    // //
+    //
+    // with ORNL as organization and no affiliation
+    //
     let mut pre = post.clone().copy();
     pre.contact.organization = "Oak Ridge National Laboratory".to_string();
     pre.contact.affiliation = None;
     let post = pre.format(None);
     assert_eq!(post.contact.organization, "Oak Ridge National Laboratory".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
-    // //
-    // // without changes
-    // //
+    //
+    // without changes
+    //
     let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/no_changes.json")).unwrap();
     assert_eq!(pre.clone().meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
     assert_eq!(pre.contact.affiliation, Some("National Security Sciences Directorate".to_string()));

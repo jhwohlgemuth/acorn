@@ -960,31 +960,43 @@ impl ResearchActivity {
             | None => sections.to_string(),
         }
     }
-    /// Format research activity data
+    /// Formats research activity data
+    ///
+    /// Actions:
+    /// - Resolves URL of first media object (if found) and add empty caption
+    /// - Resolves keywords, technology, organization, partners, sponsors, and affiliation using fuzzy matching against controlled vocabularies
+    /// - Formats telephone number
     pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
+        let mut clone = self.clone().copy();
         let parent = match path {
             | Some(value) => value.parent().unwrap().to_path_buf(),
             | None => PathBuf::from("."),
         };
         let name = match image_paths(parent.clone()) {
-            | value if !value.is_empty() => value[0].file_name().unwrap().to_string_lossy().to_string(),
-            | _ => DEFAULT_GRAPHIC_HREF.to_string(),
+            | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
+            | _ => None,
         };
-        debug!(name, "=> {} First image", Label::using());
-        let first_graphic = match self.meta.clone().media {
-            | Some(values) if !values.is_empty() => {
-                let caption = self.meta.clone().first_image_caption();
-                let image_data = ImageObject::init().caption(caption.to_string()).content_url(name.clone()).build();
-                MediaObject::Image(image_data)
-            }
-            | Some(_) | None => {
-                let image_data = ImageObject::init().caption("".to_string()).content_url(name.clone()).build();
-                MediaObject::Image(image_data)
-            }
+        if let Some(value) = name {
+            debug!(value, "=> {} First image", Label::using());
+            // Make sure first graphic is well formed with a resolved image URL and caption
+            let first_graphic = match self.meta.clone().media {
+                | Some(values) if !values.is_empty() => {
+                    let caption = self.meta.clone().first_image_caption();
+                    let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
+                    MediaObject::Image(image_data)
+                }
+                | Some(_) | None => {
+                    let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
+                    MediaObject::Image(image_data)
+                }
+            };
+            // Get the rest of the media objects
+            let rest = match self.clone().meta.media {
+                | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
+                | Some(_) | None => vec![],
+            };
+            clone.meta.media = Some([vec![first_graphic], rest].concat());
         };
-        let mut clone = self.clone().copy();
-        // TODO: Add rest of media objects to clone.meta.media
-        clone.meta.media = Some(vec![first_graphic]);
         clone.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
         clone.meta.technology = self.clone().resolve(FuzzyValue::Technology);
         clone.contact.telephone = match format_phone_number(&self.contact.telephone) {
