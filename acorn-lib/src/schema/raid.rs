@@ -3,7 +3,7 @@
 //! See <https://metadata.raid.org/en/v1.6/index.html> for official documentation on schema.
 //!
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema --raid`
-use crate::schema::validate::is_ror;
+use crate::schema::validate::{is_raid, is_ror};
 use crate::{License, SemanticVersion};
 use bon::{builder, Builder};
 use derive_more::Display;
@@ -80,7 +80,7 @@ pub enum DescriptionType {
     Methods,
     /// Objectives
     Objectives,
-    /// Acknowledgements (i.e., for recognition of people not listed as Contributors or organisations not listed as Organisations)
+    /// Acknowledgements (i.e., for recognition of people not listed as Contributors or organizations not listed as organizations)
     Acknowledgements,
     /// Other (i.e., any other descriptive information such as a note)
     Other,
@@ -90,6 +90,137 @@ pub enum DescriptionType {
 pub enum Flag {
     /// Affirmative flag
     Yes,
+}
+/// Category of input, output, or process document
+#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
+#[serde(rename = "kebab-case")]
+pub enum ObjectCategoryType {
+    /// Input
+    #[display("input")]
+    Input,
+    /// Internal process document or artifact
+    #[display("internal-process-document")]
+    InternalProcessDocument,
+    /// Output
+    #[display("output")]
+    Output,
+}
+/// Type of input, output, or process document
+#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
+#[serde(rename = "kebab-case")]
+pub enum ObjectType {
+    /// Audiovisual
+    #[display("audiovisual")]
+    Audiovisual,
+    /// Book
+    #[display("book")]
+    Book,
+    /// Book chapter
+    #[display("book-chapter")]
+    BookChapter,
+    /// Computational notebook (e.g., Jupyter notebook)
+    #[display("computational-notebook")]
+    ComputationalNotebook,
+    /// Conference paper
+    #[display("conference-paper")]
+    ConferencePaper,
+    /// Conference poster
+    #[display("conference-poster")]
+    ConferencePoster,
+    /// Conference proceeding
+    #[display("conference-proceeding")]
+    ConferenceProceeding,
+    /// Data paper
+    #[display("data-paper")]
+    DataPaper,
+    /// Dataset
+    #[display("dataset")]
+    Dataset,
+    /// Dissertation
+    #[display("dissertation")]
+    Dissertation,
+    /// Event
+    #[display("event")]
+    Event,
+    /// Funding
+    ///
+    /// Note: Includes grants or other cash or in-kind awards, but not prizes
+    #[display("funding")]
+    Funding,
+    /// Image
+    #[display("image")]
+    Image,
+    /// Instrument
+    #[display("instrument")]
+    Instrument,
+    /// Journal article
+    #[display("journal-article")]
+    JournalArticle,
+    /// Learning object
+    #[display("learning-object")]
+    LearningObject,
+    /// Model
+    #[display("model")]
+    Model,
+    /// Output management plan
+    #[display("output-management-plan")]
+    OutputManagementPlan,
+    /// Physical object
+    #[display("physical-object")]
+    PhysicalObject,
+    /// Preprint
+    #[display("preprint")]
+    Preprint,
+    /// Prize (excluding funded awards)
+    #[display("prize")]
+    Prize,
+    /// Report
+    #[display("report")]
+    Report,
+    /// Service
+    #[display("service")]
+    Service,
+    /// Software
+    #[display("software")]
+    Software,
+    /// Sound
+    #[display("sound")]
+    Sound,
+    /// Standard
+    #[display("standard")]
+    Standard,
+    /// Text
+    #[display("text")]
+    Text,
+    /// Workflow
+    #[display("workflow")]
+    Workflow,
+}
+/// Organization role identifier
+#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
+#[serde(rename = "kebab-case")]
+pub enum OrganizationRoleType {
+    /// Lead research organization
+    #[display("lead-research-organization")]
+    LeadResearchOrganization,
+    /// Other research organization
+    #[display("other-research-organization")]
+    OtherResearchOrganization,
+    /// Partner organization (i.e., a non-research organization, such as an industry, government, or community partner that is collaborating on the project or activity, as a research partner rather than a hired consultant or contractor)
+    #[display("partner-organization")]
+    PartnerOrganization,
+    /// Contractor (i.e., a consulting organization hired by the project)
+    #[display("contractor")]
+    Contractor,
+    /// Funder (i.e., an organization underwriting the research via a cash or in-kind grant, prize, or investment, but not otherwise listed as a research organization, partner organization or contractor)
+    #[display("funder")]
+    Funder,
+    /// Facility (i.e., an organization providing access to physical or digital infrastructure, but not otherwise listed as a research organization, partner organization or contractor)
+    #[display("facility")]
+    Facility,
+    /// Other Organiation not covered by the roles above
+    #[display("other-organization")]
+    OtherOrganization,
 }
 /// Represents a contributor's administrative position on a project (such as their position on a grant application)
 ///
@@ -126,6 +257,25 @@ pub enum TitleType {
     Acronym,
     /// Alternative title, including subtitle or other supplemental title
     Alternative,
+}
+/// Metadata schema block containing alternative local or global identifiers for the project or activity associated with the RAiD
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+pub struct AlternateIdentifier {
+    /// Identifier other than the RAiD applied to the project or activity
+    ///
+    /// Example: ACORN research activity data (RAD) [identifier]
+    ///
+    /// [identifier]: ./struct.Metadata.html#structfield.identifier
+    pub id: String,
+    /// Free text description of the type of alternate identifier supplied
+    #[serde(rename = "type")]
+    pub alternate_identifier_type: String,
+}
+/// Link to another website related to the project or activity
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+pub struct AlternateUrl {
+    #[validate(url)]
+    url: String,
 }
 /// Metadata schema block containing a contributor to a RAiD and their associated properties
 ///
@@ -181,21 +331,19 @@ pub struct ContributorPosition {
     #[serde(flatten)]
     pub date: Date,
 }
-/// Metadata schema block containing the start and end date of the RAiD
-///
-/// See <https://metadata.raid.org/en/v1.6/core/dates.html>
+///  Start and end dates for the associated metadata
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[serde(rename = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct Date {
-    /// Project or activity's start date
+    /// Associated data start date
     ///
     /// Format:  [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
     pub start_date: String,
-    /// Project or activity's end date
+    /// Associated data end date
     ///
     /// Format:  [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
     ///
@@ -267,19 +415,35 @@ pub struct Metadata {
     #[validate(nested)]
     pub identifier: MetadataIdentifier,
     /// Dates associated with the RAiD metadata
+    #[validate(nested)]
     pub date: Date,
     /// Title metadata of the RAiD
     ///
     /// Note: One and only one title should be identified as "primary"
-    #[validate(length(min = 1))]
+    #[validate(nested, length(min = 1))]
     pub title: Vec<Title>,
     /// Description metadata of the RAiD
+    #[validate(nested)]
     pub description: Option<Vec<Description>>,
     /// Contributors to the RAiD
-    #[validate(length(min = 1))]
+    #[validate(nested, length(min = 1))]
     pub contributors: Vec<Contributor>,
-    /// Organisations associated with the RAiD
+    /// Organizations associated with the RAiD
+    ///
+    /// Note: If only one organization is listed, it's role defaults to "Lead Research Organization"
+    ///
+    /// Note 2: One and only one organization should be identified as "Lead Research Organization"
+    #[validate(nested)]
     pub organization: Option<Vec<Organization>>,
+    /// Related objects associated with the RAiD
+    #[validate(nested)]
+    pub related_object: Option<Vec<RelatedObject>>,
+    /// Alternate identifiers associated with the RAiD
+    #[validate(nested)]
+    pub alternate_identifier: Option<Vec<Identifier>>,
+    /// Alternate URLs associated with the RAiD
+    #[validate(nested)]
+    pub alternate_url: Option<Vec<AlternateUrl>>,
 }
 /// Metadata schema block containing the RAiD name and associated properties
 ///
@@ -292,6 +456,7 @@ pub struct MetadataIdentifier {
     /// Unique alphanumeric character string that identifies a Research Activity Identifier (RAiD) name
     ///
     /// Format: `https://raid.org/prefix/suffix`
+    #[validate(custom(function = "is_raid"))]
     pub id: String,
     /// URI of the identifier scheme used to identify RAiDs
     ///
@@ -299,6 +464,7 @@ pub struct MetadataIdentifier {
     #[validate(url)]
     pub schema_uri: String,
     /// Mtadata schema sub-block declaring the Registration Agency that minted the RAiD
+    #[validate(nested)]
     pub registration_agency: RegistrationAgency,
     /// The licence, or licence waiver, under which the RAiD metadata record associated with this Identifier has been issued
     ///
@@ -307,8 +473,11 @@ pub struct MetadataIdentifier {
     /// Version number of the RAiD
     pub version: SemanticVersion,
 }
-/// Organization
+/// Metadata schema block containing the organization associated with a RAiD and its associated properties
+///
+/// See <https://metadata.raid.org/en/v1.6/core/organisations.html#organisation>
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[serde(rename = "camelCase")]
 pub struct Organization {
     /// Organization identifier
     ///
@@ -323,9 +492,22 @@ pub struct Organization {
     pub schema_uri: String,
     /// Organization role
     #[validate(nested)]
-    pub role: Role,
+    pub role: OrganizationRole,
 }
-/// Metadata schema sub-block that declares the owner of the RAiD (i.e. the organisation requesting the RAiD)
+/// Organization role
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[serde(rename = "camelCase")]
+pub struct OrganizationRole {
+    /// Organization role identifier
+    pub id: OrganizationRoleType,
+    /// URI of the organization role identifier schema
+    #[validate(url)]
+    pub schema_uri: String,
+    /// Date information associated with the organization role
+    #[serde(flatten)]
+    pub date: Date,
+}
+/// Metadata schema sub-block that declares the owner of the RAiD (i.e. the organization requesting the RAiD)
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier-owner>
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
@@ -351,6 +533,51 @@ pub struct Owner {
     /// - SPs do not need to be legal entities
     /// - List of SPs is maintained by each [`RegistrationAgency`]
     pub service_point: Vec<String>,
+}
+/// Metadata schema block containing inputs, outputs, and process documents related to a RAiD plus associated properties
+///
+/// See <https://metadata.raid.org/en/v1.6/core/relatedObjects.html>
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[serde(rename = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct RelatedObject {
+    /// Persistent identifier (PID) of related object
+    ///
+    /// The object can be any combination of
+    /// - input or resource used by a project or activity
+    /// - output or product created by a project or activity
+    /// - internal process documentation used within a project or activity
+    pub id: String,
+    /// URI of the relatedObject identifier schema
+    #[validate(url)]
+    pub schema_uri: String,
+    /// Type information of related object
+    #[serde(rename = "type")]
+    #[validate(nested)]
+    pub related_object_type: RelatedObjectIdentifier,
+    /// Category information of related object
+    #[validate(nested, length(min = 1))]
+    pub category: Vec<RelatedObjectCategory>,
+}
+/// Related object category information
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[serde(rename = "camelCase")]
+pub struct RelatedObjectCategory {
+    /// Related object category identifier
+    pub id: ObjectCategoryType,
+    /// URI of the category schema used
+    #[validate(url)]
+    pub schema_uri: String,
+}
+/// Related object identifier
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[serde(rename = "camelCase")]
+pub struct RelatedObjectIdentifier {
+    /// Related object type identifier
+    pub id: ObjectType,
+    /// URI of the related object type identifier schema
+    #[validate(url)]
+    pub schema_uri: String,
 }
 /// Metadata schema block containing the RAiD name and associated properties
 ///
@@ -402,6 +629,7 @@ pub struct Title {
     #[validate(nested)]
     pub title_type: TitleIdentifier,
     /// Language of the title
+    #[validate(nested)]
     pub language: Option<Language>,
     /// Date the project or activity's title began being used
     ///

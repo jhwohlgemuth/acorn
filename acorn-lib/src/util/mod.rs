@@ -1,7 +1,7 @@
 //! # Common utilities
 //!
 //! This module contains common functions and data structures used to build the ACORN command line interface as well support open science endeavors.
-//! 
+//!
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 use bat::PrettyPrinter;
 use bon::Builder;

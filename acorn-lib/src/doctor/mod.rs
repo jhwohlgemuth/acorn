@@ -6,7 +6,7 @@
 //! * gather information about the system,
 //! * display information about the system,
 //! * and semi-automatically repair issues with the system.
-//! 
+//!
 use crate::schema::validate::is_ip6;
 use crate::util::{print_values_as_table, to_string, Label, SemanticVersion};
 use human_units::FormatSize;
