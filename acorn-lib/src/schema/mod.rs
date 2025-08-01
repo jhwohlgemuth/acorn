@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! ## Research activity schema
 //!
 //! This module provides structs and functions for representing research activity data and performing schema validation.
@@ -30,6 +29,7 @@ use tracing::{debug, error, info, trace};
 use validator::{Validate, ValidationErrorsKind};
 
 pub mod graph;
+pub mod raid;
 pub mod validate;
 use graph::*;
 use validate::*;
@@ -101,7 +101,6 @@ pub enum MediaObject {
     /// Video format media
     Video(VideoObject),
 }
-// TODO: How are agency, center, office, and program different?
 /// Organization sub type
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd, JsonSchema)]
 #[serde(rename_all = "lowercase")]
@@ -403,7 +402,7 @@ pub struct Metadata {
     /// - IBM
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
     pub partners: Option<Vec<String>>,
-    /// Related resarch activity data
+    /// Related resarch activity data identifiers of related research activity data
     ///
     /// <div class="warning">WIP</div>
     pub related: Option<Vec<String>>,

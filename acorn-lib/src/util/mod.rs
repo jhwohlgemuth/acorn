@@ -19,6 +19,7 @@ use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
 use ring::digest::{Context, SHA256};
 use rust_embed::Embed;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
@@ -34,6 +35,18 @@ use which::which;
 #[cfg(feature = "cli")]
 pub mod cli;
 
+/// SPDX compliant license identifier
+///
+/// See <https://spdx.org/licenses/>
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub enum License {
+    /// MIT License
+    Mit,
+    /// Creative Commons
+    CreativeCommons,
+    /// Unknown license
+    Unknown,
+}
 /// MIME types
 ///
 /// Supports an incomplete list of common MIME types
@@ -117,7 +130,7 @@ pub struct Label {}
 /// Semantic version
 ///
 /// see <https://semver.org/>
-#[derive(Builder, Clone, Copy, Debug, Deserialize, Display, Serialize)]
+#[derive(Builder, Clone, Copy, Debug, Deserialize, Display, Serialize, JsonSchema)]
 #[builder(start_fn = init)]
 #[display("{}.{}.{}", major, minor, patch)]
 pub struct SemanticVersion {
