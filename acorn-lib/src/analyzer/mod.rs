@@ -1,6 +1,7 @@
 //! # Prose analyzer module
 //!
-//! This module provides interfaces for the Vale prose analyzer and functions for analyzing readability.
+//! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
+//! 
 use crate::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION, VALE_RELEASES_URL,
     VALE_VERSION,

@@ -1,11 +1,12 @@
 //! # Doctor module
 //!
-//! The purpose of this module is to enable the user to more easily use ACORN in more contexts.
+//! This module gathers and displays information about the user's system and repairs any issues that may prevent ACORN from running easily.
 //!
 //! Toward this end, `acorn doctor` will
 //! * gather information about the system,
 //! * display information about the system,
 //! * and semi-automatically repair issues with the system.
+//! 
 use crate::schema::validate::is_ip6;
 use crate::util::{print_values_as_table, to_string, Label, SemanticVersion};
 use human_units::FormatSize;
