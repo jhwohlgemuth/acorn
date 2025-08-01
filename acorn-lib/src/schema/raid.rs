@@ -1,6 +1,9 @@
 //! ## Research activity identifier (RAiD) metadata schema
 //!
-//! See <https://metadata.raid.org/en/v1.6/index.html>
+//! See <https://metadata.raid.org/en/v1.6/index.html> for official documentation on schema.
+//!
+//! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema --raid`
+use crate::schema::validate::is_ror;
 use crate::{License, SemanticVersion};
 use bon::{builder, Builder};
 use derive_more::Display;
@@ -10,6 +13,8 @@ use serde_with::skip_serializing_none;
 use validator::Validate;
 
 /// CRediT role
+///
+/// Taxonomy of 14 roles that can be used to describe the key types of contributions typically made to the production and publication of research output such as research articles.
 ///
 /// See <https://www.niso.org/publications/z39104-2022-credit>
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
@@ -58,14 +63,60 @@ pub enum CreditRole {
     #[display("writing-review-editing")]
     WritingReviewEditing,
 }
+/// Description types
+#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
+#[serde(rename = "kebab-case")]
+pub enum DescriptionType {
+    /// Primary description (i.e., a preferred full description or abstract)
+    Primary,
+    /// An alternative description (i.e., an additional or supplementary full description or abstract)
+    Alternative,
+    /// Brief description (i.e., a shorter version of the primary description)
+    Brief,
+    /// Significance statement
+    #[display("significance-statement")]
+    SignificanceStatement,
+    /// Methods
+    Methods,
+    /// Objectives
+    Objectives,
+    /// Acknowledgements (i.e., for recognition of people not listed as Contributors or organisations not listed as Organisations)
+    Acknowledgements,
+    /// Other (i.e., any other descriptive information such as a note)
+    Other,
+}
 /// Flag indicating that a value is affirmative (e.g. for `leader` or `contact`)
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 pub enum Flag {
     /// Affirmative flag
     Yes,
 }
+/// Represents a contributor's administrative position on a project (such as their position on a grant application)
+///
+/// Note: Use contributor.role to define for scientific or scholarly contribution.
+#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
+#[serde(rename = "kebab-case")]
+pub enum PositionType {
+    /// Principal Investigator
+    #[display("principal-investigator")]
+    #[serde(alias = "ChiefInvestigator")]
+    PrincipalInvestigator,
+    /// Co-Investigator
+    #[display("co-investigator")]
+    #[serde(alias = "collaborator")]
+    CoInvestigator,
+    /// Partner Investigator (e.g., industry, government, or community collaborator)
+    #[display("partner-investigator")]
+    PartnerInvestigator,
+    /// Consultant (e.g., someone hired as a contract researcher by the project)
+    #[display("consultant")]
+    Consultant,
+    /// Other Participant not covered by one of the positions above, e.g., "member" or "other significant contributor"
+    #[display("other")]
+    Other,
+}
 /// Allowed values for title identifiers
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
 pub enum TitleType {
     /// Preferred full or long title
     Primary,
@@ -92,9 +143,10 @@ pub struct Contributor {
     ///
     /// [ISNI]: https://isni.org/
     /// [ORCID]: https://orcid.org/
+    #[validate(url)]
     pub schema_uri: String,
     /// Contributor's administrative position on a project or activity
-    pub position: ContibutorPosition,
+    pub position: ContributorPosition,
     /// Flag indicating that the contributor as a project leader
     ///
     /// Allowed values: `Yes` or `Null`
@@ -112,17 +164,18 @@ pub struct Contributor {
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[serde(rename = "camelCase")]
 #[serde(deny_unknown_fields)]
-pub struct ContibutorPosition {
+pub struct ContributorPosition {
     /// Contributor's administrative position in the project
     ///
     /// Example: "Principal Investigator"
-    pub id: String,
+    pub id: PositionType,
     /// URI of the position schema used
     ///
     /// Note: Controlled list of schemas is informed by Simon Cox's [Project Ontology], [OpenAIRE] "Project" guidelines, NIH definitions, ARC definitions, and DataCite Metadata Schema 4.4 Appendix 1 Table 5 "Description of contributorType".
     ///
     /// [OpenAIRE]: https://guidelines.openaire.eu/en/latest/
     /// [Project Ontology]: http://linked.data.gov.au/def/project
+    #[validate(url)]
     pub schema_uri: String,
     /// Dates associated with contributor's involvement in a project or activity
     #[serde(flatten)]
@@ -159,8 +212,20 @@ pub struct Description {
     /// Description text
     #[validate(length(min = 3, max = 1000))]
     pub text: String,
+    /// Description type information
+    #[serde(rename = "type")]
+    pub description_type: DescriptionIdentifier,
     /// Language of the description text
     pub language: Option<Language>,
+}
+/// Metadata schema block declaring the type of description
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+pub struct DescriptionIdentifier {
+    /// Description identifier
+    pub id: DescriptionType,
+    /// URI of the associated description schema
+    #[validate(url)]
+    pub schema_uri: String,
 }
 /// Metadata schema block containing information about the associated type
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
@@ -170,6 +235,7 @@ pub struct Identifier {
     /// Type identifier
     pub id: String,
     /// URI of the associated type schema
+    #[validate(url)]
     pub schema_uri: String,
 }
 /// Metadata schema block declaring the language of the associated text
@@ -187,7 +253,77 @@ pub struct Language {
     #[validate(length(equal = 3))]
     pub id: String,
     /// URI of the associated type schema
+    #[validate(url)]
     pub schema_uri: String,
+}
+/// Research Activity Identifier (RAiD) Metadata
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Display, Deserialize, Serialize, JsonSchema, Validate)]
+#[builder(start_fn = init)]
+#[display("{} ({identifier})", self.title[0])]
+#[serde(deny_unknown_fields)]
+pub struct Metadata {
+    /// Metadata schema block containing the RAiD name and associated properties
+    #[validate(nested)]
+    pub identifier: MetadataIdentifier,
+    /// Dates associated with the RAiD metadata
+    pub date: Date,
+    /// Title metadata of the RAiD
+    ///
+    /// Note: One and only one title should be identified as "primary"
+    #[validate(length(min = 1))]
+    pub title: Vec<Title>,
+    /// Description metadata of the RAiD
+    pub description: Option<Vec<Description>>,
+    /// Contributors to the RAiD
+    #[validate(length(min = 1))]
+    pub contributors: Vec<Contributor>,
+    /// Organisations associated with the RAiD
+    pub organization: Option<Vec<Organization>>,
+}
+/// Metadata schema block containing the RAiD name and associated properties
+///
+/// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier>
+#[derive(Builder, Clone, Debug, Deserialize, Display, JsonSchema, Serialize, Validate)]
+#[display("{id}")]
+#[serde(rename = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct MetadataIdentifier {
+    /// Unique alphanumeric character string that identifies a Research Activity Identifier (RAiD) name
+    ///
+    /// Format: `https://raid.org/prefix/suffix`
+    pub id: String,
+    /// URI of the identifier scheme used to identify RAiDs
+    ///
+    /// Example: `https://raid.org/`
+    #[validate(url)]
+    pub schema_uri: String,
+    /// Mtadata schema sub-block declaring the Registration Agency that minted the RAiD
+    pub registration_agency: RegistrationAgency,
+    /// The licence, or licence waiver, under which the RAiD metadata record associated with this Identifier has been issued
+    ///
+    /// Note: Only supports CC-0 (?)
+    pub license: License,
+    /// Version number of the RAiD
+    pub version: SemanticVersion,
+}
+/// Organization
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+pub struct Organization {
+    /// Organization identifier
+    ///
+    /// Note: Should be [ROR], if available
+    ///
+    /// [ROR]: https://ror.org
+    pub id: String,
+    /// URI of the organization identifier schema
+    ///
+    /// Only allowed value: `https://ror.org/`
+    #[validate(url)]
+    pub schema_uri: String,
+    /// Organization role
+    #[validate(nested)]
+    pub role: Role,
 }
 /// Metadata schema sub-block that declares the owner of the RAiD (i.e. the organisation requesting the RAiD)
 ///
@@ -200,11 +336,13 @@ pub struct Owner {
     ///
     /// Default: ROR of the organization requesting the RAiD
     ///
-    /// Example: https://ror.org/01qz5mb56 (ORNL)
+    /// Example: `https://ror.org/01qz5mb56` (ORNL)
+    #[validate(custom(function = "is_ror"))]
     pub id: String,
     /// URI of the identifier scheme used to identify RAiDs
     ///
     /// Example: `https://ror.org/`
+    #[validate(url)]
     pub schema_uri: String,
     /// Service point (SP) that requested the RAiD
     ///
@@ -216,25 +354,21 @@ pub struct Owner {
 }
 /// Metadata schema block containing the RAiD name and associated properties
 ///
-/// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier>
+/// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier-registrationagency>
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[serde(rename = "camelCase")]
 #[serde(deny_unknown_fields)]
-pub struct ResearchActivityIdentifierIdentifier {
-    /// Unique alphanumeric character string that identifies a Research Activity Identifier (RAiD) name
+pub struct RegistrationAgency {
+    /// Persistent identifier of the RAiD Registration Agency that minted the RAiD
     ///
-    /// Format: `https://raid.org/prefix/suffix`
+    /// Default: ROR of the RAiD Registration Agency
+    #[validate(custom(function = "is_ror"))]
     pub id: String,
     /// URI of the identifier scheme used to identify RAiDs
     ///
     /// Example: `https://raid.org/`
+    #[validate(url)]
     pub schema_uri: String,
-    /// Mtadata schema sub-block declaring the Registration Agency that minted the RAiD
-    pub registration_agency: RegistrationAgency,
-    /// The licence, or licence waiver, under which the RAiD metadata record associated with this Identifier has been issued
-    pub license: License,
-    /// Version number of the RAiD
-    pub version: SemanticVersion,
 }
 /// Metadata schema sub-block describing a contributor's scientific or scholarly role on a project using the [CRediT] vocabulary
 ///
@@ -249,59 +383,23 @@ pub struct Role {
     /// Contributor role on a project or activity
     pub id: Option<CreditRole>,
     /// URI of the role schema used
+    #[validate(url)]
     pub schema_uri: Option<String>,
-}
-/// Metadata schema block containing the RAiD name and associated properties
-///
-/// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier-registrationagency>
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[serde(rename = "camelCase")]
-#[serde(deny_unknown_fields)]
-pub struct RegistrationAgency {
-    /// Persistent identifier of the RAiD Registration Agency that minted the RAiD
-    ///
-    /// Default: ROR of the RAiD Registration Agency
-    pub id: String,
-    /// URI of the identifier scheme used to identify RAiDs
-    ///
-    /// Example: `https://raid.org/`
-    pub schema_uri: String,
-}
-/// Research Activity Identifier (RAiD) Metadata
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Display, Deserialize, Serialize, JsonSchema, Validate)]
-#[builder(start_fn = init)]
-#[display("RAiD Metadata")]
-#[serde(deny_unknown_fields)]
-pub struct ResearchActivityIdentifierMetadata {
-    /// Metadata schema block containing the RAiD name and associated properties
-    pub identifier: ResearchActivityIdentifierIdentifier,
-    /// Dates associated with the RAiD metadata
-    pub date: Date,
-    /// Title metadata of the RAiD
-    ///
-    /// Note: One and only one title should be identified as "primary"
-    pub title: Vec<Title>,
-    /// Description metadata of the RAiD
-    pub description: Description,
-    /// Contributors to the RAiD
-    #[validate(length(min = 1))]
-    pub contributors: Vec<Contributor>,
 }
 /// Metadata schema block containing the title of RAiD and associated properties
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/titles.html>
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Deserialize, Display, Serialize, JsonSchema, Validate)]
+#[display("{text} ({title_type})")]
 #[serde(deny_unknown_fields)]
 pub struct Title {
-    /// Title text
-    ///
-    /// Default: "Primary"
+    /// Name or title by which the project or activity is known
     #[validate(length(min = 3, max = 100))]
     pub text: String,
     /// Metadata schema block containing information about the title type
     #[serde(rename = "type")]
+    #[validate(nested)]
     pub title_type: TitleIdentifier,
     /// Language of the title
     pub language: Option<Language>,
@@ -323,7 +421,8 @@ pub struct Title {
     pub end_date: String,
 }
 /// Metadata schema block containing information about the title type
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize, Validate)]
+#[display("{id}")]
 #[serde(deny_unknown_fields)]
 pub struct TitleIdentifier {
     /// Title type
@@ -331,5 +430,6 @@ pub struct TitleIdentifier {
     /// Note: Only one title should be identified as "Primary"
     pub id: TitleType,
     /// URI of the title type schema
+    #[validate(url)]
     pub schema_uri: String,
 }
