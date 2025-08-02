@@ -1,4 +1,4 @@
-//! # ACORN Library
+//! # 🌱 ACORN Library
 //!
 //! `acorn-lib` is a one-stop-shop for everything related to building and maintaining research activity data (RAD)-related technology, including the Accessible Content Optimization for Research Needs (ACORN) tool.
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.

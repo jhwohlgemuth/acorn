@@ -1,4 +1,4 @@
-//! # ACORN CLI
+//! # 🌱 ACORN CLI
 //!
 //! The ACORN command line interface (CLI) provides a set of commands for maintaining research activity data and leveraging ACORN schemas.
 //!
