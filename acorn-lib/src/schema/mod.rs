@@ -217,67 +217,66 @@ pub enum TechnologyReadinessLevel {
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ContactPoint {
-    /// ### Job title (e.g. "Group Lead") of role that the contact fills related to the asscociated research activity.
+    /// Job title (e.g. "Group Lead") of role that the contact fills related to the asscociated research activity.
+    /// ### Example
+    /// > Ideal contact title for a project would be "Primary Investigator"
     ///
-    /// When the nearest associated title is unclear, job role of the contact can be used (e.g. "Senior Scientist").
+    /// ### Example
+    /// > Ideal contact title for a group organization would be "Group Lead"
     ///
-    /// ***Example*** Ideal contact title for a project would be "Primary Investigator"
+    /// <div class="warning">When the nearest associated title is unclear, job role of the contact can be used (e.g. "Senior Scientist").</div>
     ///
-    /// ***Example*** Ideal contact title for a group organization would be "Group Lead"
-    ///
-    /// See <https://schema.org/jobTitle>
+    /// See <https://schema.org/jobTitle> for more information
     #[builder(default = "Researcher".to_string())]
     #[serde(alias = "title", deserialize_with = "string_trim")]
     pub job_title: String,
-    /// ### First (given) name of contact
+    /// First (given) name of contact
     ///
-    /// See <https://schema.org/givenName>
+    /// See <https://schema.org/givenName> for more information
     #[builder(default = "First".to_string())]
     #[serde(alias = "first", deserialize_with = "string_trim")]
     pub given_name: String,
-    /// ### Last (family) name of contact
+    /// Last (family) name of contact
     ///
-    /// See <https://schema.org/familyName>
+    /// See <https://schema.org/familyName> for more information
     #[builder(default = "Last".to_string())]
     #[serde(alias = "last", deserialize_with = "string_trim")]
     pub family_name: String,
-    /// ### Email address of contact point
+    /// Email address of contact point
     ///
-    /// See <https://schema.org/email>
+    /// See <https://schema.org/email> for more information
     #[validate(email(message = "Please provide a valid email"))]
     #[builder(default = "first_last@example.com".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub email: String,
-    /// ### Phone number of contact point
+    /// Phone number of contact point
     ///
-    /// See <https://schema.org/telephone>
+    /// See <https://schema.org/telephone> for more information
     #[validate(custom(function = "is_phone_number"))]
     #[builder(default = "123-456-7890".to_string())]
     #[serde(alias = "phone", deserialize_with = "string_trim")]
     pub telephone: String,
-    /// ### Profile URL of contact point
-    ///
-    /// ***Example*** Profile URL for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
+    /// Profile URL of contact point
+    /// ### Example
+    /// > Profile URL for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
     #[validate(url(message = "Please provide a valid profile URL"))]
     #[builder(default = "https://example.com".to_string())]
     #[serde(alias = "profile", deserialize_with = "string_trim")]
     pub url: String,
-    /// ### Organization of contact point
+    /// Organization of contact point
     ///
     /// See [Organization]
     #[builder(default = "Some Organization".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub organization: String,
-    /// ### Affiliation of associated research activity data
+    /// Affiliation of associated research activity data
     ///
-    /// Where organization applies to the contact point, affiliation applies to the research activity the contact point is associated with
+    /// <div class="warning">Where organization applies to the contact point, affiliation applies to the research activity the contact point is associated with</div>
     ///
-    /// See <https://schema.org/affiliation>
+    /// See <https://schema.org/affiliation> for more information
     pub affiliation: Option<String>,
 }
-/// Image format media
-///
-/// e.g. PNG, JPEG, SVG, etc.
+/// Image format media (e.g. PNG, JPEG, SVG, etc.)
 ///
 /// See <https://schema.org/ImageObject>
 #[skip_serializing_none]
@@ -285,32 +284,33 @@ pub struct ContactPoint {
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ImageObject {
-    /// ### Image caption
+    /// Image caption
     #[validate(length(max = "MAX_LENGTH_IMAGE_CAPTION", message = "Caption is too long, please reduce the length below 100."))]
     #[serde(deserialize_with = "string_trim")]
-    caption: String,
-    /// ### File size in kilobytes
+    pub caption: String,
+    /// File size (in kilobytes)
     ///
-    /// > **Note**: Will be overwritten by running `acorn format`
+    /// <div class="warning">Will be overwritten by running <pre>acorn format</pre></div>
     ///
-    /// See <https://schema.org/contentSize>
+    /// See <https://schema.org/contentSize> for more information
     #[serde(alias = "size")]
-    content_size: Option<NonZeroU64>,
+    pub content_size: Option<NonZeroU64>,
+    /// Content URL
     #[validate(custom(function = "has_image_extension"))]
     #[serde(alias = "url", alias = "href")]
-    content_url: Option<String>,
-    /// ### Image height in pixels
+    pub content_url: Option<String>,
+    /// Image height (in pixels)
     ///
-    /// **Note**: Will be overwritten by running `acorn format`
+    /// <div class="warning">Will be overwritten by running <pre>acorn format</pre></div>
     ///
-    /// See <https://schema.org/height>
-    height: Option<NonZeroU64>,
-    /// ### Image width in pixels
+    /// See <https://schema.org/height> for more information
+    pub height: Option<NonZeroU64>,
+    /// Image width (in pixels)
     ///
-    /// > **Note**: Will be overwritten by running `acorn format`
+    /// <div class="warning">Will be overwritten by running <pre>acorn format</pre></div>
     ///
-    /// See <https://schema.org/width>
-    width: Option<NonZeroU64>,
+    /// See <https://schema.org/width> for more information
+    pub width: Option<NonZeroU64>,
 }
 /// ## Research Activity Metadata
 #[skip_serializing_none]
@@ -320,65 +320,65 @@ pub struct ImageObject {
 pub struct Metadata {
     /// Classification level of associated research activity data
     pub classification: Option<ClassificationLevel>,
-    /// ### Identifier for associated research activity data
+    /// Describes the active status of the associated research activity data
     ///
-    /// Should be [lower-kebab-case](https://developer.mozilla.org/en-US/docs/Glossary/Kebab_case)
+    /// <div class="warning">Archived content typically will be omitted from public artifacts such as <a href="https://research.ornl.gov">the ORNL research activity index</a></div>
+    #[builder(default = false)]
+    pub archive: bool,
+    /// Describes the draft status of the associated research activity data
     ///
-    /// ***Example*** `my-research-project`
+    /// <div class="warning">Draft content typically will be omitted from public artifacts such as <a href="https://research.ornl.gov">the ORNL research activity index</a></div>
+    #[builder(default = true)]
+    pub draft: bool,
+    /// Identifier for associated research activity data
+    /// ### Example
+    /// > `my-research-project`
+    ///
+    /// <div class="warning">Should be <a href="https://developer.mozilla.org/en-US/docs/Glossary/Kebab_case">lower-kebab-case</a></div>
+    ///
     #[validate(custom(function = "is_kebabcase"))]
     #[builder(default = "some-research-project".to_string())]
     #[serde(alias = "id", rename = "identifier", deserialize_with = "string_trim")]
     pub identifier: String,
-    /// ### Additional type
+    /// Additional type
     ///
     /// Type of associated research activity data when directly associated with an organization
     pub additional_type: Option<OrganizationType>,
-    /// ### Digital Object Identifier
+    /// Digital Object Identifier
     ///
     /// See <https://www.doi.org/> for more information
     #[validate(custom(function = "is_doi"))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub doi: Option<String>,
-    /// ### Research Activity Identifier
+    /// Research Activity Identifier
     ///
     /// See <https://www.raid.org/> for more information
     #[validate(custom(function = "is_raid"))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub raid: Option<String>,
-    /// ### Research Organization Registry
+    /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
     #[validate(custom(function = "is_ror"))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub ror: Option<String>,
-    /// ### URL of internet location where associated publication can be found
+    /// URL of internet location where associated publication can be found
     #[validate(url(message = "Please provide a valid URL"))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub publication: Option<String>,
-    /// ### Describes the active status of the associated research activity data
-    ///
-    /// Archived content typically will be omitted from public artifacts such as <https://research.ornl.gov>
-    #[builder(default = false)]
-    pub archive: bool,
-    /// ### Describes the draft status of the associated research activity data
-    ///
-    /// Draft content typically will be omitted from public artifacts such as <https://research.ornl.gov>
-    #[builder(default = true)]
-    pub draft: bool,
     /// <abbr title="Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
     pub trl: Option<TechnologyReadinessLevel>,
-    /// ### Websites related to the associated research activity data
+    /// Websites related to the associated research activity data
     #[validate(nested)]
     pub websites: Option<Vec<Website>>,
-    /// ### Images, videos, and other media related to the associated research activity data
+    /// Images, videos, and other media related to the associated research activity data
     #[serde(alias = "graphics")]
     pub media: Option<Vec<MediaObject>>,
     /// See [Keyword]
     #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<Keyword>,
-    /// ### Software, programmings languages, and digital resources (e.g. tools, libraries, frameworks, data) related to the associated research activity data
-    ///
-    /// ***Examples***
+    /// Software, programmings languages, and digital resources (e.g. tools, libraries, frameworks, data) related to the associated research activity data
+    /// ### Examples
     /// - Rust
     /// - Polars
     /// - gdal
@@ -389,15 +389,14 @@ pub struct Metadata {
     #[builder(default = Vec::<String>::new())]
     #[serde(deserialize_with = "vec_string_trim")]
     pub technology: Vec<String>,
-    /// ### Organization(s) responsible for funding associated research activity data
+    /// Organization(s) responsible for funding associated research activity data
     ///
     /// Includes any office within a US cabinet-level department that has leadership appointed by the president and confirmed by the Senate, e.g., NNSA or Office of Science.
     ///
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
     pub sponsors: Option<Vec<String>>,
-    /// ### Organization(s) related to the associated research activity data
-    ///
-    /// ***Examples***
+    /// Organization(s) related to the associated research activity data
+    /// ### Examples
     /// - Los Alamos National Laboratory
     /// - University of Tennessee
     /// - IBM
@@ -408,18 +407,18 @@ pub struct Metadata {
     /// <div class="warning">WIP</div>
     pub related: Option<Vec<String>>,
 }
-/// ### Notes
+/// Notes
 ///
 /// Structured container for information not easily captured in other fields
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct Notes {
-    /// ### [ASCR](https://www.energy.gov/science/ascr/advanced-scientific-computing-research) highlight attribute
+    /// [ASCR](https://www.energy.gov/science/ascr/advanced-scientific-computing-research) highlight attribute
     pub managers: Option<Vec<String>>,
-    /// ### Collection of capabilities aimed at achieving a specific cross-cutting research outcome
+    /// Collection of capabilities aimed at achieving a specific cross-cutting research outcome
     pub programs: Option<Vec<String>>,
-    /// ### (PowerPoint) presentation notes
+    /// (PowerPoint) presentation notes
     #[serde(default, deserialize_with = "option_string_trim")]
     pub presentation: Option<String>,
 }
@@ -433,30 +432,30 @@ pub struct Notes {
 #[display("Organization ({additional_type}) - {name})")]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Organization {
-    /// ### Full name of the organization
+    /// Full name of the organization
     ///
-    /// See <https://schema.org/name>
+    /// See <https://schema.org/name> for more information
     #[serde(deserialize_with = "string_trim")]
     pub name: String,
-    /// ### Research Organization Registry
+    /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
     #[serde(default, deserialize_with = "option_string_trim")]
     pub ror: Option<String>,
-    /// ### Organization alias (e.g. acronym or nickname)
+    /// Organization alias (e.g. acronym or nickname)
     ///
-    /// See <https://schema.org/alternateName>
+    /// See <https://schema.org/alternateName> for more information
     #[serde(default, deserialize_with = "option_string_trim")]
     pub alternative_name: Option<String>,
-    /// ### Organization sub-type
+    /// Organization sub-type
     ///
-    /// See <https://schema.org/additionalType>
+    /// See <https://schema.org/additionalType> for more information
     pub additional_type: OrganizationType,
     /// See [Keyword]
     pub keywords: Option<Vec<Keyword>>,
-    /// ### Distinct part(s) of the associated containing organization
+    /// Distinct part(s) of the associated containing organization
     ///
-    /// See <https://schema.org/member>
+    /// See <https://schema.org/member> for more information
     pub member: Vec<Organization>,
 }
 /// ## Research Activity
@@ -469,70 +468,69 @@ pub struct Organization {
 #[display("Research Activity ({title})")]
 #[serde(deny_unknown_fields)]
 pub struct ResearchActivity {
-    /// ### Associated metadata
+    /// Associated metadata
     #[validate(nested)]
     #[builder(default)]
     pub meta: Metadata,
-    /// ### Heading that identifies and describes the associated research activity
+    /// Heading that identifies and describes the associated research activity
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
     #[builder(default = "Research Activity Title".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub title: String,
-    /// ### Short description that augments the title of the associated research activity
+    /// Short description that augments the title of the associated research activity
     #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 75."))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub subtitle: Option<String>,
-    /// ### Prose components of associated research activity
+    /// Prose components of associated research activity
     #[validate(nested)]
     #[builder(default)]
     pub sections: Sections,
-    /// ### Contact point (i.e. "point of contact") for research activity
+    /// Contact point (i.e. "point of contact") for research activity
     #[validate(nested)]
     #[builder(default)]
     pub contact: ContactPoint,
-    /// ### Other information related to the associated research activity not easily captured in structured areas of the schema
+    /// Other information related to the associated research activity not easily captured in structured areas of the schema
     pub notes: Option<Other>,
 }
-/// Video format media
+/// Video format media (e.g. MP4, AVI, MOV, GIF, etc.)
 ///
-/// e.g. MP4, AVI, MOV, GIF, etc.
-///
-/// See <https://schema.org/VideoObject>
+/// See <https://schema.org/VideoObject> for more information
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct VideoObject {
-    /// File size in kilobytes
+    /// File size (in kilobytes)
     ///
-    /// See <https://schema.org/contentSize>
+    /// See <https://schema.org/contentSize> for more information
     #[serde(alias = "size")]
-    content_size: Option<NonZeroU64>,
+    pub content_size: Option<NonZeroU64>,
+    /// Video URL
     #[validate(url)]
     #[serde(alias = "url", alias = "href")]
-    content_url: Option<String>,
-    /// ### Video description
+    pub content_url: Option<String>,
+    /// Video description
     ///
-    /// See <https://schema.org/description>
+    /// See <https://schema.org/description> for more information
     #[serde(deserialize_with = "string_trim")]
-    description: String,
+    pub description: String,
     // TODO: Create ISO 8601 struct and/or validator
     /// Duration of video in [ISO 8601 format](https://en.wikipedia.org/wiki/ISO_8601)
     ///
-    /// See <https://schema.org/duration>
-    duration: Option<String>,
-    /// ### Video height in pixels
+    /// See <https://schema.org/duration> for more information
+    pub duration: Option<String>,
+    /// Video height (in pixels)
     ///
-    /// See <https://schema.org/height>
-    height: Option<NonZeroU64>,
-    /// ### Video width in pixels
+    /// See <https://schema.org/height> for more information
+    pub height: Option<NonZeroU64>,
+    /// Video width (in pixels)
     ///
-    /// See <https://schema.org/width>
-    width: Option<NonZeroU64>,
+    /// See <https://schema.org/width> for more information
+    pub width: Option<NonZeroU64>,
 }
 /// ## Website
 /// > Website link and title description
-///
-/// **Example**: When deserializing research activity data, websites can be provided as a list of JSON objects.
+/// ### Example
+/// When deserializing research activity data, websites can be provided as a list of JSON objects.
 /// ```json
 /// {
 ///     "websites": [
@@ -551,12 +549,12 @@ pub struct VideoObject {
 #[derive(Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Website {
-    /// ### Brief description of webpage content
+    /// Brief description of webpage content
     ///
-    /// See <https://schema.org/description>
+    /// See <https://schema.org/description> for more information
     #[serde(alias = "title", deserialize_with = "string_trim")]
     pub description: String,
-    /// ### Associated website URL
+    /// Associated website URL
     #[validate(url(message = "Please provide a valid URL"))]
     #[serde(deserialize_with = "string_trim")]
     pub url: String,
@@ -567,7 +565,7 @@ pub struct Website {
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields)]
 pub struct Sections {
-    /// ### Purpose of the research
+    /// Purpose of the research
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_MISSION",
@@ -576,7 +574,7 @@ pub struct Sections {
     #[builder(default = "Purpose of the research".to_string())]
     #[serde(alias = "introduction", deserialize_with = "string_trim")]
     pub mission: String,
-    /// ### Reason for the research
+    /// Reason for the research
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_CHALLENGE",
@@ -585,7 +583,7 @@ pub struct Sections {
     #[builder(default = "Reason for the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub challenge: String,
-    /// ### List of actions taken to perform the research
+    /// List of actions taken to perform the research
     #[validate(
         length(min = 1, max = "MAX_COUNT_APPROACH", message = "Please limit the number of approaches to 6"),
         custom(function = "validate_attribute_approach")
@@ -593,18 +591,18 @@ pub struct Sections {
     #[builder(default = vec!["List of actions taken to perform the research".to_string()])]
     #[serde(deserialize_with = "vec_string_trim")]
     pub approach: Vec<String>,
-    /// ### List of tangible proof that validates the research approach
+    /// List of tangible proof that validates the research approach
     #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
     #[builder(default = vec!["List of tangible proof that validates the research approach".to_string()])]
     #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
-    /// ### Tangible results of research activity
+    /// Tangible results of research activity
     #[validate(length(min = 1, max = 4, message = "Please limit the number of achievements to 4"))]
     pub achievement: Option<Vec<String>>,
-    /// ### Expertise as applied to technology in a given mission space
+    /// Expertise as applied to technology in a given mission space
     #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
     pub capabilities: Option<Vec<String>>,
-    /// ### Overview of research focus and areas
+    /// Overview of research focus and areas
     #[validate(nested)]
     #[builder(default = Research::init().build())]
     pub research: Research,
@@ -614,7 +612,7 @@ pub struct Sections {
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields)]
 pub struct Research {
-    /// ### Focus of the research
+    /// Focus of the research
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_RESEARCH_FOCUS",
@@ -623,7 +621,7 @@ pub struct Research {
     #[builder(default = "Focus of the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub focus: String,
-    /// ### Areas of research
+    /// Areas of research
     #[validate(length(min = 1, max = "MAX_COUNT_RESEARCH_AREAS"), custom(function = "validate_attribute_areas"))]
     #[builder(default = vec!["Areas of research".to_string()])]
     #[serde(deserialize_with = "vec_string_trim")]
@@ -961,8 +959,7 @@ impl ResearchActivity {
         }
     }
     /// Formats research activity data
-    ///
-    /// Actions:
+    /// ### Actions
     /// - Resolves URL of first media object (if found) and add empty caption
     /// - Resolves keywords, technology, organization, partners, sponsors, and affiliation using fuzzy matching against controlled vocabularies
     /// - Formats telephone number
