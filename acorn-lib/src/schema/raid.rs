@@ -12,6 +12,18 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use validator::Validate;
 
+/// Allowed values for access types
+#[derive(Clone, Debug, Default, Deserialize, Display, JsonSchema, Serialize)]
+#[serde(rename = "kebab-case")]
+pub enum AccessType {
+    /// Open access
+    #[default]
+    #[display("open-access")]
+    OpenAccess,
+    /// Embargoed access
+    #[display("embargoed-access")]
+    EmbargoedAccess,
+}
 /// CRediT role
 ///
 /// Taxonomy of 14 roles that can be used to describe the key types of contributions typically made to the production and publication of research output such as research articles.
@@ -144,7 +156,8 @@ pub enum ObjectType {
     Event,
     /// Funding
     ///
-    /// Note: Includes grants or other cash or in-kind awards, but not prizes
+    /// *Note*
+    /// > Includes grants or other cash or in-kind awards, but not prizes
     #[display("funding")]
     Funding,
     /// Image
@@ -224,7 +237,8 @@ pub enum OrganizationRoleType {
 }
 /// Represents a contributor's administrative position on a project (such as their position on a grant application)
 ///
-/// Note: Use contributor.role to define for scientific or scholarly contribution.
+/// *Note*
+/// > Use [`Contributor`]'s [`Role`] to define scientific or scholarly contributions
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
 #[serde(rename = "kebab-case")]
 pub enum PositionType {
@@ -246,6 +260,37 @@ pub enum PositionType {
     #[display("other")]
     Other,
 }
+/// RAiD Relation Type
+///
+/// Describes the relationship being one activity and another
+#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
+#[serde(rename = "kebab-case")]
+pub enum RelatedRaidType {
+    /// Continues
+    Continues,
+    /// Is continued by
+    #[display("is-continued-by")]
+    IsContinuedBy,
+    /// Has part
+    #[display("has-part")]
+    HasPart,
+    /// Is part of
+    #[display("is-part-of")]
+    IsPartOf,
+    /// Is source of
+    #[display("is-source-of")]
+    IsSourceOf,
+    /// Is derived from
+    #[display("is-derived-from")]
+    IsDerivedFrom,
+    /// Obsoletes
+    /// > For resolving duplicate RAiDs
+    Obsoletes,
+    /// Is obsoleted by
+    /// >For resolving duplicate RAiDs
+    #[display("is-obsoleted-by")]
+    IsObsoletedBy,
+}
 /// Allowed values for title identifiers
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
 pub enum TitleType {
@@ -258,12 +303,56 @@ pub enum TitleType {
     /// Alternative title, including subtitle or other supplemental title
     Alternative,
 }
+/// Metadata schema block containing RAiD access information
+///
+/// See <https://metadata.raid.org/en/v1.6/core/access.html>
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+pub struct Access {
+    /// Access type
+    #[serde(rename = "type")]
+    pub access_type: AccessIdentifier,
+    /// Date an embargo on access to the RAiD metadata ends
+    /// ### Format
+    /// > [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
+    ///
+    /// <div class="warning">Mandatory if access type is "embargoed"</div>
+    ///
+    /// <div class="warning">Embargo expiration dates may not lay more than 18 months from the date the RAiD was registered. Year, month, and day mush be specified.</div>
+    ///
+    /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
+    pub embargo_expiry: Option<String>,
+    /// Access statement
+    ///
+    /// <div class="warning">Mandatory if access type is not "open"</div>
+    #[validate(nested)]
+    pub statement: Option<AccessStatement>,
+}
+/// Access type identifier
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[serde(rename = "camelCase")]
+pub struct AccessIdentifier {
+    /// Type of access granted to a RAiD metadata record
+    pub id: AccessType,
+    /// URI of the access type schema
+    #[validate(url)]
+    pub schema_uri: String,
+}
+/// Metadata schema block containing an explanation for any access type that is not "open", with the explanation's associated properties
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+pub struct AccessStatement {
+    /// The text of an access statement that explains any restrictions on access
+    #[validate(length(min = 1, max = 1000))]
+    pub text: Option<String>,
+    /// The language of the access statement
+    #[validate(nested)]
+    pub language: Option<Language>,
+}
 /// Metadata schema block containing alternative local or global identifiers for the project or activity associated with the RAiD
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 pub struct AlternateIdentifier {
     /// Identifier other than the RAiD applied to the project or activity
-    ///
-    /// Example: ACORN research activity data (RAD) [identifier]
+    /// ### Example
+    /// > ACORN research activity data (RAD) [identifier]
     ///
     /// [identifier]: ./struct.Metadata.html#structfield.identifier
     pub id: String,
@@ -289,7 +378,7 @@ pub struct Contributor {
     pub id: String,
     /// URI of the contributor identifier schema
     ///
-    /// Note: PID is required and (currently) only [ORCID] and [ISNI] are allowed
+    /// <div class="warning">PID is required and (currently) only [ORCID] and [ISNI] are allowed</div>
     ///
     /// [ISNI]: https://isni.org/
     /// [ORCID]: https://orcid.org/
@@ -316,12 +405,12 @@ pub struct Contributor {
 #[serde(deny_unknown_fields)]
 pub struct ContributorPosition {
     /// Contributor's administrative position in the project
-    ///
-    /// Example: "Principal Investigator"
+    /// ### Example
+    /// > "Principal Investigator"
     pub id: PositionType,
     /// URI of the position schema used
     ///
-    /// Note: Controlled list of schemas is informed by Simon Cox's [Project Ontology], [OpenAIRE] "Project" guidelines, NIH definitions, ARC definitions, and DataCite Metadata Schema 4.4 Appendix 1 Table 5 "Description of contributorType".
+    /// <div class="warning">Controlled list of schemas is informed by Simon Cox's [Project Ontology], [OpenAIRE] "Project" guidelines, NIH definitions, ARC definitions, and DataCite Metadata Schema 4.4 Appendix 1 Table 5 "Description of contributorType".</div>
     ///
     /// [OpenAIRE]: https://guidelines.openaire.eu/en/latest/
     /// [Project Ontology]: http://linked.data.gov.au/def/project
@@ -338,14 +427,14 @@ pub struct ContributorPosition {
 #[serde(deny_unknown_fields)]
 pub struct Date {
     /// Associated data start date
-    ///
-    /// Format:  [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
+    /// ### Format
+    /// > [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
     pub start_date: String,
     /// Associated data end date
-    ///
-    /// Format:  [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
+    /// ### Format
+    /// > [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
     pub end_date: Option<String>,
@@ -392,12 +481,12 @@ pub struct Identifier {
 #[serde(deny_unknown_fields)]
 pub struct Language {
     /// Language used for the associated text, identified by a code or another identifier
+    /// ### Examples
+    /// - "eng"
+    /// - "fra"
+    /// - "jpn"
     ///
-    /// Limited to [ISO 639]:2023 (Set 3)
-    ///
-    /// Example: "eng", "fra", "jpn"
-    ///
-    /// [ISO 639]: https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes
+    /// <div class="warning">Limited to <a href="https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes">ISO 639:2023 (Set 3)</a></div>
     #[validate(length(equal = 3))]
     pub id: String,
     /// URI of the associated type schema
@@ -419,7 +508,7 @@ pub struct Metadata {
     pub date: Date,
     /// Title metadata of the RAiD
     ///
-    /// Note: One and only one title should be identified as "primary"
+    /// <div class="warning">One and only one title should be identified as "primary"</div>
     #[validate(nested, length(min = 1))]
     pub title: Vec<Title>,
     /// Description metadata of the RAiD
@@ -430,9 +519,9 @@ pub struct Metadata {
     pub contributors: Vec<Contributor>,
     /// Organizations associated with the RAiD
     ///
-    /// Note: If only one organization is listed, it's role defaults to "Lead Research Organization"
+    /// <div class="warning">If only one organization is listed, it's role defaults to "Lead Research Organization"</div>
     ///
-    /// Note 2: One and only one organization should be identified as "Lead Research Organization"
+    /// <div class="warning">One and only one organization should be identified as "Lead Research Organization"</div>
     #[validate(nested)]
     pub organization: Option<Vec<Organization>>,
     /// Related objects associated with the RAiD
@@ -444,6 +533,12 @@ pub struct Metadata {
     /// Alternate URLs associated with the RAiD
     #[validate(nested)]
     pub alternate_url: Option<Vec<AlternateUrl>>,
+    /// Related RAiD(s) associated with the RAiD
+    #[validate(nested)]
+    pub related_raid: Option<Vec<RelatedRaid>>,
+    /// Access for the RAiD metadata
+    #[validate(nested)]
+    pub access: Access,
 }
 /// Metadata schema block containing the RAiD name and associated properties
 ///
@@ -454,13 +549,13 @@ pub struct Metadata {
 #[serde(deny_unknown_fields)]
 pub struct MetadataIdentifier {
     /// Unique alphanumeric character string that identifies a Research Activity Identifier (RAiD) name
-    ///
-    /// Format: `https://raid.org/prefix/suffix`
+    /// ### Format
+    /// > `https://raid.org/prefix/suffix`
     #[validate(custom(function = "is_raid"))]
     pub id: String,
     /// URI of the identifier scheme used to identify RAiDs
-    ///
-    /// Example: `https://raid.org/`
+    /// ### Example
+    /// > `https://raid.org/`
     #[validate(url)]
     pub schema_uri: String,
     /// Mtadata schema sub-block declaring the Registration Agency that minted the RAiD
@@ -468,7 +563,7 @@ pub struct MetadataIdentifier {
     pub registration_agency: RegistrationAgency,
     /// The licence, or licence waiver, under which the RAiD metadata record associated with this Identifier has been issued
     ///
-    /// Note: Only supports CC-0 (?)
+    /// <div class="warning">Only supports CC-0 (?)</div>
     pub license: License,
     /// Version number of the RAiD
     pub version: SemanticVersion,
@@ -481,9 +576,7 @@ pub struct MetadataIdentifier {
 pub struct Organization {
     /// Organization identifier
     ///
-    /// Note: Should be [ROR], if available
-    ///
-    /// [ROR]: https://ror.org
+    /// <div class="warning">Should be <a href="https://ror.org">ROR</a>, if available</div>
     pub id: String,
     /// URI of the organization identifier schema
     ///
@@ -516,19 +609,18 @@ pub struct OrganizationRole {
 pub struct Owner {
     /// Persistent identifier of the legal entity responsible for the RAiD
     ///
-    /// Default: ROR of the organization requesting the RAiD
-    ///
-    /// Example: `https://ror.org/01qz5mb56` (ORNL)
+    /// *Default* ROR of the organization requesting the RAiD
+    /// ### Example
+    /// > `https://ror.org/01qz5mb56` (ORNL)
     #[validate(custom(function = "is_ror"))]
     pub id: String,
     /// URI of the identifier scheme used to identify RAiDs
-    ///
-    /// Example: `https://ror.org/`
+    /// ### Example
+    /// > `https://ror.org/`
     #[validate(url)]
     pub schema_uri: String,
     /// Service point (SP) that requested the RAiD
-    ///
-    /// Notes:
+    /// ### Notes
     /// - RAiD owners can have multiple SPs
     /// - SPs do not need to be legal entities
     /// - List of SPs is maintained by each [`RegistrationAgency`]
@@ -579,6 +671,28 @@ pub struct RelatedObjectIdentifier {
     #[validate(url)]
     pub schema_uri: String,
 }
+/// Metadata schema block containing related RAiDs and qualifying the relationship
+///
+/// See <https://metadata.raid.org/en/v1.6/core/relatedRaids.html>
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[serde(rename = "camelCase")]
+pub struct RelatedRaid {
+    /// Subsidiary or otherwise related RAiD
+    pub id: String,
+    /// Related RAiD type
+    #[serde(rename = "type")]
+    pub related_raid_type: RelatedRaidIdentifier,
+}
+/// Related RAiD identifier
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[serde(rename = "camelCase")]
+pub struct RelatedRaidIdentifier {
+    /// Related RAiD type identifier
+    pub id: RelatedRaidType,
+    /// URI of the related RAiD type identifier schema
+    #[validate(url)]
+    pub schema_uri: String,
+}
 /// Metadata schema block containing the RAiD name and associated properties
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier-registrationagency>
@@ -588,12 +702,12 @@ pub struct RelatedObjectIdentifier {
 pub struct RegistrationAgency {
     /// Persistent identifier of the RAiD Registration Agency that minted the RAiD
     ///
-    /// Default: ROR of the RAiD Registration Agency
+    /// *Default* ROR of the RAiD Registration Agency
     #[validate(custom(function = "is_ror"))]
     pub id: String,
     /// URI of the identifier scheme used to identify RAiDs
-    ///
-    /// Example: `https://raid.org/`
+    /// ### Example
+    /// > `https://raid.org/`
     #[validate(url)]
     pub schema_uri: String,
 }
@@ -632,18 +746,18 @@ pub struct Title {
     #[validate(nested)]
     pub language: Option<Language>,
     /// Date the project or activity's title began being used
-    ///
-    /// Format:  [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
+    /// ### Format
+    /// > [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
     pub start_date: String,
     /// Date the project or activity title was changed or stopped being used
+    /// ### Format
+    /// > [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
     ///
-    /// Note: Only the year is required, month and day are optional
+    /// <div class="warning">Only the year is required, month and day are optional</div>
     ///
-    /// Note 2: Listed as "recommended" (optional) and "required"
-    ///
-    /// Format:  [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
+    /// <div class="warning">Listed as "recommended" (optional) and "required"</div>
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
     pub end_date: String,
@@ -655,7 +769,7 @@ pub struct Title {
 pub struct TitleIdentifier {
     /// Title type
     ///
-    /// Note: Only one title should be identified as "Primary"
+    /// <div class="warning">Only one title should be identified as "Primary"</div>
     pub id: TitleType,
     /// URI of the title type schema
     #[validate(url)]
