@@ -97,7 +97,7 @@ pub enum DescriptionType {
     /// Other (i.e., any other descriptive information such as a note)
     Other,
 }
-/// Flag indicating that a value is affirmative (e.g. for `leader` or `contact`)
+/// Flag indicating that a value is affirmative (e.g., for `leader` or `contact`)
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 pub enum Flag {
     /// Affirmative flag
@@ -236,9 +236,8 @@ pub enum OrganizationRoleType {
     OtherOrganization,
 }
 /// Represents a contributor's administrative position on a project (such as their position on a grant application)
-///
-/// *Note*
-/// > Use [`Contributor`]'s [`Role`] to define scientific or scholarly contributions
+/// 
+/// <div class="warning">Use contributor role to define scientific or scholarly contributions</div>
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
 #[serde(rename = "kebab-case")]
 pub enum PositionType {
@@ -313,7 +312,7 @@ pub struct Access {
     pub access_type: AccessIdentifier,
     /// Date an embargo on access to the RAiD metadata ends
     /// ### Format
-    /// > [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
+    /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// <div class="warning">Mandatory if access type is "embargoed"</div>
     ///
@@ -428,13 +427,13 @@ pub struct ContributorPosition {
 pub struct Date {
     /// Associated data start date
     /// ### Format
-    /// > [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
+    /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
     pub start_date: String,
     /// Associated data end date
     /// ### Format
-    /// > [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
+    /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
     pub end_date: Option<String>,
@@ -747,13 +746,13 @@ pub struct Title {
     pub language: Option<Language>,
     /// Date the project or activity's title began being used
     /// ### Format
-    /// > [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
+    /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
     pub start_date: String,
     /// Date the project or activity title was changed or stopped being used
     /// ### Format
-    /// > [ISO 8601] standard date (e.g. `YYYY-MM-DD`)
+    /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// <div class="warning">Only the year is required, month and day are optional</div>
     ///

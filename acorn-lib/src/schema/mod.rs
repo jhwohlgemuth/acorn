@@ -217,14 +217,14 @@ pub enum TechnologyReadinessLevel {
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ContactPoint {
-    /// Job title (e.g. "Group Lead") of role that the contact fills related to the asscociated research activity.
+    /// Job title (e.g., "Group Lead") of role that the contact fills related to the asscociated research activity.
     /// ### Example
     /// > Ideal contact title for a project would be "Primary Investigator"
     ///
     /// ### Example
     /// > Ideal contact title for a group organization would be "Group Lead"
     ///
-    /// <div class="warning">When the nearest associated title is unclear, job role of the contact can be used (e.g. "Senior Scientist").</div>
+    /// <div class="warning">When the nearest associated title is unclear, job role of the contact can be used (e.g., "Senior Scientist").</div>
     ///
     /// See <https://schema.org/jobTitle> for more information
     #[builder(default = "Researcher".to_string())]
@@ -276,7 +276,7 @@ pub struct ContactPoint {
     /// See <https://schema.org/affiliation> for more information
     pub affiliation: Option<String>,
 }
-/// Image format media (e.g. PNG, JPEG, SVG, etc.)
+/// Image format media (e.g., PNG, JPEG, SVG, etc.)
 ///
 /// See <https://schema.org/ImageObject>
 #[skip_serializing_none]
@@ -377,7 +377,7 @@ pub struct Metadata {
     /// See [Keyword]
     #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<Keyword>,
-    /// Software, programmings languages, and digital resources (e.g. tools, libraries, frameworks, data) related to the associated research activity data
+    /// Software, programmings languages, and digital resources (e.g., tools, libraries, frameworks, data) related to the associated research activity data
     /// ### Examples
     /// - Rust
     /// - Polars
@@ -442,7 +442,7 @@ pub struct Organization {
     /// See <https://www.ror.org/> for more information
     #[serde(default, deserialize_with = "option_string_trim")]
     pub ror: Option<String>,
-    /// Organization alias (e.g. acronym or nickname)
+    /// Organization alias (e.g., acronym or nickname)
     ///
     /// See <https://schema.org/alternateName> for more information
     #[serde(default, deserialize_with = "option_string_trim")]
@@ -492,7 +492,7 @@ pub struct ResearchActivity {
     /// Other information related to the associated research activity not easily captured in structured areas of the schema
     pub notes: Option<Other>,
 }
-/// Video format media (e.g. MP4, AVI, MOV, GIF, etc.)
+/// Video format media (e.g., MP4, AVI, MOV, GIF, etc.)
 ///
 /// See <https://schema.org/VideoObject> for more information
 #[skip_serializing_none]
