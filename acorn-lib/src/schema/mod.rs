@@ -627,7 +627,11 @@ pub struct Sections {
     /// ### Example Focus
     /// > "Developing fissionable materials for nuclear reactions to develop the world's first atomic weapons"
     /// ### Example Areas
-    /// > "Topics related to and encapsulated within the project or organization"
+    /// - "Nuclear fission"
+    /// - "Radiochemistry"
+    /// - "Uranium enrichment"
+    /// - "Electromagnetic separation"
+    /// - "Weapon design"
     #[validate(nested)]
     #[builder(default = Research::init().build())]
     pub research: Research,
@@ -637,7 +641,7 @@ pub struct Sections {
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields)]
 pub struct Research {
-    /// Focus of the research
+    /// Brief overview of the project or organization's research
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_RESEARCH_FOCUS",
@@ -646,7 +650,7 @@ pub struct Research {
     #[builder(default = "Focus of the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub focus: String,
-    /// Areas of research
+    /// Topics related to and encapsulated within the project or organization
     #[validate(length(min = 1, max = "MAX_COUNT_RESEARCH_AREAS"), custom(function = "validate_attribute_areas"))]
     #[builder(default = vec!["Areas of research".to_string()])]
     #[serde(deserialize_with = "vec_string_trim")]
