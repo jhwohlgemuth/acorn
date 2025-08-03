@@ -565,7 +565,9 @@ pub struct Website {
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields)]
 pub struct Sections {
-    /// Purpose of the research
+    /// The reason for the research or research organization to exist
+    /// ### Example
+    /// > "Develop the first atomic bombs in the world to assist the Allied forces and bring an end to WWII"
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_MISSION",
@@ -574,7 +576,9 @@ pub struct Sections {
     #[builder(default = "Purpose of the research".to_string())]
     #[serde(alias = "introduction", deserialize_with = "string_trim")]
     pub mission: String,
-    /// Reason for the research
+    /// A problem or situation within a research field requiring scientific effort, resources, and/or innovation to overcome
+    /// ### Example
+    /// > "During WWII, there was a fear that Germany was researching and developing nuclear weapons, giving them a decisive advantage over Allied forces, including the United States, Great Britain, and Canada."
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_CHALLENGE",
@@ -583,7 +587,11 @@ pub struct Sections {
     #[builder(default = "Reason for the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub challenge: String,
-    /// List of actions taken to perform the research
+    /// The plan, resources and actions taken to perform the research in a given project or organization
+    /// ### Examples
+    /// - "Production across four different sites in the United States, each with a different focus, for security and safety purposes"
+    /// - "Research into new fields including nuclear fission, isotope separation methods, uranium enrichment, plutonium development, and weapons design"
+    /// - "Military coordination for project construction and security management as well as defense communications to national leaders"
     #[validate(
         length(min = 1, max = "MAX_COUNT_APPROACH", message = "Please limit the number of approaches to 6"),
         custom(function = "validate_attribute_approach")
@@ -591,18 +599,35 @@ pub struct Sections {
     #[builder(default = vec!["List of actions taken to perform the research".to_string()])]
     #[serde(deserialize_with = "vec_string_trim")]
     pub approach: Vec<String>,
-    /// List of tangible proof that validates the research approach
+    /// Tangible effects the research approach has on areas outside academia, such as industry, society, the surrounding environment, or culture
+    /// ### Examples
+    /// - "Development of the world's first atomic weapons"
+    /// - "Introduction of the nuclear age, including advancements in nuclear science, engineering and a new source of energy"
+    /// - "The end of WWII, along with many ethical and moral considerations related to use of atomic weapons"
     #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
     #[builder(default = vec!["List of tangible proof that validates the research approach".to_string()])]
     #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
-    /// Tangible results of research activity
+    /// Notable recognition or awards given to the research team, organization, or research products
+    /// ### Examples
+    /// - "At least six Nobel Prizes awarded to Manhattan Project researchers in the years following the end of the project"
+    /// - "Creation of the Atomic Energy Commission in 1946, later becoming the Department of Energy and Nuclear Regulatory Commission"
     #[validate(length(min = 1, max = 4, message = "Please limit the number of achievements to 4"))]
     pub achievement: Option<Vec<String>>,
     /// Expertise as applied to technology in a given mission space
+    /// ### Examples
+    /// - "Gaseous diffusion and electromagnetic separation to create fissionable materials"
+    /// - "Mechanisms for achieving supercritical mass for nuclear detonation"
+    /// - "Nuclear reactor development, which paved the way for nuclear power"
+    /// - "Radiochemistry for nuclear detonation analysis and advanced medical research with radioisotopes"
+    /// - "Large-scale multidisciplinary scientific collaboration"
     #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
     pub capabilities: Option<Vec<String>>,
     /// Overview of research focus and areas
+    /// ### Example Focus
+    /// > "Developing fissionable materials for nuclear reactions to develop the world's first atomic weapons"
+    /// ### Example Areas
+    /// > "Topics related to and encapsulated within the project or organization"
     #[validate(nested)]
     #[builder(default = Research::init().build())]
     pub research: Research,
