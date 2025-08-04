@@ -236,7 +236,7 @@ pub enum OrganizationRoleType {
     OtherOrganization,
 }
 /// Represents a contributor's administrative position on a project (such as their position on a grant application)
-/// 
+///
 /// <div class="warning">Use contributor role to define scientific or scholarly contributions</div>
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
 #[serde(rename = "kebab-case")]

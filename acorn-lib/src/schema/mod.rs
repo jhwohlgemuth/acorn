@@ -320,6 +320,8 @@ pub struct ImageObject {
 pub struct Metadata {
     /// Classification level of associated research activity data
     pub classification: Option<ClassificationLevel>,
+    /// <abbr title="Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
+    pub trl: Option<TechnologyReadinessLevel>,
     /// Describes the active status of the associated research activity data
     ///
     /// <div class="warning">Archived content typically will be omitted from public artifacts such as <a href="https://research.ornl.gov">the ORNL research activity index</a></div>
@@ -340,16 +342,14 @@ pub struct Metadata {
     #[builder(default = "some-research-project".to_string())]
     #[serde(alias = "id", rename = "identifier", deserialize_with = "string_trim")]
     pub identifier: String,
-    /// Additional type
-    ///
-    /// Type of associated research activity data when directly associated with an organization
-    pub additional_type: Option<OrganizationType>,
-    /// Digital Object Identifier
+    /// Digital Object Identifier(s) related to the associated research activity data
     ///
     /// See <https://www.doi.org/> for more information
-    #[validate(custom(function = "is_doi"))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub doi: Option<String>,
+    #[serde(default)]
+    pub doi: Option<Vec<String>>,
+    /// URL(s) of internet location where associated publication(s) can be found
+    #[serde(default)]
+    pub publications: Option<Vec<String>>,
     /// Research Activity Identifier
     ///
     /// See <https://www.raid.org/> for more information
@@ -362,18 +362,16 @@ pub struct Metadata {
     #[validate(custom(function = "is_ror"))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub ror: Option<String>,
-    /// URL of internet location where associated publication can be found
-    #[validate(url(message = "Please provide a valid URL"))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub publication: Option<String>,
-    /// <abbr title="Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
-    pub trl: Option<TechnologyReadinessLevel>,
-    /// Websites related to the associated research activity data
-    #[validate(nested)]
-    pub websites: Option<Vec<Website>>,
+    /// Additional type
+    ///
+    /// Type of associated research activity data when directly associated with an organization
+    pub additional_type: Option<OrganizationType>,
     /// Images, videos, and other media related to the associated research activity data
     #[serde(alias = "graphics")]
     pub media: Option<Vec<MediaObject>>,
+    /// Websites related to the associated research activity data
+    #[validate(nested)]
+    pub websites: Option<Vec<Website>>,
     /// See [Keyword]
     #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<Keyword>,

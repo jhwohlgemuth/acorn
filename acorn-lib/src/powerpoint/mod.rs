@@ -179,7 +179,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
             content = replace_placeholder_with_string(&content, "programs", &programs.join(" and "));
             content = replace_placeholder_with_string(&content, "managers", &managers.join(" and "));
             // TODO: Use CiteAs API to get in Chicago format
-            content = replace_placeholder_with_string(&content, "citation", &doi.unwrap());
+            content = replace_placeholder_with_string(&content, "citation", &doi.unwrap()[0]);
             content = replace_placeholder_with_string(&content, "caption", &caption);
             content = replace_placeholder_with_string(&content, "notes", &presentation_notes);
             content = replace_placeholder_with_bullets(&content, "achievement", achievement.unwrap_or_else(std::vec::Vec::new));
