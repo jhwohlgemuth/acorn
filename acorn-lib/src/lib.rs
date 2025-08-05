@@ -12,6 +12,7 @@ use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
+use serde_with::skip_serializing_none;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::{copy, Cursor};
@@ -125,6 +126,62 @@ pub struct Bucket {
     #[serde(alias = "repository")]
     pub code_repository: Repository,
 }
+/// Struct for [GitHub] tree entry
+///
+/// [GitHub]: https://docs.github.com/en/rest
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GithubTreeEntry {
+    /// Path of tree entry
+    ///
+    /// The path inside the repository. Used to get content of subdirectories.
+    pub path: String,
+    /// Mode of tree entry
+    pub mode: String,
+    /// Type of tree entry
+    #[serde(rename = "type")]
+    pub entry_type: EntryType,
+    /// SHA1 of entry
+    pub sha: String,
+    /// Size of associated data
+    /// ### Note
+    /// > Not included for "tree" type entries
+    pub size: Option<u64>,
+    /// URL of associated data API endpoint
+    ///
+    /// Basically, a combination of the API endpoint and the SHA
+    pub url: String,
+}
+/// Struct for [GitHub] tree API response
+///
+/// GitHub API endpoint for trees returns
+/// ```json
+/// {
+///   "sha": "...",
+///   "url": "<endpoint>/repos/<owner>/<repo>/git/trees/<sha>",
+///   "tree": [...],
+///   "truncated": false
+/// }
+/// ```
+/// where `"tree"` is a list of [GithubTreeEntry].
+///
+/// ### Example Endpoint
+/// > `https://api.github.com/repos/jhwohlgemuth/pwsh-prelude/git/trees/master?recursive=1`
+///
+/// See [documentation] for more information
+///
+/// [GitHub]: https://docs.github.com/en/rest
+/// [documentation]: https://docs.github.com/en/rest/git/trees?apiVersion=2022-11-28#get-a-tree
+pub struct GithubTreeResponse {
+    /// SHA1 of tree
+    pub sha: String,
+    /// URL of associated data API endpoint
+    pub url: String,
+    /// List of [GithubTreeEntry]
+    pub tree: Vec<GithubTreeEntry>,
+    /// Whether tree is truncated
+    pub truncated: bool,
+}
 /// Struct for GitLab tree entry
 ///
 /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
@@ -132,7 +189,7 @@ pub struct Bucket {
 pub struct GitlabTreeEntry {
     /// Integer ID of GitLab project
     ///
-    /// See <https://docs.gitlab.com/api/projects/#get-a-single-project>
+    /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
     pub id: String,
     /// Name of tree entry
     pub name: String,
@@ -152,8 +209,8 @@ pub struct Release {
     /// Name of release
     pub name: String,
     /// Tag name of release
-    ///
-    /// Example: `v1.0.0.`
+    /// ### Example
+    /// > `v1.0.0`
     pub tag_name: String,
     /// Prose description of release
     #[serde(alias = "body")]
@@ -180,20 +237,14 @@ impl Bucket {
     }
     /// Get hosting domain from bucket struct
     fn domain(&self) -> String {
-        fn default_domain(repository: Repository) -> String {
-            match repository {
-                | Repository::GitHub { .. } => "github.com".to_string(),
-                | Repository::GitLab { .. } => "gitlab.com".to_string(),
-            }
-        }
         match &self.code_repository {
             | Repository::GitHub { uri } => match URI::try_from(uri.as_str()) {
                 | Ok(uri) => uri.host().unwrap().to_string(),
-                | Err(_) => default_domain(self.code_repository.clone()),
+                | Err(_) => "github.com".to_string(),
             },
             | Repository::GitLab { uri, .. } => match URI::try_from(uri.as_str()) {
                 | Ok(uri) => uri.host().unwrap().to_string(),
-                | Err(_) => default_domain(self.code_repository.clone()),
+                | Err(_) => "gitlab.com".to_string(),
             },
         }
     }
@@ -202,20 +253,37 @@ impl Bucket {
         reqwest::blocking::get(url.unwrap_or_default())
     }
     fn tree_url(&self, directory: &str, page: u32) -> Option<String> {
-        if let Some(id) = &self.code_repository.id() {
-            let per_page = 100;
-            let url = format!(
-                "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path={}",
-                self.domain(),
-                id,
-                per_page,
-                page,
-                directory
-            );
-            debug!(url = url.as_str(), "=> {}", Label::using());
-            Some(url)
-        } else {
-            None
+        match &self.code_repository {
+            | Repository::GitHub { uri } => {
+                let parsed = match URI::try_from(uri.as_str()) {
+                    | Ok(value) => value,
+                    | Err(why) => {
+                        warn!(uri, "=> {} Parse GitHub URI - {why}", Label::fail());
+                        return None;
+                    }
+                };
+                let path = parsed.path();
+                let url = format!("https://{}/repos/{}/git/trees/master?recursive=1", self.domain(), path);
+                debug!(url = url.as_str(), "=> {}", Label::using());
+                Some(url)
+            }
+            | Repository::GitLab { .. } => {
+                if let Some(id) = &self.code_repository.id() {
+                    let per_page = 100;
+                    let url = format!(
+                        "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path={}",
+                        self.domain(),
+                        id,
+                        per_page,
+                        page,
+                        directory
+                    );
+                    debug!(url = url.as_str(), "=> {}", Label::using());
+                    Some(url)
+                } else {
+                    None
+                }
+            }
         }
     }
     /// Download files from bucket to local directory
@@ -300,23 +368,23 @@ impl Bucket {
     }
     fn file_paths(self: Bucket, directory: &str) -> Vec<String> {
         const FIRST_PAGE: u32 = 1;
+        fn page_count(response: &reqwest::blocking::Response) -> u32 {
+            fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
+                match headers.get(key) {
+                    | Some(val) if !val.is_empty() => {
+                        let value = val.to_str().unwrap().parse::<u32>().unwrap();
+                        debug!("=> {} {} = {}", Label::using(), key, value);
+                        value
+                    }
+                    | Some(_) | None => 0,
+                }
+            }
+            let headers = response.headers();
+            parse_header(headers, "x-total-pages")
+        }
         match self.code_repository {
             | Repository::GitHub { .. } => todo!(),
             | Repository::GitLab { .. } => {
-                fn page_count(response: &reqwest::blocking::Response) -> u32 {
-                    fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
-                        match headers.get(key) {
-                            | Some(val) if !val.is_empty() => {
-                                let value = val.to_str().unwrap().parse::<u32>().unwrap();
-                                debug!("=> {} {} = {}", Label::using(), key, value);
-                                value
-                            }
-                            | Some(_) | None => 0,
-                        }
-                    }
-                    let headers = response.headers();
-                    parse_header(headers, "x-total-pages")
-                }
                 match self.tree(directory, FIRST_PAGE) {
                     | Ok(response) if response.status().is_success() => (FIRST_PAGE..=page_count(&response))
                         .into_par_iter()

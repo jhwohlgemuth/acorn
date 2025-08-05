@@ -286,7 +286,7 @@ pub enum RelatedRaidType {
     /// > For resolving duplicate RAiDs
     Obsoletes,
     /// Is obsoleted by
-    /// >For resolving duplicate RAiDs
+    /// > For resolving duplicate RAiDs
     #[display("is-obsoleted-by")]
     IsObsoletedBy,
 }
