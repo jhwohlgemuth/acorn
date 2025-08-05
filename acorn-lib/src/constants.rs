@@ -116,6 +116,14 @@ lazy_static! {
     pub static ref RE_IMAGE_EXTENSION: Regex = Regex::new(r#".*[.](png|PNG|jpg|JPG|jpeg|JPEG|svg|SVG|gif|GIF|webp|WEBP|tiff|TIFF)$"#).unwrap();
     /// Regex that should match an IP6 address
     pub static ref RE_IP6: Regex = Regex::new(r#"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"#).unwrap();
+    /// Regex that should match an ISO 8601 date (e.g., `YYYY-MM-DD`)
+    /// ### Example
+    /// > `2025-06-04`
+    pub static ref RE_ISO_8601_DATE: Regex = Regex::new(r#"^(?<year>(19[5-9][0-9]|20[0-2][0-9]))-(?<month>(((0[13578]|(10|12)))-(?<day>(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30))))$"#).unwrap();
+    /// Regex that should match an ISO 8601 year from modern times, 1950 through 2029
+    /// ### Example
+    /// > `2025`
+    pub static ref RE_ISO_8601_YEAR: Regex = Regex::new(r#"^(?<year>(19[5-9][0-9]|20[0-2][0-9]))$"#).unwrap();
     /// Regex that should match a phone number (with optional country and area codes)
     pub static ref RE_PHONE: Regex = Regex::new(r#"^(?<country>\+\d{1,2}\s?)?(?<area>\(?\d{3}\)?)[\s.-]?(?<prefix>\d{3})[\s.-]?(?<line>\d{4})$"#).unwrap();
     /// Regex that should match a fake phone number (e.g. 555.555.5555)

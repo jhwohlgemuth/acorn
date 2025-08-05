@@ -323,6 +323,11 @@ fn test_validate_attribute_capabilities() {
     }
 }
 #[test]
+fn test_validate_attribute_doi() {
+    let valid = ["10.1000/182".to_string(), "10.97812345/99990".to_string()];
+    assert!(validate_attribute_doi(&valid).is_ok());
+}
+#[test]
 fn test_validate_attribute_impact() {
     let valid = ["x".repeat(10), "x".repeat(150)];
     let invalid = ["x".repeat(151), "x".repeat(500)];
@@ -394,6 +399,33 @@ fn test_validate_is_ip6() {
     }
 }
 #[test]
+fn test_is_iso8601() {
+    let valid = ["2000-01-01", "2025-06-04", "1950-12-28"];
+    let invalid = [
+        // "3000-01-01",
+        "1949-01-02",
+        "01-02-2023",
+        "1234",
+        "foo",
+        "42",
+        "2025/06/04",
+    ];
+    for x in valid.iter() {
+        assert!(is_iso8601_date(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid ISO 8601 date (YYYY-MM-DD)");
+    }
+    for x in invalid.iter() {
+        assert!(is_iso8601_date(x).is_err(), "=> [REASON] \"{x}\" IS valid ISO 8601 date (YYYY-MM-DD)");
+    }
+    let valid_years = ["2000", "2025", "1950"];
+    let invalid_years = ["3000", "1949"];
+    for x in valid_years.iter() {
+        assert!(is_iso8601_year(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid ISO 8601 year (YYYY)");
+    }
+    for x in invalid_years.iter() {
+        assert!(is_iso8601_year(x).is_err(), "=> [REASON] \"{x}\" IS valid ISO 8601 year (YYYY)");
+    }
+}
+#[test]
 fn test_validate_is_kebabcase() {
     let valid = ["this-is-valid", "thisisvalid"];
     let invalid = ["this_is_not_valid", "ThisIsNotValid", "this is not valid", "This-Is-Not-Valid"];
@@ -403,6 +435,24 @@ fn test_validate_is_kebabcase() {
     for x in invalid.iter() {
         assert!(is_kebabcase(x).is_err(), "=> [REASON] \"{x}\" IS valid kebab-case");
     }
+}
+#[test]
+fn test_validate_is_list_url() {
+    let valid = [
+        "http://www.example.com".to_string(),
+        "https://example.com".to_string(),
+        "https://example.com#foo".to_string(),
+        "https://example.com:1337#foo?bar".to_string(),
+        "http://example.com:1337#foo?bar=42".to_string(),
+    ];
+    let invalid = [
+        "http://www.example_com".to_string(),
+        "https://examp*le.com".to_string(),
+        "https://example.com#foo bar".to_string(),
+        "https//example.com:1337#foo?bar".to_string(),
+    ];
+    assert!(is_list_url(&valid).is_ok());
+    assert!(is_list_url(&invalid).is_err());
 }
 #[test]
 fn test_validate_is_phone_number() {

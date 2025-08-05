@@ -345,17 +345,19 @@ pub struct Metadata {
     /// Digital Object Identifier(s) related to the associated research activity data
     ///
     /// See <https://www.doi.org/> for more information
+    #[validate(custom(function = "validate_attribute_doi"))]
     #[serde(default)]
     pub doi: Option<Vec<String>>,
     /// URL(s) of internet location where associated publication(s) can be found
+    #[validate(custom(function = "is_list_url"))]
     #[serde(default)]
     pub publications: Option<Vec<String>>,
     /// Research Activity Identifier
     ///
     /// See <https://www.raid.org/> for more information
-    #[validate(custom(function = "is_raid"))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub raid: Option<String>,
+    #[validate(nested)]
+    #[serde(default)]
+    pub raid: Option<raid::Metadata>,
     /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information

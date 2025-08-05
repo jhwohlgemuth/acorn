@@ -24,6 +24,7 @@ maintenance = { status = "actively-developed" }
 aho-corasick = "1.1.3"
 bat = "0.25.0"
 bon = "3.3.2"
+chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
 comfy-table = "7.1.4"
 console = { version = "0.16.0", features = ["ansi-parsing"] }

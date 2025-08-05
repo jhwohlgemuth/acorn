@@ -3,7 +3,9 @@
 //!
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 use crate::constants::*;
+use chrono::prelude::*;
 use fancy_regex::Regex;
+use uriparse::URI;
 use validator::ValidationError;
 
 /// Format a phone number into a standard format
@@ -47,6 +49,11 @@ pub fn has_image_extension(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("image").with_message(MESSAGE.into())),
     }
 }
+fn is_current_year(value: String) -> bool {
+    let now: DateTime<Utc> = Utc::now();
+    let year = now.year().to_string().parse::<i32>().unwrap_or_default();
+    value.parse::<i32>().unwrap_or_default() <= year
+}
 /// Check if value is a valid DOI
 pub fn is_doi(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid DOI, by itself and without domain or 'doi:' prefix.";
@@ -63,6 +70,27 @@ pub fn is_ip6(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("IP6").with_message(MESSAGE.into())),
     }
 }
+/// Check if value is a valid ISO 8601 date (e.g., YYYY-MM-DD)
+/// ### Example
+/// > `2025-06-04`
+pub fn is_iso8601_date(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid ISO 8601 date (e.g., YYYY-MM-DD)";
+    // TODO: Make sure not in the future
+    match RE_ISO_8601_DATE.is_match(value) {
+        | Ok(value) if value => Ok(()),
+        | _ => Err(ValidationError::new("ISO 8601 Date").with_message(MESSAGE.into())),
+    }
+}
+/// Check if value is a valid ISO 8601 year (e.g., YYYY)
+/// ### Examples
+/// - `2025`
+pub fn is_iso8601_year(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid ISO 8601 year (e.g., YYYY)";
+    match RE_ISO_8601_YEAR.is_match(value) {
+        | Ok(x) if x && is_current_year(value.to_string()) => Ok(()),
+        | _ => Err(ValidationError::new("ISO 8601 Date").with_message(MESSAGE.into())),
+    }
+}
 /// Check if value is a valid kebab-case (e.g. 'this-is-kebab-case')
 pub fn is_kebabcase(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide an ID in kebab-case format";
@@ -73,6 +101,14 @@ pub fn is_kebabcase(value: &str) -> Result<(), ValidationError> {
     match kebab.to_lowercase().eq(&value) {
         | true => Ok(()),
         | _ => Err(ValidationError::new("kebabcase").with_message(MESSAGE.into())),
+    }
+}
+/// Custom validator function for validating list of URLs
+pub fn is_list_url(value: &[String]) -> Result<(), ValidationError> {
+    let is_valid = value.iter().all(|x| URI::try_from(x.as_str()).is_ok());
+    match is_valid {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new("URLs").with_message("Every URL should be valid".to_string().into())),
     }
 }
 /// Check if value is a valid phone number
@@ -133,6 +169,16 @@ pub fn validate_attribute_capabilities(value: &[String]) -> Result<(), Validatio
     match is_valid {
         | true => Ok(()),
         | _ => Err(ValidationError::new("capability").with_message(format!("Each capability should be less than {MAX_LENGTH} characters").into())),
+    }
+}
+/// Custom validator function for [`ResearchActivity`] [doi](/acorn_lib/schema/struct.Metadata.html#structfield.doi)
+///
+/// [`ResearchActivity`]: ../struct.ResearchActivity.html
+pub fn validate_attribute_doi(value: &[String]) -> Result<(), ValidationError> {
+    let is_valid = value.iter().all(|x| is_doi(x).is_ok());
+    match is_valid {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new("DOIs").with_message("Every DOI should be valid".to_string().into())),
     }
 }
 // TODO: Check that statments start with capital letter (use regex for period and captial?)

@@ -3,7 +3,7 @@
 //! See <https://metadata.raid.org/en/v1.6/index.html> for official documentation on schema.
 //!
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema --raid`
-use crate::schema::validate::{is_raid, is_ror};
+use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_raid, is_ror};
 use crate::{License, SemanticVersion};
 use bon::{builder, Builder};
 use derive_more::Display;
@@ -319,6 +319,7 @@ pub struct Access {
     /// <div class="warning">Embargo expiration dates may not lay more than 18 months from the date the RAiD was registered. Year, month, and day mush be specified.</div>
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
+    #[validate(custom(function = "is_iso8601_date"))]
     pub embargo_expiry: Option<String>,
     /// Access statement
     ///
@@ -430,12 +431,14 @@ pub struct Date {
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
+    #[validate(custom(function = "is_iso8601_date"))]
     pub start_date: String,
     /// Associated data end date
     /// ### Format
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
+    #[validate(custom(function = "is_iso8601_date"))]
     pub end_date: Option<String>,
 }
 /// Metadata schema block containing the description of the RAiD and associated properties
@@ -580,7 +583,7 @@ pub struct Organization {
     /// URI of the organization identifier schema
     ///
     /// Only allowed value: `https://ror.org/`
-    #[validate(url)]
+    #[validate(url, contains(pattern = "https://ror.org"))]
     pub schema_uri: String,
     /// Organization role
     #[validate(nested)]
@@ -749,6 +752,7 @@ pub struct Title {
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
+    #[validate(custom(function = "is_iso8601_date"))]
     pub start_date: String,
     /// Date the project or activity title was changed or stopped being used
     /// ### Format
@@ -759,6 +763,8 @@ pub struct Title {
     /// <div class="warning">Listed as "recommended" (optional) and "required"</div>
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
+    // TODO: Add support for month and day(?)
+    #[validate(custom(function = "is_iso8601_year"))]
     pub end_date: String,
 }
 /// Metadata schema block containing information about the title type
