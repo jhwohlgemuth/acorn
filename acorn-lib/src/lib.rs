@@ -18,7 +18,7 @@ use std::fs::File;
 use std::io::{copy, Cursor};
 use std::path::PathBuf;
 use std::vec;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, trace, warn};
 use uriparse::URI;
 use urlencoding::encode;
 
@@ -290,82 +290,90 @@ impl Bucket {
     ///
     /// Ignores files listed in [`IGNORE`]
     pub fn download_files(self: Bucket, output: PathBuf) -> usize {
-        match self.code_repository {
-            | Repository::GitHub { ref uri, .. } => todo!("Add support for GitHub repositories like {uri}"),
-            | Repository::GitLab { ref uri, .. } => {
-                info!("=> Downloading research data from {}...", uri.clone());
-                let paths = self
-                    .clone()
-                    .file_paths("")
-                    .into_iter()
-                    .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
-                    .collect::<Vec<String>>();
-                let progress = ProgressBar::new(paths.len() as u64);
-                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                let client = Client::new();
-                paths.par_iter().for_each(|path| {
-                    let url = format!("{uri}/-/raw/main/{path}");
-                    progress.set_message(format!("Downloading {path}"));
-                    let folder = format!("{}/{}", output.display(), parent(path.clone()));
-                    std::fs::create_dir_all(folder.clone()).unwrap();
-                    if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
-                        match client.get(url).send() {
-                            | Ok(response) => match response.bytes() {
-                                | Ok(bytes) => {
-                                    let mut content = Cursor::new(bytes);
-                                    let _ = copy(&mut content, &mut file);
-                                }
-                                | Err(why) => {
-                                    error!(path, "=> {} Failed to convert to bytes - {why}", Label::fail());
-                                }
-                            },
-                            | Err(why) => {
-                                error!(path, "=> {} Failed to download - {why}", Label::fail());
-                            }
-                        }
-                    };
-                    progress.inc(1);
-                });
-                let total_data: usize = paths.clone().into_iter().filter(|path| path.to_lowercase().ends_with(".json")).count();
-                let total_images: usize = paths
-                    .into_iter()
-                    .filter(|path| path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg"))
-                    .count();
-                let total = total_data + total_images;
-                let message = if total_data != total_images {
-                    let recommendation = if total_data > total_images {
-                        "Do you need to add some images?"
-                    } else {
-                        "Do you need to add some JSON files?"
-                    };
-                    format!(
-                        " ({} data file{}, {} image{} - {})",
-                        total_data.yellow(),
-                        suffix(total_data),
-                        total_images.yellow(),
-                        suffix(total_images),
-                        recommendation.italic(),
-                    )
-                } else {
-                    "".to_string()
-                };
-                progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
-                progress.finish_with_message(format!(
-                    "  {}Downloaded {} {} file{}{}",
-                    if total > 0 { Label::CHECKMARK } else { Label::CAUTION },
-                    if total > 0 {
-                        total.green().to_string()
-                    } else {
-                        total.yellow().to_string()
-                    },
-                    self.clone().name.to_uppercase(),
-                    suffix(total),
-                    message,
-                ));
-                total
-            }
+        fn count_json_files(paths: Vec<String>) -> usize {
+            paths.clone().into_iter().filter(|path| path.to_lowercase().ends_with(".json")).count()
         }
+        fn count_image_files(paths: Vec<String>) -> usize {
+            paths.into_iter().filter(has_image_extension).count()
+        }
+        fn download_complete_message(name: String, json_count: usize, image_count: usize) -> String {
+            let total = json_count + image_count;
+            let message = if json_count != image_count {
+                let recommendation = if json_count > image_count {
+                    "Do you need to add some images?"
+                } else {
+                    "Do you need to add some JSON files?"
+                };
+                format!(
+                    " ({} data file{}, {} image{} - {})",
+                    json_count.yellow(),
+                    suffix(json_count),
+                    image_count.yellow(),
+                    suffix(image_count),
+                    recommendation.italic(),
+                )
+            } else {
+                "".to_string()
+            };
+            format!(
+                "  {}Downloaded {} {} file{}{}",
+                if total > 0 { Label::CHECKMARK } else { Label::CAUTION },
+                if total > 0 {
+                    total.green().to_string()
+                } else {
+                    total.yellow().to_string()
+                },
+                name.to_uppercase(),
+                suffix(total),
+                message,
+            )
+        }
+        fn has_image_extension(path: &String) -> bool {
+            path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg")
+        }
+        let paths = self
+            .clone()
+            .file_paths("")
+            .into_iter()
+            .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
+            .collect::<Vec<String>>();
+        let total_data: usize = count_json_files(paths.clone());
+        let total_images: usize = count_image_files(paths.clone());
+        let message = download_complete_message(self.name, total_data, total_images);
+        let progress = ProgressBar::new(paths.len() as u64);
+        let client = Client::new();
+        paths.par_iter().for_each(|path| {
+            let url = match &self.code_repository {
+                | Repository::GitHub { uri, .. } => format!("{uri}/refs/heads/main/{path}"),
+                | Repository::GitLab { uri, .. } => format!("{uri}/-/raw/main/{path}"),
+            };
+            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+            progress.set_message(format!("Downloading {path}"));
+            let folder = format!("{}/{}", output.display(), parent(path.clone()));
+            std::fs::create_dir_all(folder.clone()).unwrap();
+            if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
+                match client.get(url).send() {
+                    | Ok(response) => match response.bytes() {
+                        | Ok(bytes) => {
+                            let mut content = Cursor::new(bytes);
+                            let _ = copy(&mut content, &mut file);
+                        }
+                        | Err(why) => {
+                            error!(path, "=> {} Failed to convert to bytes - {why}", Label::fail());
+                        }
+                    },
+                    | Err(why) => {
+                        error!(path, "=> {} Failed to download - {why}", Label::fail());
+                    }
+                }
+            };
+            progress.inc(1);
+        });
+        progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
+        progress.finish_with_message(message);
+        total_data + total_images
     }
+    // TODO: Verify pagination works the same for GitHub
     fn file_paths(self: Bucket, directory: &str) -> Vec<String> {
         const FIRST_PAGE: u32 = 1;
         fn page_count(response: &reqwest::blocking::Response) -> u32 {
@@ -382,25 +390,20 @@ impl Bucket {
             let headers = response.headers();
             parse_header(headers, "x-total-pages")
         }
-        match self.code_repository {
-            | Repository::GitHub { .. } => todo!(),
-            | Repository::GitLab { .. } => {
-                match self.tree(directory, FIRST_PAGE) {
-                    | Ok(response) if response.status().is_success() => (FIRST_PAGE..=page_count(&response))
-                        .into_par_iter()
-                        .map(|page| self.clone().file_paths_for_page(directory, page))
-                        .reduce(std::vec::Vec::new, |a, b| [a, b].concat()),
-                    | Ok(_) | Err(_) => {
-                        let url = self.tree_url(directory, FIRST_PAGE);
-                        debug!(url, "=> {}", Label::using());
-                        error!(
-                            "=> {} Failed to get file paths for {} bucket",
-                            Label::fail(),
-                            self.name.to_uppercase().red(),
-                        );
-                        vec![]
-                    }
-                }
+        match self.tree(directory, FIRST_PAGE) {
+            | Ok(response) if response.status().is_success() => (FIRST_PAGE..=page_count(&response))
+                .into_par_iter()
+                .map(|page| self.clone().file_paths_for_page(directory, page))
+                .reduce(std::vec::Vec::new, |a, b| [a, b].concat()),
+            | Ok(_) | Err(_) => {
+                let url = self.tree_url(directory, FIRST_PAGE);
+                debug!(url, "=> {}", Label::using());
+                error!(
+                    "=> {} Failed to get file paths for {} bucket",
+                    Label::fail(),
+                    self.name.to_uppercase().red(),
+                );
+                vec![]
             }
         }
     }
@@ -467,7 +470,7 @@ impl Repository {
     }
     fn id(&self) -> Option<String> {
         match self {
-            | Repository::GitHub { .. } => todo!(),
+            | Repository::GitHub { .. } => None,
             | Repository::GitLab { id, uri } => match URI::try_from(uri.as_str()) {
                 | Ok(value) => {
                     let mut path = value.path().to_string();
