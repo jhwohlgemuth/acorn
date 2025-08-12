@@ -1,27 +1,11 @@
 {
     "buckets": [
         {
-            "name": "nssd",
-            "repository": {
-                "provider": "gitlab",
-                "id": 17410,
-                "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
-            }
-        },
-        {
             "name": "ccsd",
             "repository": {
                 "provider": "gitlab",
                 "id": 17410,
                 "uri": "https://code.ornl.gov/research-enablement/buckets/ccsd"
-            }
-        },
-        {
-            "name": "bessd",
-            "repository": {
-                "provider": "gitlab",
-                "id": 17410,
-                "uri": "https://code.ornl.gov/research-enablement/buckets/bessd"
             }
         },
         {

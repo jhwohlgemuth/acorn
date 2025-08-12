@@ -250,7 +250,8 @@ impl Bucket {
     }
     fn tree(&self, directory: &str, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
         let url = self.tree_url(directory, page);
-        reqwest::blocking::get(url.unwrap_or_default())
+        let client = Client::new();
+        client.get(url.unwrap_or_default()).header(USER_AGENT, "rust-web-api-client").send()
     }
     fn tree_url(&self, directory: &str, page: u32) -> Option<String> {
         match &self.code_repository {
@@ -263,7 +264,7 @@ impl Bucket {
                     }
                 };
                 let path = parsed.path();
-                let url = format!("https://{}/repos/{}/git/trees/master?recursive=1", self.domain(), path);
+                let url = format!("https://api.{}/repos{}/git/trees/main?recursive=1", self.domain(), path);
                 debug!(url = url.as_str(), "=> {}", Label::using());
                 Some(url)
             }
@@ -352,7 +353,7 @@ impl Bucket {
             let folder = format!("{}/{}", output.display(), parent(path.clone()));
             std::fs::create_dir_all(folder.clone()).unwrap();
             if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
-                match client.get(url).send() {
+                match client.get(url).header(USER_AGENT, "rust-web-api-client").send() {
                     | Ok(response) => match response.bytes() {
                         | Ok(bytes) => {
                             let mut content = Cursor::new(bytes);
@@ -391,15 +392,19 @@ impl Bucket {
             parse_header(headers, "x-total-pages")
         }
         match self.tree(directory, FIRST_PAGE) {
-            | Ok(response) if response.status().is_success() => (FIRST_PAGE..=page_count(&response))
-                .into_par_iter()
-                .map(|page| self.clone().file_paths_for_page(directory, page))
-                .reduce(std::vec::Vec::new, |a, b| [a, b].concat()),
+            | Ok(response) if response.status().is_success() => {
+                let paths = (FIRST_PAGE..=page_count(&response))
+                    .into_par_iter()
+                    .map(|page| self.clone().file_paths_for_page(directory, page))
+                    .reduce(std::vec::Vec::new, |a, b| [a, b].concat());
+                println!("{:#?}", response);
+                paths
+            },
             | Ok(_) | Err(_) => {
                 let url = self.tree_url(directory, FIRST_PAGE);
                 debug!(url, "=> {}", Label::using());
                 error!(
-                    "=> {} Failed to get file paths for {} bucket",
+                    "=> {} Get file paths for {} bucket",
                     Label::fail(),
                     self.name.to_uppercase().red(),
                 );
