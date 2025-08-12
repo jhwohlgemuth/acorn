@@ -397,17 +397,13 @@ impl Bucket {
                     .into_par_iter()
                     .map(|page| self.clone().file_paths_for_page(directory, page))
                     .reduce(std::vec::Vec::new, |a, b| [a, b].concat());
-                println!("{:#?}", response);
+                trace!("{:#?}", response);
                 paths
-            },
+            }
             | Ok(_) | Err(_) => {
                 let url = self.tree_url(directory, FIRST_PAGE);
                 debug!(url, "=> {}", Label::using());
-                error!(
-                    "=> {} Get file paths for {} bucket",
-                    Label::fail(),
-                    self.name.to_uppercase().red(),
-                );
+                error!("=> {} Get file paths for {} bucket", Label::fail(), self.name.to_uppercase().red(),);
                 vec![]
             }
         }

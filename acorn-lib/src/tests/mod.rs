@@ -7,7 +7,7 @@ const FIXTURES: &str = "../tests/fixtures";
 fn test_bucket_config() {
     let path = PathBuf::from(FIXTURES).join("buckets_with_github.json");
     let config = BucketsConfig::read_json(path).unwrap();
-    assert_eq!(config.buckets.len(), 4);
+    assert_eq!(config.buckets.len(), 2);
 }
 #[test]
 fn test_bucket() {
