@@ -172,6 +172,7 @@ pub struct GithubTreeEntry {
 ///
 /// [GitHub]: https://docs.github.com/en/rest
 /// [documentation]: https://docs.github.com/en/rest/git/trees?apiVersion=2022-11-28#get-a-tree
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GithubTreeResponse {
     /// SHA1 of tree
     pub sha: String,
@@ -222,15 +223,30 @@ pub struct Release {
     pub released_at: String,
 }
 impl Bucket {
+    /// Parse GitHub tree entries
+    fn parse_github_response(response: reqwest::blocking::Response) -> Vec<String> {
+        let content = response.text().unwrap();
+        let data: Result<GithubTreeResponse> = serde_json::from_str(&content);
+        match data {
+            | Ok(GithubTreeResponse { tree, .. }) => {
+                debug!("=> {} {} Tree entries", Label::found(), tree.len());
+                tree.into_iter().filter(GithubTreeEntry::is_blob).map(GithubTreeEntry::path).collect()
+            }
+            | Err(why) => {
+                error!("=> {} Process tree entries - {why}", Label::fail());
+                vec![]
+            }
+        }
+    }
     /// Parse GitLab tree entries
-    fn parse(response: reqwest::blocking::Response) -> Vec<String> {
+    fn parse_gitlab_response(response: reqwest::blocking::Response) -> Vec<String> {
         let content = response.text().unwrap();
         let data: Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
-        debug!("=> {} {} GitLab tree entries", Label::found(), data.as_ref().unwrap().len());
+        debug!("=> {} {} Tree entries", Label::found(), data.as_ref().unwrap().len());
         match data {
             | Ok(entries) => entries.into_iter().filter(GitlabTreeEntry::is_blob).map(GitlabTreeEntry::path).collect(),
-            | Err(_) => {
-                error!("=> {} Failed to process GitLab tree entries", Label::fail());
+            | Err(why) => {
+                error!("=> {} Process tree entries - {why}", Label::fail());
                 vec![]
             }
         }
@@ -248,12 +264,12 @@ impl Bucket {
             },
         }
     }
-    fn tree(&self, directory: &str, page: u32) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
+    fn tree(&self, directory: &str, page: Option<u32>) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
         let url = self.tree_url(directory, page);
         let client = Client::new();
         client.get(url.unwrap_or_default()).header(USER_AGENT, "rust-web-api-client").send()
     }
-    fn tree_url(&self, directory: &str, page: u32) -> Option<String> {
+    fn tree_url(&self, directory: &str, page: Option<u32>) -> Option<String> {
         match &self.code_repository {
             | Repository::GitHub { uri } => {
                 let parsed = match URI::try_from(uri.as_str()) {
@@ -276,7 +292,7 @@ impl Bucket {
                         self.domain(),
                         id,
                         per_page,
-                        page,
+                        page.unwrap_or_default(),
                         directory
                     );
                     debug!(url = url.as_str(), "=> {}", Label::using());
@@ -344,27 +360,25 @@ impl Bucket {
         let progress = ProgressBar::new(paths.len() as u64);
         let client = Client::new();
         paths.par_iter().for_each(|path| {
-            let url = match &self.code_repository {
-                | Repository::GitHub { uri, .. } => format!("{uri}/refs/heads/main/{path}"),
-                | Repository::GitLab { uri, .. } => format!("{uri}/-/raw/main/{path}"),
-            };
             progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
             progress.set_message(format!("Downloading {path}"));
             let folder = format!("{}/{}", output.display(), parent(path.clone()));
             std::fs::create_dir_all(folder.clone()).unwrap();
             if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
-                match client.get(url).header(USER_AGENT, "rust-web-api-client").send() {
-                    | Ok(response) => match response.bytes() {
-                        | Ok(bytes) => {
-                            let mut content = Cursor::new(bytes);
-                            let _ = copy(&mut content, &mut file);
-                        }
+                if let Some(url) = self.code_repository.raw_url(path.to_string()) {
+                    match client.get(url).header(USER_AGENT, "rust-web-api-client").send() {
+                        | Ok(response) => match response.bytes() {
+                            | Ok(bytes) => {
+                                let mut content = Cursor::new(bytes);
+                                let _ = copy(&mut content, &mut file);
+                            }
+                            | Err(why) => {
+                                error!(path, "=> {} Convert to bytes - {why}", Label::fail());
+                            }
+                        },
                         | Err(why) => {
-                            error!(path, "=> {} Failed to convert to bytes - {why}", Label::fail());
+                            error!(path, "=> {} Download file - {why}", Label::fail());
                         }
-                    },
-                    | Err(why) => {
-                        error!(path, "=> {} Failed to download - {why}", Label::fail());
                     }
                 }
             };
@@ -374,9 +388,8 @@ impl Bucket {
         progress.finish_with_message(message);
         total_data + total_images
     }
-    // TODO: Verify pagination works the same for GitHub
     fn file_paths(self: Bucket, directory: &str) -> Vec<String> {
-        const FIRST_PAGE: u32 = 1;
+        const FIRST_PAGE: Option<u32> = Some(1);
         fn page_count(response: &reqwest::blocking::Response) -> u32 {
             fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
                 match headers.get(key) {
@@ -391,29 +404,40 @@ impl Bucket {
             let headers = response.headers();
             parse_header(headers, "x-total-pages")
         }
-        match self.tree(directory, FIRST_PAGE) {
-            | Ok(response) if response.status().is_success() => {
-                let paths = (FIRST_PAGE..=page_count(&response))
-                    .into_par_iter()
-                    .map(|page| self.clone().file_paths_for_page(directory, page))
-                    .reduce(std::vec::Vec::new, |a, b| [a, b].concat());
-                trace!("{:#?}", response);
-                paths
-            }
-            | Ok(_) | Err(_) => {
-                let url = self.tree_url(directory, FIRST_PAGE);
-                debug!(url, "=> {}", Label::using());
-                error!("=> {} Get file paths for {} bucket", Label::fail(), self.name.to_uppercase().red(),);
-                vec![]
-            }
+        match self.code_repository {
+            | Repository::GitHub { .. } => match self.tree(directory, None) {
+                | Ok(response) if response.status().is_success() => Bucket::parse_github_response(response),
+                | Ok(_) | Err(_) => {
+                    let url = self.tree_url(directory, None);
+                    debug!(url, "=> {}", Label::using());
+                    error!("=> {} Get file paths for {} bucket", Label::fail(), self.name.to_uppercase().red());
+                    vec![]
+                }
+            },
+            | Repository::GitLab { .. } => match self.tree(directory, FIRST_PAGE) {
+                | Ok(response) if response.status().is_success() => {
+                    let paths = (FIRST_PAGE.unwrap_or_default()..=page_count(&response))
+                        .into_par_iter()
+                        .map(|page| self.clone().file_paths_for_page(directory, Some(page)))
+                        .reduce(std::vec::Vec::new, |a, b| [a, b].concat());
+                    trace!("{:#?}", response);
+                    paths
+                }
+                | Ok(_) | Err(_) => {
+                    let url = self.tree_url(directory, FIRST_PAGE);
+                    debug!(url, "=> {}", Label::using());
+                    error!("=> {} Get file paths for {} bucket", Label::fail(), self.name.to_uppercase().red());
+                    vec![]
+                }
+            },
         }
     }
-    fn file_paths_for_page(self: Bucket, directory: &str, page: u32) -> Vec<String> {
+    fn file_paths_for_page(self: Bucket, directory: &str, page: Option<u32>) -> Vec<String> {
         match self.tree(directory, page) {
             | Ok(response) if response.status().is_success() => match self.tree(directory, page) {
-                | Ok(response) if response.status().is_success() => Bucket::parse(response),
+                | Ok(response) if response.status().is_success() => Bucket::parse_gitlab_response(response),
                 | Ok(_) | Err(_) => {
-                    let url = self.tree_url(directory, 1);
+                    let url = self.tree_url(directory, Some(1));
                     error!(url, page, "=> {} Failed to get paths", Label::fail());
                     vec![]
                 }
@@ -447,6 +471,14 @@ impl BucketsConfig {
         };
         trace!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
         data
+    }
+}
+impl GithubTreeEntry {
+    fn path(self) -> String {
+        self.path
+    }
+    fn is_blob(&self) -> bool {
+        self.entry_type.eq(&EntryType::Blob)
     }
 }
 impl GitlabTreeEntry {
@@ -535,6 +567,19 @@ impl Repository {
             }
         } else {
             vec![]
+        }
+    }
+    /// Get URL for raw data of a file at a given path
+    fn raw_url(&self, path: String) -> Option<String> {
+        match self {
+            | Repository::GitHub { uri, .. } => match URI::try_from(uri.clone().as_str()) {
+                | Ok(ref value) => Some(format!("https://raw.githubusercontent.com{}/refs/heads/main/{path}", value.path())),
+                | Err(why) => {
+                    error!(uri, "=> {} Parse GitHub URI - {why}", Label::fail());
+                    None
+                }
+            },
+            | Repository::GitLab { uri, .. } => Some(format!("{uri}/-/raw/main/{path}")),
         }
     }
 }
