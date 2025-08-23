@@ -4,10 +4,16 @@ use std::path::PathBuf;
 const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
-fn test_bucket_config() {
+fn test_bucket_config_json() {
     let path = PathBuf::from(FIXTURES).join("buckets_with_github.json");
     let config = BucketsConfig::read_json(path).unwrap();
     assert_eq!(config.buckets.len(), 2);
+}
+#[test]
+fn test_bucket_config_yaml() {
+    let path = PathBuf::from(FIXTURES).join("buckets.yaml");
+    let config = BucketsConfig::read_yaml(path).unwrap();
+    assert_eq!(config.buckets.len(), 3);
 }
 #[test]
 fn test_bucket() {

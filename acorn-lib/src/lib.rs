@@ -451,8 +451,28 @@ impl Bucket {
     }
 }
 impl BucketsConfig {
-    /// Read buckets configuration using Serde and [`BucketsConfig`] struct
-    pub fn read_json(path: PathBuf) -> Result<BucketsConfig> {
+    /// Read and parse buckets configuration file (.JSON or .YAML)
+    pub fn read(path: PathBuf) -> Option<BucketsConfig> {
+        let content = match Extension::from_string(extension(&path)) {
+            | Extension::Json => match BucketsConfig::read_json(path.clone()) {
+                | Ok(value) => Some(value),
+                | Err(_) => None,
+            },
+            | Extension::Yaml => match BucketsConfig::read_yaml(path.clone()) {
+                | Ok(value) => Some(value),
+                | Err(_) => None,
+            },
+            | Extension::Unknown => unimplemented!("Unknown configuration file extension"),
+        };
+        if let Some(content) = content {
+            Some(content)
+        } else {
+            error!(path = path.to_str().unwrap(), "=> {} Import configuration", Label::fail());
+            std::process::exit(exitcode::UNAVAILABLE);
+        }
+    }
+    /// Read buckets configuration (e.g., `buckets.json`) using Serde and [`BucketsConfig`] struct
+    fn read_json(path: PathBuf) -> Result<BucketsConfig> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
@@ -470,6 +490,27 @@ impl BucketsConfig {
             | Err(_) => Label::invalid(),
         };
         trace!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
+        data
+    }
+    /// Read buckets configuration (e.g., `buckets.yaml`) using Serde and [`BucketsConfig`] struct
+    fn read_yaml(path: PathBuf) -> serde_yml::Result<BucketsConfig> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) => value,
+            | Err(_) => {
+                error!(
+                    path = path.to_str().unwrap(),
+                    "=> {} Bucket configuration content is not valid",
+                    Label::fail()
+                );
+                "".to_owned()
+            }
+        };
+        let data: serde_yml::Result<BucketsConfig> = serde_yml::from_str(&content);
+        let label = match data {
+            | Ok(_) => Label::output(),
+            | Err(_) => Label::fail(),
+        };
+        debug!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
         data
     }
 }

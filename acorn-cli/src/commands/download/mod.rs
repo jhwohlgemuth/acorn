@@ -12,8 +12,8 @@ pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) 
         unimplemented!("Offline mode is not implemented yet");
     }
     if let Some(path) = buckets {
-        match BucketsConfig::read_json(path.clone()) {
-            | Ok(content) => {
+        match BucketsConfig::read(path.clone()) {
+            | Some(content) => {
                 let mut total: usize = 0;
                 content.buckets.into_iter().for_each(|bucket| {
                     if let Some(path) = output {
@@ -22,8 +22,9 @@ pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) 
                 });
                 println!("\n\n   => {} Downloaded {} item{}\n", Label::pass(), total.green(), suffix(total));
             }
-            | Err(err) => {
-                error!("=> {} Failed to download data - {}", Label::fail(), err);
+            | None => {
+                error!("=> {} Download data", Label::fail());
+                std::process::exit(exitcode::DATAERR);
             }
         };
     }

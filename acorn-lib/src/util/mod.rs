@@ -36,6 +36,15 @@ use which::which;
 #[cfg(feature = "cli")]
 pub mod cli;
 
+/// Configuration file extensions
+pub enum Extension {
+    /// Javascript Object Notation (JSON)
+    Json,
+    /// YAM Ain't Markup Language (YAML)
+    Yaml,
+    /// Unknown files extension
+    Unknown,
+}
 /// SPDX compliant license identifier
 ///
 /// See <https://spdx.org/licenses/>
@@ -144,6 +153,16 @@ pub struct SemanticVersion {
     /// Version when you make backward compatible bug fixes
     #[builder(default = 0)]
     pub patch: u32,
+}
+impl Extension {
+    /// Parse a string into a `Extension` value
+    pub fn from_string(value: String) -> Extension {
+        match value.as_str() {
+            | "json" => Extension::Json,
+            | "yaml" => Extension::Yaml,
+            | _ => Extension::Unknown,
+        }
+    }
 }
 impl Label {
     /// Emoji for use when logging a warning, caution, etc.
@@ -843,7 +862,7 @@ where
             file.read_to_string(&mut content)
         }
         | Err(why) => {
-            error!(path = path_to_string(path.into()), "=> {} Cannot read file", Label::fail());
+            error!(path = path_to_string(path.into()), "=> {} Read file", Label::fail());
             Err(why)
         }
     };

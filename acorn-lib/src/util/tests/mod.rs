@@ -129,6 +129,17 @@ fn test_parent() {
     assert_eq!(parent(&path), "../tests");
 }
 #[test]
+fn test_read() {
+    let path = PathBuf::from(FIXTURES).join("test.txt");
+    let content = read_file(path);
+    assert!(content.is_ok());
+    assert_eq!(content.unwrap(), "Hello world!");
+    let path = PathBuf::from(FIXTURES).join("does-not-exist");
+    let content = read_file(path);
+    assert!(content.is_ok());
+    assert_eq!(content.unwrap(), "");
+}
+#[test]
 fn test_suffix() {
     assert_eq!(suffix(0), "s");
     assert_eq!(suffix(1), "");

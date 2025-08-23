@@ -1,0 +1,15 @@
+buckets:
+  - name: bessd
+    repository:
+      provider: gitlab
+      id: 17603
+      uri: https://code.ornl.gov/research-enablement/buckets/bessd
+  - name: ccsd
+    repository:
+      provider: gitlab
+      id: 17602
+      uri: https://code.ornl.gov/research-enablement/buckets/ccsd
+  - name: nssd
+    repository:
+      provider: gitlab
+      uri: https://code.ornl.gov/research-enablement/buckets/nssd
