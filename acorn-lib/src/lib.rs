@@ -451,7 +451,7 @@ impl Bucket {
     }
 }
 impl BucketsConfig {
-    /// Read and parse buckets configuration file (.JSON or .YAML)
+    /// Read and parse buckets configuration file (JSON or YAML)
     pub fn read(path: PathBuf) -> Option<BucketsConfig> {
         let content = match Extension::from_string(extension(&path)) {
             | Extension::Json => match BucketsConfig::read_json(path.clone()) {

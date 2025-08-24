@@ -19,9 +19,9 @@ pub async fn create_pdf(page: &Page, options: Options) {
         | None => unimplemented!(),
     };
     let data = match ResearchActivity::read(path.clone()) {
-        | Ok(value) => value.format(Some(path.clone())),
-        | Err(err) => {
-            error!(path = path_to_string(path), "=> {} {err}", Label::fail());
+        | Some(value) => value.format(Some(path.clone())),
+        | None => {
+            error!(path = path_to_string(path), "=> {} Read data for PDF export", Label::fail());
             std::process::exit(exitcode::UNAVAILABLE);
         }
     };
@@ -65,9 +65,9 @@ fn create_powerpoint(options: Options) {
         | None => unimplemented!(),
     };
     let data = match ResearchActivity::read(input_path.clone()) {
-        | Ok(value) => value.format(Some(input_path.clone())),
-        | Err(err) => {
-            error!(path = path_to_string(input_path), "=> {} {err}", Label::fail());
+        | Some(value) => value.format(Some(input_path.clone())),
+        | None => {
+            error!(path = path_to_string(input_path), "=> {} Read data for PowerPoint export", Label::fail());
             std::process::exit(exitcode::UNAVAILABLE);
         }
     };

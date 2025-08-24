@@ -1,6 +1,6 @@
 {
   "meta": {
-    "id": "invalid-project",
+    "id": "invalid-project-a",
     "archive": false,
     "draft": false,
     "websites": [
@@ -33,7 +33,7 @@
       "rs"
     ]
   },
-  "title": "Invalid Project",
+  "title": "Invalid Project A",
   "subtitle": "Subtitle for this project",
   "sections": {
     "mission": "ACORN standardizes and automates the research content creation process to better communicate projects, capabilities, technology and, therefore, the people at ORNL.",

@@ -33,7 +33,8 @@ pub fn run(
         .build();
     let paths = paths_from_options(path, &Some(options));
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
-        | Ok(data) => {
+        | Some(data) => {
+            // TODO: Add support for YAML
             let old_content = serde_json::to_string_pretty(&data.clone()).unwrap();
             let new_content = serde_json::to_string_pretty(&data.clone().format(Some(path.clone()))).unwrap();
             if dry_run {
@@ -62,8 +63,8 @@ pub fn run(
                 }
             }
         }
-        | Err(err) => {
-            error!("=> {} Read research activity data at - {}", Label::fail(), err);
+        | None => {
+            error!("=> {} Read research activity data", Label::fail());
             std::process::exit(exitcode::DATAERR);
         }
     });

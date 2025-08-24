@@ -34,6 +34,7 @@ rayon = { workspace = true }
 rust-embed = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yml = { workspace = true }
 tracing = { workspace = true }
 tracing-indicatif.workspace = true
 tracing-log = { workspace = true }

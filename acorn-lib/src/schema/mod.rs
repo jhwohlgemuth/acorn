@@ -874,11 +874,11 @@ impl ResearchActivity {
         match vale.clone().sync() {
             | Ok(_) => {
                 let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
-                    | Ok(data) => vale
+                    | Some(data) => vale
                         .clone()
                         .analyze(data.clone().meta.identifier, data.extract_prose(), Some("JSON".into())),
-                    | Err(err) => {
-                        error!("=> {} Read research activity data at - {}", Label::fail(), err);
+                    | None => {
+                        error!("=> {} Read research activity data", Label::fail());
                         1
                     }
                 });
@@ -896,7 +896,7 @@ impl ResearchActivity {
         paths
             .par_iter()
             .map(|path| match ResearchActivity::read(path.into()) {
-                | Ok(data) => match data.clone().errors() {
+                | Some(data) => match data.clone().errors() {
                     | Ok(_) => {
                         info!("=> {} {} has {}", Label::pass(), path.display(), "no schema errors".green().bold());
                         0
@@ -914,8 +914,8 @@ impl ResearchActivity {
                         count
                     }
                 },
-                | Err(err) => {
-                    error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), err);
+                | None => {
+                    error!("=> {} Read research activity data at {}", Label::fail(), path.display());
                     0
                 }
             })
@@ -1068,31 +1068,68 @@ impl ResearchActivity {
         };
         clone
     }
-    /// Read research activity data
-    pub fn read(path: PathBuf) -> serde_json::Result<ResearchActivity> {
+    /// Read and parse research activity data (JSON or YAML)
+    pub fn read(path: PathBuf) -> Option<ResearchActivity> {
+        let content = match Extension::from_string(extension(&path)) {
+            | Extension::Json => match ResearchActivity::read_json(path.clone()) {
+                | Ok(value) => Some(value),
+                | Err(_) => None,
+            },
+            | Extension::Yaml => match ResearchActivity::read_yaml(path.clone()) {
+                | Ok(value) => Some(value),
+                | Err(_) => None,
+            },
+            | Extension::Unknown => unimplemented!("Unknown file extension"),
+        };
+        let label = match content {
+            | Some(_) => Label::using(),
+            | _ => Label::invalid(),
+        };
+        match content {
+            | Some(data) => {
+                debug!(path = path.to_str().unwrap(), "=> {}", label);
+                trace!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
+                Some(data)
+            }
+            | None => {
+                error!(path = path.to_str().unwrap(), "=> {}", label);
+                None
+            }
+        }
+    }
+    /// Read research activity data using Serde and [`ResearchActivity`] struct
+    fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} Project content is not valid", Label::fail());
+                error!(path = path.to_str().unwrap(), "=> {} RAD content is not valid", Label::fail());
                 "{}".to_owned()
             }
         };
-        let parsed: serde_json::Result<ResearchActivity> = serde_json::from_str(&content);
-        let label = match parsed {
+        let data: serde_json::Result<ResearchActivity> = serde_json::from_str(&content);
+        let label = match data {
             | Ok(_) => Label::using(),
             | Err(_) => Label::invalid(),
         };
-        match parsed {
-            | Ok(data) => {
-                debug!(path = path.to_str().unwrap(), "=> {}", label);
-                trace!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
-                Ok(data)
+        trace!("=> {} RAD content = {:#?}", label, data.dimmed());
+        data
+    }
+    /// Read research activity data (e.g., `buckets.yaml`) using Serde and [`ResearchActivity`] struct
+    fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) => value,
+            | Err(_) => {
+                error!(path = path.to_str().unwrap(), "=> {} RAD content is not valid", Label::fail());
+                "".to_owned()
             }
-            | Err(err) => {
-                error!(path = path.to_str().unwrap(), "=> {}", label);
-                Err(err)
-            }
-        }
+        };
+        let data: serde_yml::Result<ResearchActivity> = serde_yml::from_str(&content);
+        let label = match data {
+            | Ok(_) => Label::output(),
+            | Err(_) => Label::fail(),
+        };
+        debug!("=> {} RAD content = {:#?}", label, data.dimmed());
+        data
     }
     /// Resolve values to intended values according to controlled vocabularies and conventions
     fn resolve(self, value_type: FuzzyValue) -> Vec<String> {
