@@ -16,6 +16,7 @@ use duct::cmd;
 use fancy_regex::Regex;
 use glob::glob;
 use is_executable::IsExecutable;
+use itertools::Itertools;
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
 use ring::digest::{Context, SHA256};
@@ -543,7 +544,10 @@ pub fn files_all(path: PathBuf, extension: Option<&str>, ignore: Option<String>)
                 | Ok(re) => match paths {
                     | Ok(values) => paths_to_vec(values)
                         .into_iter()
-                        .filter(|path| !re.is_match(&path_to_string(path.to_path_buf())).unwrap())
+                        .map(path_to_string)
+                        .filter(|x| !re.is_match(x).unwrap())
+                        .unique()
+                        .map(PathBuf::from)
                         .collect(),
                     | Err(why) => {
                         error!("=> {} Get all files - {why}", Label::fail());

@@ -75,6 +75,7 @@ serde_yml = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 uriparse = { workspace = true }
+itertools = "0.14.0"
 
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
