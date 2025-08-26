@@ -31,16 +31,16 @@ fn test_extension() {
 }
 #[test]
 fn test_files_all() {
-    let extension = Some("json");
-    let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, None);
+    let extensions = Some(vec!["json"]);
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions.clone(), None);
     assert_eq!(files.len(), 3);
-    let files = files_all(PathBuf::from(FIXTURES).join("glob"), Some("jpg"), None);
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), Some(vec!["jpg"]), None);
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
     if cfg!(target_os = "linux") {
-        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/]a.json$".to_string()));
+        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions.clone(), Some("[/]a.json$".to_string()));
         assert_eq!(files.len(), 2);
-        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extension, Some("[/](a|b).json$".to_string()));
+        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions, Some("[/](a|b).json$".to_string()));
         assert_eq!(files.len(), 1);
         let files = files_all(PathBuf::from(FIXTURES).join("glob/a.txt"), None, None);
         assert_eq!(files.len(), 1);
@@ -86,6 +86,8 @@ fn test_mimetype() {
     assert_eq!(mime, MimeType::Json);
     let mime = MimeType::from_path(PathBuf::from("file.yaml"));
     assert_eq!(mime, MimeType::Yaml);
+    assert_eq!(MimeType::Json.file_type(), "json");
+    assert_eq!(MimeType::Yaml.file_type(), "yaml");
 }
 #[test]
 fn test_semantic_version() {

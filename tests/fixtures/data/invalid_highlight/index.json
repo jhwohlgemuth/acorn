@@ -1,7 +1,9 @@
 {
     "meta": {
         "id": "invalid-highlight",
-        "doi": "Not a valid DOI",
+        "doi": [
+            "Not a valid DOI"
+        ],
         "archive": false,
         "draft": false,
         "websites": [

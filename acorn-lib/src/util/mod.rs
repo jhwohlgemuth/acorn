@@ -293,6 +293,21 @@ impl Constant {
     }
 }
 impl MimeType {
+    /// Returns the file type as a string
+    pub fn file_type(self) -> String {
+        match self {
+            | MimeType::Csv => "csv",
+            | MimeType::Jpeg => "jpeg",
+            | MimeType::Json => "json",
+            | MimeType::LdJson => "jsonld",
+            | MimeType::Otf => "otf",
+            | MimeType::Png => "png",
+            | MimeType::Svg => "svg",
+            | MimeType::Text => "txt",
+            | MimeType::Yaml => "yaml",
+        }
+        .to_string()
+    }
     /// Returns a `MimeType` value based on the file extension of the given file name.
     ///
     /// Uses [`MimeType::from_string`].
@@ -520,52 +535,63 @@ pub fn extension(path: &Path) -> String {
 /// # Returns
 ///
 /// A `Vec` containing `PathBuf` values of all files in the given directory that match the given extension and do not match the ignore pattern.
-pub fn files_all(path: PathBuf, extension: Option<&str>, ignore: Option<String>) -> Vec<PathBuf> {
+pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>, ignore: Option<String>) -> Vec<PathBuf> {
     fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
     }
+    fn pattern(path: PathBuf, extension: &str) -> String {
+        let ext = &extension.to_lowercase();
+        let result = format!("{}/**/*.{}", path_to_string(path), ext);
+        debug!("=> {} {result}", Label::using());
+        result
+    }
     if path.is_dir() {
-        let pattern = match extension {
-            | Some(value) => {
-                let ext = &value.to_lowercase();
-                format!("{}/**/*.{}", path_to_string(path), ext)
+        // let pattern = match extension {
+        //     | Some(value) => {
+        //         let ext = &value.to_lowercase();
+        //         format!("{}/**/*.{}", path_to_string(path), ext)
+        //     }
+        //     | None => {
+        //         format!("{}/**/*", path_to_string(path))
+        //     }
+        // };
+        let paths = match extensions {
+            | Some(values) => {
+                values
+                    .into_iter()
+                    .map(|extension| {
+                        let glob_pattern = pattern(path.clone(), extension);
+                        glob(&glob_pattern)
+                    })
+                    .filter(|x| x.is_ok())
+                    .flat_map(|x| paths_to_vec(x.unwrap()))
+                    .unique()
+                    .collect::<Vec<PathBuf>>()
+                // glob(&pattern)
             }
             | None => {
-                format!("{}/**/*", path_to_string(path))
+                // let pattern = glob(&format!("{}/**/*", path_to_string(path)));
+                // pattern
+                todo!()
             }
         };
-        debug!(pattern, "=> {}", Label::using());
-        let paths = glob(&pattern);
         match ignore {
             | Some(ignore_pattern) => match Regex::new(&ignore_pattern) {
-                | Ok(re) => match paths {
-                    | Ok(values) => paths_to_vec(values)
-                        .into_iter()
-                        .map(path_to_string)
-                        .filter(|x| !re.is_match(x).unwrap())
-                        .unique()
-                        .map(PathBuf::from)
-                        .collect(),
-                    | Err(why) => {
-                        error!("=> {} Get all files - {why}", Label::fail());
-                        vec![]
-                    }
-                },
+                | Ok(re) => paths
+                    .into_iter()
+                    .map(path_to_string)
+                    .filter(|x| !re.is_match(x).unwrap())
+                    .map(PathBuf::from)
+                    .collect(),
                 | Err(why) => {
                     error!("=> {} Get all files (Regex) - {why}", Label::fail());
                     vec![]
                 }
             },
-            | None => match paths {
-                | Ok(values) => paths_to_vec(values),
-                | Err(why) => {
-                    error!("=> {} Get all files - {why}", Label::fail());
-                    vec![]
-                }
-            },
+            | None => paths,
         }
     } else {
-        if extension.is_some() {
+        if extensions.is_some() {
             warn!(
                 path = path_to_string(path.clone()),
                 "=> {} Extension passed with single file to files_all() - please make sure this is desired",

@@ -182,7 +182,7 @@ impl TargetLabel {
 /// If none of the above options are set, the files in the given path are returned.
 /// If the options include an ignore regex, it is applied to the files returned.
 pub fn paths_from_options(path: &Option<PathBuf>, options: &Option<Options>) -> Vec<PathBuf> {
-    let extension = Some("json");
+    // TODO: Add support for multiple extensions for git functions
     match options {
         | Some(Options {
             branch,
@@ -191,6 +191,7 @@ pub fn paths_from_options(path: &Option<PathBuf>, options: &Option<Options>) -> 
             merge_request,
             ..
         }) => {
+            let extension = Some("json");
             if *merge_request {
                 match git_branch_name() {
                     | Some(name) => files_from_git_branch(&name, extension),
@@ -206,7 +207,7 @@ pub fn paths_from_options(path: &Option<PathBuf>, options: &Option<Options>) -> 
                                 | Some(x) => x.clone(),
                                 | None => PathBuf::from("."),
                             };
-                            files_all(value, extension, ignore.clone())
+                            files_all(value, Some(vec!["json", "yaml"]), ignore.clone())
                         }
                     },
                 }
@@ -217,7 +218,7 @@ pub fn paths_from_options(path: &Option<PathBuf>, options: &Option<Options>) -> 
                 | Some(x) => x.clone(),
                 | None => PathBuf::from("."),
             };
-            files_all(value, extension, None)
+            files_all(value, Some(vec!["json", "yaml"]), None)
         }
     }
 }
