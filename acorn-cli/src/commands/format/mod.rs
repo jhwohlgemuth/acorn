@@ -1,6 +1,6 @@
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::cli::{paths_from_options, Options};
-use acorn_lib::util::{path_to_string, print_changes, Label};
+use acorn_lib::util::{extension, path_to_string, print_changes, Extension, Label};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
@@ -34,9 +34,16 @@ pub fn run(
     let paths = paths_from_options(path, &Some(options));
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
         | Some(data) => {
-            // TODO: Add support for YAML
-            let old_content = serde_json::to_string_pretty(&data.clone()).unwrap();
-            let new_content = serde_json::to_string_pretty(&data.clone().format(Some(path.clone()))).unwrap();
+            let old_content = match Extension::from_string(extension(path)) {
+                | Extension::Json => serde_json::to_string_pretty(&data).unwrap(),
+                | Extension::Yaml => serde_yml::to_string(&data).unwrap(),
+                | Extension::Unknown => unimplemented!("Unknown file extension"),
+            };
+            let new_content = match Extension::from_string(extension(path)) {
+                | Extension::Json => serde_json::to_string_pretty(&data.format(Some(path.clone()))).unwrap(),
+                | Extension::Yaml => serde_yml::to_string(&data.format(Some(path.clone()))).unwrap(),
+                | Extension::Unknown => unimplemented!("Unknown file extension"),
+            };
             if dry_run {
                 println!("{} Format {}", Label::dry_run(), path_to_string(path.clone()).yellow());
             }
