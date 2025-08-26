@@ -453,7 +453,7 @@ impl Bucket {
 impl BucketsConfig {
     /// Read and parse buckets configuration file (JSON or YAML)
     pub fn read(path: PathBuf) -> Option<BucketsConfig> {
-        let content = match MimeType::from_path(path_to_string(path.clone())) {
+        let content = match MimeType::from_path(path.clone()) {
             | MimeType::Json => match BucketsConfig::read_json(path.clone()) {
                 | Ok(value) => Some(value),
                 | Err(_) => None,

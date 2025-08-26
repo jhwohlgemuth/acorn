@@ -37,7 +37,7 @@ impl DataUri {
         format!("data:{};base64,{}", mime, BASE64.encode(data))
     }
     fn from_asset(value: &str) -> String {
-        let mime = MimeType::from_path(value);
+        let mime = MimeType::from_string(value);
         match mime {
             | MimeType::Otf => {
                 let binding = Font::get(value).unwrap();

@@ -34,16 +34,16 @@ pub fn run(
     let paths = paths_from_options(path, &Some(options));
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
         | Some(data) => {
-            let mime = MimeType::from_path(path_to_string(path.clone()));
+            let mime = MimeType::from_path(path);
             let old_content = match mime {
                 | MimeType::Json => serde_json::to_string_pretty(&data).unwrap(),
                 | MimeType::Yaml => serde_yml::to_string(&data).unwrap(),
-                | _ => unimplemented!("Unsupported file extension"),
+                | _ => unimplemented!("Unsupported file type"),
             };
             let new_content = match mime {
                 | MimeType::Json => serde_json::to_string_pretty(&data.format(Some(path.clone()))).unwrap(),
                 | MimeType::Yaml => serde_yml::to_string(&data.format(Some(path.clone()))).unwrap(),
-                | _ => unimplemented!("Unsupported file extension"),
+                | _ => unimplemented!("Unsupported file type"),
             };
             if dry_run {
                 println!("{} Format {}", Label::dry_run(), path_to_string(path.clone()).yellow());

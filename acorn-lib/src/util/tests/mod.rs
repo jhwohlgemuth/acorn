@@ -78,10 +78,14 @@ fn test_image_paths() {
 fn test_is_ip6() {}
 #[test]
 fn test_mimetype() {
-    let mime = MimeType::from_path("a.txt");
+    let mime = MimeType::from_string("a.txt");
     assert_eq!(mime, MimeType::Text);
-    let mime = MimeType::from_path("font.otf".to_string());
+    let mime = MimeType::from_string("font.otf".to_string());
     assert_eq!(mime, MimeType::Otf);
+    let mime = MimeType::from_path(Path::new("a.json"));
+    assert_eq!(mime, MimeType::Json);
+    let mime = MimeType::from_path(PathBuf::from("file.yaml"));
+    assert_eq!(mime, MimeType::Yaml);
 }
 #[test]
 fn test_semantic_version() {

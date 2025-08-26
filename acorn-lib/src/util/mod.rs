@@ -295,6 +295,15 @@ impl Constant {
 impl MimeType {
     /// Returns a `MimeType` value based on the file extension of the given file name.
     ///
+    /// Uses [`MimeType::from_string`].
+    pub fn from_path<P>(value: P) -> MimeType
+    where
+        P: Into<PathBuf>,
+    {
+        MimeType::from_string(path_to_string(value.into()))
+    }
+    /// Returns a `MimeType` value based on the file extension of the given file name.
+    ///
     /// # Supported MIME types
     ///
     /// * `csv` - `text/csv`
@@ -311,7 +320,7 @@ impl MimeType {
     /// # Panics
     ///
     /// Panics if the file extension is not supported.
-    pub fn from_path<S>(value: S) -> MimeType
+    pub fn from_string<S>(value: S) -> MimeType
     where
         S: Into<String>,
     {
@@ -320,13 +329,13 @@ impl MimeType {
             | "csv" => MimeType::Csv,
             | "jpg" | "jpeg" => MimeType::Jpeg,
             | "json" => MimeType::Json,
-            | "jsonld" => MimeType::LdJson,
+            | "jsonld" | "json-ld" => MimeType::LdJson,
             | "otf" => MimeType::Otf,
             | "png" => MimeType::Png,
             | "svg" => MimeType::Svg,
             | "txt" => MimeType::Text,
-            | "yaml" => MimeType::Yaml,
-            | _ => unimplemented!("Unsupported MIME type"),
+            | "yml" | "yaml" => MimeType::Yaml,
+            | _ => unimplemented!("Unknown MIME type"),
         }
     }
 }
