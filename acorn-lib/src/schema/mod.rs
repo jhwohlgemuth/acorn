@@ -1070,16 +1070,16 @@ impl ResearchActivity {
     }
     /// Read and parse research activity data (JSON or YAML)
     pub fn read(path: PathBuf) -> Option<ResearchActivity> {
-        let content = match Extension::from_string(extension(&path)) {
-            | Extension::Json => match ResearchActivity::read_json(path.clone()) {
+        let content = match MimeType::from_path(path_to_string(path.clone())) {
+            | MimeType::Json => match ResearchActivity::read_json(path.clone()) {
                 | Ok(value) => Some(value),
                 | Err(_) => None,
             },
-            | Extension::Yaml => match ResearchActivity::read_yaml(path.clone()) {
+            | MimeType::Yaml => match ResearchActivity::read_yaml(path.clone()) {
                 | Ok(value) => Some(value),
                 | Err(_) => None,
             },
-            | Extension::Unknown => unimplemented!("Unknown file extension"),
+            | _ => unimplemented!("Unsupported research activity data file extension"),
         };
         let label = match content {
             | Some(_) => Label::using(),

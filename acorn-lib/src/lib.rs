@@ -453,16 +453,16 @@ impl Bucket {
 impl BucketsConfig {
     /// Read and parse buckets configuration file (JSON or YAML)
     pub fn read(path: PathBuf) -> Option<BucketsConfig> {
-        let content = match Extension::from_string(extension(&path)) {
-            | Extension::Json => match BucketsConfig::read_json(path.clone()) {
+        let content = match MimeType::from_path(path_to_string(path.clone())) {
+            | MimeType::Json => match BucketsConfig::read_json(path.clone()) {
                 | Ok(value) => Some(value),
                 | Err(_) => None,
             },
-            | Extension::Yaml => match BucketsConfig::read_yaml(path.clone()) {
+            | MimeType::Yaml => match BucketsConfig::read_yaml(path.clone()) {
                 | Ok(value) => Some(value),
                 | Err(_) => None,
             },
-            | Extension::Unknown => unimplemented!("Unknown configuration file extension"),
+            | _ => unimplemented!("Unsupported configuration file extension"),
         };
         if let Some(content) = content {
             Some(content)

@@ -37,15 +37,6 @@ use which::which;
 #[cfg(feature = "cli")]
 pub mod cli;
 
-/// Configuration file extensions
-pub enum Extension {
-    /// Javascript Object Notation (JSON)
-    Json,
-    /// YAM Ain't Markup Language (YAML)
-    Yaml,
-    /// Unknown files extension
-    Unknown,
-}
 /// SPDX compliant license identifier
 ///
 /// See <https://spdx.org/licenses/>
@@ -95,6 +86,11 @@ pub enum MimeType {
     /// Just plain old text
     #[display("text/plain")]
     Text,
+    /// YAML Ain't Markup Language (YAML)
+    ///
+    /// See <https://yaml.org/>
+    #[display("application/yaml")]
+    Yaml,
 }
 /// Programming languages
 ///
@@ -154,16 +150,6 @@ pub struct SemanticVersion {
     /// Version when you make backward compatible bug fixes
     #[builder(default = 0)]
     pub patch: u32,
-}
-impl Extension {
-    /// Parse a string into a `Extension` value
-    pub fn from_string(value: String) -> Extension {
-        match value.as_str() {
-            | "json" => Extension::Json,
-            | "yaml" => Extension::Yaml,
-            | _ => Extension::Unknown,
-        }
-    }
 }
 impl Label {
     /// Emoji for use when logging a warning, caution, etc.
@@ -320,15 +306,16 @@ impl MimeType {
     /// * `png` - `image/png`
     /// * `svg` - `image/svg+xml`
     /// * `txt` - `text/plain`
+    /// * `yaml` - `application/yaml`
     ///
     /// # Panics
     ///
     /// Panics if the file extension is not supported.
-    pub fn from_path<S>(file_name: S) -> MimeType
+    pub fn from_path<S>(value: S) -> MimeType
     where
         S: Into<String>,
     {
-        let name = &file_name.into().to_lowercase();
+        let name = &value.into().to_lowercase();
         match extension(Path::new(name)).as_str() {
             | "csv" => MimeType::Csv,
             | "jpg" | "jpeg" => MimeType::Jpeg,
@@ -338,6 +325,7 @@ impl MimeType {
             | "png" => MimeType::Png,
             | "svg" => MimeType::Svg,
             | "txt" => MimeType::Text,
+            | "yaml" => MimeType::Yaml,
             | _ => unimplemented!("Unsupported MIME type"),
         }
     }
