@@ -49,9 +49,9 @@ fn test_files_all() {
 }
 #[test]
 fn test_files_from_git() {
-    let files = files_from_git_branch("main", Some("not-a-file-extension"));
+    let files = files_from_git_branch("main", Some(vec!["json"]));
     assert!(files.is_empty());
-    let files = files_from_git_commit("HEAD", Some("not-a-file-extension"));
+    let files = files_from_git_commit("HEAD", Some(vec!["yaml"]));
     assert!(files.is_empty());
 }
 #[test]
@@ -74,8 +74,6 @@ fn test_image_paths() {
     let files = image_paths(path);
     assert_eq!(files.len(), 0);
 }
-#[test]
-fn test_is_ip6() {}
 #[test]
 fn test_mimetype() {
     let mime = MimeType::from_string("a.txt");

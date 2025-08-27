@@ -91,6 +91,9 @@ pub enum MimeType {
     /// See <https://yaml.org/>
     #[display("application/yaml")]
     Yaml,
+    /// Unknown MIME type
+    #[display("application/unknown")]
+    Unknown,
 }
 /// Programming languages
 ///
@@ -305,6 +308,7 @@ impl MimeType {
             | MimeType::Svg => "svg",
             | MimeType::Text => "txt",
             | MimeType::Yaml => "yaml",
+            | _ => "unknown-file-type",
         }
         .to_string()
     }
@@ -331,10 +335,6 @@ impl MimeType {
     /// * `svg` - `image/svg+xml`
     /// * `txt` - `text/plain`
     /// * `yaml` - `application/yaml`
-    ///
-    /// # Panics
-    ///
-    /// Panics if the file extension is not supported.
     pub fn from_string<S>(value: S) -> MimeType
     where
         S: Into<String>,
@@ -350,7 +350,7 @@ impl MimeType {
             | "svg" => MimeType::Svg,
             | "txt" => MimeType::Text,
             | "yml" | "yaml" => MimeType::Yaml,
-            | _ => unimplemented!("Unknown MIME type"),
+            | _ => MimeType::Unknown,
         }
     }
 }
@@ -546,34 +546,24 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>, ignore: Option<St
         result
     }
     if path.is_dir() {
-        // let pattern = match extension {
-        //     | Some(value) => {
-        //         let ext = &value.to_lowercase();
-        //         format!("{}/**/*.{}", path_to_string(path), ext)
-        //     }
-        //     | None => {
-        //         format!("{}/**/*", path_to_string(path))
-        //     }
-        // };
         let paths = match extensions {
-            | Some(values) => {
-                values
-                    .into_iter()
-                    .map(|extension| {
-                        let glob_pattern = pattern(path.clone(), extension);
-                        glob(&glob_pattern)
-                    })
-                    .filter(|x| x.is_ok())
-                    .flat_map(|x| paths_to_vec(x.unwrap()))
-                    .unique()
-                    .collect::<Vec<PathBuf>>()
-                // glob(&pattern)
-            }
-            | None => {
-                // let pattern = glob(&format!("{}/**/*", path_to_string(path)));
-                // pattern
-                todo!()
-            }
+            | Some(values) => values
+                .into_iter()
+                .map(|extension| {
+                    let glob_pattern = pattern(path.clone(), extension);
+                    glob(&glob_pattern)
+                })
+                .filter(|x| x.is_ok())
+                .flat_map(|x| paths_to_vec(x.unwrap()))
+                .unique()
+                .collect::<Vec<PathBuf>>(),
+            | None => match glob(&format!("{}/**/*", path_to_string(path))) {
+                | Ok(paths) => paths_to_vec(paths),
+                | Err(why) => {
+                    error!("=> {} Get all files (Glob) - {why}", Label::fail());
+                    vec![]
+                }
+            },
         };
         match ignore {
             | Some(ignore_pattern) => match Regex::new(&ignore_pattern) {
@@ -607,7 +597,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>, ignore: Option<St
 ///
 /// * `value` - A string slice representing the name of the Git branch to check.
 /// * `extension` - An `Option` containing a string slice representing the file extension to filter results by.
-pub fn files_from_git_branch(value: &str, extension: Option<&str>) -> Vec<PathBuf> {
+pub fn files_from_git_branch(value: &str, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     if command_exists("git".to_owned()) {
         let default_branch = match git_default_branch_name() {
             | Some(value) => value,
@@ -615,7 +605,7 @@ pub fn files_from_git_branch(value: &str, extension: Option<&str>) -> Vec<PathBu
         };
         let args = vec!["diff", "--name-only", &default_branch, "--merge-base", value];
         let result = cmd("git", args).read();
-        filter_git_command_result(result, extension)
+        filter_git_command_result(result, extensions)
     } else {
         vec![]
     }
@@ -626,23 +616,27 @@ pub fn files_from_git_branch(value: &str, extension: Option<&str>) -> Vec<PathBu
 ///
 /// * `value` - A string slice representing the Git commit hash to check.
 /// * `extension` - An `Option` containing a string slice representing the file extension to filter results by.
-pub fn files_from_git_commit(value: &str, extension: Option<&str>) -> Vec<PathBuf> {
+pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     if command_exists("git".to_owned()) {
         let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
         let result = cmd("git", args).read();
-        filter_git_command_result(result, extension)
+        filter_git_command_result(result, extensions)
     } else {
         vec![]
     }
 }
-fn filter_git_command_result(result: Result<String, std::io::Error>, file_extension: Option<&str>) -> Vec<PathBuf> {
+// TODO: Add support for multiple extensions
+fn filter_git_command_result(result: Result<String, std::io::Error>, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     match result {
-        | Ok(value) => match file_extension {
-            | Some(ext) => value
+        | Ok(value) => match extensions {
+            | Some(values) => value
                 .to_lowercase()
                 .split("\n")
                 .map(PathBuf::from)
-                .filter(|x| extension(Path::new(x)) == ext)
+                .filter(|path| {
+                    println!("{values:#?}");
+                    values.iter().any(|ext| MimeType::from_path(path).to_string() == *ext)
+                })
                 .collect::<Vec<_>>(),
             | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
         },
