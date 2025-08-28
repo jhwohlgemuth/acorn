@@ -722,7 +722,7 @@ pub fn image_paths<P>(root: P) -> Vec<PathBuf>
 where
     P: Into<PathBuf> + Clone,
 {
-    let extensions = ["jpg", "jpeg", "png", "svg"];
+    let extensions = ["jpg", "jpeg", "png", "svg", "gif"];
     let mut files = extensions
         .iter()
         .flat_map(|ext| glob(&format!("{}/**/*.{}", root.clone().into().display(), ext)))
@@ -781,12 +781,25 @@ where
     // TODO: Add windows support...pass through?
     path.into().is_executable()
 }
-/// Returns the parent directory of the given path.
-pub fn parent<P>(path: P) -> String
+/// Returns the absolute path of the parent directory for the given path.
+pub fn parent<P>(path: P) -> PathBuf
 where
     P: Into<PathBuf>,
 {
-    PathBuf::from(path.into().parent().unwrap()).display().to_string()
+    let default = PathBuf::from(".");
+    match path.into().canonicalize() {
+        | Ok(value) => match value.parent() {
+            | Some(value) => value.to_path_buf(),
+            | None => {
+                warn!("=> {} Resolve parent path", Label::fail());
+                default
+            }
+        },
+        | Err(why) => {
+            warn!("=> {} Resolve absolute path - {why}", Label::fail());
+            default
+        }
+    }
 }
 /// Converts a `PathBuf` into a `String` representation of the absolute path.
 ///

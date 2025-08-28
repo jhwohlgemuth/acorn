@@ -994,14 +994,15 @@ impl ResearchActivity {
     /// - Formats telephone number
     pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
         let mut clone = self.clone().copy();
-        let parent = match path {
-            | Some(value) => value.parent().unwrap().to_path_buf(),
+        let path_parent = match path {
+            | Some(value) => parent(value),
             | None => PathBuf::from("."),
         };
-        let name = match image_paths(parent.clone()) {
+        let name = match image_paths(&path_parent) {
             | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
             | _ => None,
         };
+        debug!(path = path_to_string(path_parent), "=> {} Parent directory", Label::using());
         if let Some(value) = name {
             debug!(value, "=> {} First image", Label::using());
             // Make sure first graphic is well formed with a resolved image URL and caption

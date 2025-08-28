@@ -125,12 +125,9 @@ fn test_semantic_version() {
 }
 #[test]
 fn test_parent() {
-    let path = "../tests/fixtures";
-    assert_eq!(parent(path), "../tests");
-    let path = "../tests/fixtures".to_string();
-    assert_eq!(parent(path), "../tests");
-    let path = PathBuf::from(FIXTURES);
-    assert_eq!(parent(&path), "../tests");
+    assert!(parent(FIXTURES).ends_with("tests"));
+    assert!(parent(FIXTURES.to_string()).ends_with("tests"));
+    assert!(parent(PathBuf::from(FIXTURES)).ends_with("tests"));
 }
 #[test]
 fn test_read() {

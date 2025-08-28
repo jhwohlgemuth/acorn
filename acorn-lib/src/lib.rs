@@ -362,7 +362,7 @@ impl Bucket {
         paths.par_iter().for_each(|path| {
             progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
             progress.set_message(format!("Downloading {path}"));
-            let folder = format!("{}/{}", output.display(), parent(path.clone()));
+            let folder = format!("{}/{}", output.display(), parent(path.clone()).display());
             std::fs::create_dir_all(folder.clone()).unwrap();
             if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
                 if let Some(url) = self.code_repository.raw_url(path.to_string()) {
