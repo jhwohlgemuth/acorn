@@ -1,11 +1,13 @@
 airflow,Apache Airflow,https://airflow.apache.org/
 angular,AngularJS,https://angularjs.org/
+apptainer,Singularity,https://apptainer.org/
 astro,astro.js,AstroJS,https://astro.build/
 c#,C sharp,programming_language::C#,https://dotnet.microsoft.com/en-us/languages/csharp
 c++,C plus plus,programming_language::C++,https://isocpp.org/
 cog,Cloud Optimized GeoTIFF,data_format::COG,https://cogeo.org/
 css,programming_language::CSS,https://www.w3.org/groups/wg/css/
 cuda,Compute Unified Device Architecture,NVIDIA CUDA,CUDA Toolkit,https://developer.nvidia.com/cuda-toolkit
+docker,https://www.docker.com/
 duckdb,DuckDB,https://duckdb.org/
 fortran,programming_language::Fortran,https://fortran-lang.org/
 gdal,Geospatial Data Abstraction Library,https://gdal.org/
@@ -13,22 +15,27 @@ geoparquet,GeoParquet,data_format::GeoParquet,https://geoparquet.org/
 geoserver,GeoServer,https://geoserver.org/
 geotiff,data_format::GeoTIFF,https://www.ogc.org/standards/geotiff/
 go,Golang,programming_language::Go,https://go.dev/
+hdf5,data_format::HDF5,https://www.hdfgroup.org/solutions/hdf5/
 html,programming_language::HTML,https://html.spec.whatwg.org/
 java,Oracle Java,programming_language::Java,https://www.java.com/
 javascript,js,NodeJS,node.js,programming_language::JavaScript
 julia,jl,programming_language::Julia,https://julialang.org/
 jupyter,ipynb,https://jupyter.org/
 keras,Keras,https://keras.io/
+kokkos,https://kokkos.org/
 kotlin,kt,programming_language::Kotlin,https://kotlinlang.org/
 kubernetes,k8s,https://kubernetes.io/
 latex,LaTeX,https://www.latex-project.org/
 matlab,MathWorks MATLAB,https://www.latex-project.org/
 matplotlib,Matplotlib,https://matplotlib.org/
 neo4j,https://neo4j.com/
+nix,https://nixos.org/
 numpy,NumPy,https://numpy.org/
 pandas,Pandas,https://pandas.pydata.org/
 parquet,Apache Parquet,data_format::Parquet,https://parquet.apache.org/
+perl,programming_language::Perl,https://www.perl.org/
 plotly,Plotly,https://plotly.com/
+podman,https://podman.io/
 polars,Polars,https://pola.rs/
 postgis,PostGIS,https://postgis.net/
 postgresql,PostgreSQL,https://www.postgresql.org/
@@ -38,6 +45,7 @@ pytorch,PyTorch,https://pytorch.org/
 r,programming_language::R_language,https://www.r-project.org/
 react,react.js,ReactJS,https://react.dev/
 redis,Redis Open Source,https://redis.io/
+ruby,programming_language::Ruby,https://www.ruby-lang.org/
 rust,rs,programming_language::Rust,https://www.rust-lang.org/
 sass,scss,programming_language::Sass,https://sass-lang.com/
 scikit-learn,SciKit-Learn,https://scikit-learn.org/
