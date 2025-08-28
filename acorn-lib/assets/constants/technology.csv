@@ -1,37 +1,54 @@
-angular,AngularJS
-astro,astro.js,AstroJS
-c#,C sharp,programming_language::C#
-c++,C plus plus,programming_language::C++
-css,programming_language::CSS
-cuda,Compute Unified Device Architecture
-duckdb,DuckDB
-fortran,programming_language::Fortran
-go,Golang,programming_language::Go
-html,programming_language::HTML
-java,Oracle Java,programming_language::Java
+airflow,Apache Airflow,https://airflow.apache.org/
+angular,AngularJS,https://angularjs.org/
+astro,astro.js,AstroJS,https://astro.build/
+c#,C sharp,programming_language::C#,https://dotnet.microsoft.com/en-us/languages/csharp
+c++,C plus plus,programming_language::C++,https://isocpp.org/
+cog,Cloud Optimized GeoTIFF,data_format::COG,https://cogeo.org/
+css,programming_language::CSS,https://www.w3.org/groups/wg/css/
+cuda,Compute Unified Device Architecture,NVIDIA CUDA,CUDA Toolkit,https://developer.nvidia.com/cuda-toolkit
+duckdb,DuckDB,https://duckdb.org/
+fortran,programming_language::Fortran,https://fortran-lang.org/
+gdal,Geospatial Data Abstraction Library,https://gdal.org/
+geoparquet,GeoParquet,data_format::GeoParquet,https://geoparquet.org/
+geoserver,GeoServer,https://geoserver.org/
+geotiff,data_format::GeoTIFF,https://www.ogc.org/standards/geotiff/
+go,Golang,programming_language::Go,https://go.dev/
+html,programming_language::HTML,https://html.spec.whatwg.org/
+java,Oracle Java,programming_language::Java,https://www.java.com/
 javascript,js,NodeJS,node.js,programming_language::JavaScript
-julia,jl,programming_language::Julia
-gdal,Geospatial Data Abstraction Library
-keras,Keras
-latex,LaTeX
-matlab,MATLAB
-matplotlib,Matplotlib
-numpy,NumPy
-pandas,Pandas
-plotly,Plotly
-polars,Polars
-postgresql,PostgreSQL
-python,py,programming_language::Python
-pytorch,PyTorch
-r,programming_language::R_language
-react,react.js,ReactJS
-rust,rs,programming_language::Rust
-scikit-learn,SciKit-Learn
-scipy,SciPy
-seaborn,Seaborn
+julia,jl,programming_language::Julia,https://julialang.org/
+jupyter,ipynb,https://jupyter.org/
+keras,Keras,https://keras.io/
+kotlin,kt,programming_language::Kotlin,https://kotlinlang.org/
+kubernetes,k8s,https://kubernetes.io/
+latex,LaTeX,https://www.latex-project.org/
+matlab,MathWorks MATLAB,https://www.latex-project.org/
+matplotlib,Matplotlib,https://matplotlib.org/
+neo4j,https://neo4j.com/
+numpy,NumPy,https://numpy.org/
+pandas,Pandas,https://pandas.pydata.org/
+parquet,Apache Parquet,data_format::Parquet,https://parquet.apache.org/
+plotly,Plotly,https://plotly.com/
+polars,Polars,https://pola.rs/
+postgis,PostGIS,https://postgis.net/
+postgresql,PostgreSQL,https://www.postgresql.org/
+prefect,Prefect Open Source,https://www.prefect.io/
+python,py,programming_language::Python,https://www.python.org/
+pytorch,PyTorch,https://pytorch.org/
+r,programming_language::R_language,https://www.r-project.org/
+react,react.js,ReactJS,https://react.dev/
+redis,Redis Open Source,https://redis.io/
+rust,rs,programming_language::Rust,https://www.rust-lang.org/
+sass,scss,programming_language::Sass,https://sass-lang.com/
+scikit-learn,SciKit-Learn,https://scikit-learn.org/
+scipy,SciPy,https://scipy.org/
+seaborn,Seaborn,https://seaborn.pydata.org/
 shell,bash,fish,ksh,powershell,pwsh,tcsh,zsh
-sql,SQL
-tensorflow,TensorFlow
-typescript,programming_language::TypeScript
+solr,Apache Solr,https://solr.apache.org/
+sql,SQL,programming_language::SQL
+stan,programming_language::Stan,https://mc-stan.org/
+tensorflow,TensorFlow,https://www.tensorflow.org/
+typescript,programming_language::TypeScript,https://www.typescriptlang.org/
+typespec,programming_language::TypeSpec,https://typespec.io/
 vhdl,VHSIC Hardware Description Language,programming_language::VHDL
 visual basic,VB,programming_language::VB

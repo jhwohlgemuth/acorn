@@ -156,10 +156,23 @@ fn test_fuzzy_matching_techology() {
         resolve_from_csv_asset(name.clone(), "language::JavaScript".into()),
         Some("javascript".into())
     );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "kt".into()), Some("kotlin".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "Redis Open Source".into()), Some("redis".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "scss".into()), Some("sass".into()));
+    assert_eq!(resolve_from_csv_asset(name.clone(), "TypeSpec".into()), Some("typespec".into()));
     assert_eq!(resolve_from_csv_asset(name.clone(), "bash".into()), Some("shell".into()));
     assert_eq!(resolve_from_csv_asset(name.clone(), "fish".into()), Some("shell".into()));
     assert_eq!(resolve_from_csv_asset(name.clone(), "pwsh".into()), Some("shell".into()));
     assert_eq!(resolve_from_csv_asset(name.clone(), "zsh".into()), Some("shell".into()));
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "https://airflow.apache.org".into()),
+        Some("airflow".into())
+    );
+    assert_eq!(
+        resolve_from_csv_asset(name.clone(), "http://airflow.apache.org".into()),
+        Some("airflow".into())
+    );
+    assert_eq!(resolve_from_csv_asset(name.clone(), "airflow.apache.org".into()), Some("airflow".into()));
     assert_eq!(resolve_from_csv_asset(name.clone(), "foobarbaz".into()), None);
     assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
 }
