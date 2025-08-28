@@ -88,6 +88,25 @@ fn test_mimetype() {
     assert_eq!(MimeType::Yaml.file_type(), "yaml");
 }
 #[test]
+fn test_parent() {
+    assert!(parent(FIXTURES).ends_with("tests"));
+    assert!(parent(FIXTURES.to_string()).ends_with("tests"));
+    assert!(parent(PathBuf::from(FIXTURES)).ends_with("tests"));
+    assert!(parent(PathBuf::from("Cargo.toml")).ends_with("acorn-lib"));
+    assert_eq!(parent(PathBuf::from("does-not-exist.yaml")), PathBuf::from("."));
+}
+#[test]
+fn test_read() {
+    let path = PathBuf::from(FIXTURES).join("test.txt");
+    let content = read_file(path);
+    assert!(content.is_ok());
+    assert_eq!(content.unwrap(), "Hello world!");
+    let path = PathBuf::from(FIXTURES).join("does-not-exist");
+    let content = read_file(path);
+    assert!(content.is_ok());
+    assert_eq!(content.unwrap(), "");
+}
+#[test]
 fn test_semantic_version() {
     let version = SemanticVersion::from_string("1.2.3");
     assert_eq!(version.major, 1);
@@ -122,23 +141,6 @@ fn test_semantic_version() {
     assert!(SemanticVersion::from_command("cargo").is_some());
     assert!(SemanticVersion::from_command("cargo").unwrap().major >= 1);
     assert!(SemanticVersion::from_command("not-a-real-command").is_none());
-}
-#[test]
-fn test_parent() {
-    assert!(parent(FIXTURES).ends_with("tests"));
-    assert!(parent(FIXTURES.to_string()).ends_with("tests"));
-    assert!(parent(PathBuf::from(FIXTURES)).ends_with("tests"));
-}
-#[test]
-fn test_read() {
-    let path = PathBuf::from(FIXTURES).join("test.txt");
-    let content = read_file(path);
-    assert!(content.is_ok());
-    assert_eq!(content.unwrap(), "Hello world!");
-    let path = PathBuf::from(FIXTURES).join("does-not-exist");
-    let content = read_file(path);
-    assert!(content.is_ok());
-    assert_eq!(content.unwrap(), "");
 }
 #[test]
 fn test_suffix() {
