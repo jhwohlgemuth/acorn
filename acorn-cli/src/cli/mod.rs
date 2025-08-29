@@ -294,11 +294,30 @@ pub enum Commands {
         #[command(flatten)]
         verbose: Verbosity,
     },
-    /// Print research activity data (RAD) JSON schema
+    /// Print research activity data (RAD) or research activity identifier (RAiD) metadata JSON schema to stdout
     ///
+    ///     Print RAD JSON schema (default)
     ///     $> acorn schema
-    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
-    Schema {},
+    ///
+    ///     Print RAD JSON schema
+    ///     $> acorn schema rad
+    ///
+    ///     Print RAiD JSON schema
+    ///     $> acorn schema raid
+    #[clap(verbatim_doc_comment)]
+    #[command(long_about = None)]
+    Schema {
+        #[command(subcommand)]
+        command: Option<SchemaCommands>,
+    },
+}
+#[derive(Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum SchemaCommands {
+    /// Print research activity data (RAD) JSON schema to stdout
+    Rad {},
+    /// Print research activity identifier (RAiD) metadata JSON schema to stdout
+    Raid {},
 }
 
 #[cfg(test)]

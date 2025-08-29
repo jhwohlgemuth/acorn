@@ -7,7 +7,7 @@ use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_raid, is_ror}
 use crate::{License, SemanticVersion};
 use bon::{builder, Builder};
 use derive_more::Display;
-use schemars::JsonSchema;
+use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use validator::Validate;
@@ -545,7 +545,7 @@ pub struct Metadata {
 /// Metadata schema block containing the RAiD name and associated properties
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier>
-#[derive(Builder, Clone, Debug, Deserialize, Display, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, Display, JsonSchema, Validate)]
 #[display("{id}")]
 #[serde(rename = "camelCase")]
 #[serde(deny_unknown_fields)]
@@ -573,7 +573,7 @@ pub struct MetadataIdentifier {
 /// Metadata schema block containing the organization associated with a RAiD and its associated properties
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/organisations.html#organisation>
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename = "camelCase")]
 pub struct Organization {
     /// Organization identifier
@@ -590,7 +590,7 @@ pub struct Organization {
     pub role: OrganizationRole,
 }
 /// Organization role
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename = "camelCase")]
 pub struct OrganizationRole {
     /// Organization role identifier
@@ -605,7 +605,7 @@ pub struct OrganizationRole {
 /// Metadata schema sub-block that declares the owner of the RAiD (i.e. the organization requesting the RAiD)
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier-owner>
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct Owner {
@@ -631,7 +631,7 @@ pub struct Owner {
 /// Metadata schema block containing inputs, outputs, and process documents related to a RAiD plus associated properties
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/relatedObjects.html>
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct RelatedObject {
@@ -654,7 +654,7 @@ pub struct RelatedObject {
     pub category: Vec<RelatedObjectCategory>,
 }
 /// Related object category information
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename = "camelCase")]
 pub struct RelatedObjectCategory {
     /// Related object category identifier
@@ -664,7 +664,7 @@ pub struct RelatedObjectCategory {
     pub schema_uri: String,
 }
 /// Related object identifier
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename = "camelCase")]
 pub struct RelatedObjectIdentifier {
     /// Related object type identifier
@@ -676,7 +676,7 @@ pub struct RelatedObjectIdentifier {
 /// Metadata schema block containing related RAiDs and qualifying the relationship
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/relatedRaids.html>
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename = "camelCase")]
 pub struct RelatedRaid {
     /// Subsidiary or otherwise related RAiD
@@ -686,7 +686,7 @@ pub struct RelatedRaid {
     pub related_raid_type: RelatedRaidIdentifier,
 }
 /// Related RAiD identifier
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename = "camelCase")]
 pub struct RelatedRaidIdentifier {
     /// Related RAiD type identifier
@@ -698,7 +698,7 @@ pub struct RelatedRaidIdentifier {
 /// Metadata schema block containing the RAiD name and associated properties
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier-registrationagency>
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct RegistrationAgency {
@@ -719,7 +719,7 @@ pub struct RegistrationAgency {
 ///
 /// [CRediT]: https://credit.niso.org/
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct Role {
@@ -733,7 +733,7 @@ pub struct Role {
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/titles.html>
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, Display, Serialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Display, Serialize, Deserialize, JsonSchema, Validate)]
 #[display("{text} ({title_type})")]
 #[serde(deny_unknown_fields)]
 pub struct Title {
@@ -768,7 +768,7 @@ pub struct Title {
     pub end_date: String,
 }
 /// Metadata schema block containing information about the title type
-#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, Display, JsonSchema, Validate)]
 #[display("{id}")]
 #[serde(deny_unknown_fields)]
 pub struct TitleIdentifier {
@@ -779,4 +779,11 @@ pub struct TitleIdentifier {
     /// URI of the title type schema
     #[validate(url)]
     pub schema_uri: String,
+}
+impl Metadata {
+    /// Print research activity identifier (RAiD) metadata schema as JSON schema
+    pub fn to_schema() {
+        let schema = schema_for!(Metadata);
+        println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+    }
 }

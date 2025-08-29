@@ -3,6 +3,8 @@
 //! The ACORN command line interface (CLI) provides a set of commands for maintaining research activity data and leveraging ACORN schemas.
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
+use acorn_lib::schema::raid::Metadata;
+use acorn_lib::schema::ResearchActivity;
 use clap::{crate_version, Parser};
 use color_eyre::eyre;
 use dotenvy::dotenv;
@@ -18,7 +20,7 @@ mod cli;
 mod commands;
 mod template;
 
-use cli::{Arguments, Commands};
+use cli::{Arguments, Commands, SchemaCommands};
 
 /// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
@@ -31,6 +33,14 @@ const DISPLAY_TARGET: bool = false;
 const DISPLAY_THREAD_ID: bool = false;
 const DISPLAY_THREAD_NAME: bool = false;
 
+fn print_rad_schema() -> Void {
+    ResearchActivity::to_schema();
+    std::process::exit(exitcode::OK);
+}
+fn print_raid_schema() -> Void {
+    Metadata::to_schema();
+    std::process::exit(exitcode::OK);
+}
 #[instrument]
 fn main() -> Void {
     color_eyre::install()?;
@@ -117,7 +127,10 @@ fn main() -> Void {
             merge_request,
             ..
         }) => commands::link::run(path, branch, commit, ignore, *dry_run, *merge_request),
-        | Some(Commands::Schema {}) => commands::schema::run(),
+        | Some(Commands::Schema { command, .. }) => match command {
+            | Some(SchemaCommands::Rad {}) | None => print_rad_schema(),
+            | Some(SchemaCommands::Raid {}) => print_raid_schema(),
+        },
         | None => Ok(()),
     }
 }
