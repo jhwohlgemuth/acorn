@@ -27,8 +27,8 @@ doc:
 
 build: clean
 	@mkdir -p ./bin
-	@cargo build --release --target $(DEFAULT_TARGET)
-	@mv target/$(DEFAULT_TARGET)/release/acorn-cli ./bin/acorn-v$(VERSION)
+	@cargo build --release --package acorn --target $(DEFAULT_TARGET)
+	@mv target/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
 
 acorn-image:
 	@docker build -t acorn:$(VERSION) -f Dockerfile .
