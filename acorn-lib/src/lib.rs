@@ -576,8 +576,17 @@ impl Repository {
                     None
                 }
             },
-            | Repository::GitLab { .. } => match self.id() {
-                | Some(id) => Some(format!("https://code.ornl.gov/api/v4/projects/{id}/releases")),
+            | Repository::GitLab { uri, .. } => match self.id() {
+                | Some(id) => match URI::try_from(uri.as_str()) {
+                    | Ok(uri) => {
+                        let host = uri.host().unwrap().to_string();
+                        Some(format!("https://{host}/api/v4/projects/{id}/releases"))
+                    }
+                    | Err(why) => {
+                        error!(uri, "=> {} Parse GitLab URI - {why}", Label::fail());
+                        None
+                    }
+                },
                 | None => None,
             },
         };
