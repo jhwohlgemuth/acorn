@@ -1,5 +1,5 @@
 //! Module for communicating with CiteAs API
-//! 
+//!
 //! See <https://citeas.org/api> for more information
 use serde::{Deserialize, Serialize};
 
@@ -59,7 +59,7 @@ pub struct Export {
     /// Export format
     /// ### Note
     /// > May include CSV, enw, [RIS], and [BibTeX].
-    /// 
+    ///
     /// [RIS]: https://en.wikipedia.org/wiki/RIS_(file_format)
     /// [BibTeX]: https://www.bibtex.org/
     pub export_name: String,

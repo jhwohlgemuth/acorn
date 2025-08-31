@@ -55,10 +55,12 @@ fn is_current_year(value: String) -> bool {
     value.parse::<i32>().unwrap_or_default() <= year
 }
 /// Check if value is a valid DOI
+/// ### Note
+/// > `10.5555` is not a DOI prefix, but rather a handle prefix
 pub fn is_doi(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid DOI, by itself and without domain or 'doi:' prefix.";
     match RE_DOI.is_match(value) {
-        | Ok(value) if value => Ok(()),
+        | Ok(x) if x && !value.contains("10.5555/") => Ok(()),
         | _ => Err(ValidationError::new("doi").with_message(MESSAGE.into())),
     }
 }

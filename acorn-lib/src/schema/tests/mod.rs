@@ -341,9 +341,6 @@ fn test_validate_attribute_doi() {
     assert!(validate_attribute_doi(&valid).is_ok());
     let invalid = ["https://doi.org/10.1000/182".to_string()];
     assert!(validate_attribute_doi(&invalid).is_err());
-    // 10.5555 is not a DOI prefix, but rather a handle prefix
-    // let invalid = ["10.5555/182".to_string()];
-    // assert!(validate_attribute_doi(&invalid).is_err());
 }
 #[test]
 fn test_validate_attribute_impact() {
@@ -391,8 +388,42 @@ fn test_validate_has_image_extension() {
 }
 #[test]
 fn test_validate_is_doi() {
-    let valid = ["10.1000/182", "10.97812345/99990"];
-    let invalid = ["978-12345-99990"];
+    let valid = [
+        "10.1000/182",
+        "10.97812345/99990",
+        "10.1038/s41562-018-0399-z",
+        "10.1038/533452a",
+        "10.1109/eScience51609.2021.00010",
+        "10.1109/ACCESS.2025.3542334",
+        "10.1016/j.jbi.2008.04.010",
+        "10.48550/arXiv.2312.10997",
+        "10.1098/rsos.171511",
+        "10.3233/ISU-2010-0613",
+        "10.48550/arXiv.2411.06237",
+        "10.2139/ssrn.4900122",
+        "10.18653/v1/2025.naacl-long.243",
+        "10.1007/978-3-642-38288-8_33",
+        "10.48550/arXiv.2501.07391",
+        "10.48550/arXiv.2504.01990",
+        "10.1109/I-SMAC61858.2024.10714814",
+        "10.48550/arXiv.2506.06576",
+        "10.1186/s13326-025-00327-4",
+        "10.1162/dint_a_00186",
+        "10.1609/aaai.v39i24.34743",
+        "10.48550/arXiv.2504.16736",
+        "10.1002/asi.22636",
+        "10.1093/gigascience/giy023",
+        "10.1162/99608f92.e1f349c2",
+        "10.5479/10088/113528",
+        "10.1038/s41597-020-0486-7",
+    ];
+    let invalid = [
+        "978-12345-99990",
+        // DOI should not include website
+        "https://doi.org/10.1038/s41562-018-0399-z",
+        // 10.5555 is not a DOI prefix, but rather a handle prefix
+        "10.5555/182",
+    ];
     for x in valid.iter() {
         assert!(is_doi(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid DOI");
     }
