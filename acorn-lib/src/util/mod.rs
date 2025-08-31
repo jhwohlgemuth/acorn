@@ -34,6 +34,7 @@ use std::path::{Path, PathBuf};
 use tracing::{debug, error, warn};
 use which::which;
 
+pub mod citeas;
 #[cfg(feature = "cli")]
 pub mod cli;
 
