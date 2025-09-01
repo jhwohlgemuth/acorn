@@ -6,6 +6,7 @@ use fancy_regex::Regex;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use tracing::debug;
+use tracing::warn;
 
 lazy_static! {
     /// Apostrophe
@@ -308,6 +309,67 @@ pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
     "wood",
     "you",
 ];
+/// Readability Type
+#[derive(Clone, Copy, Debug, Default)]
+pub enum ReadabilityType {
+    /// Automated Readability Index (ARI)
+    #[default]
+    ARI,
+    /// Coleman-Liau Index (CLI)
+    CLI,
+    /// Flesch-Kincaid Grade Level (FKGL)
+    FKGL,
+    /// Flesch Reading Ease (FRES)
+    FRES,
+    /// Gunning Fog Index (GFI)
+    GFI,
+    /// Lix (abbreviation of Swedish läsbarhetsindex)
+    Lix,
+    /// SMOG Index (SMOG)
+    SMOG,
+}
+impl ReadabilityType {
+    /// Calculate Readability for a given text and readability type
+    pub fn calculate(self, text: &str) -> f64 {
+        match self {
+            | ReadabilityType::ARI => automated_readability_index(text),
+            | ReadabilityType::CLI => coleman_liau_index(text),
+            | ReadabilityType::FKGL => flesch_kincaid_grade_level(text),
+            | ReadabilityType::FRES => flesch_reading_ease_score(text),
+            | ReadabilityType::GFI => gunning_fog_index(text),
+            | ReadabilityType::Lix => lix(text),
+            | ReadabilityType::SMOG => smog(text),
+        }
+    }
+    /// Get Readability Type from string
+    pub fn from_string(value: &str) -> ReadabilityType {
+        match value.to_lowercase().as_str() {
+            | "ari" => ReadabilityType::ARI,
+            | "cli" => ReadabilityType::CLI,
+            | "fkgl" => ReadabilityType::FKGL,
+            | "fres" => ReadabilityType::FRES,
+            | "gfi" => ReadabilityType::GFI,
+            | "lix" => ReadabilityType::Lix,
+            | "smog" => ReadabilityType::SMOG,
+            | _ => {
+                warn!(value, "=> {} Unknown Readability Type", Label::using());
+                ReadabilityType::default()
+            }
+        }
+    }
+    /// Get maximum allowed value for a given readability type
+    pub fn maximum_allowed(self) -> f64 {
+        match self {
+            | ReadabilityType::ARI => 10.0,
+            | ReadabilityType::CLI => 100.0,
+            | ReadabilityType::FKGL => 100.0,
+            | ReadabilityType::FRES => 100.0,
+            | ReadabilityType::GFI => 20.0,
+            | ReadabilityType::Lix => 100.0,
+            | ReadabilityType::SMOG => 100.0,
+        }
+    }
+}
 /// Count the number of "complex words"[^complex] in a given text
 ///
 /// [^complex]: Words with 3 or more syllables

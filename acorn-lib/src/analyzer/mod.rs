@@ -43,7 +43,7 @@ pub trait StaticAnalyzer {
     /// Extract binary
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
     /// Perform sync operation (only applies to Vale)
-    fn sync(self) -> Result<(), std::io::Error>;
+    fn sync(self, is_offline: bool) -> Result<(), std::io::Error>;
     /// Set binary
     fn with_binary(self, path: PathBuf) -> Self;
     /// Set config
@@ -260,7 +260,7 @@ impl StaticAnalyzer for Vale {
             }
         }
     }
-    fn sync(self) -> Result<(), std::io::Error> {
+    fn sync(self, is_offline: bool) -> Result<(), std::io::Error> {
         let path = match self.binary {
             | Some(value) => value,
             | None => {
@@ -269,7 +269,11 @@ impl StaticAnalyzer for Vale {
             }
         };
         let config_path = self.config.unwrap().path;
-        let result = cmd!(path.clone(), "--config", config_path.clone(), "sync").run();
+        let result = if is_offline {
+            todo!("Support pointing to local vale package files");
+        } else {
+            cmd!(path.clone(), "--config", config_path.clone(), "sync").run()
+        };
         match result {
             | Ok(_) => {
                 let parent = format!("{}/styles/config/vocabularies/{}", config_path.parent().unwrap().display(), APPLICATION);

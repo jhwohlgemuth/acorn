@@ -2,6 +2,7 @@
 //!
 //! Here you'll find everything needed to build and use the research activity data schema, including metadata fields, section information, media objects, formats, and functions that power ACORN CLI commands.
 //!
+use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::vale::{Vale, ValeConfig};
 use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig};
 use crate::constants::*;
@@ -863,15 +864,17 @@ impl ResearchActivity {
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
     /// Analyzes a list of research activity files
-    pub fn analyze(paths: Vec<PathBuf>) -> usize {
+    pub fn analyze(paths: Vec<PathBuf>, is_offline: bool) -> usize {
         let config = ValeConfig::default().save();
         let init = Vale::init().build();
         let vale = if command_exists("vale") {
             init.with_config(config).with_system_command()
+        } else if is_offline {
+            todo!("Support pointing to local vale executable");
         } else {
             init.download(Some(config))
         };
-        match vale.clone().sync() {
+        match vale.clone().sync(is_offline) {
             | Ok(_) => {
                 let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
                     | Some(data) => vale
@@ -891,8 +894,36 @@ impl ResearchActivity {
             }
         }
     }
+    /// Calculate readability based on passed options for a list of research activity files
+    pub fn calculate_readability(paths: Vec<PathBuf>, readability_type: ReadabilityType) -> usize {
+        paths
+            .par_iter()
+            .map(|path| match ResearchActivity::read(path.into()) {
+                | Some(data) => {
+                    let index = readability_type.calculate(&data.extract_prose());
+                    let maximum = readability_type.maximum_allowed();
+                    if index > maximum {
+                        error!(
+                            "=> {} {} has a readability index of {} (less than {} is recommended)",
+                            Label::fail(),
+                            path.display(),
+                            index.red().bold(),
+                            maximum.cyan()
+                        );
+                        1
+                    } else {
+                        0
+                    }
+                }
+                | None => {
+                    error!("=> {} Read research activity data", Label::fail());
+                    1
+                }
+            })
+            .sum()
+    }
     /// Checks a list of research activity files
-    pub fn check(paths: Vec<PathBuf>) -> usize {
+    pub fn check(paths: Vec<PathBuf>, _is_offline: bool) -> usize {
         paths
             .par_iter()
             .map(|path| match ResearchActivity::read(path.into()) {

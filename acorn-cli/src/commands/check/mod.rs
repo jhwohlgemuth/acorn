@@ -1,3 +1,4 @@
+use acorn_lib::analyzer::readability::ReadabilityType;
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::cli::{paths_from_options, Check, Options};
 use acorn_lib::util::{print_values_as_table, to_string, Label};
@@ -18,7 +19,6 @@ pub fn run(
 ) -> Result<(), Report> {
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
-        unimplemented!("Offline mode is not implemented yet");
     }
     let options = Options::init()
         .maybe_branch(branch.clone())
@@ -38,7 +38,7 @@ pub fn run(
         warn!("=> {} Schema validation", Label::skip());
         0
     } else {
-        let issues = ResearchActivity::check(paths.clone());
+        let issues = ResearchActivity::check(paths.clone(), *offline);
         if issues > 0 && options.clone().exit_on_first_error {
             error!("=> {} Found {} schema validation errors", Label::fail(), issues);
             std::process::exit(exitcode::DATAERR);
@@ -49,7 +49,7 @@ pub fn run(
         warn!("=> {} Prose analysis", Label::skip());
         0
     } else {
-        let issues = ResearchActivity::analyze(paths);
+        let issues = ResearchActivity::analyze(paths.clone(), *offline);
         if issues > 0 && options.exit_on_first_error {
             error!("=> {} Found {} prose issues", Label::fail(), issues);
             std::process::exit(exitcode::DATAERR);
@@ -60,8 +60,14 @@ pub fn run(
         warn!("=> {} Readability analysis", Label::skip());
         0
     } else {
-        // TODO: Output readability analysis
-        0
+        // TODO: Support passing readability type as an option
+        let index = ReadabilityType::from_string("ari");
+        let issues = ResearchActivity::calculate_readability(paths, index);
+        if issues > 0 && options.clone().exit_on_first_error {
+            error!("=> {} Found {} readability issues", Label::fail(), issues);
+            std::process::exit(exitcode::DATAERR);
+        }
+        issues
     };
     if analysis_issues + validation_issues + readability_issues > 0 {
         let headers = vec!["Issue Type", "Issue Count"];
@@ -69,7 +75,7 @@ pub fn run(
             to_string(vec!["Schema Validation", &validation_issues.to_string()]),
             to_string(vec!["Prose Analysis", &analysis_issues.to_string()]),
             to_string(vec!["Conventions", &conventions_issues.to_string()]),
-            to_string(vec!["Readability", "---"]),
+            to_string(vec!["Readability", &readability_issues.to_string()]),
         ];
         println!("\n");
         print_values_as_table(&Label::fmt_fail("Issues Overview"), headers, rows);
