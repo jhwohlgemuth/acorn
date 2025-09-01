@@ -902,6 +902,7 @@ impl ResearchActivity {
                 | Some(data) => {
                     let index = readability_type.calculate(&data.extract_prose());
                     let maximum = readability_type.maximum_allowed();
+                    debug!("{} Readability index = {index}", Label::using());
                     if index > maximum {
                         error!(
                             "=> {} {} has a readability index of {} (less than {} is recommended)",
@@ -912,6 +913,7 @@ impl ResearchActivity {
                         );
                         1
                     } else {
+                        info!("=> {} {} has {}", Label::pass(), path.display(), "no readability issues".green().bold());
                         0
                     }
                 }

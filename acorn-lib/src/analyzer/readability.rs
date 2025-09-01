@@ -1,7 +1,9 @@
 //! # Readability utilities
 //!
 //! Analyze readabilty of prose using modern readability metrics.
-use crate::util::Label;
+use crate::constants::*;
+use crate::util::{find_first, Label};
+use dotenvy::dotenv;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
@@ -310,7 +312,7 @@ pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
     "you",
 ];
 /// Readability Type
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ReadabilityType {
     /// Automated Readability Index (ARI)
     #[default]
@@ -343,14 +345,14 @@ impl ReadabilityType {
     }
     /// Get Readability Type from string
     pub fn from_string(value: &str) -> ReadabilityType {
-        match value.to_lowercase().as_str() {
-            | "ari" => ReadabilityType::ARI,
-            | "cli" => ReadabilityType::CLI,
-            | "fkgl" => ReadabilityType::FKGL,
-            | "fres" => ReadabilityType::FRES,
-            | "gfi" => ReadabilityType::GFI,
+        match value.to_lowercase().replace("-", " ").as_str() {
+            | "ari" | "automated readability index" => ReadabilityType::ARI,
+            | "cli" | "coleman liau index" => ReadabilityType::CLI,
+            | "fkgl" | "flesch kincaid grade level" => ReadabilityType::FKGL,
+            | "fres" | "flesch reading ease score" => ReadabilityType::FRES,
+            | "gfi" | "gunning fog index" => ReadabilityType::GFI,
             | "lix" => ReadabilityType::Lix,
-            | "smog" => ReadabilityType::SMOG,
+            | "smog" | "simple measure of gobbledygook" => ReadabilityType::SMOG,
             | _ => {
                 warn!(value, "=> {} Unknown Readability Type", Label::using());
                 ReadabilityType::default()
@@ -359,14 +361,32 @@ impl ReadabilityType {
     }
     /// Get maximum allowed value for a given readability type
     pub fn maximum_allowed(self) -> f64 {
-        match self {
-            | ReadabilityType::ARI => 10.0,
-            | ReadabilityType::CLI => 100.0,
-            | ReadabilityType::FKGL => 100.0,
-            | ReadabilityType::FRES => 100.0,
-            | ReadabilityType::GFI => 20.0,
-            | ReadabilityType::Lix => 100.0,
-            | ReadabilityType::SMOG => 100.0,
+        match dotenv() {
+            | Ok(_) => {
+                let variables = dotenvy::vars().collect::<Vec<(String, String)>>();
+                let pair = match self {
+                    | ReadabilityType::ARI => find_first(variables, "MAX_ALLOWED_ARI"),
+                    | ReadabilityType::CLI => find_first(variables, "MAX_ALLOWED_CLI"),
+                    | ReadabilityType::FKGL => find_first(variables, "MAX_ALLOWED_FKGL"),
+                    | ReadabilityType::FRES => find_first(variables, "MAX_ALLOWED_FRES"),
+                    | ReadabilityType::GFI => find_first(variables, "MAX_ALLOWED_GFI"),
+                    | ReadabilityType::Lix => find_first(variables, "MAX_ALLOWED_LIX"),
+                    | ReadabilityType::SMOG => find_first(variables, "MAX_ALLOWED_SMOG"),
+                };
+                match pair {
+                    | Some((_, value)) => value.parse::<f64>().unwrap(),
+                    | None => ReadabilityType::default().maximum_allowed(),
+                }
+            }
+            | Err(_) => match self {
+                | ReadabilityType::ARI => MAX_ALLOWED_ARI,
+                | ReadabilityType::CLI => MAX_ALLOWED_CLI,
+                | ReadabilityType::FKGL => MAX_ALLOWED_FKGL,
+                | ReadabilityType::FRES => MAX_ALLOWED_FRES,
+                | ReadabilityType::GFI => MAX_ALLOWED_GFI,
+                | ReadabilityType::Lix => MAX_ALLOWED_LIX,
+                | ReadabilityType::SMOG => MAX_ALLOWED_SMOG,
+            },
         }
     }
 }

@@ -61,6 +61,7 @@ pub fn run(
         0
     } else {
         // TODO: Support passing readability type as an option
+
         let index = ReadabilityType::from_string("ari");
         let issues = ResearchActivity::calculate_readability(paths, index);
         if issues > 0 && options.clone().exit_on_first_error {

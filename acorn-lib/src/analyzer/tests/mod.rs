@@ -9,6 +9,13 @@ use std::path::PathBuf;
 const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
+fn test_readability_type() {
+    assert_eq!(ReadabilityType::from_string("ari"), ReadabilityType::ARI);
+    assert_eq!(ReadabilityType::from_string("automated readability index"), ReadabilityType::ARI);
+    assert_eq!(ReadabilityType::from_string("automated-readability-index"), ReadabilityType::ARI);
+    assert_eq!(ReadabilityType::from_string("not a real index name"), ReadabilityType::ARI);
+}
+#[test]
 fn test_parse_vale_output() {
     let path = "/root/.cache/acorn/acornProject";
     let data = r#"

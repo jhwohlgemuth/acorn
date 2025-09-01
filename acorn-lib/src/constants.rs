@@ -98,6 +98,21 @@ pub const MAX_LENGTH_SUBTITLE: u64 = 75;
 ///
 /// [`title`]: ../schema/struct.ResearchActivity.html#structfield.title
 pub const MAX_LENGTH_TITLE: u64 = 45;
+// Readability defaults
+/// Automated Readability Index (ARI) maximum allowed value
+pub const MAX_ALLOWED_ARI: f64 = 20.0;
+/// Coleman-Liau Index (CLI) maximum allowed value
+pub const MAX_ALLOWED_CLI: f64 = 20.0;
+/// Flesch-Kincaid Grade Level (FKGL) maximum allowed value
+pub const MAX_ALLOWED_FKGL: f64 = 20.0;
+/// Flesch Reading Ease Score (FRES) maximum allowed value
+pub const MAX_ALLOWED_FRES: f64 = 20.0;
+/// Gunning Fog Index (GFI) maximum allowed value
+pub const MAX_ALLOWED_GFI: f64 = 20.0;
+/// Lix Index (Lix) maximum allowed value
+pub const MAX_ALLOWED_LIX: f64 = 20.0;
+/// Simple Measure of Gobbledygook (SMOG) maximum allowed value
+pub const MAX_ALLOWED_SMOG: f64 = 20.0;
 
 lazy_static! {
     /// Regex that should match a Digital Object Identifier (DOI)

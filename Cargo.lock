@@ -50,6 +50,7 @@ dependencies = [
  "data-encoding",
  "derive_more",
  "directories",
+ "dotenvy",
  "duct",
  "eserde",
  "exitcode",

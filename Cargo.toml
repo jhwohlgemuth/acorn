@@ -28,6 +28,7 @@ broken-intra-doc-links = "forbid"
 color-eyre = "0.6.3"
 data-encoding = "2.9.0"
 derive_more = { version = "2.0.1", features = ["display", "from_str"] }
+dotenvy = "0.15.0"
 duct = "1.0.0"
 exitcode = "1.1.2"
 glob = "0.3.1"

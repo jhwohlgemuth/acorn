@@ -644,6 +644,18 @@ fn filter_git_command_result(result: Result<String, std::io::Error>, extensions:
         | Err(_) => vec![],
     }
 }
+/// Return fisrt key/value pair with key that matches pattern
+pub fn find_first(values: Vec<(String, String)>, pattern: &str) -> Option<(String, String)> {
+    let results = values
+        .clone()
+        .into_iter()
+        .filter(|x| !x.1.is_empty())
+        .find(|(key, _)| key.starts_with(pattern));
+    match results {
+        | Some(value) => Some(value),
+        | None => None,
+    }
+}
 /// Generates a random GUID using a custom alphabet.
 ///
 /// The generated GUID is a 10-character string composed of a mix of uppercase

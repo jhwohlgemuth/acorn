@@ -68,6 +68,17 @@ fn test_files_from_git() {
     assert!(files.is_empty());
 }
 #[test]
+fn test_find_first() {
+    let values = vec![
+        ("a".to_string(), "b".to_string()),
+        ("c".to_string(), "d".to_string()),
+        ("e".to_string(), "f".to_string()),
+    ];
+    assert_eq!(find_first(values.clone(), "c"), Some(("c".to_string(), "d".to_string())));
+    assert_eq!(find_first(values.clone(), "e"), Some(("e".to_string(), "f".to_string())));
+    assert!(find_first(values.clone(), "does not exist").is_none());
+}
+#[test]
 fn test_generate_guid() {
     let id = generate_guid();
     assert_eq!(id.len(), 10);
