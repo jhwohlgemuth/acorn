@@ -90,10 +90,21 @@ fn main() -> Void {
             commit,
             ignore,
             skip,
+            disable_website_checks,
             exit_on_first_error,
             merge_request,
             ..
-        }) => commands::check::run(path, branch, commit, ignore, skip, exit_on_first_error, merge_request, &offline),
+        }) => commands::check::run(
+            path,
+            branch,
+            commit,
+            ignore,
+            skip,
+            disable_website_checks,
+            exit_on_first_error,
+            merge_request,
+            &offline,
+        ),
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline),
         | Some(Commands::Download { buckets, output, .. }) => commands::download::run(buckets, output, &offline),
         | Some(Commands::Export {

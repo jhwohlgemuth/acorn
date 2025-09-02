@@ -13,6 +13,7 @@ pub fn run(
     commit: &Option<String>,
     ignore: &Option<String>,
     skip: &[Check],
+    disable_website_checks: &bool,
     exit_on_first_error: &bool,
     merge_request: &bool,
     offline: &bool,
@@ -38,7 +39,7 @@ pub fn run(
         warn!("=> {} Schema validation", Label::skip());
         0
     } else {
-        let issues = ResearchActivity::check(paths.clone(), *offline);
+        let issues = ResearchActivity::check(paths.clone(), *offline || *disable_website_checks);
         if issues > 0 && options.clone().exit_on_first_error {
             error!("=> {} Found {} schema validation errors", Label::fail(), issues);
             std::process::exit(exitcode::DATAERR);
@@ -61,7 +62,6 @@ pub fn run(
         0
     } else {
         // TODO: Support passing readability type as an option
-
         let index = ReadabilityType::from_string("ari");
         let issues = ResearchActivity::calculate_readability(paths, index);
         if issues > 0 && options.clone().exit_on_first_error {
@@ -70,7 +70,7 @@ pub fn run(
         }
         issues
     };
-    if analysis_issues + validation_issues + readability_issues > 0 {
+    if validation_issues + analysis_issues + readability_issues > 0 {
         let headers = vec!["Issue Type", "Issue Count"];
         let rows = vec![
             to_string(vec!["Schema Validation", &validation_issues.to_string()]),

@@ -17,6 +17,7 @@ use fancy_regex::Regex;
 use glob::glob;
 use is_executable::IsExecutable;
 use itertools::Itertools;
+use lychee_lib::{CacheStatus, Response, Status};
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
 use ring::digest::{Context, SHA256};
@@ -31,7 +32,8 @@ use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::{copy, BufReader, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
-use tracing::{debug, error, warn};
+use titlecase::titlecase;
+use tracing::{debug, error, info, warn};
 use which::which;
 
 pub mod citeas;
@@ -138,6 +140,21 @@ pub struct Constant;
 ///
 /// [^1]: Incomplete list of examples without foreground/background coloring
 pub struct Label {}
+/// Data structure for holding the result of a link check
+#[derive(Builder, Clone, Debug, Display)]
+#[builder(start_fn = init)]
+#[display("{message}")]
+pub struct LinkCheck {
+    /// Whether the link check was successful
+    #[builder(default = false)]
+    pub success: bool,
+    /// HTTP status code
+    pub code: Option<String>,
+    /// URL
+    pub url: Option<String>,
+    /// Message describing the HTTP status code
+    pub message: String,
+}
 /// Semantic version
 ///
 /// see <https://semver.org/>
@@ -155,6 +172,59 @@ pub struct SemanticVersion {
     #[builder(default = 0)]
     pub patch: u32,
 }
+impl Constant {
+    /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the file does not exist in the asset folder.
+    pub fn from_asset(file_name: &str) -> String {
+        match Constant::get(file_name) {
+            | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
+            | None => {
+                error!(file_name, "=> {} Import Constant asset", Label::fail());
+                panic!("Unable to import {file_name}")
+            }
+        }
+    }
+    /// Returns an iterator over the last values of each row in the given file.
+    ///
+    /// If a row is empty, an empty string is returned.
+    pub fn last_values(file_name: &str) -> impl Iterator<Item = String> {
+        Constant::csv(file_name)
+            .into_iter()
+            .map(|x| match x.last() {
+                | Some(value) => value.to_string(),
+                | None => "".to_string(),
+            })
+            .filter(|x| !x.is_empty())
+    }
+    /// Reads a file from the asset folder and returns its contents as an iterator over individual lines.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the file does not exist in the asset folder.
+    pub fn read_lines(file_name: &str) -> Vec<String> {
+        let data = Constant::from_asset(file_name);
+        data.lines().map(String::from).collect()
+    }
+    /// Reads a CSV file from the asset folder and returns its contents as a `Vec` of `Vec<String>`,
+    /// where each inner vector represents a row and each string within the inner vector represents a cell value.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_name` - A string slice representing the name of the CSV file (without extension).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the file does not exist in the asset folder.
+    pub fn csv(file_name: &str) -> Vec<Vec<String>> {
+        Constant::read_lines(format!("{file_name}.csv").as_str())
+            .into_iter()
+            .map(|x| x.split(",").map(String::from).collect())
+            .collect()
+    }
+}
 impl Label {
     /// Emoji for use when logging a warning, caution, etc.
     pub const CAUTION: Emoji<'_, '_> = Emoji("⚠️ ", "!!! ");
@@ -171,11 +241,20 @@ impl Label {
     }
     /// "Invalid" label
     pub fn invalid() -> String {
-        Label::fmt_invalid("INVALID")
+        Label::fmt_invalid(" ✗ INVALID")
     }
     /// "Invalid" label formatting
     pub fn fmt_invalid(value: &str) -> String {
         let style = Style::new().red().on_default_color();
+        value.style(style).to_string()
+    }
+    /// "Valid" label
+    pub fn valid() -> String {
+        Label::fmt_valid(" ✓ VALID  ")
+    }
+    /// "Invalid" label formatting
+    pub fn fmt_valid(value: &str) -> String {
+        let style = Style::new().green().on_default_color();
         value.style(style).to_string()
     }
     /// "Fail" label
@@ -243,57 +322,95 @@ impl Label {
         value.style(style).to_string()
     }
 }
-impl Constant {
-    /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the file does not exist in the asset folder.
-    pub fn from_asset(file_name: &str) -> String {
-        match Constant::get(file_name) {
-            | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
-            | None => {
-                error!(file_name, "=> {} Import Constant asset", Label::fail());
-                panic!("Unable to import {file_name}")
-            }
+impl LinkCheck {
+    /// Converts a Lychee response into a LinkCheckResult
+    pub fn from_lychee(response: Response) -> Self {
+        match response.status() {
+            | Status::Ok(code) | Status::Redirected(code) => LinkCheck::init()
+                .success(true)
+                .code(code.to_string())
+                .message("has no HTTP errors".to_string())
+                .build(),
+            | Status::Cached(status) => match status {
+                | CacheStatus::Ok(code) => LinkCheck::init()
+                    .success(true)
+                    .code(code.to_string())
+                    .message("has no HTTP errors".to_string())
+                    .build(),
+                | CacheStatus::Error(Some(code)) => LinkCheck::init()
+                    .success(false)
+                    .code(code.to_string())
+                    .message("has cached HTTP errors".to_string())
+                    .build(),
+                | CacheStatus::Unsupported => LinkCheck::init()
+                    .success(false)
+                    .message("unsupported cached response".to_string())
+                    .build(),
+                | _ => LinkCheck::init()
+                    .success(true)
+                    .message("ignored or otherwise successful (cached response)".to_string())
+                    .build(),
+            },
+            | Status::Error(code) => LinkCheck::init()
+                .success(false)
+                .code(code.to_string())
+                .message("has HTTP errors".to_string())
+                .build(),
+            | Status::Unsupported(why) => LinkCheck::init()
+                .success(false)
+                .message(format!("unsupported HTTP response - {why}"))
+                .build(),
+            | Status::UnknownStatusCode(code) => LinkCheck::init()
+                .success(false)
+                .code(code.to_string())
+                .message("unknown HTTP response".to_string())
+                .build(),
+            | Status::Timeout(_) => LinkCheck::init().success(false).message("HTTP timeout".to_string()).build(),
+            | _ => LinkCheck::init()
+                .success(true)
+                .message("ignored or otherwise successful".to_string())
+                .build(),
         }
     }
-    /// Returns an iterator over the last values of each row in the given file.
-    ///
-    /// If a row is empty, an empty string is returned.
-    pub fn last_values(file_name: &str) -> impl Iterator<Item = String> {
-        Constant::csv(file_name)
-            .into_iter()
-            .map(|x| match x.last() {
-                | Some(value) => value.to_string(),
-                | None => "".to_string(),
-            })
-            .filter(|x| !x.is_empty())
+    /// Perform link check on given URL
+    pub async fn run(url: Option<String>) -> LinkCheck {
+        match url {
+            | Some(url) => {
+                let response = lychee_lib::check(url.as_str()).await;
+                match response {
+                    | Ok(response) => LinkCheck::from_lychee(response).with_url(url),
+                    | Err(_) => LinkCheck::init().success(false).url(url).message("unreachable".to_string()).build(),
+                }
+            }
+            | None => LinkCheck::init().success(false).message("missing URL".to_string()).build(),
+        }
     }
-    /// Reads a file from the asset folder and returns its contents as an iterator over individual lines.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the file does not exist in the asset folder.
-    pub fn read_lines(file_name: &str) -> Vec<String> {
-        let data = Constant::from_asset(file_name);
-        data.lines().map(String::from).collect()
+    /// Print the link check results
+    pub fn print(self) {
+        let code = match self.code {
+            | Some(code) => format!(" ({code})").dimmed().to_string(),
+            | None => "".to_string(),
+        };
+        let url = match self.url {
+            | Some(url) => url.underline().italic().to_string(),
+            | None => "Missing".italic().to_string(),
+        };
+        if self.success {
+            let message = titlecase(&self.message).green().bold().to_string();
+            info!("=> {} \"{url}\" {message}{code}", Label::valid());
+        } else {
+            let message = titlecase(&self.message).red().bold().to_string();
+            error!("=> {} \"{url}\" {message}{code}", Label::invalid());
+        }
     }
-    /// Reads a CSV file from the asset folder and returns its contents as a `Vec` of `Vec<String>`,
-    /// where each inner vector represents a row and each string within the inner vector represents a cell value.
-    ///
-    /// # Arguments
-    ///
-    /// * `file_name` - A string slice representing the name of the CSV file (without extension).
-    ///
-    /// # Panics
-    ///
-    /// Panics if the file does not exist in the asset folder.
-    pub fn csv(file_name: &str) -> Vec<Vec<String>> {
-        Constant::read_lines(format!("{file_name}.csv").as_str())
-            .into_iter()
-            .map(|x| x.split(",").map(String::from).collect())
-            .collect()
+    /// Returns a new LinkCheckResult with the given URL
+    pub fn with_url(self, value: String) -> Self {
+        LinkCheck::init()
+            .success(self.success)
+            .url(value)
+            .maybe_code(self.code)
+            .message(self.message)
+            .build()
     }
 }
 impl MimeType {

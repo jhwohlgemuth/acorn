@@ -3,14 +3,22 @@
     "id": "invalid-project-a",
     "archive": false,
     "draft": false,
+    "doi": [
+      "10.11578/dc.20250604.1",
+      "10.1000/182"
+    ],
     "websites": [
       {
         "title": "Example",
         "url": "https://example.com"
       },
       {
-        "title": "Project Repository",
+        "title": "Not a website",
         "url": "Not a URL"
+      },
+      {
+        "title": "Project Repository (with mispelled URL)",
+        "url": "https://not.real.link"
       }
     ],
     "graphics": [

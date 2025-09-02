@@ -10,7 +10,6 @@ use crate::util::*;
 use bon::{builder, Builder};
 use derive_more::Display;
 use fancy_regex::Regex;
-use lychee_lib::{CacheStatus, Status};
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher};
 use owo_colors::OwoColorize;
@@ -926,7 +925,7 @@ impl ResearchActivity {
             .sum()
     }
     /// Checks a list of research activity files
-    pub fn check(paths: Vec<PathBuf>, _is_offline: bool) -> usize {
+    pub fn check(paths: Vec<PathBuf>, is_offline: bool) -> usize {
         let runtime = tokio_runtime();
         paths
             .par_iter()
@@ -950,84 +949,31 @@ impl ResearchActivity {
                             count
                         }
                     };
-                    let websites = match data.clone().meta.websites {
-                        | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
-                        | None => vec![],
-                    };
                     let online_issues = runtime.block_on(async {
-                        let mut count = 0;
-                        for url in websites {
-                            match lychee_lib::check(url.as_str()).await {
-                                | Ok(response) => match response.status() {
-                                    | Status::Ok(code) | Status::Redirected(code) => {
-                                        info!(
-                                            "=> {} {url} has {} {}",
-                                            Label::pass(),
-                                            "no HTTP errors".green().bold(),
-                                            format!("({code})").dimmed()
-                                        );
-                                    }
-                                    | Status::Cached(status) => match status {
-                                        | CacheStatus::Ok(code) => {
-                                            info!(
-                                                "=> {} {url} has {} {}",
-                                                Label::pass(),
-                                                "no HTTP errors".green().bold(),
-                                                format!("({code})").dimmed()
-                                            );
-                                        }
-                                        | CacheStatus::Error(Some(code)) => {
-                                            error!(
-                                                "=> {} {url} has {} {}",
-                                                Label::fail(),
-                                                "cached HTTP errors".red().bold(),
-                                                format!("({code})").dimmed()
-                                            );
-                                            count += 1;
-                                        }
-                                        | CacheStatus::Unsupported => {
-                                            error!("=> {} {url} has {}", Label::fail(), "unsupported cached response".red().bold());
-                                            count += 1;
-                                        }
-                                        | _ => {}
-                                    },
-                                    | Status::Error(code) => {
-                                        error!(
-                                            "=> {} {url} has {} {}",
-                                            Label::fail(),
-                                            "HTTP errors".red().bold(),
-                                            format!("({code})").dimmed()
-                                        );
-                                        count += 1;
-                                    }
-                                    | Status::Unsupported(why) => {
-                                        error!(
-                                            "=> {} {url} has {} - {}",
-                                            Label::fail(),
-                                            "unsupported HTTP response".red().bold(),
-                                            why.dimmed()
-                                        );
-                                        count += 1;
-                                    }
-                                    | Status::UnknownStatusCode(code) => {
-                                        error!(
-                                            "=> {} {url} has {} {}",
-                                            Label::fail(),
-                                            "unknown HTTP response".red().bold(),
-                                            format!("({code})").dimmed()
-                                        );
-                                        count += 1;
-                                    }
-                                    | Status::Timeout(_) => {
-                                        error!("=> {} {} - {url}", Label::fail(), "HTTP timeout".red().bold());
-                                        count += 1;
-                                    }
-                                    | _ => {}
-                                },
-                                | Err(_) => {}
+                        let mut issues: Vec<LinkCheck> = vec![];
+                        if !is_offline {
+                            let dois = match data.clone().meta.doi {
+                                | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
+                                | None => vec![],
+                            };
+                            let websites = match data.clone().meta.websites {
+                                | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
+                                | None => vec![],
+                            };
+                            for url in dois {
+                                let result = LinkCheck::run(Some(url)).await;
+                                issues.push(result);
+                            }
+                            for url in websites {
+                                let result = LinkCheck::run(Some(url)).await;
+                                issues.push(result);
                             }
                         }
-                        count
+                        issues
+                            .into_iter()
+                            .inspect(|issue| issue.clone().print())
+                            .filter(|issue| !issue.success)
+                            .count()
                     });
                     offline_issues + online_issues
                 }

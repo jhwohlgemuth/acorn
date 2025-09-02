@@ -95,6 +95,9 @@ pub enum Commands {
         /// Check files that were changed in a given Git commit
         #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
         commit: Option<String>,
+        /// Disable website checks that require internet connection
+        #[arg(short, long, value_name = "BOOL", help_heading = "OPTIONS")]
+        disable_website_checks: bool,
         /// Exit on first error
         #[arg(short, long = "exit-on-first-error", value_name = "BOOL", help_heading = "FLAGS")]
         exit_on_first_error: bool,
