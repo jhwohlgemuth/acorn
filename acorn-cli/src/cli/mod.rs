@@ -1,3 +1,4 @@
+use acorn_lib::analyzer::readability::ReadabilityType;
 use acorn_lib::util::cli::*;
 use clap::builder::styling::{Ansi256Color, AnsiColor};
 use clap::builder::Styles;
@@ -96,7 +97,7 @@ pub enum Commands {
         #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
         commit: Option<String>,
         /// Disable website checks that require internet connection
-        #[arg(short, long, value_name = "BOOL", help_heading = "OPTIONS")]
+        #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
         disable_website_checks: bool,
         /// Exit on first error
         #[arg(short, long = "exit-on-first-error", value_name = "BOOL", help_heading = "FLAGS")]
@@ -116,6 +117,9 @@ pub enum Commands {
         /// Format files that were changed in a given merge request (Gitlab) or pull request (Github)
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,
+        /// Readability test to use
+        #[arg(default_value_t, short, long = "readability-test", value_name = "METRIC", help_heading = "OPTIONS")]
+        readability_metric: ReadabilityType,
         /// Skip one or more available quality checks
         #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
         skip: Vec<Check>,

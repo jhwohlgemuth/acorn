@@ -3,8 +3,11 @@ use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::cli::{paths_from_options, Check, Options};
 use acorn_lib::util::{print_values_as_table, to_string, Label};
 use color_eyre::eyre::{Report, Result};
+use dotenvy::dotenv;
 use std::path::PathBuf;
 use tracing::{error, warn};
+
+const READABILITY_METRIC: &str = "READABILITY_METRIC";
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(
@@ -17,6 +20,7 @@ pub fn run(
     exit_on_first_error: &bool,
     merge_request: &bool,
     offline: &bool,
+    readability_metric: &ReadabilityType,
 ) -> Result<(), Report> {
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
@@ -61,9 +65,14 @@ pub fn run(
         warn!("=> {} Readability analysis", Label::skip());
         0
     } else {
-        // TODO: Support passing readability type as an option
-        let index = ReadabilityType::from_string("ari");
-        let issues = ResearchActivity::calculate_readability(paths, index);
+        let metric = match dotenv() {
+            | Ok(_) => match dotenvy::var(READABILITY_METRIC) {
+                | Ok(metric) if !metric.is_empty() => ReadabilityType::from_string(&metric),
+                | _ => *readability_metric,
+            },
+            | _ => *readability_metric,
+        };
+        let issues = ResearchActivity::calculate_readability(paths, metric);
         if issues > 0 && options.clone().exit_on_first_error {
             error!("=> {} Found {} readability issues", Label::fail(), issues);
             std::process::exit(exitcode::DATAERR);

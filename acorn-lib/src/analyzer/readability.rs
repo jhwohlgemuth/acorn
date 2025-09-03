@@ -3,6 +3,8 @@
 //! Analyze readabilty of prose using modern readability metrics.
 use crate::constants::*;
 use crate::util::{find_first, Label};
+use clap::ValueEnum;
+use derive_more::Display;
 use dotenvy::dotenv;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
@@ -312,22 +314,29 @@ pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
     "you",
 ];
 /// Readability Type
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Display, PartialEq, ValueEnum)]
 pub enum ReadabilityType {
     /// Automated Readability Index (ARI)
     #[default]
+    #[display("ari")]
     ARI,
     /// Coleman-Liau Index (CLI)
+    #[display("cli")]
     CLI,
     /// Flesch-Kincaid Grade Level (FKGL)
+    #[display("fkgl")]
     FKGL,
     /// Flesch Reading Ease (FRES)
+    #[display("fres")]
     FRES,
     /// Gunning Fog Index (GFI)
+    #[display("gfi")]
     GFI,
     /// Lix (abbreviation of Swedish läsbarhetsindex)
+    #[display("lix")]
     Lix,
     /// SMOG Index (SMOG)
+    #[display("smog")]
     SMOG,
 }
 impl ReadabilityType {
@@ -375,7 +384,7 @@ impl ReadabilityType {
                 };
                 match pair {
                     | Some((_, value)) => value.parse::<f64>().unwrap(),
-                    | None => ReadabilityType::default().maximum_allowed(),
+                    | None => MAX_ALLOWED_ARI,
                 }
             }
             | Err(_) => match self {

@@ -905,15 +905,23 @@ impl ResearchActivity {
                     debug!("{} Readability index = {index}", Label::using());
                     if index > maximum {
                         error!(
-                            "=> {} {} has a readability index of {} (less than {} is recommended)",
+                            "=> {} {} has a readability index of {} (less than {} is recommended for {} metric)",
                             Label::fail(),
                             path.display(),
                             index.red().bold(),
-                            maximum.cyan()
+                            maximum.cyan(),
+                            readability_type.to_string().to_uppercase()
                         );
                         1
                     } else {
-                        info!("=> {} {} has {}", Label::pass(), path.display(), "no readability issues".green().bold());
+                        let score = format!("({} = {}/{})", readability_type.to_string().to_uppercase(), index, maximum);
+                        info!(
+                            "=> {} {} has {} {}",
+                            Label::pass(),
+                            path.display(),
+                            "no readability issues".green().bold(),
+                            score.dimmed()
+                        );
                         0
                     }
                 }

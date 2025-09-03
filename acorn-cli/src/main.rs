@@ -93,6 +93,7 @@ fn main() -> Void {
             disable_website_checks,
             exit_on_first_error,
             merge_request,
+            readability_metric,
             ..
         }) => commands::check::run(
             path,
@@ -104,6 +105,7 @@ fn main() -> Void {
             exit_on_first_error,
             merge_request,
             &offline,
+            readability_metric,
         ),
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline),
         | Some(Commands::Download { buckets, output, .. }) => commands::download::run(buckets, output, &offline),
