@@ -34,6 +34,7 @@ use std::io::{copy, BufReader, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use titlecase::titlecase;
 use tracing::{debug, error, info, warn};
+use validator::ValidationErrorsKind;
 use which::which;
 
 pub mod citeas;
@@ -145,14 +146,30 @@ pub struct Label {}
 #[builder(start_fn = init)]
 #[display("{message}")]
 pub struct LinkCheck {
-    /// Whether the link check was successful
+    /// Whether or not the check was successful
     #[builder(default = false)]
     pub success: bool,
     /// HTTP status code
     pub code: Option<String>,
     /// URL
+    // TODO: Normalize URL as URI
     pub url: Option<String>,
     /// Message describing the HTTP status code
+    pub message: String,
+}
+/// Data structure for holding the result of a schema validation check
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init)]
+pub struct SchemaCheck {
+    /// Whether or not the check was successful
+    #[builder(default = false)]
+    pub success: bool,
+    /// Errors found during validation
+    pub errors: Option<ValidationErrorsKind>,
+    /// Path of file being validated
+    // TODO: Normalize path as URI (file://)
+    pub path: Option<PathBuf>,
+    /// Message related to or description of validation issue (e.g., key name of invalid value, result of validation, etc.)
     pub message: String,
 }
 /// Semantic version
@@ -470,6 +487,46 @@ impl MimeType {
             | "yml" | "yaml" => MimeType::Yaml,
             | _ => MimeType::Unknown,
         }
+    }
+}
+impl SchemaCheck {
+    /// Returns the number of errors
+    pub fn issue_count(&self) -> usize {
+        if let Some(errors) = &self.errors {
+            match errors.clone() {
+                | ValidationErrorsKind::Field(_) => 1,
+                | ValidationErrorsKind::Struct(errors) => errors.into_errors().len(),
+                | ValidationErrorsKind::List(_) => 0,
+            }
+        } else {
+            0
+        }
+    }
+    /// Print the schema check results
+    pub fn print(self) {
+        let path = self.clone().path.unwrap().display().to_string();
+        if self.success {
+            info!("=> {} {} has {}", Label::pass(), path, "no schema validation issues".green().bold());
+        } else {
+            let count = self.issue_count();
+            error!(
+                "=> {} Found {} schema validation issue{} in {}: \n{:#?}",
+                Label::fail(),
+                count.red(),
+                suffix(count),
+                path.italic().underline(),
+                self.errors.unwrap()
+            );
+        }
+    }
+    /// Returns a new LinkCheckResult with the given URL
+    pub fn with_path(self, value: PathBuf) -> Self {
+        SchemaCheck::init()
+            .success(self.success)
+            .maybe_errors(self.errors)
+            .path(value)
+            .message(self.message)
+            .build()
     }
 }
 impl SemanticVersion {

@@ -21,14 +21,12 @@ use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use serde_trim::*;
 use serde_with::skip_serializing_none;
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroU64;
 use std::path::PathBuf;
-use std::result::Result;
 use titlecase::Titlecase;
 use tracing::{debug, error, info, trace};
-use validator::{Validate, ValidationErrorsKind};
+use validator::Validate;
 
 pub mod graph;
 pub mod raid;
@@ -939,24 +937,12 @@ impl ResearchActivity {
             .par_iter()
             .map(|path| match ResearchActivity::read(path.into()) {
                 | Some(data) => {
-                    let offline_issues = match data.clone().errors() {
-                        | Ok(_) => {
-                            info!("=> {} {} has {}", Label::pass(), path.display(), "no schema errors".green().bold());
-                            0
-                        }
-                        | Err(found) => {
-                            let count = error_count(found.clone());
-                            error!(
-                                "=> {} Found {} error{} in {}: {:#?}",
-                                Label::fail(),
-                                count.red(),
-                                suffix(count),
-                                path.display(),
-                                found
-                            );
-                            count
-                        }
-                    };
+                    let offline_issues = data
+                        .clone()
+                        .validation_issues()
+                        .into_iter()
+                        .map(|issue| issue.with_path(path.clone()))
+                        .collect::<Vec<_>>();
                     let online_issues = runtime.block_on(async {
                         let mut issues: Vec<LinkCheck> = vec![];
                         if !is_offline {
@@ -968,22 +954,24 @@ impl ResearchActivity {
                                 | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
                                 | None => vec![],
                             };
-                            for url in dois {
-                                let result = LinkCheck::run(Some(url)).await;
-                                issues.push(result);
-                            }
-                            for url in websites {
+                            for url in dois.into_iter().chain(websites.into_iter()) {
                                 let result = LinkCheck::run(Some(url)).await;
                                 issues.push(result);
                             }
                         }
                         issues
-                            .into_iter()
-                            .inspect(|issue| issue.clone().print())
-                            .filter(|issue| !issue.success)
-                            .count()
                     });
-                    offline_issues + online_issues
+                    let offline_issue_count: usize = offline_issues
+                        .into_iter()
+                        .inspect(|issue| issue.clone().print())
+                        .map(|issue| issue.issue_count())
+                        .sum();
+                    let online_issue_count: usize = online_issues
+                        .into_iter()
+                        .inspect(|issue| issue.clone().print())
+                        .filter(|issue| !issue.success)
+                        .count();
+                    offline_issue_count + online_issue_count
                 }
                 | None => {
                     error!("=> {} Read research activity data at {}", Label::fail(), path.display());
@@ -1230,7 +1218,18 @@ impl ResearchActivity {
         let ResearchActivity { title, .. } = self.clone();
         format!("# {title}")
     }
-    fn errors(self) -> Result<(), HashMap<String, ValidationErrorsKind>> {
+    fn validation_issues(self) -> Vec<SchemaCheck> {
+        fn errors_collect<T: Validate>(attribute: T) -> Option<Vec<SchemaCheck>> {
+            match attribute.validate() {
+                | Ok(_) => None,
+                | Err(err) => Some(
+                    err.into_errors()
+                        .into_iter()
+                        .map(|(key, value)| SchemaCheck::init().success(false).errors(value).message(key.to_string()).build())
+                        .collect::<Vec<SchemaCheck>>(),
+                ),
+            }
+        }
         let mut found = vec![errors_collect::<ResearchActivity>(self.clone())];
         match self.meta.media {
             | Some(values) => values.iter().for_each(|media| match media {
@@ -1239,12 +1238,7 @@ impl ResearchActivity {
             }),
             | None => {}
         }
-        let errors = errors_format(found.clone());
-        if !errors.is_empty() {
-            Err(errors)
-        } else {
-            Ok(())
-        }
+        found.into_iter().flatten().flatten().collect::<Vec<_>>()
     }
 }
 impl View for ContactPoint {
@@ -1273,36 +1267,6 @@ impl View for ContactPoint {
             </section>
         }
     }
-}
-fn error_count(errors: HashMap<String, ValidationErrorsKind>) -> usize {
-    errors
-        .clone()
-        .into_values()
-        .map(|v| match v {
-            | ValidationErrorsKind::Field(_) => 1,
-            | ValidationErrorsKind::Struct(errors) => errors.into_errors().len(),
-            | ValidationErrorsKind::List(_) => 0,
-        })
-        .sum()
-}
-fn errors_collect<T: Validate>(attribute: T) -> Option<HashMap<String, ValidationErrorsKind>> {
-    match attribute.validate() {
-        | Ok(_) => None,
-        | Err(err) => Some(
-            err.into_errors()
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect::<HashMap<String, ValidationErrorsKind>>(),
-        ),
-    }
-}
-fn errors_format(found: Vec<Option<HashMap<String, ValidationErrorsKind>>>) -> HashMap<String, ValidationErrorsKind> {
-    found.clone().into_iter().flatten().fold(HashMap::new(), |mut acc, x| {
-        for (key, value) in x.iter() {
-            acc.insert(key.clone(), value.clone());
-        }
-        acc
-    })
 }
 fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
