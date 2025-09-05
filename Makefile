@@ -33,10 +33,18 @@ build: clean
 acorn-image:
 	@docker build -t acorn:$(VERSION) -f Dockerfile .
 	@docker tag acorn:$(VERSION) acorn:latest
+	@docker tag bucket:$(VERSION) $(REGISTRY)/acorn/runner:$(VERSION)
+	@docker tag bucket:$(VERSION) $(REGISTRY)/acorn/runner:latest
 
 bucket-image:
 	@docker build -t bucket:$(VERSION) -f Dockerfile.bucket .
 	@docker tag bucket:$(VERSION) bucket:latest
+	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:$(VERSION)
+	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:latest
+
+bucket-push:
+	@docker push $(REGISTRY)/bucket/runner:$(VERSION)
+	@docker push $(REGISTRY)/bucket/runner:latest
 
 release: clean
 	@echo "Under Construction"
@@ -50,6 +58,8 @@ version:
 # Variables
 #
 VERSION = `awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
+REGISTRY = savannah.ornl.gov/research-enablement
+# REGISTRY = camden.ornl.gov/research-enablement
 # DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cross.toml | tr . _`
 DEFAULT_TARGET = x86_64-unknown-linux-gnu
 TARGETS = \
