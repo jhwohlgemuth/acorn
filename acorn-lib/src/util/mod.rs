@@ -1154,7 +1154,7 @@ pub fn text_diff_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
 }
 /// Create a new [Tokio](https://tokio.rs/) runtime
 /// ### Example
-/// ```
+/// ```ignore
 /// tokio_runtime().block_on(async {
 ///     ...async stuff
 /// });
