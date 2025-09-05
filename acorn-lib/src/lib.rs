@@ -569,7 +569,9 @@ impl Repository {
                 | Ok(uri) => {
                     let host = uri.host().unwrap().to_string();
                     let path = uri.path();
-                    Some(format!("https://api.{host}/repos{path}/releases"))
+                    let endpoint = Some(format!("https://api.{host}/repos{path}/releases"));
+                    println!("{endpoint:#?}");
+                    endpoint
                 }
                 | Err(_) => {
                     error!(uri, "=> {} Parse GitHub URI", Label::fail());

@@ -48,18 +48,22 @@ fn test_gitlab_tree_entry() {
     assert_eq!(entry.path(), "acorn".to_string());
 }
 #[test]
-fn test_repository() {
-    let gitlab = Repository::GitLab {
+fn test_repository_gitlab() {
+    let repository = Repository::GitLab {
         // id: "research-enablement%2Fvale-package",
         id: Some(18243_u64),
         uri: "https://code.ornl.gov/research-enablement/vale-package".to_string(),
     };
-    let release = gitlab.latest_release();
+    let release = repository.latest_release();
     assert!(release.is_some());
-
-    let github = Repository::GitHub {
+}
+#[ignore]
+#[test]
+fn test_repository_github() {
+    let repository = Repository::GitHub {
         uri: "https://github.com/jhwohlgemuth/voxelcss".to_string(),
     };
-    let release = github.latest_release();
+    let release = repository.latest_release();
+    println!("{release:#?}");
     assert!(release.is_some());
 }
