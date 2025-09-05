@@ -42,9 +42,25 @@ bucket-image:
 	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:$(VERSION)
 	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:latest
 
+bucket-image-docker:
+	@docker build --no-cache -t jhwohlgemuth/bucket:$(VERSION) -f ./Dockerfile.bucket .
+	@docker tag jhwohlgemuth/bucket:$(VERSION) jhwohlgemuth/bucket:latest
+
+bucket-image-ghcr:
+	@docker build --no-cache -t ghcr.io/jhwohlgemuth/bucket:$(VERSION) -f ./Dockerfile.bucket .
+	@docker tag ghcr.io/jhwohlgemuth/bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:latest
+
 bucket-push:
 	@docker push $(REGISTRY)/bucket/runner:$(VERSION)
 	@docker push $(REGISTRY)/bucket/runner:latest
+
+bucket-push-docker:
+	@docker push jhwohlgemuth/bucket:$(VERSION)
+	@docker push jhwohlgemuth/bucket:latest
+
+bucket-push-ghcr:
+	@docker push ghcr.io/jhwohlgemuth/bucket:$(VERSION)
+	@docker push ghcr.io/jhwohlgemuth/bucket:latest
 
 release: clean
 	@echo "Under Construction"
