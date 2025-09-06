@@ -47,14 +47,14 @@ bucket-image:
 	@docker tag bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:latest
 
 bucket-clean:
-	@docker rm -f bucket:$(VERSION)
-	@docker rm -f bucket:latest
-	@docker rm -f $(REGISTRY)/bucket/runner:$(VERSION)
-	@docker rm -f $(REGISTRY)/bucket/runner:latest
-	@docker rm -f jhwohlgemuth/bucket:$(VERSION)
-	@docker rm -f jhwohlgemuth/bucket:latest
-	@docker rm -f ghcr.io/jhwohlgemuth/bucket:$(VERSION)
-	@docker rm -f ghcr.io/jhwohlgemuth/bucket:latest
+	@docker rmi -f bucket:$(VERSION)
+	@docker rmi -f bucket:latest
+	@docker rmi -f $(REGISTRY)/bucket/runner:$(VERSION)
+	@docker rmi -f $(REGISTRY)/bucket/runner:latest
+	@docker rmi -f jhwohlgemuth/bucket:$(VERSION)
+	@docker rmi -f jhwohlgemuth/bucket:latest
+	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:$(VERSION)
+	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:latest
 
 bucket-push:
 	@docker push $(REGISTRY)/bucket/runner:$(VERSION)
