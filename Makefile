@@ -37,18 +37,24 @@ acorn-image:
 	@docker tag bucket:$(VERSION) $(REGISTRY)/acorn/runner:latest
 
 bucket-image:
-	@docker build -t bucket:$(VERSION) -f Dockerfile.bucket .
+	@docker build --no-cache --platform linux/amd64 -t bucket:$(VERSION) -f Dockerfile.bucket .
 	@docker tag bucket:$(VERSION) bucket:latest
 	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:$(VERSION)
 	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:latest
+	@docker tag bucket:$(VERSION) jhwohlgemuth/bucket:$(VERSION)
+	@docker tag bucket:$(VERSION) jhwohlgemuth/bucket:latest
+	@docker tag bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:$(VERSION)
+	@docker tag bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:latest
 
-bucket-image-docker:
-	@docker build --no-cache -t jhwohlgemuth/bucket:$(VERSION) -f ./Dockerfile.bucket .
-	@docker tag jhwohlgemuth/bucket:$(VERSION) jhwohlgemuth/bucket:latest
-
-bucket-image-ghcr:
-	@docker build --no-cache -t ghcr.io/jhwohlgemuth/bucket:$(VERSION) -f ./Dockerfile.bucket .
-	@docker tag ghcr.io/jhwohlgemuth/bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:latest
+bucket-clean:
+	@docker rm -f bucket:$(VERSION)
+	@docker rm -f bucket:latest
+	@docker rm -f $(REGISTRY)/bucket/runner:$(VERSION)
+	@docker rm -f $(REGISTRY)/bucket/runner:latest
+	@docker rm -f jhwohlgemuth/bucket:$(VERSION)
+	@docker rm -f jhwohlgemuth/bucket:latest
+	@docker rm -f ghcr.io/jhwohlgemuth/bucket:$(VERSION)
+	@docker rm -f ghcr.io/jhwohlgemuth/bucket:latest
 
 bucket-push:
 	@docker push $(REGISTRY)/bucket/runner:$(VERSION)
