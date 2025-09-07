@@ -82,6 +82,9 @@ lychee-lib = "0.20.1"
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
 
+[target.'cfg(windows)'.dependencies]
+openssl = { version = "0.10" }
+
 [dev-dependencies]
 mockall = "0.13.1"
 pretty_assertions = "1.4.1"

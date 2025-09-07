@@ -49,6 +49,11 @@ pub struct Arguments {
     /// Note: Use of --offline may require extra configuration options for certain commands
     #[arg(short = 'X', long, value_name = "BOOL", help_heading = "FLAGS")]
     pub offline: bool,
+    /// Limit number of threads used by rayon for parallel processing
+    ///
+    /// See Rayon documentation for more information
+    #[arg(default_value = 0, short, long, value_name = "N", help_heading = "FLAGS")]
+    pub threads: u8,
     #[command(flatten)]
     pub verbose: Verbosity,
     #[arg(short = 'V', long, help = "Prints version information", help_heading = "FLAGS")]

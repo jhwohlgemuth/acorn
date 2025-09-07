@@ -82,7 +82,11 @@ fn main() -> Void {
                 .init();
         }
     }
-    let Arguments { offline, .. } = args;
+    let Arguments { offline, threads, .. } = args;
+    if threads > 0 {
+        debug!("{} {} threads", Label::using(), threads.cyan().bold());
+        rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
+    }
     match &args.command {
         | Some(Commands::Check {
             path,
