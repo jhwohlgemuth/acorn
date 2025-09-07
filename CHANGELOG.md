@@ -6,6 +6,128 @@
 
 ### 🚀 Features
 
+- Fix thread limiting and parent function - ([7e87da2](https://code.ornl.gov/research-enablement/acorn/commit/7e87da27b936be1c95113445f0e2132fc91654d9))
+- Add thread limit option - ([406f94e](https://code.ornl.gov/research-enablement/acorn/commit/406f94e7cce555f177a50004dda7c71b41ab2780))
+- Clean up acorn tasks; clear security some issues in acorn dockerfile; point to acorn binary - ([12db8da](https://code.ornl.gov/research-enablement/acorn/commit/12db8dae9acc12b74cbd52a16e00186201f18726))
+- Refactor schema validation checks to support collected output - ([aab6309](https://code.ornl.gov/research-enablement/acorn/commit/aab63093baf6f928f4714a2679de920ccf4c7cc0))
+- Configure readability metric from CLI and dotenv file - ([ee58c0d](https://code.ornl.gov/research-enablement/acorn/commit/ee58c0d9ddbe0a9e521287833e5cc419162f7866))
+- Refine website checking capability using LinkCheck struct - ([ae61400](https://code.ornl.gov/research-enablement/acorn/commit/ae61400cfdd079c06c2563c6ffe16d3c714a6bdc))
+- Initial capability to check meta.websites links for accessibility - ([315c66d](https://code.ornl.gov/research-enablement/acorn/commit/315c66d0bf0095d573082d51000e3a3062f1183d))
+- Initial capability to configure readability checks with dotenv file - ([11fad82](https://code.ornl.gov/research-enablement/acorn/commit/11fad821c8dd9b995ce0a2e0b3c29b5dcc3e56ec))
+- Initial readability check subcommand capability - ([d061e58](https://code.ornl.gov/research-enablement/acorn/commit/d061e58f00324fa8076abed3529735ab53a65b67))
+- Initial capability to create citation from DOI value - ([667a757](https://code.ornl.gov/research-enablement/acorn/commit/667a75704ded4f59b6c066f41c62207972924e61))
+- Improve DOI validation - ([ec943ff](https://code.ornl.gov/research-enablement/acorn/commit/ec943ffb9203f3597527b51026add228534a71c4))
+- Initial data modeling for CiteAs API communication - ([9284f3c](https://code.ornl.gov/research-enablement/acorn/commit/9284f3cf7d8e28563d9a6fa1f792ccb90c5ab985))
+- Add rad and raid subcommands to schema command - ([394953a](https://code.ornl.gov/research-enablement/acorn/commit/394953a1c9f0a876c4ab48b238183ff785fce5c8))
+- Add technology and keywords from review of ornl software catalog and linux foundation - ([ab8862e](https://code.ornl.gov/research-enablement/acorn/commit/ab8862e506b2e65dda5c29a6509fdbcfe853d36d))
+- Add technologies and URLs for technology values - ([eed52a7](https://code.ornl.gov/research-enablement/acorn/commit/eed52a76df0908358f029b8de0a28ca9e44c7b76))
+- Add multi-extension support to git files functions - ([7477a09](https://code.ornl.gov/research-enablement/acorn/commit/7477a09909b15b9a3d3e08df6ffaeaff5608fd21))
+- Add multi-extension support to files_all function - ([3487018](https://code.ornl.gov/research-enablement/acorn/commit/3487018059ba08246d841c4de4479dfc04239125))
+- Improve MimeType code - ([83ebe99](https://code.ornl.gov/research-enablement/acorn/commit/83ebe990c3db2962c8e0d22d3d37e2bc0211b984))
+- Replace Extension with MimeType and remove Extension - ([630182d](https://code.ornl.gov/research-enablement/acorn/commit/630182d52ba99259992620e0d0cd42e1a3a60c1f))
+- Add itertools to lib and make files_all return unique paths - ([d954e9d](https://code.ornl.gov/research-enablement/acorn/commit/d954e9dd64eab19cc4c51a0b7d340b294aaee4ff))
+- Add support for format command to return YAML - ([c885ee7](https://code.ornl.gov/research-enablement/acorn/commit/c885ee76e724a413f950d2a2d4b4e26c26237a7f))
+- Add initial support for YAML format RAD - ([4e7aa3d](https://code.ornl.gov/research-enablement/acorn/commit/4e7aa3d93494d511bb8289c90be5453d79f861b3))
+- Add support for YAML format buckets configuration files - ([8f62c4b](https://code.ornl.gov/research-enablement/acorn/commit/8f62c4bc959461f50eb2817c26d650cc2e52d8e3))
+- Add full support for GitHub buckets - ([7365c73](https://code.ornl.gov/research-enablement/acorn/commit/7365c73852d0cd3e125c533b3f0f8dfc72db3e0f))
+- Improve GitHub bucket support up to pagination - ([c4402bd](https://code.ornl.gov/research-enablement/acorn/commit/c4402bd45c1f9a510dcfa958de82397ce3ef0508))
+- Initial GitHub viability - ([0353c72](https://code.ornl.gov/research-enablement/acorn/commit/0353c72288a407fb963e29f2261c7d2aabac8c89))
+- Improve GitHub bucket support - ([3f60648](https://code.ornl.gov/research-enablement/acorn/commit/3f606489de28ccdae4a87bb69c92591024117bad))
+- Add more validation methods; use raid module within schema - ([3a0a6ef](https://code.ornl.gov/research-enablement/acorn/commit/3a0a6ef456845b794b28e040f4727f652383f1f7))
+- Make meta.doi a vector and re-order meta attributes - ([90c3696](https://code.ornl.gov/research-enablement/acorn/commit/90c369641188e1c8a87a70dee9b1ceb20d4c8b9f))
+- Finish RAiD metadata schema module and refine docs - ([5220e35](https://code.ornl.gov/research-enablement/acorn/commit/5220e3598ebc0684aed32d1cb607e98774057db4))
+- More raid metadata schema development - ([abbd956](https://code.ornl.gov/research-enablement/acorn/commit/abbd956391364d5de4fdf216055847ae45e5d692))
+- More improvements to raid metadata structure - ([4b0593d](https://code.ornl.gov/research-enablement/acorn/commit/4b0593d0bd75968a2850f02ae3daa99034bfec8f))
+- Initial addition of raid metadata schema data modelling - ([4010ebb](https://code.ornl.gov/research-enablement/acorn/commit/4010ebb5765d606a82a9f871a08f4b53a4743bcb))
+- Initial creation of raid metadata schema data module - ([e038da2](https://code.ornl.gov/research-enablement/acorn/commit/e038da28c36c7a234a53be43120e01dcc1426f5d))
+- Initial creation of link command API - ([a79199a](https://code.ornl.gov/research-enablement/acorn/commit/a79199a368cc1c578d605d7e4cd1b0f466389fe0))
+- Improve format command processing - ([801131c](https://code.ornl.gov/research-enablement/acorn/commit/801131c29b763e43010656bee7821fcf52c1d185))
+- Add consortium to organization types - ([6cf02df](https://code.ornl.gov/research-enablement/acorn/commit/6cf02dfa3ab55f25fd6e4422b67079a1e6088fde))
+- Add statistics to keywords - ([0bf752c](https://code.ornl.gov/research-enablement/acorn/commit/0bf752c8bd985bb0d414fe5361223fea23478f6e))
+- Add computer-vision keyword; update name of ISED organization - ([863cb56](https://code.ornl.gov/research-enablement/acorn/commit/863cb56697bce4c7b2b8d5d9e60a234b00337f7c))
+- Rename acorn-cli package to acorn in toml manifest - ([454ce18](https://code.ornl.gov/research-enablement/acorn/commit/454ce18effcd21080a47769188600b8a82cd7109))
+- Improve support for working with Gitlab and GitHub repositories - ([57cbb8d](https://code.ornl.gov/research-enablement/acorn/commit/57cbb8d83f5952d273b4bd5b47cad03f4530318b))
+- Add ability to get latest release from a repository - ([32bdb13](https://code.ornl.gov/research-enablement/acorn/commit/32bdb13ec46dfbfc480f8610116f37bb26712ba3))
+- Offload styles to custom ORNL vale package - ([6560bbd](https://code.ornl.gov/research-enablement/acorn/commit/6560bbd3023944e4993e5b5830bf434a6678e3da))
+
+### 🐛 Bug Fixes
+
+- *(docs)* Use correct punctuation for eg - ([7574b26](https://code.ornl.gov/research-enablement/acorn/commit/7574b26987b4daff0039aa5bf2f0c83d4f7318c4))
+- *(tests)* Skip non-functional doctest - ([f5568ef](https://code.ornl.gov/research-enablement/acorn/commit/f5568ef5d98611088a5f87d6b3eed08577ff9483))
+- Base bucket image on ubuntu; refine tagging tasks - ([69d09f4](https://code.ornl.gov/research-enablement/acorn/commit/69d09f43538db18ca59ff1fee42a67f36171b7f6))
+- Make GitLab releases code useful for any GitLab instance - ([ff60390](https://code.ornl.gov/research-enablement/acorn/commit/ff6039074e1fd9bc21b3a06c092fe1b5213c3d69))
+- Update build make task - ([016d92a](https://code.ornl.gov/research-enablement/acorn/commit/016d92a3c05ad6a199b9f850b3a65a479906c7f4))
+- Make format resolve parent directory when file name in cwd is passed - ([aa1ce2d](https://code.ornl.gov/research-enablement/acorn/commit/aa1ce2d793054f956928652840ff636b5cf30b0d))
+- Update bucket test and replace println with trace - ([8021392](https://code.ornl.gov/research-enablement/acorn/commit/8021392eb3b8fc86573c8602dcf5e4891e7ba8bf))
+- Formatting updates to paper.md - ([b6c32f5](https://code.ornl.gov/research-enablement/acorn/commit/b6c32f5068460955327f3146f09346afc9b72b8f))
+- Resolve organizations with no alternative name - ([86d494e](https://code.ornl.gov/research-enablement/acorn/commit/86d494efd17d59775ec3038bc17d7e7c3f2e5a57))
+
+### 📚 Documentation
+
+- Update lib README for publishing - ([a1190f7](https://code.ornl.gov/research-enablement/acorn/commit/a1190f794185760bbc52889422ecc2a8f6c2e349))
+- Improve readme install instructions - ([6eab335](https://code.ornl.gov/research-enablement/acorn/commit/6eab33585a0e6e9a0670c76c40abc744eb9d6efc))
+- Update research areas examples - ([f69c149](https://code.ornl.gov/research-enablement/acorn/commit/f69c149dbb388358a82b50f1ea8b49a2d5f61c23))
+- Update sections documentation (with examples) - ([a402c11](https://code.ornl.gov/research-enablement/acorn/commit/a402c11a73db20b62b93788fe62b1275605bff6e))
+- Add acorn emoji - ([2c32fff](https://code.ornl.gov/research-enablement/acorn/commit/2c32fff14012416a3c1128e64b86998b1b4fba8f))
+- Standardize schema module documentation with raid docs - ([a59db02](https://code.ornl.gov/research-enablement/acorn/commit/a59db02e8182cb04e26f2cb2cd1d830cb9da518b))
+- Update module documentation - ([dd54aff](https://code.ornl.gov/research-enablement/acorn/commit/dd54aff3f758faa052478a5d648e8a489d32bac6))
+
+### 🧪 Testing
+
+- Skip Github repository release test because sporadic failures - ([4b3c1b4](https://code.ornl.gov/research-enablement/acorn/commit/4b3c1b49dfdf362b811f17244133d9e980ab2083))
+- Add invalid case to DOI tests - ([2db9570](https://code.ornl.gov/research-enablement/acorn/commit/2db9570f0c538c3ab7ead19360f5d3017bdb8791))
+- Add tests for niche use cases of util::parent - ([ba1db11](https://code.ornl.gov/research-enablement/acorn/commit/ba1db1112e6bad634e78a6f666198e12ddc79801))
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump version - ([2744881](https://code.ornl.gov/research-enablement/acorn/commit/27448819b6c98af345150d577b461a939a0a63ad))
+- Bump version - ([9bac4eb](https://code.ornl.gov/research-enablement/acorn/commit/9bac4eb0114df98e07a2703ba0144a3a830ebe06))
+
+### 🤓 Developer Experience
+
+- Refine bucket image build tasks and add platform option - ([a382b13](https://code.ornl.gov/research-enablement/acorn/commit/a382b139489c8226fae089aca2ddd19d23225c38))
+- Add docker make tasks - ([1be9ca7](https://code.ornl.gov/research-enablement/acorn/commit/1be9ca7d1aa61d09c40a209595508ad13e1d9f6f))
+- Update docker image make tasks - ([21c6742](https://code.ornl.gov/research-enablement/acorn/commit/21c6742753dccc22cc9425d02df8f63773436edd))
+
+### Feat
+
+- Initial markdown draft file for JOSS paper - ([1cdacae](https://code.ornl.gov/research-enablement/acorn/commit/1cdacaed5fee77c5a9925efe37eb19176271fc7e))
+## [0.1.24](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.23..v0.1.24) - 2025-07-22
+
+### 🚀 Features
+
+- Update logo images and center image and caption for PDF fact sheet output - ([2fc0e68](https://code.ornl.gov/research-enablement/acorn/commit/2fc0e6807b36dd40819bb36c48d0c77462ca5426))
+- Add todo for downloading files from bucket using project path instead of id - ([63a8558](https://code.ornl.gov/research-enablement/acorn/commit/63a85589e57c2fdd1d0535d434d1051486f85348))
+- Add audit make task and remove clap-help dependency to improve security posture - ([5e4b987](https://code.ornl.gov/research-enablement/acorn/commit/5e4b98713c60b435c501c2166b0224c9ccc6d963))
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump version - ([aa5e8b3](https://code.ornl.gov/research-enablement/acorn/commit/aa5e8b39041a6f63f3806547b06481bd0da5965b))
+## [0.1.23](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.22..v0.1.23) - 2025-07-18
+
+### 🐛 Bug Fixes
+
+- Make path positional argument optional - ([2b4fb86](https://code.ornl.gov/research-enablement/acorn/commit/2b4fb868fabe4a48c70a50b5ddb727de7d7d22df))
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump version - ([7484b36](https://code.ornl.gov/research-enablement/acorn/commit/7484b3696e034e7668830630da7c40eb2d2c5385))
+## [0.1.22](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.21..v0.1.22) - 2025-07-07
+
+### 🚀 Features
+
+- Improve flexibility of util module with generic types - ([7b2f246](https://code.ornl.gov/research-enablement/acorn/commit/7b2f24670b34a5fea0cb16c4dc145346e2a54d7a))
+- Improve flexibility with generic types for most iterators and PathBufs - ([d020701](https://code.ornl.gov/research-enablement/acorn/commit/d020701b41bfcd14dc1ea26fea297a02e7e65b03))
+- Improve predictability by creating cli feature and Convert trait - ([4320169](https://code.ornl.gov/research-enablement/acorn/commit/4320169de919976e49c8b282ded6abb2928b29c6))
+- Implement common traits on ResearchActivity to improve interoperability (C-COMMON-TRAITS convention) - ([ad80264](https://code.ornl.gov/research-enablement/acorn/commit/ad802649bb24d873cbd993925062c70e43521226))
+- Remove all get_ prefix from functions in acorn-cli (C-GETTER convention) - ([2961d7b](https://code.ornl.gov/research-enablement/acorn/commit/2961d7b5699e11760db077cbafd0894c999bc579))
+- Remove all get_ prefix from functions in acorn-lib (C-GETTER convention) - ([aa7bf9e](https://code.ornl.gov/research-enablement/acorn/commit/aa7bf9eb167c59988c5db0cadc85a99e731e0ca9))
+- Remove get_ prefix from functions in lib util module (C-GETTER convention) - ([8ca0fc2](https://code.ornl.gov/research-enablement/acorn/commit/8ca0fc2414fb776e90a5ea75f5578a7c4762ab16))
+- Update all dependencies - ([fc19749](https://code.ornl.gov/research-enablement/acorn/commit/fc19749da4ebdbbf1135228284e74deb5c91cdbc))
+- Move export --schema to schema sub command - ([4f6a935](https://code.ornl.gov/research-enablement/acorn/commit/4f6a9351d763aa751208705e13b47439c7beb0a6))
+- Update workspace dependencies - ([ce2c43a](https://code.ornl.gov/research-enablement/acorn/commit/ce2c43a4b784409b6a60dfa8c14b858b922bad2f))
+- Refactor format instances with one variable to interpolate - ([a4b2b07](https://code.ornl.gov/research-enablement/acorn/commit/a4b2b078765339a48e26813d27f390eb4ff64cc9))
+- Improve Rust API compliance by renaming some functions to remove get_ - ([d7cf5e8](https://code.ornl.gov/research-enablement/acorn/commit/d7cf5e85d7998a9df01e23513ffa448902c0985b))
 - Convert --path to positional argument for better UX - ([f439891](https://code.ornl.gov/research-enablement/acorn/commit/f4398913a7601f8d8ba2c244637be16d63ae1140))
 - Remove schema_type from Metadata - ([7191828](https://code.ornl.gov/research-enablement/acorn/commit/719182861c01ea4c0cdd1364c751da745dae5170))
 - Add docs and validation - ([61f1fec](https://code.ornl.gov/research-enablement/acorn/commit/61f1fec8cbcef71fcceb1c2b70ba40a97983b5ae))
@@ -25,6 +147,9 @@
 
 ### 🐛 Bug Fixes
 
+- *(docs)* Update link to acorn install instructions - ([18ecfdc](https://code.ornl.gov/research-enablement/acorn/commit/18ecfdc2b2601358dcf1f03c6daea91a7f38a671))
+- *(docs)* Update ooxml module doc comments; allow missing_docs lint - ([bb2a259](https://code.ornl.gov/research-enablement/acorn/commit/bb2a259d2475c7ad939e8c3be4d13bfbe2748ef2))
+- *(docs)* Remove license-file attribute in manifest files - ([45361dd](https://code.ornl.gov/research-enablement/acorn/commit/45361dd135a97864004ffcc03cbb1852fa69e9a8))
 - *(tests)* Restrict some tests to linux - ([652f405](https://code.ornl.gov/research-enablement/acorn/commit/652f4058059fb7efadd94ac529604be82191b921))
 - *(tests)* Update test fixtures to support removal of facilities - ([bebf052](https://code.ornl.gov/research-enablement/acorn/commit/bebf0527ee2ee665380aeade017800613af1552a))
 - Update download command for new schema - ([5ea1098](https://code.ornl.gov/research-enablement/acorn/commit/5ea109872140e6ef3350dd1d41ab288ba9d2d599))
@@ -32,6 +157,14 @@
 
 ### 📚 Documentation
 
+- Add doc comments for all remaining code; deny missing_docs lint rule - ([3c2014e](https://code.ornl.gov/research-enablement/acorn/commit/3c2014e933303a6bab57ec6bbd2bfffec8f01d8c))
+- Add doc comments to schema, graph, and ooxml modules - ([e1fd160](https://code.ornl.gov/research-enablement/acorn/commit/e1fd160f239fb39c503a0376f219867acafa1e5c))
+- Add more doc comments for modules; improve constants module documentation - ([d02e8dc](https://code.ornl.gov/research-enablement/acorn/commit/d02e8dc1fc81236c69e8d0f407a0cdbd9e4e598c))
+- Add doc comments for validator module - ([5babbcc](https://code.ornl.gov/research-enablement/acorn/commit/5babbcc1aad001ae874fc33393e95f8d6c6cd21c))
+- Add docs to mods and util files - ([8c95a36](https://code.ornl.gov/research-enablement/acorn/commit/8c95a36c5bd2f0a0b76fbeafea8c24bbe89d7b45))
+- Add metadata to package manifests to improve documentation (C-METADATA convention) - ([d0f1a5f](https://code.ornl.gov/research-enablement/acorn/commit/d0f1a5fe2e10ef3c98710c300ce3906bd6accedd))
+- Add seedling emoji to README - ([99f6efe](https://code.ornl.gov/research-enablement/acorn/commit/99f6efe8e2490756fc3fed7ebc1be1427f60e048))
+- Add release badge to README - ([3db1a5d](https://code.ornl.gov/research-enablement/acorn/commit/3db1a5d5e6a94f886e3ee541ad9a8c6470c0b7ba))
 - Add CHANGELOG generated using git-cliff - ([f0fda39](https://code.ornl.gov/research-enablement/acorn/commit/f0fda39327cb19fb5105a49b43837c9347db1c10))
 - Improve help grouping and coloring; add minimal tests - ([18de14a](https://code.ornl.gov/research-enablement/acorn/commit/18de14a789e2fd0063e248bcec5b7edc784eb145))
 - Add style to help output - ([996265b](https://code.ornl.gov/research-enablement/acorn/commit/996265b70b44aefab1ef30dd0502c915c0dde1e1))
@@ -39,10 +172,18 @@
 - Add docs for lib.rs - ([347f950](https://code.ornl.gov/research-enablement/acorn/commit/347f950c7489fafa94211ef68b01d19615c2cbdd))
 - Add CITATION.cff and LICENSE content - ([6fd17e6](https://code.ornl.gov/research-enablement/acorn/commit/6fd17e675631130493117107ba14ed2b4fa1b1e4))
 
+### ⚙️ Miscellaneous Tasks
+
+- Bump version - ([17e701f](https://code.ornl.gov/research-enablement/acorn/commit/17e701f2b32bf056125608302b1f997ef87a7c24))
+
 ### 🚧 In Progress
 
 - Initial addition of conventions check category - ([13611d8](https://code.ornl.gov/research-enablement/acorn/commit/13611d8a6525d0c47f14cfc5b39b1bac8a71c61d))
 - Add structs for Media ISO replacing Graphic struct - ([95d47ee](https://code.ornl.gov/research-enablement/acorn/commit/95d47ee17382a29e30f993cd71262cd97333e47b))
+
+### 🤓 Developer Experience
+
+- Add make test for generating CHANGELOG - ([01f6f4b](https://code.ornl.gov/research-enablement/acorn/commit/01f6f4bfc84167b22900d4df968593ca2e614014))
 ## [0.1.21](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.20..v0.1.21) - 2025-06-06
 
 ### 🚀 Features
