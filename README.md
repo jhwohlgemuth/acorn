@@ -11,8 +11,14 @@
 ### Install with cargo
 - Install `acorn` command
   ```shell
-  cargo install acorn
+  cargo install acorn-cli
   ```
+
+- Test the installation
+  ```shell
+  acorn help
+  ```
+
 ### Download pre-compiled binary
 - Download newest binary from [releases page](https://code.ornl.gov/research-enablement/acorn/-/releases)
     ```shell
@@ -48,9 +54,6 @@
 
 ## Architecture
 > See [ARCHITECTURE.md](./ARCHITECTURE.md)
-
-## Roadmap
-> 🚧 Under Construction
 
 ## Contributing
 > See [CONTRIBUTING.md](./CONTRIBUTING.md)
