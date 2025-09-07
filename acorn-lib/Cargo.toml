@@ -2,7 +2,7 @@
 edition = "2021"
 name = "acorn-lib"
 readme = "README.md"
-description = "ACORN utility library"
+description = "ACORN library"
 repository = "https://code.ornl.gov/research-enablement/acorn"
 categories = [
   "command-line-utilities",
