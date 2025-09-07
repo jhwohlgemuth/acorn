@@ -31,10 +31,36 @@ build: clean
 	@mv target/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
 
 acorn-image:
-	@docker build -t acorn:$(VERSION) -f Dockerfile .
+	@docker build --no-cache --platform linux/amd64 -t acorn:$(VERSION) -f Dockerfile .
 	@docker tag acorn:$(VERSION) acorn:latest
-	@docker tag bucket:$(VERSION) $(REGISTRY)/acorn/runner:$(VERSION)
-	@docker tag bucket:$(VERSION) $(REGISTRY)/acorn/runner:latest
+	@docker tag acorn:$(VERSION) $(REGISTRY)/acorn/runner:$(VERSION)
+	@docker tag acorn:$(VERSION) $(REGISTRY)/acorn/runner:latest
+	@docker tag acorn:$(VERSION) jhwohlgemuth/acorn:$(VERSION)
+	@docker tag acorn:$(VERSION) jhwohlgemuth/acorn:latest
+	@docker tag acorn:$(VERSION) ghcr.io/jhwohlgemuth/acorn:$(VERSION)
+	@docker tag acorn:$(VERSION) ghcr.io/jhwohlgemuth/acorn:latest
+
+acorn-clean:
+	@docker rmi -f acorn:$(VERSION)
+	@docker rmi -f acorn:latest
+	@docker rmi -f $(REGISTRY)/acorn/runner:$(VERSION)
+	@docker rmi -f $(REGISTRY)/acorn/runner:latest
+	@docker rmi -f jhwohlgemuth/acorn:$(VERSION)
+	@docker rmi -f jhwohlgemuth/acorn:latest
+	@docker rmi -f ghcr.io/jhwohlgemuth/acorn:$(VERSION)
+	@docker rmi -f ghcr.io/jhwohlgemuth/acorn:latest
+
+acorn-push: acorn-push-docker acorn-push-ghcr
+	@docker push $(REGISTRY)/acorn/runner:$(VERSION)
+	@docker push $(REGISTRY)/acorn/runner:latest
+
+acorn-push-docker:
+	@docker push jhwohlgemuth/acorn:$(VERSION)
+	@docker push jhwohlgemuth/acorn:latest
+
+acorn-push-ghcr:
+	@docker push ghcr.io/jhwohlgemuth/acorn:$(VERSION)
+	@docker push ghcr.io/jhwohlgemuth/acorn:latest
 
 bucket-image:
 	@docker build --no-cache --platform linux/amd64 -t bucket:$(VERSION) -f Dockerfile.bucket .
@@ -56,7 +82,7 @@ bucket-clean:
 	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:$(VERSION)
 	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:latest
 
-bucket-push:
+bucket-push: bucket-push-docker bucket-push-ghcr
 	@docker push $(REGISTRY)/bucket/runner:$(VERSION)
 	@docker push $(REGISTRY)/bucket/runner:latest
 
