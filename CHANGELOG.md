@@ -6,9 +6,41 @@
 
 ### 🚀 Features
 
+- Add release profile options - ([35fff36](https://code.ornl.gov/research-enablement/acorn/commit/35fff36788e60d9e1566bdebb1db28dcb084cac6))
+
+### 📚 Documentation
+
+- Update CLI to use acorn-lib crate; separate crate name and binary name - ([24c5d65](https://code.ornl.gov/research-enablement/acorn/commit/24c5d65aedbd16c43435c4e6425025b6bea20c33))
+- Update CHANGELOG - ([1c2de91](https://code.ornl.gov/research-enablement/acorn/commit/1c2de91b38ca9f3d1ce15396a3a9dbd895cd7205))
+## [0.1.26](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.25..v0.1.26) - 2025-09-07
+
+### 🚀 Features
+
 - Fix thread limiting and parent function - ([7e87da2](https://code.ornl.gov/research-enablement/acorn/commit/7e87da27b936be1c95113445f0e2132fc91654d9))
 - Add thread limit option - ([406f94e](https://code.ornl.gov/research-enablement/acorn/commit/406f94e7cce555f177a50004dda7c71b41ab2780))
 - Clean up acorn tasks; clear security some issues in acorn dockerfile; point to acorn binary - ([12db8da](https://code.ornl.gov/research-enablement/acorn/commit/12db8dae9acc12b74cbd52a16e00186201f18726))
+
+### 🐛 Bug Fixes
+
+- Base bucket image on ubuntu; refine tagging tasks - ([69d09f4](https://code.ornl.gov/research-enablement/acorn/commit/69d09f43538db18ca59ff1fee42a67f36171b7f6))
+
+### 📚 Documentation
+
+- Update lib README for publishing - ([a1190f7](https://code.ornl.gov/research-enablement/acorn/commit/a1190f794185760bbc52889422ecc2a8f6c2e349))
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump version - ([2744881](https://code.ornl.gov/research-enablement/acorn/commit/27448819b6c98af345150d577b461a939a0a63ad))
+
+### 🤓 Developer Experience
+
+- Refine bucket image build tasks and add platform option - ([a382b13](https://code.ornl.gov/research-enablement/acorn/commit/a382b139489c8226fae089aca2ddd19d23225c38))
+- Add docker make tasks - ([1be9ca7](https://code.ornl.gov/research-enablement/acorn/commit/1be9ca7d1aa61d09c40a209595508ad13e1d9f6f))
+- Update docker image make tasks - ([21c6742](https://code.ornl.gov/research-enablement/acorn/commit/21c6742753dccc22cc9425d02df8f63773436edd))
+## [0.1.25](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.24..v0.1.25) - 2025-09-05
+
+### 🚀 Features
+
 - Refactor schema validation checks to support collected output - ([aab6309](https://code.ornl.gov/research-enablement/acorn/commit/aab63093baf6f928f4714a2679de920ccf4c7cc0))
 - Configure readability metric from CLI and dotenv file - ([ee58c0d](https://code.ornl.gov/research-enablement/acorn/commit/ee58c0d9ddbe0a9e521287833e5cc419162f7866))
 - Refine website checking capability using LinkCheck struct - ([ae61400](https://code.ornl.gov/research-enablement/acorn/commit/ae61400cfdd079c06c2563c6ffe16d3c714a6bdc))
@@ -54,7 +86,6 @@
 
 - *(docs)* Use correct punctuation for eg - ([7574b26](https://code.ornl.gov/research-enablement/acorn/commit/7574b26987b4daff0039aa5bf2f0c83d4f7318c4))
 - *(tests)* Skip non-functional doctest - ([f5568ef](https://code.ornl.gov/research-enablement/acorn/commit/f5568ef5d98611088a5f87d6b3eed08577ff9483))
-- Base bucket image on ubuntu; refine tagging tasks - ([69d09f4](https://code.ornl.gov/research-enablement/acorn/commit/69d09f43538db18ca59ff1fee42a67f36171b7f6))
 - Make GitLab releases code useful for any GitLab instance - ([ff60390](https://code.ornl.gov/research-enablement/acorn/commit/ff6039074e1fd9bc21b3a06c092fe1b5213c3d69))
 - Update build make task - ([016d92a](https://code.ornl.gov/research-enablement/acorn/commit/016d92a3c05ad6a199b9f850b3a65a479906c7f4))
 - Make format resolve parent directory when file name in cwd is passed - ([aa1ce2d](https://code.ornl.gov/research-enablement/acorn/commit/aa1ce2d793054f956928652840ff636b5cf30b0d))
@@ -64,7 +95,6 @@
 
 ### 📚 Documentation
 
-- Update lib README for publishing - ([a1190f7](https://code.ornl.gov/research-enablement/acorn/commit/a1190f794185760bbc52889422ecc2a8f6c2e349))
 - Improve readme install instructions - ([6eab335](https://code.ornl.gov/research-enablement/acorn/commit/6eab33585a0e6e9a0670c76c40abc744eb9d6efc))
 - Update research areas examples - ([f69c149](https://code.ornl.gov/research-enablement/acorn/commit/f69c149dbb388358a82b50f1ea8b49a2d5f61c23))
 - Update sections documentation (with examples) - ([a402c11](https://code.ornl.gov/research-enablement/acorn/commit/a402c11a73db20b62b93788fe62b1275605bff6e))
@@ -80,14 +110,7 @@
 
 ### ⚙️ Miscellaneous Tasks
 
-- Bump version - ([2744881](https://code.ornl.gov/research-enablement/acorn/commit/27448819b6c98af345150d577b461a939a0a63ad))
 - Bump version - ([9bac4eb](https://code.ornl.gov/research-enablement/acorn/commit/9bac4eb0114df98e07a2703ba0144a3a830ebe06))
-
-### 🤓 Developer Experience
-
-- Refine bucket image build tasks and add platform option - ([a382b13](https://code.ornl.gov/research-enablement/acorn/commit/a382b139489c8226fae089aca2ddd19d23225c38))
-- Add docker make tasks - ([1be9ca7](https://code.ornl.gov/research-enablement/acorn/commit/1be9ca7d1aa61d09c40a209595508ad13e1d9f6f))
-- Update docker image make tasks - ([21c6742](https://code.ornl.gov/research-enablement/acorn/commit/21c6742753dccc22cc9425d02df8f63773436edd))
 
 ### Feat
 
