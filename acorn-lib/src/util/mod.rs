@@ -971,10 +971,10 @@ where
 /// Returns the absolute path of the parent directory for the given path.
 pub fn parent<P>(path: P) -> PathBuf
 where
-    P: Into<PathBuf>,
+    P: Into<PathBuf> + Clone,
 {
     let default = PathBuf::from(".");
-    match path.into().canonicalize() {
+    match path.clone().into().canonicalize() {
         | Ok(value) => match value.parent() {
             | Some(value) => value.to_path_buf(),
             | None => {
@@ -983,8 +983,14 @@ where
             }
         },
         | Err(why) => {
-            warn!("=> {} Resolve absolute path - {why}", Label::fail());
-            default
+            debug!("=> {} Resolve absolute path - {why}", Label::fail());
+            match path.into().parent() {
+                | Some(value) if !path_to_string(value.to_path_buf()).is_empty() => value.to_path_buf(),
+                | Some(_) | None => {
+                    warn!("=> {} Parent path was empty or could not be resolved", Label::fail());
+                    default
+                }
+            }
         }
     }
 }

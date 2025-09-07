@@ -5,11 +5,13 @@
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use acorn_lib::schema::raid::Metadata;
 use acorn_lib::schema::ResearchActivity;
+use acorn_lib::util::Label;
 use clap::{crate_version, Parser};
 use color_eyre::eyre;
 use dotenvy::dotenv;
+use owo_colors::OwoColorize;
 use tracing::instrument;
-use tracing::warn;
+use tracing::{info, warn};
 use tracing_indicatif::IndicatifLayer;
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
@@ -84,7 +86,7 @@ fn main() -> Void {
     }
     let Arguments { offline, threads, .. } = args;
     if threads > 0 {
-        debug!("{} {} threads", Label::using(), threads.cyan().bold());
+        info!("{} {} threads", Label::using(), threads.cyan().bold());
         rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
     }
     match &args.command {

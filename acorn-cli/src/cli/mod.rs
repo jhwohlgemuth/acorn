@@ -52,8 +52,8 @@ pub struct Arguments {
     /// Limit number of threads used by rayon for parallel processing
     ///
     /// See Rayon documentation for more information
-    #[arg(default_value = 0, short, long, value_name = "N", help_heading = "FLAGS")]
-    pub threads: u8,
+    #[arg(default_value_t, short, long, value_name = "N", help_heading = "FLAGS")]
+    pub threads: usize,
     #[command(flatten)]
     pub verbose: Verbosity,
     #[arg(short = 'V', long, help = "Prints version information", help_heading = "FLAGS")]
