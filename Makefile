@@ -27,7 +27,7 @@ doc:
 
 build: clean
 	@mkdir -p ./bin
-	@cargo build --release --package acorn --target $(DEFAULT_TARGET)
+	@cargo build --release --package acorn-cli --target $(DEFAULT_TARGET)
 	@mv target/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
 
 acorn-image:
