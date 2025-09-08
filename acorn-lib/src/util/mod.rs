@@ -93,6 +93,11 @@ pub enum MimeType {
     /// Just plain old text
     #[display("text/plain")]
     Text,
+    /// Tom's Obvious Minimal Language (TOML)
+    ///
+    /// See <https://toml.io/>
+    #[display("application/toml")]
+    Toml,
     /// YAML Ain't Markup Language (YAML)
     ///
     /// See <https://yaml.org/>
@@ -446,6 +451,7 @@ impl MimeType {
             | MimeType::Png => "png",
             | MimeType::Svg => "svg",
             | MimeType::Text => "txt",
+            | MimeType::Toml => "toml",
             | MimeType::Yaml => "yaml",
             | _ => "unknown-file-type",
         }
@@ -473,6 +479,7 @@ impl MimeType {
     /// * `otf` - `font/otf`
     /// * `png` - `image/png`
     /// * `svg` - `image/svg+xml`
+    /// * `toml` - `application/toml`
     /// * `txt` - `text/plain`
     /// * `yaml` - `application/yaml`
     pub fn from_string<S>(value: S) -> MimeType
@@ -489,6 +496,7 @@ impl MimeType {
             | "otf" => MimeType::Otf,
             | "png" => MimeType::Png,
             | "svg" => MimeType::Svg,
+            | "toml" => MimeType::Toml,
             | "txt" => MimeType::Text,
             | "yml" | "yaml" => MimeType::Yaml,
             | _ => MimeType::Unknown,
