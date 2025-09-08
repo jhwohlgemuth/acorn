@@ -76,6 +76,9 @@ pub enum MimeType {
     /// See <https://www.json.org/json-en.html>
     #[display("application/json")]
     Json,
+    /// Markdown
+    #[display("text/markdown")]
+    Markdown,
     /// OpenType Font (OTF)
     #[display("font/otf")]
     Otf,
@@ -438,6 +441,7 @@ impl MimeType {
             | MimeType::Jpeg => "jpeg",
             | MimeType::Json => "json",
             | MimeType::LdJson => "jsonld",
+            | MimeType::Markdown => "md",
             | MimeType::Otf => "otf",
             | MimeType::Png => "png",
             | MimeType::Svg => "svg",
@@ -465,6 +469,7 @@ impl MimeType {
     /// * `jpeg` - `image/jpeg`
     /// * `json` - `application/json`
     /// * `jsonld` - `application/ld+json`
+    /// * `md` - `text/markdown`
     /// * `otf` - `font/otf`
     /// * `png` - `image/png`
     /// * `svg` - `image/svg+xml`
@@ -480,6 +485,7 @@ impl MimeType {
             | "jpg" | "jpeg" => MimeType::Jpeg,
             | "json" => MimeType::Json,
             | "jsonld" | "json-ld" => MimeType::LdJson,
+            | "md" | "markdown" => MimeType::Markdown,
             | "otf" => MimeType::Otf,
             | "png" => MimeType::Png,
             | "svg" => MimeType::Svg,
@@ -795,12 +801,12 @@ pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<
     if command_exists("git".to_owned()) {
         let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
         let result = cmd("git", args).read();
+        debug!("=> {} Files from git commit - {result:?}", Label::using());
         filter_git_command_result(result, extensions)
     } else {
         vec![]
     }
 }
-// TODO: Add support for multiple extensions
 fn filter_git_command_result(result: Result<String, std::io::Error>, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     match result {
         | Ok(value) => match extensions {
@@ -809,8 +815,7 @@ fn filter_git_command_result(result: Result<String, std::io::Error>, extensions:
                 .split("\n")
                 .map(PathBuf::from)
                 .filter(|path| {
-                    println!("{values:#?}");
-                    values.iter().any(|ext| MimeType::from_path(path).to_string() == *ext)
+                    values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext)
                 })
                 .collect::<Vec<_>>(),
             | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
