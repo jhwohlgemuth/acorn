@@ -31,7 +31,7 @@ build: clean
 	@mv target/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
 
 acorn-image:
-	@docker build --no-cache --platform linux/amd64 -t acorn:$(VERSION) -f Dockerfile .
+	@docker build --no-cache --platform $(PLATFORM) -t acorn:$(VERSION) -f Dockerfile .
 	@docker tag acorn:$(VERSION) acorn:latest
 	@docker tag acorn:$(VERSION) $(REGISTRY)/acorn/runner:$(VERSION)
 	@docker tag acorn:$(VERSION) $(REGISTRY)/acorn/runner:latest
@@ -63,7 +63,7 @@ acorn-push-ghcr:
 	@docker push ghcr.io/jhwohlgemuth/acorn:latest
 
 bucket-image:
-	@docker build --no-cache --platform linux/amd64 -t bucket:$(VERSION) -f Dockerfile.bucket .
+	@docker build --no-cache --platform $(PLATFORM) -t bucket:$(VERSION) -f Dockerfile.bucket .
 	@docker tag bucket:$(VERSION) bucket:latest
 	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:$(VERSION)
 	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:latest
@@ -105,6 +105,8 @@ version:
 #
 # Variables
 #
+# PLATFORM = linux/amd64,linux/arm64
+PLATFORM = linux/amd64
 VERSION = `awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 REGISTRY = savannah.ornl.gov/research-enablement
 # REGISTRY = camden.ornl.gov/research-enablement
