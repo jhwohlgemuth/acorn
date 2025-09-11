@@ -77,7 +77,7 @@ fn test_filter_git_command_result() {
 fn test_files_from_git() {
     let files = files_from_git_branch("main", Some(vec!["json"]));
     assert!(files.is_empty());
-    let files = files_from_git_commit("HEAD", Some(vec!["yaml"]));
+    let files = files_from_git_commit("HEAD", Some(vec!["fake"]));
     assert!(files.is_empty());
     let files = files_from_git_commit("ab8862e", Some(vec!["csv"]));
     assert_eq!(files.len(), 2);

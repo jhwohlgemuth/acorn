@@ -183,6 +183,16 @@ pub fn validate_attribute_doi(value: &[String]) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("DOIs").with_message("Every DOI should be valid".to_string().into())),
     }
 }
+/// Custom validator function for [`ResearchActivity`] [ror](/acorn_lib/schema/struct.Metadata.html#structfield.ror)
+///
+/// [`ResearchActivity`]: ../struct.ResearchActivity.html
+pub fn validate_attribute_ror(value: &[String]) -> Result<(), ValidationError> {
+    let is_valid = value.iter().all(|x| is_ror(x).is_ok());
+    match is_valid {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new("RORs").with_message("Every ROR should be valid".to_string().into())),
+    }
+}
 // TODO: Check that statments start with capital letter (use regex for period and captial?)
 /// Custom validator function for [`ResearchActivity`] [impact](/acorn_lib/schema/struct.Sections.html#structfield.impact)
 ///

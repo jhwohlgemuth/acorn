@@ -35,6 +35,35 @@ const VALID_DOI_VALUES: [&str; 28] = [
     "10.5479/10088/113528",
     "10.1038/s41597-020-0486-7",
 ];
+// Downloaded from https://zenodo.org/records/14728473
+const VALID_ROR_VALUES: [&str; 26] = [
+    "04ttjf776",
+    "01rxfrp27",
+    "023q4bk22",
+    "006jxzx88",
+    "00wfvh315",
+    "05ktbsm52",
+    "00nx6aa03",
+    "02k3cxs74",
+    "046fa4y88",
+    "02d439m40",
+    "04h08p482",
+    "01zctcs90",
+    "05m7zw681",
+    "03awtex73",
+    "00kv9pj15",
+    "03mjtdk61",
+    "04yyp8h20",
+    "022rkxt86",
+    "01wddqe20",
+    "03kwrfk72",
+    "037mpqg03",
+    "05cggb038",
+    "050b31k83",
+    "01q8f6705",
+    "03t40cz74",
+    "03ebg0v16",
+];
 
 #[test]
 fn test_classification() {
@@ -397,6 +426,13 @@ fn test_validate_attribute_impact() {
     .is_err());
 }
 #[test]
+fn test_validate_attribute_ror() {
+    let valid = VALID_ROR_VALUES.into_iter().map(|x| x.to_string()).collect::<Vec<String>>();
+    assert!(validate_attribute_ror(&valid).is_ok());
+    let invalid = ["https://doi.org/10.1000/182".to_string()];
+    assert!(validate_attribute_ror(&invalid).is_err());
+}
+#[test]
 fn test_validate_has_image_extension() {
     let valid = [
         "foo.png",
@@ -539,35 +575,7 @@ fn test_validate_is_phone_number() {
 }
 #[test]
 fn test_validate_is_ror() {
-    // Downloaded from https://zenodo.org/records/14728473
-    let valid = [
-        "04ttjf776",
-        "01rxfrp27",
-        "023q4bk22",
-        "006jxzx88",
-        "00wfvh315",
-        "05ktbsm52",
-        "00nx6aa03",
-        "02k3cxs74",
-        "046fa4y88",
-        "02d439m40",
-        "04h08p482",
-        "01zctcs90",
-        "05m7zw681",
-        "03awtex73",
-        "00kv9pj15",
-        "03mjtdk61",
-        "04yyp8h20",
-        "022rkxt86",
-        "01wddqe20",
-        "03kwrfk72",
-        "037mpqg03",
-        "05cggb038",
-        "050b31k83",
-        "01q8f6705",
-        "03t40cz74",
-        "03ebg0v16",
-    ];
+    let valid = VALID_ROR_VALUES;
     let invalid = [
         "978-12345-99990",
         "10.1000/182",

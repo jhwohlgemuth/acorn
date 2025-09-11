@@ -360,9 +360,9 @@ pub struct Metadata {
     /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
-    #[validate(custom(function = "is_ror"))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub ror: Option<String>,
+    #[validate(custom(function = "validate_attribute_ror"))]
+    #[serde(default)]
+    pub ror: Option<Vec<String>>,
     /// Additional type
     ///
     /// Type of associated research activity data when directly associated with an organization
