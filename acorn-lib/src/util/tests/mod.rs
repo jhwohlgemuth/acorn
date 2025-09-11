@@ -61,11 +61,35 @@ fn test_files_all() {
     }
 }
 #[test]
+fn test_filter_git_command_result() {
+    let response = "acorn-lib/assets/constants/keywords.csv\nacorn-lib/assets/constants/technology.csv".to_string();
+    let result = Ok(response.clone());
+    let files = filter_git_command_result(result, Some(vec!["csv"]));
+    assert_eq!(files.len(), 2);
+    let result = Ok(response);
+    let files = filter_git_command_result(result, Some(vec!["json"]));
+    assert!(files.is_empty());
+    let empty = Err(std::io::Error::from(std::io::ErrorKind::NotFound));
+    let files = filter_git_command_result(empty, Some(vec!["json"]));
+    assert!(files.is_empty());
+}
+#[test]
 fn test_files_from_git() {
     let files = files_from_git_branch("main", Some(vec!["json"]));
     assert!(files.is_empty());
     let files = files_from_git_commit("HEAD", Some(vec!["yaml"]));
     assert!(files.is_empty());
+    let files = files_from_git_commit("ab8862e", Some(vec!["csv"]));
+    assert_eq!(files.len(), 2);
+    let hash = "ae61400cfdd079c06c2563c6ffe16d3c714a6bdc";
+    let files = files_from_git_commit(hash, Some(vec!["rs"]));
+    assert_eq!(files.len(), 6);
+    let files = files_from_git_commit(hash, Some(vec!["json", "rs"]));
+    assert_eq!(files.len(), 7);
+    let files = files_from_git_commit(hash, Some(vec!["json"]));
+    assert_eq!(files.len(), 1);
+    let expected = "tests/fixtures/data/invalid_project_a/index.json";
+    assert_eq!(files[0].to_str().unwrap(), expected);
 }
 #[test]
 fn test_find_first() {

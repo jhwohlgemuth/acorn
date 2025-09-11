@@ -57,9 +57,16 @@ pub enum License {
 ///
 /// Supports an incomplete list of common MIME types
 ///
-/// See <https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types>
+/// See <https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types> and <https://mimetype.io/all-types> for more information
 #[derive(Clone, Debug, Display, PartialEq)]
 pub enum MimeType {
+    /// Citation File Format (CFF)
+    /// ### Note
+    /// > CFF does not have a standard MIME type, but is valid YAML
+    ///
+    /// See <https://citation-file-format.github.io/> for more information
+    #[display("application/yaml")]
+    Cff,
     /// Comma Separated Values (CSV)
     #[display("text/csv")]
     Csv,
@@ -85,6 +92,9 @@ pub enum MimeType {
     /// Portable Network Graphic (PNG)
     #[display("image/png")]
     Png,
+    /// Rust Source Code (RS)
+    #[display("text/rust")]
+    Rust,
     /// Scalable Vector Graphic (SVG)
     #[display("image/svg+xml")]
     Svg,
@@ -442,6 +452,7 @@ impl MimeType {
     /// Returns the file type as a string
     pub fn file_type(self) -> String {
         match self {
+            | MimeType::Cff => "cff",
             | MimeType::Csv => "csv",
             | MimeType::Jpeg => "jpeg",
             | MimeType::Json => "json",
@@ -449,6 +460,7 @@ impl MimeType {
             | MimeType::Markdown => "md",
             | MimeType::Otf => "otf",
             | MimeType::Png => "png",
+            | MimeType::Rust => "rs",
             | MimeType::Svg => "svg",
             | MimeType::Text => "txt",
             | MimeType::Toml => "toml",
@@ -470,18 +482,22 @@ impl MimeType {
     ///
     /// # Supported MIME types
     ///
-    /// * `csv` - `text/csv`
-    /// * `jpg` - `image/jpeg`
-    /// * `jpeg` - `image/jpeg`
-    /// * `json` - `application/json`
-    /// * `jsonld` - `application/ld+json`
-    /// * `md` - `text/markdown`
-    /// * `otf` - `font/otf`
-    /// * `png` - `image/png`
-    /// * `svg` - `image/svg+xml`
-    /// * `toml` - `application/toml`
-    /// * `txt` - `text/plain`
-    /// * `yaml` - `application/yaml`
+    /// | File Extension | MIME Type |
+    /// | --- | --- |
+    /// | cff | application/yaml |
+    /// | csv | text/csv |
+    /// | jpg | image/jpeg |
+    /// | jpeg | image/jpeg |
+    /// | json | application/json |
+    /// | jsonld | application/ld+json |
+    /// | md | text/markdown |
+    /// | otf | font/otf |
+    /// | png | image/png |
+    /// | rs | text/rust |
+    /// | svg | image/svg+xml |
+    /// | toml | application/toml |
+    /// | txt | text/plain |
+    /// | yaml | application/yaml |
     pub fn from_string<S>(value: S) -> MimeType
     where
         S: Into<String>,
@@ -495,10 +511,11 @@ impl MimeType {
             | "md" | "markdown" => MimeType::Markdown,
             | "otf" => MimeType::Otf,
             | "png" => MimeType::Png,
+            | "rs" => MimeType::Rust,
             | "svg" => MimeType::Svg,
             | "toml" => MimeType::Toml,
             | "txt" => MimeType::Text,
-            | "yml" | "yaml" => MimeType::Yaml,
+            | "yml" | "yaml" | "cff" => MimeType::Yaml,
             | _ => MimeType::Unknown,
         }
     }
@@ -822,9 +839,7 @@ fn filter_git_command_result(result: Result<String, std::io::Error>, extensions:
                 .to_lowercase()
                 .split("\n")
                 .map(PathBuf::from)
-                .filter(|path| {
-                    values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext)
-                })
+                .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext))
                 .collect::<Vec<_>>(),
             | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
         },
