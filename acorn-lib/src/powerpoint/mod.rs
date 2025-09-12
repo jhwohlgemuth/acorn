@@ -34,7 +34,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
             std::process::exit(exitcode::IOERR);
         }
     };
-    let files = files_all(path.clone(), None, None).into_iter().filter(|x| x.is_file());
+    let files = files_all(path.clone(), None).into_iter().filter(|x| x.is_file());
     for file_path in files {
         if let Ok(file) = File::open(file_path.clone()) {
             let name = match path.canonicalize() {

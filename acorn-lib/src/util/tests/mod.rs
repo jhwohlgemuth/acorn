@@ -45,20 +45,11 @@ fn test_extension() {
 #[test]
 fn test_files_all() {
     let extensions = Some(vec!["json"]);
-    let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions.clone(), None);
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions.clone());
     assert_eq!(files.len(), 3);
-    let files = files_all(PathBuf::from(FIXTURES).join("glob"), Some(vec!["jpg"]), None);
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), Some(vec!["jpg"]));
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
-    if cfg!(target_os = "linux") {
-        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions.clone(), Some("[/]a.json$".to_string()));
-        assert_eq!(files.len(), 2);
-        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions, Some("[/](a|b).json$".to_string()));
-        assert_eq!(files.len(), 1);
-        let files = files_all(PathBuf::from(FIXTURES).join("glob/a.txt"), None, None);
-        assert_eq!(files.len(), 1);
-        assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.txt");
-    }
 }
 #[test]
 fn test_filter_git_command_result() {
@@ -75,6 +66,22 @@ fn test_filter_git_command_result() {
     let empty = Err(std::io::Error::from(std::io::ErrorKind::NotFound));
     let files = filter_git_command_result(empty, Some(vec!["json"]));
     assert!(files.is_empty());
+}
+#[test]
+fn test_filter_ignored() {
+    if cfg!(target_os = "linux") {
+        let extensions = Some(vec!["json"]);
+        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions.clone());
+        let filtered = filter_ignored(files, Some("[/]a.json$".to_string()));
+        assert_eq!(filtered.len(), 2);
+        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions);
+        let filtered = filter_ignored(files, Some("[/](a|b).json$".to_string()));
+        assert_eq!(filtered.len(), 1);
+        let files = files_all(PathBuf::from(FIXTURES).join("glob/a.txt"), None);
+        let filtered = filter_ignored(files, None);
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].file_name().unwrap().to_str().unwrap(), "a.txt");
+    }
 }
 #[test]
 fn test_files_from_git() {

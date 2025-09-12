@@ -98,7 +98,12 @@ pub enum Commands {
         /// Check files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
         branch: Option<String>,
-        /// Check files that were changed in a given Git commit
+        /// Check files that were changed in a given Git commit or commit range
+        ///
+        ///     Check files that were changed in the last 10 commits
+        ///     &> acorn check --commit HEAD~10..HEAD
+        ///
+        /// See https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection for more information of commit ranges
         #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
         commit: Option<String>,
         /// Disable website checks that require internet connection

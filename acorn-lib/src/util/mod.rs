@@ -730,18 +730,17 @@ where
 pub fn extension(path: &Path) -> String {
     path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string()
 }
-/// Returns a vector of `PathBuf` containing all files in a directory that match the given extension and do not match the ignore pattern.
+/// Returns a vector of `PathBuf` containing all files in a directory that match at least one of the given extensions.
 ///
 /// # Arguments
 ///
 /// * `path` - A `PathBuf` to the directory to search.
-/// * `extension` - An `Option` containing a string slice representing the file extension to search for.
-/// * `ignore` - An `Option` containing a string representing a regex pattern to ignore files matching.
+/// * `extensions` - An `Option` containing a list of string slice(s) representing the file extension(s) to search for.
 ///
 /// # Returns
 ///
-/// A `Vec` containing `PathBuf` values of all files in the given directory that match the given extension and do not match the ignore pattern.
-pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>, ignore: Option<String>) -> Vec<PathBuf> {
+/// A `Vec` containing `PathBuf` values of all files in the given directory that match at least one of the given extensions.
+pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
     }
@@ -752,7 +751,8 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>, ignore: Option<St
         result
     }
     if path.is_dir() {
-        let paths = match extensions {
+        
+        match extensions {
             | Some(values) => values
                 .into_iter()
                 .map(|extension| {
@@ -770,21 +770,6 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>, ignore: Option<St
                     vec![]
                 }
             },
-        };
-        match ignore {
-            | Some(ignore_pattern) => match Regex::new(&ignore_pattern) {
-                | Ok(re) => paths
-                    .into_iter()
-                    .map(path_to_string)
-                    .filter(|x| !re.is_match(x).unwrap())
-                    .map(PathBuf::from)
-                    .collect(),
-                | Err(why) => {
-                    error!("=> {} Get all files (Regex) - {why}", Label::fail());
-                    vec![]
-                }
-            },
-            | None => paths,
         }
     } else {
         if extensions.is_some() {
@@ -851,6 +836,24 @@ fn filter_git_command_result(result: Result<String, std::io::Error>, extensions:
             | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
         },
         | Err(_) => vec![],
+    }
+}
+/// Return file paths in a vector that don't match the ignore pattern
+pub fn filter_ignored(paths: Vec<PathBuf>, ignore: Option<String>) -> Vec<PathBuf> {
+    match ignore {
+        | Some(ignore_pattern) => match Regex::new(&ignore_pattern) {
+            | Ok(re) => paths
+                .into_iter()
+                .map(path_to_string)
+                .filter(|x| !re.is_match(x).unwrap())
+                .map(PathBuf::from)
+                .collect(),
+            | Err(why) => {
+                error!("=> {} Filter ignored - {why}", Label::fail());
+                vec![]
+            }
+        },
+        | None => paths,
     }
 }
 /// Return fisrt key/value pair with key that matches pattern
