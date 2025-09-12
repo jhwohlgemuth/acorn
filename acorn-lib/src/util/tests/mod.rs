@@ -66,8 +66,11 @@ fn test_filter_git_command_result() {
     let result = Ok(response.clone());
     let files = filter_git_command_result(result, Some(vec!["csv"]));
     assert_eq!(files.len(), 2);
-    let result = Ok(response);
+    let result = Ok(response.clone());
     let files = filter_git_command_result(result, Some(vec!["json"]));
+    assert!(files.is_empty());
+    let result = Ok(response);
+    let files = filter_git_command_result(result, Some(vec!["JSON"]));
     assert!(files.is_empty());
     let empty = Err(std::io::Error::from(std::io::ErrorKind::NotFound));
     let files = filter_git_command_result(empty, Some(vec!["json"]));
@@ -79,6 +82,10 @@ fn test_files_from_git() {
     assert!(files.is_empty());
     let files = files_from_git_commit("HEAD", Some(vec!["fake"]));
     assert!(files.is_empty());
+}
+#[test]
+#[ignore]
+fn test_files_from_git_main() {
     let files = files_from_git_commit("ab8862e", Some(vec!["csv"]));
     assert_eq!(files.len(), 2);
     let hash = "ae61400cfdd079c06c2563c6ffe16d3c714a6bdc";

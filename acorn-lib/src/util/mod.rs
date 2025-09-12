@@ -826,8 +826,15 @@ pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<
     if command_exists("git".to_owned()) {
         let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
         let result = cmd("git", args).read();
-        debug!("=> {} Files from git commit - {result:?}", Label::using());
-        filter_git_command_result(result, extensions)
+        debug!("=> {} Git command response - {result:?}", Label::using());
+        let files = filter_git_command_result(result, extensions);
+        debug!(
+            "=> {} Found {} file{} from Git commit - {files:?}",
+            Label::using(),
+            files.len(),
+            suffix(files.len())
+        );
+        files
     } else {
         vec![]
     }
@@ -839,7 +846,7 @@ fn filter_git_command_result(result: Result<String, std::io::Error>, extensions:
                 .to_lowercase()
                 .split("\n")
                 .map(PathBuf::from)
-                .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext))
+                .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext.to_lowercase()))
                 .collect::<Vec<_>>(),
             | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
         },
