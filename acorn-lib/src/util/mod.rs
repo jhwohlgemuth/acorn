@@ -751,7 +751,6 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
         result
     }
     if path.is_dir() {
-        
         match extensions {
             | Some(values) => values
                 .into_iter()

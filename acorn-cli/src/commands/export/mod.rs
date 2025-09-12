@@ -228,7 +228,12 @@ pub fn run(
                         progress.inc(1);
                     }
                     progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                    info!("=> {} Exported {} highlight PowerPoint file{}", Label::pass(), paths.len(), suffix(paths.len()));
+                    info!(
+                        "=> {} Exported {} highlight PowerPoint file{}",
+                        Label::pass(),
+                        paths.len(),
+                        suffix(paths.len())
+                    );
                     Ok(())
                 }
             }
