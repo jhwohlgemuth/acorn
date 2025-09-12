@@ -3,14 +3,14 @@ use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
 use acorn_lib::powerpoint::{archive, extract, interpolate_values, read_xml_rel};
 use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::cli::{paths_from_options, FileFormat, Options, Size, Target};
-use acorn_lib::util::{path_to_string, tokio_runtime, Label};
+use acorn_lib::util::{path_to_string, suffix, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
 use playwright::Playwright;
 use std::fs::{create_dir_all, remove_file, File};
 use std::path::{self, PathBuf};
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 pub async fn create_pdf(page: &Page, options: Options) {
     let Options { output, size, target, .. } = options;
@@ -165,7 +165,7 @@ pub fn run(
                 let page = context.new_page().await.unwrap();
                 let progress = ProgressBar::new(paths.len() as u64);
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                for path in paths {
+                for path in &paths {
                     progress.set_message(format!("Generating PDF for {}", path.display()));
                     let pdf_options = Options::init()
                         .path(path.clone())
@@ -177,6 +177,7 @@ pub fn run(
                     progress.inc(1);
                 }
                 progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+                info!("=> {} Exported {} fact sheet PDF{}", Label::pass(), paths.len(), suffix(paths.len()));
                 let _close = page.close(Some(false)).await;
             });
             Ok(())
@@ -194,7 +195,7 @@ pub fn run(
                         let page = context.new_page().await.unwrap();
                         let progress = ProgressBar::new(paths.len() as u64);
                         progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                        for path in paths {
+                        for path in &paths {
                             progress.set_message(format!("Generating PDF for {}", path.display()));
                             let pdf_options = Options::init()
                                 .path(path.clone())
@@ -206,6 +207,7 @@ pub fn run(
                             progress.inc(1);
                         }
                         progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+                        info!("=> {} Exported {} highlight PDF{}", Label::pass(), paths.len(), suffix(paths.len()));
                         let _close = page.close(Some(false)).await;
                     });
                     Ok(())
@@ -213,7 +215,7 @@ pub fn run(
                 | FileFormat::Powerpoint => {
                     let progress = ProgressBar::new(paths.len() as u64);
                     progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                    for path in paths {
+                    for path in &paths {
                         progress.set_message(format!("Generating PowerPoint for {}", path.display()));
                         let powerpoint_options = Options::init()
                             .path(path.clone())
@@ -226,6 +228,7 @@ pub fn run(
                         progress.inc(1);
                     }
                     progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+                    info!("=> {} Exported {} highlight PowerPoint file{}", Label::pass(), paths.len(), suffix(paths.len()));
                     Ok(())
                 }
             }
