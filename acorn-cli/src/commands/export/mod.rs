@@ -122,7 +122,6 @@ fn create_powerpoint(options: Options) {
         };
         let from = input_path.parent().unwrap().join(data.clone().meta.first_image_content_url());
         std::fs::copy(from, image_path).unwrap();
-        // TODO: Interpolate data values
         ["ppt/slides/slide1.xml", "ppt/notesSlides/notesSlide1.xml"]
             .into_iter()
             .for_each(|fragment| {

@@ -589,9 +589,8 @@ pub fn syllable_count(text: &str) -> usize {
                 | None => 0,
             },
             | _ => {
-                let mut input = word;
                 let mut count: isize = 0;
-                // TODO: Combine SINGLE, DOUBLE, and TRIPLE regex operations
+                let mut input = word;
                 count += 3 * TRIPLE.find_iter(&input).count() as isize;
                 input = TRIPLE.replace_all(&input, "").to_string();
                 count += 2 * DOUBLE.find_iter(&input).count() as isize;
