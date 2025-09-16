@@ -17,7 +17,6 @@ use fancy_regex::Regex;
 use glob::glob;
 use is_executable::IsExecutable;
 use itertools::Itertools;
-use lychee_lib::{CacheStatus, Response, Status};
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
 use ring::digest::{Context, SHA256};
@@ -32,9 +31,7 @@ use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::{copy, BufReader, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
-use titlecase::titlecase;
-use tracing::{debug, error, info, warn};
-use validator::ValidationErrorsKind;
+use tracing::{debug, error, warn};
 use which::which;
 
 pub mod citeas;
@@ -46,6 +43,8 @@ pub mod cli;
 pub enum CheckCategory {
     /// Website avaialability check
     Link,
+    /// Static analysis of prose
+    Analysis,
     /// Schema validation check
     Schema,
 }
@@ -167,26 +166,6 @@ pub struct Constant;
 ///
 /// [^1]: Incomplete list of examples without foreground/background coloring
 pub struct Label {}
-/// Data structure for holding the result of a schema validation check
-#[derive(Builder, Clone, Debug, Display)]
-#[builder(start_fn = init)]
-#[display("{message}")]
-pub struct Check {
-    /// Check category
-    pub category: CheckCategory,
-    /// Whether or not the check was successful
-    #[builder(default = false)]
-    pub success: bool,
-    /// HTTP status code
-    pub status_code: Option<String>,
-    /// Errors found during validation
-    pub errors: Option<ValidationErrorsKind>,
-    /// Path of file being validated
-    // TODO: Normalize path as URI (file://)
-    pub uri: Option<String>,
-    /// Message related to or description of validation issue (e.g., key name of invalid value, result of validation, etc.)
-    pub message: String,
-}
 /// Semantic version
 ///
 /// see <https://semver.org/>
@@ -426,69 +405,6 @@ impl MimeType {
         }
     }
 }
-impl Check {
-    /// Returns the number of errors
-    pub fn issue_count(&self) -> usize {
-        if let Some(errors) = &self.errors {
-            match errors.clone() {
-                | ValidationErrorsKind::Field(_) => 1,
-                | ValidationErrorsKind::Struct(errors) => errors.into_errors().len(),
-                | ValidationErrorsKind::List(_) => 0,
-            }
-        } else {
-            0
-        }
-    }
-    /// Print the schema check results
-    pub fn print(self) {
-        match self.category {
-            | CheckCategory::Schema => {
-                let path = self.clone().uri.unwrap();
-                if self.success {
-                    info!("=> {} {} has {}", Label::pass(), path, "no schema validation issues".green().bold());
-                } else {
-                    let count = self.issue_count();
-                    error!(
-                        "=> {} Found {} schema validation issue{} in {}: \n{:#?}",
-                        Label::fail(),
-                        count.red(),
-                        suffix(count),
-                        path.italic().underline(),
-                        self.errors.unwrap()
-                    );
-                }
-            }
-            | CheckCategory::Link => {
-                let code = match self.status_code {
-                    | Some(code) => format!(" ({code})").dimmed().to_string(),
-                    | None => "".to_string(),
-                };
-                let url = match self.uri {
-                    | Some(value) => value.underline().italic().to_string(),
-                    | None => "Missing".italic().to_string(),
-                };
-                if self.success {
-                    let message = titlecase(&self.message).green().bold().to_string();
-                    info!("=> {} \"{url}\" {message}{code}", Label::valid());
-                } else {
-                    let message = titlecase(&self.message).red().bold().to_string();
-                    error!("=> {} \"{url}\" {message}{code}", Label::invalid());
-                }
-            }
-        }
-    }
-    /// Returns a new LinkCheckResult with the given URL
-    pub fn with_uri(self, value: String) -> Self {
-        Check::init()
-            .category(self.category)
-            .success(self.success)
-            .uri(value)
-            .message(self.message)
-            .maybe_status_code(self.status_code)
-            .maybe_errors(self.errors)
-            .build()
-    }
-}
 impl SemanticVersion {
     /// Returns a `SemanticVersion` value based on the output of the `--version` command-line flag
     /// of the given executable name.
@@ -602,68 +518,6 @@ where
             warn!(name, "=> {} Command", Label::not_found());
             false
         }
-    }
-}
-/// Convert Lychee response to [`Check`]
-pub fn convert_lychee_response(value: Response) -> Check {
-    match value.status() {
-        | Status::Ok(code) | Status::Redirected(code) => Check::init()
-            .category(CheckCategory::Link)
-            .success(true)
-            .status_code(code.to_string())
-            .message("has no HTTP errors".to_string())
-            .build(),
-        | Status::Cached(status) => match status {
-            | CacheStatus::Ok(code) => Check::init()
-                .category(CheckCategory::Link)
-                .success(true)
-                .status_code(code.to_string())
-                .message("has no HTTP errors".to_string())
-                .build(),
-            | CacheStatus::Error(Some(code)) => Check::init()
-                .category(CheckCategory::Link)
-                .success(false)
-                .status_code(code.to_string())
-                .message("has cached HTTP errors".to_string())
-                .build(),
-            | CacheStatus::Unsupported => Check::init()
-                .category(CheckCategory::Link)
-                .success(false)
-                .message("unsupported cached response".to_string())
-                .build(),
-            | _ => Check::init()
-                .category(CheckCategory::Link)
-                .success(true)
-                .message("ignored or otherwise successful (cached response)".to_string())
-                .build(),
-        },
-        | Status::Error(code) => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .status_code(code.to_string())
-            .message("has HTTP errors".to_string())
-            .build(),
-        | Status::Unsupported(why) => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .message(format!("unsupported HTTP response - {why}"))
-            .build(),
-        | Status::UnknownStatusCode(code) => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .status_code(code.to_string())
-            .message("unknown HTTP response".to_string())
-            .build(),
-        | Status::Timeout(_) => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .message("HTTP timeout".to_string())
-            .build(),
-        | _ => Check::init()
-            .category(CheckCategory::Link)
-            .success(true)
-            .message("ignored or otherwise successful".to_string())
-            .build(),
     }
 }
 /// Downloads a binary file from the given URL to the destination path.
@@ -946,28 +800,6 @@ where
         .collect::<Vec<PathBuf>>();
     files.sort();
     files
-}
-/// Perform link check on given URL using Lychee
-pub async fn link_check(uri: Option<String>) -> Check {
-    match uri {
-        | Some(value) => {
-            let result = lychee_lib::check(value.as_str()).await;
-            match result {
-                | Ok(response) => convert_lychee_response(response).with_uri(value),
-                | Err(_) => Check::init()
-                    .category(CheckCategory::Link)
-                    .success(false)
-                    .uri(value)
-                    .message("unreachable".to_string())
-                    .build(),
-            }
-        }
-        | None => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .message("missing URL".to_string())
-            .build(),
-    }
 }
 /// Makes the given file executable.
 ///

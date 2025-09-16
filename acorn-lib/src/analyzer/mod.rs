@@ -2,46 +2,59 @@
 //!
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
+use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION, VALE_RELEASES_URL,
     VALE_VERSION,
 };
-use crate::util::{
-    checksum, command_exists, download_binary, extension, make_executable, path_to_string, pretty_print, standard_project_folder, to_string,
-    Constant, Label, ProgrammingLanguage, SemanticVersion,
-};
+use crate::util::*;
 use crate::Repository;
+use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
+use derive_more::Display;
 use duct::cmd;
 use flate2::read::GzDecoder;
 use ini::Ini;
+use lychee_lib::{CacheStatus, Response, Status};
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::{create_dir_all, remove_file};
 use std::io::prelude::*;
 use std::path::PathBuf;
 use tar::Archive;
+use titlecase::titlecase;
 use titlecase::Titlecase;
 use tracing::{debug, error, info, trace};
+use validator::ValidationErrorsKind;
 use which::which;
 
 pub mod readability;
 pub mod vale;
 
-use vale::{parse_vale_output, print_vale_output, Vale, ValeConfig};
+use vale::{Vale, ValeConfig};
 
+/// Error kind
+#[derive(Debug, Clone)]
+pub enum ErrorKind {
+    /// Prose issue found by Vale
+    Vale(Vec<ValeOutputItem>),
+    /// Schema validation issue found by [validator crate]
+    ///
+    /// [validator crate]: https://crates.io/crates/validator
+    Validator(ValidationErrorsKind),
+}
 /// Trait for static analyzers (e.g. Vale)
 pub trait StaticAnalyzer {
     /// Get command name (e.g. "vale")
     fn command(self) -> String;
-    /// Analyze content
-    fn analyze(&self, id: String, content: String, output: Option<String>) -> usize;
     /// Download binary
     fn download(self, config: Option<ValeConfig>) -> Self;
     /// Download checksum values
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     /// Extract binary
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
+    /// Run analyzer on content
+    fn run(&self, id: String, content: String, output: Option<String>) -> Check;
     /// Perform sync operation (only applies to Vale)
     fn sync(self, is_offline: bool) -> Result<(), std::io::Error>;
     /// Set binary
@@ -62,11 +75,143 @@ pub trait StaticAnalyzerConfig {
     /// Save configuration
     fn save(self) -> ValeConfig;
 }
+/// Data structure for holding the result of a schema validation check
+#[derive(Builder, Clone, Debug, Display)]
+#[builder(start_fn = init)]
+#[display("{message}")]
+pub struct Check {
+    /// Check category
+    pub category: CheckCategory,
+    /// Textual context of check (e.g., paragraph where prose issues were found)
+    pub context: Option<String>,
+    /// Whether or not the check was successful
+    #[builder(default = false)]
+    pub success: bool,
+    /// HTTP status code
+    pub status_code: Option<String>,
+    /// Errors and issues found during check
+    pub errors: Option<ErrorKind>,
+    /// Path of file being validated
+    pub uri: Option<String>,
+    /// Message related to or description of validation issue (e.g., key name of invalid value, result of validation, etc.)
+    #[builder(default = "".to_string())]
+    pub message: String,
+}
+impl Check {
+    /// Returns the number of errors
+    pub fn issue_count(&self) -> usize {
+        match self.category {
+            | CheckCategory::Analysis => {
+                if let Some(kind) = &self.errors {
+                    match kind {
+                        | ErrorKind::Vale(values) => values.len(),
+                        | _ => 0,
+                    }
+                } else {
+                    0
+                }
+            }
+            | CheckCategory::Link => 1,
+            | CheckCategory::Schema => {
+                if let Some(kind) = &self.errors {
+                    match kind {
+                        | ErrorKind::Validator(values) => match values {
+                            | ValidationErrorsKind::Field(_) => 1,
+                            | ValidationErrorsKind::Struct(values) => values.clone().into_errors().len(),
+                            | ValidationErrorsKind::List(_) => 0,
+                        },
+                        | _ => 0,
+                    }
+                } else {
+                    0
+                }
+            }
+        }
+    }
+    /// Print the schema check results
+    pub fn print(self) {
+        match self.category {
+            | CheckCategory::Analysis => {
+                let Check {
+                    context, errors, message, ..
+                } = self;
+                match &errors {
+                    | Some(ErrorKind::Vale(values)) => {
+                        error!("=> {} {} issues found in {}", Label::fail(), values.len(), message.underline());
+                        for item in values {
+                            let ValeOutputItem {
+                                check,
+                                line,
+                                message,
+                                severity,
+                                span,
+                                ..
+                            } = item;
+                            let location = format!("Line {}, Character {}", line, span[0]);
+                            println!("  {:<24} {:<21} {} {}", location, severity.colored(), message, check.dimmed());
+                        }
+                        let highlight = values.clone().into_iter().map(|item| item.line as usize).collect::<Vec<_>>();
+                        if let Some(content) = &context {
+                            println!();
+                            pretty_print(content, ProgrammingLanguage::Markdown, highlight);
+                            println!("\n");
+                        }
+                    }
+                    | _ => (),
+                }
+            }
+            | CheckCategory::Schema => {
+                let path = self.clone().uri.unwrap();
+                if self.success {
+                    info!("=> {} {} has {}", Label::pass(), path, "no schema validation issues".green().bold());
+                } else {
+                    let count = self.issue_count();
+                    error!(
+                        "=> {} Found {} schema validation issue{} in {}: \n{:#?}",
+                        Label::fail(),
+                        count.red(),
+                        suffix(count),
+                        path.italic().underline(),
+                        self.errors.unwrap()
+                    );
+                }
+            }
+            | CheckCategory::Link => {
+                let code = match self.status_code {
+                    | Some(code) => format!(" ({code})").dimmed().to_string(),
+                    | None => "".to_string(),
+                };
+                let url = match self.uri {
+                    | Some(value) => value.underline().italic().to_string(),
+                    | None => "Missing".italic().to_string(),
+                };
+                if self.success {
+                    let message = titlecase(&self.message).green().bold().to_string();
+                    info!("=> {} \"{url}\" {message}{code}", Label::valid());
+                } else {
+                    let message = titlecase(&self.message).red().bold().to_string();
+                    error!("=> {} \"{url}\" {message}{code}", Label::invalid());
+                }
+            }
+        }
+    }
+    /// Returns a new LinkCheckResult with the given URL
+    pub fn with_uri(self, value: String) -> Self {
+        Check::init()
+            .category(self.category)
+            .success(self.success)
+            .uri(value)
+            .message(self.message)
+            .maybe_status_code(self.status_code)
+            .maybe_errors(self.errors)
+            .build()
+    }
+}
 impl StaticAnalyzer for Vale {
     fn command(self) -> String {
         "vale".to_string()
     }
-    fn analyze(&self, id: String, content: String, output: Option<String>) -> usize {
+    fn run(&self, id: String, content: String, output: Option<String>) -> Check {
         let root = standard_project_folder("check", None);
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
@@ -116,24 +261,24 @@ impl StaticAnalyzer for Vale {
                 };
                 match result {
                     | Ok(output) => {
-                        let parsed = parse_vale_output(path, &output);
+                        let parsed = ValeOutput::parse(&output, path);
                         if parsed.is_empty() {
                             let message = format!("=> {} {} has {}", Label::pass(), id.to_string().underline(), "no prose issues".green(),);
                             info!("{}", message);
-                            0
+                            Check::init().category(CheckCategory::Analysis).success(true).message(id).build()
                         } else {
-                            error!("=> {} {} issues found in {}", Label::fail(), parsed.len(), id.to_string().underline());
-                            print_vale_output(parsed.clone());
-                            let highlight = parsed.clone().into_iter().map(|item| item.line as usize).collect::<Vec<_>>();
-                            println!();
-                            pretty_print(&content, ProgrammingLanguage::Markdown, highlight);
-                            println!("\n");
-                            parsed.len()
+                            Check::init()
+                                .category(CheckCategory::Analysis)
+                                .success(false)
+                                .message(id)
+                                .errors(ErrorKind::Vale(parsed))
+                                .context(content)
+                                .build()
                         }
                     }
                     | Err(output) => {
                         error!("=> {} Analyze - {}", Label::fail(), output);
-                        1
+                        Check::init().category(CheckCategory::Analysis).success(false).message(id).build()
                     }
                 }
             }
@@ -398,6 +543,90 @@ impl StaticAnalyzerConfig for ValeConfig {
             }
         }
         self
+    }
+}
+/// Convert Lychee response to [`Check`]
+pub fn convert_lychee_response(value: Response) -> Check {
+    match value.status() {
+        | Status::Ok(code) | Status::Redirected(code) => Check::init()
+            .category(CheckCategory::Link)
+            .success(true)
+            .status_code(code.to_string())
+            .message("has no HTTP errors".to_string())
+            .build(),
+        | Status::Cached(status) => match status {
+            | CacheStatus::Ok(code) => Check::init()
+                .category(CheckCategory::Link)
+                .success(true)
+                .status_code(code.to_string())
+                .message("has no HTTP errors".to_string())
+                .build(),
+            | CacheStatus::Error(Some(code)) => Check::init()
+                .category(CheckCategory::Link)
+                .success(false)
+                .status_code(code.to_string())
+                .message("has cached HTTP errors".to_string())
+                .build(),
+            | CacheStatus::Unsupported => Check::init()
+                .category(CheckCategory::Link)
+                .success(false)
+                .message("unsupported cached response".to_string())
+                .build(),
+            | _ => Check::init()
+                .category(CheckCategory::Link)
+                .success(true)
+                .message("ignored or otherwise successful (cached response)".to_string())
+                .build(),
+        },
+        | Status::Error(code) => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .status_code(code.to_string())
+            .message("has HTTP errors".to_string())
+            .build(),
+        | Status::Unsupported(why) => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .message(format!("unsupported HTTP response - {why}"))
+            .build(),
+        | Status::UnknownStatusCode(code) => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .status_code(code.to_string())
+            .message("unknown HTTP response".to_string())
+            .build(),
+        | Status::Timeout(_) => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .message("HTTP timeout".to_string())
+            .build(),
+        | _ => Check::init()
+            .category(CheckCategory::Link)
+            .success(true)
+            .message("ignored or otherwise successful".to_string())
+            .build(),
+    }
+}
+/// Perform link check on given URL using Lychee
+pub async fn link_check(uri: Option<String>) -> Check {
+    match uri {
+        | Some(value) => {
+            let result = lychee_lib::check(value.as_str()).await;
+            match result {
+                | Ok(response) => convert_lychee_response(response).with_uri(value),
+                | Err(_) => Check::init()
+                    .category(CheckCategory::Link)
+                    .success(false)
+                    .uri(value)
+                    .message("unreachable".to_string())
+                    .build(),
+            }
+        }
+        | None => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .message("missing URL".to_string())
+            .build(),
     }
 }
 

@@ -345,6 +345,7 @@ impl Bucket {
                 message,
             )
         }
+        #[allow(clippy::ptr_arg)]
         fn has_image_extension(path: &String) -> bool {
             path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg")
         }

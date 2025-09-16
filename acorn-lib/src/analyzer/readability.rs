@@ -9,8 +9,7 @@ use dotenvy::dotenv;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use tracing::debug;
-use tracing::warn;
+use tracing::{debug, trace, warn};
 
 lazy_static! {
     /// Apostrophe
@@ -556,7 +555,7 @@ pub fn singular_form(word: &str) -> String {
                 });
             match pair {
                 | Some((pattern, replacement)) => {
-                    debug!(pattern, replacement, value, "=> {} Singular form conversion", Label::using());
+                    trace!(pattern, replacement, value, "=> {} Singular form conversion", Label::using());
                     let re = Regex::new(pattern).unwrap();
                     re.replace_all(value, *replacement).to_string()
                 }

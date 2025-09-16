@@ -83,16 +83,22 @@ pub struct ValeOutput {
 #[serde(rename_all = "PascalCase")]
 pub struct ValeOutputItem {
     action: ValeOutputItemAction,
-    span: Vec<u32>,
-    check: String,
+    /// Name of Vale check
+    /// ### Example
+    /// `Vale.Spelling`
+    pub check: String,
     description: String,
-    link: String,
-    message: String,
-    severity: ValeOutputItemSeverity,
-    #[serde(rename = "Match")]
-    word_match: String,
     /// Line number
     pub line: u32,
+    link: String,
+    /// Text describing the issue and/or providing suggestions
+    pub message: String,
+    /// Severity of the issue (e.g., warning, error, suggestion)
+    pub severity: ValeOutputItemSeverity,
+    /// Span of the issue (e.g., starting and ending characters of issue location in context)
+    pub span: Vec<u32>,
+    #[serde(rename = "Match")]
+    word_match: String,
 }
 /// Vale output item action
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -102,6 +108,24 @@ pub struct ValeOutputItemAction {
     name: String,
     /// Action parameters
     params: Option<Vec<String>>,
+}
+impl ValeOutput {
+    /// Parse Vale output
+    pub fn parse(output: &str, path: PathBuf) -> Vec<ValeOutputItem> {
+        let processed = preprocess_vale_output(path, output);
+        if processed != "{}" {
+            let parsed: serde_json::Result<ValeOutput> = serde_json::from_str(&processed);
+            match parsed {
+                | Ok(ValeOutput { items }) => items,
+                | Err(why) => {
+                    error!("=> {} Parse Vale output - {why}", Label::fail());
+                    vec![]
+                }
+            }
+        } else {
+            vec![]
+        }
+    }
 }
 impl ValeOutputItemSeverity {
     /// Returns colored output based on severity
@@ -123,35 +147,4 @@ pub fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
 pub fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
     let input = path.as_path().display().to_string().replace("\\", "/");
     output.replace("\\\\", "/").replace(&input, "items")
-}
-/// Parse Vale output
-pub fn parse_vale_output(path: PathBuf, output: &str) -> Vec<ValeOutputItem> {
-    let processed = preprocess_vale_output(path, output);
-    if processed != "{}" {
-        let parsed: serde_json::Result<ValeOutput> = serde_json::from_str(&processed);
-        match parsed {
-            | Ok(ValeOutput { items }) => items,
-            | Err(why) => {
-                error!("=> {} Parse Vale output - {why}", Label::fail());
-                vec![]
-            }
-        }
-    } else {
-        vec![]
-    }
-}
-/// Print Vale output
-pub fn print_vale_output(items: Vec<ValeOutputItem>) {
-    for item in items {
-        let ValeOutputItem {
-            check,
-            line,
-            message,
-            severity,
-            span,
-            ..
-        } = item;
-        let location = format!("Line {}, Character {}", line, span[0]);
-        println!("{:<24} {:<21} {} {}", location, severity.colored(), message, check.dimmed());
-    }
 }

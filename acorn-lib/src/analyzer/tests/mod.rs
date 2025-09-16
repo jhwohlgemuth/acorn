@@ -75,8 +75,7 @@ fn test_parse_vale_output() {
   ]
 }
     "#;
-    let parsed: Vec<ValeOutputItem> = parse_vale_output(PathBuf::from(path), data);
-    print_vale_output(parsed.clone());
+    let parsed: Vec<ValeOutputItem> = ValeOutput::parse(data, PathBuf::from(path));
     assert_eq!(parsed.len(), 3);
 }
 #[test]

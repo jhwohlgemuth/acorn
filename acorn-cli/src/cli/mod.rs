@@ -75,10 +75,10 @@ pub enum Commands {
     ///     $> acorn check /path/to/folder
     ///
     ///     Skip static analysis
-    ///     $> acorn check /path/to/folder --skip validation
+    ///     $> acorn check /path/to/folder --skip schema
     ///
     ///     Skip schema validation
-    ///     $> acorn check /path/to/folder --skip analysis,validation
+    ///     $> acorn check /path/to/folder --skip prose,schema
     ///
     ///     Check file(s) that were changed in a given Git commit
     ///     $> acorn check --commit <commit hash>
@@ -130,9 +130,9 @@ pub enum Commands {
         /// Readability test to use
         #[arg(default_value_t, short, long = "readability-test", value_name = "METRIC", help_heading = "OPTIONS")]
         readability_metric: ReadabilityType,
-        /// Skip one or more available quality checks
+        /// Skip one or more available quality check categories
         #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-        skip: Vec<Check>,
+        skip: Vec<CheckCategory>,
         #[command(flatten)]
         verbose: Verbosity,
     },

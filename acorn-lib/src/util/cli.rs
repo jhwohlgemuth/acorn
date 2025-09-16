@@ -13,19 +13,19 @@ use std::path::PathBuf;
 /// Used primarily by ACORN CLI
 #[derive(Clone, Debug, Display, PartialEq, ValueEnum, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Check {
-    /// Static analysis of prose
-    #[display("analysis")]
-    Analysis,
+pub enum CheckCategory {
     /// Folder structure and file naming
     #[display("conventions")]
     Conventions,
+    /// Static analysis of prose
+    #[display("prose")]
+    Prose,
     /// Readability of prose
     #[display("readability")]
     Readability,
     /// Schema validation via Rust type system
-    #[display("validation")]
-    Validation,
+    #[display("schema")]
+    Schema,
 }
 /// Catagories available when performing system diagnostics before using ACORN
 ///

@@ -4,7 +4,7 @@
 //!
 use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::vale::{Vale, ValeConfig};
-use crate::analyzer::{StaticAnalyzer, StaticAnalyzerConfig};
+use crate::analyzer::{link_check, Check, ErrorKind, StaticAnalyzer, StaticAnalyzerConfig};
 use crate::constants::*;
 use crate::util::*;
 use bon::{builder, Builder};
@@ -862,7 +862,7 @@ impl ResearchActivity {
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
     /// Analyzes a list of research activity files
-    pub fn analyze(paths: Vec<PathBuf>, is_offline: bool) -> usize {
+    pub fn analyze_prose(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
         let config = ValeConfig::default().save();
         let init = Vale::init().build();
         let vale = if command_exists("vale") {
@@ -875,20 +875,17 @@ impl ResearchActivity {
         match vale.clone().sync(is_offline) {
             | Ok(_) => {
                 let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
-                    | Some(data) => vale
-                        .clone()
-                        .analyze(data.clone().meta.identifier, data.extract_prose(), Some("JSON".into())),
+                    | Some(data) => vale.clone().run(data.clone().meta.identifier, data.extract_prose(), Some("JSON".into())),
                     | None => {
                         error!("=> {} Read research activity data", Label::fail());
-                        1
+                        Check::init().category(CheckCategory::Analysis).success(false).build()
                     }
                 });
-                let output = results.collect::<Vec<usize>>();
-                output.into_iter().sum()
+                results.collect::<Vec<Check>>()
             }
             | Err(err) => {
                 error!("=> {} Vale sync - {}", Label::fail(), err);
-                1
+                vec![Check::init().category(CheckCategory::Analysis).success(false).build()]
             }
         }
     }
@@ -931,7 +928,7 @@ impl ResearchActivity {
             .sum()
     }
     /// Checks a list of research activity files
-    pub fn check(paths: Vec<PathBuf>, is_offline: bool) -> usize {
+    pub fn check(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
         let runtime = tokio_runtime();
         paths
             .par_iter()
@@ -961,24 +958,15 @@ impl ResearchActivity {
                         }
                         issues
                     });
-                    let offline_issue_count: usize = offline_issues
-                        .into_iter()
-                        .inspect(|issue| issue.clone().print())
-                        .map(|issue| issue.issue_count())
-                        .sum();
-                    let online_issue_count: usize = online_issues
-                        .into_iter()
-                        .inspect(|issue| issue.clone().print())
-                        .filter(|issue| !issue.success)
-                        .count();
-                    offline_issue_count + online_issue_count
+                    offline_issues.into_iter().chain(online_issues).collect::<Vec<Check>>()
                 }
                 | None => {
                     error!("=> {} Read research activity data at {}", Label::fail(), path.display());
-                    0
+                    vec![Check::init().category(CheckCategory::Schema).success(false).build()]
                 }
             })
-            .sum()
+            .flatten()
+            .collect()
     }
     /// Creates a copy of a `ResearchActivity`
     pub fn copy(self) -> ResearchActivity {
@@ -1227,9 +1215,9 @@ impl ResearchActivity {
                         .into_iter()
                         .map(|(key, value)| {
                             Check::init()
-                                .category(CheckCategory::Link)
+                                .category(CheckCategory::Schema)
                                 .success(false)
-                                .errors(value)
+                                .errors(ErrorKind::Validator(value))
                                 .message(key.to_string())
                                 .build()
                         })
