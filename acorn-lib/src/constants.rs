@@ -100,19 +100,33 @@ pub const MAX_LENGTH_SUBTITLE: u64 = 75;
 pub const MAX_LENGTH_TITLE: u64 = 45;
 // Readability defaults
 /// Automated Readability Index (ARI) maximum allowed value
-pub const MAX_ALLOWED_ARI: f64 = 20.0;
+/// 
+/// This value maps to 12th grade (high school senior) reading level
+pub const MAX_ALLOWED_ARI: f64 = 18.0;
 /// Coleman-Liau Index (CLI) maximum allowed value
-pub const MAX_ALLOWED_CLI: f64 = 20.0;
+/// 
+/// This value maps to 12th grade (high school senior) reading level
+pub const MAX_ALLOWED_CLI: f64 = 12.0;
 /// Flesch-Kincaid Grade Level (FKGL) maximum allowed value
-pub const MAX_ALLOWED_FKGL: f64 = 20.0;
+/// 
+/// This value maps to 12th grade (high school senior) reading level
+pub const MAX_ALLOWED_FKGL: f64 = 12.0;
 /// Flesch Reading Ease Score (FRES) maximum allowed value
-pub const MAX_ALLOWED_FRES: f64 = 20.0;
+/// 
+/// This value maps to 12th grade (high school senior) reading level
+pub const MAX_ALLOWED_FRES: f64 = 50.0;
 /// Gunning Fog Index (GFI) maximum allowed value
-pub const MAX_ALLOWED_GFI: f64 = 20.0;
-/// Lix Index (Lix) maximum allowed value
-pub const MAX_ALLOWED_LIX: f64 = 20.0;
+/// 
+/// This value maps to 12th grade (high school senior) reading level
+pub const MAX_ALLOWED_GFI: f64 = 12.0;
+/// Lix Index (Lix) maximum allowed va
+/// 
+/// This value is somewhere in between "very easy" (20) and "very difficult" (60), skewed toward "very difficult"
+pub const MAX_ALLOWED_LIX: f64 = 50.0;
 /// Simple Measure of Gobbledygook (SMOG) maximum allowed value
-pub const MAX_ALLOWED_SMOG: f64 = 20.0;
+/// 
+/// This value maps to upper end of high school (12th grade) reading level
+pub const MAX_ALLOWED_SMOG: f64 = 13.0;
 
 lazy_static! {
     /// Regex that should match a Digital Object Identifier (DOI)
