@@ -41,6 +41,14 @@ pub mod citeas;
 #[cfg(feature = "cli")]
 pub mod cli;
 
+/// Various check categories available for validating research activity data
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub enum CheckCategory {
+    /// Website avaialability check
+    Link,
+    /// Schema validation check
+    Schema,
+}
 /// SPDX compliant license identifier
 ///
 /// See <https://spdx.org/licenses/>
@@ -159,34 +167,23 @@ pub struct Constant;
 ///
 /// [^1]: Incomplete list of examples without foreground/background coloring
 pub struct Label {}
-/// Data structure for holding the result of a link check
+/// Data structure for holding the result of a schema validation check
 #[derive(Builder, Clone, Debug, Display)]
 #[builder(start_fn = init)]
 #[display("{message}")]
-pub struct LinkCheck {
+pub struct Check {
+    /// Check category
+    pub category: CheckCategory,
     /// Whether or not the check was successful
     #[builder(default = false)]
     pub success: bool,
     /// HTTP status code
-    pub code: Option<String>,
-    /// URL
-    // TODO: Normalize URL as URI
-    pub url: Option<String>,
-    /// Message describing the HTTP status code
-    pub message: String,
-}
-/// Data structure for holding the result of a schema validation check
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init)]
-pub struct SchemaCheck {
-    /// Whether or not the check was successful
-    #[builder(default = false)]
-    pub success: bool,
+    pub status_code: Option<String>,
     /// Errors found during validation
     pub errors: Option<ValidationErrorsKind>,
     /// Path of file being validated
     // TODO: Normalize path as URI (file://)
-    pub path: Option<PathBuf>,
+    pub uri: Option<String>,
     /// Message related to or description of validation issue (e.g., key name of invalid value, result of validation, etc.)
     pub message: String,
 }
@@ -357,97 +354,6 @@ impl Label {
         value.style(style).to_string()
     }
 }
-impl LinkCheck {
-    /// Converts a Lychee response into a LinkCheckResult
-    pub fn from_lychee(response: Response) -> Self {
-        match response.status() {
-            | Status::Ok(code) | Status::Redirected(code) => LinkCheck::init()
-                .success(true)
-                .code(code.to_string())
-                .message("has no HTTP errors".to_string())
-                .build(),
-            | Status::Cached(status) => match status {
-                | CacheStatus::Ok(code) => LinkCheck::init()
-                    .success(true)
-                    .code(code.to_string())
-                    .message("has no HTTP errors".to_string())
-                    .build(),
-                | CacheStatus::Error(Some(code)) => LinkCheck::init()
-                    .success(false)
-                    .code(code.to_string())
-                    .message("has cached HTTP errors".to_string())
-                    .build(),
-                | CacheStatus::Unsupported => LinkCheck::init()
-                    .success(false)
-                    .message("unsupported cached response".to_string())
-                    .build(),
-                | _ => LinkCheck::init()
-                    .success(true)
-                    .message("ignored or otherwise successful (cached response)".to_string())
-                    .build(),
-            },
-            | Status::Error(code) => LinkCheck::init()
-                .success(false)
-                .code(code.to_string())
-                .message("has HTTP errors".to_string())
-                .build(),
-            | Status::Unsupported(why) => LinkCheck::init()
-                .success(false)
-                .message(format!("unsupported HTTP response - {why}"))
-                .build(),
-            | Status::UnknownStatusCode(code) => LinkCheck::init()
-                .success(false)
-                .code(code.to_string())
-                .message("unknown HTTP response".to_string())
-                .build(),
-            | Status::Timeout(_) => LinkCheck::init().success(false).message("HTTP timeout".to_string()).build(),
-            | _ => LinkCheck::init()
-                .success(true)
-                .message("ignored or otherwise successful".to_string())
-                .build(),
-        }
-    }
-    /// Perform link check on given URL
-    pub async fn run(url: Option<String>) -> LinkCheck {
-        match url {
-            | Some(url) => {
-                let response = lychee_lib::check(url.as_str()).await;
-                match response {
-                    | Ok(response) => LinkCheck::from_lychee(response).with_url(url),
-                    | Err(_) => LinkCheck::init().success(false).url(url).message("unreachable".to_string()).build(),
-                }
-            }
-            | None => LinkCheck::init().success(false).message("missing URL".to_string()).build(),
-        }
-    }
-    /// Print the link check results
-    pub fn print(self) {
-        let code = match self.code {
-            | Some(code) => format!(" ({code})").dimmed().to_string(),
-            | None => "".to_string(),
-        };
-        let url = match self.url {
-            | Some(url) => url.underline().italic().to_string(),
-            | None => "Missing".italic().to_string(),
-        };
-        if self.success {
-            let message = titlecase(&self.message).green().bold().to_string();
-            info!("=> {} \"{url}\" {message}{code}", Label::valid());
-        } else {
-            let message = titlecase(&self.message).red().bold().to_string();
-            error!("=> {} \"{url}\" {message}{code}", Label::invalid());
-        }
-    }
-    /// Returns a new LinkCheckResult with the given URL
-    pub fn with_url(self, value: String) -> Self {
-        LinkCheck::init()
-            .success(self.success)
-            .url(value)
-            .maybe_code(self.code)
-            .message(self.message)
-            .build()
-    }
-}
 impl MimeType {
     /// Returns the file type as a string
     pub fn file_type(self) -> String {
@@ -520,7 +426,7 @@ impl MimeType {
         }
     }
 }
-impl SchemaCheck {
+impl Check {
     /// Returns the number of errors
     pub fn issue_count(&self) -> usize {
         if let Some(errors) = &self.errors {
@@ -535,28 +441,51 @@ impl SchemaCheck {
     }
     /// Print the schema check results
     pub fn print(self) {
-        let path = self.clone().path.unwrap().display().to_string();
-        if self.success {
-            info!("=> {} {} has {}", Label::pass(), path, "no schema validation issues".green().bold());
-        } else {
-            let count = self.issue_count();
-            error!(
-                "=> {} Found {} schema validation issue{} in {}: \n{:#?}",
-                Label::fail(),
-                count.red(),
-                suffix(count),
-                path.italic().underline(),
-                self.errors.unwrap()
-            );
+        match self.category {
+            | CheckCategory::Schema => {
+                let path = self.clone().uri.unwrap();
+                if self.success {
+                    info!("=> {} {} has {}", Label::pass(), path, "no schema validation issues".green().bold());
+                } else {
+                    let count = self.issue_count();
+                    error!(
+                        "=> {} Found {} schema validation issue{} in {}: \n{:#?}",
+                        Label::fail(),
+                        count.red(),
+                        suffix(count),
+                        path.italic().underline(),
+                        self.errors.unwrap()
+                    );
+                }
+            }
+            | CheckCategory::Link => {
+                let code = match self.status_code {
+                    | Some(code) => format!(" ({code})").dimmed().to_string(),
+                    | None => "".to_string(),
+                };
+                let url = match self.uri {
+                    | Some(value) => value.underline().italic().to_string(),
+                    | None => "Missing".italic().to_string(),
+                };
+                if self.success {
+                    let message = titlecase(&self.message).green().bold().to_string();
+                    info!("=> {} \"{url}\" {message}{code}", Label::valid());
+                } else {
+                    let message = titlecase(&self.message).red().bold().to_string();
+                    error!("=> {} \"{url}\" {message}{code}", Label::invalid());
+                }
+            }
         }
     }
     /// Returns a new LinkCheckResult with the given URL
-    pub fn with_path(self, value: PathBuf) -> Self {
-        SchemaCheck::init()
+    pub fn with_uri(self, value: String) -> Self {
+        Check::init()
+            .category(self.category)
             .success(self.success)
-            .maybe_errors(self.errors)
-            .path(value)
+            .uri(value)
             .message(self.message)
+            .maybe_status_code(self.status_code)
+            .maybe_errors(self.errors)
             .build()
     }
 }
@@ -673,6 +602,68 @@ where
             warn!(name, "=> {} Command", Label::not_found());
             false
         }
+    }
+}
+/// Convert Lychee response to [`Check`]
+pub fn convert_lychee_response(value: Response) -> Check {
+    match value.status() {
+        | Status::Ok(code) | Status::Redirected(code) => Check::init()
+            .category(CheckCategory::Link)
+            .success(true)
+            .status_code(code.to_string())
+            .message("has no HTTP errors".to_string())
+            .build(),
+        | Status::Cached(status) => match status {
+            | CacheStatus::Ok(code) => Check::init()
+                .category(CheckCategory::Link)
+                .success(true)
+                .status_code(code.to_string())
+                .message("has no HTTP errors".to_string())
+                .build(),
+            | CacheStatus::Error(Some(code)) => Check::init()
+                .category(CheckCategory::Link)
+                .success(false)
+                .status_code(code.to_string())
+                .message("has cached HTTP errors".to_string())
+                .build(),
+            | CacheStatus::Unsupported => Check::init()
+                .category(CheckCategory::Link)
+                .success(false)
+                .message("unsupported cached response".to_string())
+                .build(),
+            | _ => Check::init()
+                .category(CheckCategory::Link)
+                .success(true)
+                .message("ignored or otherwise successful (cached response)".to_string())
+                .build(),
+        },
+        | Status::Error(code) => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .status_code(code.to_string())
+            .message("has HTTP errors".to_string())
+            .build(),
+        | Status::Unsupported(why) => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .message(format!("unsupported HTTP response - {why}"))
+            .build(),
+        | Status::UnknownStatusCode(code) => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .status_code(code.to_string())
+            .message("unknown HTTP response".to_string())
+            .build(),
+        | Status::Timeout(_) => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .message("HTTP timeout".to_string())
+            .build(),
+        | _ => Check::init()
+            .category(CheckCategory::Link)
+            .success(true)
+            .message("ignored or otherwise successful".to_string())
+            .build(),
     }
 }
 /// Downloads a binary file from the given URL to the destination path.
@@ -955,6 +946,28 @@ where
         .collect::<Vec<PathBuf>>();
     files.sort();
     files
+}
+/// Perform link check on given URL using Lychee
+pub async fn link_check(uri: Option<String>) -> Check {
+    match uri {
+        | Some(value) => {
+            let result = lychee_lib::check(value.as_str()).await;
+            match result {
+                | Ok(response) => convert_lychee_response(response).with_uri(value),
+                | Err(_) => Check::init()
+                    .category(CheckCategory::Link)
+                    .success(false)
+                    .uri(value)
+                    .message("unreachable".to_string())
+                    .build(),
+            }
+        }
+        | None => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .message("missing URL".to_string())
+            .build(),
+    }
 }
 /// Makes the given file executable.
 ///

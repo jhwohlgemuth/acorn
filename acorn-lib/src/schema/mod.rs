@@ -941,10 +941,10 @@ impl ResearchActivity {
                         .clone()
                         .validation_issues()
                         .into_iter()
-                        .map(|issue| issue.with_path(path.clone()))
+                        .map(|issue| issue.with_uri(path.display().to_string()))
                         .collect::<Vec<_>>();
                     let online_issues = runtime.block_on(async {
-                        let mut issues: Vec<LinkCheck> = vec![];
+                        let mut issues: Vec<Check> = vec![];
                         if !is_offline {
                             let dois = match data.clone().meta.doi {
                                 | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
@@ -955,7 +955,7 @@ impl ResearchActivity {
                                 | None => vec![],
                             };
                             for url in dois.into_iter().chain(websites.into_iter()) {
-                                let result = LinkCheck::run(Some(url)).await;
+                                let result = link_check(Some(url)).await;
                                 issues.push(result);
                             }
                         }
@@ -1218,15 +1218,22 @@ impl ResearchActivity {
         let ResearchActivity { title, .. } = self.clone();
         format!("# {title}")
     }
-    fn validation_issues(self) -> Vec<SchemaCheck> {
-        fn errors_collect<T: Validate>(attribute: T) -> Option<Vec<SchemaCheck>> {
+    fn validation_issues(self) -> Vec<Check> {
+        fn errors_collect<T: Validate>(attribute: T) -> Option<Vec<Check>> {
             match attribute.validate() {
                 | Ok(_) => None,
                 | Err(err) => Some(
                     err.into_errors()
                         .into_iter()
-                        .map(|(key, value)| SchemaCheck::init().success(false).errors(value).message(key.to_string()).build())
-                        .collect::<Vec<SchemaCheck>>(),
+                        .map(|(key, value)| {
+                            Check::init()
+                                .category(CheckCategory::Link)
+                                .success(false)
+                                .errors(value)
+                                .message(key.to_string())
+                                .build()
+                        })
+                        .collect::<Vec<Check>>(),
                 ),
             }
         }
