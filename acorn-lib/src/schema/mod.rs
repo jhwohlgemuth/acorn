@@ -25,7 +25,7 @@ use std::hash::{Hash, Hasher};
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use titlecase::Titlecase;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, trace};
 use validator::Validate;
 
 pub mod graph;
@@ -878,19 +878,19 @@ impl ResearchActivity {
                     | Some(data) => vale.clone().run(data.clone().meta.identifier, data.extract_prose(), Some("JSON".into())),
                     | None => {
                         error!("=> {} Read research activity data", Label::fail());
-                        Check::init().category(CheckCategory::Analysis).success(false).build()
+                        Check::init().category(CheckCategory::Prose).success(false).build()
                     }
                 });
                 results.collect::<Vec<Check>>()
             }
             | Err(err) => {
                 error!("=> {} Vale sync - {}", Label::fail(), err);
-                vec![Check::init().category(CheckCategory::Analysis).success(false).build()]
+                vec![Check::init().category(CheckCategory::Prose).success(false).build()]
             }
         }
     }
     /// Calculate readability based on passed options for a list of research activity files
-    pub fn calculate_readability(paths: Vec<PathBuf>, readability_type: ReadabilityType) -> usize {
+    pub fn calculate_readability(paths: Vec<PathBuf>, readability_type: ReadabilityType) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match ResearchActivity::read(path.into()) {
@@ -899,33 +899,19 @@ impl ResearchActivity {
                     let maximum = readability_type.maximum_allowed();
                     debug!("{} Readability index = {index}", Label::using());
                     if index > maximum {
-                        error!(
-                            "=> {} {} has a readability index of {} (less than {} is recommended for {} metric)",
-                            Label::fail(),
-                            path.display(),
-                            index.red().bold(),
-                            maximum.cyan(),
-                            readability_type.to_string().to_uppercase()
-                        );
-                        1
+                        let errors = ErrorKind::Readability((index, readability_type));
+                        Check::init().category(CheckCategory::Readability).success(false).message(path.display().to_string()).errors(errors).build()
                     } else {
                         let score = format!("({} = {}/{})", readability_type.to_string().to_uppercase(), index, maximum);
-                        info!(
-                            "=> {} {} has {} {}",
-                            Label::pass(),
-                            path.display(),
-                            "no readability issues".green().bold(),
-                            score.dimmed()
-                        );
-                        0
+                        Check::init().category(CheckCategory::Readability).success(true).message(path.display().to_string()).context(score).build()
                     }
                 }
                 | None => {
                     error!("=> {} Read research activity data", Label::fail());
-                    1
+                    Check::init().category(CheckCategory::Readability).success(false).build()
                 }
             })
-            .sum()
+            .collect::<Vec<Check>>()
     }
     /// Checks a list of research activity files
     pub fn check(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {

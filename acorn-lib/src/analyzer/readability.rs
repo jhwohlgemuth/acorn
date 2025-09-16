@@ -316,13 +316,13 @@ pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
 #[derive(Clone, Copy, Debug, Default, Display, PartialEq, ValueEnum)]
 pub enum ReadabilityType {
     /// Automated Readability Index (ARI)
-    #[default]
     #[display("ari")]
     ARI,
     /// Coleman-Liau Index (CLI)
     #[display("cli")]
     CLI,
     /// Flesch-Kincaid Grade Level (FKGL)
+    #[default]
     #[display("fkgl")]
     FKGL,
     /// Flesch Reading Ease (FRES)

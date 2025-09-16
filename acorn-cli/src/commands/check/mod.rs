@@ -86,11 +86,17 @@ pub fn run(
             | _ => *readability_metric,
         };
         let issues = ResearchActivity::calculate_readability(paths, metric);
-        if issues > 0 && options.clone().exit_on_first_error {
-            error!("=> {} Found {} readability issues", Label::fail(), issues);
+        let count = issues
+            .into_iter()
+            .inspect(|issue| issue.clone().print())
+            .filter(|Check { success, .. }| !success)
+            .map(|issue| issue.issue_count())
+            .sum();
+        if count > 0 && options.clone().exit_on_first_error {
+            error!("=> {} Found {} readability issues", Label::fail(), count);
             std::process::exit(exitcode::DATAERR);
         }
-        issues
+        count
     };
     if schema_issues + prose_issues + readability_issues > 0 {
         let headers = vec!["Issue Type", "Issue Count"];

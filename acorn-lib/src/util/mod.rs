@@ -44,7 +44,9 @@ pub enum CheckCategory {
     /// Website avaialability check
     Link,
     /// Static analysis of prose
-    Analysis,
+    Prose,
+    /// Readability check using one of several metrics
+    Readability,
     /// Schema validation check
     Schema,
 }
@@ -238,7 +240,7 @@ impl Constant {
 }
 impl Label {
     /// Emoji for use when logging a warning, caution, etc.
-    pub const CAUTION: Emoji<'_, '_> = Emoji("⚠️ ", "!!! ");
+    pub const CAUTION: Emoji<'_, '_> = Emoji("⚠️  ", "!!! ");
     /// Emoji for use when logging a success, pass, etc.
     pub const CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
     /// Template string to customize the progress bar

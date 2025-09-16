@@ -31,11 +31,14 @@ use which::which;
 pub mod readability;
 pub mod vale;
 
+use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
 /// Error kind
 #[derive(Debug, Clone)]
 pub enum ErrorKind {
+    /// Readability issue where calculated index exceeds threshold of associated metric
+    Readability((f64, ReadabilityType)),
     /// Prose issue found by Vale
     Vale(Vec<ValeOutputItem>),
     /// Schema validation issue found by [validator crate]
@@ -101,7 +104,8 @@ impl Check {
     /// Returns the number of errors
     pub fn issue_count(&self) -> usize {
         match self.category {
-            | CheckCategory::Analysis => {
+            | CheckCategory::Link => 1,
+            | CheckCategory::Prose => {
                 if let Some(kind) = &self.errors {
                     match kind {
                         | ErrorKind::Vale(values) => values.len(),
@@ -111,7 +115,7 @@ impl Check {
                     0
                 }
             }
-            | CheckCategory::Link => 1,
+            | CheckCategory::Readability => 1,
             | CheckCategory::Schema => {
                 if let Some(kind) = &self.errors {
                     match kind {
@@ -131,7 +135,24 @@ impl Check {
     /// Print the schema check results
     pub fn print(self) {
         match self.category {
-            | CheckCategory::Analysis => {
+            | CheckCategory::Link => {
+                let code = match self.status_code {
+                    | Some(code) => format!(" ({code})").dimmed().to_string(),
+                    | None => "".to_string(),
+                };
+                let url = match self.uri {
+                    | Some(value) => value.underline().italic().to_string(),
+                    | None => "Missing".italic().to_string(),
+                };
+                if self.success {
+                    let message = titlecase(&self.message).green().bold().to_string();
+                    info!("=> {} \"{url}\" {message}{code}", Label::valid());
+                } else {
+                    let message = titlecase(&self.message).red().bold().to_string();
+                    error!("=> {} \"{url}\" {message}{code}", Label::invalid());
+                }
+            }
+            | CheckCategory::Prose => {
                 let Check {
                     context, errors, message, ..
                 } = self;
@@ -157,7 +178,40 @@ impl Check {
                             println!("\n");
                         }
                     }
-                    | _ => (),
+                    | None | Some(_) => {
+                        let message = format!("=> {} {} has {}", Label::pass(), message.underline(), "no prose issues".green(),);
+                        info!("{}", message);
+                    }
+                }
+            }
+            | CheckCategory::Readability => {
+                let Check {
+                    context, errors, message, ..
+                } = self;
+                match &errors {
+                    | Some(ErrorKind::Readability(values)) => {
+                        let (index, readability_type) = values;
+                        let maximum = readability_type.maximum_allowed();
+                        error!(
+                            "=> {} {} has a readability index of {} (less than {} is recommended for {} metric)",
+                            Label::fail(),
+                            message,
+                            index.red().bold(),
+                            maximum.cyan(),
+                            readability_type.to_string().to_uppercase()
+                        );
+                    }
+                    | None | Some(_) => {
+                        if let Some(context) = &context {
+                            info!(
+                                "=> {} {} has {} {}",
+                                Label::pass(),
+                                message,
+                                "no readability issues".green().bold(),
+                                context.dimmed()
+                            );
+                        }
+                    }
                 }
             }
             | CheckCategory::Schema => {
@@ -174,23 +228,6 @@ impl Check {
                         path.italic().underline(),
                         self.errors.unwrap()
                     );
-                }
-            }
-            | CheckCategory::Link => {
-                let code = match self.status_code {
-                    | Some(code) => format!(" ({code})").dimmed().to_string(),
-                    | None => "".to_string(),
-                };
-                let url = match self.uri {
-                    | Some(value) => value.underline().italic().to_string(),
-                    | None => "Missing".italic().to_string(),
-                };
-                if self.success {
-                    let message = titlecase(&self.message).green().bold().to_string();
-                    info!("=> {} \"{url}\" {message}{code}", Label::valid());
-                } else {
-                    let message = titlecase(&self.message).red().bold().to_string();
-                    error!("=> {} \"{url}\" {message}{code}", Label::invalid());
                 }
             }
         }
@@ -263,12 +300,10 @@ impl StaticAnalyzer for Vale {
                     | Ok(output) => {
                         let parsed = ValeOutput::parse(&output, path);
                         if parsed.is_empty() {
-                            let message = format!("=> {} {} has {}", Label::pass(), id.to_string().underline(), "no prose issues".green(),);
-                            info!("{}", message);
-                            Check::init().category(CheckCategory::Analysis).success(true).message(id).build()
+                            Check::init().category(CheckCategory::Prose).success(true).message(id).build()
                         } else {
                             Check::init()
-                                .category(CheckCategory::Analysis)
+                                .category(CheckCategory::Prose)
                                 .success(false)
                                 .message(id)
                                 .errors(ErrorKind::Vale(parsed))
@@ -278,7 +313,7 @@ impl StaticAnalyzer for Vale {
                     }
                     | Err(output) => {
                         error!("=> {} Analyze - {}", Label::fail(), output);
-                        Check::init().category(CheckCategory::Analysis).success(false).message(id).build()
+                        Check::init().category(CheckCategory::Prose).success(false).message(id).build()
                     }
                 }
             }
