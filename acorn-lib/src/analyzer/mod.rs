@@ -34,8 +34,24 @@ pub mod vale;
 use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
+/// Various check categories available for validating research activity data
+#[derive(Clone, Debug, Display, PartialEq)]
+pub enum CheckCategory {
+    /// Website avaialability check
+    #[display("link")]
+    Link,
+    /// Static analysis of prose
+    #[display("prose")]
+    Prose,
+    /// Readability check using one of several metrics
+    #[display("readability")]
+    Readability,
+    /// Schema validation check
+    #[display("schema")]
+    Schema,
+}
 /// Error kind
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum ErrorKind {
     /// Readability issue where calculated index exceeds threshold of associated metric
     Readability((f64, ReadabilityType)),
@@ -663,6 +679,26 @@ pub async fn link_check(uri: Option<String>) -> Check {
             .message("missing URL".to_string())
             .build(),
     }
+}
+/// Create summary data table from given issues
+pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
+    [
+        CheckCategory::Schema,
+        CheckCategory::Link,
+        CheckCategory::Prose,
+        CheckCategory::Readability,
+    ]
+    .iter()
+    .map(|category| {
+        let count = issues
+            .iter()
+            .filter(|issue| issue.category == *category)
+            .map(|issue| issue.issue_count())
+            .sum::<usize>()
+            .to_string();
+        to_string(vec![&category.to_string(), &count])
+    })
+    .collect::<Vec<_>>()
 }
 
 #[cfg(test)]

@@ -38,18 +38,6 @@ pub mod citeas;
 #[cfg(feature = "cli")]
 pub mod cli;
 
-/// Various check categories available for validating research activity data
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-pub enum CheckCategory {
-    /// Website avaialability check
-    Link,
-    /// Static analysis of prose
-    Prose,
-    /// Readability check using one of several metrics
-    Readability,
-    /// Schema validation check
-    Schema,
-}
 /// SPDX compliant license identifier
 ///
 /// See <https://spdx.org/licenses/>

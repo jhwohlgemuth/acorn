@@ -4,7 +4,7 @@
 //!
 use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::vale::{Vale, ValeConfig};
-use crate::analyzer::{link_check, Check, ErrorKind, StaticAnalyzer, StaticAnalyzerConfig};
+use crate::analyzer::{link_check, Check, CheckCategory, ErrorKind, StaticAnalyzer, StaticAnalyzerConfig};
 use crate::constants::*;
 use crate::util::*;
 use bon::{builder, Builder};
@@ -900,10 +900,20 @@ impl ResearchActivity {
                     debug!("{} Readability index = {index}", Label::using());
                     if index > maximum {
                         let errors = ErrorKind::Readability((index, readability_type));
-                        Check::init().category(CheckCategory::Readability).success(false).message(path.display().to_string()).errors(errors).build()
+                        Check::init()
+                            .category(CheckCategory::Readability)
+                            .success(false)
+                            .message(path.display().to_string())
+                            .errors(errors)
+                            .build()
                     } else {
                         let score = format!("({} = {}/{})", readability_type.to_string().to_uppercase(), index, maximum);
-                        Check::init().category(CheckCategory::Readability).success(true).message(path.display().to_string()).context(score).build()
+                        Check::init()
+                            .category(CheckCategory::Readability)
+                            .success(true)
+                            .message(path.display().to_string())
+                            .context(score)
+                            .build()
                     }
                 }
                 | None => {

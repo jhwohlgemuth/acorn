@@ -1,14 +1,22 @@
 use acorn_lib::analyzer::readability::ReadabilityType;
-use acorn_lib::analyzer::Check;
+use acorn_lib::analyzer::{summary, Check};
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::cli::{paths_from_options, CheckCategory, Options};
-use acorn_lib::util::{print_values_as_table, to_string, Label};
+use acorn_lib::util::{print_values_as_table, Label};
 use color_eyre::eyre::{Report, Result};
 use dotenvy::dotenv;
 use std::path::PathBuf;
 use tracing::{error, warn};
 
 const READABILITY_METRIC: &str = "READABILITY_METRIC";
+
+fn count(issues: Vec<Check>) -> usize {
+    issues
+        .into_iter()
+        .filter(|Check { success, .. }| !success)
+        .map(|issue| issue.issue_count())
+        .sum()
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(
@@ -33,50 +41,37 @@ pub fn run(
         .exit_on_first_error(*exit_on_first_error)
         .merge_request(*merge_request)
         .build();
-    let paths = paths_from_options(path, &Some(options.clone()));
-    let conventions_issues = if skip.contains(&CheckCategory::Conventions) {
-        warn!("=> {} Conventions verification", Label::skip());
-        0
-    } else {
-        0
-    };
+    let Options { exit_on_first_error, .. } = options;
+    let paths = paths_from_options(path, &Some(options));
     let schema_issues = if skip.contains(&CheckCategory::Schema) {
         warn!("=> {} Schema validation", Label::skip());
-        0
+        vec![]
     } else {
-        let issues = ResearchActivity::check(paths.clone(), *offline || *disable_website_checks);
-        let count = issues
-            .into_iter()
-            .inspect(|issue| issue.clone().print())
-            .filter(|Check { success, .. }| !success)
-            .map(|issue| issue.issue_count())
-            .sum();
-        if count > 0 && options.clone().exit_on_first_error {
-            error!("=> {} Found {} schema validation errors", Label::fail(), count);
+        let results = ResearchActivity::check(paths.clone(), *offline || *disable_website_checks);
+        let issues = count(results.clone());
+        if issues > 0 && exit_on_first_error {
+            error!("=> {} Found {} schema validation errors", Label::fail(), issues);
+            results.iter().for_each(|issue| issue.clone().print());
             std::process::exit(exitcode::DATAERR);
         }
-        count
+        results
     };
     let prose_issues = if skip.contains(&CheckCategory::Prose) {
         warn!("=> {} Prose analysis", Label::skip());
-        0
+        vec![]
     } else {
-        let issues = ResearchActivity::analyze_prose(paths.clone(), *offline);
-        let count = issues
-            .into_iter()
-            .inspect(|issue| issue.clone().print())
-            .filter(|Check { success, .. }| !success)
-            .map(|issue| issue.issue_count())
-            .sum();
-        if count > 0 && options.exit_on_first_error {
-            error!("=> {} Found {} prose issues", Label::fail(), count);
+        let results = ResearchActivity::analyze_prose(paths.clone(), *offline);
+        let issues = count(results.clone());
+        if issues > 0 && exit_on_first_error {
+            error!("=> {} Found {} prose issues", Label::fail(), issues);
+            results.iter().for_each(|issue| issue.clone().print());
             std::process::exit(exitcode::DATAERR);
         }
-        count
+        results
     };
     let readability_issues = if skip.contains(&CheckCategory::Readability) {
         warn!("=> {} Readability analysis", Label::skip());
-        0
+        vec![]
     } else {
         let metric = match dotenv() {
             | Ok(_) => match dotenvy::var(READABILITY_METRIC) {
@@ -85,27 +80,33 @@ pub fn run(
             },
             | _ => *readability_metric,
         };
-        let issues = ResearchActivity::calculate_readability(paths, metric);
-        let count = issues
-            .into_iter()
-            .inspect(|issue| issue.clone().print())
-            .filter(|Check { success, .. }| !success)
-            .map(|issue| issue.issue_count())
-            .sum();
-        if count > 0 && options.clone().exit_on_first_error {
-            error!("=> {} Found {} readability issues", Label::fail(), count);
+        let results = ResearchActivity::calculate_readability(paths, metric);
+        let issues = count(results.clone());
+        if issues > 0 && exit_on_first_error {
+            error!("=> {} Found {} readability issues", Label::fail(), issues);
+            results.iter().for_each(|issue| issue.clone().print());
             std::process::exit(exitcode::DATAERR);
         }
-        count
+        results
     };
-    if schema_issues + prose_issues + readability_issues > 0 {
+    let conventions_issues = if skip.contains(&CheckCategory::Conventions) {
+        warn!("=> {} Conventions verification", Label::skip());
+        vec![]
+    } else {
+        vec![]
+    };
+    let all_issues = schema_issues
+        .clone()
+        .into_iter()
+        .chain(prose_issues.clone())
+        .chain(readability_issues.clone())
+        .chain(conventions_issues.clone())
+        .inspect(|issue| issue.clone().print())
+        .filter(|Check { success, .. }| !success)
+        .collect::<Vec<Check>>();
+    if count(all_issues.clone()) > 0 {
         let headers = vec!["Issue Type", "Issue Count"];
-        let rows = vec![
-            to_string(vec!["Schema Validation", &schema_issues.to_string()]),
-            to_string(vec!["Prose Analysis", &prose_issues.to_string()]),
-            to_string(vec!["Conventions", &conventions_issues.to_string()]),
-            to_string(vec!["Readability", &readability_issues.to_string()]),
-        ];
+        let rows = summary(all_issues);
         println!("\n");
         print_values_as_table(&Label::fmt_fail("Issues Overview"), headers, rows);
         std::process::exit(exitcode::DATAERR);
