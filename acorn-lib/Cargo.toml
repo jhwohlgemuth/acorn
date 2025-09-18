@@ -33,12 +33,15 @@ eserde = { version = "0.1.2", features = ["json"] }
 fancy-regex = "0.14.0"
 flate2 = "1.0.35"
 human-units = "0.3.0"
+lychee-lib = "0.20.1"
 is_executable = "1.0.4"
+itertools = "0.14.0"
 nanoid = "0.4.0"
 nanopub = "0.1.4"
 nucleo-matcher = "0.3.1"
 percy-dom = "0.10.0"
 petgraph = "0.8.1"
+polars = { version = "0.51.0", features = ["lazy"] }
 quick-xml = { version = "0.38.0", features = ["serialize"] }
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 ring = "0.17.13"
@@ -76,8 +79,6 @@ serde_yml = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 uriparse = { workspace = true }
-itertools = "0.14.0"
-lychee-lib = "0.20.1"
 
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }

@@ -19,7 +19,7 @@ test-ci: clean lint
 	@cargo test
 
 coverage: clean lint
-	@cargo tarpaulin --out lcov --line --skip-clean
+	@cargo tarpaulin --out lcov --line --skip-clean --no-dead-code
 
 doc:
 	@cargo clean --doc

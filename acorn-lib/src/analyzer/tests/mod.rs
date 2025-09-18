@@ -1,5 +1,6 @@
 use crate::analyzer::readability::*;
 use crate::analyzer::vale::*;
+use crate::analyzer::{checks_to_dataframe, Check, CheckCategory};
 use crate::util::read_file;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -8,6 +9,14 @@ use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
 
+#[test]
+fn test_checks_to_dataframe() {
+    let check = Check::init().category(CheckCategory::Prose).success(true).build();
+    let checks = vec![check.clone(), check.clone(), check];
+    let df = checks_to_dataframe(checks.clone());
+    let reason = "Failed to convert checks to dataframe";
+    assert_eq!(df.expect(reason).shape(), (checks.len(), 6));
+}
 #[test]
 fn test_readability_type() {
     assert_eq!(ReadabilityType::from_string("ari"), ReadabilityType::ARI);

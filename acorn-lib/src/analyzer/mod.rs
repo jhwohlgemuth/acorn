@@ -16,6 +16,9 @@ use duct::cmd;
 use flate2::read::GzDecoder;
 use ini::Ini;
 use lychee_lib::{CacheStatus, Response, Status};
+use polars::datatypes::PlSmallStr;
+use polars::frame::row::Row;
+use polars::prelude::{AnyValue, DataFrame, PolarsResult};
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::{create_dir_all, remove_file};
@@ -34,6 +37,11 @@ pub mod vale;
 use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
+/// Trait for converting to a (Polars) row
+pub trait IntoRow<'a> {
+    /// Convert to a (Polars) row
+    fn to_row<T>(self) -> Row<'a>;
+}
 /// Various check categories available for validating research activity data
 #[derive(Clone, Debug, Display, PartialEq)]
 pub enum CheckCategory {
@@ -258,6 +266,28 @@ impl Check {
             .maybe_status_code(self.status_code)
             .maybe_errors(self.errors)
             .build()
+    }
+}
+impl<'a> IntoRow<'a> for Check {
+    fn to_row<Check>(self) -> Row<'a> {
+        let Self {
+            success,
+            category,
+            message,
+            uri,
+            status_code,
+            context,
+            ..
+        } = self;
+        let data = [
+            if success { "pass" } else { "fail" },
+            &category.to_string(),
+            &message,
+            &uri.unwrap_or_default(),
+            &status_code.unwrap_or_default(),
+            &context.unwrap_or_default(),
+        ];
+        Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
     }
 }
 impl StaticAnalyzer for Vale {
@@ -680,6 +710,11 @@ pub async fn link_check(uri: Option<String>) -> Check {
             .build(),
     }
 }
+/// Convert vector of [`Check`] values to a Polars [DataFrame]
+pub fn checks_to_dataframe(values: Vec<Check>) -> PolarsResult<DataFrame> {
+    let names = ["success", "category", "message", "uri", "status_code", "context"];
+    to_dataframe::<Check, _, &str>(values, names)
+}
 /// Create summary data table from given issues
 pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
     [
@@ -699,6 +734,28 @@ pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
         to_string(vec![&category.to_string(), &count])
     })
     .collect::<Vec<_>>()
+}
+/// Convert vector of values of a given type to a Polars [DataFrame]
+/// ### Example
+/// ```ignore
+/// let df = to_dataframe::<i32, _, str>(vec![1, 2, 3], ["a", "b", "c"]);
+/// ```
+///
+/// [DataFrame]: https://docs.rs/polars/latest/polars/prelude/struct.DataFrame.html
+pub fn to_dataframe<'a, T, I, H>(values: Vec<T>, names: I) -> PolarsResult<DataFrame>
+where
+    T: IntoRow<'a>,
+    H: Into<PlSmallStr>,
+    I: IntoIterator<Item = H>,
+{
+    let rows = values.into_iter().map(|value| value.to_row::<T>()).collect::<Vec<_>>();
+    match DataFrame::from_rows(&rows) {
+        | Ok(mut df) => match df.set_column_names(names) {
+            | Ok(_) => Ok(df),
+            | Err(why) => Err(why),
+        },
+        | Err(why) => Err(why),
+    }
 }
 
 #[cfg(test)]
