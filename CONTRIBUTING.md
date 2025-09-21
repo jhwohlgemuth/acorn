@@ -21,6 +21,10 @@ If you would like to generously provide a pull request to correct a verified iss
 
 ## Project Setup
 - When on Windows, execute `./setup.bat` to install and configure OpenSSL before trying to use any [development task](#development-tasks)
+- Install task dependencies with
+  ```shell
+  cargo install cargo-nextest cargo-tarpaulin cargo-audit cargo-auditable
+  ```
 
 ### Development Tasks
 | Purpose                                  | Command            |
