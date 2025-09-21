@@ -20,9 +20,13 @@ If you would like to generously provide a pull request to correct a verified iss
 > See [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ## Project Setup
+- When on Windows, execute `./setup.bat` to install and configure OpenSSL before trying to use any [development task](#development-tasks)
 
+### Development Tasks
 | Purpose                                  | Command            |
 | ---------------------------------------: | ------------------ |
+| Clean code artifacts                     | `make clean`       |
+| Build code artifacts                     | `make build`       |
 | Lint **ALL** code                        | `make lint`        |
 | Lint **ALL** code and run **ALL** tests  | `make lint test`   |
 | Run **ALL** tests                        | `make test`        |
