@@ -98,6 +98,7 @@ release: clean
 	@echo "Under Construction"
 
 changelog:
+	@git pull origin main --tags
 	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN}
 
 version: 
