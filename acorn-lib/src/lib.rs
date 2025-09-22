@@ -19,7 +19,7 @@ use std::io::{copy, Cursor};
 use std::path::PathBuf;
 use std::vec;
 use tracing::{debug, error, trace, warn};
-use uriparse::{Scheme, URI};
+use uriparse::URI;
 use urlencoding::encode;
 
 pub mod analyzer;
@@ -58,38 +58,20 @@ pub enum EntryType {
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Location {
+    /// Just the URI string (assumes remote location)
+    Simple(String),
     /// Local file path
-    ///
-    /// See [RFC 8089] for more information
-    ///
-    /// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
-    Local(String),
-    /// Remote URL
-    Remote(String),
-    /// Location of unknown type
-    Unknown,
-}
-impl Location {
-    /// Extract and return URI from a location value
-    pub fn value(&self) -> Option<URI<'_>> {
-        match self {
-            | Location::Local(value) => match URI::try_from(value.as_str()) {
-                | Ok(value) => Some(value),
-                | Err(why) => {
-                    warn!("=> {} Parse URI - {why}", Label::fail());
-                    None
-                }
-            },
-            | Location::Remote(value) => match URI::try_from(value.as_str()) {
-                | Ok(value) => Some(value),
-                | Err(why) => {
-                    warn!("=> {} Parse URI - {why}", Label::fail());
-                    None
-                }
-            },
-            | Location::Unknown => None,
-        }
-    }
+    #[display("{uri}")]
+    Detailed {
+        /// URI Scheme
+        ///
+        /// See [RFC 8089] for more information
+        ///
+        /// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
+        scheme: Scheme,
+        /// Full URI value
+        uri: String,
+    },
 }
 /// Git hosting repository data
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
@@ -101,7 +83,8 @@ pub enum Repository {
     #[display("github")]
     GitHub {
         /// Repository URI
-        uri: Location,
+        #[serde(alias = "uri")]
+        location: Location,
     },
     /// GitLab
     ///
@@ -113,8 +96,26 @@ pub enum Repository {
         /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
         id: Option<u64>,
         /// Repository URI
-        uri: Location,
+        #[serde(alias = "uri")]
+        location: Location,
     },
+}
+/// URI Scheme
+///
+/// See [RFC 8089] for more information
+///
+/// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
+#[derive(Clone, Debug, Display, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Scheme {
+    /// Secure HTTP
+    #[display("https")]
+    HTTPS,
+    /// Local file or folder
+    #[display("file")]
+    File,
+    /// Unsupported scheme (e.g., insecure, not implemented, etc.)
+    Unsupported,
 }
 /// Struct for buckets configuration
 ///
@@ -291,16 +292,16 @@ impl Bucket {
     /// Get hosting domain from bucket struct
     fn domain(&self) -> String {
         match &self.code_repository {
-            | Repository::GitHub { uri } => match uri.value() {
+            | Repository::GitHub { location } => match location.path() {
                 | Some(uri) => match uri.scheme() {
-                    | Scheme::HTTPS => uri.host().unwrap().to_string(),
+                    | uriparse::Scheme::HTTPS => uri.host().unwrap().to_string(),
                     | _ => todo!("Add support for file:///"),
                 },
                 | None => todo!("Handle invalid GitHub URI"),
             },
-            | Repository::GitLab { uri, .. } => match uri.value() {
+            | Repository::GitLab { location, .. } => match location.path() {
                 | Some(uri) => match uri.scheme() {
-                    | Scheme::HTTPS => uri.host().unwrap().to_string(),
+                    | uriparse::Scheme::HTTPS => uri.host().unwrap().to_string(),
                     | _ => todo!("Add support for file:///"),
                 },
                 | None => todo!("Handle invalid GitLab URI"),
@@ -314,8 +315,8 @@ impl Bucket {
     }
     fn tree_url(&self, directory: &str, page: Option<u32>) -> Option<String> {
         match &self.code_repository {
-            | Repository::GitHub { uri } => {
-                let parsed = match uri.value() {
+            | Repository::GitHub { location } => {
+                let parsed = match location.path() {
                     | Some(value) => value,
                     | None => {
                         warn!("=> {} Parse GitHub URI", Label::fail());
@@ -574,6 +575,27 @@ impl GitlabTreeEntry {
         self.entry_type.eq(&EntryType::Blob)
     }
 }
+impl Location {
+    /// Extract and return URI from a location value
+    pub fn path(&self) -> Option<URI<'_>> {
+        match self {
+            | Location::Simple(value) => match URI::try_from(value.as_str()) {
+                | Ok(value) => Some(value),
+                | Err(why) => {
+                    warn!("=> {} Parse URI - {why}", Label::fail());
+                    None
+                }
+            },
+            | Location::Detailed { uri: path, .. } => match URI::try_from(path.as_str()) {
+                | Ok(value) => Some(value),
+                | Err(why) => {
+                    warn!("=> {} Parse URI - {why}", Label::fail());
+                    None
+                }
+            },
+        }
+    }
+}
 impl Repository {
     /// Get metadata for latest release of a Gitlab or GitHub repository
     pub fn latest_release(self) -> Option<Release> {
@@ -589,7 +611,7 @@ impl Repository {
     fn id(&self) -> Option<String> {
         match self {
             | Repository::GitHub { .. } => None,
-            | Repository::GitLab { id, uri } => match uri.value() {
+            | Repository::GitLab { id, location } => match location.path() {
                 | Some(value) => {
                     let mut path = value.path().to_string();
                     path.remove(0);
@@ -609,7 +631,7 @@ impl Repository {
     }
     fn releases(self) -> Vec<Release> {
         let maybe_url = match &self {
-            | Repository::GitHub { uri } => match uri.value() {
+            | Repository::GitHub { location } => match location.path() {
                 | Some(uri) => {
                     let host = uri.host().unwrap().to_string();
                     let path = uri.path();
@@ -621,8 +643,8 @@ impl Repository {
                     None
                 }
             },
-            | Repository::GitLab { uri, .. } => match self.id() {
-                | Some(id) => match uri.value() {
+            | Repository::GitLab { location, .. } => match self.id() {
+                | Some(id) => match location.path() {
                     | Some(uri) => {
                         let host = uri.host().unwrap().to_string();
                         Some(format!("https://{host}/api/v4/projects/{id}/releases"))
@@ -667,14 +689,14 @@ impl Repository {
     /// Get URL for raw data of a file at a given path
     fn raw_url(&self, path: String) -> Option<String> {
         match self {
-            | Repository::GitHub { uri, .. } => match uri.value() {
+            | Repository::GitHub { location, .. } => match location.path() {
                 | Some(ref value) => Some(format!("https://raw.githubusercontent.com{}/refs/heads/main/{path}", value.path())),
                 | None => {
                     error!("=> {} Parse GitHub URI", Label::fail());
                     None
                 }
             },
-            | Repository::GitLab { uri, .. } => Some(format!("{uri}/-/raw/main/{path}")),
+            | Repository::GitLab { location, .. } => Some(format!("{location}/-/raw/main/{path}")),
         }
     }
 }
