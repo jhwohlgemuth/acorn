@@ -54,6 +54,43 @@ pub enum EntryType {
     #[display("blob")]
     Blob,
 }
+/// Abstraction for file and folder locations that can be local (e.g., file:///path/to/project) or remote (e.g., https://gitlab.com/project)
+#[derive(Clone, Debug, Display, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Location {
+    /// Local file path
+    ///
+    /// See [RFC 8089] for more information
+    ///
+    /// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
+    Local(String),
+    /// Remote URL
+    Remote(String),
+    /// Location of unknown type
+    Unknown,
+}
+impl Location {
+    /// Extract and return URI from a location value
+    pub fn value(&self) -> Option<URI<'_>> {
+        match self {
+            | Location::Local(value) => match URI::try_from(value.as_str()) {
+                | Ok(value) => Some(value),
+                | Err(why) => {
+                    warn!("=> {} Parse URI - {why}", Label::fail());
+                    None
+                }
+            },
+            | Location::Remote(value) => match URI::try_from(value.as_str()) {
+                | Ok(value) => Some(value),
+                | Err(why) => {
+                    warn!("=> {} Parse URI - {why}", Label::fail());
+                    None
+                }
+            },
+            | Location::Unknown => None,
+        }
+    }
+}
 /// Git hosting repository data
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
 #[serde(tag = "provider", rename_all = "lowercase")]
@@ -64,7 +101,7 @@ pub enum Repository {
     #[display("github")]
     GitHub {
         /// Repository URI
-        uri: String,
+        uri: Location,
     },
     /// GitLab
     ///
@@ -76,7 +113,7 @@ pub enum Repository {
         /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
         id: Option<u64>,
         /// Repository URI
-        uri: String,
+        uri: Location,
     },
 }
 /// Struct for buckets configuration
@@ -254,19 +291,19 @@ impl Bucket {
     /// Get hosting domain from bucket struct
     fn domain(&self) -> String {
         match &self.code_repository {
-            | Repository::GitHub { uri } => match URI::try_from(uri.as_str()) {
-                | Ok(uri) => match uri.scheme() {
+            | Repository::GitHub { uri } => match uri.value() {
+                | Some(uri) => match uri.scheme() {
                     | Scheme::HTTPS => uri.host().unwrap().to_string(),
                     | _ => todo!("Add support for file:///"),
                 },
-                | Err(_) => todo!("Handle invalid GitHub URI"),
+                | None => todo!("Handle invalid GitHub URI"),
             },
-            | Repository::GitLab { uri, .. } => match URI::try_from(uri.as_str()) {
-                | Ok(uri) => match uri.scheme() {
+            | Repository::GitLab { uri, .. } => match uri.value() {
+                | Some(uri) => match uri.scheme() {
                     | Scheme::HTTPS => uri.host().unwrap().to_string(),
                     | _ => todo!("Add support for file:///"),
                 },
-                | Err(_) => todo!("Handle invalid GitLab URI"),
+                | None => todo!("Handle invalid GitLab URI"),
             },
         }
     }
@@ -278,10 +315,10 @@ impl Bucket {
     fn tree_url(&self, directory: &str, page: Option<u32>) -> Option<String> {
         match &self.code_repository {
             | Repository::GitHub { uri } => {
-                let parsed = match URI::try_from(uri.as_str()) {
-                    | Ok(value) => value,
-                    | Err(why) => {
-                        warn!(uri, "=> {} Parse GitHub URI - {why}", Label::fail());
+                let parsed = match uri.value() {
+                    | Some(value) => value,
+                    | None => {
+                        warn!("=> {} Parse GitHub URI", Label::fail());
                         return None;
                     }
                 };
@@ -552,16 +589,16 @@ impl Repository {
     fn id(&self) -> Option<String> {
         match self {
             | Repository::GitHub { .. } => None,
-            | Repository::GitLab { id, uri } => match URI::try_from(uri.as_str()) {
-                | Ok(value) => {
+            | Repository::GitLab { id, uri } => match uri.value() {
+                | Some(value) => {
                     let mut path = value.path().to_string();
                     path.remove(0);
                     let encoded = encode(&path).to_string();
                     trace!(encoded, "=> {} ID", Label::using());
                     Some(encoded)
                 }
-                | Err(why) => {
-                    warn!(uri, "=> {} Parse GitLab URI - {why}", Label::fail());
+                | None => {
+                    warn!("=> {} Parse GitLab URI", Label::fail());
                     match id {
                         | Some(value) => Some(value.to_string()),
                         | None => None,
@@ -572,27 +609,26 @@ impl Repository {
     }
     fn releases(self) -> Vec<Release> {
         let maybe_url = match &self {
-            | Repository::GitHub { uri } => match URI::try_from(uri.as_str()) {
-                | Ok(uri) => {
+            | Repository::GitHub { uri } => match uri.value() {
+                | Some(uri) => {
                     let host = uri.host().unwrap().to_string();
                     let path = uri.path();
                     let endpoint = Some(format!("https://api.{host}/repos{path}/releases"));
-                    println!("{endpoint:#?}");
                     endpoint
                 }
-                | Err(_) => {
-                    error!(uri, "=> {} Parse GitHub URI", Label::fail());
+                | None => {
+                    error!("=> {} Parse GitHub URI", Label::fail());
                     None
                 }
             },
             | Repository::GitLab { uri, .. } => match self.id() {
-                | Some(id) => match URI::try_from(uri.as_str()) {
-                    | Ok(uri) => {
+                | Some(id) => match uri.value() {
+                    | Some(uri) => {
                         let host = uri.host().unwrap().to_string();
                         Some(format!("https://{host}/api/v4/projects/{id}/releases"))
                     }
-                    | Err(why) => {
-                        error!(uri, "=> {} Parse GitLab URI - {why}", Label::fail());
+                    | None => {
+                        error!("=> {} Parse GitLab URI", Label::fail());
                         None
                     }
                 },
@@ -631,10 +667,10 @@ impl Repository {
     /// Get URL for raw data of a file at a given path
     fn raw_url(&self, path: String) -> Option<String> {
         match self {
-            | Repository::GitHub { uri, .. } => match URI::try_from(uri.clone().as_str()) {
-                | Ok(ref value) => Some(format!("https://raw.githubusercontent.com{}/refs/heads/main/{path}", value.path())),
-                | Err(why) => {
-                    error!(uri, "=> {} Parse GitHub URI - {why}", Label::fail());
+            | Repository::GitHub { uri, .. } => match uri.value() {
+                | Some(ref value) => Some(format!("https://raw.githubusercontent.com{}/refs/heads/main/{path}", value.path())),
+                | None => {
+                    error!("=> {} Parse GitHub URI", Label::fail());
                     None
                 }
             },

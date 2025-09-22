@@ -8,7 +8,7 @@ use crate::constants::{
     VALE_VERSION,
 };
 use crate::util::*;
-use crate::Repository;
+use crate::{Location, Repository};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use derive_more::Display;
@@ -586,7 +586,7 @@ impl StaticAnalyzerConfig for ValeConfig {
         let mut conf = Ini::new();
         let package_repository = Repository::GitLab {
             id: None,
-            uri: "https://code.ornl.gov/research-enablement/vale-package".to_string(),
+            uri: Location::Remote("https://code.ornl.gov/research-enablement/vale-package".to_string()),
         };
         let package_url = match package_repository.latest_release() {
             | Some(release) => {
