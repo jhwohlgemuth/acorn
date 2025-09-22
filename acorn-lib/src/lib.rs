@@ -19,7 +19,7 @@ use std::io::{copy, Cursor};
 use std::path::PathBuf;
 use std::vec;
 use tracing::{debug, error, trace, warn};
-use uriparse::URI;
+use uriparse::{Scheme, URI};
 use urlencoding::encode;
 
 pub mod analyzer;
@@ -255,12 +255,18 @@ impl Bucket {
     fn domain(&self) -> String {
         match &self.code_repository {
             | Repository::GitHub { uri } => match URI::try_from(uri.as_str()) {
-                | Ok(uri) => uri.host().unwrap().to_string(),
-                | Err(_) => "github.com".to_string(),
+                | Ok(uri) => match uri.scheme() {
+                    | Scheme::HTTPS => uri.host().unwrap().to_string(),
+                    | _ => todo!("Add support for file:///"),
+                },
+                | Err(_) => todo!("Handle invalid GitHub URI"),
             },
             | Repository::GitLab { uri, .. } => match URI::try_from(uri.as_str()) {
-                | Ok(uri) => uri.host().unwrap().to_string(),
-                | Err(_) => "gitlab.com".to_string(),
+                | Ok(uri) => match uri.scheme() {
+                    | Scheme::HTTPS => uri.host().unwrap().to_string(),
+                    | _ => todo!("Add support for file:///"),
+                },
+                | Err(_) => todo!("Handle invalid GitLab URI"),
             },
         }
     }
