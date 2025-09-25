@@ -9,7 +9,6 @@ use tracing::error;
 pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) -> Result<(), Report> {
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
-        unimplemented!("Offline mode is not implemented yet");
     }
     if let Some(path) = buckets {
         match BucketsConfig::read(path.clone()) {
@@ -17,7 +16,11 @@ pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) 
                 let mut total: usize = 0;
                 content.buckets.into_iter().for_each(|bucket| {
                     if let Some(path) = output {
-                        total += bucket.download_files(path.to_path_buf());
+                        total += if *offline {
+                            bucket.copy_files(path.to_path_buf())
+                        } else {
+                            bucket.download_files(path.to_path_buf())
+                        }
                     }
                 });
                 println!("\n\n   => {} Downloaded {} item{}\n", Label::pass(), total.green(), suffix(total));

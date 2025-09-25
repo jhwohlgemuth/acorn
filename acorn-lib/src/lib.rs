@@ -77,12 +77,20 @@ pub enum Location {
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
 #[serde(tag = "provider", rename_all = "lowercase")]
 pub enum Repository {
+    /// Generic Git repository
+    /// ### Note
+    /// > This repository type should be used for local and offline repositories. Having the associated data be version controlled by Git is recommended, but not required.
+    #[display("git")]
+    Git {
+        /// Repository location information
+        location: Location,
+    },
     /// GitHub
     ///
     /// See <https://docs.github.com/en/rest/reference/repos>
     #[display("github")]
     GitHub {
-        /// Repository URI
+        /// Repository location information
         #[serde(alias = "uri")]
         location: Location,
     },
@@ -95,7 +103,7 @@ pub enum Repository {
         ///
         /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
         id: Option<u64>,
-        /// Repository URI
+        /// Repository location information
         #[serde(alias = "uri")]
         location: Location,
     },
@@ -116,6 +124,24 @@ pub enum Scheme {
     File,
     /// Unsupported scheme (e.g., insecure, not implemented, etc.)
     Unsupported,
+}
+/// Struct for bucket data
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Bucket {
+    /// Bucket name
+    ///
+    /// See <https://schema.org/name>
+    pub name: String,
+    /// Bucket description
+    ///
+    /// See <https://schema.org/description>
+    pub description: Option<String>,
+    /// Code repository data of bucket
+    ///
+    /// See <https://schema.org/codeRepository>
+    #[serde(alias = "repository")]
+    pub code_repository: Repository,
 }
 /// Struct for buckets configuration
 ///
@@ -145,24 +171,6 @@ pub enum Scheme {
 pub struct BucketsConfig {
     /// List of buckets
     pub buckets: Vec<Bucket>,
-}
-/// Struct for bucket data
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Bucket {
-    /// Bucket name
-    ///
-    /// See <https://schema.org/name>
-    pub name: String,
-    /// Bucket description
-    ///
-    /// See <https://schema.org/description>
-    pub description: Option<String>,
-    /// Code repository data of bucket
-    ///
-    /// See <https://schema.org/codeRepository>
-    #[serde(alias = "repository")]
-    pub code_repository: Repository,
 }
 /// Struct for [GitHub] tree entry
 ///
@@ -306,6 +314,7 @@ impl Bucket {
                 },
                 | None => todo!("Handle invalid GitLab URI"),
             },
+            | Repository::Git { .. } => todo!("Add support for generic repositories"),
         }
     }
     fn tree(&self, directory: &str, page: Option<u32>) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
@@ -315,6 +324,7 @@ impl Bucket {
     }
     fn tree_url(&self, directory: &str, page: Option<u32>) -> Option<String> {
         match &self.code_repository {
+            | Repository::Git { .. } => None,
             | Repository::GitHub { location } => {
                 let parsed = match location.uri() {
                     | Some(value) => value,
@@ -347,52 +357,10 @@ impl Bucket {
             }
         }
     }
-    /// Download files from bucket to local directory
+    /// Copy files from (local) bucket to local directory
     ///
     /// Ignores files listed in [`IGNORE`]
-    pub fn download_files(self: Bucket, output: PathBuf) -> usize {
-        fn count_json_files(paths: Vec<String>) -> usize {
-            paths.clone().into_iter().filter(|path| path.to_lowercase().ends_with(".json")).count()
-        }
-        fn count_image_files(paths: Vec<String>) -> usize {
-            paths.into_iter().filter(has_image_extension).count()
-        }
-        fn download_complete_message(name: String, json_count: usize, image_count: usize) -> String {
-            let total = json_count + image_count;
-            let message = if json_count != image_count {
-                let recommendation = if json_count > image_count {
-                    "Do you need to add some images?"
-                } else {
-                    "Do you need to add some JSON files?"
-                };
-                format!(
-                    " ({} data file{}, {} image{} - {})",
-                    json_count.yellow(),
-                    suffix(json_count),
-                    image_count.yellow(),
-                    suffix(image_count),
-                    recommendation.italic(),
-                )
-            } else {
-                "".to_string()
-            };
-            format!(
-                "  {}Downloaded {} {} file{}{}",
-                if total > 0 { Label::CHECKMARK } else { Label::CAUTION },
-                if total > 0 {
-                    total.green().to_string()
-                } else {
-                    total.yellow().to_string()
-                },
-                name.to_uppercase(),
-                suffix(total),
-                message,
-            )
-        }
-        #[allow(clippy::ptr_arg)]
-        fn has_image_extension(path: &String) -> bool {
-            path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg")
-        }
+    pub fn copy_files(self: Bucket, output: PathBuf) -> usize {
         let paths = self
             .clone()
             .file_paths("")
@@ -401,7 +369,40 @@ impl Bucket {
             .collect::<Vec<String>>();
         let total_data: usize = count_json_files(paths.clone());
         let total_images: usize = count_image_files(paths.clone());
-        let message = download_complete_message(self.name, total_data, total_images);
+        let message = operations_complete_message(self.name, total_data, total_images);
+        let progress = ProgressBar::new(paths.len() as u64);
+        paths.par_iter().for_each(|path| {
+            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+            progress.set_message(format!("Copying {path}"));
+            let folder = format!("{}/{}", output.display(), parent(path.clone()).display());
+            std::fs::create_dir_all(folder.clone()).unwrap();
+            if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
+                if self.code_repository.clone().is_local() {
+                    let bytes = std::fs::read(path.clone()).unwrap();
+                    println!("{} = {:?}", path, bytes);
+                    let mut content = Cursor::new(bytes);
+                    let _ = copy(&mut content, &mut file);
+                    progress.inc(1);
+                }
+            }
+        });
+        progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
+        progress.finish_with_message(message);
+        total_data + total_images
+    }
+    /// Download files from bucket to local directory
+    ///
+    /// Ignores files listed in [`IGNORE`]
+    pub fn download_files(self: Bucket, output: PathBuf) -> usize {
+        let paths = self
+            .clone()
+            .file_paths("")
+            .into_iter()
+            .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
+            .collect::<Vec<String>>();
+        let total_data: usize = count_json_files(paths.clone());
+        let total_images: usize = count_image_files(paths.clone());
+        let message = operations_complete_message(self.name, total_data, total_images);
         let progress = ProgressBar::new(paths.len() as u64);
         let client = Client::new();
         paths.par_iter().for_each(|path| {
@@ -450,6 +451,10 @@ impl Bucket {
             parse_header(headers, "x-total-pages")
         }
         match self.code_repository {
+            | Repository::Git { .. } => {
+                let path = PathBuf::from(self.code_repository.location().to_string());
+                files_all(path, None).into_iter().map(|x| x.display().to_string()).collect()
+            }
             | Repository::GitHub { .. } => match self.tree(directory, None) {
                 | Ok(response) if response.status().is_success() => Bucket::parse_github_response(response),
                 | Ok(_) | Err(_) => {
@@ -614,11 +619,7 @@ impl Repository {
     /// Return whether or not the associated URI for a repository is local (e.g., has "file" scheme)
     pub fn is_local(self) -> bool {
         let local_schemes = [Scheme::File];
-        let location = match self {
-            | Repository::GitHub { location, .. } => location,
-            | Repository::GitLab { location, .. } => location,
-        };
-        local_schemes.contains(&location.scheme())
+        local_schemes.contains(&self.location().scheme())
     }
     /// Get metadata for latest release of a Gitlab or GitHub repository
     pub fn latest_release(self) -> Option<Release> {
@@ -631,8 +632,17 @@ impl Repository {
             }
         }
     }
+    /// Get repository location
+    pub fn location(self) -> Location {
+        match self {
+            | Repository::Git { location, .. } => location,
+            | Repository::GitHub { location, .. } => location,
+            | Repository::GitLab { location, .. } => location,
+        }
+    }
     fn id(&self) -> Option<String> {
         match self {
+            | Repository::Git { .. } => None,
             | Repository::GitHub { .. } => None,
             | Repository::GitLab { id, location } => match location.uri() {
                 | Some(value) => {
@@ -654,6 +664,7 @@ impl Repository {
     }
     fn releases(self) -> Vec<Release> {
         let maybe_url = match &self {
+            | Repository::Git { .. } => None,
             | Repository::GitHub { location } => match location.uri() {
                 | Some(uri) => {
                     let host = uri.host().unwrap().to_string();
@@ -720,8 +731,51 @@ impl Repository {
                 }
             },
             | Repository::GitLab { location, .. } => Some(format!("{location}/-/raw/main/{path}")),
+            | Repository::Git { .. } => None,
         }
     }
+}
+fn count_json_files(paths: Vec<String>) -> usize {
+    paths.clone().into_iter().filter(|path| path.to_lowercase().ends_with(".json")).count()
+}
+fn count_image_files(paths: Vec<String>) -> usize {
+    paths.into_iter().filter(has_image_extension).count()
+}
+fn operations_complete_message(name: String, json_count: usize, image_count: usize) -> String {
+    let total = json_count + image_count;
+    let message = if json_count != image_count {
+        let recommendation = if json_count > image_count {
+            "Do you need to add some images?"
+        } else {
+            "Do you need to add some JSON files?"
+        };
+        format!(
+            " ({} data file{}, {} image{} - {})",
+            json_count.yellow(),
+            suffix(json_count),
+            image_count.yellow(),
+            suffix(image_count),
+            recommendation.italic(),
+        )
+    } else {
+        "".to_string()
+    };
+    format!(
+        "  {}Downloaded {} {} file{}{}",
+        if total > 0 { Label::CHECKMARK } else { Label::CAUTION },
+        if total > 0 {
+            total.green().to_string()
+        } else {
+            total.yellow().to_string()
+        },
+        name.to_uppercase(),
+        suffix(total),
+        message,
+    )
+}
+#[allow(clippy::ptr_arg)]
+fn has_image_extension(path: &String) -> bool {
+    path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg")
 }
 
 #[cfg(test)]

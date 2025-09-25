@@ -1,0 +1,11 @@
+{
+    "buckets": [
+        {
+            "name": "local",
+            "repository": {
+                "provider": "git",
+                "location": "file://./tests/fixtures/data/bucket"
+            }
+        }
+    ]
+}

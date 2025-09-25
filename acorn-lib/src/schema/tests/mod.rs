@@ -313,20 +313,20 @@ fn test_research_activity_default() {
 }
 #[test]
 fn test_research_activity_format() {
-    let path = Some(PathBuf::from(FIXTURES).join("data/format/"));
     //
     // with changes
     //
-    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/changes.json")).unwrap();
+    let path = Some(PathBuf::from(FIXTURES).join("data/format/changes"));
+    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/changes/index.json")).unwrap();
     assert!(pre.meta.media.is_none());
     assert!(pre.contact.affiliation.is_none());
     let post = pre.format(path.clone());
-    assert_eq!(post.meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
+    assert_eq!(post.meta.media.unwrap()[0].clone().content_url(), Some("42.png".to_string()));
     assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
     //
     // with unresolved changes
     //
-    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/unresolved_changes.json")).unwrap();
+    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/unresolved_changes/index.json")).unwrap();
     assert!(pre.meta.media.is_some());
     assert_eq!(pre.contact.affiliation, Some("Not an actual affiliation".to_string()));
     let post = pre.format(None);
@@ -354,11 +354,12 @@ fn test_research_activity_format() {
     //
     // without changes
     //
-    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/no_changes.json")).unwrap();
+    let path = Some(PathBuf::from(FIXTURES).join("data/format/no_changes"));
+    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/no_changes/index.json")).unwrap();
     assert_eq!(pre.clone().meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
     assert_eq!(pre.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
     let post = pre.clone().format(path);
-    assert_eq!(post.meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
+    assert_eq!(post.meta.media.unwrap()[0].clone().content_url(), Some("42.png".to_string()));
     assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
 }
 #[test]
