@@ -591,29 +591,29 @@ pub struct Language {
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Display, Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
-#[display("{} ({identifier})", self.title[0])]
+#[display("({identifier})")]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Metadata {
     /// RAiD metadata metadata
     #[validate(nested)]
-    pub metadata: MetadataMetadata,
+    pub metadata: Option<MetadataMetadata>,
     /// Metadata schema block containing the RAiD name and associated properties
     #[validate(nested)]
     pub identifier: MetadataIdentifier,
     /// Dates associated with the RAiD metadata
     #[validate(nested)]
-    pub date: Date,
+    pub date: Option<Date>,
     /// Title metadata of the RAiD
     ///
     /// <div class="warning">One and only one title should be identified as "primary"</div>
     #[validate(nested, length(min = 1))]
-    pub title: Vec<Title>,
+    pub title: Option<Vec<Title>>,
     /// Description metadata of the RAiD
     #[validate(nested)]
     pub description: Option<Vec<Description>>,
     /// Contributors to the RAiD
     #[validate(nested, length(min = 1))]
-    pub contributor: Vec<Contributor>,
+    pub contributor: Option<Vec<Contributor>>,
     /// Organizations associated with the RAiD
     ///
     /// <div class="warning">If only one organization is listed, it's role defaults to "Lead Research Organization"</div>

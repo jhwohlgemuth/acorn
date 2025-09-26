@@ -71,6 +71,9 @@ fn test_raid_read() {
     let path = PathBuf::from(FIXTURES).join("raid/response_01.json");
     let raid = raid::Metadata::read(path);
     assert!(raid.is_some());
+    let path = PathBuf::from(FIXTURES).join("raid/response_02.json");
+    let raid = raid::Metadata::read(path);
+    assert!(raid.is_some());
 }
 #[test]
 fn test_classification() {
