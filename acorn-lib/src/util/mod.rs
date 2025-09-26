@@ -46,6 +46,7 @@ pub enum License {
     /// MIT License
     Mit,
     /// Creative Commons
+    #[serde(alias = "Creative Commons CC-0")]
     CreativeCommons,
     /// Unknown license
     Unknown,

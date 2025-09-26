@@ -2,6 +2,7 @@ use crate::schema::validate::*;
 use crate::schema::*;
 use glob::glob;
 use pretty_assertions::assert_eq;
+use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
 const VALID_DOI_VALUES: [&str; 28] = [
@@ -65,6 +66,12 @@ const VALID_ROR_VALUES: [&str; 26] = [
     "03ebg0v16",
 ];
 
+#[test]
+fn test_raid_read() {
+    let path = PathBuf::from(FIXTURES).join("raid/response_01.json");
+    let raid = raid::Metadata::read(path);
+    assert!(raid.is_some());
+}
 #[test]
 fn test_classification() {
     assert_eq!(ClassificationLevel::Secret.to_string(), "SECRET");

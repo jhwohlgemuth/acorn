@@ -1,0 +1,32 @@
+{
+    "identifier": {
+        "id": "https://raid.org/xxx.yyy/zzz",
+        "schemaUri": "https://raid.org",
+        "registrationAgency": {
+            "id": "https://ror.org/02stey378",
+            "schemaUri": "https://ror.org"
+        },
+        "owner": {
+            "id": "https://ror.org/02stey378",
+            "schemaUri": "https://ror.org",
+            "servicePoint": 20000003
+        },
+        "raidAgencyUrl": "https://static.raid.org.au/raid/10378.1/1695863",
+        "license": "Creative Commons CC-0",
+        "version": 0
+    },
+    "access": {
+        "type": {
+            "id": "https://vocabularies.coar-repositories.org/access_rights/c_abf2/",
+            "schemaUri": "https://vocabularies.coar-repositories.org/access_rights/"
+        },
+        "statement": {
+            "text": "string",
+            "language": {
+                "id": "eng",
+                "schemaUri": "https://iso639-3.sil.org/"
+            }
+        },
+        "embargoExpiry": "2025-09-25"
+    }
+}

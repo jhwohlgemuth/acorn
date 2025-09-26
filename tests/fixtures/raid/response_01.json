@@ -1,0 +1,180 @@
+{
+    "traditionalKnowledgeLabel": [
+        {
+            "id": "https://localcontexts.org/label/tk-verified/",
+            "schemaUri": "https://localcontexts.org/labels/traditional-knowledge-labels/"
+        }
+    ],
+    "metadata": {
+        "created": 0,
+        "updated": 0
+    },
+    "identifier": {
+        "id": "https://raid.org/xxx.yyy/zzz",
+        "schemaUri": "https://raid.org",
+        "registrationAgency": {
+            "id": "https://ror.org/02stey378",
+            "schemaUri": "https://ror.org"
+        },
+        "owner": {
+            "id": "https://ror.org/02stey378",
+            "schemaUri": "https://ror.org",
+            "servicePoint": 20000003
+        },
+        "raidAgencyUrl": "https://static.raid.org.au/raid/10378.1/1695863",
+        "license": "Creative Commons CC-0",
+        "version": 0
+    },
+    "title": [
+        {
+            "text": "string",
+            "type": {
+                "id": "https://vocabulary.raid.org/title.type.schema/5",
+                "schemaUri": "https://vocabulary.raid.org/title.type.schema/376"
+            },
+            "startDate": "2023-08-28; 2023-08; 2023",
+            "endDate": "2023-08-28; 2023-08; 2023",
+            "language": {
+                "id": "eng",
+                "schemaUri": "https://iso639-3.sil.org/"
+            }
+        }
+    ],
+    "date": {
+        "startDate": "2023-08-28; 2023-08; 2023",
+        "endDate": "2023-08-28; 2023-08; 2023"
+    },
+    "description": [
+        {
+            "text": "string",
+            "type": {
+                "id": "https://vocabulary.raid.org/description.type.schema/318",
+                "schemaUri": "https://vocabulary.raid.org/description.type.schema/320"
+            },
+            "language": {
+                "id": "eng",
+                "schemaUri": "https://iso639-3.sil.org/"
+            }
+        }
+    ],
+    "access": {
+        "type": {
+            "id": "https://vocabularies.coar-repositories.org/access_rights/c_abf2/",
+            "schemaUri": "https://vocabularies.coar-repositories.org/access_rights/"
+        },
+        "statement": {
+            "text": "string",
+            "language": {
+                "id": "eng",
+                "schemaUri": "https://iso639-3.sil.org/"
+            }
+        },
+        "embargoExpiry": "2025-09-25"
+    },
+    "alternateUrl": [
+        {
+            "url": "string"
+        }
+    ],
+    "contributor": [
+        {
+            "id": "string",
+            "schemaUri": "https://orcid.org/",
+            "status": "string",
+            "statusMessage": "string",
+            "email": "string",
+            "uuid": "string",
+            "position": [
+                {
+                    "schemaUri": "https://vocabulary.raid.org/contributor.position.schema/305",
+                    "id": "https://vocabulary.raid.org/contributor.position.schema/307",
+                    "startDate": "2025-08-28; 2025-08; 2025",
+                    "endDate": "2025-08-28; 2025-08; 2025"
+                }
+            ],
+            "role": [
+                {
+                    "schemaUri": "https://credit.niso.org/",
+                    "id": "https://credit.niso.org/contributor-roles/writing-review-editing/"
+                }
+            ],
+            "leader": true,
+            "contact": true
+        }
+    ],
+    "organisation": [
+        {
+            "id": "string",
+            "schemaUri": "https://ror.org/",
+            "role": [
+                {
+                    "schemaUri": "https://vocabulary.raid.org/organisation.role.schema/359",
+                    "id": "https://vocabulary.raid.org/organisation.role.schema/182",
+                    "startDate": "2025-08-28; 2025-08; 2025",
+                    "endDate": "2025-08-28; 2025-08; 2025"
+                }
+            ]
+        }
+    ],
+    "subject": [
+        {
+            "id": "string",
+            "schemaUri": "string",
+            "keyword": [
+                {
+                    "text": "string",
+                    "language": {
+                        "id": "eng",
+                        "schemaUri": "https://iso639-3.sil.org/"
+                    }
+                }
+            ]
+        }
+    ],
+    "relatedRaid": [
+        {
+            "id": "string",
+            "type": {
+                "id": "https://vocabulary.raid.org/relatedRaid.type.schema/204",
+                "schemaUri": "https://vocabulary.raid.org/relatedRaid.type.schema/367"
+            }
+        }
+    ],
+    "relatedObject": [
+        {
+            "id": "string",
+            "schemaUri": "string",
+            "type": {
+                "id": "https://vocabulary.raid.org/relatedObject.type.schema/258",
+                "schemaUri": "https://vocabulary.raid.org/relatedObject.type.schema/329"
+            },
+            "category": [
+                {
+                    "id": "https://vocabulary.raid.org/relatedObject.category.id/191",
+                    "schemaUri": "https://vocabulary.raid.org/relatedObject.category.schemaUri/386"
+                }
+            ]
+        }
+    ],
+    "alternateIdentifier": [
+        {
+            "id": "string",
+            "type": "string"
+        }
+    ],
+    "spatialCoverage": [
+        {
+            "id": "string",
+            "schemaUri": "string",
+            "place": [
+                {
+                    "text": "string",
+                    "language": {
+                        "id": "eng",
+                        "schemaUri": "https://iso639-3.sil.org/"
+                    }
+                }
+            ]
+        }
+    ]
+}
