@@ -67,15 +67,6 @@ const VALID_ROR_VALUES: [&str; 26] = [
 ];
 
 #[test]
-fn test_raid_read() {
-    let path = PathBuf::from(FIXTURES).join("raid/response_01.json");
-    let raid = raid::Metadata::read(path);
-    assert!(raid.is_some());
-    let path = PathBuf::from(FIXTURES).join("raid/response_02.json");
-    let raid = raid::Metadata::read(path);
-    assert!(raid.is_some());
-}
-#[test]
 fn test_classification() {
     assert_eq!(ClassificationLevel::Secret.to_string(), "SECRET");
     assert_eq!(ClassificationLevel::TopSecret.to_string(), "TOP SECRET");
@@ -306,6 +297,17 @@ fn test_organization_graph() {
         division.nearest(OrganizationType::Directorate).unwrap().name,
         "Neutron Sciences Directorate"
     );
+}
+#[test]
+fn test_raid_read() {
+    let path = PathBuf::from(FIXTURES).join("raid/response_01.json");
+    let raid = raid::Metadata::read(path);
+    assert!(raid.is_some());
+    let _ = raid.unwrap().validate();
+    let path = PathBuf::from(FIXTURES).join("raid/response_02.json");
+    let raid = raid::Metadata::read(path);
+    assert!(raid.is_some());
+    let _ = raid.unwrap().validate();
 }
 #[test]
 fn test_read() {

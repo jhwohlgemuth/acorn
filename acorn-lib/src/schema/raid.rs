@@ -383,6 +383,7 @@ pub enum TitleType {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Access {
     /// Access type
+    #[validate(nested)]
     #[serde(rename = "type")]
     pub access_type: AccessIdentifier,
     /// Date an embargo on access to the RAiD metadata ends
@@ -410,7 +411,7 @@ pub struct AccessIdentifier {
     pub id: AccessType,
     /// URI of the access type schema
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
 }
 /// Metadata schema block containing an explanation for any access type that is not "open", with the explanation's associated properties
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
@@ -460,7 +461,7 @@ pub struct Contributor {
     /// [ISNI]: https://isni.org/
     /// [ORCID]: https://orcid.org/
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
     /// Contibutor status
     pub status: String,
     /// Text describing status
@@ -479,6 +480,7 @@ pub struct Contributor {
     #[validate(email)]
     pub email: String,
     /// Contributor's role(s) on a project or activity
+    #[validate(nested)]
     pub role: Option<Vec<Role>>,
     /// Contributor UUID
     pub uuid: String,
@@ -500,8 +502,9 @@ pub struct ContributorPosition {
     /// [OpenAIRE]: https://guidelines.openaire.eu/en/latest/
     /// [Project Ontology]: http://linked.data.gov.au/def/project
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
     /// Dates associated with contributor's involvement in a project or activity
+    #[validate(nested)]
     #[serde(flatten)]
     pub date: Date,
 }
@@ -536,9 +539,11 @@ pub struct Description {
     #[validate(length(min = 3, max = 1000))]
     pub text: String,
     /// Description type information
+    #[validate(nested)]
     #[serde(rename = "type")]
     pub description_type: DescriptionIdentifier,
     /// Language of the description text
+    #[validate(nested)]
     pub language: Option<Language>,
 }
 /// Metadata schema block declaring the type of description
@@ -549,7 +554,7 @@ pub struct DescriptionIdentifier {
     pub id: DescriptionType,
     /// URI of the associated description schema
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
 }
 /// Metadata schema block containing information about the associated type
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
@@ -559,7 +564,7 @@ pub struct Identifier {
     pub id: String,
     /// URI of the associated type schema
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
 }
 /// Metadata schema sub-block containing free-text keyword describing a project plus associated properties
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -568,6 +573,7 @@ pub struct Keyword {
     /// Unconstrained keyword or key phrase describing the project or activity
     pub text: String,
     /// Language of the keyword
+    #[validate(nested)]
     pub language: Option<Language>,
 }
 /// Metadata schema block declaring the language of the associated text
@@ -585,7 +591,7 @@ pub struct Language {
     pub id: String,
     /// URI of the associated type schema
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
 }
 /// Research Activity Identifier (RAiD) Metadata
 #[skip_serializing_none]
@@ -663,8 +669,9 @@ pub struct MetadataIdentifier {
     /// ### Example
     /// > `https://raid.org/`
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
     /// RAiD owner
+    #[validate(nested)]
     pub owner: Owner,
     /// RAiD agency URL
     #[validate(url)]
@@ -677,6 +684,7 @@ pub struct MetadataIdentifier {
     /// <div class="warning">Only supports CC-0 (?)</div>
     pub license: License,
     /// Version number of the RAiD
+    #[validate(range(min = 0))]
     pub version: u32,
 }
 /// Information about edit history of associated RAiD
@@ -702,7 +710,7 @@ pub struct Organization {
     ///
     /// Only allowed value: `https://ror.org/`
     #[validate(url, contains(pattern = "https://ror.org"))]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
     /// Organization role
     #[validate(nested)]
     pub role: Vec<OrganizationRole>,
@@ -715,8 +723,9 @@ pub struct OrganizationRole {
     pub id: OrganizationRoleType,
     /// URI of the organization role identifier schema
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
     /// Date information associated with the organization role
+    #[validate(nested)]
     #[serde(flatten)]
     pub date: Date,
 }
@@ -737,7 +746,7 @@ pub struct Owner {
     /// ### Example
     /// > `https://ror.org/`
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
     /// Service point (SP) that requested the RAiD
     /// ### Example
     /// > `20000003`
@@ -756,6 +765,7 @@ pub struct Place {
     /// > Do not duplicate information from [`SpatialCoverage`].id above; do not use for organisational locations (which are derived from the organisation's ROR)
     pub text: Option<String>,
     /// Language of the text
+    #[validate(nested)]
     pub language: Option<Language>,
 }
 /// Metadata schema block containing inputs, outputs, and process documents related to a RAiD plus associated properties
@@ -773,10 +783,10 @@ pub struct RelatedObject {
     pub id: String,
     /// URI of the relatedObject identifier schema
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
     /// Type information of related object
-    #[serde(rename = "type")]
     #[validate(nested)]
+    #[serde(rename = "type")]
     pub related_object_type: RelatedObjectIdentifier,
     /// Category information of related object
     #[validate(nested, length(min = 1))]
@@ -790,7 +800,7 @@ pub struct RelatedObjectCategory {
     pub id: ObjectCategoryType,
     /// URI of the category schema used
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
 }
 /// Related object identifier
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -800,7 +810,7 @@ pub struct RelatedObjectIdentifier {
     pub id: ObjectType,
     /// URI of the related object type identifier schema
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
 }
 /// Metadata schema block containing related RAiDs and qualifying the relationship
 ///
@@ -811,6 +821,7 @@ pub struct RelatedRaid {
     /// Subsidiary or otherwise related RAiD
     pub id: String,
     /// Related RAiD type
+    #[validate(nested)]
     #[serde(rename = "type")]
     pub related_raid_type: RelatedRaidIdentifier,
 }
@@ -822,7 +833,7 @@ pub struct RelatedRaidIdentifier {
     pub id: RelatedRaidType,
     /// URI of the related RAiD type identifier schema
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
 }
 /// Metadata schema block containing the RAiD name and associated properties
 ///
@@ -839,7 +850,7 @@ pub struct RegistrationAgency {
     /// ### Example
     /// > `https://raid.org/`
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
 }
 /// Metadata schema sub-block describing a contributor's scientific or scholarly role on a project using the [CRediT] vocabulary
 ///
@@ -865,8 +876,10 @@ pub struct SpatialCoverage {
     /// Spatial region or named place that is the subject or target of the project or activity. Repeat this property as necessary to indicate different locations. Do not duplicate organisational locations
     pub id: String,
     /// URI of the geolocation schema used for spatial coverage
-    pub schema_uri: String,
+    #[validate(url)]
+    pub schema_uri: Option<String>,
     /// Places of associated spatial coverage
+    #[validate(nested)]
     pub place: Vec<Place>,
 }
 /// Metadata schema block containing the subject area of the RAiD plus associated properties
@@ -878,7 +891,8 @@ pub struct Subject {
     /// URI for a subject area or classification code describing the project or activity
     pub id: String,
     /// URI of the subject identifier schema
-    pub schema_uri: String,
+    #[validate(url)]
+    pub schema_uri: Option<String>,
     /// Subject keywords
     pub keyword: Option<Vec<Keyword>>,
 }
@@ -894,8 +908,8 @@ pub struct Title {
     #[validate(length(min = 3, max = 100))]
     pub text: String,
     /// Metadata schema block containing information about the title type
-    #[serde(rename = "type")]
     #[validate(nested)]
+    #[serde(rename = "type")]
     pub title_type: TitleIdentifier,
     /// Language of the title
     #[validate(nested)]
@@ -933,7 +947,8 @@ pub struct TraditionalKnowledgeLabel {
     /// URI of the Traditional Knowledge or Biocultural label identifier schema
     /// ### Note
     /// > Currently only Local Contexts Hub is supported for validated TK/BC Labels and Notices.
-    pub schema_uri: String,
+    #[validate(url)]
+    pub schema_uri: Option<String>,
 }
 /// Metadata schema block containing information about the title type
 #[derive(Clone, Debug, Serialize, Deserialize, Display, JsonSchema, Validate)]
@@ -946,7 +961,7 @@ pub struct TitleIdentifier {
     pub id: TitleType,
     /// URI of the title type schema
     #[validate(url)]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
 }
 impl Metadata {
     /// Print research activity identifier (RAiD) metadata schema as JSON schema
