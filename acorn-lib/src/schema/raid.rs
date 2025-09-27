@@ -467,6 +467,7 @@ pub struct Contributor {
     /// Text describing status
     pub status_message: Option<String>,
     /// Contributor's administrative position on a project or activity
+    #[validate(nested)]
     pub position: Vec<ContributorPosition>,
     /// Flag indicating that the contributor as a project leader
     ///
