@@ -113,6 +113,16 @@ pub fn is_list_url(value: &[String]) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("URLs").with_message("Every URL should be valid".to_string().into())),
     }
 }
+/// Check if value is a valid ORCiD
+///
+/// See <https://orcid.org/> for more information on ORCiDs
+pub fn is_orcid(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid ORCiD";
+    match RE_ORCID.is_match(value) {
+        | Ok(value) if value => Ok(()),
+        | _ => Err(ValidationError::new("orcid").with_message(MESSAGE.into())),
+    }
+}
 /// Check if value is a valid phone number
 ///
 /// Uses same regex as `format_phone_number`

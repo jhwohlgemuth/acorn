@@ -36,6 +36,12 @@ const VALID_DOI_VALUES: [&str; 28] = [
     "10.5479/10088/113528",
     "10.1038/s41597-020-0486-7",
 ];
+const VALID_ORCID_VALUES: [&str; 2] = [
+    // jason Wohlgemuth
+    "https://orcid.org/0000-0002-2057-9115",
+    // Audrey Carson
+    "https://orcid.org/0009-0005-5568-6526",
+];
 // Downloaded from https://zenodo.org/records/14728473
 const VALID_ROR_VALUES: [&str; 26] = [
     "04ttjf776",
@@ -554,6 +560,21 @@ fn test_validate_is_list_url() {
     ];
     assert!(is_list_url(&valid).is_ok());
     assert!(is_list_url(&invalid).is_err());
+}
+#[test]
+fn test_validaate_is_orcid() {
+    let valid = VALID_ORCID_VALUES;
+    let invalid = [
+        "0000-0002-1823-1234",
+        "https://orcid.org/0000-0002-1823-12345",
+        "https://orcid.com/0000-0002-1823-1234",
+    ];
+    for x in valid.iter() {
+        assert!(is_orcid(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid ORCiD");
+    }
+    for x in invalid.iter() {
+        assert!(is_orcid(x).is_err(), "=> [REASON] \"{x}\" IS a valid ORCiD");
+    }
 }
 #[test]
 fn test_validate_is_phone_number() {

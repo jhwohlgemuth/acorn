@@ -133,6 +133,10 @@ lazy_static! {
     ///
     /// See <https://www.doi.org/> for more information
     pub static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
+    /// Regex that should match an Open Researcher and Contributor ID (ORCiD) value
+    ///
+/// See <https://orcid.org/> for more information
+    pub static ref RE_ORCID: Regex = Regex::new(r#"^https[:]\/\/orcid\.org\/[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{4}$"#).unwrap();
     /// Regex that should match a Research Activity Identifier (RAiD)
     ///
     /// See <https://raid.org/> for more information

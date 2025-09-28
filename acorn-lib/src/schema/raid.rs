@@ -3,7 +3,7 @@
 //! See <https://metadata.raid.org/en/v1.6/index.html> for official documentation on schema.
 //!
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema --raid`
-use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_raid, is_ror};
+use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror};
 use crate::util::{read_file, Label};
 use crate::License;
 use bon::{builder, Builder};
@@ -453,6 +453,11 @@ pub struct AlternateUrl {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Contributor {
     /// Contributor (person) associated with a project or activity identified by a persistent identifier (PID)
+    ///
+    /// Should be a valid *full* ORCiD
+    /// ### Example
+    /// > https://orcid.org/0000-0000-0000-0000
+    #[validate(custom(function = "is_orcid"))]
     pub id: String,
     /// URI of the contributor identifier schema
     ///
@@ -479,12 +484,12 @@ pub struct Contributor {
     pub contact: bool,
     /// Contributor email
     #[validate(email)]
-    pub email: String,
+    pub email: Option<String>,
     /// Contributor's role(s) on a project or activity
     #[validate(nested)]
     pub role: Option<Vec<Role>>,
     /// Contributor UUID
-    pub uuid: String,
+    pub uuid: Option<String>,
 }
 /// Metadata schema sub-block describing a contributor's administrative position on a project or activity
 ///
@@ -620,15 +625,15 @@ pub struct Metadata {
     pub description: Option<Vec<Description>>,
     /// Contributors to the RAiD
     #[validate(nested, length(min = 1))]
-    pub contributor: Option<Vec<Contributor>>,
+    pub contributor: Vec<Contributor>,
     /// Organizations associated with the RAiD
     ///
     /// <div class="warning">If only one organization is listed, it's role defaults to "Lead Research Organization"</div>
     ///
     /// <div class="warning">One and only one organization should be identified as "Lead Research Organization"</div>
-    #[validate(nested)]
+    #[validate(nested, length(min = 1))]
     #[serde(alias = "organisation")]
-    pub organization: Option<Vec<Organization>>,
+    pub organization: Vec<Organization>,
     /// Related objects associated with the RAiD
     #[validate(nested)]
     pub related_object: Option<Vec<RelatedObject>>,
@@ -704,8 +709,11 @@ pub struct MetadataMetadata {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Organization {
     /// Organization identifier
+    /// ### Example
+    /// > `https://ror.org/01qz5mb56`
     ///
     /// <div class="warning">Should be <a href="https://ror.org">ROR</a>, if available</div>
+    #[validate(custom(function = "is_ror"))]
     pub id: String,
     /// URI of the organization identifier schema
     ///
