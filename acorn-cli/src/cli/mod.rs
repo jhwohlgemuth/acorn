@@ -103,7 +103,7 @@ pub enum Commands {
         ///     Check files that were changed in the last 10 commits
         ///     &> acorn check --commit HEAD~10..HEAD
         ///
-        /// See https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection for more information of commit ranges
+        /// See <https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection> for more information of commit ranges
         #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
         commit: Option<String>,
         /// Disable website checks that require internet connection

@@ -456,7 +456,7 @@ pub struct Contributor {
     ///
     /// Should be a valid *full* ORCiD
     /// ### Example
-    /// > https://orcid.org/0000-0000-0000-0000
+    /// > "<https://orcid.org/0000-0000-0000-0000>"
     #[validate(custom(function = "is_orcid"))]
     pub id: String,
     /// URI of the contributor identifier schema

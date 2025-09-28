@@ -20,7 +20,7 @@ pub struct Author {
 pub struct Status {
     /// Where you can find documentation for this version
     /// ### Example
-    /// > "https://citeas.org/api"
+    /// > "<https://citeas.org/api>"
     pub documentation_url: String,
     /// Relevant messages
     /// ### Example
