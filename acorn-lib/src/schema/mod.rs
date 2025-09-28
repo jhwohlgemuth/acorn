@@ -241,6 +241,12 @@ pub struct ContactPoint {
     #[builder(default = "Last".to_string())]
     #[serde(alias = "last", deserialize_with = "string_trim")]
     pub family_name: String,
+    /// ORCiD of contact point
+    /// ### Example
+    /// > "<https://orcid.org/0000-0002-2057-9115>"
+    #[validate(custom(function = "is_orcid"))]
+    #[serde(alias = "orcid", deserialize_with = "option_string_trim")]
+    pub identifier: Option<String>,
     /// Email address of contact point
     ///
     /// See <https://schema.org/email> for more information
