@@ -161,4 +161,6 @@ lazy_static! {
     pub static ref RE_PHONE: Regex = Regex::new(r#"^(?<country>\+\d{1,2}\s?)?(?<area>\(?\d{3}\)?)[\s.-]?(?<prefix>\d{3})[\s.-]?(?<line>\d{4})$"#).unwrap();
     /// Regex that should match a fake phone number (e.g. 555.555.5555)
     pub static ref RE_FAKE_PHONE: Regex = Regex::new(r#"^(\+\d{1,2}\s?)?\(?5{3}\)?[\s.-]?5{3}[\s.-]?5{4}$"#).unwrap();
+    /// Regex that should match a Unix epoch (ex. 1759017645)
+    pub static ref RE_UNIX_EPOCH: Regex = Regex::new(r#"^\d{10}$"#).unwrap();
 }

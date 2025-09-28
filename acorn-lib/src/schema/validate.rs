@@ -153,6 +153,14 @@ pub fn is_ror(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("ror").with_message(MESSAGE.into())),
     }
 }
+/// Check if value is a valid Unix epoch timestamp
+pub fn is_unix_epoch(value: usize) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid Unix epoch timestamp";
+    match RE_UNIX_EPOCH.is_match(&value.to_string()) {
+        | Ok(value) if value => Ok(()),
+        | _ => Err(ValidationError::new("unix epoch").with_message(MESSAGE.into())),
+    }
+}
 /// Custom validator function for [approach](/acorn_lib/schema/struct.Sections.html#structfield.approach)
 pub fn validate_attribute_approach(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_APPROACH;

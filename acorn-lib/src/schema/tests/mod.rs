@@ -626,3 +626,14 @@ fn test_validate_is_ror() {
         assert!(is_ror(x).is_err(), "=> [REASON] \"{x}\" IS a valid ROR");
     }
 }
+#[test]
+fn test_validate_is_unix_epoch() {
+    let valid = [1759017645];
+    let invalid = [42, 123456789];
+    for x in valid.iter() {
+        assert!(is_unix_epoch(*x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid Unix epoch timestamp");
+    }
+    for x in invalid.iter() {
+        assert!(is_unix_epoch(*x).is_err(), "=> [REASON] \"{x}\" IS a valid Unix epoch timestamp");
+    }
+}

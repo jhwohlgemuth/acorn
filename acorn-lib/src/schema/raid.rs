@@ -3,7 +3,7 @@
 //! See <https://metadata.raid.org/en/v1.6/index.html> for official documentation on schema.
 //!
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema --raid`
-use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror};
+use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror, is_unix_epoch};
 use crate::util::{read_file, Label};
 use crate::License;
 use bon::{builder, Builder};
@@ -698,8 +698,14 @@ pub struct MetadataIdentifier {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct MetadataMetadata {
     /// Date and time the RAiD metadata record was created
+    ///
+    /// Should be Unix epoch timestamp
+    #[validate(custom(function = "is_unix_epoch"))]
     pub created: usize,
     /// Date and time the RAiD metadata record was last updated
+    ///
+    /// Should be Unix epoch timestamp
+    #[validate(custom(function = "is_unix_epoch"))]
     pub updated: usize,
 }
 /// Metadata schema block containing the organization associated with a RAiD and its associated properties
