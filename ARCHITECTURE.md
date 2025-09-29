@@ -22,6 +22,11 @@ acorn/
 │   │   ├── util/       # Common utilities and CLI helpers
 │   │   └── lib.rs      # Library entry point
 │   └── Cargo.toml
+├── acorn-py/           # Python package project
+│   ├── src/
+│   │   └── lib.rs      # Library entry point
+│   ├── Cargo.toml      # Rust configuration
+│   └── pyproject.toml  # Python configuration
 └── Cargo.toml          # Workspace configuration
 ```
 
