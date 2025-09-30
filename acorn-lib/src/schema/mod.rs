@@ -245,7 +245,7 @@ pub struct ContactPoint {
     /// ### Example
     /// > "<https://orcid.org/0000-0002-2057-9115>"
     #[validate(custom(function = "is_orcid"))]
-    #[serde(alias = "orcid", deserialize_with = "option_string_trim")]
+    #[serde(alias = "orcid")]
     pub identifier: Option<String>,
     /// Email address of contact point
     ///
@@ -1161,7 +1161,10 @@ impl ResearchActivity {
             | Ok(_) => Label::using(),
             | Err(_) => Label::invalid(),
         };
-        trace!("=> {} RAD content = {:#?}", label, data.dimmed());
+        match &data {
+            | Ok(_) => trace!("=> {} RAD content = {:#?}", label, data.dimmed()),
+            | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
+        }
         data
     }
     /// Read research activity data (e.g., `buckets.yaml`) using Serde and [`ResearchActivity`] struct
@@ -1178,7 +1181,10 @@ impl ResearchActivity {
             | Ok(_) => Label::output(),
             | Err(_) => Label::fail(),
         };
-        debug!("=> {} RAD content = {:#?}", label, data.dimmed());
+        match &data {
+            | Ok(_) => trace!("=> {} RAD content = {:#?}", label, data.dimmed()),
+            | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
+        }
         data
     }
     /// Resolve values to intended values according to controlled vocabularies and conventions
