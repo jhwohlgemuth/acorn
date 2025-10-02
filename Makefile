@@ -1,5 +1,5 @@
 #!make
-.PHONY: audit clean lint test coverage doc build release version
+.PHONY: audit clean lint test coverage doc publish-docs build release version
 -include .env
 
 audit:
@@ -24,6 +24,17 @@ coverage: clean lint
 doc:
 	@cargo clean --doc
 	@cargo doc --no-deps --all-features
+
+publish-docs: doc
+	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site
+	@rm -rf ./site/html
+	@mv target/doc/ ./site/html
+	@echo '<meta http-equiv="refresh" content="0; url=acorn_lib/index.html">' > ./site/html/index.html
+	@cd site
+	@git add html
+	@git commit -m "Publish documentation"
+	@git push
+	@rm -rf site
 
 build: clean
 	@mkdir -p ./bin
