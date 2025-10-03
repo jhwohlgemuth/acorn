@@ -6,7 +6,7 @@ use acorn_lib::util::{print_values_as_table, Label};
 use color_eyre::eyre::{Report, Result};
 use dotenvy::dotenv;
 use std::path::PathBuf;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 
 const READABILITY_METRIC: &str = "READABILITY_METRIC";
 
@@ -75,7 +75,10 @@ pub fn run(
     } else {
         let metric = match dotenv() {
             | Ok(_) => match dotenvy::var(READABILITY_METRIC) {
-                | Ok(metric) if !metric.is_empty() => ReadabilityType::from_string(&metric),
+                | Ok(value) if !value.is_empty() => {
+                    debug!(value, "=> {} Readability metric from .env", Label::using());
+                    ReadabilityType::from_string(&value)
+                }
                 | _ => *readability_metric,
             },
             | _ => *readability_metric,

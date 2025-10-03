@@ -215,14 +215,13 @@ impl Check {
                 match &errors {
                     | Some(ErrorKind::Readability(values)) => {
                         let (index, readability_type) = values;
-                        let maximum = readability_type.maximum_allowed();
                         error!(
-                            "=> {} {} has a readability index of {} (less than {} is recommended for {} metric)",
+                            "=> {} {} has {} value of {} (should be less than {})",
                             Label::fail(),
                             message,
+                            readability_type.to_string().to_uppercase(),
                             index.red().bold(),
-                            maximum.cyan(),
-                            readability_type.to_string().to_uppercase()
+                            context.unwrap().cyan(),
                         );
                     }
                     | None | Some(_) => {

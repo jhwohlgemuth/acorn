@@ -902,8 +902,14 @@ impl ResearchActivity {
             .map(|path| match ResearchActivity::read(path.into()) {
                 | Some(data) => {
                     let index = readability_type.calculate(&data.extract_prose());
-                    let maximum = readability_type.maximum_allowed();
-                    debug!("{} Readability index = {index}", Label::using());
+                    let maximum = match readability_type.maximum_allowed_from_env() {
+                        | Some(value) => {
+                            debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
+                            value
+                        }
+                        | None => readability_type.maximum_allowed(),
+                    };
+                    debug!(value = index, "=> {} Readability index", Label::using());
                     if index > maximum {
                         let errors = ErrorKind::Readability((index, readability_type));
                         Check::init()
@@ -911,6 +917,7 @@ impl ResearchActivity {
                             .success(false)
                             .message(path.display().to_string())
                             .errors(errors)
+                            .context(maximum.to_string())
                             .build()
                     } else {
                         let score = format!("({} = {}/{})", readability_type.to_string().to_uppercase(), index, maximum);

@@ -369,6 +369,18 @@ impl ReadabilityType {
     }
     /// Get maximum allowed value for a given readability type
     pub fn maximum_allowed(self) -> f64 {
+        match self {
+            | ReadabilityType::ARI => MAX_ALLOWED_ARI,
+            | ReadabilityType::CLI => MAX_ALLOWED_CLI,
+            | ReadabilityType::FKGL => MAX_ALLOWED_FKGL,
+            | ReadabilityType::FRES => MAX_ALLOWED_FRES,
+            | ReadabilityType::GFI => MAX_ALLOWED_GFI,
+            | ReadabilityType::Lix => MAX_ALLOWED_LIX,
+            | ReadabilityType::SMOG => MAX_ALLOWED_SMOG,
+        }
+    }
+    /// Get maximum allowed value for a given readability type, from environment file
+    pub fn maximum_allowed_from_env(self) -> Option<f64> {
         match dotenv() {
             | Ok(_) => {
                 let variables = dotenvy::vars().collect::<Vec<(String, String)>>();
@@ -382,19 +394,11 @@ impl ReadabilityType {
                     | ReadabilityType::SMOG => find_first(variables, "MAX_ALLOWED_SMOG"),
                 };
                 match pair {
-                    | Some((_, value)) => value.parse::<f64>().unwrap(),
-                    | None => MAX_ALLOWED_ARI,
+                    | Some((_, value)) => Some(value.parse::<f64>().unwrap()),
+                    | None => None,
                 }
             }
-            | Err(_) => match self {
-                | ReadabilityType::ARI => MAX_ALLOWED_ARI,
-                | ReadabilityType::CLI => MAX_ALLOWED_CLI,
-                | ReadabilityType::FKGL => MAX_ALLOWED_FKGL,
-                | ReadabilityType::FRES => MAX_ALLOWED_FRES,
-                | ReadabilityType::GFI => MAX_ALLOWED_GFI,
-                | ReadabilityType::Lix => MAX_ALLOWED_LIX,
-                | ReadabilityType::SMOG => MAX_ALLOWED_SMOG,
-            },
+            | Err(_) => None,
         }
     }
 }
