@@ -18,6 +18,14 @@ test:
 test-ci: clean lint
 	@cargo test
 
+changelog:
+	@git pull origin main --tags
+	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN}
+
+changelog-release:
+	@git pull origin main --tags
+	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN} --latest
+
 coverage: clean lint
 	@cargo tarpaulin --out lcov --line --skip-clean --no-dead-code
 
@@ -107,10 +115,6 @@ bucket-push-ghcr:
 
 release: clean
 	@echo "Under Construction"
-
-changelog:
-	@git pull origin main --tags
-	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN}
 
 version: 
 	@echo $(VERSION)

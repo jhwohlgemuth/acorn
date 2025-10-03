@@ -16,8 +16,8 @@ stages:
   - prepare
   - test
   - build
-  - docs
   - release
+  - docs
 
 prepare-environment:
   stage: prepare
@@ -30,7 +30,6 @@ prepare-environment:
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
-    - echo "======== PREPARE JOB ========"
     - echo "PKG_VERSION=$(awk -F ' = ' '$1 ~ /version/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml)" >> variables.env
     - echo "PKG_REGISTRY_URL=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic" >> variables.env
     - echo $PKG_VERSION
@@ -76,26 +75,6 @@ build-release:
     paths:
       - bin/
 
-publish-docs:
-  stage: docs
-  image: rust
-  inherit:
-    default: false
-    variables: true
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        - acorn-cli/**/*.rs
-        - acorn-lib/**/*.rs
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
-  script:
-    - git config --global user.name "${USER}"
-    - git config --global user.email "${EMAIL}"
-    - make doc-publish
-
 publish-release-linux:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
@@ -114,11 +93,11 @@ publish-release-linux:
         - Cargo.toml
   release:
     tag_name: "v$PKG_VERSION"
-    description: "ACORN CLI v$PKG_VERSION"
+    description: "## ACORN v$PKG_VERSION\n> See [CHANGELOG](https://code.ornl.gov/research-enablement/acorn/-/blob/main/CHANGELOG.md) for details"
     ref: "$CI_COMMIT_SHA"
     assets:
       links:
-        - name: "v$PKG_VERSION"
+        - name: "ACORN v$PKG_VERSION"
           url: "${PKG_REGISTRY_URL}/x86_64-unknown-linux-gnu/v${PKG_VERSION}/acorn"
 
 upload-binaries:
@@ -142,3 +121,23 @@ upload-binaries:
   script:
     - ls -la bin/
     - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/acorn-v${PKG_VERSION} ${PKG_REGISTRY_URL}/x86_64-unknown-linux-gnu/v${PKG_VERSION}/acorn'
+
+publish-docs:
+  stage: docs
+  image: rust
+  inherit:
+    default: false
+    variables: true
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - acorn-cli/**/*.rs
+        - acorn-lib/**/*.rs
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  script:
+    - git config --global user.name "${USER}"
+    - git config --global user.email "${EMAIL}"
+    - make doc-publish
