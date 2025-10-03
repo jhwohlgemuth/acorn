@@ -75,7 +75,7 @@ build-release:
     paths:
       - bin/
 
-publish-release:
+publish-release-linux:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   inherit:
@@ -85,6 +85,8 @@ publish-release:
     - job: prepare-environment
       artifacts: true
     - job: build-release
+  script:
+    - echo "Publishing ACORN v${PKG_VERSION}"
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -111,7 +113,7 @@ upload-binaries:
       artifacts: true
     - job: build-release
       artifacts: true
-    - job: publish-release
+    - job: publish-release-linux
   rules:
     - if: $CI_COMMIT_TAG
       when: never
