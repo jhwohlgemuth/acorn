@@ -75,7 +75,7 @@ build-release:
     paths:
       - bin/
 
-publish-release-linux:
+publish-release:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   inherit:
