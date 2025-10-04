@@ -6,6 +6,7 @@ description.workspace = true
 edition = "2021"
 
 [lib]
+name = "acorn"
 crate-type = ["cdylib"]
 
 [dependencies]

@@ -1,11 +1,68 @@
 [project]
-name = "acorn"
-version = "0.1.30"
+name = "acorn-py"
+dynamic = ["version"]
+requires-python = ">=3.8"
+description = "Python bindings for acorn-lib crate"
+readme = "README.md"
+authors = [{ name = "Jason Wohlgemuth", email = "wohlgemuthjh@ornl.gov" }]
+license = "MIT"
+keywords = ["research", "automation"]
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Natural Language :: English",
+  "Programming Language :: Python",
+  "Programming Language :: Rust",
+  "Topic :: Scientific/Engineering",
+]
+[project.urls]
+Repository = "https://code.ornl.gov/research-enablement/acorn.git"
 
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [tool.maturin]
-# "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
 features = ["pyo3/extension-module"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+license = "MIT"
+
+[tool.pixi.environments]
+test = { features = ["build", "test"], solve-group = "default" }
+
+[tool.pixi.feature.build.dependencies]
+maturin = "~=1.9.0"
+pip = "~=25.2"
+
+[tool.pixi.feature.build.target.linux-64.dependencies]
+patchelf = "~=0.17.2"
+
+[tool.pixi.feature.build.tasks]
+build = "PIP_REQUIRE_VIRTUALENV=false maturin develop --uv --release"
+
+[tool.pixi.feature.test.pypi-dependencies]
+ptpython = ">=3.0.31"
+
+[tool.pixi.feature.test.dependencies]
+pytest = ">=8.4.2,<9"
+python = ">=3.13.7,<3.14"
+
+[tool.pixi.feature.test.tasks]
+test = { cmd = "pytest", depends-on = ["build"] }
+repl = { cmd = "ptpython", depends-on = [
+  { task = "build", environment = "test" },
+] }
+
+[tool.pytest.ini_options]
+minversion = "7.1.1"
+addopts = "-p no:warnings -sv"
+testpaths = ["tests"]
