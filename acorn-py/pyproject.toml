@@ -47,7 +47,7 @@ pip = "~=25.2"
 patchelf = "~=0.17.2"
 
 [tool.pixi.feature.build.tasks]
-build = "PIP_REQUIRE_VIRTUALENV=false maturin develop --uv --release"
+build = "PIP_REQUIRE_VIRTUALENV=false maturin develop --release"
 
 [tool.pixi.feature.test.pypi-dependencies]
 ptpython = ">=3.0.31"
