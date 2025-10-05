@@ -53,6 +53,10 @@ publish-docs: doc
 develop:
 	@maturin develop --manifest-path ./acorn-py/Cargo.toml --release --uv
 
+.PHONY: pypi
+pypi:
+	@maturin publish --manifest-path ./acorn-py/Cargo.toml --non-interactive --username __token__ --password $(MATURIN_PASSWORD)
+
 .PHONY: acorn-image
 acorn-image:
 	@docker build --no-cache --platform $(PLATFORM) -t acorn:$(VERSION) -f Dockerfile .
