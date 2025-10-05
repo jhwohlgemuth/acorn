@@ -9,6 +9,14 @@ use uriparse::URI;
 use validator::ValidationError;
 
 /// Format a phone number into a standard format
+/// ### Note
+/// > Output format is `000.000.0000`
+///
+/// ### Example
+/// ```rust
+/// use acorn_lib::schema::validate::format_phone_number;
+///
+/// assert_eq!(format_phone_number("(123) 456-7890"), Ok("123.456.7890".to_string()));
 pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
     const MESSAGE: &str = "Unable to format telephone number";
     match RE_PHONE.captures(value) {
