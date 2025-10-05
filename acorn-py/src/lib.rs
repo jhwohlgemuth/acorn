@@ -7,10 +7,15 @@ fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     let python = module.py();
     let schema = PyModule::new(python, "schema")?;
     let validate = PyModule::new(python, "validate")?;
+    // Add functions from schema.validate module
     validate.add_function(wrap_pyfunction!(format_phone_number, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ip6, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_orcid, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(is_raid, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(is_ror, &validate)?)?;
+    // Configure submodules
+    // Without this, `import acorn.schema.validate` will fail
     let sys = python.import("sys")?;
     let modules = sys.getattr("modules")?;
     modules.set_item("acorn.schema", schema)?;
@@ -77,6 +82,31 @@ fn is_ip6(value: &str) -> bool {
 #[pyfunction]
 fn is_orcid(value: &str) -> bool {
     match schema::validate::is_orcid(value) {
+        | Ok(_) => true,
+        | Err(_) => false,
+    }
+}
+/// Check if value is a valid RAiD
+#[pyfunction]
+fn is_raid(value: &str) -> bool {
+    match schema::validate::is_raid(value) {
+        | Ok(_) => true,
+        | Err(_) => false,
+    }
+}
+/// Check if value is a valid Research Organization Registry (ROR) value
+///
+/// See <https://www.ror.org/> for more information
+///
+/// ### Example
+/// ```python
+/// from acorn.schema.validate import is_ror
+///
+/// assert is_ror("https://ror.org/01qz5mb56")
+/// ```
+#[pyfunction]
+fn is_ror(value: &str) -> bool {
+    match schema::validate::is_ror(value) {
         | Ok(_) => true,
         | Err(_) => false,
     }

@@ -57,6 +57,7 @@ pub fn has_image_extension(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("image").with_message(MESSAGE.into())),
     }
 }
+// TODO: Add chrono crate to handle dates
 fn is_current_year(value: String) -> bool {
     let now: DateTime<Utc> = Utc::now();
     let year = now.year().to_string().parse::<i32>().unwrap_or_default();
@@ -153,7 +154,9 @@ pub fn is_raid(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("raid").with_message(MESSAGE.into())),
     }
 }
-/// Check if value is a valid ROR
+/// Check if value is a valid Research Organization Registry (ROR) value
+///
+/// See <https://www.ror.org/> for more information
 pub fn is_ror(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid ROR";
     match RE_ROR.is_match(value) {

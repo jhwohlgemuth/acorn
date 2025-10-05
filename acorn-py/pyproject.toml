@@ -42,6 +42,7 @@ test = { features = ["build", "test"], solve-group = "default" }
 [tool.pixi.feature.build.dependencies]
 maturin = "~=1.9.0"
 pip = "~=25.2"
+rust = ">=1.90.0,<1.91"
 
 [tool.pixi.feature.build.target.linux-64.dependencies]
 patchelf = "~=0.17.2"
@@ -55,14 +56,54 @@ ptpython = ">=3.0.31"
 [tool.pixi.feature.test.dependencies]
 pytest = ">=8.4.2,<9"
 python = ">=3.13.7,<3.14"
+ruff = ">=0.13.3,<0.14"
+black = ">=25.1.0,<26"
 
 [tool.pixi.feature.test.tasks]
 test = { cmd = "pytest", depends-on = ["build"] }
 repl = { cmd = "ptpython", depends-on = [
   { task = "build", environment = "test" },
 ] }
+black = { cmd = "black tests" }
+check = { cmd = "ruff check --fix tests", depends-on = ["black"] }
+format = { cmd = "ruff format tests", depends-on = ["check"] }
+lint = { depends-on = ["format"] }
+fmt = { cmd = "cargo fmt --verbose"}
 
 [tool.pytest.ini_options]
 minversion = "7.1.1"
 addopts = "-p no:warnings -sv"
 testpaths = ["tests"]
+
+[tool.ruff]
+extend-include = ["*.ipynb"]
+line-length = 100
+indent-width = 4
+preview = true
+show-fixes = true
+
+[tool.ruff.format]
+docstring-code-format = false
+docstring-code-line-length = "dynamic"
+indent-style = "space"
+line-ending = "auto"
+quote-style = "double"
+
+[tool.ruff.lint]
+select = [
+  "C90",  # mccabe complexity
+  "D",    # pydocstyle
+  "E",    # pycodestyle (error)
+  "F",    # pyflakes
+  "FLY",  # flynt
+  "I",    # isort
+  "PERF", # perflint
+  "PL",   # Pylint
+  "RUF",  # ruff-specific rules
+]
+ignore = ["D100", "D103", "D104", "D213"]
+
+[tool.black]
+line-length = 150
+quiet = true
+target-version = ["py313"]

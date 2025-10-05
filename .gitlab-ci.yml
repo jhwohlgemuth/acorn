@@ -142,4 +142,4 @@ publish-docs:
   script:
     - git config --global user.name "${USER}"
     - git config --global user.email "${EMAIL}"
-    - make doc-publish
+    - make publish-docs

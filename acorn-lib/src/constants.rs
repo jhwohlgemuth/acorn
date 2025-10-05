@@ -144,7 +144,7 @@ lazy_static! {
     /// Regex that should match a Research Organization Registry (ROR)
     ///
     /// See <https://www.ror.org/> for more information
-    pub static ref RE_ROR: Regex = Regex::new(r#"^0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2}$"#).unwrap();
+    pub static ref RE_ROR: Regex = Regex::new(r#"^(?<schema_uri>(https[:]\/\/ror\.org\/)|(ror[.]org\/))?0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2}$"#).unwrap();
     /// Regex that should match an image extension (e.g. .png, .jpg, .jpeg, .svg)
     pub static ref RE_IMAGE_EXTENSION: Regex = Regex::new(r#".*[.](png|PNG|jpg|JPG|jpeg|JPEG|svg|SVG|gif|GIF|webp|WEBP|tiff|TIFF)$"#).unwrap();
     /// Regex that should match an IP6 address

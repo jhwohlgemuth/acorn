@@ -43,33 +43,36 @@ const VALID_ORCID_VALUES: [&str; 2] = [
     "https://orcid.org/0009-0005-5568-6526",
 ];
 // Downloaded from https://zenodo.org/records/14728473
-const VALID_ROR_VALUES: [&str; 26] = [
-    "04ttjf776",
-    "01rxfrp27",
-    "023q4bk22",
-    "006jxzx88",
-    "00wfvh315",
-    "05ktbsm52",
-    "00nx6aa03",
-    "02k3cxs74",
-    "046fa4y88",
-    "02d439m40",
-    "04h08p482",
-    "01zctcs90",
-    "05m7zw681",
-    "03awtex73",
-    "00kv9pj15",
-    "03mjtdk61",
-    "04yyp8h20",
-    "022rkxt86",
-    "01wddqe20",
-    "03kwrfk72",
-    "037mpqg03",
-    "05cggb038",
-    "050b31k83",
-    "01q8f6705",
-    "03t40cz74",
-    "03ebg0v16",
+const VALID_ROR_VALUES: [&str; 29] = [
+    "https://ror.org/01qz5mb56",
+    "ror.org/01qz5mb56",
+    "01qz5mb56",
+    "https://ror.org/04ttjf776",
+    "https://ror.org/01rxfrp27",
+    "https://ror.org/023q4bk22",
+    "https://ror.org/006jxzx88",
+    "https://ror.org/00wfvh315",
+    "https://ror.org/05ktbsm52",
+    "https://ror.org/00nx6aa03",
+    "https://ror.org/02k3cxs74",
+    "https://ror.org/046fa4y88",
+    "https://ror.org/02d439m40",
+    "https://ror.org/04h08p482",
+    "https://ror.org/01zctcs90",
+    "https://ror.org/05m7zw681",
+    "https://ror.org/03awtex73",
+    "https://ror.org/00kv9pj15",
+    "https://ror.org/03mjtdk61",
+    "https://ror.org/04yyp8h20",
+    "https://ror.org/022rkxt86",
+    "https://ror.org/01wddqe20",
+    "https://ror.org/03kwrfk72",
+    "https://ror.org/037mpqg03",
+    "https://ror.org/05cggb038",
+    "https://ror.org/050b31k83",
+    "https://ror.org/01q8f6705",
+    "https://ror.org/03t40cz74",
+    "https://ror.org/03ebg0v16",
 ];
 
 #[test]
@@ -610,15 +613,7 @@ fn test_validate_is_phone_number() {
 #[test]
 fn test_validate_is_ror() {
     let valid = VALID_ROR_VALUES;
-    let invalid = [
-        "978-12345-99990",
-        "10.1000/182",
-        "10.97812345/99990",
-        "3t40cz74",
-        "03ebg0v16-",
-        "https://ror.org/04ttjf776",
-        "https://ror.org/01rxfrp27",
-    ];
+    let invalid = ["978-12345-99990", "10.1000/182", "10.97812345/99990", "3t40cz74", "03ebg0v16-"];
     for x in valid.iter() {
         assert!(is_ror(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid ROR");
     }
