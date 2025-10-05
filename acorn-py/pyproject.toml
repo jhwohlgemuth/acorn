@@ -65,10 +65,10 @@ repl = { cmd = "ptpython", depends-on = [
   { task = "build", environment = "test" },
 ] }
 black = { cmd = "black tests" }
-check = { cmd = "ruff check --fix tests", depends-on = ["black"] }
-format = { cmd = "ruff format tests", depends-on = ["check"] }
-lint = { depends-on = ["format"] }
-fmt = { cmd = "cargo fmt --verbose"}
+check = { cmd = "ruff check --fix tests" }
+format = { cmd = "ruff format tests" }
+lint = [ { task = "black" }, { task = "check" }, { task = "format" } ]
+fmt = { cmd = "cargo fmt --verbose" }
 
 [tool.pytest.ini_options]
 minversion = "7.1.1"
