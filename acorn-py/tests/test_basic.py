@@ -1,5 +1,5 @@
 import acorn
-from acorn.validate import is_orcid
+from acorn.schema.validate import is_orcid
 
 def test_name():
     assert acorn.__name__ == "acorn"
