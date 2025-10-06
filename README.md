@@ -6,6 +6,11 @@
 [![Latest Release](https://code.ornl.gov/research-enablement/acorn/-/badges/release.svg?style=flat-square)](https://code.ornl.gov/research-enablement/acorn/-/releases)
 > Accessible Content Optimization for Research Needs
 
+ACORN provides an ontology for research activity data (RAD) and enables adding linked data context and transforming RAD into a knowledge graph that is amenable to automated reasoning and artifact generation (e.g. PDFs, PPTX, etc.)
+
+## So what, big deal, who cares?
+ACORN is a command line multi-tool that employs automated processes for informing and enforcing defined content schemas. With these content schemas, ACORN builds communication assets such as PDFs, presentation files, and web pages. It also lays the foundation for deep data insights about ORNL’s — and any institution’s — corpus of research. Built using the memory-safe Rust programming language, ACORN can be used on any Windows, Mac, or Linux machine
+
 ## Installation
 > Homebrew and Scoop packages are planned. Check back soon for updates.
 ### Install with cargo
@@ -50,6 +55,27 @@
 - Test the installation
   ```shell
   acorn help
+  ```
+
+### ACORN Rust Libary
+[<img alt="crates.io" src="https://img.shields.io/crates/v/acorn-lib.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/acorn-lib)
+- Add `acorn-lib` as a dependency in your `Cargo.toml`
+  ```toml
+  [dependencies]
+  acorn-lib = "0.1.30"
+  ```  
+- Use `acorn-lib` functions in your Rust code
+  ```rust
+  use acorn_lib::schema::validate::{is_doi, is_orcid, is_ror};
+
+  assert!(is_doi("10.11578/dc.20250604.1"));
+  assert!(is_orcid("https://orcid.org/0000-0002-2057-9115"));
+  assert!(is_ror("01qz5mb56"));
+  ```
+- If you want to use `acorn-lib` to build your own CLI app, be sure to include the following in your `Cargo.toml` to enable the `cli` feature
+  ```toml
+  [dependencies]
+  acorn-lib = { version = "0.1.30", features = ["cli"] }
   ```
 
 ### Python Bindings
