@@ -54,7 +54,7 @@ pub enum EntryType {
     #[display("blob")]
     Blob,
 }
-/// Abstraction for file and folder locations that can be local (e.g., file:///path/to/project) or remote (e.g., https://gitlab.com/project)
+/// Abstraction for file and folder locations that can be local (e.g., file:///path/to/project) or remote (e.g., <https://gitlab.com/project>)
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Location {

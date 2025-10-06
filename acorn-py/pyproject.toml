@@ -30,6 +30,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [tool.maturin]
+module-name = "acorn"
 features = ["pyo3/extension-module"]
 
 [tool.pixi.workspace]
@@ -107,4 +108,4 @@ ignore = ["D100", "D103", "D104", "D213"]
 [tool.black]
 line-length = 150
 quiet = true
-target-version = ["py313"]
+target-version = ["py310"]

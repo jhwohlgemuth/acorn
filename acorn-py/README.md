@@ -1,7 +1,7 @@
 # ACORN 🌱
 [<img alt="gitlab" src="https://img.shields.io/badge/code.ornl.gov-research_enablement-00662C?style=for-the-badge&logo=gitlab&color=%2300662C
 " height="20">](https://research.ornl.gov)
-[<img alt="crates.io" src="https://img.shields.io/pypi/v/acorn-py?style=for-the-badge&logo=python" height="20">](#)
+[<img alt="PyPI" src="https://img.shields.io/pypi/v/acorn-py?style=for-the-badge&logo=python" height="20">](https://pypi.org/project/acorn-py/)
 > Python bindings for the [acorn-lib](https://crates.io/crates/acorn-lib) crate
 
 ## Example Usage
