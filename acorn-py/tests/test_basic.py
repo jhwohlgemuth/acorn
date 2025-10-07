@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import acorn
+from acorn.schema import ResearchActivity
 from acorn.schema.validate import format_phone_number, is_doi, is_ip6, is_orcid, is_ror
 from pytest import raises
 
@@ -42,3 +45,9 @@ def test_is_ror():
     assert is_ror("https://ror.org/01qz5mb56")
     assert not is_ror("03ebg0v16-")
     assert not is_ror("10.1000/182")
+
+
+def test_research_activity():
+    location = "../tests/fixtures/data/valid_project/index.json"
+    ResearchActivity.read(location)
+    ResearchActivity.read(Path(location))

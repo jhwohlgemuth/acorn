@@ -1,11 +1,13 @@
 use acorn_lib::schema;
 use pyo3::prelude::*;
+use std::path::PathBuf;
 
 /// Python bindings for ACORN
 #[pymodule]
 fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     let python = module.py();
     let schema = PyModule::new(python, "schema")?;
+    schema.add_class::<ResearchActivity>()?;
     let validate = PyModule::new(python, "validate")?;
     // Add functions from schema.validate module
     validate.add_function(wrap_pyfunction!(format_phone_number, &validate)?)?;
@@ -21,6 +23,18 @@ fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     modules.set_item("acorn.schema", schema)?;
     modules.set_item("acorn.schema.validate", validate)?;
     Ok(())
+}
+
+#[pyclass]
+struct ResearchActivity {}
+#[pymethods]
+impl ResearchActivity {
+    #[staticmethod]
+    fn read(path: PathBuf) -> PyResult<String> {
+        let data = schema::ResearchActivity::read(path);
+        println!("{:#?}", data);
+        Ok("".to_string())
+    }
 }
 /// Convert a phone number into a standard format
 /// ### Example
