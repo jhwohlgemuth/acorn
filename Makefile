@@ -55,7 +55,7 @@ develop:
 
 .PHONY: pypi
 pypi:
-	@maturin publish --manifest-path ./acorn-py/Cargo.toml --non-interactive --username __token__ --password $(MATURIN_PASSWORD)
+	@maturin publish --manifest-path ./acorn-py/Cargo.toml --no-sdist --non-interactive --username __token__ --password $(MATURIN_PASSWORD)
 
 .PHONY: acorn-image
 acorn-image:
