@@ -229,13 +229,13 @@ pub struct ContactPoint {
     #[builder(default = "Researcher".to_string())]
     #[serde(alias = "title", deserialize_with = "string_trim")]
     pub job_title: String,
-    /// First (given) name of contact
+    /// First (given) name of contact point
     ///
     /// See <https://schema.org/givenName> for more information
     #[builder(default = "First".to_string())]
     #[serde(alias = "first", deserialize_with = "string_trim")]
     pub given_name: String,
-    /// Last (family) name of contact
+    /// Last (family) name of contact point
     ///
     /// See <https://schema.org/familyName> for more information
     #[builder(default = "Last".to_string())]

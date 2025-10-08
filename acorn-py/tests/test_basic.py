@@ -49,5 +49,8 @@ def test_is_ror():
 
 def test_research_activity():
     location = "../tests/fixtures/data/valid_project/index.json"
-    ResearchActivity.read(location)
-    ResearchActivity.read(Path(location))
+    data = ResearchActivity.read(location)
+    assert data.title == "Valid Project"
+    data = ResearchActivity.read(Path(location))
+    assert data.title == "Valid Project"
+    assert data.contact.email == "wohlgemuthjh@ornl.gov"
