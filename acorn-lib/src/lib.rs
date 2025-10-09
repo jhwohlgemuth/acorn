@@ -379,7 +379,7 @@ impl Bucket {
             if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
                 if self.code_repository.clone().is_local() {
                     let bytes = std::fs::read(path.clone()).unwrap();
-                    println!("{} = {:?}", path, bytes);
+                    println!("{path} = {bytes:?}");
                     let mut content = Cursor::new(bytes);
                     let _ = copy(&mut content, &mut file);
                     progress.inc(1);
