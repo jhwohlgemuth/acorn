@@ -2,6 +2,9 @@
 .PHONY: $(TASKS)
 -include .env
 
+setup:
+	@cargo install $(DEV_DEPENDENCIES)
+
 audit:
 	@cargo audit
 
@@ -125,9 +128,12 @@ bucket-push-ghcr:
 PLATFORM = linux/amd64
 VERSION = `awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 REGISTRY = savannah.ornl.gov/research-enablement
-# REGISTRY = camden.ornl.gov/research-enablement
-# DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cross.toml | tr . _`
-DEFAULT_TARGET = x86_64-unknown-linux-gnu
+DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml | tr . _`
+DEV_DEPENDENCIES = \
+	cargo-audit \
+	cargo-auditable \
+	cargo-nextest \
+	cargo-tarpaulin
 TARGETS = \
 	i586-unknown-linux-musl \
 	i686-unknown-linux-gnu \
@@ -152,6 +158,7 @@ TASKS = \
 	develop \
 	pypi \
 	release \
+	setup \
 	version \
 	acorn-clean \
 	acorn-image \
