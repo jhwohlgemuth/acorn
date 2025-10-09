@@ -1,5 +1,5 @@
 #!make
-.PHONY: audit build clean lint test test-ci changelog changelog-release coverage doc publish-docs
+.PHONY: $(TASKS)
 -include .env
 
 audit:
@@ -49,26 +49,18 @@ publish-docs: doc
 	@git push
 	@rm -rf site
 
-.PHONY: develop
 develop:
 	@maturin develop --manifest-path ./acorn-py/Cargo.toml --release --uv
 
-.PHONY: pypi
 pypi:
 	@maturin publish --manifest-path ./acorn-py/Cargo.toml --no-sdist --non-interactive --username __token__ --password $(MATURIN_PASSWORD)
 
-.PHONY: acorn-image
-acorn-image:
-	@docker build --no-cache --platform $(PLATFORM) -t acorn:$(VERSION) -f Dockerfile .
-	@docker tag acorn:$(VERSION) acorn:latest
-	@docker tag acorn:$(VERSION) $(REGISTRY)/acorn/runner:$(VERSION)
-	@docker tag acorn:$(VERSION) $(REGISTRY)/acorn/runner:latest
-	@docker tag acorn:$(VERSION) jhwohlgemuth/acorn:$(VERSION)
-	@docker tag acorn:$(VERSION) jhwohlgemuth/acorn:latest
-	@docker tag acorn:$(VERSION) ghcr.io/jhwohlgemuth/acorn:$(VERSION)
-	@docker tag acorn:$(VERSION) ghcr.io/jhwohlgemuth/acorn:latest
+release: clean
+	@echo "Under Construction"
 
-.PHONY: acorn-clean
+version: 
+	@echo $(VERSION)
+
 acorn-clean:
 	@docker rmi -f acorn:$(VERSION)
 	@docker rmi -f acorn:latest
@@ -79,33 +71,28 @@ acorn-clean:
 	@docker rmi -f ghcr.io/jhwohlgemuth/acorn:$(VERSION)
 	@docker rmi -f ghcr.io/jhwohlgemuth/acorn:latest
 
-.PHONY: acorn-push
+acorn-image:
+	@docker build --no-cache --platform $(PLATFORM) -t acorn:$(VERSION) -f Dockerfile .
+	@docker tag acorn:$(VERSION) acorn:latest
+	@docker tag acorn:$(VERSION) $(REGISTRY)/acorn/runner:$(VERSION)
+	@docker tag acorn:$(VERSION) $(REGISTRY)/acorn/runner:latest
+	@docker tag acorn:$(VERSION) jhwohlgemuth/acorn:$(VERSION)
+	@docker tag acorn:$(VERSION) jhwohlgemuth/acorn:latest
+	@docker tag acorn:$(VERSION) ghcr.io/jhwohlgemuth/acorn:$(VERSION)
+	@docker tag acorn:$(VERSION) ghcr.io/jhwohlgemuth/acorn:latest
+
 acorn-push: acorn-push-docker acorn-push-ghcr
 	@docker push $(REGISTRY)/acorn/runner:$(VERSION)
 	@docker push $(REGISTRY)/acorn/runner:latest
 
-.PHONY: acorn-push-docker
 acorn-push-docker:
 	@docker push jhwohlgemuth/acorn:$(VERSION)
 	@docker push jhwohlgemuth/acorn:latest
 
-.PHONY: acorn-push-ghcr
 acorn-push-ghcr:
 	@docker push ghcr.io/jhwohlgemuth/acorn:$(VERSION)
 	@docker push ghcr.io/jhwohlgemuth/acorn:latest
 
-.PHONY: bucket-image
-bucket-image:
-	@docker build --no-cache --platform $(PLATFORM) -t bucket:$(VERSION) -f Dockerfile.bucket .
-	@docker tag bucket:$(VERSION) bucket:latest
-	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:$(VERSION)
-	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:latest
-	@docker tag bucket:$(VERSION) jhwohlgemuth/bucket:$(VERSION)
-	@docker tag bucket:$(VERSION) jhwohlgemuth/bucket:latest
-	@docker tag bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:$(VERSION)
-	@docker tag bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:latest
-
-.PHONY: bucket-clean
 bucket-clean:
 	@docker rmi -f bucket:$(VERSION)
 	@docker rmi -f bucket:latest
@@ -116,28 +103,27 @@ bucket-clean:
 	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:$(VERSION)
 	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:latest
 
-.PHONY: bucket-push
+bucket-image:
+	@docker build --no-cache --platform $(PLATFORM) -t bucket:$(VERSION) -f Dockerfile.bucket .
+	@docker tag bucket:$(VERSION) bucket:latest
+	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:$(VERSION)
+	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:latest
+	@docker tag bucket:$(VERSION) jhwohlgemuth/bucket:$(VERSION)
+	@docker tag bucket:$(VERSION) jhwohlgemuth/bucket:latest
+	@docker tag bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:$(VERSION)
+	@docker tag bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:latest
+
 bucket-push: bucket-push-docker bucket-push-ghcr
 	@docker push $(REGISTRY)/bucket/runner:$(VERSION)
 	@docker push $(REGISTRY)/bucket/runner:latest
 
-.PHONY: bucket-push-docker
 bucket-push-docker:
 	@docker push jhwohlgemuth/bucket:$(VERSION)
 	@docker push jhwohlgemuth/bucket:latest
 
-.PHONY: bucket-push-ghcr
 bucket-push-ghcr:
 	@docker push ghcr.io/jhwohlgemuth/bucket:$(VERSION)
 	@docker push ghcr.io/jhwohlgemuth/bucket:latest
-
-.PHONY: release
-release: clean
-	@echo "Under Construction"
-
-.PHONY: version
-version: 
-	@echo $(VERSION)
 #
 # Variables
 #
@@ -157,3 +143,29 @@ TARGETS = \
 	riscv64gc-unknown-linux-gnu \
 	x86_64-unknown-linux-gnu \
 	x86_64-unknown-linux-musl
+TASKS = \
+	audit \
+	build \
+	clean \
+	lint \
+	test \
+	test-ci \
+	changelog \
+	changelog-release \
+	coverage \
+	doc \
+	publish-docs \
+	develop \
+	pypi \
+	release \
+	version \
+	acorn-clean \
+	acorn-image \
+	acorn-push \
+	acorn-push-docker \
+	acorn-push-ghcr \
+	bucket-clean \
+	bucket-image \
+	bucket-push \
+	bucket-push-docker \
+	bucket-push-ghcr
