@@ -8,6 +8,7 @@ use crate::analyzer::{link_check, Check, CheckCategory, ErrorKind, StaticAnalyze
 use crate::constants::*;
 use crate::util::*;
 use bon::{builder, Builder};
+use convert_case::{Case, Casing};
 use derive_more::Display;
 use fancy_regex::Regex;
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
@@ -24,7 +25,6 @@ use serde_with::skip_serializing_none;
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroU64;
 use std::path::PathBuf;
-use titlecase::Titlecase;
 use tracing::{debug, error, trace};
 use validator::Validate;
 
@@ -1284,7 +1284,7 @@ fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) 
     pattern.match_list(values.clone(), &mut matcher)
 }
 fn print_resolution(output: Option<String>, value: String, name: String) {
-    let label = name.titlecase();
+    let label = name.to_case(Case::Title);
     match output {
         | Some(resolved) => {
             if resolved.eq(&value.to_string()) {

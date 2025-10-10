@@ -4,7 +4,7 @@
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 use crate::constants::*;
 use chrono::prelude::*;
-use fancy_regex::Regex;
+use convert_case::{Case, Casing};
 use uriparse::URI;
 use validator::ValidationError;
 
@@ -105,11 +105,7 @@ pub fn is_iso8601_year(value: &str) -> Result<(), ValidationError> {
 /// Check if value is a valid kebab-case (e.g. 'this-is-kebab-case')
 pub fn is_kebabcase(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide an ID in kebab-case format";
-    let kebab = match Regex::new(r"[ *_./\!@#$%^&(){}]") {
-        | Ok(re) => re.replace_all(value, "").trim().to_string(),
-        | Err(err) => err.to_string(),
-    };
-    match kebab.to_lowercase().eq(&value) {
+    match value.to_case(Case::Kebab).eq(&value) {
         | true => Ok(()),
         | _ => Err(ValidationError::new("kebabcase").with_message(MESSAGE.into())),
     }

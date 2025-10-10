@@ -11,6 +11,7 @@ use crate::util::*;
 use crate::{Location, Repository};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
+use convert_case::{Case, Casing};
 use derive_more::Display;
 use duct::cmd;
 use flate2::read::GzDecoder;
@@ -25,8 +26,6 @@ use std::fs::{create_dir_all, remove_file};
 use std::io::prelude::*;
 use std::path::PathBuf;
 use tar::Archive;
-use titlecase::titlecase;
-use titlecase::Titlecase;
 use tracing::{debug, error, info, trace};
 use validator::ValidationErrorsKind;
 use which::which;
@@ -169,10 +168,10 @@ impl Check {
                     | None => "Missing".italic().to_string(),
                 };
                 if self.success {
-                    let message = titlecase(&self.message).green().bold().to_string();
+                    let message = &self.message.to_case(Case::Title).green().bold().to_string();
                     info!("=> {} \"{url}\" {message}{code}", Label::valid());
                 } else {
-                    let message = titlecase(&self.message).red().bold().to_string();
+                    let message = &self.message.to_case(Case::Title).red().bold().to_string();
                     error!("=> {} \"{url}\" {message}{code}", Label::invalid());
                 }
             }
@@ -363,7 +362,7 @@ impl StaticAnalyzer for Vale {
                 }
             }
             | None => {
-                let title = self.clone().command().titlecase();
+                let title = self.clone().command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
                 std::process::exit(exitcode::UNAVAILABLE);
             }
@@ -462,7 +461,7 @@ impl StaticAnalyzer for Vale {
         debug!(
             "=> {} {} checksums {:#?}",
             Label::using(),
-            self.command().titlecase(),
+            self.command().to_case(Case::Title),
             checksums.dimmed().cyan()
         );
         Ok(checksums)

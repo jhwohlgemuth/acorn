@@ -275,7 +275,7 @@ impl Label {
     /// "Found" label formatting
     pub fn fmt_found(value: &str) -> String {
         let style = Style::new().green().on_default_color();
-        format!("{value}").style(style).to_string()
+        value.to_string().style(style).to_string()
     }
     /// "Not found" label
     pub fn not_found() -> String {
@@ -316,7 +316,7 @@ impl Label {
     /// "Rejected" label formatting
     pub fn fmt_rejected(value: &str) -> String {
         let style = Style::new().red().on_default_color();
-        format!("🛑 {} ", value).style(style).to_string()
+        format!("🛑 {value} ").style(style).to_string()
     }
     /// "Run" label
     pub fn run() -> String {
@@ -325,7 +325,7 @@ impl Label {
     /// "Run" label formatting
     pub fn fmt_run(value: &str) -> String {
         let style = Style::new().black().on_yellow();
-        format!("{} ▶ ", value).style(style).to_string()
+        format!("{value} ▶ ").style(style).to_string()
     }
     /// "Skip" label
     pub fn skip() -> String {

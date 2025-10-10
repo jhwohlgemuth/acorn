@@ -47,6 +47,7 @@ dependencies = [
  "color-eyre",
  "comfy-table",
  "console 0.16.0",
+ "convert_case",
  "data-encoding",
  "derive_more",
  "directories",
@@ -91,7 +92,6 @@ dependencies = [
  "sophia_jsonld 0.9.0",
  "sysinfo 0.35.0",
  "tar",
- "titlecase",
  "tokio",
  "tracing",
  "uriparse",
@@ -1298,6 +1298,15 @@ name = "contextual"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05ca71f324d19e85a2e976be04b5ecbb193253794a75adfe2e5044c8bef03f6a"
+
+[[package]]
+name = "convert_case"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baaaa0ecca5b51987b9423ccdc971514dd8b0bb7b4060b983d3664dad3f1f89f"
+dependencies = [
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "cookie"
@@ -8038,15 +8047,6 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
-
-[[package]]
-name = "titlecase"
-version = "3.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef6b5cbe1316986025d8f662ff6945a0c85f2ca8ca13f04b5e0829ddb0d047f2"
-dependencies = [
- "regex",
-]
 
 [[package]]
 name = "tokio"
