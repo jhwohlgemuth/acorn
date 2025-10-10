@@ -269,9 +269,13 @@ impl Label {
         format!(" ✗ {value} ").style(style).to_string()
     }
     /// "Found" label
-    pub fn found() -> Styled<&'static &'static str> {
+    pub fn found() -> String {
+        Label::fmt_found("FOUND")
+    }
+    /// "Found" label formatting
+    pub fn fmt_found(value: &str) -> String {
         let style = Style::new().green().on_default_color();
-        "FOUND".style(style)
+        format!("{value}").style(style).to_string()
     }
     /// "Not found" label
     pub fn not_found() -> String {
@@ -304,6 +308,24 @@ impl Label {
     pub fn read() -> Styled<&'static &'static str> {
         let style = Style::new().green().on_default_color();
         "READ".style(style)
+    }
+    /// "Rejected" label
+    pub fn rejected() -> String {
+        Label::fmt_rejected("REJECTED")
+    }
+    /// "Rejected" label formatting
+    pub fn fmt_rejected(value: &str) -> String {
+        let style = Style::new().red().on_default_color();
+        format!("🛑 {} ", value).style(style).to_string()
+    }
+    /// "Run" label
+    pub fn run() -> String {
+        Label::fmt_run("RUN")
+    }
+    /// "Run" label formatting
+    pub fn fmt_run(value: &str) -> String {
+        let style = Style::new().black().on_yellow();
+        format!("{} ▶ ", value).style(style).to_string()
     }
     /// "Skip" label
     pub fn skip() -> String {
@@ -546,7 +568,7 @@ where
             | Err(_) => Err(format!("Failed to download {url}")),
         }
     }
-    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    let runtime = tokio_runtime();
     let _ = runtime.block_on(download(url.into(), destination.clone()));
     let filename = PathBuf::from(url.into()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.into().join(filename))
