@@ -9,6 +9,7 @@ use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::*;
 use console::Emoji;
+use convert_case::{Case, Casing};
 use data_encoding::HEXUPPER;
 use derive_more::Display;
 use directories::ProjectDirs;
@@ -990,6 +991,13 @@ where
         }
     };
     Ok(content)
+}
+/// Converts the given string to snake case.
+pub fn snake_case<S>(value: S) -> String
+where
+    S: Into<String>,
+{
+    value.into().to_case(Case::Snake)
 }
 /// Returns path to a folder in the operating system's cache directory that is unique to the given
 /// `namespace` with a random UUID as the name of the final folder.
