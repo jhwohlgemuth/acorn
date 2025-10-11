@@ -131,8 +131,8 @@ pub const MAX_ALLOWED_SMOG: f64 = 13.0;
 lazy_static! {
     /// Regex that should match a Digital Object Identifier (DOI)
     ///
-    /// See <https://www.doi.org/> for more information
-    pub static ref RE_DOI: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
+    /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
+    pub static ref RE_DOI: Regex = Regex::new(r#"^(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#).unwrap();
     /// Regex that should match an Open Researcher and Contributor ID (ORCiD) value
     ///
 /// See <https://orcid.org/> for more information

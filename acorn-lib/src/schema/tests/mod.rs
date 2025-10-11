@@ -5,11 +5,14 @@ use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
-const VALID_DOI_VALUES: [&str; 28] = [
+const VALID_DOI_VALUES: [&str; 31] = [
     // ACORN DOI
     "10.11578/dc.20250604.1",
     "10.1000/182",
     "10.97812345/99990",
+    "https://doi.org/10.11578/dc.20250604.1",
+    "https://doi.org/10.1000/182",
+    "https://doi.org/10.97812345/99990",
     "10.1038/s41562-018-0399-z",
     "10.1038/533452a",
     "10.1109/eScience51609.2021.00010",
@@ -477,11 +480,14 @@ fn test_validate_has_image_extension() {
 }
 #[test]
 fn test_validate_is_doi() {
+    let value = DOI::from_string("10.1000/182");
+    println!("{value:#?}");
     let valid = VALID_DOI_VALUES;
     let invalid = [
         "978-12345-99990",
-        // DOI should not include website
-        "https://doi.org/10.1038/s41562-018-0399-z",
+        // Pretty sure 11 is not a valid DOI directory indicator
+        "11.11578/dc.20250604.1",
+        "<geo coords=\"10.4515260,51.1656910\"></geo>",
         // 10.5555 is not a DOI prefix, but rather a handle prefix
         "10.5555/182",
     ];

@@ -3,11 +3,52 @@
 //!
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 use crate::constants::*;
+use bon::{builder, Builder};
 use chrono::prelude::*;
 use convert_case::{Case, Casing};
+use derive_more::Display;
 use uriparse::URI;
 use validator::ValidationError;
 
+/// Digital Object Identifier (DOI)
+///
+/// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
+#[derive(Builder, Clone, Debug, Display)]
+#[builder(start_fn = init)]
+#[display("{directory_indicator}.{registrant_code}/{suffix}")]
+pub struct DOI {
+    /// Schema URI (e.g., https://doi.org/)
+    pub schema_uri: Option<String>,
+    /// Directory indicator
+    /// ### Rules
+    /// - Can contain only numeric values
+    /// - usually 10 but other indicators may be designated as compliant by the DOI Foundation
+    #[builder(default = "10".into())]
+    pub directory_indicator: String,
+    /// Registrant code
+    /// ### Rules
+    /// - Can contain only numeric values and one or several full stops which are used to subdivide the code
+    /// - If the directory indicator is 10 then a registrant code is mandatory
+    pub registrant_code: String,
+    /// Suffix
+    /// ### Rules
+    /// - Shall be unique to the prefix element that precedes it
+    /// - Can be a sequential number
+    /// - Can be an identifier generated from or based on another system used by the registrant
+    /// - No length limit is set to the suffix by the DOI System
+    pub suffix: String,
+}
+impl DOI {
+    /// Create new DOI by parsing raw string value
+    pub fn from_string<S>(value: S) -> DOI
+    where
+        S: Into<String> + AsRef<str>,
+    {
+        let captures = RE_DOI.captures_iter(value.as_ref());
+        captures.for_each(|x| x.unwrap().iter().for_each(|y| println!("{y:#?}")));
+        DOI::init().registrant_code("1234".to_string()).suffix("1234".to_string()).build()
+    }
+}
 /// Format a phone number into a standard format
 /// ### Note
 /// > Output format is `000.000.0000`
