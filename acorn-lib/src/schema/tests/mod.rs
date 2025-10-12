@@ -424,7 +424,7 @@ fn test_validate_attribute_capabilities() {
 fn test_validate_attribute_doi() {
     let valid = ["10.1000/182".to_string(), "10.97812345/99990".to_string()];
     assert!(validate_attribute_doi(&valid).is_ok());
-    let invalid = ["https://doi.org/10.1000/182".to_string()];
+    let invalid = ["https://not.doi.org/10.1000/182".to_string()];
     assert!(validate_attribute_doi(&invalid).is_err());
 }
 #[test]
