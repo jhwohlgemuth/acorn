@@ -474,7 +474,7 @@ impl Default for SemanticVersion {
 /// Get SHA256 hash of a file
 ///
 /// See <https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html>
-pub fn checksum<P>(path: P) -> String
+pub fn checksum<P>(path: P) -> Option<String>
 where
     P: Into<PathBuf>,
 {
@@ -493,11 +493,11 @@ where
             }
             let digest = context.finish();
             let result = HEXUPPER.encode(digest.as_ref());
-            result.to_lowercase()
+            Some(result.to_lowercase())
         }
         | Err(err) => {
             error!(error = err.to_string(), path = path_to_string(value), "=> {} Read file", Label::fail());
-            "".to_string()
+            None
         }
     }
 }

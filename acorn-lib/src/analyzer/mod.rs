@@ -400,14 +400,15 @@ impl StaticAnalyzer for Vale {
                     | Ok(value) => value.get(platform).unwrap().to_string(),
                     | Err(_) => "".to_string(),
                 };
-                let calculated = checksum(path.clone());
-                if !dowloaded_checksums.eq(&calculated) {
-                    error!(dowloaded_checksums, calculated, "=> {}", Label::invalid());
-                    let _cleanup = remove_file(path);
-                    std::process::exit(exitcode::USAGE);
-                } else {
-                    info!(dowloaded_checksums, "=> {}", Label::pass());
-                }
+                if let Some(calculated) = checksum(path.clone()) {
+                    if !dowloaded_checksums.eq(&calculated) {
+                        error!(dowloaded_checksums, calculated, "=> {}", Label::invalid());
+                        let _cleanup = remove_file(path);
+                        std::process::exit(exitcode::USAGE);
+                    } else {
+                        info!(dowloaded_checksums, "=> {}", Label::pass());
+                    }
+                };
                 // TODO: Provide option to save to cache project directory
                 let destination = match config.clone() {
                     | Some(value) => value.path.parent().unwrap().to_path_buf(),
