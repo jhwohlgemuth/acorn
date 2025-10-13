@@ -76,9 +76,9 @@ impl DOI {
     /// Check if value is a valid DOI
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::validate::DOI::is_valid;
+    /// use acorn_lib::schema::validate::DOI;
     ///
-    /// assert!(is_valid("https://doi.org/10.1000/182"));
+    /// assert!(DOI::is_valid("https://doi.org/10.1000/182"));
     /// ```
     pub fn is_valid<S>(value: S) -> bool
     where
