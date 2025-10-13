@@ -127,12 +127,15 @@ pub const MAX_ALLOWED_LIX: f64 = 50.0;
 ///
 /// This value maps to upper end of high school (12th grade) reading level
 pub const MAX_ALLOWED_SMOG: f64 = 13.0;
+/// Pattern text for DOI regular expression defined by [`RE_DOI`]
+pub const RE_DOI_TEXT: &str =
+    r#"^(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#;
 
 lazy_static! {
     /// Regex that should match a Digital Object Identifier (DOI)
     ///
     /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
-    pub static ref RE_DOI: Regex = Regex::new(r#"^(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#).unwrap();
+    pub static ref RE_DOI: Regex = Regex::new(RE_DOI_TEXT).unwrap();
     /// Regex that should match an Open Researcher and Contributor ID (ORCiD) value
     ///
 /// See <https://orcid.org/> for more information

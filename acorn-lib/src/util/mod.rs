@@ -28,6 +28,7 @@ use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
 };
+use std::collections::HashMap;
 use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::{copy, BufReader, Cursor, Read, Write};
@@ -991,6 +992,41 @@ where
         }
     };
     Ok(content)
+}
+/// Helper function to create a lookup dictionary for regex captures
+/// ### Example
+/// ```
+/// use acorn_lib::util::regex_capture_lookup;
+/// let lookup = regex_capture_lookup(
+///     r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})",
+///     "2023-06-30",
+///     vec!["year", "month", "day"]
+/// );
+/// assert_eq!(lookup["year"], "2023");
+/// assert_eq!(lookup["month"], "06");
+/// assert_eq!(lookup["day"], "30");
+/// ```
+pub fn regex_capture_lookup<S>(pattern: S, value: S, names: Vec<S>) -> HashMap<S, String>
+where
+    S: Into<String> + AsRef<str> + Clone + std::cmp::Eq + std::hash::Hash,
+{
+    let re = Regex::new(pattern.as_ref()).unwrap();
+    let mut lookup: HashMap<S, String> = HashMap::new();
+    if let Some(capture_matches) = re.captures_iter(value.as_ref()).last() {
+        match capture_matches {
+            | Ok(captures) => {
+                captures.iter().skip(1).enumerate().for_each(|(index, data)| {
+                    if let Some(results) = data {
+                        let key = names[index].clone();
+                        let value = results.as_str().to_string();
+                        lookup.insert(key, value);
+                    }
+                });
+            }
+            | Err(_) => (),
+        }
+    };
+    lookup
 }
 /// Converts the given string to snake case.
 pub fn snake_case<S>(value: S) -> String

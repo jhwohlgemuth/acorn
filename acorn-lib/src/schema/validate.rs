@@ -3,19 +3,18 @@
 //!
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 use crate::constants::*;
+use crate::util::regex_capture_lookup;
 use bon::{builder, Builder};
 use chrono::prelude::*;
 use convert_case::{Case, Casing};
-use derive_more::Display;
 use uriparse::URI;
 use validator::ValidationError;
 
 /// Digital Object Identifier (DOI)
 ///
 /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
-#[derive(Builder, Clone, Debug, Display)]
+#[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
-#[display("{directory_indicator}.{registrant_code}/{suffix}")]
 pub struct DOI {
     /// Schema URI (e.g., https://doi.org/)
     pub schema_uri: Option<String>,
@@ -23,30 +22,102 @@ pub struct DOI {
     /// ### Rules
     /// - Can contain only numeric values
     /// - usually 10 but other indicators may be designated as compliant by the DOI Foundation
-    #[builder(default = "10".into())]
-    pub directory_indicator: String,
+    pub directory_indicator: Option<String>,
     /// Registrant code
     /// ### Rules
     /// - Can contain only numeric values and one or several full stops which are used to subdivide the code
     /// - If the directory indicator is 10 then a registrant code is mandatory
-    pub registrant_code: String,
+    pub registrant_code: Option<String>,
     /// Suffix
     /// ### Rules
     /// - Shall be unique to the prefix element that precedes it
     /// - Can be a sequential number
     /// - Can be an identifier generated from or based on another system used by the registrant
     /// - No length limit is set to the suffix by the DOI System
-    pub suffix: String,
+    pub suffix: Option<String>,
 }
 impl DOI {
+    /// Convenience method for easily parsing and formatting a DOI from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::validate::DOI;
+    ///
+    /// assert_eq!(DOI::format("https://doi.org/10.1000/182"), "10.1000/182");
+    /// assert_eq!(DOI::format("10.1000/182"), "10.1000/182");
+    /// ```
+    pub fn format<S>(value: S) -> String
+    where
+        S: AsRef<str>,
+    {
+        DOI::from_string(value).to_string()
+    }
     /// Create new DOI by parsing raw string value
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::validate::DOI;
+    ///
+    /// let doi = DOI::from_string("https://doi.org/10.1000/182");
+    /// assert_eq!(doi.prefix(), "10.1000");
+    /// assert_eq!(doi.suffix(), "182");
+    /// ```
     pub fn from_string<S>(value: S) -> DOI
     where
-        S: Into<String> + AsRef<str>,
+        S: AsRef<str>,
     {
-        let captures = RE_DOI.captures_iter(value.as_ref());
-        captures.for_each(|x| x.unwrap().iter().for_each(|y| println!("{y:#?}")));
-        DOI::init().registrant_code("1234".to_string()).suffix("1234".to_string()).build()
+        let names = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
+        let lookup = regex_capture_lookup(RE_DOI_TEXT, value.as_ref(), names.to_vec());
+        DOI::init()
+            .maybe_schema_uri(lookup.get("schema_uri").cloned())
+            .maybe_directory_indicator(lookup.get("directory_indicator").cloned())
+            .maybe_registrant_code(lookup.get("registrant_code").cloned())
+            .maybe_suffix(lookup.get("suffix").cloned())
+            .build()
+    }
+    /// Check if value is a valid DOI
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::validate::DOI::is_valid;
+    ///
+    /// assert!(is_valid("https://doi.org/10.1000/182"));
+    /// ```
+    pub fn is_valid<S>(value: S) -> bool
+    where
+        S: AsRef<str>,
+    {
+        match RE_DOI.is_match(value.as_ref()) {
+            | Ok(x) if x && !value.as_ref().contains("10.5555/") => true,
+            | _ => false,
+        }
+    }
+    /// Get DOI prefix (i.e., "{directory_indicator}.{registrant_code}")
+    pub fn prefix(&self) -> String {
+        let values = [
+            self.directory_indicator.as_ref().cloned().unwrap_or_default(),
+            self.registrant_code.as_ref().cloned().unwrap_or_default(),
+        ];
+        values
+            .iter()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join(".")
+    }
+    /// Get DOI suffix
+    pub fn suffix(&self) -> String {
+        self.suffix.as_ref().cloned().unwrap_or_default()
+    }
+}
+impl std::fmt::Display for DOI {
+    /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let values = [self.prefix(), self.suffix()];
+        let result = values
+            .iter()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join("/");
+        write!(f, "{}", result)
     }
 }
 /// Format a phone number into a standard format
@@ -109,8 +180,8 @@ fn is_current_year(value: String) -> bool {
 /// > `10.5555` is not a DOI prefix, but rather a handle prefix
 pub fn is_doi(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid DOI, by itself and without domain or 'doi:' prefix.";
-    match RE_DOI.is_match(value) {
-        | Ok(x) if x && !value.contains("10.5555/") => Ok(()),
+    match DOI::is_valid(value) {
+        | true => Ok(()),
         | _ => Err(ValidationError::new("doi").with_message(MESSAGE.into())),
     }
 }
