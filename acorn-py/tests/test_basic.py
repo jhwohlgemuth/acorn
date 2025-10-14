@@ -21,8 +21,12 @@ def test_format_phone_number():
 def test_is_doi():
     # ACORN on DOE CODE
     assert is_doi("10.11578/dc.20250604.1")
-    # Should not include domain
-    assert not is_doi("https://doi.org/10.11578/dc.20250604.1")
+    # Can include domain
+    assert is_doi("https://doi.org/10.11578/dc.20250604.1")
+    # 42 is not valid directory indicator
+    assert not is_doi("https://doi.org/42.11578/dc.20250604.1")
+    # Just plain wrong
+    assert not is_doi("totally invalid strings")
 
 
 def test_is_ip6():
