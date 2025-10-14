@@ -2,7 +2,7 @@ from pathlib import Path
 
 import acorn
 from acorn.schema import ResearchActivity
-from acorn.schema.validate import format_phone_number, is_doi, is_ip6, is_orcid, is_ror
+from acorn.schema.validate import format_doi, format_phone_number, is_doi, is_ip6, is_orcid, is_ror
 from pytest import raises
 
 
@@ -16,6 +16,14 @@ def test_format_phone_number():
     with raises(ValueError) as err:
         format_phone_number("not a phone number")
     assert err.value.args[0] == "Unable to format telephone number"
+
+
+def test_format_doi():
+    expected = "10.11578/dc.20250604.1"
+    assert format_doi(expected) == expected
+    assert format_doi(f"https://doi.org/{expected}") == expected
+    assert not format_doi("https://doi.org/42.11578/dc.20250604.1")
+    assert not format_doi("totally invalid string")
 
 
 def test_is_doi():

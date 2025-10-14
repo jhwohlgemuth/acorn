@@ -10,6 +10,7 @@ fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     schema.add_class::<PyResearchActivity>()?;
     let validate = PyModule::new(python, "validate")?;
     // Add functions from schema.validate module
+    validate.add_function(wrap_pyfunction!(format_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_phone_number, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ip6, &validate)?)?;
@@ -171,6 +172,17 @@ impl PyResearchActivity {
     fn __str__(&self) -> String {
         self.title.clone()
     }
+}
+/// Convert a DOI into a standard format
+/// ### Example
+/// ```python
+/// from acorn.schema.validate import format_doi
+/// 
+/// assert format_doi("https://doi.org/10.1000/182") == "10.1000/182"
+/// ```
+#[pyfunction]
+fn format_doi(value: &str) -> String {
+    schema::validate::DOI::format(value)
 }
 /// Convert a phone number into a standard format
 /// ### Example
