@@ -3,6 +3,7 @@
 //! The ACORN command line interface (CLI) provides a set of commands for maintaining research activity data and leveraging ACORN schemas.
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
+use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn_lib::schema::raid::Metadata;
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::Label;
@@ -20,6 +21,7 @@ use tracing_subscriber::EnvFilter;
 
 mod cli;
 mod commands;
+mod io;
 mod template;
 
 use cli::{Arguments, Commands, SchemaCommands};
@@ -150,6 +152,17 @@ fn main() -> Void {
             | Some(SchemaCommands::Rad {}) | None => print_rad_schema(),
             | Some(SchemaCommands::Raid {}) => print_raid_schema(),
         },
-        | None => Ok(()),
+        | None => {
+            if let Some(value) = read_stdin() {
+                println!("stdin: {value}");
+                info!(value, "=> {} Input from stdin", Label::using());
+            }
+            // acorn -vv | bat
+            if is_stdout_piped() {
+                println!("stdout is piped");
+                write_stdout("stdout is piped");
+            }
+            Ok(())
+        }
     }
 }

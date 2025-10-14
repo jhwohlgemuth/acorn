@@ -117,7 +117,7 @@ impl std::fmt::Display for DOI {
             .map(String::from)
             .collect::<Vec<String>>()
             .join("/");
-        write!(f, "{}", result)
+        write!(f, "{result}")
     }
 }
 /// Format a phone number into a standard format
