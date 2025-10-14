@@ -26,7 +26,7 @@ def test_is_doi():
     # 42 is not valid directory indicator
     assert not is_doi("https://doi.org/42.11578/dc.20250604.1")
     # Just plain wrong
-    assert not is_doi("totally invalid strings")
+    assert not is_doi("totally invalid string")
 
 
 def test_is_ip6():
