@@ -46,11 +46,7 @@ publish-docs: doc
 	@rm -rf ./site/html
 	@mv target/doc/ ./site/html
 	@echo '<meta http-equiv="refresh" content="0; url=acorn_lib/index.html">' > ./site/html/index.html
-	@cd site
-	@git add html
-	@git commit -m "Publish documentation"
-	@git push
-	@rm -rf site
+	@cd ./site && git add html && git commit -m "Publish documentation" && git push
 
 release: clean
 	@echo "Under Construction"
