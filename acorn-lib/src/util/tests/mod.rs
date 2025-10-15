@@ -140,6 +140,8 @@ fn test_image_paths() {
 }
 #[test]
 fn test_mimetype() {
+    let mime = MimeType::from_string("a.cff");
+    assert_eq!(mime, MimeType::Yaml);
     let mime = MimeType::from_string("a.txt");
     assert_eq!(mime, MimeType::Text);
     let mime = MimeType::from_string("font.otf".to_string());

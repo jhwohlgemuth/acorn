@@ -166,7 +166,7 @@ pub struct Label {}
 /// see <https://semver.org/>
 ///
 /// ```rust
-/// use acorn_lib::schema::validate::SemanticVersion;
+/// use acorn_lib::util::SemanticVersion;
 ///
 /// let version = SemanticVersion::from_string("1.2.3");
 /// assert_eq!(version.major, 1);
@@ -393,15 +393,16 @@ impl MimeType {
     ///
     /// ```rust
     /// use acorn_lib::util::MimeType;
+    /// use std::path::PathBuf;
     ///
-    /// let mime = MimeType::from_path("test.cff");
-    /// assert_eq!(mime, MimeType::Cff);
+    /// let mime = MimeType::from_path(PathBuf::from("test.cff"));
+    /// assert_eq!(mime, MimeType::Yaml);
     /// ```
     pub fn from_path<P>(value: P) -> MimeType
     where
         P: Into<PathBuf>,
     {
-        MimeType::from_string(to_absolute_string(value.into()))
+        MimeType::from_string(value.into().display().to_string())
     }
     /// Returns a `MimeType` value based on the file extension of the given file name.
     ///
@@ -482,7 +483,7 @@ impl SemanticVersion {
     ///
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::validate::SemanticVersion;
+    /// use acorn_lib::util::SemanticVersion;
     ///
     /// let version = SemanticVersion::from_string("1.2.3");
     /// assert_eq!(version.minor, 2);
@@ -764,6 +765,7 @@ fn filter_git_command_result(result: Result<String, std::io::Error>, extensions:
 /// ### Example
 /// ```rust
 /// use acorn_lib::util::filter_ignored;
+/// use std::path::PathBuf;
 ///
 /// let paths = vec![PathBuf::from("/path/to/foo.txt"), PathBuf::from("/path/to/bar.txt")];
 /// let ignore = Some("*.txt".to_string());
@@ -795,8 +797,7 @@ pub fn filter_ignored(paths: Vec<PathBuf>, ignore: Option<String>) -> Vec<PathBu
 /// let values = vec![("foo".to_string(), "bar".to_string()), ("baz".to_string(), "qux".to_string())];
 /// let pattern = "ba";
 /// let result = find_first(values, pattern);
-/// assert_eq!(result, Some("bar".to_string()));
-///
+/// assert_eq!(result, Some(("baz".to_string(), "qux".to_string())));
 /// ```
 pub fn find_first(values: Vec<(String, String)>, pattern: &str) -> Option<(String, String)> {
     let results = values
