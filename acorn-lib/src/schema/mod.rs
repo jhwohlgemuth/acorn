@@ -1058,7 +1058,7 @@ impl ResearchActivity {
             | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
             | _ => None,
         };
-        debug!(path = path_to_string(path_parent), "=> {} Parent directory", Label::using());
+        debug!(path = to_absolute_string(path_parent), "=> {} Parent directory", Label::using());
         if let Some(value) = name {
             debug!(value, "=> {} First image", Label::using());
             // Make sure first graphic is well formed with a resolved image URL and caption

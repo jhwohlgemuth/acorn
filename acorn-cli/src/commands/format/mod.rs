@@ -1,6 +1,6 @@
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::cli::{paths_from_options, Options};
-use acorn_lib::util::{path_to_string, print_changes, Label, MimeType};
+use acorn_lib::util::{print_changes, to_absolute_string, Label, MimeType};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
@@ -46,13 +46,13 @@ pub fn run(
                 | _ => unimplemented!("Unsupported file type"),
             };
             if dry_run {
-                println!("{} Format {}", Label::dry_run(), path_to_string(path.clone()).yellow());
+                println!("{} Format {}", Label::dry_run(), to_absolute_string(path.clone()).yellow());
             }
             if dry_run || verbose.log_level().unwrap() > Level::Error {
                 print_changes(&old_content, &new_content);
             }
             if !dry_run {
-                let filepath = path_to_string(path.clone());
+                let filepath = to_absolute_string(path.clone());
                 let mut file = match File::create(path) {
                     | Ok(file) => file,
                     | Err(why) => {

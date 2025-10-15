@@ -16,7 +16,7 @@ use validator::ValidationError;
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
 pub struct DOI {
-    /// Schema URI (e.g., https://doi.org/)
+    /// Schema URI (e.g., <https://doi.org/>)
     pub schema_uri: Option<String>,
     /// Directory indicator
     /// ### Rules

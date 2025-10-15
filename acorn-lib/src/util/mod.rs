@@ -20,6 +20,7 @@ use is_executable::IsExecutable;
 use itertools::Itertools;
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
+use reqwest::header::USER_AGENT;
 use ring::digest::{Context, SHA256};
 use rust_embed::Embed;
 use schemars::JsonSchema;
@@ -40,6 +41,11 @@ pub mod citeas;
 #[cfg(feature = "cli")]
 pub mod cli;
 
+/// Trait for augmenting path value functionality with absolute path string conversion
+pub trait ToAbsoluteString {
+    /// Return a string representation of the absolute path
+    fn to_absolute_string(&self) -> String;
+}
 /// SPDX compliant license identifier
 ///
 /// See <https://spdx.org/licenses/>
@@ -53,11 +59,9 @@ pub enum License {
     /// Unknown license
     Unknown,
 }
-/// MIME types
+/// Supports an incomplete list of common <span title="Multipurpose Internet Mail Extension">MIME</span> types
 ///
-/// Supports an incomplete list of common MIME types
-///
-/// See <https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types> and <https://mimetype.io/all-types> for more information
+/// See listing of [common HTTP MIME types](https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types) and <https://mimetype.io/all-types> for more information
 #[derive(Clone, Debug, Display, PartialEq)]
 pub enum MimeType {
     /// Citation File Format (CFF)
@@ -117,8 +121,6 @@ pub enum MimeType {
     #[display("application/unknown")]
     Unknown,
 }
-/// Programming languages
-///
 /// Provides a small subset of common programming languages available for syntax highlighting
 #[derive(Clone, Copy, Debug, Display)]
 pub enum ProgrammingLanguage {
@@ -162,6 +164,15 @@ pub struct Label {}
 /// Semantic version
 ///
 /// see <https://semver.org/>
+///
+/// ```rust
+/// use acorn_lib::schema::validate::SemanticVersion;
+///
+/// let version = SemanticVersion::from_string("1.2.3");
+/// assert_eq!(version.major, 1);
+/// assert_eq!(version.to_string(), "1.2.3");
+/// ```
+
 #[derive(Builder, Clone, Copy, Debug, Deserialize, Display, Serialize, JsonSchema)]
 #[builder(start_fn = init)]
 #[display("{}.{}.{}", major, minor, patch)]
@@ -350,6 +361,13 @@ impl Label {
 }
 impl MimeType {
     /// Returns the file type as a string
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::util::MimeType;
+    ///
+    /// let mime = MimeType::Cff;
+    /// assert_eq!(mime.file_type(), "cff");
+    /// ```
     pub fn file_type(self) -> String {
         match self {
             | MimeType::Cff => "cff",
@@ -369,14 +387,21 @@ impl MimeType {
         }
         .to_string()
     }
-    /// Returns a `MimeType` value based on the file extension of the given file name.
+    /// Returns a [`MimeType`] value based on the file extension of the given file name.
     ///
     /// Uses [`MimeType::from_string`].
+    ///
+    /// ```rust
+    /// use acorn_lib::util::MimeType;
+    ///
+    /// let mime = MimeType::from_path("test.cff");
+    /// assert_eq!(mime, MimeType::Cff);
+    /// ```
     pub fn from_path<P>(value: P) -> MimeType
     where
         P: Into<PathBuf>,
     {
-        MimeType::from_string(path_to_string(value.into()))
+        MimeType::from_string(to_absolute_string(value.into()))
     }
     /// Returns a `MimeType` value based on the file extension of the given file name.
     ///
@@ -425,6 +450,14 @@ impl SemanticVersion {
     /// of the given executable name.
     ///
     /// <div class="warning">this function only supports commands that provide a `--version` flag</div>
+    ///
+    /// ### Example
+    /// ```ignore
+    /// use acorn_lib::schema::validate::SemanticVersion;
+    ///
+    /// let version = SemanticVersion::from_command("cargo").to_string();
+    /// assert_eq!(version, "1.90.0");
+    /// ```
     pub fn from_command<S>(name: S) -> Option<SemanticVersion>
     where
         S: Into<String> + duct::IntoExecutablePath + std::marker::Copy,
@@ -446,6 +479,14 @@ impl SemanticVersion {
         }
     }
     /// Parses a string into a `SemanticVersion` value
+    ///
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::validate::SemanticVersion;
+    ///
+    /// let version = SemanticVersion::from_string("1.2.3");
+    /// assert_eq!(version.minor, 2);
+    /// ```
     pub fn from_string<S>(value: S) -> SemanticVersion
     where
         S: Into<String>,
@@ -472,9 +513,22 @@ impl Default for SemanticVersion {
         SemanticVersion::init().build()
     }
 }
+impl ToAbsoluteString for PathBuf {
+    fn to_absolute_string(&self) -> String {
+        to_absolute_string(self.clone())
+    }
+}
 /// Get SHA256 hash of a file
 ///
 /// See <https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html>
+///
+/// ### Example
+/// ```ignore
+/// use acorn_lib::util::checksum;
+///
+/// let checksum = checksum("path/to/file");
+/// assert!(checksum.is_some());
+/// ```
 pub fn checksum<P>(path: P) -> Option<String>
 where
     P: Into<PathBuf>,
@@ -497,7 +551,12 @@ where
             Some(result.to_lowercase())
         }
         | Err(err) => {
-            error!(error = err.to_string(), path = path_to_string(value), "=> {} Read file", Label::fail());
+            error!(
+                error = err.to_string(),
+                path = to_absolute_string(value),
+                "=> {} Read file",
+                Label::fail()
+            );
             None
         }
     }
@@ -517,7 +576,7 @@ where
 {
     match which(&name) {
         | Ok(value) => {
-            let path = path_to_string(value.clone());
+            let path = to_absolute_string(value.clone());
             match value.try_exists() {
                 | Ok(true) => {
                     debug!(path, "=> {} Command", Label::found());
@@ -545,6 +604,9 @@ where
 /// # Returns
 ///
 /// A `Result` containing a `PathBuf` to the downloaded file on success, or a string error message on failure.
+///
+/// # Notes
+/// - Uses [`tokio_runtime`] for asynchronous operations.
 pub fn download_binary<S, P>(url: S, destination: P) -> Result<PathBuf, String>
 where
     S: Into<String> + Clone + std::marker::Copy,
@@ -555,7 +617,7 @@ where
         P: Into<PathBuf>,
     {
         let client = reqwest::Client::new();
-        let response = client.get(url.clone()).send();
+        let response = client.get(url.clone()).header(USER_AGENT, "rust-web-api-client").send();
         let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
         match response.await {
             | Ok(data) => match data.bytes().await {
@@ -607,7 +669,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     }
     fn pattern(path: PathBuf, extension: &str) -> String {
         let ext = &extension.to_lowercase();
-        let result = format!("{}/**/*.{}", path_to_string(path), ext);
+        let result = format!("{}/**/*.{}", to_absolute_string(path), ext);
         debug!("=> {} {result}", Label::using());
         result
     }
@@ -623,7 +685,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
                 .flat_map(|x| paths_to_vec(x.unwrap()))
                 .unique()
                 .collect::<Vec<PathBuf>>(),
-            | None => match glob(&format!("{}/**/*", path_to_string(path))) {
+            | None => match glob(&format!("{}/**/*", to_absolute_string(path))) {
                 | Ok(paths) => paths_to_vec(paths),
                 | Err(why) => {
                     error!("=> {} Get all files (Glob) - {why}", Label::fail());
@@ -634,7 +696,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     } else {
         if extensions.is_some() {
             warn!(
-                path = path_to_string(path.clone()),
+                path = to_absolute_string(path.clone()),
                 "=> {} Extension passed with single file to files_all() - please make sure this is desired",
                 Label::using()
             );
@@ -699,12 +761,21 @@ fn filter_git_command_result(result: Result<String, std::io::Error>, extensions:
     }
 }
 /// Return file paths in a vector that don't match the ignore pattern
+/// ### Example
+/// ```rust
+/// use acorn_lib::util::filter_ignored;
+///
+/// let paths = vec![PathBuf::from("/path/to/foo.txt"), PathBuf::from("/path/to/bar.txt")];
+/// let ignore = Some("*.txt".to_string());
+/// let result = filter_ignored(paths, ignore);
+/// assert!(result.is_empty());
+/// ```
 pub fn filter_ignored(paths: Vec<PathBuf>, ignore: Option<String>) -> Vec<PathBuf> {
     match ignore {
         | Some(ignore_pattern) => match Regex::new(&ignore_pattern) {
             | Ok(re) => paths
                 .into_iter()
-                .map(path_to_string)
+                .map(to_absolute_string)
                 .filter(|x| !re.is_match(x).unwrap())
                 .map(PathBuf::from)
                 .collect(),
@@ -717,6 +788,16 @@ pub fn filter_ignored(paths: Vec<PathBuf>, ignore: Option<String>) -> Vec<PathBu
     }
 }
 /// Return fisrt key/value pair with key that matches pattern
+/// ### Example
+/// ```rust
+/// use acorn_lib::util::find_first;
+///
+/// let values = vec![("foo".to_string(), "bar".to_string()), ("baz".to_string(), "qux".to_string())];
+/// let pattern = "ba";
+/// let result = find_first(values, pattern);
+/// assert_eq!(result, Some("bar".to_string()));
+///
+/// ```
 pub fn find_first(values: Vec<(String, String)>, pattern: &str) -> Option<(String, String)> {
     let results = values
         .clone()
@@ -803,6 +884,9 @@ pub fn git_default_branch_name() -> Option<String> {
 ///
 /// A vector of `PathBuf` representing paths to all images found in the given directory and
 /// all of its subdirectories. The paths are sorted alphabetically.
+///
+/// # Notes
+/// - Supported image formats are "JPEG", "PNG", "SVG", and "GIF"
 pub fn image_paths<P>(root: P) -> Vec<PathBuf>
 where
     P: Into<PathBuf> + Clone,
@@ -818,14 +902,6 @@ where
     files
 }
 /// Makes the given file executable.
-///
-/// # Platform support
-///
-/// Platforms that support this function are:
-///
-/// * Unix
-/// * WASI
-/// * Redox
 ///
 /// # Parameters
 ///
@@ -844,12 +920,6 @@ where
     path.into().is_executable()
 }
 /// Makes the given file executable.
-///
-/// # Platform support
-///
-/// Platforms that support this function are:
-///
-/// * Windows
 ///
 /// # Parameters
 ///
@@ -883,7 +953,7 @@ where
         | Err(why) => {
             debug!("=> {} Resolve absolute path - {why}", Label::fail());
             match path.into().parent() {
-                | Some(value) if !path_to_string(value.to_path_buf()).is_empty() => value.to_path_buf(),
+                | Some(value) if !to_absolute_string(value.to_path_buf()).is_empty() => value.to_path_buf(),
                 | Some(_) | None => {
                     warn!("=> {} Parent path was empty or could not be resolved", Label::fail());
                     default
@@ -892,7 +962,8 @@ where
         }
     }
 }
-/// Converts a `PathBuf` into a `String` representation of the absolute path.
+/// Converts a `PathBuf` into a `String` representation of the **absolute** path.
+/// <div class="warning">Uses <code>fs::canonicalize</code>, which might cause problems on Windows</div>
 ///
 /// This function attempts to canonicalize the provided path, which resolves any symbolic links
 /// and returns an absolute path. If canonicalization fails, the original path is returned as a string.
@@ -904,13 +975,15 @@ where
 /// # Returns
 ///
 /// A `String` containing the absolute path if canonicalization succeeds, or the original path as a string otherwise.
-pub fn path_to_string(path: PathBuf) -> String {
-    // NOTE: fs::canonicalize might cause problems on Windows
-    let result = match std::fs::canonicalize(path.as_path()) {
+pub fn to_absolute_string<P>(path: P) -> String
+where
+    P: Into<PathBuf> + Clone,
+{
+    let result = match std::fs::canonicalize(path.clone().into().as_path()) {
         | Ok(value) => value,
-        | Err(_) => path,
+        | Err(_) => path.into(),
     };
-    result.to_str().unwrap().to_string()
+    result.display().to_string()
 }
 /// Prints `text` to stdout using syntax highlighting for the specified `syntax`.
 ///
@@ -983,11 +1056,11 @@ where
     let mut content = String::new();
     let _ = match File::open(path.clone().into()) {
         | Ok(mut file) => {
-            debug!(path = path_to_string(path.into()), "=> {}", Label::read());
+            debug!(path = to_absolute_string(path.into()), "=> {}", Label::read());
             file.read_to_string(&mut content)
         }
         | Err(why) => {
-            error!(path = path_to_string(path.into()), "=> {} Read file", Label::fail());
+            error!(path = to_absolute_string(path.into()), "=> {} Read file", Label::fail());
             Err(why)
         }
     };
@@ -1029,6 +1102,13 @@ where
     lookup
 }
 /// Converts the given string to snake case.
+/// ### Example
+/// ```rust
+/// use acorn_lib::util::snake_case;
+///
+/// let snake = snake_case("CamelCase");
+/// assert_eq!(snake, "camel_case");
+/// ```
 pub fn snake_case<S>(value: S) -> String
 where
     S: Into<String>,
@@ -1060,11 +1140,18 @@ pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> Pat
     };
     match create_dir_all(root.clone()) {
         | Ok(_) => {}
-        | Err(why) => error!(directory = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
+        | Err(why) => error!(directory = to_absolute_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
     };
     root.join(generate_guid())
 }
 /// Returns "s" if the given value is not 1, otherwise returns an empty string.
+/// ### Example
+/// ```
+/// use acorn_lib::util::suffix;
+///
+/// assert_eq!(suffix(1), "");
+/// assert_eq!(suffix(2), "s");
+/// ```
 pub fn suffix(value: usize) -> String {
     (if value == 1 { "" } else { "s" }).to_string()
 }
@@ -1102,7 +1189,7 @@ pub fn text_diff_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
 /// ### Example
 /// ```ignore
 /// tokio_runtime().block_on(async {
-///     ...async stuff
+///     // ...async stuff
 /// });
 /// ```
 pub fn tokio_runtime() -> tokio::runtime::Runtime {

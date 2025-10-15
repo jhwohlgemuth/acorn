@@ -296,7 +296,7 @@ impl StaticAnalyzer for Vale {
         let root = standard_project_folder("check", None);
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
-            | Err(why) => error!(path = path_to_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
+            | Err(why) => error!(path = to_absolute_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
         }
         let path = root.join(&id);
         let mut file = match File::create(&path) {
@@ -475,7 +475,7 @@ impl StaticAnalyzer for Vale {
                 let tar = GzDecoder::new(tar_gz);
                 let mut archive = Archive::new(tar);
                 let parent = match destination {
-                    | Some(value) => path_to_string(value),
+                    | Some(value) => to_absolute_string(value),
                     | None => "./.vale/".to_string(),
                 };
                 let message = format!("Unable to extract {} binary", self.clone().command());
@@ -529,7 +529,7 @@ impl StaticAnalyzer for Vale {
                 Ok(())
             }
             | Err(why) => {
-                error!(config = path_to_string(config_path), "=> {} Vale sync - {}", Label::fail(), why);
+                error!(config = to_absolute_string(config_path), "=> {} Vale sync - {}", Label::fail(), why);
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
@@ -551,7 +551,7 @@ impl StaticAnalyzer for Vale {
             let version = cmd!(name.clone(), "--version").read().unwrap()[offset..].to_string();
             self.version = Some(SemanticVersion::from_string(&version));
             debug!(
-                path = path_to_string(path),
+                path = to_absolute_string(path),
                 "=> {} System {} (v{}) command",
                 Label::using(),
                 name.green().bold(),
@@ -611,11 +611,11 @@ impl StaticAnalyzerConfig for ValeConfig {
         let parent = path.parent().unwrap().to_path_buf();
         match create_dir_all(parent.clone()) {
             | Ok(_) => {}
-            | Err(why) => error!(directory = path_to_string(parent), "=> {} Create - {}", Label::fail(), why),
+            | Err(why) => error!(directory = to_absolute_string(parent), "=> {} Create - {}", Label::fail(), why),
         }
         match self.clone().ini().write_to_file(path.clone()) {
             | Ok(_) => {
-                debug!(path = path_to_string(path), "=> {} Saved configuration", Label::using());
+                debug!(path = to_absolute_string(path), "=> {} Saved configuration", Label::using());
             }
             | Err(why) => {
                 error!("=> {} Save configuration - {}", Label::fail(), why);

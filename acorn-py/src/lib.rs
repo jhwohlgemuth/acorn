@@ -177,7 +177,7 @@ impl PyResearchActivity {
 /// ### Example
 /// ```python
 /// from acorn.schema.validate import format_doi
-/// 
+///
 /// assert format_doi("https://doi.org/10.1000/182") == "10.1000/182"
 /// ```
 #[pyfunction]

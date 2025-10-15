@@ -4,7 +4,7 @@
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::schema::{ContactPoint, Metadata, Notes, Other, ResearchActivity, Sections};
-use crate::util::{files_all, path_to_string, read_file, standard_project_folder, write_file, Label};
+use crate::util::{files_all, read_file, standard_project_folder, to_absolute_string, write_file, Label};
 use fancy_regex::Regex;
 use quick_xml::events::Event;
 use quick_xml::{Reader, Writer};
@@ -30,7 +30,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
     let mut zip = match File::create(&zip_file_path) {
         | Ok(zip_file) => ZipWriter::new(zip_file),
         | Err(why) => {
-            error!(file = path_to_string(path), "=> {} Create zip archive - {why}", Label::fail());
+            error!(file = to_absolute_string(path), "=> {} Create zip archive - {why}", Label::fail());
             std::process::exit(exitcode::IOERR);
         }
     };
@@ -41,7 +41,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
                 | Ok(relative) => file_path.strip_prefix(relative).unwrap_or_else(|_| &file_path),
                 | Err(_) => &file_path,
             };
-            debug!(file = path_to_string(name.to_path_buf()), "=> {} Add file to archive", Label::using());
+            debug!(file = to_absolute_string(name.to_path_buf()), "=> {} Add file to archive", Label::using());
             match zip.start_file_from_path(name, options) {
                 | Ok(_) => {
                     let mut buffer = Vec::new();
@@ -49,7 +49,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
                         | Ok(_) => match zip.write_all(&buffer) {
                             | Ok(_) => {}
                             | Err(why) => {
-                                error!(file = path_to_string(file_path), "=> {} Write zip archive - {why}", Label::fail())
+                                error!(file = to_absolute_string(file_path), "=> {} Write zip archive - {why}", Label::fail())
                             }
                         },
                         | Err(why) => {
@@ -58,7 +58,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
                     }
                 }
                 | Err(why) => {
-                    error!(file = path_to_string(file_path), "=> {} Start zip archive - {why}", Label::fail());
+                    error!(file = to_absolute_string(file_path), "=> {} Start zip archive - {why}", Label::fail());
                 }
             }
         }
@@ -66,7 +66,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
     match zip.finish() {
         | Ok(_) => Ok(zip_file_path),
         | Err(why) => {
-            error!(file = path_to_string(path), "=> {} Finish zip archive - {why}", Label::fail());
+            error!(file = to_absolute_string(path), "=> {} Finish zip archive - {why}", Label::fail());
             Err(why.into())
         }
     }
@@ -83,13 +83,13 @@ pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
                         if let Some(parent) = target.parent() {
                             match create_dir_all(parent) {
                                 | Ok(_) => {}
-                                | Err(why) => error!(path = path_to_string(parent.to_path_buf()), "=> {} Create - {}", Label::fail(), why),
+                                | Err(why) => error!(path = to_absolute_string(parent.to_path_buf()), "=> {} Create - {}", Label::fail(), why),
                             }
                         }
                         if let Ok(mut output_file) = File::create(&target) {
                             io::copy(&mut file, &mut output_file).unwrap();
                         } else {
-                            error!(path = path_to_string(target), "=> {} Create file", Label::fail());
+                            error!(path = to_absolute_string(target), "=> {} Create file", Label::fail());
                             std::process::exit(exitcode::UNAVAILABLE);
                         }
                     }

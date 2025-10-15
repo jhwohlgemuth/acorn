@@ -231,3 +231,9 @@ fn test_test_command() {
         assert!(command_exists("cargo".to_string()));
     }
 }
+#[test]
+fn test_to_absolute_string() {
+    let path = PathBuf::from(FIXTURES).join("test.txt");
+    assert!(path.to_absolute_string().ends_with("test.txt"));
+    assert!(to_absolute_string(path).ends_with("test.txt"));
+}

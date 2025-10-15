@@ -3,7 +3,7 @@ use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
 use acorn_lib::powerpoint::{archive, extract, interpolate_values, read_xml_rel};
 use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::cli::{paths_from_options, FileFormat, Options, Size, Target};
-use acorn_lib::util::{path_to_string, suffix, tokio_runtime, Label};
+use acorn_lib::util::{suffix, to_absolute_string, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
@@ -21,7 +21,7 @@ pub async fn create_pdf(page: &Page, options: Options) {
     let data = match ResearchActivity::read(path.clone()) {
         | Some(value) => value.format(Some(path.clone())),
         | None => {
-            error!(path = path_to_string(path), "=> {} Read data for PDF export", Label::fail());
+            error!(path = to_absolute_string(path), "=> {} Read data for PDF export", Label::fail());
             std::process::exit(exitcode::UNAVAILABLE);
         }
     };
@@ -67,7 +67,11 @@ fn create_powerpoint(options: Options) {
     let data = match ResearchActivity::read(input_path.clone()) {
         | Some(value) => value.format(Some(input_path.clone())),
         | None => {
-            error!(path = path_to_string(input_path), "=> {} Read data for PowerPoint export", Label::fail());
+            error!(
+                path = to_absolute_string(input_path),
+                "=> {} Read data for PowerPoint export",
+                Label::fail()
+            );
             std::process::exit(exitcode::UNAVAILABLE);
         }
     };
@@ -87,7 +91,7 @@ fn create_powerpoint(options: Options) {
                 path
             }
             | Err(err) => {
-                let path = path_to_string(value.clone());
+                let path = to_absolute_string(value.clone());
                 error!(path, "=> {} Create directory - {err}", Label::fail());
                 std::process::exit(exitcode::IOERR);
             }
@@ -107,13 +111,13 @@ fn create_powerpoint(options: Options) {
                     }
                 },
                 | None => {
-                    error!(path = path_to_string(xml_rels_path), "=> {} Find image relationship", Label::fail());
+                    error!(path = to_absolute_string(xml_rels_path), "=> {} Find image relationship", Label::fail());
                     std::process::exit(exitcode::DATAERR);
                 }
             },
             | Err(err) => {
                 error!(
-                    path = path_to_string(xml_rels_path),
+                    path = to_absolute_string(xml_rels_path),
                     "=> {} Read PowerPoint slide relationships - {err}",
                     Label::fail()
                 );
