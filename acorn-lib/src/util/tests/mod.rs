@@ -173,6 +173,17 @@ fn test_read() {
     assert_eq!(content.unwrap(), "");
 }
 #[test]
+fn test_regex_capture_lookup() {
+    let lookup = regex_capture_lookup(
+        r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})",
+        "2023-06-30",
+        vec!["year", "month", "day"],
+    );
+    assert_eq!(lookup["year"], "2023");
+    assert_eq!(lookup["month"], "06");
+    assert_eq!(lookup["day"], "30");
+}
+#[test]
 fn test_semantic_version() {
     let version = SemanticVersion::from_string("1.2.3");
     assert_eq!(version.major, 1);

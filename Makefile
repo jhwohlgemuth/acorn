@@ -24,7 +24,7 @@ test:
 	@cargo nextest run
 
 test-ci: clean lint
-	@cargo test
+	@cargo test --lib --bins --tests
 
 changelog:
 	@git pull origin main --tags
@@ -40,6 +40,9 @@ coverage: clean lint
 doc:
 	@cargo clean --doc
 	@cargo doc --no-deps --all-features
+
+doctest:
+	@cargo test --doc
 
 publish-docs: doc
 	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site

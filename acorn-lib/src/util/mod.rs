@@ -1,6 +1,34 @@
 //! # Common utilities
 //!
-//! This module contains common functions and data structures used to build the ACORN command line interface as well support open science endeavors.
+//! This module contains common functions and data structures used to build the ACORN command line interface as well as support open science endeavors.
+//!
+//! ## Example Uses
+//! ### Work with semantic versions
+//! ```ignore
+//! use acorn_lib::util::SemanticVersion;
+//!
+//! let version = SemanticVersion::from_string("1.2.3");
+//! assert_eq!(version.minor, 2);
+//!
+//! if let Some(version) = SemanticVersion::from_command("cargo") {
+//!     println!("cargo version: {version}");
+//! }
+//! ```
+//!
+//! ### Perform file read and write operations
+//! ```ignore
+//! use acorn_lib::util::{checksum, read_file, write_file};
+//! use std::path::PathBuf;
+//!
+//! // Verify file integrity
+//! assert_eq!(checksum(PathBuf::from("/path/to/file")), "somesha256hashvaluethatisreallylong");
+//!
+//! // Read file contents
+//! let contents = read_file(PathBuf::from("/path/to/this/file"));
+//!
+//! // Write file contents
+//! write_file(PathBuf::from("/path/to/that/file"), contents);
+//! ```
 //!
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 use bat::PrettyPrinter;
@@ -1069,7 +1097,7 @@ where
 }
 /// Helper function to create a lookup dictionary for regex captures
 /// ### Example
-/// ```
+/// ```rust
 /// use acorn_lib::util::regex_capture_lookup;
 /// let lookup = regex_capture_lookup(
 ///     r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})",
