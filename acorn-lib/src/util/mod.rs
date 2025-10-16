@@ -476,7 +476,7 @@ impl MimeType {
 }
 impl SemanticVersion {
     /// Returns a `SemanticVersion` value based on the output of the `--version` command-line flag
-    /// of the given executable name.
+    /// of the given executable name. Tested with [cargo](https://rustup.rs/), [git](https://git-scm.com/book/en/v2/Getting-Started-The-Command-Line), and [pandoc](https://pandoc.org/).
     ///
     /// <div class="warning">this function only supports commands that provide a `--version` flag</div>
     ///
