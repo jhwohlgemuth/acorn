@@ -4,7 +4,7 @@
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn_lib::schema::raid::Metadata;
+use acorn_lib::schema::pid::raid::Metadata;
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::Label;
 use clap::{crate_version, Parser};

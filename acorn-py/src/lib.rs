@@ -182,7 +182,7 @@ impl PyResearchActivity {
 /// ```
 #[pyfunction]
 fn format_doi(value: &str) -> String {
-    schema::validate::DOI::format(value)
+    schema::pid::DOI::format(value)
 }
 /// Convert a phone number into a standard format
 /// ### Example

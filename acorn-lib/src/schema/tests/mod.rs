@@ -87,19 +87,6 @@ fn test_classification() {
     assert!(ClassificationLevel::Secret < ClassificationLevel::TopSecret);
 }
 #[test]
-fn test_doi() {
-    let valid = "https://doi.org/10.1000/182";
-    assert!(DOI::is_valid(valid));
-    assert!(DOI::is_valid("10.1000/182"));
-    assert!(!DOI::is_valid("invalid DOI URL"));
-    assert_eq!(DOI::from_string(valid).to_string(), "10.1000/182");
-    assert_eq!(DOI::from_string("10.1000/182").to_string(), "10.1000/182");
-    assert_eq!(DOI::from_string("invalid DOI URL").to_string(), "");
-    assert_eq!(DOI::format(valid), "10.1000/182");
-    assert_eq!(DOI::format("10.1000/182"), "10.1000/182");
-    assert_eq!(DOI::format("invalid DOI URL"), "");
-}
-#[test]
 fn test_format_phone_number() {
     let no_country_code = ["555-123-4567", "555.123.4567", "(555) 123-4567"];
     for x in no_country_code.iter() {
@@ -322,17 +309,6 @@ fn test_organization_graph() {
         division.nearest(OrganizationType::Directorate).unwrap().name,
         "Neutron Sciences Directorate"
     );
-}
-#[test]
-fn test_raid_read() {
-    let path = PathBuf::from(FIXTURES).join("raid/response_01.json");
-    let raid = raid::Metadata::read(path);
-    assert!(raid.is_some());
-    let _ = raid.unwrap().validate();
-    let path = PathBuf::from(FIXTURES).join("raid/response_02.json");
-    let raid = raid::Metadata::read(path);
-    assert!(raid.is_some());
-    let _ = raid.unwrap().validate();
 }
 #[test]
 fn test_read() {
