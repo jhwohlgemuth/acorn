@@ -40,7 +40,7 @@ const VALID_DOI_VALUES: [&str; 31] = [
     "10.1038/s41597-020-0486-7",
 ];
 const VALID_ORCID_VALUES: [&str; 2] = [
-    // jason Wohlgemuth
+    // Jason Wohlgemuth
     "https://orcid.org/0000-0002-2057-9115",
     // Audrey Carson
     "https://orcid.org/0009-0005-5568-6526",

@@ -9,9 +9,97 @@ use bon::{builder, Builder};
 
 pub mod raid;
 
+/// Add coercion to persistent identifier (PID) functionality to string values
+pub trait PersistentIdentifier<T: AsRef<str>> {
+    /// Coerce `self` into given PID type.
+    /// ```
+    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    ///
+    /// let pid = "https://doi.org/10.1234/5678".to_pid(PID::DOI);
+    /// assert_eq!(pid.suffix(), "5678");
+    /// ```
+    fn to_pid(&self, pid_type: PID) -> PersistentIdentifierInternal;
+    /// Determines if `self` is of the given PID type.
+    /// ```
+    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    /// assert!("https://doi.org/10.1234/5678".is_pid(PID::DOI));
+    /// ```
+    fn is_pid(&self, pid_type: PID) -> bool;
+    /// Determines if `self` is a DOI
+    /// ```
+    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    ///
+    /// assert!("https://doi.org/10.1234/5678".is_doi());
+    /// ```
+    fn is_doi(&self) -> bool;
+}
+/// Trait for formatting string values
+pub trait StringFormat {
+    /// Convert `self` into a string with a standard format
+    fn format(&self) -> String;
+}
+/// Internal representation of a persistent identifier
+#[derive(Default)]
+pub struct PersistentIdentifierInternal {
+    /// Raw string content of the (possible) PID
+    value: String,
+    /// Type of PID
+    pid_type: PID,
+}
+/// Persistent Identifier (PID) types
+///
+/// PIDs are globally unique identifiers, resolvable on the Web, and associated with a set of additional descriptive metadata (ex. [`raid::Metadata`])
+#[derive(Clone, Debug, Default)]
+pub enum PID {
+    /// Archival Resource Key (ARK)
+    ///
+    /// Widely used persistent identifier, supported by the California Digital Library [21], in collaboration with DuraSpace. ARKs work similarly to DOIs, but are more permissive in design.[^ark]
+    ///
+    /// [^ark]: `M. Stocker et al., “Persistent Identification of Instruments,” Data Science Journal, vol. 19, p. 18, May 2020, doi: 10.5334/dsj-2020-018.`
+    ARK,
+    /// Digital Object Identifier (DOI)
+    ///
+    /// See [`DOI`]
+    DOI,
+    /// Open Researcher and Contributor ID (ORCiD)[^orcid]
+    ///
+    /// Disambiguates researchers, and connects people with their research activities. This includes employment affiliations, research outputs, funding, peer review activity, research resources, society membership, distinctions and other scholarly infrastructure.
+    ///
+    /// See <https://orcid.org/> for more information
+    ///
+    /// [^orcid]: `L. L. Haak, M. Fenner, L. Paglione, E. Pentz, and H. Ratner, “ORCID: a system to uniquely identify researchers,” Learned Publishing, vol. 25, no. 4, pp. 259–264, 2012, doi: 10.1087/20120404.`
+    ORCID,
+    /// Persistent Identification of Instruments (PIDINST)
+    /// ### Citation
+    /// ```text
+    /// M. Stocker et al., “Persistent Identification of Instruments,” Data Science Journal, vol. 19, p. 18, May 2020, doi: 10.5334/dsj-2020-018.
+    /// ```
+    PIDINST,
+    /// Research Activity Identifier (RAiD)
+    ///
+    /// Developed by tthe Australian Research Data Commons (ARDC), used to identify research projects and activities for access by research communities worldwide
+    ///
+    /// The ARDC and [DataCite](https://datacite.org/) have entered an agreement to use DataCite [`DOI`]s as RAiD identifiers
+    ///
+    /// See [`raid`] module
+    RAID,
+    /// Research Organization Registry (ROR)
+    ///
+    /// Global, community-led registry of open persistent identifiers for research organizations
+    ///
+    /// See <https://www.ror.org/> for more information
+    ROR,
+    /// Unknown PID
+    #[default]
+    Unknown,
+}
 /// Digital Object Identifier (DOI)
 ///
+/// DOIs consist of a DOI name which is resolved at https://doi.org, with the full URI formulated according to the pattern https://doi.org/<DOI_name>. DOI names in turn consist of a prefix and a suffix, separated by a forward slash. The prefix is a code indicating the registrant who issues the DOI, e.g., Harvard University Dataverse – 10.7910; Dryad Digital Repository – 10.5061. The suffix is the identifier, in any form, assigned by the registrant.[^doi]
+///
 /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
+///
+/// [^doi]: `N. Juty, S. M. Wimalaratne, S. Soiland-Reyes, J. Kunze, C. A. Goble, and T. Clark, “Unique, Persistent, Resolvable: Identifiers as the Foundation of FAIR,” Data Intellegence, vol. 2, no. 1–2, pp. 30–39, Jan. 2020, doi: 10.1162/dint_a_00025.`
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
 pub struct DOI {
@@ -117,6 +205,49 @@ impl std::fmt::Display for DOI {
             .collect::<Vec<String>>()
             .join("/");
         write!(f, "{result}")
+    }
+}
+impl Default for DOI {
+    fn default() -> Self {
+        DOI::init().build()
+    }
+}
+impl StringFormat for DOI {
+    fn format(&self) -> String {
+        self.to_string()
+    }
+}
+impl<T: AsRef<str>> PersistentIdentifier<T> for T
+where
+    T: ToString,
+{
+    fn to_pid(&self, _pid_type: PID) -> PersistentIdentifierInternal {
+        match _pid_type {
+            | PID::DOI => PersistentIdentifierInternal {
+                value: self.as_ref().to_string(),
+                pid_type: PID::DOI,
+            },
+            | _ => PersistentIdentifierInternal::default(),
+        }
+    }
+    fn is_pid(&self, pid_type: PID) -> bool {
+        match pid_type {
+            | PID::DOI => self.is_doi(),
+            | _ => false,
+        }
+    }
+    fn is_doi(&self) -> bool {
+        DOI::is_valid(self.as_ref())
+    }
+}
+impl PersistentIdentifierInternal {
+    /// Convert a `PersistentIdentifierInternal` to a `DOI`
+    pub fn to_doi(&self) -> DOI {
+        let PersistentIdentifierInternal { value, pid_type } = self;
+        match pid_type {
+            | PID::DOI => DOI::from_string(value),
+            | _ => DOI::default(),
+        }
     }
 }
 

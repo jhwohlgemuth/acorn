@@ -6,6 +6,13 @@ const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
 fn test_doi() {
+    let valid = "https://doi.org/10.11578/dc.20250604.1";
+    assert_eq!(valid.to_pid(PID::DOI).to_doi().to_string(), "10.11578/dc.20250604.1");
+    assert!(valid.is_pid(PID::DOI));
+    assert!(valid.is_doi());
+}
+#[test]
+fn test_doi_struct() {
     let valid = "https://doi.org/10.1000/182";
     assert!(DOI::is_valid(valid));
     assert!(DOI::is_valid("10.1000/182"));
