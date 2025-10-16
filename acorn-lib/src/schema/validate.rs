@@ -69,7 +69,7 @@ fn is_current_year(value: String) -> bool {
 /// > `10.5555` is not a DOI prefix, but rather a handle prefix
 pub fn is_doi(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid DOI, by itself and without domain or 'doi:' prefix.";
-    match DOI::is_valid(value) {
+    match value.is_doi() {
         | true => Ok(()),
         | _ => Err(ValidationError::new("doi").with_message(MESSAGE.into())),
     }
