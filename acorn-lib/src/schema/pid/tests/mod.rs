@@ -33,7 +33,7 @@ fn test_orcid_struct() {
     let valid = "https://orcid.org/0000-0002-2057-9115";
     assert_eq!(ORCID::from_string(valid).to_string(), valid);
     assert_eq!(ORCID::from_string("0000-0002-2057-9115").to_string(), valid);
-    // assert_eq!(ORCID::from_string("invalid ORCID value").to_string(), "");
+    assert_eq!(ORCID::from_string("invalid ORCID value").to_string(), "");
 }
 #[test]
 fn test_doi() {

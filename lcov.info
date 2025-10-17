@@ -2431,36 +2431,38 @@ FN:174,DOI::from_string
 FN:194,DOI::is_valid
 FN:204,DOI::prefix
 FN:217,DOI::suffix
-FN:223,<impl Display for DOI>::fmt
-FN:236,<impl Display for ORCID>::fmt
-FN:241,<impl Default for DOI>::default
-FN:246,<impl Default for ORCID>::default
-FN:251,ORCID::identifier
-FN:255,ORCID::schema_uri
-FN:266,ORCID::from_string
-FN:285,ORCID::is_valid
-FN:304,<impl StringFormat for DOI>::format
-FN:309,<impl StringFormat for ORCID>::format
-FN:317,<impl PersistentIdentifier for T>::to_pid
-FN:330,<impl PersistentIdentifier for T>::is_pid
-FN:337,<impl PersistentIdentifier for T>::is_doi
-FN:340,<impl PersistentIdentifier for T>::is_orcid
-FN:346,PersistentIdentifierInternal::to_doi
-FN:354,PersistentIdentifierInternal::to_orcid
-FN:363,orcid_check_digit
-FNF:22
+FN:222,<impl Default for DOI>::default
+FN:227,<impl Default for ORCID>::default
+FN:233,<impl Display for DOI>::fmt
+FN:246,<impl Display for ORCID>::fmt
+FN:268,ORCID::identifier
+FN:275,ORCID::schema_uri
+FN:286,ORCID::format
+FN:300,ORCID::from_string
+FN:319,ORCID::is_valid
+FN:338,<impl StringFormat for DOI>::format
+FN:343,<impl StringFormat for ORCID>::format
+FN:351,<impl PersistentIdentifier for T>::to_pid
+FN:364,<impl PersistentIdentifier for T>::is_pid
+FN:371,<impl PersistentIdentifier for T>::is_doi
+FN:374,<impl PersistentIdentifier for T>::is_orcid
+FN:380,PersistentIdentifierInternal::to_doi
+FN:388,PersistentIdentifierInternal::to_orcid
+FN:404,orcid_check_digit
+FNF:23
 FNDA:3,DOI::format
 FNDA:7,DOI::from_string
 FNDA:43,DOI::is_valid
 FNDA:7,DOI::prefix
 FNDA:7,DOI::suffix
-FNDA:7,<impl Display for DOI>::fmt
-FNDA:3,<impl Display for ORCID>::fmt
 FNDA:0,<impl Default for DOI>::default
 FNDA:0,<impl Default for ORCID>::default
-FNDA:14,ORCID::identifier
-FNDA:3,ORCID::schema_uri
-FNDA:14,ORCID::from_string
+FNDA:7,<impl Display for DOI>::fmt
+FNDA:4,<impl Display for ORCID>::fmt
+FNDA:15,ORCID::identifier
+FNDA:4,ORCID::schema_uri
+FNDA:0,ORCID::format
+FNDA:15,ORCID::from_string
 FNDA:11,ORCID::is_valid
 FNDA:0,<impl StringFormat for DOI>::format
 FNDA:0,<impl StringFormat for ORCID>::format
@@ -2494,78 +2496,89 @@ DA:211,35
 DA:212,7
 DA:217,7
 DA:218,28
-DA:223,7
-DA:224,28
-DA:225,14
-DA:227,35
-DA:228,7
-DA:231,21
-DA:236,3
-DA:237,21
-DA:241,0
-DA:242,0
-DA:246,0
-DA:247,0
-DA:251,14
-DA:252,70
-DA:253,28
-DA:255,3
-DA:256,6
-DA:266,14
-DA:270,28
-DA:271,70
-DA:272,14
-DA:273,70
-DA:274,70
-DA:275,70
-DA:285,11
-DA:289,44
-DA:290,33
-DA:291,44
-DA:292,33
-DA:293,0
-DA:294,77
-DA:295,0
-DA:297,33
-DA:298,31
-DA:299,5
-DA:304,0
-DA:305,0
-DA:309,0
-DA:310,0
-DA:317,2
-DA:318,2
-DA:320,1
-DA:324,2
+DA:222,0
+DA:223,0
+DA:227,0
+DA:228,0
+DA:233,7
+DA:234,28
+DA:235,14
+DA:237,35
+DA:238,7
+DA:241,21
+DA:246,4
+DA:247,12
+DA:248,12
+DA:249,16
+DA:250,8
+DA:251,6
+DA:252,1
+DA:254,8
+DA:256,16
+DA:257,4
+DA:260,12
+DA:268,15
+DA:269,75
+DA:270,30
+DA:275,4
+DA:276,16
+DA:286,0
+DA:290,0
+DA:300,15
+DA:304,30
+DA:305,75
+DA:306,15
+DA:307,75
+DA:308,75
+DA:309,75
+DA:319,11
+DA:323,44
+DA:324,33
+DA:325,44
+DA:326,33
 DA:327,0
-DA:330,2
-DA:331,2
-DA:332,1
-DA:333,2
-DA:334,0
-DA:337,40
-DA:338,120
-DA:340,9
-DA:341,27
-DA:346,1
-DA:347,3
-DA:348,1
-DA:349,1
-DA:350,0
+DA:328,77
+DA:329,0
+DA:331,33
+DA:332,31
+DA:333,5
+DA:338,0
+DA:339,0
+DA:343,0
+DA:344,0
+DA:351,2
+DA:352,2
 DA:354,1
-DA:355,3
-DA:356,1
-DA:357,1
-DA:358,0
-DA:363,15
-DA:366,60
-DA:367,225
-DA:368,660
-DA:369,165
-DA:371,30
-DA:372,15
-LF:93
-LH:79
+DA:358,2
+DA:361,0
+DA:364,2
+DA:365,2
+DA:366,1
+DA:367,2
+DA:368,0
+DA:371,40
+DA:372,120
+DA:374,9
+DA:375,27
+DA:380,1
+DA:381,3
+DA:382,1
+DA:383,1
+DA:384,0
+DA:388,1
+DA:389,3
+DA:390,1
+DA:391,1
+DA:392,0
+DA:404,15
+DA:407,60
+DA:408,225
+DA:409,660
+DA:410,165
+DA:412,30
+DA:413,15
+LF:104
+LH:88
 end_of_record
 TN:
 SF:/root/dev/re/acorn/acorn-lib/src/schema/pid/raid.rs
@@ -2949,19 +2962,19 @@ FNDA:0,Label::skip
 FNDA:0,Label::fmt_skip
 FNDA:8,Label::using
 FNDA:8,Label::fmt_using
-FNDA:10,MimeType::file_type
-FNDA:13,MimeType::from_path
-FNDA:16,MimeType::from_string
+FNDA:17,MimeType::file_type
+FNDA:20,MimeType::from_path
+FNDA:23,MimeType::from_string
 FNDA:24,SemanticVersion::from_command
 FNDA:18,SemanticVersion::from_string
 FNDA:0,<impl Default for SemanticVersion>::default
 FNDA:1,<impl ToAbsoluteString for PathBuf>::to_absolute_string
-FNDA:17,<impl ToStringChunks for T>::chunk
+FNDA:18,<impl ToStringChunks for T>::chunk
 FNDA:3,checksum
 FNDA:30,command_exists
 FNDA:0,download_binary
 FNDA:0,download_binary::download
-FNDA:20,extension
+FNDA:27,extension
 FNDA:6,files_all
 FNDA:5,files_all::paths_to_vec
 FNDA:4,files_all::pattern
@@ -2981,7 +2994,7 @@ FNDA:0,pretty_print
 FNDA:0,print_changes
 FNDA:24,print_values_as_table
 FNDA:12,read_file
-FNDA:22,regex_capture_lookup
+FNDA:23,regex_capture_lookup
 FNDA:5,snake_case
 FNDA:1,standard_project_folder
 FNDA:3,suffix
@@ -3067,8 +3080,8 @@ DA:390,16
 DA:393,8
 DA:394,24
 DA:395,24
-DA:407,10
-DA:408,10
+DA:407,17
+DA:408,17
 DA:409,0
 DA:410,6
 DA:411,0
@@ -3077,30 +3090,30 @@ DA:413,0
 DA:414,0
 DA:415,0
 DA:416,0
-DA:417,1
+DA:417,7
 DA:418,0
 DA:419,0
 DA:420,0
 DA:421,1
-DA:422,1
-DA:437,13
-DA:441,39
-DA:463,16
-DA:467,32
-DA:468,32
-DA:469,22
-DA:470,20
-DA:471,14
-DA:472,12
-DA:473,12
-DA:474,7
-DA:475,5
-DA:476,6
-DA:477,4
-DA:478,4
-DA:479,5
-DA:480,10
-DA:481,1
+DA:422,2
+DA:437,20
+DA:441,60
+DA:463,23
+DA:467,46
+DA:468,46
+DA:469,29
+DA:470,34
+DA:471,21
+DA:472,26
+DA:473,26
+DA:474,14
+DA:475,12
+DA:476,19
+DA:477,5
+DA:478,5
+DA:479,6
+DA:480,13
+DA:481,2
 DA:498,24
 DA:502,72
 DA:503,56
@@ -3125,10 +3138,10 @@ DA:549,0
 DA:550,0
 DA:554,1
 DA:555,3
-DA:562,17
-DA:563,17
-DA:565,34
-DA:566,221
+DA:562,18
+DA:563,18
+DA:565,36
+DA:566,222
 DA:581,3
 DA:585,9
 DA:586,6
@@ -3183,8 +3196,8 @@ DA:684,0
 DA:685,0
 DA:686,0
 DA:687,0
-DA:701,20
-DA:702,80
+DA:701,27
+DA:702,108
 DA:715,6
 DA:716,5
 DA:717,131
@@ -3238,7 +3251,7 @@ DA:799,6
 DA:800,5
 DA:801,10
 DA:804,5
-DA:805,45
+DA:805,80
 DA:807,0
 DA:809,1
 DA:823,3
@@ -3352,10 +3365,10 @@ DA:1111,1
 DA:1112,1
 DA:1113,1
 DA:1116,12
-DA:1131,22
-DA:1135,88
-DA:1136,66
-DA:1137,82
+DA:1131,23
+DA:1135,92
+DA:1136,69
+DA:1137,85
 DA:1138,0
 DA:1139,16
 DA:1140,53
@@ -3364,7 +3377,7 @@ DA:1142,0
 DA:1143,0
 DA:1144,0
 DA:1148,0
-DA:1151,22
+DA:1151,23
 DA:1161,5
 DA:1165,15
 DA:1182,1

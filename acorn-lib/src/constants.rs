@@ -56,6 +56,8 @@ pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
 pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 /// Default graphic caption
 pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
+/// Default schema URI for ORCiD values
+pub const DEFAULT_ORCID_SCHEMA_URI: &str = "https://orcid.org/";
 /// Maxumum number of [`ResearchActivity`] [`approaches`]
 ///
 /// [`ResearchActivity`]: ../schema/struct.ResearchActivity.html

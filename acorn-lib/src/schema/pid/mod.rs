@@ -3,9 +3,10 @@
 //!
 //! [ORCiDs]: https://orcid.org/
 //! [RAiDs]: https://www.raid.org/
-use crate::constants::{RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT};
+use crate::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT};
 use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::{builder, Builder};
+use std::fmt::Display;
 
 pub mod raid;
 
@@ -137,8 +138,7 @@ pub struct DOI {
 #[builder(start_fn = init)]
 pub struct ORCID {
     /// Schema URI (i.e., <https://orcid.org/>)
-    #[builder(default = "https://orcid.org/".to_string())]
-    pub schema_uri: String,
+    pub schema_uri: Option<String>,
     /// 16 digit string with hyphens every 4 digits (for readability)
     /// <div class="warning">This value can be stored with or without hyphens. To ensure compliancy, use <code>ORCID::identifier</code> method to access ORCiD identifier.</div>
     pub identifier: Option<String>,
@@ -218,7 +218,17 @@ impl DOI {
         self.suffix.as_ref().cloned().unwrap_or_default()
     }
 }
-impl std::fmt::Display for DOI {
+impl Default for DOI {
+    fn default() -> Self {
+        DOI::init().build()
+    }
+}
+impl Default for ORCID {
+    fn default() -> Self {
+        ORCID::init().build()
+    }
+}
+impl Display for DOI {
     /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let values = [self.prefix(), self.suffix()];
@@ -231,29 +241,53 @@ impl std::fmt::Display for DOI {
         write!(f, "{result}")
     }
 }
-impl std::fmt::Display for ORCID {
+impl Display for ORCID {
     /// Format a ORCiD into a standard format of `"{schema_uri}{identifier}"`
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.schema_uri(), self.identifier())
-    }
-}
-impl Default for DOI {
-    fn default() -> Self {
-        DOI::init().build()
-    }
-}
-impl Default for ORCID {
-    fn default() -> Self {
-        ORCID::init().build()
+        let schema_uri = self.schema_uri();
+        let identifier = self.identifier();
+        let uri = if schema_uri.is_empty() { DEFAULT_ORCID_SCHEMA_URI } else { &schema_uri };
+        let values = match &self.identifier {
+            | Some(_) => [uri, &identifier].to_vec(),
+            | None => vec![],
+        };
+        let result = values
+            .into_iter()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join("");
+        write!(f, "{result}")
     }
 }
 impl ORCID {
+    /// Get ORCID identifier
+    /// ### Notes
+    /// - Will return an empty string if no identifier is present
+    /// - Will always return a 19 character string with a hyphen every 4 characters (i.e., "0000-0000-0000-0000")
     fn identifier(&self) -> String {
         let stripped = self.identifier.as_ref().cloned().unwrap_or_default().replace("-", "");
         stripped.chunk(4).join("-")
     }
+    /// Get ORCID schema URI
+    /// ### Notes
+    /// - Should always be "<https://orcid.org/>"
     fn schema_uri(&self) -> String {
-        self.schema_uri.clone()
+        self.schema_uri.as_ref().cloned().unwrap_or_default()
+    }
+    /// Convenience method for easily parsing and formatting a ORCID from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::pid::ORCID;
+    ///
+    /// assert_eq!(ORCID::format("https://orcid.org/0000-0002-2057-9115"), "https://orcid.org/0000-0002-2057-9115");
+    /// assert_eq!(ORCID::format("0000-0002-2057-9115"), "https://orcid.org/0000-0002-2057-9115");
+    /// ```
+    pub fn format<S>(value: S) -> String
+    where
+        S: AsRef<str>,
+    {
+        ORCID::from_string(value).to_string()
     }
     /// Create new ORCID by parsing raw string value
     /// ### Example
@@ -360,6 +394,13 @@ impl PersistentIdentifierInternal {
     }
 }
 /// Calculate check digit IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html)
+/// ### Example
+/// ```rust
+/// use acorn_lib::schema::pid::orcid_check_digit;
+///
+/// assert_eq!(orcid_check_digit("0000000220579115"), 5);
+/// assert_eq!(orcid_check_digit("0000-0002-2057-9115"), 5);
+/// ```
 pub fn orcid_check_digit(value: &str) -> u32 {
     const MODULUS: u32 = 11;
     const RADIX: u32 = 2;
