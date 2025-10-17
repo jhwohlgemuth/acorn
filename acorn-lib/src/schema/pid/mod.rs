@@ -61,9 +61,9 @@ pub struct PersistentIdentifierInternal {
 pub enum PID {
     /// Archival Resource Key (ARK)
     ///
-    /// Widely used persistent identifier, supported by the California Digital Library [21], in collaboration with DuraSpace. ARKs work similarly to DOIs, but are more permissive in design.[^ark]
+    /// Widely used persistent identifier, supported by the California Digital Library \[21\], in collaboration with DuraSpace. ARKs work similarly to DOIs, but are more permissive in design.[^ark]
     ///
-    /// [^ark]: `M. Stocker et al., “Persistent Identification of Instruments,” Data Science Journal, vol. 19, p. 18, May 2020, doi: 10.5334/dsj-2020-018.`
+    /// [^ark]: `M. Stocker et al., "Persistent Identification of Instruments," Data Science Journal, vol. 19, p. 18, May 2020, doi: 10.5334/dsj-2020-018.`
     ARK,
     /// Digital Object Identifier (DOI)
     ///
@@ -76,7 +76,7 @@ pub enum PID {
     /// Persistent Identification of Instruments (PIDINST)
     /// ### Citation
     /// ```text
-    /// M. Stocker et al., “Persistent Identification of Instruments,” Data Science Journal, vol. 19, p. 18, May 2020, doi: 10.5334/dsj-2020-018.
+    /// M. Stocker et al., "Persistent Identification of Instruments," Data Science Journal, vol. 19, p. 18, May 2020, doi: 10.5334/dsj-2020-018.
     /// ```
     PIDINST,
     /// Research Activity Identifier (RAiD)
@@ -99,11 +99,11 @@ pub enum PID {
 }
 /// Digital Object Identifier (DOI)
 ///
-/// DOIs consist of a DOI name which is resolved at https://doi.org, with the full URI formulated according to the pattern https://doi.org/<DOI_name>. DOI names in turn consist of a prefix and a suffix, separated by a forward slash. The prefix is a code indicating the registrant who issues the DOI, e.g., Harvard University Dataverse – 10.7910; Dryad Digital Repository – 10.5061. The suffix is the identifier, in any form, assigned by the registrant.[^doi]
+/// DOIs consist of a DOI name which is resolved at <https://doi.org>, with the full URI formulated according to the pattern `https://doi.org/{DOI_name}`. DOI names in turn consist of a prefix and a suffix, separated by a forward slash. The prefix is a code indicating the registrant who issues the DOI, e.g., Harvard University Dataverse - 10.7910; Dryad Digital Repository - 10.5061. The suffix is the identifier, in any form, assigned by the registrant.[^doi]
 ///
 /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
 ///
-/// [^doi]: `N. Juty, S. M. Wimalaratne, S. Soiland-Reyes, J. Kunze, C. A. Goble, and T. Clark, “Unique, Persistent, Resolvable: Identifiers as the Foundation of FAIR,” Data Intellegence, vol. 2, no. 1–2, pp. 30–39, Jan. 2020, doi: 10.1162/dint_a_00025.`
+/// [^doi]: `N. Juty, S. M. Wimalaratne, S. Soiland-Reyes, J. Kunze, C. A. Goble, and T. Clark, "Unique, Persistent, Resolvable: Identifiers as the Foundation of FAIR," Data Intellegence, vol. 2, no. 1-2, pp. 30-39, Jan. 2020, doi: 10.1162/dint_a_00025.`
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
 pub struct DOI {
@@ -133,7 +133,7 @@ pub struct DOI {
 ///
 /// See <https://orcid.org/> for more information
 ///
-/// [^orcid]: `L. L. Haak, M. Fenner, L. Paglione, E. Pentz, and H. Ratner, “ORCID: a system to uniquely identify researchers,” Learned Publishing, vol. 25, no. 4, pp. 259–264, 2012, doi: 10.1087/20120404.`
+/// [^orcid]: `L. L. Haak, M. Fenner, L. Paglione, E. Pentz, and H. Ratner, "ORCID: a system to uniquely identify researchers," Learned Publishing, vol. 25, no. 4, pp. 259-264, 2012, doi: 10.1087/20120404.`
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
 pub struct ORCID {
