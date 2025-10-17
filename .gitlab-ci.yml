@@ -45,16 +45,30 @@ test:
     default: true
     variables: true
   rules:
-  - if: $CI_COMMIT_TAG
-    when: never
-  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    changes:
-      - acorn-cli/**/*
-      - acorn-lib/**/*
-      - Cargo.toml
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - acorn-cli/**/*
+        - acorn-lib/**/*
+        - Cargo.toml
   script:
-    - git fetch origin main
     - make test-ci
+
+test-python:
+  stage: test
+  image: ghcr.io/prefix-dev/pixi:latest
+  inherit:
+    default: false
+    variables: true
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - acorn-py/**/*
+  script:
+    - cd acorn-py && pixi run test
 
 build-release:
   stage: build
