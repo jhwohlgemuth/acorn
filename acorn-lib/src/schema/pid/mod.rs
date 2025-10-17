@@ -3,8 +3,8 @@
 //!
 //! [ORCiDs]: https://orcid.org/
 //! [RAiDs]: https://www.raid.org/
-use crate::constants::{RE_DOI, RE_DOI_TEXT};
-use crate::util::regex_capture_lookup;
+use crate::constants::{RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT};
+use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::{builder, Builder};
 
 pub mod raid;
@@ -32,6 +32,13 @@ pub trait PersistentIdentifier<T: AsRef<str>> {
     /// assert!("https://doi.org/10.1234/5678".is_doi());
     /// ```
     fn is_doi(&self) -> bool;
+    /// Determines if `self` is a ORCID
+    /// ```
+    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    ///
+    /// assert!("https://orcid.org/0000-0000-0000-0000".is_orcid());
+    /// ```
+    fn is_orcid(&self) -> bool;
 }
 /// Trait for formatting string values
 pub trait StringFormat {
@@ -61,13 +68,9 @@ pub enum PID {
     ///
     /// See [`DOI`]
     DOI,
-    /// Open Researcher and Contributor ID (ORCiD)[^orcid]
+    /// Open Researcher and Contributor ID (ORCiD)
     ///
-    /// Disambiguates researchers, and connects people with their research activities. This includes employment affiliations, research outputs, funding, peer review activity, research resources, society membership, distinctions and other scholarly infrastructure.
-    ///
-    /// See <https://orcid.org/> for more information
-    ///
-    /// [^orcid]: `L. L. Haak, M. Fenner, L. Paglione, E. Pentz, and H. Ratner, “ORCID: a system to uniquely identify researchers,” Learned Publishing, vol. 25, no. 4, pp. 259–264, 2012, doi: 10.1087/20120404.`
+    /// See [`ORCID`]
     ORCID,
     /// Persistent Identification of Instruments (PIDINST)
     /// ### Citation
@@ -103,7 +106,7 @@ pub enum PID {
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
 pub struct DOI {
-    /// Schema URI (e.g., <https://doi.org/>)
+    /// Schema URI (i.e., <https://doi.org/>)
     pub schema_uri: Option<String>,
     /// Directory indicator
     /// ### Rules
@@ -123,11 +126,32 @@ pub struct DOI {
     /// - No length limit is set to the suffix by the DOI System
     pub suffix: Option<String>,
 }
+/// Open Researcher and Contributor ID (ORCiD)[^orcid]
+///
+/// Disambiguates researchers, and connects people with their research activities. This includes employment affiliations, research outputs, funding, peer review activity, research resources, society membership, distinctions and other scholarly infrastructure.
+///
+/// See <https://orcid.org/> for more information
+///
+/// [^orcid]: `L. L. Haak, M. Fenner, L. Paglione, E. Pentz, and H. Ratner, “ORCID: a system to uniquely identify researchers,” Learned Publishing, vol. 25, no. 4, pp. 259–264, 2012, doi: 10.1087/20120404.`
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init)]
+pub struct ORCID {
+    /// Schema URI (i.e., <https://orcid.org/>)
+    #[builder(default = "https://orcid.org/".to_string())]
+    pub schema_uri: String,
+    /// 16 digit string with hyphens every 4 digits (for readability)
+    /// <div class="warning">This value can be stored with or without hyphens. To ensure compliancy, use <code>ORCID::identifier</code> method to access ORCiD identifier.</div>
+    pub identifier: Option<String>,
+    /// The check digit is the last (16th) digit of the identifier
+    /// ### Note
+    /// Check digit should be verified IAW by [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html) (see [`orcid_check_digit`])
+    pub check_digit: Option<String>,
+}
 impl DOI {
     /// Convenience method for easily parsing and formatting a DOI from a string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::validate::DOI;
+    /// use acorn_lib::schema::pid::DOI;
     ///
     /// assert_eq!(DOI::format("https://doi.org/10.1000/182"), "10.1000/182");
     /// assert_eq!(DOI::format("10.1000/182"), "10.1000/182");
@@ -141,7 +165,7 @@ impl DOI {
     /// Create new DOI by parsing raw string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::validate::DOI;
+    /// use acorn_lib::schema::pid::DOI;
     ///
     /// let doi = DOI::from_string("https://doi.org/10.1000/182");
     /// assert_eq!(doi.prefix(), "10.1000");
@@ -163,7 +187,7 @@ impl DOI {
     /// Check if value is a valid DOI
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::validate::DOI;
+    /// use acorn_lib::schema::pid::DOI;
     ///
     /// assert!(DOI::is_valid("https://doi.org/10.1000/182"));
     /// ```
@@ -207,12 +231,81 @@ impl std::fmt::Display for DOI {
         write!(f, "{result}")
     }
 }
+impl std::fmt::Display for ORCID {
+    /// Format a ORCiD into a standard format of `"{schema_uri}{identifier}"`
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.schema_uri(), self.identifier())
+    }
+}
 impl Default for DOI {
     fn default() -> Self {
         DOI::init().build()
     }
 }
+impl Default for ORCID {
+    fn default() -> Self {
+        ORCID::init().build()
+    }
+}
+impl ORCID {
+    fn identifier(&self) -> String {
+        let stripped = self.identifier.as_ref().cloned().unwrap_or_default().replace("-", "");
+        stripped.chunk(4).join("-")
+    }
+    fn schema_uri(&self) -> String {
+        self.schema_uri.clone()
+    }
+    /// Create new ORCID by parsing raw string value
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::pid::ORCID;
+    ///
+    /// let orcid = ORCID::from_string("https://orcid.org/0000-0002-2057-9115");
+    /// assert_eq!(orcid.identifier(), "0000-0002-2057-9115");
+    /// ```
+    pub fn from_string<S>(value: S) -> ORCID
+    where
+        S: AsRef<str>,
+    {
+        let names = ["schema_uri", "identifier", "check_digit"];
+        let lookup = regex_capture_lookup(RE_ORCID_TEXT, value.as_ref(), names.to_vec());
+        ORCID::init()
+            .maybe_schema_uri(lookup.get("schema_uri").cloned())
+            .maybe_identifier(lookup.get("identifier").cloned())
+            .maybe_check_digit(lookup.get("check_digit").cloned())
+            .build()
+    }
+    /// Check if value is a valid ORCiD
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::pid::ORCID;
+    ///
+    /// assert!(ORCID::is_valid("https://orcid.org/0000-0002-2057-9115"));
+    /// ```
+    pub fn is_valid<S>(value: S) -> bool
+    where
+        S: AsRef<str>,
+    {
+        let orcid = ORCID::from_string(value.as_ref());
+        let identifier = orcid.identifier();
+        let last = identifier.chars().last().unwrap_or_default().to_string();
+        let checksum = match orcid_check_digit(identifier.as_str()) {
+            | 10 => "X".to_string(),
+            | value if (0..9).contains(&value) => format!("{value}"),
+            | _ => "".to_string(),
+        };
+        match RE_ORCID.is_match(value.as_ref()) {
+            | Ok(true) if last == checksum && identifier.len() == 19 => true,
+            | _ => false,
+        }
+    }
+}
 impl StringFormat for DOI {
+    fn format(&self) -> String {
+        self.to_string()
+    }
+}
+impl StringFormat for ORCID {
     fn format(&self) -> String {
         self.to_string()
     }
@@ -227,17 +320,25 @@ where
                 value: self.as_ref().to_string(),
                 pid_type: PID::DOI,
             },
+            | PID::ORCID => PersistentIdentifierInternal {
+                value: self.as_ref().to_string(),
+                pid_type: PID::ORCID,
+            },
             | _ => PersistentIdentifierInternal::default(),
         }
     }
     fn is_pid(&self, pid_type: PID) -> bool {
         match pid_type {
             | PID::DOI => self.is_doi(),
+            | PID::ORCID => self.is_orcid(),
             | _ => false,
         }
     }
     fn is_doi(&self) -> bool {
         DOI::is_valid(self.as_ref())
+    }
+    fn is_orcid(&self) -> bool {
+        ORCID::is_valid(self.as_ref())
     }
 }
 impl PersistentIdentifierInternal {
@@ -249,6 +350,26 @@ impl PersistentIdentifierInternal {
             | _ => DOI::default(),
         }
     }
+    /// Convert a `PersistentIdentifierInternal` to a `ORCID`
+    pub fn to_orcid(&self) -> ORCID {
+        let PersistentIdentifierInternal { value, pid_type } = self;
+        match pid_type {
+            | PID::ORCID => ORCID::from_string(value),
+            | _ => ORCID::default(),
+        }
+    }
+}
+/// Calculate check digit IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html)
+pub fn orcid_check_digit(value: &str) -> u32 {
+    const MODULUS: u32 = 11;
+    const RADIX: u32 = 2;
+    let working = value.replace("-", "");
+    let sum = working.chars().take(15).fold(0, |acc, x| {
+        let digit = x.to_digit(10).unwrap_or_default();
+        (acc + digit) * RADIX
+    });
+    let remainder = sum % MODULUS;
+    (MODULUS + 1 - remainder) % MODULUS
 }
 
 #[cfg(test)]

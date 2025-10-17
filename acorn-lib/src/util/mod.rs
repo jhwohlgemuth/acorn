@@ -74,6 +74,14 @@ pub trait ToAbsoluteString {
     /// Return a string representation of the absolute path
     fn to_absolute_string(&self) -> String;
 }
+/// Trait for adding chunking functionality
+pub trait ToStringChunks<T>
+where
+    T: AsRef<str> + ToString,
+{
+    /// Chunk a string into substrings of a given size
+    fn chunk(&self, size: usize) -> Vec<String>;
+}
 /// SPDX compliant license identifier
 ///
 /// See <https://spdx.org/licenses/>
@@ -545,6 +553,18 @@ impl Default for SemanticVersion {
 impl ToAbsoluteString for PathBuf {
     fn to_absolute_string(&self) -> String {
         to_absolute_string(self.clone())
+    }
+}
+impl<T: AsRef<str>> ToStringChunks<T> for T
+where
+    T: ToString,
+{
+    fn chunk(&self, size: usize) -> Vec<String> {
+        self.as_ref()
+            .as_bytes()
+            .chunks(size)
+            .map(|chunk| String::from_utf8(chunk.to_vec()).unwrap())
+            .collect::<Vec<_>>()
     }
 }
 /// Get SHA256 hash of a file

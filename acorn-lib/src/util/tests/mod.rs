@@ -26,6 +26,12 @@ fn test_checksum() {
     assert!(result.is_none());
 }
 #[test]
+fn test_chunk_string() {
+    assert_eq!("abcdefghi".chunk(3), vec!["abc", "def", "ghi"]);
+    assert_eq!("abcdefghi".chunk(2), vec!["ab", "cd", "ef", "gh", "i"]);
+    assert_eq!("abcdefghi".to_string().chunk(3), vec!["abc", "def", "ghi"]);
+}
+#[test]
 fn test_citeas() {
     let status = citeas::status();
     assert!(status.is_some());

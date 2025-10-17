@@ -3,7 +3,7 @@
 //!
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 use crate::constants::*;
-use crate::schema::pid::DOI;
+use crate::schema::pid::PersistentIdentifier;
 use chrono::prelude::*;
 use convert_case::{Case, Casing};
 use uriparse::URI;
@@ -124,8 +124,8 @@ pub fn is_list_url(value: &[String]) -> Result<(), ValidationError> {
 /// See <https://orcid.org/> for more information on ORCiDs
 pub fn is_orcid(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid ORCiD";
-    match RE_ORCID.is_match(value) {
-        | Ok(value) if value => Ok(()),
+    match value.is_orcid() {
+        | true => Ok(()),
         | _ => Err(ValidationError::new("orcid").with_message(MESSAGE.into())),
     }
 }

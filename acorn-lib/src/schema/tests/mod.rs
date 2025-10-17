@@ -558,7 +558,7 @@ fn test_validate_is_list_url() {
     assert!(is_list_url(&invalid).is_err());
 }
 #[test]
-fn test_validaate_is_orcid() {
+fn test_validate_is_orcid() {
     let valid = VALID_ORCID_VALUES;
     let invalid = [
         "0000-0002-1823-1234",

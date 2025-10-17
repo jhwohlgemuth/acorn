@@ -5,6 +5,37 @@ use std::path::PathBuf;
 const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
+fn test_orcid_check_digit() {
+    let value = "000000031415926";
+    let expected = 9;
+    assert_eq!(orcid_check_digit(value), expected);
+    let value = "0000-0002-2057-911";
+    let expected = 5;
+    assert_eq!(orcid_check_digit(value), expected);
+    let value = "0000-0002-2057-9115";
+    let expected = 5;
+    assert_eq!(orcid_check_digit(value), expected);
+    let value = "0000-0002-1823-1234";
+    let expected = 2;
+    assert_eq!(orcid_check_digit(value), expected);
+}
+#[test]
+fn test_orcid() {
+    let valid = "https://orcid.org/0000-0002-2057-9115";
+    assert!(valid.is_pid(PID::ORCID));
+    assert_eq!(valid.to_pid(PID::ORCID).to_orcid().to_string(), "https://orcid.org/0000-0002-2057-9115");
+    assert!(valid.is_orcid());
+    assert!(ORCID::is_valid(valid));
+    assert!(!ORCID::is_valid("Invalid ORCID value"));
+}
+#[test]
+fn test_orcid_struct() {
+    let valid = "https://orcid.org/0000-0002-2057-9115";
+    assert_eq!(ORCID::from_string(valid).to_string(), valid);
+    assert_eq!(ORCID::from_string("0000-0002-2057-9115").to_string(), valid);
+    // assert_eq!(ORCID::from_string("invalid ORCID value").to_string(), "");
+}
+#[test]
 fn test_doi() {
     let valid = "https://doi.org/10.11578/dc.20250604.1";
     assert_eq!(valid.to_pid(PID::DOI).to_doi().to_string(), "10.11578/dc.20250604.1");
@@ -22,7 +53,7 @@ fn test_doi_struct() {
     assert_eq!(DOI::from_string("invalid DOI URL").to_string(), "");
     assert_eq!(DOI::format(valid), "10.1000/182");
     assert_eq!(DOI::format("10.1000/182"), "10.1000/182");
-    assert_eq!(DOI::format("invalid DOI URL"), "");
+    assert_eq!(DOI::format("invalid DOI value"), "");
 }
 #[test]
 fn test_raid_read() {

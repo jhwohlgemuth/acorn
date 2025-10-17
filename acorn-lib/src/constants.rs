@@ -130,6 +130,9 @@ pub const MAX_ALLOWED_SMOG: f64 = 13.0;
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]
 pub const RE_DOI_TEXT: &str =
     r#"^(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#;
+/// Patter text for ORCiD regular expression defined by [`RE_ORCID`]
+pub const RE_ORCID_TEXT: &str =
+    r#"^(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))$"#;
 
 lazy_static! {
     /// Regex that should match a Digital Object Identifier (DOI)
@@ -139,11 +142,11 @@ lazy_static! {
     /// Regex that should match an Open Researcher and Contributor ID (ORCiD) value
     ///
 /// See <https://orcid.org/> for more information
-    pub static ref RE_ORCID: Regex = Regex::new(r#"^https[:]\/\/orcid\.org\/[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{4}$"#).unwrap();
+    pub static ref RE_ORCID: Regex = Regex::new(RE_ORCID_TEXT).unwrap();
     /// Regex that should match a Research Activity Identifier (RAiD)
     ///
     /// See <https://raid.org/> for more information
-    pub static ref RE_RAID: Regex = Regex::new(r#"^(doi\:)?10\.\d+/.*$"#).unwrap();
+    pub static ref RE_RAID: Regex = Regex::new(RE_DOI_TEXT).unwrap();
     /// Regex that should match a Research Organization Registry (ROR)
     ///
     /// See <https://www.ror.org/> for more information
