@@ -152,7 +152,7 @@ pub struct ORCID {
     pub identifier: Option<String>,
     /// The check digit is the last (16th) digit of the identifier
     /// ### Note
-    /// Check digit should be verified IAW by [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html) (see [`orcid_check_digit`])
+    /// Check digit should be verified IAW by [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html) (see [`iso7064_check_digit`])
     pub check_digit: Option<String>,
 }
 impl DOI {
