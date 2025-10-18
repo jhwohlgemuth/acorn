@@ -1,5 +1,6 @@
 //! # 🌱 ACORN Library
-//!
+//! > "Plant an ACORN and grow your research"
+//! 
 //! `acorn-lib` is a one-stop-shop for everything related to building and maintaining research activity data (RAD)-related technology, including the Accessible Content Optimization for Research Needs (ACORN) tool.
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 //!
@@ -32,7 +33,6 @@ pub mod util;
 use crate::util::*;
 
 /// Files to ignore
-///
 /// - `.gitignore`
 /// - `.gitkeep`
 /// - `.DS_Store`
@@ -145,7 +145,7 @@ pub struct Bucket {
 }
 /// Struct for buckets configuration
 ///
-/// ### Example buckets.json
+/// ### Example `buckets.json`
 /// ```json
 /// {
 ///     "buckets": [
@@ -187,7 +187,9 @@ pub struct GithubTreeEntry {
     /// Type of tree entry
     #[serde(rename = "type")]
     pub entry_type: EntryType,
-    /// SHA1 of entry
+    /// [SHA1] of entry
+    /// 
+    /// [SHA1]: https://en.wikipedia.org/wiki/SHA-1
     pub sha: String,
     /// Size of associated data
     /// ### Note

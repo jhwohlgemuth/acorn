@@ -1,6 +1,7 @@
 //! # Vale interface
 //!
-//! Provides programmtic access to [Vale prose analyzer](https://vale.sh/).
+//! Provides programmtic access to the [Vale prose analyzer](https://vale.sh/) - an open-source, command-line tool that brings your editorial style guide to life.
+//! 
 use crate::util::{Label, SemanticVersion};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -11,7 +12,7 @@ use tracing::error;
 
 /// Vale output severity
 ///
-/// See <https://vale.sh/docs/keys/minalertlevel>
+/// See <https://vale.sh/docs/keys/minalertlevel> for more information
 #[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ValeOutputItemSeverity {
@@ -46,7 +47,7 @@ pub struct Vale {
 }
 /// Vale configuration
 ///
-/// See <https://vale.sh/docs/vale-ini>
+/// See <https://vale.sh/docs/vale-ini> for more information
 #[derive(Builder, Clone, Debug, Display)]
 #[display("{:?}", path)]
 #[builder(start_fn = init)]
@@ -56,17 +57,17 @@ pub struct ValeConfig {
     pub path: PathBuf,
     /// List of Vale packages
     ///
-    /// See <https://vale.sh/docs/keys/packages>
+    /// See <https://vale.sh/docs/keys/packages> for more information
     #[builder(default = Vec::<String>::new())]
     pub packages: Vec<String>,
     /// List of Vale vocabularies
     ///
-    /// See <https://vale.sh/docs/keys/vocab>
+    /// See <https://vale.sh/docs/keys/vocab> for more information
     #[builder(default = Vec::<String>::new())]
     pub vocabularies: Vec<String>,
     /// List of Vale rules to disable
     ///
-    /// See <https://vale.sh/docs/styles#rules>
+    /// See <https://vale.sh/docs/styles#rules> for more information
     #[builder(default = Vec::<String>::new())]
     pub disabled: Vec<String>,
 }

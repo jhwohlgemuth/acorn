@@ -18,23 +18,23 @@ lazy_static! {
     pub static ref NON_ALPHABETIC: Regex = Regex::new(r#"[^a-zA-Z]"#).unwrap();
     /// Vowels
     pub static ref VOWEL: Regex = Regex::new(r#"[^aeiouy]+"#).unwrap();
-    /// ###  Match single syllable pre- and suffixes
+    /// Match single syllable pre- and suffixes
     pub static ref SINGLE: Regex = Regex::new(r#"^(?:un|fore|ware|none?|out|post|sub|pre|pro|dis|side|some)|(?:ly|less|some|ful|ers?|ness|cians?|ments?|ettes?|villes?|ships?|sides?|ports?|shires?|[gnst]ion(?:ed|s)?)$"#).unwrap();
-    /// ### Match double syllable pre- and suffixes
+    /// Match double syllable pre- and suffixes
     pub static ref DOUBLE: Regex = Regex::new(r#"^(?:above|anti|ante|counter|hyper|afore|agri|infra|intra|inter|over|semi|ultra|under|extra|dia|micro|mega|kilo|pico|nano|macro|somer)|(?:fully|berry|woman|women|edly|union|((?:[bcdfghjklmnpqrstvwxz])|[aeiou])ye?ing)$"#).unwrap();
-    /// ### Match triple syllabble suffixes
+    /// Match triple syllabble suffixes
     pub static ref TRIPLE: Regex = Regex::new(r#"(creations?|ology|ologist|onomy|onomist)$"#).unwrap();
-    /// ### Match syllables counted as two, but should be one
+    /// Match syllables counted as two, but should be one
     pub static ref SINGLE_SYLLABIC_ONE : Regex = Regex::new(r#"awe($|d|so)|cia(?:l|$)|tia|cius|cious|[^aeiou]giu|[aeiouy][^aeiouy]ion|iou|sia$|eous$|[oa]gue$|.[^aeiuoycgltdb]{2,}ed$|.ely$|^jua|uai|eau|^busi$|(?:[aeiouy](?:[bcfgklmnprsvwxyz]|ch|dg|g[hn]|lch|l[lv]|mm|nch|n[cgn]|r[bcnsv]|squ|s[chkls]|th)ed$)|(?:[aeiouy](?:[bdfklmnprstvy]|ch|g[hn]|lch|l[lv]|mm|nch|nn|r[nsv]|squ|s[cklst]|th)es$)"#).unwrap();
-    /// ### Match two-syllable words counted as two, but should be one
+    /// Match two-syllable words counted as two, but should be one
     pub static ref SINGLE_SYLLABIC_TWO : Regex = Regex::new(r#"[aeiouy](?:[bcdfgklmnprstvyz]|ch|dg|g[hn]|l[lv]|mm|n[cgns]|r[cnsv]|squ|s[cklst]|th)e$"#).unwrap();
-    /// ### Match syllables counted as one, but should be two
+    /// Match syllables counted as one, but should be two
     pub static ref DOUBLE_SYLLABIC_ONE: Regex = Regex::new(r#"(?:([^aeiouy])\\1l|[^aeiouy]ie(?:r|s?t)|[aeiouym]bl|eo|ism|asm|thm|dnt|snt|uity|dea|gean|oa|ua|react?|orbed|shred|eings?|[aeiouy]sh?e[rs])$"#).unwrap();
-    /// ### Match two-syllable words counted as one, but should be two
+    /// Match two-syllable words counted as one, but should be two
     pub static ref DOUBLE_SYLLABIC_TWO: Regex = Regex::new(r#"creat(?!u)|[^gq]ua[^auieo]|[aeiou]{3}|^(?:ia|mc|coa[dglx].)|^re(app|es|im|us)|(th|d)eist"#).unwrap();
-    /// ### Match three-syllable words counted as one, but should be two
+    /// Match three-syllable words counted as one, but should be two
     pub static ref DOUBLE_SYLLABIC_THREE: Regex = Regex::new(r#"[^aeiou]y[ae]|[^l]lien|riet|dien|iu|io|ii|uen|[aeilotu]real|real[aeilotu]|iell|eo[^aeiou]|[aeiou]y[aeiou]"#).unwrap();
-    /// ### Match four-syllable words counted as one, but should be two
+    /// Match four-syllable words counted as one, but should be two
     pub static ref DOUBLE_SYLLABIC_FOUR: Regex = Regex::new(r#"[^s]ia"#).unwrap();
     /// Nouns with irregular singular/plural forms
     pub static ref IRREGULAR_NOUNS: HashMap<&'static str, &'static str> = vec![
@@ -52,11 +52,11 @@ lazy_static! {
     ].into_iter().collect();
     /// Nouns with irregular plural/singular forms
     ///
-    /// Inverted version of [IRREGULAR_NOUNS]
+    /// Inverted version of [`IRREGULAR_NOUNS`]
     pub static ref IRREGULAR_NOUNS_INVERTED: HashMap<&'static str, &'static str> = IRREGULAR_NOUNS.clone().into_iter().map(|(k, v)| (v, k)).collect();
-    /// ### Nouns that need to be fixed when counting syllables
-    ///
-    /// All counts are (correct - 1)
+    /// Nouns that need to be fixed when counting syllables
+    /// ### Note
+    /// > All counts are (correct - 1)
     pub static ref NEED_TO_BE_FIXED: HashMap<&'static str, usize> = vec![
         ("ayo", 2),
         ("australian", 3),
@@ -95,7 +95,7 @@ lazy_static! {
         ("sidewinder", 3),
         ("ungerer", 3),
     ].into_iter().collect();
-    /// ### Nouns with problematic syllable counts
+    /// Nouns with problematic syllable counts
     pub static ref PROBLEMATIC_WORDS: HashMap<&'static str, usize> = vec![
         ("abalone", 4),
         ("abare", 3),
@@ -199,7 +199,7 @@ const PLURAL_TO_SINGULAR: [(&str, &str); 28] = [
     (r#"(us)es$"#, r#"${1}"#),
     (r#"s$"#, r#""#),
 ];
-/// ### Nouns with the same singular and plural forms
+/// Nouns with the same singular and plural forms
 pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
     "accommodation",
     "advice",
@@ -316,25 +316,37 @@ pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
 #[derive(Clone, Copy, Debug, Default, Display, PartialEq, ValueEnum)]
 pub enum ReadabilityType {
     /// Automated Readability Index (ARI)
+    /// 
+    /// See [`automated_readability_index`]
     #[display("ari")]
     ARI,
     /// Coleman-Liau Index (CLI)
+    /// 
+    /// See [`coleman_liau_index`]
     #[display("cli")]
     CLI,
     /// Flesch-Kincaid Grade Level (FKGL)
+    /// 
+    /// See [`flesch_kincaid_grade_level`]
     #[default]
     #[display("fkgl")]
     FKGL,
     /// Flesch Reading Ease (FRES)
+    /// 
+    /// See [`flesch_reading_ease_score`]
     #[display("fres")]
     FRES,
     /// Gunning Fog Index (GFI)
     #[display("gfi")]
     GFI,
     /// Lix (abbreviation of Swedish läsbarhetsindex)
+    /// 
+    /// See [`lix`]
     #[display("lix")]
     Lix,
     /// SMOG Index (SMOG)
+    /// 
+    /// See [`smog`]
     #[display("smog")]
     SMOG,
 }
@@ -463,14 +475,17 @@ pub fn coleman_liau_index(text: &str) -> f64 {
     let score = (0.0588 * 100.0 * (letters as f64 / words as f64)) - (0.296 * 100.0 * (sentences as f64 / words as f64)) - 15.8;
     format!("{score:.2}").parse().unwrap()
 }
-/// Flesch-Kincaid Grade Level (FKGL)
-///
+/// Flesch-Kincaid Grade Level (FKGL)[^cite]
+/// 
 /// Arguably the most popular readability test.
+/// 
 /// The result is a number that corresponds with a US grade level.
 ///
 /// Requires counting words, sentences, and syllables
 ///
 /// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
+/// 
+/// [^cite]: Flesch, R. (1948). A new readability yardstick. Journal of Applied Psychology, 32(3), 221–233. <https://doi.org/10.1037/h0057532>
 pub fn flesch_kincaid_grade_level(text: &str) -> f64 {
     let words = word_count(text);
     let sentences = sentence_count(text);
@@ -569,6 +584,13 @@ pub fn singular_form(word: &str) -> String {
     }
 }
 /// Count the number of syllables in a given text
+/// ### Example
+/// ```rust
+/// use acorn_lib::analyzer::readability::syllable_count;
+/// 
+/// let sentence = "The quick brown fox jumps over the lazy dog.";
+/// assert_eq!(syllable_count(sentence), 11);
+/// ```
 pub fn syllable_count(text: &str) -> usize {
     fn syllables(word: String) -> usize {
         let singular = singular_form(&word);

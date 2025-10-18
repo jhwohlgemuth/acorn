@@ -36,38 +36,12 @@ pub mod vale;
 use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
-/// Trait for converting to a (Polars) row
+/// Trait for converting to a ([Polars]) row
+/// 
+/// [Polars]: https://docs.rs/polars/latest/polars/
 pub trait IntoRow<'a> {
     /// Convert to a (Polars) row
     fn to_row<T>(self) -> Row<'a>;
-}
-/// Various check categories available for validating research activity data
-#[derive(Clone, Debug, Display, PartialEq)]
-pub enum CheckCategory {
-    /// Website avaialability check
-    #[display("link")]
-    Link,
-    /// Static analysis of prose
-    #[display("prose")]
-    Prose,
-    /// Readability check using one of several metrics
-    #[display("readability")]
-    Readability,
-    /// Schema validation check
-    #[display("schema")]
-    Schema,
-}
-/// Error kind
-#[derive(Clone, Debug)]
-pub enum ErrorKind {
-    /// Readability issue where calculated index exceeds threshold of associated metric
-    Readability((f64, ReadabilityType)),
-    /// Prose issue found by Vale
-    Vale(Vec<ValeOutputItem>),
-    /// Schema validation issue found by [validator crate]
-    ///
-    /// [validator crate]: https://crates.io/crates/validator
-    Validator(ValidationErrorsKind),
 }
 /// Trait for static analyzers (e.g. Vale)
 pub trait StaticAnalyzer {
@@ -100,6 +74,34 @@ pub trait StaticAnalyzerConfig {
     fn ini(self) -> Ini;
     /// Save configuration
     fn save(self) -> ValeConfig;
+}
+/// Various check categories available for validating research activity data
+#[derive(Clone, Debug, Display, PartialEq)]
+pub enum CheckCategory {
+    /// Website avaialability check
+    #[display("link")]
+    Link,
+    /// Static analysis of prose
+    #[display("prose")]
+    Prose,
+    /// Readability check using one of several metrics
+    #[display("readability")]
+    Readability,
+    /// Schema validation check
+    #[display("schema")]
+    Schema,
+}
+/// Error kind
+#[derive(Clone, Debug)]
+pub enum ErrorKind {
+    /// Readability issue where calculated index exceeds threshold of associated metric
+    Readability((f64, ReadabilityType)),
+    /// Prose issue found by Vale
+    Vale(Vec<ValeOutputItem>),
+    /// Schema validation issue found by [validator crate]
+    ///
+    /// [validator crate]: https://crates.io/crates/validator
+    Validator(ValidationErrorsKind),
 }
 /// Data structure for holding the result of a schema validation check
 #[derive(Builder, Clone, Debug, Display)]

@@ -1,6 +1,7 @@
 //! # Schema validation helpers
 //!
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
+//! 
 use crate::constants::*;
 use crate::schema::pid::PersistentIdentifier;
 use chrono::prelude::*;
@@ -64,9 +65,7 @@ fn is_current_year(value: String) -> bool {
     let year = now.year().to_string().parse::<i32>().unwrap_or_default();
     value.parse::<i32>().unwrap_or_default() <= year
 }
-/// Check if value is a valid DOI
-/// ### Note
-/// > `10.5555` is not a DOI prefix, but rather a handle prefix
+/// Check if value is a valid [`crate::schema::pid::DOI`]
 pub fn is_doi(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid DOI, by itself and without domain or 'doi:' prefix.";
     match value.is_doi() {
@@ -74,7 +73,7 @@ pub fn is_doi(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("doi").with_message(MESSAGE.into())),
     }
 }
-/// Check if value is a valid IP6
+/// Check if value is a valid IP6 address
 pub fn is_ip6(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid IP6 address";
     match RE_IP6.is_match(value) {
@@ -119,9 +118,7 @@ pub fn is_list_url(value: &[String]) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("URLs").with_message("Every URL should be valid".to_string().into())),
     }
 }
-/// Check if value is a valid ORCiD
-///
-/// See <https://orcid.org/> for more information on ORCiDs
+/// Check if value is a valid [`crate::schema::pid::ORCID`]
 pub fn is_orcid(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid ORCiD";
     match value.is_orcid() {
@@ -143,7 +140,7 @@ pub fn is_phone_number(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("phone").with_message(MESSAGE.into())),
     }
 }
-/// Check if value is a valid RAiD
+/// Check if value is a valid [`crate::schema::pid::raid`]
 pub fn is_raid(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid RAiD";
     match RE_RAID.is_match(value) {
