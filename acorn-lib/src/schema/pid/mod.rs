@@ -12,22 +12,30 @@ pub mod raid;
 
 /// Add coercion to persistent identifier (PID) functionality to string values
 pub trait PersistentIdentifier<T: AsRef<str>> {
-    /// Coerce `self` into given PID type.
-    /// ```
+    /// Convert `self` into a string standard format PID of a certain type
+    /// ```rust
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
-    /// let pid = "https://doi.org/10.1234/5678".to_pid(PID::DOI);
-    /// assert_eq!(pid.suffix(), "5678");
+    /// assert_eq!("https://doi.org/10.1234/5678".format_as(PID::DOI), "10.1234/5678");
+    /// assert_eq!("0000-0002-2057-9115".format_as(PID::ORCID), "https://orcid.org/0000-0002-2057-9115");
+    /// ```
+    fn format_as(&self, pid_type: PID) -> String;
+    /// Coerce `self` into given PID type.
+    /// ```rust
+    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    ///
+    /// let doi = "https://doi.org/10.1234/5678".to_pid(PID::DOI).to_doi();
+    /// assert_eq!(doi.suffix(), "5678");
     /// ```
     fn to_pid(&self, pid_type: PID) -> PersistentIdentifierInternal;
     /// Determines if `self` is of the given PID type.
-    /// ```
+    /// ```rust
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     /// assert!("https://doi.org/10.1234/5678".is_pid(PID::DOI));
     /// ```
     fn is_pid(&self, pid_type: PID) -> bool;
     /// Determines if `self` is a DOI
-    /// ```
+    /// ```rust
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://doi.org/10.1234/5678".is_doi());
@@ -265,14 +273,14 @@ impl ORCID {
     /// ### Notes
     /// - Will return an empty string if no identifier is present
     /// - Will always return a 19 character string with a hyphen every 4 characters (i.e., "0000-0000-0000-0000")
-    fn identifier(&self) -> String {
+    pub fn identifier(&self) -> String {
         let stripped = self.identifier.as_ref().cloned().unwrap_or_default().replace("-", "");
         stripped.chunk(4).join("-")
     }
     /// Get ORCID schema URI
     /// ### Notes
     /// - Should always be "<https://orcid.org/>"
-    fn schema_uri(&self) -> String {
+    pub fn schema_uri(&self) -> String {
         self.schema_uri.as_ref().cloned().unwrap_or_default()
     }
     /// Convenience method for easily parsing and formatting a ORCID from a string value
@@ -323,9 +331,9 @@ impl ORCID {
         let orcid = ORCID::from_string(value.as_ref());
         let identifier = orcid.identifier();
         let last = identifier.chars().last().unwrap_or_default().to_string();
-        let checksum = match orcid_check_digit(identifier.as_str()) {
+        let checksum = match iso7064_check_digit(identifier.as_str()) {
             | 10 => "X".to_string(),
-            | value if (0..9).contains(&value) => format!("{value}"),
+            | value if (0..10).contains(&value) => format!("{value}"),
             | _ => "".to_string(),
         };
         match RE_ORCID.is_match(value.as_ref()) {
@@ -348,6 +356,13 @@ impl<T: AsRef<str>> PersistentIdentifier<T> for T
 where
     T: ToString,
 {
+    fn format_as(&self, pid_type: PID) -> String {
+        match pid_type {
+            | PID::DOI => DOI::format(self.as_ref()),
+            | PID::ORCID => ORCID::format(self.as_ref()),
+            | _ => self.as_ref().to_string(),
+        }
+    }
     fn to_pid(&self, _pid_type: PID) -> PersistentIdentifierInternal {
         match _pid_type {
             | PID::DOI => PersistentIdentifierInternal {
@@ -394,14 +409,17 @@ impl PersistentIdentifierInternal {
     }
 }
 /// Calculate check digit IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html)
+///
+/// "MOD 11-2" means modulus = 11 and radix = 2
+///
 /// ### Example
 /// ```rust
-/// use acorn_lib::schema::pid::orcid_check_digit;
+/// use acorn_lib::schema::pid::iso7064_check_digit;
 ///
-/// assert_eq!(orcid_check_digit("0000000220579115"), 5);
-/// assert_eq!(orcid_check_digit("0000-0002-2057-9115"), 5);
+/// assert_eq!(iso7064_check_digit("0000000220579115"), 5);
+/// assert_eq!(iso7064_check_digit("0000-0002-2057-9115"), 5);
 /// ```
-pub fn orcid_check_digit(value: &str) -> u32 {
+pub fn iso7064_check_digit(value: &str) -> u32 {
     const MODULUS: u32 = 11;
     const RADIX: u32 = 2;
     let working = value.replace("-", "");

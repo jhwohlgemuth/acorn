@@ -5,19 +5,22 @@ use std::path::PathBuf;
 const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
-fn test_orcid_check_digit() {
+fn test_iso7064_check_digit() {
     let value = "000000031415926";
     let expected = 9;
-    assert_eq!(orcid_check_digit(value), expected);
+    assert_eq!(iso7064_check_digit(value), expected);
     let value = "0000-0002-2057-911";
     let expected = 5;
-    assert_eq!(orcid_check_digit(value), expected);
+    assert_eq!(iso7064_check_digit(value), expected);
     let value = "0000-0002-2057-9115";
     let expected = 5;
-    assert_eq!(orcid_check_digit(value), expected);
+    assert_eq!(iso7064_check_digit(value), expected);
     let value = "0000-0002-1823-1234";
     let expected = 2;
-    assert_eq!(orcid_check_digit(value), expected);
+    assert_eq!(iso7064_check_digit(value), expected);
+    let value = "0000-0001-9034-3389";
+    let expected = 9;
+    assert_eq!(iso7064_check_digit(value), expected);
 }
 #[test]
 fn test_orcid() {
@@ -25,12 +28,16 @@ fn test_orcid() {
     assert!(valid.is_pid(PID::ORCID));
     assert_eq!(valid.to_pid(PID::ORCID).to_orcid().to_string(), "https://orcid.org/0000-0002-2057-9115");
     assert!(valid.is_orcid());
-    assert!(ORCID::is_valid(valid));
-    assert!(!ORCID::is_valid("Invalid ORCID value"));
+    assert!(valid.format_as(PID::ORCID).is_orcid());
+    assert_eq!(valid.format_as(PID::ORCID), valid);
+    assert_eq!("0000-0002-2057-9115".format_as(PID::ORCID), valid);
+    assert_eq!("0000000220579115".format_as(PID::ORCID), valid);
 }
 #[test]
 fn test_orcid_struct() {
     let valid = "https://orcid.org/0000-0002-2057-9115";
+    assert!(ORCID::is_valid(valid));
+    assert!(!ORCID::is_valid("Invalid ORCID value"));
     assert_eq!(ORCID::from_string(valid).to_string(), valid);
     assert_eq!(ORCID::from_string("0000-0002-2057-9115").to_string(), valid);
     assert_eq!(ORCID::from_string("invalid ORCID value").to_string(), "");

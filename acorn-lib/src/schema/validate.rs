@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! # Schema validation helpers
 //!
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
@@ -18,6 +17,7 @@ use validator::ValidationError;
 /// use acorn_lib::schema::validate::format_phone_number;
 ///
 /// assert_eq!(format_phone_number("(123) 456-7890"), Ok("123.456.7890".to_string()));
+/// ```
 pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
     const MESSAGE: &str = "Unable to format telephone number";
     match RE_PHONE.captures(value) {
