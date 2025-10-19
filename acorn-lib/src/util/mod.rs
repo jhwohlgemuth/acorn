@@ -31,6 +31,7 @@
 //! ```
 //!
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
+use crate::schema::ProgrammingLanguage;
 use bat::PrettyPrinter;
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
@@ -156,28 +157,6 @@ pub enum MimeType {
     /// Unknown MIME type
     #[display("application/unknown")]
     Unknown,
-}
-/// Provides a small subset of common programming languages available for syntax highlighting
-#[derive(Clone, Copy, Debug, Display)]
-pub enum ProgrammingLanguage {
-    /// HyperText Markup Language (HTML)
-    #[display("html")]
-    Html,
-    /// Markdown
-    ///
-    /// See <https://www.markdownguide.org/>
-    #[display("markdown")]
-    Markdown,
-    /// JavaScript Object Notation (JSON)
-    ///
-    /// See <https://www.json.org/json-en.html>
-    #[display("json")]
-    Json,
-    /// YAM Ain't Markup Language (YAML)
-    ///
-    /// See <https://yaml.org/>
-    #[display("yaml")]
-    Yaml,
 }
 /// Struct for using and sharing constants
 ///

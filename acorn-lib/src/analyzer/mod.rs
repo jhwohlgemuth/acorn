@@ -7,6 +7,7 @@ use crate::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION, VALE_RELEASES_URL,
     VALE_VERSION,
 };
+use crate::schema::ProgrammingLanguage;
 use crate::util::*;
 use crate::{Location, Repository};
 use bon::Builder;

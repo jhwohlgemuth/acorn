@@ -148,6 +148,50 @@ pub enum Other {
     /// Structured container for miscellaneaous things
     Formatted(Notes),
 }
+/// Provides a small subset of common programming languages available for syntax highlighting and contextual actions
+#[derive(Clone, Copy, Debug, Deserialize, Display, Serialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum ProgrammingLanguage {
+    /// HyperText Markup Language (HTML)
+    #[display("html")]
+    Html,
+    /// JavaScript (JS) / ECMAScript (ES)
+    ///
+    /// See [MDN JavaScript docs](https://developer.mozilla.org/en-US/docs/Web/JavaScript) for more information
+    #[display("javascript")]
+    JavaScript,
+    /// Julia
+    ///
+    /// See <https://julialang.org/> for more information
+    #[display("julia")]
+    Julia,
+    /// Markdown
+    ///
+    /// See <https://www.markdownguide.org/> for more information
+    #[display("markdown")]
+    Markdown,
+    /// JavaScript Object Notation (JSON)
+    ///
+    /// See <https://www.json.org/json-en.html> for more information
+    #[display("json")]
+    Json,
+    /// Rust
+    ///
+    /// See <https://rust-lang.org/> for more information
+    #[display("rust")]
+    Rust,
+    /// Shell
+    ///
+    /// Catch-all for shell scripts (e.g., Bash, Zsh, etc.)
+    #[display("shell")]
+    #[serde(alias = "bash", alias = "zsh", alias = "fish", alias = "powershell")]
+    Shell,
+    /// YAM Ain't Markup Language (YAML)
+    ///
+    /// See <https://yaml.org/> for more information
+    #[display("yaml")]
+    Yaml,
+}
 /// ## TRL
 /// > Technology readiness levels (TRLs) are a method for estimating the maturity of technologies during the acquisition phase of a program.
 ///
