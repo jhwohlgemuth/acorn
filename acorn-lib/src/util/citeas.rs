@@ -1,6 +1,6 @@
 //! Module for communicating with CiteAs API
 //! > CiteAs is a way to get the correct citation for diverse research products including, software, datasets, preprints, and traditional articles. By making it easier to cite software and other "alternative" scholarly products, we aim to help the creators of such products get full credit for their work.
-//! 
+//!
 //! See <https://citeas.org/api> for more information
 use crate::util::Label;
 use reqwest::blocking::Client;

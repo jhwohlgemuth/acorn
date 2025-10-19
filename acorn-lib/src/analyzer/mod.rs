@@ -37,7 +37,7 @@ use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
 /// Trait for converting to a ([Polars]) row
-/// 
+///
 /// [Polars]: https://docs.rs/polars/latest/polars/
 pub trait IntoRow<'a> {
     /// Convert to a (Polars) row

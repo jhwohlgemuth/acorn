@@ -1,9 +1,10 @@
 //! # 🌱 ACORN Library
 //! > "Plant an ACORN and grow your research"
-//! 
+//!
 //! `acorn-lib` is a one-stop-shop for everything related to building and maintaining research activity data (RAD)-related technology, including the Accessible Content Optimization for Research Needs (ACORN) tool.
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 //!
+use crate::analyzer::{link_check, Check};
 use color_eyre::eyre;
 use derive_more::Display;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -188,7 +189,7 @@ pub struct GithubTreeEntry {
     #[serde(rename = "type")]
     pub entry_type: EntryType,
     /// [SHA1] of entry
-    /// 
+    ///
     /// [SHA1]: https://en.wikipedia.org/wiki/SHA-1
     pub sha: String,
     /// Size of associated data
@@ -583,7 +584,44 @@ impl GitlabTreeEntry {
     }
 }
 impl Location {
+    /// Get associated location hash
+    /// > Useful for standardizing file path handling across local and remote contexts
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::Location;
+    ///
+    /// let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string());
+    /// assert_eq!(location.hash(), "code_ornl_gov_buckets_nssd");
+    /// ```
+    pub fn hash(&self) -> String {
+        let uri = self.uri().unwrap();
+        let host = match uri.host() {
+            | Some(value) => value.clone().to_string().replace('.', "_"),
+            | None => "".to_string(),
+        };
+        let segments = uri
+            .path()
+            .segments()
+            .iter()
+            .map(|s| s.to_string())
+            .filter(|s| !(s.is_empty() || s.eq(".")))
+            .collect::<Vec<_>>();
+        [host, segments.join("_").to_lowercase()]
+            .into_iter()
+            .filter(|x| !x.is_empty())
+            .collect::<Vec<String>>()
+            .join("_")
+    }
     /// Get associated location value scheme (e.g., https, file, etc.)
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::{Location, Scheme};
+    ///
+    /// let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string());
+    /// assert_eq!(location.scheme(), Scheme::HTTPS);
+    /// let location = Location::Simple("file://localhost/buckets/nssd".to_string());
+    /// assert_eq!(location.scheme(), Scheme::File);
+    /// ```
     pub fn scheme(&self) -> Scheme {
         match self {
             | Location::Simple(value) => match URI::try_from(value.as_str()) {
@@ -597,23 +635,38 @@ impl Location {
             | Location::Detailed { scheme, .. } => scheme.clone(),
         }
     }
+    /// Check if a location exists (i.e., is reachable and accessible)
+    pub async fn exists(self) -> bool {
+        let uri = self.uri();
+        match self.scheme() {
+            | Scheme::HTTPS => match uri {
+                | Some(uri) => match link_check(Some(uri.into())).await {
+                    | Check { success, .. } if success => true,
+                    | _ => false,
+                },
+                | None => false,
+            },
+            | Scheme::File => match uri {
+                | Some(value) => PathBuf::from(value.path().to_string()).exists(),
+                | None => false,
+            },
+            | Scheme::Unsupported => false,
+        }
+    }
     /// Extract and return URI from a location value
     pub fn uri(&self) -> Option<URI<'_>> {
+        fn parse_uri(value: &str) -> Option<URI<'_>> {
+            match URI::try_from(value) {
+                | Ok(value) => Some(value),
+                | Err(why) => {
+                    warn!("=> {} Parse URI - {why}", Label::fail());
+                    None
+                }
+            }
+        }
         match self {
-            | Location::Simple(value) => match URI::try_from(value.as_str()) {
-                | Ok(value) => Some(value),
-                | Err(why) => {
-                    warn!("=> {} Parse URI - {why}", Label::fail());
-                    None
-                }
-            },
-            | Location::Detailed { uri, .. } => match URI::try_from(uri.as_str()) {
-                | Ok(value) => Some(value),
-                | Err(why) => {
-                    warn!("=> {} Parse URI - {why}", Label::fail());
-                    None
-                }
-            },
+            | Location::Simple(value) => parse_uri(value),
+            | Location::Detailed { uri, .. } => parse_uri(uri),
         }
     }
 }

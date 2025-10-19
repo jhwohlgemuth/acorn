@@ -48,7 +48,54 @@ fn test_gitlab_tree_entry() {
         mode: "example".to_string(),
     };
     assert!(!entry.is_blob());
-    assert_eq!(entry.path(), "acorn".to_string());
+    assert_eq!(entry.path(), "acorn");
+}
+#[tokio::test]
+async fn test_location_exists() {
+    // remote URL
+    let location = Location::Simple("https://google.com".into());
+    assert!(location.exists().await);
+    // non-existent remote URL
+    let location = Location::Simple("https://does-not-exist.com".into());
+    assert!(!location.exists().await);
+    // local path
+    let location = Location::Simple("file:./Cargo.toml".into());
+    assert!(location.exists().await);
+    // non-existent local path
+    let location = Location::Simple("file:./does-not-exist".into());
+    assert!(!location.exists().await);
+    // unsupported scheme (HTTP)
+    let location = Location::Simple("http://google.com".into());
+    assert!(!location.exists().await);
+    // failed remote uri
+    let location = Location::Detailed {
+        scheme: Scheme::HTTPS,
+        uri: "42".into(),
+    };
+    assert!(!location.exists().await);
+    // failed local uri
+    let location = Location::Detailed {
+        scheme: Scheme::File,
+        uri: "should fail to parse?".into(),
+    };
+    assert!(!location.exists().await);
+}
+#[test]
+fn test_location_hash() {
+    // remote
+    let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets".into());
+    assert_eq!(location.hash(), "code_ornl_gov_research-enablement_buckets");
+    let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".into());
+    assert_eq!(location.hash(), "code_ornl_gov_research-enablement_buckets_nssd");
+    // host = localhost
+    let location = Location::Simple("file://localhost/buckets/nssd".into());
+    assert_eq!(location.hash(), "localhost_buckets_nssd");
+    // No host (absolute path)
+    let location = Location::Simple("file:///buckets/nssd".into());
+    assert_eq!(location.hash(), "buckets_nssd");
+    // No host (relative path)
+    let location = Location::Simple("file:./buckets/nssd".into());
+    assert_eq!(location.hash(), "buckets_nssd");
 }
 #[test]
 fn test_repository_gitlab() {

@@ -1,7 +1,7 @@
 //! # Schema validation helpers
 //!
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
-//! 
+//!
 use crate::constants::*;
 use crate::schema::pid::PersistentIdentifier;
 use chrono::prelude::*;

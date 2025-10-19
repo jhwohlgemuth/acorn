@@ -1,7 +1,7 @@
 //! # Vale interface
 //!
 //! Provides programmtic access to the [Vale prose analyzer](https://vale.sh/) - an open-source, command-line tool that brings your editorial style guide to life.
-//! 
+//!
 use crate::util::{Label, SemanticVersion};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;

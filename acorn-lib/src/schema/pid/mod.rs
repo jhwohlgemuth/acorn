@@ -1,12 +1,12 @@
 //! Persistent Identifiers (PID)
-//! 
+//!
 //! Contains functions for working with persistent identifiers (PID) such as [`ORCID`], [`DOI`]s, and [RAiD](`raid`)s
-//! 
+//!
 //! ### Features
 //! - Best in class validation
 //! - Convert persistent identifiers into standard formats
 //! - Access the sub parts of a persistent identifier
-//! 
+//!
 //! [RAiDs]: https://www.raid.org/
 use crate::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT};
 use crate::util::{regex_capture_lookup, ToStringChunks};
@@ -209,7 +209,7 @@ impl DOI {
     /// assert!(DOI::is_valid("https://doi.org/10.1000/182"));
     /// assert!(DOI::is_valid("10.1000/182"));
     /// ```
-    /// 
+    ///
     /// [^format]: Use `DOI::format(value)` to ensure value is formatted correctly
     pub fn is_valid<S>(value: S) -> bool
     where
@@ -343,7 +343,7 @@ impl ORCID {
     /// assert!(ORCID::is_valid("0000-0002-2057-9115"));
     /// assert!(ORCID::is_valid("0000000220579115"));
     /// ```
-    /// 
+    ///
     /// [^format]: Use `ORCID::format(value)` to ensure value is formatted correctly
     pub fn is_valid<S>(value: S) -> bool
     where

@@ -316,23 +316,23 @@ pub const SAME_SINGULAR_PLURAL: [&str; 110] = [
 #[derive(Clone, Copy, Debug, Default, Display, PartialEq, ValueEnum)]
 pub enum ReadabilityType {
     /// Automated Readability Index (ARI)
-    /// 
+    ///
     /// See [`automated_readability_index`]
     #[display("ari")]
     ARI,
     /// Coleman-Liau Index (CLI)
-    /// 
+    ///
     /// See [`coleman_liau_index`]
     #[display("cli")]
     CLI,
     /// Flesch-Kincaid Grade Level (FKGL)
-    /// 
+    ///
     /// See [`flesch_kincaid_grade_level`]
     #[default]
     #[display("fkgl")]
     FKGL,
     /// Flesch Reading Ease (FRES)
-    /// 
+    ///
     /// See [`flesch_reading_ease_score`]
     #[display("fres")]
     FRES,
@@ -340,12 +340,12 @@ pub enum ReadabilityType {
     #[display("gfi")]
     GFI,
     /// Lix (abbreviation of Swedish läsbarhetsindex)
-    /// 
+    ///
     /// See [`lix`]
     #[display("lix")]
     Lix,
     /// SMOG Index (SMOG)
-    /// 
+    ///
     /// See [`smog`]
     #[display("smog")]
     SMOG,
@@ -476,15 +476,15 @@ pub fn coleman_liau_index(text: &str) -> f64 {
     format!("{score:.2}").parse().unwrap()
 }
 /// Flesch-Kincaid Grade Level (FKGL)[^cite]
-/// 
+///
 /// Arguably the most popular readability test.
-/// 
+///
 /// The result is a number that corresponds with a US grade level.
 ///
 /// Requires counting words, sentences, and syllables
 ///
 /// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
-/// 
+///
 /// [^cite]: Flesch, R. (1948). A new readability yardstick. Journal of Applied Psychology, 32(3), 221–233. <https://doi.org/10.1037/h0057532>
 pub fn flesch_kincaid_grade_level(text: &str) -> f64 {
     let words = word_count(text);
@@ -587,7 +587,7 @@ pub fn singular_form(word: &str) -> String {
 /// ### Example
 /// ```rust
 /// use acorn_lib::analyzer::readability::syllable_count;
-/// 
+///
 /// let sentence = "The quick brown fox jumps over the lazy dog.";
 /// assert_eq!(syllable_count(sentence), 11);
 /// ```
