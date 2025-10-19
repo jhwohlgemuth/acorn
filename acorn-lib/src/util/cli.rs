@@ -1,7 +1,7 @@
 //! # Command line interface (CLI) utilities
 //!
 //! Common utilities and structs used to create a command line interface using ACORN schemas
-use crate::util::{files_all, files_from_git_branch, files_from_git_commit, filter_ignored, git_branch_name};
+use crate::util::{files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored};
 use bon::Builder;
 use clap::ValueEnum;
 use derive_more::Display;
@@ -192,10 +192,7 @@ pub fn paths_from_options(path: &Option<PathBuf>, options: &Option<Options>) -> 
             ..
         }) => {
             let files = if *merge_request {
-                match git_branch_name() {
-                    | Some(name) => files_from_git_branch(&name, extensions),
-                    | None => vec![],
-                }
+                files_from_gitlab_merge_request(extensions)
             } else {
                 match commit {
                     | Some(hash) => files_from_git_commit(hash, extensions),

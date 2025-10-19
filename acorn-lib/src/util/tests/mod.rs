@@ -2,7 +2,9 @@ use crate::util::citeas;
 use crate::util::*;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+#[cfg(test)]
+use temp_env;
 
 const FIXTURES: &str = "../tests/fixtures";
 
@@ -39,6 +41,7 @@ fn test_citeas() {
         assert_eq!(documentation_url, "https://citeas.org/api");
     }
     if let Some(citeas::Citation { text, .. }) = citeas::Citations::from_doi("10.11578/dc.20250604.1").match_style("apa") {
+        println!("CiteAs Test Response Received");
         let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
         assert_eq!(text, expected);
     };
@@ -112,6 +115,26 @@ fn test_files_from_git_main() {
     assert_eq!(files.len(), 1);
     let expected = "tests/fixtures/data/invalid_project_a/index.json";
     assert_eq!(files[0].to_str().unwrap(), expected);
+}
+#[ignore]
+#[test]
+fn test_files_from_gitlab_merge_request() {
+    let extensions = Some(vec!["json", "yaml"]);
+    let expected = PathBuf::from("project/gravity/gravity.json");
+    temp_env::with_vars(
+        [
+            ("CI_API_V4_URL", Some("https://code.ornl.gov/api/v4")),
+            // NSSD Bucket
+            ("CI_MERGE_REQUEST_PROJECT_ID", Some("17410")),
+            // Gravity merge request
+            ("CI_MERGE_REQUEST_IID", Some("27")),
+        ],
+        || {
+            let files = files_from_gitlab_merge_request(extensions.clone());
+            assert_eq!(files.len(), 1);
+            assert_eq!(files[0], expected)
+        },
+    );
 }
 #[test]
 fn test_find_first() {
