@@ -11,6 +11,7 @@ fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     let validate = PyModule::new(python, "validate")?;
     // Add functions from schema.validate module
     validate.add_function(wrap_pyfunction!(format_doi, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(format_orcid, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_phone_number, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ip6, &validate)?)?;
@@ -183,6 +184,17 @@ impl PyResearchActivity {
 #[pyfunction]
 fn format_doi(value: &str) -> String {
     schema::pid::DOI::format(value)
+}
+/// Convert an ORCiD into a standard format
+/// ### Example
+/// ```python
+/// from acorn.schema.validate import format_orcid
+///
+/// assert format_orcid("https://doi.org/10.1000/182") == "10.1000/182"
+/// ```
+#[pyfunction]
+fn format_orcid(value: &str) -> String {
+    schema::pid::ORCID::format(value)
 }
 /// Convert a phone number into a standard format
 /// ### Example

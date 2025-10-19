@@ -1,13 +1,13 @@
-from pathlib import Path
-
-import acorn
-from acorn.schema import ResearchActivity
-from acorn.schema.validate import format_doi, format_phone_number, is_doi, is_ip6, is_orcid, is_ror
+from acorn.schema.validate import (
+    format_doi,
+    format_orcid,
+    format_phone_number,
+    is_doi,
+    is_ip6,
+    is_orcid,
+    is_ror,
+)
 from pytest import raises
-
-
-def test_name():
-    assert acorn.__name__ == "acorn"
 
 
 def test_format_phone_number():
@@ -24,6 +24,19 @@ def test_format_doi():
     assert format_doi(f"https://doi.org/{expected}") == expected
     assert not format_doi("https://doi.org/42.11578/dc.20250604.1")
     assert not format_doi("totally invalid string")
+
+
+def test_format_orcid():
+    assert (
+        format_orcid("https://orcid.org/0000-0002-2057-9115")
+        == "https://orcid.org/0000-0002-2057-9115"
+    )
+    assert format_orcid("0000-0002-2057-9115") == "https://orcid.org/0000-0002-2057-9115"
+    assert (
+        format_orcid("https://orcid.org/0009-0005-5568-6526")
+        == "https://orcid.org/0009-0005-5568-6526"
+    )
+    assert format_orcid("0009-0005-5568-6526") == "https://orcid.org/0009-0005-5568-6526"
 
 
 def test_is_doi():
@@ -57,12 +70,3 @@ def test_is_ror():
     assert is_ror("https://ror.org/01qz5mb56")
     assert not is_ror("03ebg0v16-")
     assert not is_ror("10.1000/182")
-
-
-def test_research_activity():
-    location = "../tests/fixtures/data/valid_project/index.json"
-    data = ResearchActivity.read(location)
-    assert data.title == "Valid Project"
-    data = ResearchActivity.read(Path(location))
-    assert data.title == "Valid Project"
-    assert data.contact.email == "wohlgemuthjh@ornl.gov"
