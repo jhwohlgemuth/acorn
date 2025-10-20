@@ -776,7 +776,7 @@ pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<
 }
 /// Struct for parsing GitLab API merge request diff responses
 ///
-/// Used by [`files_from_gitlab_merge_request_diff`]
+/// Used by [`files_from_gitlab_merge_request`]
 ///
 /// ### Example Response JSON
 /// ```json
