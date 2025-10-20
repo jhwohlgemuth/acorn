@@ -1,11 +1,41 @@
 # CHANGELOG 🌱
 > Wisdom is knowledge of things that don't change, intelligence is the knowledge of things that do
 
-## Unreleased
-> ⚠️ If you want to use these changes, you will need to build from source. Consult [CONTRIBUTING.md](https://code.ornl.gov/research-enablement/acorn/-/blob/main/CONTRIBUTING.md) for details.
+## [0.1.31](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.30..v0.1.31) - 2025-10-19
 
 ### 🚀 Features
 
+- Add format_orcid to python API - ([6af8345](https://code.ornl.gov/research-enablement/acorn/commit/6af8345c8edda704bbf24999f0961c97f06698be))
+- Make --merge-request flag get files from GitLab API for more consistent behavior - ([7bfe457](https://code.ornl.gov/research-enablement/acorn/commit/7bfe457fd6eb81c2d7c97f7b5dc933391c23be0e))
+- Augment ProgrammingLanguages enum and move it to schema module - ([a7b6760](https://code.ornl.gov/research-enablement/acorn/commit/a7b6760bda8eac99b3a75b6c81e55dcf8d36d6b5))
+- Add methods to Location and moar docs - ([e298be4](https://code.ornl.gov/research-enablement/acorn/commit/e298be425b1c7712e7abb051e0bd47c1ea12903a))
+- Improve ORCID support and fix some issues - ([f5fd13b](https://code.ornl.gov/research-enablement/acorn/commit/f5fd13b8109c8548dcfeead4452d035cda24262d))
+- Improve default ORCID behavior and add some docs - ([d0b1e11](https://code.ornl.gov/research-enablement/acorn/commit/d0b1e117c8132889f8b04a044adca2994fae1446))
+- Build out PID module and improve ORCID validation - ([5451201](https://code.ornl.gov/research-enablement/acorn/commit/5451201b977ec41cd09479f113d8e8a4873bc5c6))
+- Use is_doi str method in validation - ([e1015a7](https://code.ornl.gov/research-enablement/acorn/commit/e1015a7c1764dfd05c2ad85a17c94a7d8b86ca09))
+- Improve persistent identifier user experience with traits - ([230354f](https://code.ornl.gov/research-enablement/acorn/commit/230354f1f033fd38a5c5acb4db978103811b3258))
+- Create PID module - ([4859eb4](https://code.ornl.gov/research-enablement/acorn/commit/4859eb4308312b5dcc39497358d1776e56b3a875))
+- Separate doctests from tests; add module docs to util module - ([cdf47d8](https://code.ornl.gov/research-enablement/acorn/commit/cdf47d82939b3e8a4d22922b05fec90622e4aabc))
+- Add docs to util and create to_absolute_string impl and function (rename of path_to_string) - ([ee2acb1](https://code.ornl.gov/research-enablement/acorn/commit/ee2acb1e13c20675d05f682e6e7148b5fff4d3d8))
+- Add format_doi to acorn python API - ([b848264](https://code.ornl.gov/research-enablement/acorn/commit/b8482641999e2598480598738d07246f902b5b2b))
+- Initial input and output stream handling capability - ([02a0360](https://code.ornl.gov/research-enablement/acorn/commit/02a0360322716da5ad05f5fb1042a492644f73ab))
+- Initial DOI parsing and formatting capability - ([6ffbb21](https://code.ornl.gov/research-enablement/acorn/commit/6ffbb21f342b7bf9b6e44c2698853428c79528ac))
+- Make checksum return an option - ([0db3400](https://code.ornl.gov/research-enablement/acorn/commit/0db34005490b156ee85e898f653af7ae44407185))
+- Add ROR values to sponsors CSV - ([0bd90a0](https://code.ornl.gov/research-enablement/acorn/commit/0bd90a071b2240ad8dd0d1bc278c8f8590e20fca))
+- Add snake_case function - ([f211f5f](https://code.ornl.gov/research-enablement/acorn/commit/f211f5f869511bbf91b0c4e789d011c8c66946a8))
+- Replace titlecase crate with convert-case crate - ([670e1b3](https://code.ornl.gov/research-enablement/acorn/commit/670e1b32e83690626e09cf8a19d1e1ad4fb8d2bf))
+- Update Label impl to include fmt for each method and methods used in more contexts - ([94e0625](https://code.ornl.gov/research-enablement/acorn/commit/94e06254a6919574ca411b2ac54d45d7aa28f208))
+- Add nanoscale keyword - ([5fec849](https://code.ornl.gov/research-enablement/acorn/commit/5fec84987de16636b405179daadbad1bf502fb17))
+- Add more partners from IMPACT and add ROR values to every partner - ([fde3184](https://code.ornl.gov/research-enablement/acorn/commit/fde31847b1647fedf6fa2e4480f4d050b79f153d))
+- Add partners listed in IMPACT - ([6793ca6](https://code.ornl.gov/research-enablement/acorn/commit/6793ca66cff2a4bd454f76c570786984fd01a893))
+- Add ResearchActivity class to acorn-py - ([224f97b](https://code.ornl.gov/research-enablement/acorn/commit/224f97b26af31e34e0ffb572e8a6c24a9912ed9d))
+- Add more validate functions to acorn-py; add linting to python project - ([3823b8f](https://code.ornl.gov/research-enablement/acorn/commit/3823b8fd54f89767233d32701c617bce7a49b074))
+- Add more validate functions to acorn-py - ([3aa00e2](https://code.ornl.gov/research-enablement/acorn/commit/3aa00e2d954b98d4110563b4b73fd0462b64939b))
+- Make validate submodule of schema submodule in acorn-py - ([83a0c93](https://code.ornl.gov/research-enablement/acorn/commit/83a0c931e8791bd9a36f2d7dadc4da668255ba7e))
+- Add validaate submodule to acorn-py - ([90450c1](https://code.ornl.gov/research-enablement/acorn/commit/90450c154cb4e99c5e9d5c7501071f038ae9e296))
+- Add is_orcid to acorn-py - ([09769cb](https://code.ornl.gov/research-enablement/acorn/commit/09769cb25f46d391cb53ab3145629a84c72fa216))
+- Configure acorn-py for proper development using pixi - ([356b7c2](https://code.ornl.gov/research-enablement/acorn/commit/356b7c2a1c8920610dc29d110ba5efc571ef5cd7))
+- Add maturin develop make task - ([f817254](https://code.ornl.gov/research-enablement/acorn/commit/f817254ab7c1461f8ab1905ad6e6515dc6bda069))
 - Add ORCiD identifier to ContactPoint in RAD schema - ([36b330a](https://code.ornl.gov/research-enablement/acorn/commit/36b330a243e35f151390b0de6e9b1ed189544cca))
 - Add initial project structure for Python package - ([0563c25](https://code.ornl.gov/research-enablement/acorn/commit/0563c25758826e8a53c9bb7e5931065903ce5ae1))
 - Add validation to Unix epoch timestamp values in RAiD metadata - ([f31844a](https://code.ornl.gov/research-enablement/acorn/commit/f31844a10e779daa45df4c16192093657f5a5d58))
@@ -26,6 +56,15 @@
 
 ### 🐛 Bug Fixes
 
+- *(ci)* Execute commands in same context within make task - ([38163fc](https://code.ornl.gov/research-enablement/acorn/commit/38163fc97852c8accf9ab1c617de4050081c7065))
+- *(ci)* Restore script in releases job - ([8ed80ef](https://code.ornl.gov/research-enablement/acorn/commit/8ed80efc28fbc08d952721cb389641f1e10f1545))
+- *(ci)* Restore publish-release job name - ([9b8ee4c](https://code.ornl.gov/research-enablement/acorn/commit/9b8ee4c9b4ea5896ef2a9e3fec264b17fba50339))
+- *(docs)* Resolve lint issues in docs - ([ae7ab16](https://code.ornl.gov/research-enablement/acorn/commit/ae7ab1663512ba8fd082738dd2705d78f7138af8))
+- *(tests)* Make new util doctests pass - ([338f842](https://code.ornl.gov/research-enablement/acorn/commit/338f8423afc101c3a45aef1fbcbdbb093e549850))
+- *(tests)* Update doi python tests to allow schema uri - ([524f271](https://code.ornl.gov/research-enablement/acorn/commit/524f271a8b2b9c087708161a40377630c0f23db1))
+- *(tests)* Use DOI with invalid schema uri - ([81adef4](https://code.ornl.gov/research-enablement/acorn/commit/81adef41b301b65d77b45de5f1cbda1a0f22c9c9))
+- Import DOI and then use is_valid in doctest - ([46233f3](https://code.ornl.gov/research-enablement/acorn/commit/46233f3a1e4a9411b79399ea1ccc25ca0864f7ca))
+- Change how readability variables are read from env file; update tarpaulin to support py03 - ([f04f37f](https://code.ornl.gov/research-enablement/acorn/commit/f04f37ff80a499eb5aebcb1350d54579ff1cacf5))
 - Remove deserialize attribute from contactPoint.identifier; Improve read error messages - ([e626a1d](https://code.ornl.gov/research-enablement/acorn/commit/e626a1d189fe79fa7853403e45f0d13e3c863062))
 - Use unique name for python export - ([b654d5d](https://code.ornl.gov/research-enablement/acorn/commit/b654d5dda161604df82ba6937bea650383e51a07))
 - Add nested validation to RAiD metadata - ([cf3fecf](https://code.ornl.gov/research-enablement/acorn/commit/cf3fecfcf5124cf9833658c5441956a778a9cff8))
@@ -33,6 +72,11 @@
 
 ### 📚 Documentation
 
+- Improve docs with more examples, links, and words - ([ec82f0a](https://code.ornl.gov/research-enablement/acorn/commit/ec82f0abdda451a4f7082127dcc27bb9867325f1))
+- Add tested cases to SemanticVersion docs - ([b98248e](https://code.ornl.gov/research-enablement/acorn/commit/b98248ed8af8ef41e1d23a9143496468b8cba3fb))
+- Add ACORN overview to README - ([0a91e7c](https://code.ornl.gov/research-enablement/acorn/commit/0a91e7ca5c0f3e1206a024a909556c2acb70d9f9))
+- Improve acorn-py documentation and configure acorn-py lib name to avoid internal conflicts - ([81a253e](https://code.ornl.gov/research-enablement/acorn/commit/81a253e5258b10064f57095f0c92e609d59b8f70))
+- Improve acorn-py documentation - ([71037ac](https://code.ornl.gov/research-enablement/acorn/commit/71037ac52c3246d70cfc450e94cf90c67da09f58))
 - Add acorn-py to design docs - ([6cc4f20](https://code.ornl.gov/research-enablement/acorn/commit/6cc4f20864de3bdb8e92d8aa219e24cb0763c725))
 - Clear doc lint issues - ([72424bf](https://code.ornl.gov/research-enablement/acorn/commit/72424bf722590dbe475f6c903b00997e4bdf64d7))
 - Add install instructions for dev dependencies - ([5fef301](https://code.ornl.gov/research-enablement/acorn/commit/5fef30155f0c4960d4e36aa5b2726fa78be9b494))
@@ -40,18 +84,31 @@
 
 ### 🧪 Testing
 
+- Add case that exercises checksum empty string return - ([41e5a4d](https://code.ornl.gov/research-enablement/acorn/commit/41e5a4d633aaab3c5abe5bba1edb9feb21a142a2))
 - Build coverage report - ([caf823b](https://code.ornl.gov/research-enablement/acorn/commit/caf823b07794c45ca2deecc9ceb012ee44d54e64))
 
 ### ⚙️ Miscellaneous Tasks
 
+- Add job for running python tests - ([a1697b1](https://code.ornl.gov/research-enablement/acorn/commit/a1697b1b64dedefa8f613272116ba2986eb274fd))
+- Turn on CI debug services - ([cb459c3](https://code.ornl.gov/research-enablement/acorn/commit/cb459c3e4be6492153c9cbfa8ca4e48e10a3a3ce))
+- Update changelog and refine CI config - ([7a87921](https://code.ornl.gov/research-enablement/acorn/commit/7a879218b6f79041e2701f767baf767dc08e6ed4))
 - Move documentation publishing to make task - ([0db5de3](https://code.ornl.gov/research-enablement/acorn/commit/0db5de39094040901090e0c43e8458b97d2b3521))
 
 ### 🚧 In Progress
 
+- Working on DOI struct and DOI parsing - ([e709421](https://code.ornl.gov/research-enablement/acorn/commit/e7094213e1fa07e0cf38ad6bf3f50d905edeb5b4))
+- Initial addition of ResearchActivity to python API - ([3128771](https://code.ornl.gov/research-enablement/acorn/commit/31287711998a2b5ac83bdc8399b77e5f9e4c1632))
 - Start adding support for local repository URIs - ([6dc296e](https://code.ornl.gov/research-enablement/acorn/commit/6dc296e180c9f002a78af2a506f61244758c8ff4))
 
 ### 🤓 Developer Experience
 
+- Add Peacock configuration to project - ([46451d5](https://code.ornl.gov/research-enablement/acorn/commit/46451d50ad9963849c45d736963822d32416f2b2))
+- Add setup make task for install cargo dev dependencies - ([66bfdeb](https://code.ornl.gov/research-enablement/acorn/commit/66bfdebb7d98dcaf197d5a903ac15471079e5420))
+- Move acorn-py tasks into acorn-py directory (makefile and pyproject) - ([96513c4](https://code.ornl.gov/research-enablement/acorn/commit/96513c4cad356228a9afa3fcf6157cf61a882ea6))
+- Refactor makefile to use task list for PHONY declarations - ([bd35437](https://code.ornl.gov/research-enablement/acorn/commit/bd3543793763c3c93e1e12a38d2cace8dd844a17))
+- Stop publishing source distribution to pypi - ([c624e62](https://code.ornl.gov/research-enablement/acorn/commit/c624e62f8479997069351b23d24c5d691d3d96ee))
+- Add make task for publishing PyPI package - ([14ea510](https://code.ornl.gov/research-enablement/acorn/commit/14ea5105c55b304bf77c849f59d6e1df955c3990))
+- Refine pixi lint task definition - ([169c2b0](https://code.ornl.gov/research-enablement/acorn/commit/169c2b00cb289d8ed50ead31b34f81a3f68b20c3))
 - Create scripts directory and move scripts into it - ([7363e70](https://code.ornl.gov/research-enablement/acorn/commit/7363e70edfcf800f7096bf57889a797fe04762cf))
 - Perform git pull with tags before generating changelog with git-cliff in makefile - ([2a05670](https://code.ornl.gov/research-enablement/acorn/commit/2a05670143e6fbdf703ccfb1dd1dcfe66e4c0b12))
 - Add openssl setup script for windows - ([919ba66](https://code.ornl.gov/research-enablement/acorn/commit/919ba6632bae83a05957e5dee174c4df43a418fe))
