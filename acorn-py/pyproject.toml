@@ -22,8 +22,9 @@ classifiers = [
   "Topic :: Scientific/Engineering",
 ]
 [project.urls]
-Repository = "https://code.ornl.gov/research-enablement/acorn.git"
 Changelog = "https://code.ornl.gov/research-enablement/acorn/-/blob/main/CHANGELOG.md"
+Documentation = "https://acorn.ornl.gov"
+Source = "https://code.ornl.gov/research-enablement/acorn"
 
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
