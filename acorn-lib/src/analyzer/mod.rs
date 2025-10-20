@@ -27,7 +27,7 @@ use std::fs::{create_dir_all, remove_file};
 use std::io::prelude::*;
 use std::path::PathBuf;
 use tar::Archive;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 use validator::ValidationErrorsKind;
 use which::which;
 
@@ -49,7 +49,7 @@ pub trait StaticAnalyzer {
     /// Get command name (e.g. "vale")
     fn command(self) -> String;
     /// Download binary
-    fn download(self, config: Option<ValeConfig>) -> Self;
+    fn download(self, config: Option<ValeConfig>, skip_verify_checksum: bool) -> Self;
     /// Download checksum values
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     /// Extract binary
@@ -372,7 +372,7 @@ impl StaticAnalyzer for Vale {
         }
     }
     // TODO: Check if binary has already been downloaded
-    fn download(self, config: Option<ValeConfig>) -> Vale {
+    fn download(self, config: Option<ValeConfig>, skip_verify_checksum: bool) -> Vale {
         // https://doc.rust-lang.org/std/env/consts/constant.OS.html
         let os = std::env::consts::OS.to_lowercase();
         let platform = match os.as_str() {
@@ -399,19 +399,23 @@ impl StaticAnalyzer for Vale {
         info!(url, "=> {} Vale release v{}", Label::using(), release);
         let binary = match download_binary(&url, ".") {
             | Ok(path) => {
-                let dowloaded_checksums = match self.clone().download_checksums() {
-                    | Ok(value) => value.get(platform).unwrap().to_string(),
-                    | Err(_) => "".to_string(),
-                };
-                if let Some(calculated) = checksum(path.clone()) {
-                    if !dowloaded_checksums.eq(&calculated) {
-                        error!(dowloaded_checksums, calculated, "=> {}", Label::invalid());
-                        let _cleanup = remove_file(path);
-                        std::process::exit(exitcode::USAGE);
-                    } else {
-                        info!(dowloaded_checksums, "=> {}", Label::pass());
-                    }
-                };
+                if !skip_verify_checksum {
+                    let dowloaded_checksums = match self.clone().download_checksums() {
+                        | Ok(value) => value.get(platform).unwrap().to_string(),
+                        | Err(_) => "".to_string(),
+                    };
+                    if let Some(calculated) = checksum(path.clone()) {
+                        if !dowloaded_checksums.eq(&calculated) {
+                            error!(dowloaded_checksums, calculated, "=> {}", Label::invalid());
+                            let _cleanup = remove_file(path);
+                            std::process::exit(exitcode::USAGE);
+                        } else {
+                            info!(dowloaded_checksums, "=> {}", Label::pass());
+                        }
+                    };
+                } else {
+                    warn!("=> {} Checksum verification", Label::skip());
+                }
                 // TODO: Provide option to save to cache project directory
                 let destination = match config.clone() {
                     | Some(value) => value.path.parent().unwrap().to_path_buf(),

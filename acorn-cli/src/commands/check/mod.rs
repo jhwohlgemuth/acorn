@@ -28,6 +28,7 @@ pub fn run(
     disable_website_checks: &bool,
     exit_on_first_error: &bool,
     merge_request: &bool,
+    skip_verify_checksum: &bool,
     offline: &bool,
     readability_metric: &ReadabilityType,
 ) -> Result<(), Report> {
@@ -60,7 +61,7 @@ pub fn run(
         warn!("=> {} Prose analysis", Label::skip());
         vec![]
     } else {
-        let results = ResearchActivity::analyze_prose(paths.clone(), *offline);
+        let results = ResearchActivity::analyze_prose(paths.clone(), *offline, *skip_verify_checksum);
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             error!("=> {} Found {} prose issues", Label::fail(), issues);

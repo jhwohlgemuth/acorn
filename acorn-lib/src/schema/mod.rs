@@ -913,7 +913,7 @@ impl ResearchActivity {
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
     /// Analyzes a list of research activity files
-    pub fn analyze_prose(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
+    pub fn analyze_prose(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
         let config = ValeConfig::default().save();
         let init = Vale::init().build();
         let vale = if command_exists("vale") {
@@ -921,7 +921,7 @@ impl ResearchActivity {
         } else if is_offline {
             todo!("Support pointing to local vale executable");
         } else {
-            init.download(Some(config))
+            init.download(Some(config), skip_verify_checksum)
         };
         match vale.clone().sync(is_offline) {
             | Ok(_) => {

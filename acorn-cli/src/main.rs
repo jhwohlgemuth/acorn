@@ -118,6 +118,7 @@ fn main() -> Void {
             disable_website_checks,
             exit_on_first_error,
             merge_request,
+            skip_verify_checksum,
             readability_metric,
             ..
         }) => commands::check::run(
@@ -129,6 +130,7 @@ fn main() -> Void {
             disable_website_checks,
             exit_on_first_error,
             merge_request,
+            skip_verify_checksum,
             &offline,
             readability_metric,
         ),

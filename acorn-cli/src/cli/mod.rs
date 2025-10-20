@@ -133,6 +133,10 @@ pub enum Commands {
         /// Skip one or more available quality check categories
         #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
         skip: Vec<CheckCategory>,
+        /// Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose)
+        /// > CAUTION: Use at your own risk
+        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+        skip_verify_checksum: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },
