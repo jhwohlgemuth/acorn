@@ -475,20 +475,31 @@ impl StaticAnalyzer for Vale {
         Ok(checksums)
     }
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
+        let command = self.clone().command();
+        let parent = match destination {
+            | Some(value) => to_absolute_string(value),
+            | None => format!("./.{command}/"),
+        };
         match extension(&path).as_str() {
-            | "zip" => unimplemented!(),
-            | _ => {
+            | "zip" => match extract_zip(path, Some(parent.into())) {
+                | Ok(value) => value,
+                | Err(why) => {
+                    error!("=> {} {command} extract - {why}", Label::fail());
+                    std::process::exit(exitcode::UNAVAILABLE);
+                }
+            },
+            | "gz" => {
                 let tar_gz = File::open(path).unwrap();
                 let tar = GzDecoder::new(tar_gz);
                 let mut archive = Archive::new(tar);
-                let parent = match destination {
-                    | Some(value) => to_absolute_string(value),
-                    | None => "./.vale/".to_string(),
-                };
-                let message = format!("Unable to extract {} binary", self.clone().command());
+                let message = format!("Unable to extract {command} binary");
                 archive.unpack(parent.clone()).expect(&message);
-                debug!(parent, "=> {} Extracted {} binary", Label::using(), self.command());
-                PathBuf::from(format!("{parent}/vale"))
+                debug!(parent, "=> {} Extracted {command} binary", Label::using());
+                PathBuf::from(format!("{parent}/{command}"))
+            }
+            | _ => {
+                error!("=> {} {command} extract - Unsupported format", Label::fail());
+                std::process::exit(exitcode::UNAVAILABLE);
             }
         }
     }
