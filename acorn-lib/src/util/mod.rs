@@ -684,6 +684,8 @@ pub fn extension(path: &Path) -> String {
 }
 
 /// Extract zip archive
+/// ### Note
+/// If `destination` is not provided, the extracted files will be saved in a folder named "extract" an OS-specific cache location.
 pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let root = standard_project_folder("extract", destination);
     match File::open(path.clone()) {
