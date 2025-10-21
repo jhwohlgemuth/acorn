@@ -54,6 +54,13 @@ fn test_extension() {
     assert_eq!("", extension(Path::new("/path/to/folder")));
 }
 #[test]
+fn test_extract_zip() {
+    let path = PathBuf::from(FIXTURES).join("data/highlight/reference.pptx");
+    let result = extract_zip(path, None);
+    println!("{:?}", result);
+    assert!(result.is_ok());
+}
+#[test]
 fn test_files_all() {
     let extensions = Some(vec!["json"]);
     let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions.clone());

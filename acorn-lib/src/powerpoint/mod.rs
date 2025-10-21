@@ -4,18 +4,17 @@
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::schema::{ContactPoint, Metadata, Notes, Other, ResearchActivity, Sections};
-use crate::util::{files_all, read_file, standard_project_folder, to_absolute_string, write_file, Label};
+use crate::util::{files_all, read_file, to_absolute_string, write_file, Label};
 use fancy_regex::Regex;
 use quick_xml::events::Event;
 use quick_xml::{Reader, Writer};
 use std::error::Error;
-use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 use zip::write::SimpleFileOptions;
-use zip::{ZipArchive, ZipWriter};
+use zip::ZipWriter;
 
 pub mod ooxml;
 use ooxml::*;
@@ -68,48 +67,6 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
         | Err(why) => {
             error!(file = to_absolute_string(path), "=> {} Finish zip archive - {why}", Label::fail());
             Err(why.into())
-        }
-    }
-}
-/// Extract zip archive
-pub fn extract(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
-    let root = standard_project_folder("extract", destination);
-    match File::open(path.clone()) {
-        | Ok(zip_file) => match ZipArchive::new(zip_file) {
-            | Ok(mut archive) => {
-                for index in 0..archive.len() {
-                    if let Ok(mut file) = archive.by_index(index) {
-                        let target = root.join(file.name());
-                        if let Some(parent) = target.parent() {
-                            match create_dir_all(parent) {
-                                | Ok(_) => {}
-                                | Err(why) => error!(path = to_absolute_string(parent.to_path_buf()), "=> {} Create - {}", Label::fail(), why),
-                            }
-                        }
-                        if let Ok(mut output_file) = File::create(&target) {
-                            io::copy(&mut file, &mut output_file).unwrap();
-                        } else {
-                            error!(path = to_absolute_string(target), "=> {} Create file", Label::fail());
-                            std::process::exit(exitcode::UNAVAILABLE);
-                        }
-                    }
-                }
-                info!(path = root.to_str().unwrap(), "=> {} Extract zip archive", Label::pass());
-                Ok(root)
-            }
-            | Err(err) => {
-                error!(
-                    error = err.to_string(),
-                    path = path.to_str().unwrap(),
-                    "=> {} Read zip archive",
-                    Label::fail()
-                );
-                std::process::exit(exitcode::UNAVAILABLE);
-            }
-        },
-        | Err(err) => {
-            error!(error = err.to_string(), path = path.to_str().unwrap(), "=> {} Read file", Label::fail());
-            std::process::exit(exitcode::UNAVAILABLE);
         }
     }
 }

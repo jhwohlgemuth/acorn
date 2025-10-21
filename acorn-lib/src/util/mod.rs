@@ -59,12 +59,14 @@ use similar::{
     TextDiff,
 };
 use std::collections::HashMap;
+use std::error::Error;
 use std::fs::create_dir_all;
 use std::fs::File;
-use std::io::{copy, BufReader, Cursor, Read, Write};
+use std::io::{self, copy, BufReader, Cursor, Read, Write};
 use std::path::{Path, PathBuf};
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 use which::which;
+use zip::ZipArchive;
 
 pub mod citeas;
 #[cfg(feature = "cli")]
@@ -679,6 +681,49 @@ where
 /// ```
 pub fn extension(path: &Path) -> String {
     path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string()
+}
+
+/// Extract zip archive
+pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
+    let root = standard_project_folder("extract", destination);
+    match File::open(path.clone()) {
+        | Ok(zip_file) => match ZipArchive::new(zip_file) {
+            | Ok(mut archive) => {
+                for index in 0..archive.len() {
+                    if let Ok(mut file) = archive.by_index(index) {
+                        let target = root.join(file.name());
+                        if let Some(parent) = target.parent() {
+                            match create_dir_all(parent) {
+                                | Ok(_) => {}
+                                | Err(why) => error!(path = to_absolute_string(parent.to_path_buf()), "=> {} Create - {}", Label::fail(), why),
+                            }
+                        }
+                        if let Ok(mut output_file) = File::create(&target) {
+                            io::copy(&mut file, &mut output_file).unwrap();
+                        } else {
+                            error!(path = to_absolute_string(target), "=> {} Create file", Label::fail());
+                            std::process::exit(exitcode::UNAVAILABLE);
+                        }
+                    }
+                }
+                info!(path = root.to_str().unwrap(), "=> {} Extract zip archive", Label::pass());
+                Ok(root)
+            }
+            | Err(err) => {
+                error!(
+                    error = err.to_string(),
+                    path = path.to_str().unwrap(),
+                    "=> {} Read zip archive",
+                    Label::fail()
+                );
+                std::process::exit(exitcode::UNAVAILABLE);
+            }
+        },
+        | Err(err) => {
+            error!(error = err.to_string(), path = path.to_str().unwrap(), "=> {} Read file", Label::fail());
+            std::process::exit(exitcode::UNAVAILABLE);
+        }
+    }
 }
 /// Returns a vector of `PathBuf` containing all files in a directory that match at least one of the given extensions.
 ///

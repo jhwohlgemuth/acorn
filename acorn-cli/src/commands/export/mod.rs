@@ -1,9 +1,9 @@
 use crate::template::Convert;
 use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
-use acorn_lib::powerpoint::{archive, extract, interpolate_values, read_xml_rel};
+use acorn_lib::powerpoint::{archive, interpolate_values, read_xml_rel};
 use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::cli::{paths_from_options, FileFormat, Options, Size, Target};
-use acorn_lib::util::{suffix, to_absolute_string, tokio_runtime, Label};
+use acorn_lib::util::{extract_zip, suffix, to_absolute_string, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
@@ -99,7 +99,7 @@ fn create_powerpoint(options: Options) {
         | None => unreachable!(),
     };
     let destination = Some(PathBuf::from("./extract"));
-    if let Ok(path) = extract(reference_path, destination) {
+    if let Ok(path) = extract_zip(reference_path, destination) {
         let xml_rels_path = path.join("ppt/slides/_rels/slide1.xml.rels");
         let image_path = match read_xml_rel(xml_rels_path.clone()) {
             | Ok(Relationships { relationship }) => match relationship.clone().into_iter().find(|x| x.target.ends_with(".png")) {

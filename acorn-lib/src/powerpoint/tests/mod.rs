@@ -10,12 +10,6 @@ fn test_archive() {
     assert_eq!(output_file.file_name().unwrap().to_str().unwrap(), "data.zip");
 }
 #[test]
-fn test_extract() {
-    let path = PathBuf::from(FIXTURES).join("data/highlight/reference.pptx");
-    let result = extract(path, None);
-    assert!(result.is_ok());
-}
-#[test]
 fn test_parse() {
     let paragraph = r#"
 <a:p>
