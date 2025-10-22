@@ -98,8 +98,7 @@ fn create_powerpoint(options: Options) {
         },
         | None => unreachable!(),
     };
-    let destination = Some(PathBuf::from("./extract"));
-    if let Ok(path) = extract_zip(reference_path, destination) {
+    if let Ok(path) = extract_zip(reference_path, None) {
         let xml_rels_path = path.join("ppt/slides/_rels/slide1.xml.rels");
         let image_path = match read_xml_rel(xml_rels_path.clone()) {
             | Ok(Relationships { relationship }) => match relationship.clone().into_iter().find(|x| x.target.ends_with(".png")) {

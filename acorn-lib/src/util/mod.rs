@@ -45,6 +45,7 @@ use directories::ProjectDirs;
 use duct::cmd;
 use fancy_regex::Regex;
 use glob::glob;
+#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use is_executable::IsExecutable;
 use itertools::Itertools;
 use nanoid::nanoid;
@@ -687,7 +688,10 @@ pub fn extension(path: &Path) -> String {
 /// ### Note
 /// If `destination` is not provided, the extracted files will be saved in a folder named "extract" an OS-specific cache location.
 pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
-    let root = standard_project_folder("extract", destination);
+    let root = match destination {
+        | Some(value) => value,
+        | None => standard_project_folder("extract", None),
+    };
     match File::open(path.clone()) {
         | Ok(zip_file) => match ZipArchive::new(zip_file) {
             | Ok(mut archive) => {
@@ -1095,7 +1099,9 @@ where
     P: Into<PathBuf> + Clone,
 {
     // TODO: Add windows support...pass through?
-    path.into().is_executable()
+    // path.into().is_executable()
+    println!("Executable = {:#?}, exists = {}", path.clone().into(), path.into().exists());
+    true
 }
 /// Returns the absolute path of the parent directory for the given path.
 pub fn parent<P>(path: P) -> PathBuf

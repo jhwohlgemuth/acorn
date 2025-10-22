@@ -410,7 +410,7 @@ impl StaticAnalyzer for Vale {
                             let _cleanup = remove_file(path);
                             std::process::exit(exitcode::USAGE);
                         } else {
-                            info!(dowloaded_checksums, "=> {}", Label::pass());
+                            info!(dowloaded_checksums, "=> {} checksum verification", Label::pass());
                         }
                     };
                 } else {
@@ -482,7 +482,7 @@ impl StaticAnalyzer for Vale {
         };
         match extension(&path).as_str() {
             | "zip" => match extract_zip(path, Some(parent.into())) {
-                | Ok(value) => value,
+                | Ok(value) => value.join(command),
                 | Err(why) => {
                     error!("=> {} {command} extract - {why}", Label::fail());
                     std::process::exit(exitcode::UNAVAILABLE);
