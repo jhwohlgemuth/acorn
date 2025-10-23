@@ -59,10 +59,9 @@ use similar::{
     TextDiff,
 };
 use std::collections::HashMap;
-use std::error::Error;
 use std::fs::create_dir_all;
 use std::fs::File;
-use std::io::{self, copy, BufReader, Cursor, Read, Write};
+use std::io::{self, copy, BufReader, Cursor, Error, Read, Write};
 use std::path::{Path, PathBuf};
 use tracing::{debug, error, info, warn};
 use which::which;
@@ -686,7 +685,7 @@ pub fn extension(path: &Path) -> String {
 /// Extract zip archive
 /// ### Note
 /// If `destination` is not provided, the extracted files will be saved in a folder named "extract" an OS-specific cache location.
-pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
+pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Error> {
     let root = match destination {
         | Some(value) => value,
         | None => standard_project_folder("extract", None),
@@ -700,33 +699,34 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBu
                         if let Some(parent) = target.parent() {
                             match create_dir_all(parent) {
                                 | Ok(_) => {}
-                                | Err(why) => error!(path = to_absolute_string(parent.to_path_buf()), "=> {} Create - {}", Label::fail(), why),
+                                | Err(why) => error!(path = parent.to_path_buf().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
                             }
                         }
                         if let Ok(mut output_file) = File::create(&target) {
-                            io::copy(&mut file, &mut output_file).unwrap();
+                            match io::copy(&mut file, &mut output_file) {
+                                | Ok(_) => {}
+                                | Err(why) => {
+                                    error!(path = target.to_absolute_string(), "=> {} Copy file content - {why}", Label::fail());
+                                    std::process::exit(exitcode::UNAVAILABLE);
+                                }
+                            }
                         } else {
-                            error!(path = to_absolute_string(target), "=> {} Create file", Label::fail());
+                            error!(path = target.to_absolute_string(), "=> {} Create file", Label::fail());
                             std::process::exit(exitcode::UNAVAILABLE);
                         }
                     }
                 }
-                info!(path = root.to_str().unwrap(), "=> {} Extract zip archive", Label::pass());
+                info!(path = root.to_absolute_string(), "=> {} Extract zip archive", Label::pass());
                 Ok(root)
             }
-            | Err(err) => {
-                error!(
-                    error = err.to_string(),
-                    path = path.to_str().unwrap(),
-                    "=> {} Read zip archive",
-                    Label::fail()
-                );
-                std::process::exit(exitcode::UNAVAILABLE);
+            | Err(why) => {
+                error!(path = path.to_absolute_string(), "=> {} Read zip archive - {why}", Label::fail());
+                Err(why.into())
             }
         },
-        | Err(err) => {
-            error!(error = err.to_string(), path = path.to_str().unwrap(), "=> {} Read file", Label::fail());
-            std::process::exit(exitcode::UNAVAILABLE);
+        | Err(why) => {
+            error!(path = path.to_absolute_string(), "=> {} Read file - {why}", Label::fail());
+            Err(why)
         }
     }
 }
