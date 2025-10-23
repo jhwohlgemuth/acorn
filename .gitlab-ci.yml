@@ -98,7 +98,7 @@ publish-release-linux:
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   inherit:
     default: false
-    variables: false
+    variables: true
   needs:
     - job: prepare-environment
       artifacts: true
@@ -125,7 +125,7 @@ upload-binaries:
   image: curlimages/curl:latest
   inherit:
     default: false
-    variables: false
+    variables: true
   needs:
     - job: prepare-environment
       artifacts: true
