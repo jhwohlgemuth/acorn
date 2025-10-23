@@ -49,8 +49,8 @@ test:
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        - acorn-cli/**/*
-        - acorn-lib/**/*
+        - ${BINARY_NAME}-cli/**/*
+        - ${BINARY_NAME}-lib/**/*
         - Cargo.toml
   script:
     - make test-ci
@@ -66,9 +66,9 @@ test-python:
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        - acorn-py/**/*
+        - ${BINARY_NAME}-py/**/*
   script:
-    - cd acorn-py && pixi run test
+    - cd ${BINARY_NAME}-py && pixi run test
 
 build-release:
   stage: build
@@ -137,7 +137,7 @@ upload-binaries:
         - Cargo.toml
   script:
     - ls -la bin/
-    - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/${BINARY_NAME}-v${PKG_VERSION} ${PKG_REGISTRY_URL}/x86_64-unknown-linux-gnu/v${PKG_VERSION}/${BINARY_NAME}'
+    - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/${BINARY_NAME}-v${PKG_VERSION} ${PKG_REGISTRY_URL}/x86_64-unknown-linux-musl/v${PKG_VERSION}/${BINARY_NAME}'
 
 publish-docs:
   stage: docs
@@ -150,8 +150,8 @@ publish-docs:
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        - acorn-cli/**/*.rs
-        - acorn-lib/**/*.rs
+        - ${BINARY_NAME}-cli/**/*.rs
+        - ${BINARY_NAME}-lib/**/*.rs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
   script:
