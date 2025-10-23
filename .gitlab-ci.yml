@@ -3,6 +3,7 @@ default:
     - cpu
   image: rust:bookworm
   before_script:
+    - apt-get update && apt-get install -y libssl-dev pkg-config musl-tools
     - rustup component add rustfmt
     - rustup component add clippy
     - rustup target add x86_64-unknown-linux-gnu
