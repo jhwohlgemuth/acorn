@@ -9,6 +9,8 @@ default:
     - rustup target add x86_64-unknown-linux-musl
 
 variables:
+  BINARY_NAME: acorn
+  CHANGELOG: https://code.ornl.gov/research-enablement/acorn/-/blob/main/CHANGELOG.md
   USER: CI
   EMAIL: $GITLAB_USER_EMAIL
   CI_DEBUG_SERVICES: true
@@ -101,7 +103,7 @@ publish-release-linux:
       artifacts: true
     - job: build-release
   script:
-    - echo "Publishing ACORN v${PKG_VERSION}"
+    - echo "Publishing ${BINARY_NAME} v${PKG_VERSION}"
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -109,13 +111,13 @@ publish-release-linux:
       changes:
         - Cargo.toml
   release:
-    tag_name: "v$PKG_VERSION"
-    description: "## ACORN v$PKG_VERSION\n> See [CHANGELOG](https://code.ornl.gov/research-enablement/acorn/-/blob/main/CHANGELOG.md) for details"
+    tag_name: "v${PKG_VERSION}"
+    description: "## ${BINARY_NAME} v${PKG_VERSION}\n> See [CHANGELOG](${CHANGELOG}) for details"
     ref: "$CI_COMMIT_SHA"
     assets:
       links:
-        - name: "ACORN v$PKG_VERSION"
-          url: "${PKG_REGISTRY_URL}/x86_64-unknown-linux-gnu/v${PKG_VERSION}/acorn"
+        - name: "${BINARY_NAME} v$PKG_VERSION"
+          url: "${PKG_REGISTRY_URL}/x86_64-unknown-linux-gnu/v${PKG_VERSION}/${BINARY_NAME}"
 
 upload-binaries:
   stage: release
@@ -137,7 +139,7 @@ upload-binaries:
         - Cargo.toml
   script:
     - ls -la bin/
-    - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/acorn-v${PKG_VERSION} ${PKG_REGISTRY_URL}/x86_64-unknown-linux-gnu/v${PKG_VERSION}/acorn'
+    - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/${BINARY_NAME}-v${PKG_VERSION} ${PKG_REGISTRY_URL}/x86_64-unknown-linux-gnu/v${PKG_VERSION}/${BINARY_NAME}'
 
 publish-docs:
   stage: docs
