@@ -4,9 +4,6 @@ default:
   image: rust:bookworm
   before_script:
     - apt-get update && apt-get install -y libssl-dev pkg-config musl-tools
-    - rustup component add rustfmt
-    - rustup component add clippy
-    - rustup target add x86_64-unknown-linux-gnu
     - rustup target add x86_64-unknown-linux-musl
 
 variables:
@@ -118,7 +115,7 @@ publish-release-linux:
     assets:
       links:
         - name: "${BINARY_NAME} v$PKG_VERSION"
-          url: "${PKG_REGISTRY_URL}/x86_64-unknown-linux-gnu/v${PKG_VERSION}/${BINARY_NAME}"
+          url: "${PKG_REGISTRY_URL}/x86_64-unknown-linux-musl/v${PKG_VERSION}/${BINARY_NAME}"
 
 upload-binaries:
   stage: release

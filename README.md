@@ -27,7 +27,7 @@ ACORN is a command line multi-tool that employs automated processes for informin
 ### Download pre-compiled binary
 - Download newest binary from [releases page](https://code.ornl.gov/research-enablement/acorn/-/releases)
     ```shell
-    curl -LO https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-unknown-linux-gnu/v0.1.26/acorn
+    curl -LO https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-unknown-linux-musl/v0.1.33/acorn
     ```
 - Make binary executable
     ```shell
