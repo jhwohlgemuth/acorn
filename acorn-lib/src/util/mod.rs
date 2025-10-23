@@ -45,7 +45,6 @@ use directories::ProjectDirs;
 use duct::cmd;
 use fancy_regex::Regex;
 use glob::glob;
-#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use is_executable::IsExecutable;
 use itertools::Itertools;
 use nanoid::nanoid;
@@ -1098,10 +1097,12 @@ pub fn make_executable<P>(path: P) -> bool
 where
     P: Into<PathBuf> + Clone,
 {
-    // TODO: Add windows support...pass through?
-    // path.into().is_executable()
-    println!("Executable = {:#?}, exists = {}", path.clone().into(), path.into().exists());
-    true
+    let binary = if extension(&path.clone().into()).is_empty() {
+        path.into().with_extension("exe")
+    } else {
+        path.into()
+    };
+    binary.is_executable()
 }
 /// Returns the absolute path of the parent directory for the given path.
 pub fn parent<P>(path: P) -> PathBuf

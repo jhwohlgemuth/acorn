@@ -410,7 +410,7 @@ impl StaticAnalyzer for Vale {
                             let _cleanup = remove_file(path);
                             std::process::exit(exitcode::USAGE);
                         } else {
-                            info!(dowloaded_checksums, "=> {} checksum verification", Label::pass());
+                            info!(checksum = dowloaded_checksums, "=> {} Checksum verification", Label::pass());
                         }
                     };
                 } else {
