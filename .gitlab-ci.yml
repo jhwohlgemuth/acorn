@@ -1,7 +1,7 @@
 default:
   tags:
     - cpu
-  image: rust
+  image: rust:bookworm
   before_script:
     - rustup component add rustfmt
     - rustup component add clippy

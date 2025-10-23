@@ -49,12 +49,14 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 uriparse = "0.6.4"
 
 [workspace.metadata.cross.build]
-default-target = "x86_64-unknown-linux-gnu"
+default-target = "x86_64-unknown-linux-musl"
 debug-assertions = true
 
 [profile.release]
+debug = true
 codegen-units = 1
-opt-level = "z"
+opt-level = "s"
+overflow-checks = true
 panic = "abort"
 strip = true
 lto = true
