@@ -4,6 +4,7 @@ default:
   image: rust:bookworm
   before_script:
     - apt-get update && apt-get install -y libssl-dev pkg-config musl-tools
+    - rustup component add rustfmt
     - rustup target add x86_64-unknown-linux-musl
 
 variables:
