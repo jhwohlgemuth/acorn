@@ -59,7 +59,9 @@ pub trait StaticAnalyzer {
     /// Perform sync operation (only applies to Vale)
     fn sync(self, is_offline: bool) -> Result<(), std::io::Error>;
     /// Set binary
-    fn with_binary(self, path: PathBuf) -> Self;
+    fn with_binary<P>(self, path: P) -> Self
+    where
+        P: Into<PathBuf>;
     /// Set config
     fn with_config(self, value: ValeConfig) -> Self;
     /// Set system command
@@ -75,6 +77,8 @@ pub trait StaticAnalyzerConfig {
     fn ini(self) -> Ini;
     /// Save configuration
     fn save(self) -> ValeConfig;
+    /// Set parent path of configuration
+    fn with_path(self, path: PathBuf) -> Self;
 }
 /// Various check categories available for validating research activity data
 #[derive(Clone, Debug, Display, PartialEq)]
@@ -371,7 +375,6 @@ impl StaticAnalyzer for Vale {
             }
         }
     }
-    // TODO: Check if binary has already been downloaded
     fn download(self, config: Option<ValeConfig>, skip_verify_checksum: bool) -> Vale {
         // https://doc.rust-lang.org/std/env/consts/constant.OS.html
         let os = std::env::consts::OS.to_lowercase();
@@ -388,35 +391,27 @@ impl StaticAnalyzer for Vale {
             | Some(value) => value,
             | None => SemanticVersion::from_string(VALE_VERSION),
         };
-        let url = format!(
-            "{}/download/v{}/{}_{}_{}",
-            VALE_RELEASES_URL,
-            release,
-            self.clone().command(),
-            release,
-            platform
-        );
-        info!(url, "=> {} Vale release v{}", Label::using(), release);
+        let url = format!("{VALE_RELEASES_URL}/download/v{release}/{}_{release}_{platform}", self.clone().command());
+        info!(url, "=> {} Vale release v{release}", Label::using());
         let binary = match download_binary(&url, ".") {
             | Ok(path) => {
                 if !skip_verify_checksum {
-                    let dowloaded_checksums = match self.clone().download_checksums() {
+                    let dowloaded_checksum = match self.clone().download_checksums() {
                         | Ok(value) => value.get(platform).unwrap().to_string(),
                         | Err(_) => "".to_string(),
                     };
                     if let Some(calculated) = checksum(path.clone()) {
-                        if !dowloaded_checksums.eq(&calculated) {
-                            error!(dowloaded_checksums, calculated, "=> {}", Label::invalid());
+                        if !dowloaded_checksum.eq(&calculated) {
+                            error!(dowloaded_checksum, calculated, "=> {}", Label::invalid());
                             let _cleanup = remove_file(path);
                             std::process::exit(exitcode::USAGE);
                         } else {
-                            info!(checksum = dowloaded_checksums, "=> {} Checksum verification", Label::pass());
+                            info!(checksum = dowloaded_checksum, "=> {} Checksum verification", Label::pass());
                         }
                     };
                 } else {
                     warn!("=> {} Checksum verification", Label::skip());
                 }
-                // TODO: Provide option to save to cache project directory
                 let destination = match config.clone() {
                     | Some(value) => value.path.parent().unwrap().to_path_buf(),
                     | None => PathBuf::from("./.vale/"),
@@ -450,11 +445,8 @@ impl StaticAnalyzer for Vale {
             | None => SemanticVersion::from_string(VALE_VERSION),
         };
         let url = format!(
-            "{}/download/v{}/{}_{}_checksums.txt",
-            VALE_RELEASES_URL,
-            release,
-            self.clone().command(),
-            release
+            "{VALE_RELEASES_URL}/download/v{release}/{}_{release}_checksums.txt",
+            self.clone().command()
         );
         let client = reqwest::blocking::Client::new();
         let response = client.get(url).send().unwrap();
@@ -523,7 +515,7 @@ impl StaticAnalyzer for Vale {
                 debug!(parent, "=> {} Vocabularies", Label::using());
                 match create_dir_all(parent.clone()) {
                     | Ok(_) => {}
-                    | Err(why) => error!(directory = parent, "=> {} Create - {}", Label::fail(), why),
+                    | Err(why) => error!(directory = parent, "=> {} Create - {why}", Label::fail()),
                 }
                 match File::create(format!("{parent}/accept.txt")) {
                     | Ok(mut file) => {
@@ -552,8 +544,11 @@ impl StaticAnalyzer for Vale {
             }
         }
     }
-    fn with_binary(mut self, path: PathBuf) -> Self {
-        self.binary = Some(path);
+    fn with_binary<P>(mut self, path: P) -> Self
+    where
+        P: Into<PathBuf>,
+    {
+        self.binary = Some(path.into());
         self
     }
     fn with_config(mut self, value: ValeConfig) -> Self {
@@ -629,17 +624,21 @@ impl StaticAnalyzerConfig for ValeConfig {
         let parent = path.parent().unwrap().to_path_buf();
         match create_dir_all(parent.clone()) {
             | Ok(_) => {}
-            | Err(why) => error!(directory = to_absolute_string(parent), "=> {} Create - {}", Label::fail(), why),
+            | Err(why) => error!(directory = parent.to_absolute_string(), "=> {} Create - {why}", Label::fail()),
         }
         match self.clone().ini().write_to_file(path.clone()) {
             | Ok(_) => {
                 debug!(path = to_absolute_string(path), "=> {} Saved configuration", Label::using());
             }
             | Err(why) => {
-                error!("=> {} Save configuration - {}", Label::fail(), why);
+                error!("=> {} Save configuration - {why}", Label::fail());
                 std::process::exit(exitcode::SOFTWARE);
             }
         }
+        self
+    }
+    fn with_path(mut self, path: PathBuf) -> Self {
+        self.path = path;
         self
     }
 }
