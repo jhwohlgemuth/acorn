@@ -4,8 +4,8 @@
 //!
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::constants::{
-    APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION, VALE_RELEASES_URL,
-    VALE_VERSION,
+    APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
+    VALE_RELEASES_URL, VALE_VERSION,
 };
 use crate::schema::ProgrammingLanguage;
 use crate::util::*;
@@ -54,6 +54,10 @@ pub trait StaticAnalyzer {
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     /// Extract binary
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
+    /// Resolve analyzer
+    fn resolve(_config: ValeConfig, _is_offline: bool, _skip_verify_checksum: bool) -> Vale {
+        Vale::init().build()
+    }
     /// Run analyzer on content
     fn run(&self, id: String, content: String, output: Option<String>) -> Check;
     /// Perform sync operation (only applies to Vale)
@@ -298,6 +302,38 @@ impl<'a> IntoRow<'a> for Check {
 impl StaticAnalyzer for Vale {
     fn command(self) -> String {
         "vale".to_string()
+    }
+    /// Resolve Vale
+    /// ### Notes
+    /// - Will use system `vale` command if available
+    /// - Will use local `vale` binary if available (will expect local binary if offline)
+    /// - Will download `vale` binary if not available by other means
+    fn resolve(config: ValeConfig, is_offline: bool, skip_verify_checksum: bool) -> Vale {
+        fn any_exist<S>(paths: Vec<S>) -> bool
+        where
+            S: Into<PathBuf>,
+        {
+            paths.into_iter().any(|s| s.into().exists())
+        }
+        let root = DEFAULT_VALE_ROOT;
+        let name = "vale";
+        let init = Vale::init().build();
+        let vale = if command_exists(name) {
+            init.with_config(config).with_system_command()
+        } else if is_offline || any_exist(vec![format!("{root}{name}"), format!("{root}{name}.exe")]) {
+            info!("=> {} Local {} binary", Label::using(), name.green().bold());
+            #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
+            {
+                init.with_config(config).with_binary(format!("{root}{name}"))
+            }
+            #[cfg(windows)]
+            {
+                init.with_config(config).with_binary(format!("{root}{name}.exe"))
+            }
+        } else {
+            init.download(Some(config), skip_verify_checksum)
+        };
+        vale
     }
     fn run(&self, id: String, content: String, output: Option<String>) -> Check {
         let root = standard_project_folder("check", None);

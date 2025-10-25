@@ -25,7 +25,7 @@ use serde_with::skip_serializing_none;
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroU64;
 use std::path::PathBuf;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, trace};
 use validator::Validate;
 
 pub mod graph;
@@ -913,28 +913,9 @@ impl ResearchActivity {
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
     /// Analyzes a list of research activity files
-    /// ### Notes
-    /// - Will use system `vale` command if available
-    /// - Will use local `vale` binary if available (will expect local binary if offline)
-    /// - Will download `vale` binary if not available by other means
     pub fn analyze_prose(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
         let config = ValeConfig::default().save();
-        let init = Vale::init().build();
-        let vale = if command_exists("vale") {
-            init.with_config(config).with_system_command()
-        } else if is_offline || ["./.vale/vale", "./.vale/vale.exe"].into_iter().any(|s| PathBuf::from(s).exists()) {
-            info!("=> {} Local {} binary", Label::using(), "vale".green().bold());
-            #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-            {
-                init.with_config(config).with_binary("./.vale/vale")
-            }
-            #[cfg(windows)]
-            {
-                init.with_config(config).with_binary("./.vale/vale.exe")
-            }
-        } else {
-            init.download(Some(config), skip_verify_checksum)
-        };
+        let vale = Vale::resolve(config, is_offline, skip_verify_checksum);
         match vale.clone().sync(is_offline) {
             | Ok(_) => {
                 let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
