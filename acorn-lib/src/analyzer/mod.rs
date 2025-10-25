@@ -45,19 +45,17 @@ pub trait IntoRow<'a> {
     fn to_row<T>(self) -> Row<'a>;
 }
 /// Trait for static analyzers (e.g. Vale)
-pub trait StaticAnalyzer {
+pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Get command name (e.g. "vale")
     fn command(self) -> String;
     /// Download binary
-    fn download(self, config: Option<ValeConfig>, skip_verify_checksum: bool) -> Self;
+    fn download(self, config: Option<Config>, skip_verify_checksum: bool) -> Self;
     /// Download checksum values
     fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     /// Extract binary
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
     /// Resolve analyzer
-    fn resolve(_config: ValeConfig, _is_offline: bool, _skip_verify_checksum: bool) -> Vale {
-        Vale::init().build()
-    }
+    fn resolve(_config: Config, _is_offline: bool, _skip_verify_checksum: bool) -> Self;
     /// Run analyzer on content
     fn run(&self, id: String, content: String, output: Option<String>) -> Check;
     /// Perform sync operation (only applies to Vale)
@@ -67,7 +65,7 @@ pub trait StaticAnalyzer {
     where
         P: Into<PathBuf>;
     /// Set config
-    fn with_config(self, value: ValeConfig) -> Self;
+    fn with_config(self, value: Config) -> Self;
     /// Set system command
     fn with_system_command(self) -> Self;
     /// Set version
@@ -76,11 +74,11 @@ pub trait StaticAnalyzer {
 /// Trait for static analyzer configuration (e.g. .vale.ini)
 pub trait StaticAnalyzerConfig {
     /// Get default configuration
-    fn default() -> ValeConfig;
+    fn default() -> Self;
     /// Convert to INI
     fn ini(self) -> Ini;
     /// Save configuration
-    fn save(self) -> ValeConfig;
+    fn save(self) -> Self;
     /// Set parent path of configuration
     fn with_path(self, path: PathBuf) -> Self;
 }
@@ -299,7 +297,7 @@ impl<'a> IntoRow<'a> for Check {
         Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
     }
 }
-impl StaticAnalyzer for Vale {
+impl StaticAnalyzer<ValeConfig> for Vale {
     fn command(self) -> String {
         "vale".to_string()
     }
