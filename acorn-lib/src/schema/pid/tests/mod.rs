@@ -5,22 +5,23 @@ use std::path::PathBuf;
 const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
-fn test_iso7064_check_digit() {
-    let value = "000000031415926";
-    let expected = 9;
-    assert_eq!(iso7064_check_digit(value), expected);
-    let value = "0000-0002-2057-911";
-    let expected = 5;
-    assert_eq!(iso7064_check_digit(value), expected);
-    let value = "0000-0002-2057-9115";
-    let expected = 5;
-    assert_eq!(iso7064_check_digit(value), expected);
-    let value = "0000-0002-1823-1234";
-    let expected = 2;
-    assert_eq!(iso7064_check_digit(value), expected);
-    let value = "0000-0001-9034-3389";
-    let expected = 9;
-    assert_eq!(iso7064_check_digit(value), expected);
+fn test_ark() {
+    let valid = "https://n2t.net/ark:12148/btv1b8449691v/f29";
+    assert!(valid.is_pid(PID::ARK));
+    // assert!(valid.is_pid(PID::ARK));
+    // assert!(valid.is_ark());
+    // assert!(valid.format_as(PID::ARK).is_ark());
+    // assert_eq!(valid.to_pid(PID::ARK).to_ark().to_string(), "ark:/99999/fk4");
+    // assert_eq!(valid.format_as(PID::ARK), valid);
+}
+#[test]
+fn test_ark_struct() {
+    let valid = "https://n2t.net/ark:12148/btv1b8449691v/f29";
+    let value = ARK::from_string(valid);
+    assert_eq!(value.assigned_name.unwrap(), "btv1b8449691v");
+    // assert!(ARK::is_valid(valid));
+    // assert_eq!(ARK::from_string(valid).to_string(), valid);
+    // assert!(!ARK::is_valid("Invalid ARK value"));
 }
 #[test]
 fn test_orcid() {
@@ -61,6 +62,24 @@ fn test_doi_struct() {
     assert_eq!(DOI::format(valid), "10.1000/182");
     assert_eq!(DOI::format("10.1000/182"), "10.1000/182");
     assert_eq!(DOI::format("invalid DOI value"), "");
+}
+#[test]
+fn test_iso7064_check_digit() {
+    let value = "000000031415926";
+    let expected = 9;
+    assert_eq!(iso7064_check_digit(value), expected);
+    let value = "0000-0002-2057-911";
+    let expected = 5;
+    assert_eq!(iso7064_check_digit(value), expected);
+    let value = "0000-0002-2057-9115";
+    let expected = 5;
+    assert_eq!(iso7064_check_digit(value), expected);
+    let value = "0000-0002-1823-1234";
+    let expected = 2;
+    assert_eq!(iso7064_check_digit(value), expected);
+    let value = "0000-0001-9034-3389";
+    let expected = 9;
+    assert_eq!(iso7064_check_digit(value), expected);
 }
 #[test]
 fn test_raid_read() {

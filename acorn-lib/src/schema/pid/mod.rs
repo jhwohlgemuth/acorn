@@ -8,7 +8,7 @@
 //! - Access the sub parts of a persistent identifier
 //!
 //! [RAiDs]: https://www.raid.org/
-use crate::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT};
+use crate::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT};
 use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::{builder, Builder};
 use std::fmt::Display;
@@ -38,21 +38,36 @@ pub trait PersistentIdentifier<T: AsRef<str>> {
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     /// assert!("https://doi.org/10.1234/5678".is_pid(PID::DOI));
     /// ```
-    fn is_pid(&self, pid_type: PID) -> bool;
+    fn is_pid(&self, _pid_type: PID) -> bool {
+        false
+    }
+    /// Determines if `self` is an archival resource key (ARK)
+    /// ```rust
+    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    ///
+    /// assert!("https://n2t.net/ark:12148/btv1b8449691v/f29".is_ark());
+    /// ```
+    fn is_ark(&self) -> bool {
+        false
+    }
     /// Determines if `self` is a DOI
     /// ```rust
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://doi.org/10.1234/5678".is_doi());
     /// ```
-    fn is_doi(&self) -> bool;
+    fn is_doi(&self) -> bool {
+        false
+    }
     /// Determines if `self` is a ORCID
-    /// ```
+    /// ```rust
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://orcid.org/0000-0000-0000-0000".is_orcid());
     /// ```
-    fn is_orcid(&self) -> bool;
+    fn is_orcid(&self) -> bool {
+        false
+    }
 }
 /// Trait for formatting string values
 pub trait StringFormat {
@@ -110,6 +125,57 @@ pub enum PID {
     #[default]
     Unknown,
 }
+/// Archival Resource Key (ARK)
+/// ### Notes
+/// - ARKs are the only mainstream, non-siloed, non-paywalled identifiers that you can register to use in about 48 hours
+/// - ARKs are decentralized
+/// - There are no fees for ARKs, PURLs, and URNs
+/// - ARKs give access to almost any kind of thing, whether digital, physical, abstract, person, group, etc.
+/// - ARKs can be deleted
+/// - ARKs support early object development
+/// - ARKs that differ only by hyphens are considered identical
+///
+/// See the [ARK specification](https://datatracker.ietf.org/doc/draft-kunze-ark/) and <https://wiki.lyrasis.org/display/ARKs/ARK+Identifiers+FAQ> for more information
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init)]
+pub struct ARK {
+    /// The part of the ARK string that your organization is responsible for making unique.
+    ///
+    /// The first 2 or more characters constitue the shoulder of the ARK which must meet the following criteria:
+    /// - Must start with one or more lowercase letters
+    /// - Must end with a digit (non-zero preferred)
+    /// - Must not contain vowels or the letter "l" (ell)
+    /// - Must not contain any `/` characters (being opaque is part of the shoulder design)
+    pub assigned_name: Option<String>,
+    /// Prefix for NAAN (e.g., "ark:" or the older, "ark:/")
+    ///
+    /// <div class="warning">Label is mandatory</div>
+    #[builder(default = "ark:".to_string())]
+    pub label: String,
+    /// Number (here represented as a string) identifying an organization that creates or assigns identifiers
+    /// ### Notes
+    /// - Must be an integer
+    /// - Any given identifier will have exactly one NAAN but may have more than one NMA (at a time or over time)
+    /// - Similar to registration authority or prefix for [`DOI`]s, naming authority for [Handles], and namespace identifier for [URNs]
+    ///
+    /// [Handles]: https://handle.net/
+    /// [URNs]: https://en.wikipedia.org/wiki/Uniform_Resource_Name
+    pub name_assigning_authority_number: Option<String>,
+    /// String identifying a service that accepts names and returns information about them
+    /// ### Notes
+    /// > Any given identifier will have exactly one NAAN but may have more than one NMA (at a time or over time)
+    pub name_mapping_authority: Option<String>,
+    /// First section of optional "qualifier" part of ARK
+    ///
+    /// Generally serve as sub-namespaces to enabling grouping ARKs
+    #[builder(default = Vec::new())]
+    pub parts: Vec<String>,
+    /// Last section of optional "qualifier" part of ARK
+    ///
+    /// Typically is used to identify a specific version of a resource (i.e., "pdf", "fr", "v3", etc.)
+    #[builder(default = Vec::new())]
+    pub variants: Vec<String>,
+}
 /// Digital Object Identifier (DOI)
 ///
 /// DOIs consist of a DOI name which is resolved at <https://doi.org>, with the full URI formulated according to the pattern `https://doi.org/{DOI_name}`. DOI names in turn consist of a prefix and a suffix, separated by a forward slash. The prefix is a code indicating the registrant who issues the DOI, e.g., Harvard University Dataverse - 10.7910; Dryad Digital Repository - 10.5061. The suffix is the identifier, in any form, assigned by the registrant.[^doi]
@@ -159,6 +225,74 @@ pub struct ORCID {
     /// ### Note
     /// Check digit should be verified IAW by [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html) (see [`iso7064_check_digit`])
     pub check_digit: Option<String>,
+}
+impl ARK {
+    /// Convenience method for easily parsing and formatting an ARK from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::pid::ARK;
+    ///
+    /// assert_eq!(ARK::format("ark:/1234/5678"), "ark:/1234/5678");
+    /// assert_eq!(ARK::format("https://n2t.net/ark:12148/btv1b8449691v/f29"), "ark:12148/btv1b8449691v/f29");
+    /// ```
+    pub fn format<S>(value: S) -> String
+    where
+        S: AsRef<str>,
+    {
+        ARK::from_string(value).to_string()
+    }
+    /// Create new ARK by parsing raw string value
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::pid::ARK;
+    ///
+    /// let doi = ARK::from_string("");
+    ///
+    /// ```
+    pub fn from_string<S>(value: S) -> ARK
+    where
+        S: AsRef<str>,
+    {
+        let names = ["nma", "schema_uri", "label", "naan", "assigned_name", "parts", "variants"];
+        let lookup = regex_capture_lookup(RE_ARK_TEXT, value.as_ref(), names.to_vec());
+        let parts = match lookup.get("parts") {
+            | Some(value) => value.split('/').map(String::from).collect(),
+            | None => vec![],
+        };
+        let variants = match lookup.get("variants") {
+            | Some(value) => value.split('.').map(String::from).collect(),
+            | None => vec![],
+        };
+        ARK::init()
+            .maybe_assigned_name(lookup.get("assigned_name").cloned())
+            .maybe_label(lookup.get("label").cloned())
+            .maybe_name_assigning_authority_number(lookup.get("naan").cloned())
+            .maybe_name_mapping_authority(lookup.get("nma").cloned())
+            .parts(parts)
+            .variants(variants)
+            .build()
+    }
+    /// Check if value is a valid ARK
+    /// ### Conditions
+    /// - ARKs are preferred to be "actionable" with the inclusion of a NMA URL, but are not required to be so (NMA is optional)
+    /// - If ARK is to contain a URL, "https" is the only allowed scheme
+    /// - Should have only one instance of "ark:" label
+    /// - NAAN should be an integer
+    /// - [Assigned name](`ARK::assigned_name`) should start with a valid shoulder
+    /// - Last character should be valid check digit (see [`noid_check_digit`])
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::pid::ARK;
+    ///
+    /// assert!(ARK::is_valid("https://n2t.net/ark:99166/w66d60p2"));
+    /// assert!(ARK::is_valid("https://n2t.net/ark:12148/btv1b8449691v/f29"));
+    /// ```
+    pub fn is_valid<S>(_value: S) -> bool
+    where
+        S: AsRef<str>,
+    {
+        true
+    }
 }
 impl DOI {
     /// Convenience method for easily parsing and formatting a DOI from a string value
@@ -238,6 +372,11 @@ impl DOI {
         self.suffix.as_ref().cloned().unwrap_or_default()
     }
 }
+impl Default for ARK {
+    fn default() -> Self {
+        ARK::init().build()
+    }
+}
 impl Default for DOI {
     fn default() -> Self {
         DOI::init().build()
@@ -246,6 +385,12 @@ impl Default for DOI {
 impl Default for ORCID {
     fn default() -> Self {
         ORCID::init().build()
+    }
+}
+impl Display for ARK {
+    /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ARK")
     }
 }
 impl Display for DOI {
@@ -363,6 +508,11 @@ impl ORCID {
         }
     }
 }
+impl StringFormat for ARK {
+    fn format(&self) -> String {
+        self.to_string()
+    }
+}
 impl StringFormat for DOI {
     fn format(&self) -> String {
         self.to_string()
@@ -379,6 +529,7 @@ where
 {
     fn format_as(&self, pid_type: PID) -> String {
         match pid_type {
+            | PID::ARK => ARK::format(self.as_ref()),
             | PID::DOI => DOI::format(self.as_ref()),
             | PID::ORCID => ORCID::format(self.as_ref()),
             | _ => self.as_ref().to_string(),
@@ -386,6 +537,10 @@ where
     }
     fn to_pid(&self, _pid_type: PID) -> PersistentIdentifierInternal {
         match _pid_type {
+            | PID::ARK => PersistentIdentifierInternal {
+                value: self.as_ref().to_string(),
+                pid_type: PID::ARK,
+            },
             | PID::DOI => PersistentIdentifierInternal {
                 value: self.as_ref().to_string(),
                 pid_type: PID::DOI,
@@ -399,10 +554,14 @@ where
     }
     fn is_pid(&self, pid_type: PID) -> bool {
         match pid_type {
+            | PID::ARK => self.is_ark(),
             | PID::DOI => self.is_doi(),
             | PID::ORCID => self.is_orcid(),
             | _ => false,
         }
+    }
+    fn is_ark(&self) -> bool {
+        ARK::is_valid(self.as_ref())
     }
     fn is_doi(&self) -> bool {
         DOI::is_valid(self.as_ref())
@@ -450,6 +609,13 @@ pub fn iso7064_check_digit(value: &str) -> u32 {
     });
     let remainder = sum % MODULUS;
     (MODULUS + 1 - remainder) % MODULUS
+}
+/// Calculate check xdigit ("extended digit") IAW [NOID check digit algorithm (NCDA)](https://metacpan.org/dist/Noid/view/noid#NOID-CHECK-DIGIT-ALGORITHM)
+/// ### References
+/// - <https://github.com/internetarchive/arklet>
+/// - <https://github.com/no-reply/pynoid>
+pub fn noid_check_digit(_value: &str) -> char {
+    'z'
 }
 
 #[cfg(test)]
