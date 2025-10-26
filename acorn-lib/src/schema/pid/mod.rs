@@ -301,7 +301,7 @@ impl ARK {
         };
         let shoulder_starts_with_lowercase_letter = match ark.assigned_name {
             | Some(value) => match value.chars().next() {
-                | Some(value) => value.is_lowercase() && !value.eq(&'l'),
+                | Some(value) => value.is_ascii_lowercase() && !value.eq(&'l'),
                 | None => false,
             },
             | None => false,

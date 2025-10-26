@@ -508,6 +508,10 @@ fn test_validate_is_ark() {
     for x in invalid.iter() {
         assert!(is_ark(x).is_err(), "=> [REASON] \"{x}\" IS a valid ARK");
     }
+    match is_ark("https://n2t.net/99166/w66d60p2") {
+        Ok(_) => panic!(),
+        Err(err) => assert_eq!(err.to_string(), "Please provide a valid ARK"),
+    }
 }
 #[test]
 fn test_validate_is_doi() {
