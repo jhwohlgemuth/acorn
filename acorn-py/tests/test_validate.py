@@ -24,7 +24,7 @@ def test_format_ark():
     expected = "https://n2t.net/ark:12148/btv1b8449691v/f29"
     assert format_ark(expected) == expected
     assert format_ark("ark:12148/btv1b8449691v/f29") == "ark:12148/btv1b8449691v/f29"
-    assert not format_ark("https://n2t.net/ark:12148/btv1b8449691v/f29")
+    assert not format_ark("http://n2t.net/12148/btv1b8449691v/f29")
     assert not format_ark("totally invalid string")
 
 
@@ -51,7 +51,7 @@ def test_format_orcid():
 
 def test_is_ark():
     assert is_ark("https://example.org/ark:12345/x6np1wh8k/c3/s5.v7.xsl")
-    assert is_ark("ark:/1234/5678")
+    assert is_ark("ark:/1234/w5678")
     # Just plain wrong
     assert not is_ark("totally invalid string")
 
