@@ -8,20 +8,33 @@ const FIXTURES: &str = "../tests/fixtures";
 fn test_ark() {
     let valid = "https://n2t.net/ark:12148/btv1b8449691v/f29";
     assert!(valid.is_pid(PID::ARK));
-    // assert!(valid.is_pid(PID::ARK));
-    // assert!(valid.is_ark());
-    // assert!(valid.format_as(PID::ARK).is_ark());
-    // assert_eq!(valid.to_pid(PID::ARK).to_ark().to_string(), "ark:/99999/fk4");
-    // assert_eq!(valid.format_as(PID::ARK), valid);
+    assert_eq!(valid.to_pid(PID::ARK).to_ark().to_string(), "https://n2t.net/ark:12148/btv1b8449691v/f29");
+    assert_eq!(
+        "ark:12148/btv1b8449691v/f29.pdf".to_pid(PID::ARK).to_ark().to_string(),
+        "ark:12148/btv1b8449691v/f29.pdf"
+    );
+    assert_eq!(
+        "ark:12148/btv1b8449691v/f29.pdf.v2".to_pid(PID::ARK).to_ark().to_string(),
+        "ark:12148/btv1b8449691v/f29.pdf.v2"
+    );
+    assert_eq!(
+        "ark:12148/btv1b8449691v/f29/abc.pdf.v2".to_pid(PID::ARK).to_ark().to_string(),
+        "ark:12148/btv1b8449691v/f29/abc.pdf.v2"
+    );
+    assert!(valid.is_ark());
+    assert!(valid.format_as(PID::ARK).is_ark());
+    assert_eq!(valid.format_as(PID::ARK), valid);
+    assert_eq!(valid.to_pid(PID::ARK).to_ark().to_string(), valid);
 }
 #[test]
 fn test_ark_struct() {
     let valid = "https://n2t.net/ark:12148/btv1b8449691v/f29";
     let value = ARK::from_string(valid);
     assert_eq!(value.assigned_name.unwrap(), "btv1b8449691v");
-    // assert!(ARK::is_valid(valid));
-    // assert_eq!(ARK::from_string(valid).to_string(), valid);
-    // assert!(!ARK::is_valid("Invalid ARK value"));
+    assert!(ARK::is_valid(valid));
+    assert_eq!(ARK::from_string(valid).to_string(), valid);
+    assert!(!ARK::is_valid("Invalid ARK value"));
+    assert_eq!(ARK::from_string("invalid ARK value").to_string(), "");
 }
 #[test]
 fn test_orcid() {

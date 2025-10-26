@@ -278,7 +278,7 @@ impl ARK {
     /// - If ARK is to contain a URL, "https" is the only allowed scheme
     /// - Should have only one instance of "ark:" label
     /// - NAAN should be an integer
-    /// - [Assigned name](`ARK::assigned_name`) should start with a valid shoulder
+    /// - [Assigned name](`ARK::assigned_name`) should start with a valid [shoulder](https://arks.org/about/shoulders/)
     /// - Last character should be valid check digit (see [`noid_check_digit`])
     /// ### Example
     /// ```rust
@@ -287,11 +287,39 @@ impl ARK {
     /// assert!(ARK::is_valid("https://n2t.net/ark:99166/w66d60p2"));
     /// assert!(ARK::is_valid("https://n2t.net/ark:12148/btv1b8449691v/f29"));
     /// ```
-    pub fn is_valid<S>(_value: S) -> bool
+    pub fn is_valid<S>(value: S) -> bool
     where
         S: AsRef<str>,
     {
-        true
+        let ark = ARK::from_string(value);
+        let naan_is_integer = match ark.name_assigning_authority_number {
+            | Some(value) => match value.parse::<u32>() {
+                | Ok(_) => true,
+                | Err(_) => false,
+            },
+            | None => false,
+        };
+        let shoulder_starts_with_lowercase_letter = match ark.assigned_name {
+            | Some(value) => match value.chars().next() {
+                | Some(value) => value.is_lowercase() && !value.eq(&'l'),
+                | None => false,
+            },
+            | None => false,
+        };
+        naan_is_integer && shoulder_starts_with_lowercase_letter
+    }
+    /// Returns consistent string representation of ARK qualifiers which often name subobjects
+    /// of a persistent object that are less stable and less opaquely named than the parent object
+    pub fn qualifier_string(&self) -> String {
+        let parts = self.parts.join("/");
+        let variants = self.variants.join(".");
+        let qualifiers = [parts, variants];
+        qualifiers
+            .iter()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join(".")
     }
 }
 impl DOI {
@@ -388,9 +416,24 @@ impl Default for ORCID {
     }
 }
 impl Display for ARK {
-    /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
+    /// Format a ARK into a standard format of `"{NMA}{label}{NAAN}/{Assigned Name}/{Parts}{Variants}"`
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ARK")
+        let nma = self.name_mapping_authority.clone().unwrap_or_default().trim_end_matches('/').to_string();
+        let label = self.label.trim_end_matches('/').to_string();
+        let naan = self.name_assigning_authority_number.clone().unwrap_or_default();
+        let assigned_name = self.assigned_name.clone().unwrap_or_default();
+        let qualifiers = self.qualifier_string();
+        let prefix = if naan.is_empty() { "".to_string() } else { format!("{label}{naan}") };
+        let values = [nma, prefix, assigned_name, qualifiers];
+        let result = values
+            .iter()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join("/")
+            .trim_end_matches("/")
+            .to_string();
+        write!(f, "{result}")
     }
 }
 impl Display for DOI {
@@ -571,6 +614,14 @@ where
     }
 }
 impl PersistentIdentifierInternal {
+    /// Convert a `PersistentIdentifierInternal` to an `ARK`
+    pub fn to_ark(&self) -> ARK {
+        let PersistentIdentifierInternal { value, pid_type } = self;
+        match pid_type {
+            | PID::ARK => ARK::from_string(value),
+            | _ => ARK::default(),
+        }
+    }
     /// Convert a `PersistentIdentifierInternal` to a `DOI`
     pub fn to_doi(&self) -> DOI {
         let PersistentIdentifierInternal { value, pid_type } = self;

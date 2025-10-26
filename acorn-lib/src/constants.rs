@@ -132,7 +132,7 @@ pub const MAX_ALLOWED_LIX: f64 = 50.0;
 /// This value maps to upper end of high school (12th grade) reading level
 pub const MAX_ALLOWED_SMOG: f64 = 13.0;
 /// Pattern text for ARK regular expression defined by [`RE_ARK`]
-pub const RE_ARK_TEXT: &str = r#"^(?<nma>(?<schema_uri>https\:\/\/).+)?\/?(?<label>ark\:\/?)\/?(?<naan>\d{2,9})\/(?<assigned_name>[a-z0-9A-Z]+)?\/?(?<parts>[^.]+)?\.?(?<variants>[a-zA-Z0-9-]+)?$"#;
+pub const RE_ARK_TEXT: &str = r#"^(?<nma>(?<schema_uri>https\:\/\/).+)?\/?(?<label>ark\:\/?)\/?(?<naan>\d{2,9})\/(?<assigned_name>[a-z0-9A-Z]+)?\/?(?<parts>[^.]+)?\.?(?<variants>[a-zA-Z0-9-.]+)?$"#;
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]
 pub const RE_DOI_TEXT: &str =
     r#"^(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#;
