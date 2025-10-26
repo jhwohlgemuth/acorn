@@ -59,6 +59,14 @@ pub fn has_image_extension(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("image").with_message(MESSAGE.into())),
     }
 }
+/// Check if value is a valid [`crate::schema::pid::ARK`]
+pub fn is_ark(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid ARK";
+    match value.is_ark() {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new("ark").with_message(MESSAGE.into())),
+    }
+}
 // TODO: Add chrono crate to handle dates
 fn is_current_year(value: String) -> bool {
     let now: DateTime<Utc> = Utc::now();

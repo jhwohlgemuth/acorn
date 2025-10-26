@@ -5,6 +5,15 @@ use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
+const VALID_ARK_VALUES: [&str; 7] = [
+    "https://n2t.net/ark:99166/w66d60p2",
+    "https://n2t.net/ark:/99166/w66d60p2",
+    "ark:1234/w5678",
+    "https://n2t.net/ark:12148/btv1b8449691v/f29",
+    "https://n2t.net/ark:12148/btv1b8449691v/f29/abc.png",
+    "ark:12148/btv1b8449691v/f29/abc.TIFF",
+    "https://example.org/ark:12345/x6np1wh8k/c3/s5.v7.xsl",
+];
 const VALID_DOI_VALUES: [&str; 31] = [
     // ACORN DOI
     "10.11578/dc.20250604.1",
@@ -477,6 +486,27 @@ fn test_validate_has_image_extension() {
     }
     for x in invalid.iter() {
         assert!(has_image_extension(x).is_err(), "=> [REASON] \"{x}\" HAS a valid image extension");
+    }
+}
+#[test]
+fn test_validate_is_ark() {
+    let valid = VALID_ARK_VALUES;
+    let invalid = [
+        "978-12345-99990",
+        // HTTP not supported
+        "http://n2t.net/ark:99166/w66d60p2",
+        // Missing ark: label
+        "https://n2t.net/99166/w66d60p2",
+        // Shoulder starts with number
+        "https://n2t.net/99166/9w66d60p2",
+        // Shoulder contains letter "l"
+        "https://n2t.net/99166/lw66d60p2",
+    ];
+    for x in valid.iter() {
+        assert!(is_ark(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid ARK");
+    }
+    for x in invalid.iter() {
+        assert!(is_ark(x).is_err(), "=> [REASON] \"{x}\" IS a valid ARK");
     }
 }
 #[test]

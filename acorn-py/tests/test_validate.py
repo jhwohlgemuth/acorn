@@ -1,7 +1,9 @@
 from acorn.schema.validate import (
+    format_ark,
     format_doi,
     format_orcid,
     format_phone_number,
+    is_ark,
     is_doi,
     is_ip6,
     is_orcid,
@@ -16,6 +18,14 @@ def test_format_phone_number():
     with raises(ValueError) as err:
         format_phone_number("not a phone number")
     assert err.value.args[0] == "Unable to format telephone number"
+
+
+def test_format_ark():
+    expected = "https://n2t.net/ark:12148/btv1b8449691v/f29"
+    assert format_ark(expected) == expected
+    assert format_ark("ark:12148/btv1b8449691v/f29") == "ark:12148/btv1b8449691v/f29"
+    assert not format_ark("https://n2t.net/ark:12148/btv1b8449691v/f29")
+    assert not format_ark("totally invalid string")
 
 
 def test_format_doi():
@@ -37,6 +47,13 @@ def test_format_orcid():
         == "https://orcid.org/0009-0005-5568-6526"
     )
     assert format_orcid("0009-0005-5568-6526") == "https://orcid.org/0009-0005-5568-6526"
+
+
+def test_is_ark():
+    assert is_ark("https://example.org/ark:12345/x6np1wh8k/c3/s5.v7.xsl")
+    assert is_ark("ark:/1234/5678")
+    # Just plain wrong
+    assert not is_ark("totally invalid string")
 
 
 def test_is_doi():

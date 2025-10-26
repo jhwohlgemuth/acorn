@@ -6,8 +6,9 @@
 
 ## Example Usage
 ```python
-from acorn.schema.validate import is_doi, is_orcid, is_ror
+from acorn.schema.validate import is_ark, is_doi, is_orcid, is_ror
 
+assert is_ark("https://n2t.net/ark:12148/btv1b8449691v/f29")
 assert is_doi("10.11578/dc.20250604.1")
 assert is_orcid("https://orcid.org/0000-0002-2057-9115")
 assert is_ror("01qz5mb56")

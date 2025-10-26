@@ -5,6 +5,6 @@
 /content
 /export
 /extract
-/target
+target/
 ~$reference.pptx
 data.zip

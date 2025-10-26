@@ -1,8 +1,9 @@
 [package]
 name = "acorn-py"
-version.workspace = true
-authors.workspace = true
-description.workspace = true
+version = "0.1.33"
+license = "MIT"
+authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
+description = "Python bindings for acorn-lib crate"
 edition = "2021"
 
 [lib]
@@ -12,3 +13,5 @@ crate-type = ["cdylib"]
 acorn-lib = { path = "../acorn-lib" }
 pyo3 = { version = "0.26.0", features = ["abi3-py310", "extension-module"] }
 rand = "0.9.2"
+
+[workspace]

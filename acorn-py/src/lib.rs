@@ -10,9 +10,11 @@ fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     schema.add_class::<PyResearchActivity>()?;
     let validate = PyModule::new(python, "validate")?;
     // Add functions from schema.validate module
+    validate.add_function(wrap_pyfunction!(format_ark, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_orcid, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_phone_number, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(is_ark, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ip6, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_orcid, &validate)?)?;
@@ -174,6 +176,19 @@ impl PyResearchActivity {
         self.title.clone()
     }
 }
+/// Convert a ARK into a standard format
+/// ### Example
+/// ```python
+/// from acorn.schema.validate import format_ark
+///
+/// valid = "https://n2t.net/ark:12148/btv1b8449691v/f29"
+/// assert format_ark(valid) == valid
+/// assert format_ark("ark:12148/btv1b8449691v/f29") == "ark:12148/btv1b8449691v/f29"
+/// ```
+#[pyfunction]
+fn format_ark(value: &str) -> String {
+    schema::pid::ARK::format(value)
+}
 /// Convert a DOI into a standard format
 /// ### Example
 /// ```python
@@ -208,6 +223,23 @@ fn format_phone_number(value: &str) -> PyResult<String> {
     match schema::validate::format_phone_number(value) {
         | Ok(value) => Ok(value),
         | Err(err) => Err(pyo3::exceptions::PyValueError::new_err(err.to_string())),
+    }
+}
+/// Check if value is a valid ARK
+/// 
+/// See <https://arks.org/> for more information on ARKs
+///
+/// ### Example
+/// ```python
+/// from acorn.schema.validate import is_ark
+///
+/// assert is_ark("https://n2t.net/ark:12148/btv1b8449691v/f29")
+/// ```
+#[pyfunction]
+fn is_ark(value: &str) -> bool {
+    match schema::validate::is_ark(value) {
+        | Ok(_) => true,
+        | Err(_) => false,
     }
 }
 /// Check if value is a valid DOI
