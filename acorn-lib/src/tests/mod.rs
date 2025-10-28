@@ -98,6 +98,25 @@ fn test_location_hash() {
     assert_eq!(location.hash(), "buckets_nssd");
 }
 #[test]
+fn test_location_uri() {
+    let location = Location::Simple("https://code.ornl.gov/GSHS/GDS/Common/PIPE/module-a".into());
+    match location.uri() {
+        | Some(uri) => {
+            assert_eq!(uri.scheme(), "HTTPS");
+            assert_eq!(uri.path(), "/GSHS/GDS/Common/PIPE/module-a");
+        },
+        | _ => panic!(),
+    }
+    let location = Location::Simple("ssh://git@code.ornl.gov/GSHS/GDS/Common/PIPE/module-a.git".into());
+    match location.uri() {
+        | Some(uri) => {
+            assert_eq!(uri.scheme(), "SSH");
+            assert_eq!(uri.path(), "/GSHS/GDS/Common/PIPE/module-a.git");
+        }
+        | _ => panic!(),
+    }
+}
+#[test]
 fn test_repository_gitlab() {
     let repository = Repository::GitLab {
         // id: "research-enablement%2Fvale-package",
