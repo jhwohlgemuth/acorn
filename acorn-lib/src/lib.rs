@@ -26,9 +26,12 @@ use urlencoding::encode;
 
 pub mod analyzer;
 pub mod constants;
+#[cfg(feature = "cli")]
 pub mod doctor;
+#[cfg(feature = "powerpoint")]
 pub mod powerpoint;
 pub mod schema;
+#[cfg(feature = "util")]
 pub mod util;
 
 use crate::util::*;

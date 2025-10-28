@@ -92,7 +92,10 @@ pretty_assertions = "1.4.1"
 temp-env = "0.3.6"
 
 [features]
+default = ["util"]
 cli = []
+powerpoint = []
+util = []
 
 [lints]
 workspace = true

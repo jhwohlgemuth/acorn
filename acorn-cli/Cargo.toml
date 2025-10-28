@@ -19,7 +19,7 @@ path = "src/main.rs"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-acorn-lib = { version = "0.1.30", path = "../acorn-lib", features = ["cli"] }
+acorn-lib = { version = "0.1.30", path = "../acorn-lib", features = ["cli", "powerpoint"] }
 bon = "3.3.2"
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
 clap-verbosity-flag = "3.0.2"

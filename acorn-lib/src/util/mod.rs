@@ -31,8 +31,6 @@
 //! ```
 //!
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
-use crate::schema::ProgrammingLanguage;
-use bat::PrettyPrinter;
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
@@ -1152,23 +1150,6 @@ where
         | Err(_) => path.into(),
     };
     result.display().to_string()
-}
-/// Prints `text` to stdout using syntax highlighting for the specified `syntax`.
-///
-/// `highlight` is an iterator of line numbers to highlight in the output.
-pub fn pretty_print<I: IntoIterator<Item = usize>>(text: &str, syntax: ProgrammingLanguage, highlight: I) {
-    let input = format!("{text}\n");
-    let language = syntax.to_string();
-    let mut printer = PrettyPrinter::new();
-    printer
-        .input_from_bytes(input.as_bytes())
-        .theme("zenburn")
-        .language(&language)
-        .line_numbers(true);
-    for line in highlight {
-        printer.highlight(line);
-    }
-    printer.print().unwrap();
 }
 /// Prints a diff of changes between two strings.
 ///

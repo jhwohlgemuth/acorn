@@ -10,6 +10,7 @@ use crate::constants::{
 use crate::schema::ProgrammingLanguage;
 use crate::util::*;
 use crate::{Location, Repository};
+use bat::PrettyPrinter;
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
@@ -764,6 +765,23 @@ pub async fn link_check(uri: Option<String>) -> Check {
 pub fn checks_to_dataframe(values: Vec<Check>) -> PolarsResult<DataFrame> {
     let names = ["success", "category", "message", "uri", "status_code", "context"];
     to_dataframe::<Check, _, &str>(values, names)
+}
+/// Prints `text` to stdout using syntax highlighting for the specified `syntax`.
+///
+/// `highlight` is an iterator of line numbers to highlight in the output.
+pub fn pretty_print<I: IntoIterator<Item = usize>>(text: &str, syntax: ProgrammingLanguage, highlight: I) {
+    let input = format!("{text}\n");
+    let language = syntax.to_string();
+    let mut printer = PrettyPrinter::new();
+    printer
+        .input_from_bytes(input.as_bytes())
+        .theme("zenburn")
+        .language(&language)
+        .line_numbers(true);
+    for line in highlight {
+        printer.highlight(line);
+    }
+    printer.print().unwrap();
 }
 /// Create summary data table from given issues
 pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
