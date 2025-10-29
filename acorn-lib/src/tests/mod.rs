@@ -104,7 +104,7 @@ fn test_location_uri() {
         | Some(uri) => {
             assert_eq!(uri.scheme(), "HTTPS");
             assert_eq!(uri.path(), "/GSHS/GDS/Common/PIPE/module-a");
-        },
+        }
         | _ => panic!(),
     }
     let location = Location::Simple("ssh://git@code.ornl.gov/GSHS/GDS/Common/PIPE/module-a.git".into());
