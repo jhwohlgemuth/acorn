@@ -680,7 +680,7 @@ impl StaticAnalyzerConfig for ValeConfig {
 /// Convert Lychee response to [`Check`]
 pub fn convert_lychee_response(value: Response) -> Check {
     match value.status() {
-        | Status::Ok(code) | Status::Redirected(code) => Check::init()
+        | Status::Ok(code) | Status::Redirected(code, _) => Check::init()
             .category(CheckCategory::Link)
             .success(true)
             .status_code(code.to_string())

@@ -21,45 +21,45 @@ version.workspace = true
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-aho-corasick = "1.1.3"
-bat = "0.25.0"
-bon = "3.3.2"
-chrono = { version = "0.4.41", features = ["serde"] }
-clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
-comfy-table = "7.1.4"
-console = { version = "0.16.0", features = ["ansi-parsing"] }
+aho-corasick = "1.1.4"
+bat = "0.26.0"
+bon = "3.8.1"
+chrono = { version = "0.4.42", features = ["serde"] }
+clap = { version = "4.5.51", features = ["derive", "unstable-doc"] }
+comfy-table = "7.2.1"
+console = { version = "0.16.1", features = ["ansi-parsing"] }
 convert_case = "0.8.0"
 directories = "6.0.0"
-eserde = { version = "0.1.2", features = ["json"] }
-fancy-regex = "0.14.0"
-flate2 = "1.0.35"
-human-units = "0.3.0"
-lychee-lib = "0.20.1"
-is_executable = "1.0.4"
+eserde = { version = "0.1.7", features = ["json"] }
+fancy-regex = "0.16.2"
+flate2 = "1.1.5"
+human-units = "0.5.3"
+lychee-lib = "0.21.0"
+is_executable = "1.0.5"
 itertools = "0.14.0"
 nanoid = "0.4.0"
 nanopub = "0.1.4"
 nucleo-matcher = "0.3.1"
 percy-dom = "0.10.0"
-petgraph = "0.8.1"
+petgraph = "0.8.3"
 polars = { version = "0.51.0", features = ["lazy"] }
-quick-xml = { version = "0.38.0", features = ["serialize"] }
-reqwest = { version = "0.12", features = ["blocking", "json"] }
-ring = "0.17.13"
-rust-ini = "0.21.1"
-schemars = "1.0.3"
+quick-xml = { version = "0.38.3", features = ["serialize"] }
+reqwest = { version = "0.12.24", features = ["blocking", "json"] }
+ring = "0.17.14"
+rust-ini = "0.21.3"
+schemars = "1.0.4"
 serde_trim = "1.1.0"
-serde_with = "3.12.0"
+serde_with = "3.15.1"
 similar = "2.7.0"
 sophia = "0.9.0"
 sophia_jsonld = "0.9.0"
-sysinfo = "0.35.0"
-tar = "0.4.43"
+sysinfo = "0.37.2"
+tar = "0.4.44"
 urlencoding = "2.1.3"
-validator = { version = "0.20", features = ["derive"] }
-wgpu = "25.0.0"
+validator = { version = "0.20.0", features = ["derive"] }
+wgpu = "27.0.1"
 which = "8.0.0"
-zip = "4.2.0"
+zip = "6.0.0"
 color-eyre = { workspace = true }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
@@ -81,10 +81,10 @@ tracing = { workspace = true }
 uriparse = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
+openssl = { version = "0.10.74", features = ["vendored"] }
 
 [target.'cfg(windows)'.dependencies]
-openssl = { version = "0.10" }
+openssl = { version = "0.10.74" }
 
 [dev-dependencies]
 mockall = "0.13.1"
