@@ -14,9 +14,6 @@ repository = "https://code.ornl.gov/research-enablement/acorn"
 keywords = ["research", "automation"]
 exclude = [".vale", ".vscode"]
 
-[workspace.lints.clippy]
-# cargo = "warn"
-
 [workspace.lints.rust]
 missing-docs = "deny"
 rust-2018-idioms = "warn"
@@ -28,7 +25,10 @@ broken-intra-doc-links = "forbid"
 [workspace.dependencies]
 color-eyre = { version = "0.6.5", default-features = false }
 data-encoding = { version = "2.9.0", default-features = false }
-derive_more = { version = "2.0.1", features = ["display", "from_str"] }
+derive_more = { version = "2.0.1", features = [
+  "display",
+  "from_str",
+], default-features = false }
 dotenvy = { version = "0.15.0", default-features = false }
 duct = { version = "1.1.0", default-features = false }
 exitcode = { version = "1.1.2", default-features = false }
@@ -42,11 +42,13 @@ serde = { version = "1.0.225", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.140", default-features = false }
 serde_repr = { version = "0.1", default-features = false }
 serde_yml = { version = "0.0.12", default-features = false }
-tokio = { version = "1.48.0", features = ["full"] }
+tokio = { version = "1.48.0", default-features = false }
 tracing = { version = "0.1.40", default-features = false }
 tracing-indicatif = { version = "0.3.13", default-features = false }
 tracing-log = { version = "0.2.0", default-features = false }
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = [
+  "env-filter",
+], default-features = false }
 uriparse = { version = "0.6.4", default-features = false }
 
 [workspace.metadata.cross.build]
