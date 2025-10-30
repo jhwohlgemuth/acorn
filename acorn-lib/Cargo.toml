@@ -81,10 +81,10 @@ tracing = { workspace = true }
 uriparse = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
-openssl = { version = "0.10.74", features = ["vendored"] }
+openssl = { version = "0.10.74", features = ["vendored"], default-features = false }
 
 [target.'cfg(windows)'.dependencies]
-openssl = { version = "0.10.74" }
+openssl = { version = "0.10.74", default-features = false }
 
 [dev-dependencies]
 mockall = "0.13.1"
