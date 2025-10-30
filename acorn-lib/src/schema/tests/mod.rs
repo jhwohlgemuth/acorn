@@ -413,10 +413,10 @@ fn test_validate_attribute_areas() {
     let valid = ["x".repeat(10), "x".repeat(40)];
     let invalid = ["x".repeat(41), "x".repeat(100)];
     for x in valid.iter() {
-        assert!(validate_attribute_areas(std::slice::from_ref(x)).is_ok());
+        assert!(validate_attribute_areas(core::slice::from_ref(x)).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_attribute_areas(std::slice::from_ref(x)).is_err());
+        assert!(validate_attribute_areas(core::slice::from_ref(x)).is_err());
     }
 }
 #[test]
@@ -424,10 +424,10 @@ fn test_validate_attribute_capabilities() {
     let valid = ["x".repeat(10), "x".repeat(300)];
     let invalid = ["x".repeat(301), "x".repeat(400)];
     for x in valid.iter() {
-        assert!(validate_attribute_capabilities(std::slice::from_ref(x)).is_ok());
+        assert!(validate_attribute_capabilities(core::slice::from_ref(x)).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_attribute_capabilities(std::slice::from_ref(x)).is_err());
+        assert!(validate_attribute_capabilities(core::slice::from_ref(x)).is_err());
     }
 }
 #[test]
@@ -442,10 +442,10 @@ fn test_validate_attribute_impact() {
     let valid = ["x".repeat(10), "x".repeat(150)];
     let invalid = ["x".repeat(151), "x".repeat(500)];
     for x in valid.iter() {
-        assert!(validate_attribute_impact(std::slice::from_ref(x)).is_ok());
+        assert!(validate_attribute_impact(core::slice::from_ref(x)).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_attribute_impact(std::slice::from_ref(x)).is_err());
+        assert!(validate_attribute_impact(core::slice::from_ref(x)).is_err());
     }
     assert!(validate_attribute_impact(&[
         "This is an impact statement with no period".to_string(),

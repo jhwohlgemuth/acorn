@@ -11,7 +11,7 @@
 use crate::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT};
 use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::{builder, Builder};
-use std::fmt::Display;
+use core::fmt::Display;
 
 pub mod raid;
 
@@ -417,7 +417,7 @@ impl Default for ORCID {
 }
 impl Display for ARK {
     /// Format a ARK into a standard format of `"{NMA}{label}{NAAN}/{Assigned Name}/{Parts}{Variants}"`
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let nma = self.name_mapping_authority.clone().unwrap_or_default().trim_end_matches('/').to_string();
         let label = self.label.trim_end_matches('/').to_string();
         let naan = self.name_assigning_authority_number.clone().unwrap_or_default();
@@ -438,7 +438,7 @@ impl Display for ARK {
 }
 impl Display for DOI {
     /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let values = [self.prefix(), self.suffix()];
         let result = values
             .iter()
@@ -451,7 +451,7 @@ impl Display for DOI {
 }
 impl Display for ORCID {
     /// Format a ORCiD into a standard format of `"{schema_uri}{identifier}"`
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let schema_uri = self.schema_uri();
         let identifier = self.identifier();
         let uri = if schema_uri.is_empty() { DEFAULT_ORCID_SCHEMA_URI } else { &schema_uri };

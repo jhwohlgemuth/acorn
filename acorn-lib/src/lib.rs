@@ -6,6 +6,7 @@
 //!
 use crate::analyzer::{link_check, Check};
 use color_eyre::eyre;
+use core::fmt::Debug;
 use derive_more::Display;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
@@ -15,11 +16,9 @@ use reqwest::header::{HeaderMap, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use serde_with::skip_serializing_none;
-use std::fmt::Debug;
 use std::fs::File;
 use std::io::{copy, Cursor};
 use std::path::PathBuf;
-use std::vec;
 use tracing::{debug, error, trace, warn};
 use uriparse::URI;
 use urlencoding::encode;
@@ -475,7 +474,7 @@ impl Bucket {
                     let paths = (FIRST_PAGE.unwrap_or_default()..=page_count(&response))
                         .into_par_iter()
                         .map(|page| self.clone().file_paths_for_page(directory, Some(page)))
-                        .reduce(std::vec::Vec::new, |a, b| [a, b].concat());
+                        .reduce(Vec::new, |a, b| [a, b].concat());
                     trace!("{:#?}", response);
                     paths
                 }

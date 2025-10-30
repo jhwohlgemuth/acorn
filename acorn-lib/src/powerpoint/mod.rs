@@ -5,10 +5,10 @@
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::schema::{ContactPoint, Metadata, Notes, Other, ResearchActivity, Sections};
 use crate::util::{files_all, read_file, to_absolute_string, write_file, Label};
+use core::error::Error;
 use fancy_regex::Regex;
 use quick_xml::events::Event;
 use quick_xml::{Reader, Writer};
-use std::error::Error;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
@@ -139,7 +139,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
             content = replace_placeholder_with_string(&content, "citation", &doi.unwrap()[0]);
             content = replace_placeholder_with_string(&content, "caption", &caption);
             content = replace_placeholder_with_string(&content, "notes", &presentation_notes);
-            content = replace_placeholder_with_bullets(&content, "achievement", achievement.unwrap_or_else(std::vec::Vec::new));
+            content = replace_placeholder_with_bullets(&content, "achievement", achievement.unwrap_or_else(Vec::new));
             content = replace_placeholder_with_bullets(&content, "impact", impact);
             content = replace_placeholder_with_bullets(&content, "technical", approach);
             content
@@ -178,7 +178,7 @@ pub fn prettify_xml(xml: &str) -> String {
         .expect("Failed to parse XML");
         buf.clear();
     }
-    let result = std::str::from_utf8(&writer.into_inner())
+    let result = core::str::from_utf8(&writer.into_inner())
         .expect("Failed to convert a slice of bytes to a string slice")
         .to_string();
     result

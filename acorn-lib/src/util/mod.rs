@@ -497,7 +497,7 @@ impl SemanticVersion {
     /// ```
     pub fn from_command<S>(name: S) -> Option<SemanticVersion>
     where
-        S: Into<String> + duct::IntoExecutablePath + std::marker::Copy,
+        S: Into<String> + duct::IntoExecutablePath + core::marker::Copy,
     {
         if command_exists(name.into()) {
             let result = cmd(name, vec!["--version"]).read();
@@ -668,7 +668,7 @@ where
 /// - Uses [`tokio_runtime`] for asynchronous operations.
 pub fn download_binary<S, P>(url: S, destination: P) -> Result<PathBuf, String>
 where
-    S: Into<String> + Clone + std::marker::Copy,
+    S: Into<String> + Clone + core::marker::Copy,
     P: Into<PathBuf> + Clone,
 {
     async fn download<P>(url: String, destination: P) -> Result<(), String>
@@ -1262,7 +1262,7 @@ where
 /// ```
 pub fn regex_capture_lookup<S>(pattern: S, value: S, names: Vec<S>) -> HashMap<S, String>
 where
-    S: Into<String> + AsRef<str> + Clone + std::cmp::Eq + std::hash::Hash,
+    S: Into<String> + AsRef<str> + Clone + core::cmp::Eq + core::hash::Hash,
 {
     let re = Regex::new(pattern.as_ref()).unwrap();
     let mut lookup: HashMap<S, String> = HashMap::new();
