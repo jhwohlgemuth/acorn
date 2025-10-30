@@ -21,45 +21,62 @@ version.workspace = true
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-aho-corasick = "1.1.4"
-bat = "0.26.0"
-bon = "3.8.1"
-chrono = { version = "0.4.42", features = ["serde"] }
-clap = { version = "4.5.51", features = ["derive", "unstable-doc"] }
-comfy-table = "7.2.1"
+aho-corasick = { version = "1.1.4", default-features = false }
+bat = { version = "0.26.0", features = [
+  "regex-onig",
+], default-features = false }
+bon = { version = "3.8.1", default-features = false }
+chrono = { version = "0.4.42", features = ["serde"], default-features = false }
+clap = { version = "4.5.51", features = [
+  "derive",
+  "unstable-doc",
+], default-features = false }
+comfy-table = { version = "7.2.1", default-features = false }
 console = { version = "0.16.1", features = ["ansi-parsing"] }
-convert_case = "0.8.0"
-directories = "6.0.0"
-eserde = { version = "0.1.7", features = ["json"] }
-fancy-regex = "0.16.2"
-flate2 = "1.1.5"
-human-units = "0.5.3"
-lychee-lib = "0.21.0"
-is_executable = "1.0.5"
-itertools = "0.14.0"
-nanoid = "0.4.0"
-nanopub = "0.1.4"
-nucleo-matcher = "0.3.1"
-percy-dom = "0.10.0"
-petgraph = "0.8.3"
+convert_case = { version = "0.8.0", default-features = false }
+directories = { version = "6.0.0", default-features = false }
+eserde = { version = "0.1.7", features = ["json"], default-features = false }
+fancy-regex = { version = "0.16.2", default-features = false }
+flate2 = { version = "1.1.5", default-features = false }
+human-units = { version = "0.5.3", default-features = false }
+lychee-lib = { version = "0.21.0", default-features = false }
+is_executable = { version = "1.0.5", default-features = false }
+itertools = { version = "0.14.0", default-features = false }
+nanoid = { version = "0.4.0", default-features = false }
+nanopub = { version = "0.1.4", default-features = false }
+nucleo-matcher = { version = "0.3.1", features = [
+  "unicode-casefold",
+  "unicode-normalization",
+], default-features = false }
+percy-dom = { version = "0.10.0", default-features = false }
+petgraph = { version = "0.8.3", features = [
+  "stable_graph",
+], default-features = false }
 polars = { version = "0.51.0", features = ["lazy"] }
 quick-xml = { version = "0.38.3", features = ["serialize"] }
 reqwest = { version = "0.12.24", features = ["blocking", "json"] }
-ring = "0.17.14"
-rust-ini = "0.21.3"
-schemars = "1.0.4"
-serde_trim = "1.1.0"
-serde_with = "3.15.1"
-similar = "2.7.0"
-sophia = "0.9.0"
-sophia_jsonld = "0.9.0"
-sysinfo = "0.37.2"
-tar = "0.4.44"
-urlencoding = "2.1.3"
-validator = { version = "0.20.0", features = ["derive"] }
-wgpu = "27.0.1"
-which = "8.0.0"
-zip = "6.0.0"
+ring = { version = "0.17.14", default-features = false }
+rust-ini = { version = "0.21.3", default-features = false }
+schemars = { version = "1.0.4", features = [
+  "derive",
+], default-features = false }
+serde_trim = { version = "1.1.0", default-features = false }
+serde_with = { version = "3.15.1", default-features = false }
+similar = { version = "2.7.0", features = ["text"], default-features = false }
+sophia = { version = "0.9.0", default-features = false }
+sophia_jsonld = { version = "0.9.0", default-features = false }
+sysinfo = { version = "0.37.2", features = [
+  "network",
+  "system",
+], default-features = false }
+tar = { version = "0.4.44", default-features = false }
+urlencoding = { version = "2.1.3", default-features = false }
+validator = { version = "0.20.0", features = [
+  "derive",
+], default-features = false }
+wgpu = { version = "27.0.1", default-features = false }
+which = { version = "8.0.0", features = ["real-sys"], default-features = false }
+zip = { version = "6.0.0", default-features = false }
 color-eyre = { workspace = true }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
