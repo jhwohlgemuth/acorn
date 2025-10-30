@@ -264,6 +264,17 @@ fn test_snake_case() {
     assert_eq!(snake_case("A1B2"), "a_1_b_2");
 }
 #[test]
+fn test_to_strings() {
+    let list: Vec<PathBuf> = vec![];
+    assert!(list.to_strings().is_empty());
+    let list = vec![PathBuf::from("foo"), PathBuf::from("bar"), PathBuf::from("baz")];
+    assert!(list.to_strings().contains(&"foo".to_string()));
+    let list = vec![Path::new("foo"), Path::new("bar"), Path::new("baz")];
+    assert!(list.to_strings().contains(&"foo".to_string()));
+    let list = vec!["foo", "bar", "baz"];
+    assert!(list.to_strings().contains(&"foo".to_string()));
+}
+#[test]
 fn test_suffix() {
     assert_eq!(suffix(0), "s");
     assert_eq!(suffix(1), "");

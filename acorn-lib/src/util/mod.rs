@@ -82,6 +82,26 @@ where
     /// Chunk a string into substrings of a given size
     fn chunk(&self, size: usize) -> Vec<String>;
 }
+/// Trait for converting a vector of PathBufs to a vector of strings
+pub trait ToStrings {
+    /// Convert a vector of string slices to a vector of string values of paths
+    ///
+    /// This is a convenience that I find myself wanting to use in a lot of places.
+    ///
+    /// Adding a `to_strings` method to the `Vec<PathBuf>` types seems like a good idea.
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::util::ToStrings;
+    ///
+    /// let paths = vec![PathBuf::from("foo"), PathBuf::from("bar"), PathBuf::from("baz")];
+    /// assert!(paths.to_strings().contains(&"foo".to_string()));
+    /// ```
+    fn to_strings(&self) -> Vec<String>;
+    /// Convert a vector of string slices to a vector of string values of absolute paths
+    fn to_absolute_strings(&self) -> Vec<String> {
+        vec![]
+    }
+}
 /// SPDX compliant license identifier
 ///
 /// See <https://spdx.org/licenses/>
@@ -201,6 +221,8 @@ pub struct SemanticVersion {
     #[builder(default = 0)]
     pub patch: u32,
 }
+/// Struct for adding ToStringList functionality
+pub struct StringList<'a>(pub &'a Vec<PathBuf>);
 impl Constant {
     /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
     ///
@@ -543,6 +565,16 @@ where
             .chunks(size)
             .map(|chunk| String::from_utf8(chunk.to_vec()).unwrap())
             .collect::<Vec<_>>()
+    }
+}
+impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
+    fn to_strings(&self) -> Vec<String> {
+        self.iter()
+            .map(|p| <P as Into<PathBuf>>::into(p.clone()).to_string_lossy().to_string())
+            .collect()
+    }
+    fn to_absolute_strings(&self) -> Vec<String> {
+        self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_string()).collect()
     }
 }
 /// Get SHA256 hash of a file
