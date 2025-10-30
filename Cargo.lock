@@ -47,7 +47,7 @@ dependencies = [
  "clap",
  "color-eyre",
  "comfy-table",
- "console",
+ "console 0.16.1",
  "convert_case",
  "data-encoding",
  "derive_more",
@@ -89,6 +89,7 @@ dependencies = [
  "serde_with 3.15.1",
  "serde_yml",
  "similar",
+ "similar-asserts",
  "sophia 0.9.0",
  "sophia_jsonld 0.9.0",
  "sysinfo",
@@ -399,7 +400,7 @@ dependencies = [
  "bincode",
  "bytesize",
  "clircle",
- "console",
+ "console 0.16.1",
  "content_inspector",
  "encoding_rs",
  "flate2",
@@ -815,6 +816,18 @@ name = "compression-core"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e47641d3deaf41fb1538ac1f54735925e275eaf3bf4d55c81b137fba797e5cbb"
+
+[[package]]
+name = "console"
+version = "0.15.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "054ccb5b10f9f2cbf51eb355ca1d05c2d279ce1804688d0db74b4733a5aeafd8"
+dependencies = [
+ "encode_unicode",
+ "libc",
+ "once_cell",
+ "windows-sys 0.59.0",
+]
 
 [[package]]
 name = "console"
@@ -2432,7 +2445,7 @@ version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ade6dfcba0dfb62ad59e59e7241ec8912af34fd29e0e743e3db992bd278e8b65"
 dependencies = [
- "console",
+ "console 0.16.1",
  "portable-atomic",
  "unicode-width",
  "unit-prefix",
@@ -5432,6 +5445,20 @@ name = "similar"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
+dependencies = [
+ "bstr",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "similar-asserts"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5b441962c817e33508847a22bd82f03a30cff43642dc2fae8b050566121eb9a"
+dependencies = [
+ "console 0.15.11",
+ "similar",
+]
 
 [[package]]
 name = "simple_asn1"

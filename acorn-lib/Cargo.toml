@@ -89,6 +89,7 @@ openssl = { version = "0.10.74", default-features = false }
 [dev-dependencies]
 mockall = "0.13.1"
 pretty_assertions = "1.4.1"
+similar-asserts = "1.7.0"
 temp-env = "0.3.6"
 
 [features]
