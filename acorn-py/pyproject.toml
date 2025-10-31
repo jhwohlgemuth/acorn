@@ -33,7 +33,7 @@ build-backend = "maturin"
 [tool.maturin]
 module-name = "acorn"
 features = ["pyo3/extension-module"]
-locked = true
+locked = false
 manifest-path = "Cargo.toml"
 profile = "release"
 
