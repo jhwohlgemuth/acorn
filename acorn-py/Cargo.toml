@@ -1,6 +1,6 @@
 [package]
 name = "acorn-py"
-version = "0.1.35"
+version = "0.1.36"
 license = "MIT"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
 description = "Python bindings for acorn-lib crate"
