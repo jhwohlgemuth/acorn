@@ -15,8 +15,48 @@ use core::fmt::Display;
 
 pub mod raid;
 
+/// Provides common functions for working with persistent identifiers (PID)
+pub trait PersistentIdentifier: Display {
+    /// Create a new PID
+    fn new() -> Self;
+    /// Get standardized form of schema URI for a PID
+    /// ### Examples
+    /// - `https://doi.org`
+    /// - `https://orcid.org`
+    fn schema_uri(&self) -> String;
+    /// Get PID identifier section
+    /// ### Examples
+    /// - `ark:1234/x5678` for [`ARK`]
+    /// - `10.1234/5678` for [`DOI`]
+    /// - `0000-0002-2057-9115` for [`ORCID`]
+    fn identifier(&self) -> String;
+    /// Get PID prefix (different interpretation depending on PID type)
+    ///
+    /// Not every PID type has a prefix, but generally every PID has a "first" part that can losely be considered a "prefix"
+    fn prefix(&self) -> Option<String> {
+        None
+    }
+    /// Get PID suffix (different interpretation depending on PID type)
+    ///
+    /// Not every PID type has a suffix, but generally every PID has a "second" part that can losely be considered a "suffix"
+    fn suffix(&self) -> Option<String> {
+        None
+    }
+    /// Get PID check digit (when applicable)
+    fn check_digit(&self) -> Option<String> {
+        None
+    }
+    /// Convert `self` into a string with a standard format
+    fn format(&self) -> String {
+        self.to_string()
+    }
+    /// Check if PID is valid
+    fn is_valid(&self) -> bool {
+        false
+    }
+}
 /// Add coercion to persistent identifier (PID) functionality to string values
-pub trait PersistentIdentifier<T: AsRef<str>> {
+pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// Convert `self` into a string standard format PID of a certain type
     /// ```rust
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
@@ -308,19 +348,6 @@ impl ARK {
         };
         naan_is_integer && shoulder_starts_with_lowercase_letter
     }
-    /// Returns consistent string representation of ARK qualifiers which often name subobjects
-    /// of a persistent object that are less stable and less opaquely named than the parent object
-    pub fn qualifier_string(&self) -> String {
-        let parts = self.parts.join("/");
-        let variants = self.variants.join(".");
-        let qualifiers = [parts, variants];
-        qualifiers
-            .iter()
-            .filter(|x| !x.is_empty())
-            .map(String::from)
-            .collect::<Vec<String>>()
-            .join(".")
-    }
 }
 impl DOI {
     /// Convenience method for easily parsing and formatting a DOI from a string value
@@ -382,107 +409,8 @@ impl DOI {
             | _ => false,
         }
     }
-    /// Get DOI prefix (i.e., "{directory_indicator}.{registrant_code}")
-    pub fn prefix(&self) -> String {
-        let values = [
-            self.directory_indicator.as_ref().cloned().unwrap_or_default(),
-            self.registrant_code.as_ref().cloned().unwrap_or_default(),
-        ];
-        values
-            .iter()
-            .filter(|x| !x.is_empty())
-            .map(String::from)
-            .collect::<Vec<String>>()
-            .join(".")
-    }
-    /// Get DOI suffix
-    pub fn suffix(&self) -> String {
-        self.suffix.as_ref().cloned().unwrap_or_default()
-    }
-}
-impl Default for ARK {
-    fn default() -> Self {
-        ARK::init().build()
-    }
-}
-impl Default for DOI {
-    fn default() -> Self {
-        DOI::init().build()
-    }
-}
-impl Default for ORCID {
-    fn default() -> Self {
-        ORCID::init().build()
-    }
-}
-impl Display for ARK {
-    /// Format a ARK into a standard format of `"{NMA}{label}{NAAN}/{Assigned Name}/{Parts}{Variants}"`
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let nma = self.name_mapping_authority.clone().unwrap_or_default().trim_end_matches('/').to_string();
-        let label = self.label.trim_end_matches('/').to_string();
-        let naan = self.name_assigning_authority_number.clone().unwrap_or_default();
-        let assigned_name = self.assigned_name.clone().unwrap_or_default();
-        let qualifiers = self.qualifier_string();
-        let prefix = if naan.is_empty() { "".to_string() } else { format!("{label}{naan}") };
-        let values = [nma, prefix, assigned_name, qualifiers];
-        let result = values
-            .iter()
-            .filter(|x| !x.is_empty())
-            .map(String::from)
-            .collect::<Vec<String>>()
-            .join("/")
-            .trim_end_matches("/")
-            .to_string();
-        write!(f, "{result}")
-    }
-}
-impl Display for DOI {
-    /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let values = [self.prefix(), self.suffix()];
-        let result = values
-            .iter()
-            .filter(|x| !x.is_empty())
-            .map(String::from)
-            .collect::<Vec<String>>()
-            .join("/");
-        write!(f, "{result}")
-    }
-}
-impl Display for ORCID {
-    /// Format a ORCiD into a standard format of `"{schema_uri}{identifier}"`
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let schema_uri = self.schema_uri();
-        let identifier = self.identifier();
-        let uri = if schema_uri.is_empty() { DEFAULT_ORCID_SCHEMA_URI } else { &schema_uri };
-        let values = match &self.identifier {
-            | Some(_) => [uri, &identifier].to_vec(),
-            | None => vec![],
-        };
-        let result = values
-            .into_iter()
-            .filter(|x| !x.is_empty())
-            .map(String::from)
-            .collect::<Vec<String>>()
-            .join("");
-        write!(f, "{result}")
-    }
 }
 impl ORCID {
-    /// Get ORCID identifier
-    /// ### Notes
-    /// - Will return an empty string if no identifier is present
-    /// - Will always return a 19 character string with a hyphen every 4 characters (i.e., "0000-0000-0000-0000")
-    pub fn identifier(&self) -> String {
-        let stripped = self.identifier.as_ref().cloned().unwrap_or_default().replace("-", "");
-        stripped.chunk(4).join("-")
-    }
-    /// Get ORCID schema URI
-    /// ### Notes
-    /// - Should always be "<https://orcid.org/>"
-    pub fn schema_uri(&self) -> String {
-        self.schema_uri.as_ref().cloned().unwrap_or_default()
-    }
     /// Convenience method for easily parsing and formatting a ORCID from a string value
     /// ### Example
     /// ```rust
@@ -551,22 +479,181 @@ impl ORCID {
         }
     }
 }
-impl StringFormat for ARK {
+impl Default for ARK {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Default for DOI {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Default for ORCID {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Display for ARK {
+    /// Format a ARK into a standard format of `"{NMA}{label}{NAAN}/{Assigned Name}/{Parts}{Variants}"`
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let nma = self.name_mapping_authority.clone().unwrap_or_default().trim_end_matches('/').to_string();
+        let identifier = self.identifier();
+        let result = [nma, identifier].into_iter().filter(|x| !x.is_empty()).collect::<Vec<String>>().join("/");
+        write!(f, "{result}")
+    }
+}
+impl Display for DOI {
+    /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let result = self.identifier();
+        write!(f, "{result}")
+    }
+}
+impl Display for ORCID {
+    /// Format a ORCiD into a standard format of `"{schema_uri}{identifier}"`
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let schema_uri = self.schema_uri();
+        let identifier = self.identifier();
+        let uri = if schema_uri.is_empty() { DEFAULT_ORCID_SCHEMA_URI } else { &schema_uri };
+        let values = match &self.identifier {
+            | Some(_) => [uri, &identifier].to_vec(),
+            | None => vec![],
+        };
+        let result = values
+            .into_iter()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join("");
+        write!(f, "{result}")
+    }
+}
+impl PersistentIdentifier for ARK {
+    fn new() -> Self {
+        ARK::init().build()
+    }
     fn format(&self) -> String {
         self.to_string()
     }
-}
-impl StringFormat for DOI {
-    fn format(&self) -> String {
-        self.to_string()
+    fn schema_uri(&self) -> String {
+        let uri = match &self.name_mapping_authority {
+            | Some(value) => value,
+            | None => "",
+        };
+        uri.to_string()
+    }
+    fn identifier(&self) -> String {
+        let values = [self.prefix(), self.suffix()];
+        values
+            .iter()
+            .flatten()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join("/")
+    }
+    fn prefix(&self) -> Option<String> {
+        let Self {
+            label,
+            name_assigning_authority_number,
+            assigned_name,
+            ..
+        } = self;
+        if [name_assigning_authority_number.clone(), assigned_name.clone()]
+            .iter()
+            .all(|x| x.is_some())
+        {
+            let result = format!(
+                "{}{}/{}",
+                label.trim_end_matches('/'),
+                name_assigning_authority_number.as_ref().unwrap(),
+                assigned_name.as_ref().unwrap()
+            );
+            Some(result)
+        } else {
+            None
+        }
+    }
+    /// Returns consistent string representation of ARK qualifiers which often name subobjects
+    /// of a persistent object that are less stable and less opaquely named than the parent object
+    fn suffix(&self) -> Option<String> {
+        let parts = self.parts.join("/");
+        let variants = self.variants.join(".");
+        let qualifiers = [parts, variants];
+        let result = qualifiers
+            .iter()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join(".");
+        Some(result)
     }
 }
-impl StringFormat for ORCID {
-    fn format(&self) -> String {
-        self.to_string()
+impl PersistentIdentifier for DOI {
+    fn new() -> Self {
+        DOI::init().build()
+    }
+    fn schema_uri(&self) -> String {
+        self.schema_uri.as_ref().cloned().unwrap_or_default()
+    }
+    fn identifier(&self) -> String {
+        let values = [self.prefix(), self.suffix()];
+        values
+            .iter()
+            .flatten()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join("/")
+    }
+    /// Get DOI prefix (i.e., "{directory_indicator}.{registrant_code}")
+    fn prefix(&self) -> Option<String> {
+        let values = [
+            self.directory_indicator.as_ref().cloned().unwrap_or_default(),
+            self.registrant_code.as_ref().cloned().unwrap_or_default(),
+        ];
+        let result = values
+            .iter()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join(".");
+        Some(result)
+    }
+    /// Get DOI suffix
+    fn suffix(&self) -> Option<String> {
+        let result = self.suffix.as_ref().cloned().unwrap_or_default();
+        if !result.is_empty() {
+            Some(result)
+        } else {
+            None
+        }
     }
 }
-impl<T: AsRef<str>> PersistentIdentifier<T> for T
+impl PersistentIdentifier for ORCID {
+    fn new() -> Self {
+        ORCID::init().build()
+    }
+    /// Get ORCID schema URI
+    /// ### Notes
+    /// - Should always be "<https://orcid.org/>"
+    fn schema_uri(&self) -> String {
+        self.schema_uri.as_ref().cloned().unwrap_or_default()
+    }
+    /// Get ORCID identifier
+    /// ### Notes
+    /// - Will return an empty string if no identifier is present
+    /// - Will always return a 19 character string with a hyphen every 4 characters (i.e., "0000-0000-0000-0000")
+    fn identifier(&self) -> String {
+        let stripped = self.identifier.as_ref().cloned().unwrap_or_default().replace("-", "");
+        stripped.chunk(4).join("-")
+    }
+    fn suffix(&self) -> Option<String> {
+        Some(self.identifier())
+    }
+}
+impl<T: AsRef<str>> PersistentIdentifierConvert<T> for T
 where
     T: ToString,
 {

@@ -25,6 +25,10 @@ fn test_ark() {
     assert!(valid.format_as(PID::ARK).is_ark());
     assert_eq!(valid.format_as(PID::ARK), valid);
     assert_eq!(valid.to_pid(PID::ARK).to_ark().to_string(), valid);
+    let ark = ARK::from_string(valid);
+    assert_eq!(ark.prefix(), Some("ark:12148/btv1b8449691v".to_string()));
+    assert_eq!(ark.suffix(), Some("f29".to_string()));
+    assert_eq!(ark.identifier(), "ark:12148/btv1b8449691v/f29");
 }
 #[test]
 fn test_ark_struct() {

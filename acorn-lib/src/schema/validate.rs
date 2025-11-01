@@ -3,7 +3,7 @@
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 //!
 use crate::constants::*;
-use crate::schema::pid::PersistentIdentifier;
+use crate::schema::pid::PersistentIdentifierConvert;
 use chrono::prelude::*;
 use convert_case::{Case, Casing};
 use uriparse::URI;
