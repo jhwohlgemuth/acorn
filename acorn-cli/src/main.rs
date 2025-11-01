@@ -75,6 +75,7 @@ fn main() -> Void {
             // Configure tracing with a .env file
             let indicatif_layer = IndicatifLayer::new();
             let format = fmt::layer()
+                .with_ansi(true)
                 .with_level(DISPLAY_LEVEL)
                 .with_line_number(DISPLAY_LINE_NUMBER)
                 .with_target(DISPLAY_TARGET)
@@ -90,6 +91,7 @@ fn main() -> Void {
         | _ => {
             // Configure tracing with command line argument
             let format = fmt::format()
+                .with_ansi(true)
                 .with_level(DISPLAY_LEVEL)
                 .with_line_number(DISPLAY_LINE_NUMBER)
                 .with_target(DISPLAY_TARGET)

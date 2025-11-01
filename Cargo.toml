@@ -35,7 +35,7 @@ exitcode = { version = "1.1.2", default-features = false }
 glob = { version = "0.3.1", default-features = false }
 indicatif = { version = "0.18.2", default-features = false }
 lazy_static = { version = "1.5.0", default-features = false }
-owo-colors = { version = "4.2.3", features = ["alloc"], default-features = false }
+owo-colors = { version = "4.2.3", features = ["alloc"], default-features = true }
 rayon = { version = "1.10.0", default-features = false }
 rust-embed = { version = "8.7.1", default-features = false }
 serde = { version = "1.0.225", features = ["derive"], default-features = false }
@@ -46,7 +46,9 @@ tokio = { version = "1.48.0", default-features = false }
 tracing = { version = "0.1.40", default-features = false }
 tracing-indicatif = { version = "0.3.13", default-features = false }
 tracing-log = { version = "0.2.0", default-features = false }
-tracing-subscriber = { version = "0.3.20", features = [
+# Pinned to ensure colored ANSI output
+tracing-subscriber = { version = "=0.3.19", features = [
+  "ansi",
   "env-filter",
 ], default-features = false }
 uriparse = { version = "0.6.4", default-features = false }
