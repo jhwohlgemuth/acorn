@@ -83,21 +83,23 @@ fn test_doi_struct() {
 #[test]
 fn test_iso7064_check_digit() {
     let value = "000000031415926";
-    let expected = 9;
+    let expected = Some('9');
     assert_eq!(iso7064_check_digit(value), expected);
     let value = "0000-0002-2057-911";
-    let expected = 5;
+    let expected = Some('5');
     assert_eq!(iso7064_check_digit(value), expected);
     let value = "0000-0002-2057-9115";
-    let expected = 5;
+    let expected = Some('5');
     assert_eq!(iso7064_check_digit(value), expected);
     let value = "0000-0002-1823-1234";
-    let expected = 2;
+    let expected = Some('2');
     assert_eq!(iso7064_check_digit(value), expected);
     let value = "0000-0001-9034-3389";
-    let expected = 9;
+    let expected = Some('9');
     assert_eq!(iso7064_check_digit(value), expected);
 }
+#[test]
+fn test_noid_check_digit() {}
 #[test]
 fn test_raid_read() {
     let path = PathBuf::from(FIXTURES).join("raid/response_01.json");

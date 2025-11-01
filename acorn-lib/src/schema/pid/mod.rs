@@ -43,7 +43,7 @@ pub trait PersistentIdentifier: Display {
         None
     }
     /// Get PID check digit (when applicable)
-    fn check_digit(&self) -> Option<String> {
+    fn check_digit(&self) -> Option<char> {
         None
     }
     /// Convert `self` into a string with a standard format
@@ -108,11 +108,6 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     fn is_orcid(&self) -> bool {
         false
     }
-}
-/// Trait for formatting string values
-pub trait StringFormat {
-    /// Convert `self` into a string with a standard format
-    fn format(&self) -> String;
 }
 /// Internal representation of a persistent identifier
 #[derive(Default)]
@@ -467,14 +462,12 @@ impl ORCID {
     {
         let orcid = ORCID::from_string(value.as_ref());
         let identifier = orcid.identifier();
-        let last = identifier.chars().last().unwrap_or_default().to_string();
-        let checksum = match iso7064_check_digit(identifier.as_str()) {
-            | 10 => "X".to_string(),
-            | value if (0..10).contains(&value) => format!("{value}"),
-            | _ => "".to_string(),
-        };
-        match RE_ORCID.is_match(value.as_ref()) {
-            | Ok(true) if last == checksum && identifier.len() == 19 => true,
+        let last = identifier.chars().last().unwrap_or_default();
+        match iso7064_check_digit(identifier.as_str()) {
+            | Some(check_digit) => match RE_ORCID.is_match(value.as_ref()) {
+                | Ok(true) if check_digit.eq(&last) && identifier.len() == 19 => true,
+                | _ => false,
+            },
             | _ => false,
         }
     }
@@ -652,6 +645,9 @@ impl PersistentIdentifier for ORCID {
     fn suffix(&self) -> Option<String> {
         Some(self.identifier())
     }
+    fn check_digit(&self) -> Option<char> {
+        iso7064_check_digit(self.identifier())
+    }
 }
 impl<T: AsRef<str>> PersistentIdentifierConvert<T> for T
 where
@@ -737,23 +733,31 @@ impl PersistentIdentifierInternal {
 /// assert_eq!(iso7064_check_digit("0000000220579115"), 5);
 /// assert_eq!(iso7064_check_digit("0000-0002-2057-9115"), 5);
 /// ```
-pub fn iso7064_check_digit(value: &str) -> u32 {
+pub fn iso7064_check_digit<S>(value: S) -> Option<char>
+where
+    S: AsRef<str>,
+{
     const MODULUS: u32 = 11;
     const RADIX: u32 = 2;
-    let working = value.replace("-", "");
+    let working = value.as_ref().replace("-", "");
     let sum = working.chars().take(15).fold(0, |acc, x| {
         let digit = x.to_digit(10).unwrap_or_default();
         (acc + digit) * RADIX
     });
     let remainder = sum % MODULUS;
-    (MODULUS + 1 - remainder) % MODULUS
+    let result = (MODULUS + 1 - remainder) % MODULUS;
+    if result == 10 {
+        Some('X')
+    } else {
+        char::from_digit(result, 10)
+    }
 }
 /// Calculate check xdigit ("extended digit") IAW [NOID check digit algorithm (NCDA)](https://metacpan.org/dist/Noid/view/noid#NOID-CHECK-DIGIT-ALGORITHM)
 /// ### References
 /// - <https://github.com/internetarchive/arklet>
 /// - <https://github.com/no-reply/pynoid>
-pub fn noid_check_digit(_value: &str) -> char {
-    'z'
+pub fn noid_check_digit(_value: &str) -> Option<char> {
+    Some('z')
 }
 
 #[cfg(test)]
