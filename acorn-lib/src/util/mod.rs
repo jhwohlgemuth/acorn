@@ -183,6 +183,54 @@ pub enum MimeType {
 #[derive(Embed)]
 #[folder = "assets/constants/"]
 pub struct Constant;
+/// Struct for parsing GitLab API merge request diff responses
+///
+/// Used by [`files_from_gitlab_merge_request`]
+///
+/// ### Example Response JSON
+/// ```json
+/// [
+///     {
+///         "old_path": "README",
+///         "new_path": "README",
+///         "a_mode": "100644",
+///         "b_mode": "100644",
+///         "diff": "@@ -1 +1 @@\ -Title\ +README",
+///         "collapsed": false,
+///         "too_large": false,
+///         "new_file": false,
+///         "renamed_file": false,
+///         "deleted_file": false,
+///         "generated_file": false
+///     },
+///     {
+///         "old_path": "VERSION",
+///         "new_path": "VERSION",
+///         "a_mode": "100644",
+///         "b_mode": "100644",
+///         "diff": "@@\ -1.9.7\ +1.9.8",
+///         "collapsed": false,
+///         "too_large": false,
+///         "new_file": false,
+///         "renamed_file": false,
+///         "deleted_file": false,
+///         "generated_file": false
+///     }
+/// ]
+/// ```
+///
+/// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
+#[derive(Debug, Deserialize)]
+pub struct GitlabMergeRequestDiffResponse {
+    new_path: String,
+    // diff: String,
+    // old_path: String,
+    // too_large: Option<bool>,
+    // new_file: bool,
+    // renamed_file: bool,
+    // deleted_file: bool,
+    // generated_file: bool,
+}
 /// Struct for using and sharing colorized logging labels
 ///
 /// ### Labels [^1]
@@ -853,54 +901,6 @@ pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<
     } else {
         vec![]
     }
-}
-/// Struct for parsing GitLab API merge request diff responses
-///
-/// Used by [`files_from_gitlab_merge_request`]
-///
-/// ### Example Response JSON
-/// ```json
-/// [
-///     {
-///         "old_path": "README",
-///         "new_path": "README",
-///         "a_mode": "100644",
-///         "b_mode": "100644",
-///         "diff": "@@ -1 +1 @@\ -Title\ +README",
-///         "collapsed": false,
-///         "too_large": false,
-///         "new_file": false,
-///         "renamed_file": false,
-///         "deleted_file": false,
-///         "generated_file": false
-///     },
-///     {
-///         "old_path": "VERSION",
-///         "new_path": "VERSION",
-///         "a_mode": "100644",
-///         "b_mode": "100644",
-///         "diff": "@@\ -1.9.7\ +1.9.8",
-///         "collapsed": false,
-///         "too_large": false,
-///         "new_file": false,
-///         "renamed_file": false,
-///         "deleted_file": false,
-///         "generated_file": false
-///     }
-/// ]
-/// ```
-///
-/// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
-#[derive(Debug, Deserialize)]
-pub struct GitlabMergeRequestDiffResponse {
-    new_path: String,
-    // diff: String,
-    // old_path: String,
-    // too_large: Option<bool>,
-    // new_file: bool,
-    // renamed_file: bool,
-    // deleted_file: bool,
-    // generated_file: bool,
 }
 /// Returns a vector of `PathBuf` containing all files changed in a GitLab merge request, as determined by the `CI_API_V4_URL`, `CI_MERGE_REQUEST_PROJECT_ID`, and `CI_MERGE_REQUEST_IID` environment variables[^env].
 ///
