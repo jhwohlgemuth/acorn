@@ -366,11 +366,19 @@ impl Bucket {
     ///
     /// Ignores files listed in [`IGNORE`]
     pub fn copy_files(self: Bucket, output: PathBuf) -> usize {
+        let location = self.code_repository.clone().location();
+        let bucket_root = match location.uri() {
+            | Some(value) => PathBuf::from(value.path().to_string()).to_absolute_string(),
+            | None => {
+                unimplemented!()
+            }
+        };
         let paths = self
             .clone()
             .file_paths("")
             .into_iter()
             .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
+            .filter(|path| PathBuf::from(path).is_file())
             .collect::<Vec<String>>();
         let total_data: usize = count_json_files(paths.clone());
         let total_images: usize = count_image_files(paths.clone());
@@ -379,12 +387,14 @@ impl Bucket {
         paths.par_iter().for_each(|path| {
             progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
             progress.set_message(format!("Copying {path}"));
-            let folder = format!("{}/{}", output.display(), parent(path.clone()).display());
+            let relative = path.strip_prefix(&format!("{}/", bucket_root.trim_end_matches("/"))).unwrap();
+            let parent_path = PathBuf::from(relative).parent().unwrap().to_path_buf();
+            let output_filepath = output.join(relative);
+            let folder = format!("{}/{}", output.display(), parent_path.display());
             std::fs::create_dir_all(folder.clone()).unwrap();
-            if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
+            if let Ok(mut file) = File::create(output_filepath) {
                 if self.code_repository.clone().is_local() {
                     let bytes = std::fs::read(path.clone()).unwrap();
-                    println!("{path} = {bytes:?}");
                     let mut content = Cursor::new(bytes);
                     let _ = copy(&mut content, &mut file);
                     progress.inc(1);
@@ -457,7 +467,12 @@ impl Bucket {
         }
         match self.code_repository {
             | Repository::Git { .. } => {
-                let path = PathBuf::from(self.code_repository.location().to_string());
+                let path = match self.code_repository.clone().location().uri() {
+                    | Some(value) => PathBuf::from(value.path().to_string()),
+                    | None => {
+                        unimplemented!()
+                    }
+                };
                 files_all(path, None).into_iter().map(|x| x.display().to_string()).collect()
             }
             | Repository::GitHub { .. } => match self.tree(directory, None) {
@@ -818,15 +833,15 @@ fn operations_complete_message(name: String, json_count: usize, image_count: usi
         "".to_string()
     };
     format!(
-        "  {}Downloaded {} {} file{}{}",
+        "  {}Obtained {} file{} from {} bucket{}",
         if total > 0 { Label::CHECKMARK } else { Label::CAUTION },
         if total > 0 {
             total.green().to_string()
         } else {
             total.yellow().to_string()
         },
-        name.to_uppercase(),
         suffix(total),
+        name.to_uppercase(),
         message,
     )
 }

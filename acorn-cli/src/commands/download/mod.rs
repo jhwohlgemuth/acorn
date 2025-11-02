@@ -16,14 +16,14 @@ pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) 
                 let mut total: usize = 0;
                 content.buckets.into_iter().for_each(|bucket| {
                     if let Some(path) = output {
-                        total += if *offline {
+                        total += if *offline || bucket.clone().code_repository.is_local() {
                             bucket.copy_files(path.to_path_buf())
                         } else {
                             bucket.download_files(path.to_path_buf())
                         }
                     }
                 });
-                println!("\n\n   => {} Downloaded {} item{}\n", Label::pass(), total.green(), suffix(total));
+                println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             }
             | None => {
                 error!("=> {} Download data", Label::fail());

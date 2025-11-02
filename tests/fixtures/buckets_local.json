@@ -4,7 +4,17 @@
             "name": "local",
             "repository": {
                 "provider": "git",
-                "location": "file://./tests/fixtures/data/bucket"
+                "location": "file:./tests/fixtures/data/bucket/"
+            }
+        },
+        {
+            "name": "nssd",
+            "repository": {
+                "provider": "gitlab",
+                "location": {
+                    "scheme": "https",
+                    "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
+                }
             }
         }
     ]
