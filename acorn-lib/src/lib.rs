@@ -363,47 +363,50 @@ impl Bucket {
         }
     }
     /// Copy files from (local) bucket to local directory
-    ///
-    /// Ignores files listed in [`IGNORE`]
+    /// ### Notes
+    /// - Ignores files listed in [`IGNORE`]
+    /// - Only copies files from local repositories
     pub fn copy_files(self: Bucket, output: PathBuf) -> usize {
-        let location = self.code_repository.clone().location();
-        let bucket_root = match location.uri() {
-            | Some(value) => PathBuf::from(value.path().to_string()).to_absolute_string(),
-            | None => {
-                unimplemented!()
-            }
-        };
-        let paths = self
-            .clone()
-            .file_paths("")
-            .into_iter()
-            .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
-            .filter(|path| PathBuf::from(path).is_file())
-            .collect::<Vec<String>>();
-        let total_data: usize = count_json_files(paths.clone());
-        let total_images: usize = count_image_files(paths.clone());
-        let message = operations_complete_message(self.name, total_data, total_images);
-        let progress = ProgressBar::new(paths.len() as u64);
-        paths.par_iter().for_each(|path| {
-            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-            progress.set_message(format!("Copying {path}"));
-            let relative = path.strip_prefix(&format!("{}/", bucket_root.trim_end_matches("/"))).unwrap();
-            let parent_path = PathBuf::from(relative).parent().unwrap().to_path_buf();
-            let output_filepath = output.join(relative);
-            let folder = format!("{}/{}", output.display(), parent_path.display());
-            std::fs::create_dir_all(folder.clone()).unwrap();
-            if let Ok(mut file) = File::create(output_filepath) {
-                if self.code_repository.clone().is_local() {
+        if self.code_repository.clone().is_local() {
+            let location = self.code_repository.clone().location();
+            let bucket_root = match location.uri() {
+                | Some(value) => PathBuf::from(value.path().to_string()).to_absolute_string(),
+                | None => {
+                    unimplemented!()
+                }
+            };
+            let paths = self
+                .clone()
+                .file_paths("")
+                .into_iter()
+                .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
+                .filter(|path| PathBuf::from(path).is_file())
+                .collect::<Vec<String>>();
+            let total_data: usize = count_json_files(paths.clone());
+            let total_images: usize = count_image_files(paths.clone());
+            let message = operations_complete_message(self.name, total_data, total_images);
+            let progress = ProgressBar::new(paths.len() as u64);
+            paths.par_iter().for_each(|path| {
+                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+                progress.set_message(format!("Copying {path}"));
+                let relative = path.strip_prefix(&format!("{}/", bucket_root.trim_end_matches("/"))).unwrap();
+                let parent_path = PathBuf::from(relative).parent().unwrap().to_path_buf();
+                let output_filepath = output.join(relative);
+                let folder = format!("{}/{}", output.display(), parent_path.display());
+                std::fs::create_dir_all(folder.clone()).unwrap();
+                if let Ok(mut file) = File::create(output_filepath) {
                     let bytes = std::fs::read(path.clone()).unwrap();
                     let mut content = Cursor::new(bytes);
                     let _ = copy(&mut content, &mut file);
                     progress.inc(1);
                 }
-            }
-        });
-        progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
-        progress.finish_with_message(message);
-        total_data + total_images
+            });
+            progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
+            progress.finish_with_message(message);
+            total_data + total_images
+        } else {
+            0
+        }
     }
     /// Download files from bucket to local directory
     ///
