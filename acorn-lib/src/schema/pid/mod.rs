@@ -15,6 +15,21 @@ use core::fmt::Display;
 
 pub mod raid;
 
+const BETANUMERIC_DIGITS: &str = "0123456789bcdfghjkmnpqrstvwxz";
+
+/// Add utility functions for working with beta numeric values
+///
+/// Mostly intended for working with [NCDA](`noid_check_digit`)
+pub trait Betanumeric {
+    /// Check if `self` is a betanumeric value
+    fn is_betanumeric(&self) -> bool {
+        false
+    }
+    /// Convert `self` into a betanumeric ordinal value
+    /// ### Example
+    /// > `w` -> `26`
+    fn to_betanumeric_ordinal(&self) -> Option<usize>;
+}
 /// Provides common functions for working with persistent identifiers (PID)
 pub trait PersistentIdentifier: Display {
     /// Create a new PID
@@ -189,7 +204,7 @@ pub struct ARK {
     pub label: String,
     /// Number (here represented as a string) identifying an organization that creates or assigns identifiers
     /// ### Notes
-    /// - Must be an integer
+    /// - Since 2001, every assigned name assigning authority number (NAAN) has consisted of exactly five digits, specifically five [beta-numeric digits](`BETA_NUMERIC_DIGITS`)
     /// - Any given identifier will have exactly one NAAN but may have more than one NMA (at a time or over time)
     /// - Similar to registration authority or prefix for [`DOI`]s, naming authority for [Handles], and namespace identifier for [URNs]
     ///
@@ -327,6 +342,7 @@ impl ARK {
         S: AsRef<str>,
     {
         let ark = ARK::from_string(value);
+        // TODO: Test NAAN length? Test betanumeric?
         let naan_is_integer = match ark.name_assigning_authority_number {
             | Some(value) => match value.parse::<u32>() {
                 | Ok(_) => true,
@@ -582,6 +598,20 @@ impl PersistentIdentifier for ARK {
             .join(".");
         Some(result)
     }
+    fn check_digit(&self) -> Option<char> {
+        let Self {
+            name_assigning_authority_number: naan,
+            assigned_name: name,
+            ..
+        } = self;
+        let values = [naan.clone(), name.clone()];
+        if values.iter().all(|x| x.is_some()) {
+            let value = values.iter().flatten().map(String::from).collect::<Vec<String>>().join("/");
+            noid_check_digit(value)
+        } else {
+            None
+        }
+    }
 }
 impl PersistentIdentifier for DOI {
     fn new() -> Self {
@@ -722,6 +752,14 @@ impl PersistentIdentifierInternal {
         }
     }
 }
+impl Betanumeric for char {
+    fn is_betanumeric(&self) -> bool {
+        BETANUMERIC_DIGITS.contains(*self)
+    }
+    fn to_betanumeric_ordinal(&self) -> Option<usize> {
+        BETANUMERIC_DIGITS.chars().position(|x| x.eq(self))
+    }
+}
 /// Calculate check digit IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html)
 ///
 /// "MOD 11-2" means modulus = 11 and radix = 2
@@ -753,11 +791,37 @@ where
     }
 }
 /// Calculate check xdigit ("extended digit") IAW [NOID check digit algorithm (NCDA)](https://metacpan.org/dist/Noid/view/noid#NOID-CHECK-DIGIT-ALGORITHM)
+/// ### Notes
+/// - Check digits are not expected to cover qualifiers
+/// - If check digit is present in an ARK, by convention it is the right-most character of the so called "check zone"
+/// - The "check zone" is composed of the NAAN and assigned name, separated by a forward slash
+/// - Forward slashes do not contribute to the check digit sum, but do impact the character position index
+/// - NCDA is guaranteed against single-character errors
+/// - NCDA is guaranteed against transposition of two single characters
 /// ### References
 /// - <https://github.com/internetarchive/arklet>
 /// - <https://github.com/no-reply/pynoid>
-pub fn noid_check_digit(_value: &str) -> Option<char> {
-    Some('z')
+pub fn noid_check_digit<S>(value: S) -> Option<char>
+where
+    S: AsRef<str>,
+{
+    const RADIX: usize = 29;
+    let sum = value.as_ref().chars().enumerate().fold(0, |acc, (i, val)| {
+        let position = i + 1;
+        let ordinal = match val.is_betanumeric() {
+            | true => val.to_betanumeric_ordinal().unwrap(),
+            | false => 0,
+        };
+        acc + (position * ordinal)
+    });
+    let remainder = sum % RADIX;
+    to_betanumeric(remainder as u8)
+}
+fn to_betanumeric(value: u8) -> Option<char> {
+    match BETANUMERIC_DIGITS.chars().enumerate().find(|(i, _)| *i == value as usize) {
+        | Some((_, x)) => Some(x),
+        | None => None,
+    }
 }
 
 #[cfg(test)]

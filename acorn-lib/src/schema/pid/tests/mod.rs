@@ -41,6 +41,14 @@ fn test_ark_struct() {
     assert_eq!(ARK::from_string("invalid ARK value").to_string(), "");
 }
 #[test]
+fn test_betanumeric() {
+    assert!('9'.is_betanumeric());
+    assert!(!'a'.is_betanumeric());
+    assert!(!'/'.is_betanumeric());
+    assert_eq!('0'.to_betanumeric_ordinal(), Some(0));
+    assert_eq!('z'.to_betanumeric_ordinal(), Some(28));
+}
+#[test]
 fn test_orcid() {
     let valid = "https://orcid.org/0000-0002-2057-9115";
     assert!(valid.is_pid(PID::ORCID));
@@ -97,9 +105,16 @@ fn test_iso7064_check_digit() {
     let value = "0000-0001-9034-3389";
     let expected = Some('9');
     assert_eq!(iso7064_check_digit(value), expected);
+    let value = "0000-0002-2816-415X";
+    let expected = Some('X');
+    assert_eq!(iso7064_check_digit(value), expected);
 }
 #[test]
-fn test_noid_check_digit() {}
+fn test_noid_check_digit() {
+    let value = "13030/xf93gt2";
+    let expected = Some('q');
+    assert_eq!(noid_check_digit(value), expected);
+}
 #[test]
 fn test_raid_read() {
     let path = PathBuf::from(FIXTURES).join("raid/response_01.json");

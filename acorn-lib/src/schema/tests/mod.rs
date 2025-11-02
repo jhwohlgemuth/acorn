@@ -5,7 +5,7 @@ use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
-const VALID_ARK_VALUES: [&str; 7] = [
+const VALID_ARK_VALUES: [&str; 8] = [
     "https://n2t.net/ark:99166/w66d60p2",
     "https://n2t.net/ark:/99166/w66d60p2",
     "ark:1234/w5678",
@@ -13,6 +13,8 @@ const VALID_ARK_VALUES: [&str; 7] = [
     "https://n2t.net/ark:12148/btv1b8449691v/f29/abc.png",
     "ark:12148/btv1b8449691v/f29/abc.TIFF",
     "https://example.org/ark:12345/x6np1wh8k/c3/s5.v7.xsl",
+    // https://gallica.bnf.fr/ark:/12148/btv1b8449691v
+    "ark:/12148/btv1b8449691v",
 ];
 const VALID_DOI_VALUES: [&str; 31] = [
     // ACORN DOI
