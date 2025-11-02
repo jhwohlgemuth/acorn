@@ -772,24 +772,30 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBu
         | Ok(zip_file) => match ZipArchive::new(zip_file) {
             | Ok(mut archive) => {
                 for index in 0..archive.len() {
-                    if let Ok(mut file) = archive.by_index(index) {
-                        let target = root.join(file.name());
-                        if let Some(parent) = target.parent() {
-                            match create_dir_all(parent) {
-                                | Ok(_) => {}
-                                | Err(why) => error!(path = parent.to_path_buf().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
-                            }
-                        }
-                        if let Ok(mut output_file) = File::create(&target) {
-                            match io::copy(&mut file, &mut output_file) {
-                                | Ok(_) => {}
-                                | Err(why) => {
-                                    error!(path = target.to_absolute_string(), "=> {} Copy file content - {why}", Label::fail());
-                                    std::process::exit(exitcode::UNAVAILABLE);
+                    match archive.by_index(index) {
+                        | Ok(mut file) => {
+                            let target = root.join(file.name());
+                            if let Some(parent) = target.parent() {
+                                match create_dir_all(parent) {
+                                    | Ok(_) => {}
+                                    | Err(why) => error!(path = parent.to_path_buf().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
                                 }
                             }
-                        } else {
-                            error!(path = target.to_absolute_string(), "=> {} Create file", Label::fail());
+                            if let Ok(mut output_file) = File::create(&target) {
+                                match io::copy(&mut file, &mut output_file) {
+                                    | Ok(_) => {}
+                                    | Err(why) => {
+                                        error!(path = target.to_absolute_string(), "=> {} Copy file content - {why}", Label::fail());
+                                        std::process::exit(exitcode::UNAVAILABLE);
+                                    }
+                                }
+                            } else {
+                                error!(path = target.to_absolute_string(), "=> {} Create file", Label::fail());
+                                std::process::exit(exitcode::UNAVAILABLE);
+                            }
+                        }
+                        | Err(why) => {
+                            error!(path = path.to_absolute_string(), "=> {} Extract file - {why}", Label::fail());
                             std::process::exit(exitcode::UNAVAILABLE);
                         }
                     }
@@ -1132,6 +1138,7 @@ where
     } else {
         path.into()
     };
+    println!("{binary:#?}");
     binary.is_executable()
 }
 /// Returns the absolute path of the parent directory for the given path.

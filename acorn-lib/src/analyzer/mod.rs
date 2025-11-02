@@ -509,7 +509,14 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         match extension(&path).as_str() {
             | "zip" => match extract_zip(path, Some(parent.into())) {
-                | Ok(value) => value.join(command),
+                | Ok(value) => {
+                    let path = value.join(command);
+                    if cfg!(windows) {
+                        path.with_extension("exe")
+                    } else {
+                        path
+                    }
+                }
                 | Err(why) => {
                     error!("=> {} {command} extract - {why}", Label::fail());
                     std::process::exit(exitcode::UNAVAILABLE);
@@ -540,7 +547,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         let config_path = self.config.unwrap().path;
         let result = if is_offline {
-            todo!("Support pointing to local vale package files");
+            println!("=> {} Not running vale sync in offline mode", Label::skip());
+            cmd!("").run()
         } else {
             cmd!(path.clone(), "--config", config_path.clone(), "sync").run()
         };
