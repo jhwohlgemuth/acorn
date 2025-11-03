@@ -1,6 +1,7 @@
 use crate::template::Convert;
 use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
 use acorn_lib::powerpoint::{archive, interpolate_values, read_xml_rel};
+use acorn_lib::prelude::{absolute, create_dir_all, remove_file, File, PathBuf};
 use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::cli::{paths_from_options, FileFormat, Options, Size, Target};
 use acorn_lib::util::{extract_zip, suffix, to_absolute_string, tokio_runtime, Label};
@@ -8,8 +9,6 @@ use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
 use playwright::Playwright;
-use std::fs::{create_dir_all, remove_file, File};
-use std::path::{self, PathBuf};
 use tracing::{debug, error, info};
 
 pub async fn create_pdf(page: &Page, options: Options) {
@@ -27,7 +26,7 @@ pub async fn create_pdf(page: &Page, options: Options) {
     };
     let content = data.to_html(target, size).to_string();
     // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
-    let index = path::absolute(path.parent().unwrap().join("index.html")).unwrap();
+    let index = absolute(path.parent().unwrap().join("index.html")).unwrap();
     if File::create(&index).is_ok() {
         page.goto_builder(&format!("file://{}", index.display())).goto().await.unwrap();
     };

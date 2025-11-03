@@ -2,13 +2,13 @@
 //!
 //! Analyze readabilty of prose using modern readability metrics.
 use crate::constants::*;
+use crate::prelude::HashMap;
 use crate::util::{find_first, Label};
 use clap::ValueEnum;
 use derive_more::Display;
 use dotenvy::dotenv;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
 use tracing::{debug, trace, warn};
 
 lazy_static! {

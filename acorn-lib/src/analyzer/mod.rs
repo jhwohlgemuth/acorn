@@ -7,6 +7,7 @@ use crate::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
     VALE_RELEASES_URL, VALE_VERSION,
 };
+use crate::prelude::{create_dir_all, io::prelude::*, remove_file, File, HashMap, PathBuf};
 use crate::schema::ProgrammingLanguage;
 use crate::util::*;
 use crate::{Location, Repository};
@@ -22,11 +23,6 @@ use lychee_lib::{CacheStatus, Response, Status};
 use polars::datatypes::PlSmallStr;
 use polars::frame::row::Row;
 use polars::prelude::{AnyValue, DataFrame, PolarsResult};
-use std::collections::HashMap;
-use std::fs::File;
-use std::fs::{create_dir_all, remove_file};
-use std::io::prelude::*;
-use std::path::PathBuf;
 use tar::Archive;
 use tracing::{debug, error, info, trace, warn};
 use validator::ValidationErrorsKind;

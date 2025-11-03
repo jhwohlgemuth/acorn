@@ -31,6 +31,7 @@
 //! ```
 //!
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
+use crate::prelude::{copy, create_dir_all, io, BufReader, Cursor, File, HashMap, Path, PathBuf, Read, Write};
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
@@ -56,11 +57,6 @@ use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
 };
-use std::collections::HashMap;
-use std::fs::create_dir_all;
-use std::fs::File;
-use std::io::{self, copy, BufReader, Cursor, Error, Read, Write};
-use std::path::{Path, PathBuf};
 use tracing::{debug, error, info, warn};
 use which::which;
 use zip::ZipArchive;
@@ -763,7 +759,7 @@ pub fn extension(path: &Path) -> String {
 /// Extract zip archive
 /// ### Note
 /// If `destination` is not provided, the extracted files will be saved in a folder named "extract" an OS-specific cache location.
-pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Error> {
+pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, io::Error> {
     let root = match destination {
         | Some(value) => value,
         | None => standard_project_folder("extract", None),
@@ -946,7 +942,7 @@ pub fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<Pat
         }
     }
 }
-fn filter_git_command_result(result: Result<String, std::io::Error>, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+fn filter_git_command_result(result: Result<String, io::Error>, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     match result {
         | Ok(value) => match extensions {
             | Some(values) => value
@@ -1115,7 +1111,7 @@ pub fn make_executable<P>(path: P) -> bool
 where
     P: Into<PathBuf> + Clone,
 {
-    use std::os::unix::fs::PermissionsExt;
+    use crate::prelude::PermissionsExt;
     std::fs::set_permissions(path.clone().into(), std::fs::Permissions::from_mode(0o755)).unwrap();
     path.into().is_executable()
 }
@@ -1237,7 +1233,7 @@ pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<Stri
 ///
 /// A `Result` containing the contents of the file as a string if the file is readable, or an
 /// `std::io::Error` otherwise.
-pub fn read_file<P>(path: P) -> Result<String, std::io::Error>
+pub fn read_file<P>(path: P) -> Result<String, io::Error>
 where
     P: Into<PathBuf> + Clone,
 {
@@ -1406,7 +1402,7 @@ pub fn to_string(values: Vec<&str>) -> Vec<String> {
 ///
 /// A `Result` containing a unit value if the file is written successfully, or an
 /// `std::io::Error` otherwise.
-pub fn write_file<P>(path: P, content: String) -> Result<(), std::io::Error>
+pub fn write_file<P>(path: P, content: String) -> Result<(), io::Error>
 where
     P: Into<PathBuf>,
 {

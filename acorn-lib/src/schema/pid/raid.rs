@@ -3,6 +3,7 @@
 //! See <https://metadata.raid.org/en/v1.6/index.html> for official documentation on reference schema.
 //!
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema raid`
+use crate::prelude::PathBuf;
 use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror, is_unix_epoch};
 use crate::util::{read_file, Label};
 use crate::License;
@@ -11,7 +12,6 @@ use derive_more::Display;
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::path::PathBuf;
 use tracing::error;
 use validator::Validate;
 

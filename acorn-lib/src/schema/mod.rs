@@ -6,6 +6,7 @@ use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::vale::{Vale, ValeConfig};
 use crate::analyzer::{link_check, Check, CheckCategory, ErrorKind, StaticAnalyzer, StaticAnalyzerConfig};
 use crate::constants::*;
+use crate::prelude::PathBuf;
 use crate::util::*;
 use bon::{builder, Builder};
 use convert_case::{Case, Casing};
@@ -24,7 +25,6 @@ use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use serde_trim::*;
 use serde_with::skip_serializing_none;
-use std::path::PathBuf;
 use tracing::{debug, error, trace};
 use validator::Validate;
 

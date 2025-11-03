@@ -5,6 +5,7 @@
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 //!
 use crate::analyzer::{link_check, Check};
+use crate::prelude::{copy, Cursor, File, PathBuf};
 use color_eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
@@ -16,9 +17,6 @@ use reqwest::header::{HeaderMap, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use serde_with::skip_serializing_none;
-use std::fs::File;
-use std::io::{copy, Cursor};
-use std::path::PathBuf;
 use tracing::{debug, error, trace, warn};
 use uriparse::URI;
 use urlencoding::encode;
@@ -29,6 +27,7 @@ pub mod constants;
 pub mod doctor;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
+pub mod prelude;
 pub mod schema;
 #[cfg(feature = "util")]
 pub mod util;

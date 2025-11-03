@@ -1,8 +1,8 @@
+use crate::prelude::{Path, PathBuf};
 use crate::util::citeas;
 use crate::util::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;
-use std::path::{Path, PathBuf};
 #[cfg(test)]
 use temp_env;
 

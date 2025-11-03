@@ -1,5 +1,5 @@
+use crate::prelude::PathBuf;
 use crate::*;
-use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
 

@@ -59,6 +59,7 @@ dependencies = [
  "fancy-regex",
  "flate2",
  "glob",
+ "hashbrown 0.16.0",
  "human-units",
  "indicatif",
  "is_executable",

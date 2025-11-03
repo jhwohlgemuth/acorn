@@ -1,11 +1,11 @@
 use crate::analyzer::readability::*;
 use crate::analyzer::vale::*;
 use crate::analyzer::{checks_to_dataframe, Check, CheckCategory};
+use crate::prelude::PathBuf;
 use crate::util::read_file;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use rayon::prelude::*;
-use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
 

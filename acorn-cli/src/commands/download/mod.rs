@@ -1,8 +1,8 @@
+use acorn_lib::prelude::PathBuf;
 use acorn_lib::util::{suffix, Label};
 use acorn_lib::BucketsConfig;
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
-use std::path::PathBuf;
 use tracing::error;
 
 #[allow(clippy::too_many_arguments)]

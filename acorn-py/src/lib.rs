@@ -1,6 +1,6 @@
 use acorn_lib::schema::{self, ContactPoint, ResearchActivity};
 use pyo3::prelude::*;
-use std::path::PathBuf;
+use acorn_lib::prelude::PathBuf;
 
 /// Python bindings for ACORN
 #[pymodule]

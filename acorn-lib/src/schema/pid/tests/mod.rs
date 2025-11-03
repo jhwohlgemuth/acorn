@@ -1,6 +1,6 @@
+use crate::prelude::PathBuf;
 use crate::schema::pid::*;
 use crate::schema::*;
-use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
 

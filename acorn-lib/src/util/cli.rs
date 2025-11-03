@@ -1,12 +1,12 @@
 //! # Command line interface (CLI) utilities
 //!
 //! Common utilities and structs used to create a command line interface using ACORN schemas
+use crate::prelude::PathBuf;
 use crate::util::{files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored};
 use bon::Builder;
 use clap::ValueEnum;
 use derive_more::Display;
 use serde::Serialize;
-use std::path::PathBuf;
 
 /// Catagories available when analyzing ("checking") research activity data
 ///

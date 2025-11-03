@@ -1,3 +1,4 @@
+use acorn_lib::prelude::{File, PathBuf, Write};
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::cli::{paths_from_options, Options};
 use acorn_lib::util::{print_changes, to_absolute_string, Label, MimeType};
@@ -5,9 +6,6 @@ use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
 use rayon::prelude::*;
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
 use tracing::{error, info};
 
 #[allow(clippy::too_many_arguments)]

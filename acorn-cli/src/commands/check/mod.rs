@@ -1,11 +1,11 @@
 use acorn_lib::analyzer::readability::ReadabilityType;
 use acorn_lib::analyzer::{summary, Check};
+use acorn_lib::prelude::PathBuf;
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::cli::{paths_from_options, CheckCategory, Options};
 use acorn_lib::util::{print_values_as_table, Label};
 use color_eyre::eyre::{Report, Result};
 use dotenvy::dotenv;
-use std::path::PathBuf;
 use tracing::{debug, error, warn};
 
 const READABILITY_METRIC: &str = "READABILITY_METRIC";

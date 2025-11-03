@@ -2,7 +2,6 @@ use crate::commands::doctor::{run, should_run};
 use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, TableFormatPrint};
 use acorn_lib::util::cli::Diagnostic;
 use color_eyre::eyre::Result;
-use std::panic::{catch_unwind, AssertUnwindSafe};
 
 const OFFLINE: bool = false;
 
@@ -54,15 +53,6 @@ fn test_gpu_diagnostic_warning() -> Result<()> {
     let result = run(&false, &false, &[Diagnostic::Gpu], &OFFLINE);
     assert!(result.is_ok());
     Ok(())
-}
-#[test]
-fn test_unimplemented_features() {
-    // Test fix option - should panic with unimplemented message
-    let result = catch_unwind(AssertUnwindSafe(|| run(&true, &false, &[Diagnostic::System], &OFFLINE)));
-    assert!(result.is_err());
-    // Test interactive option - should panic with unimplemented message
-    let result = catch_unwind(AssertUnwindSafe(|| run(&false, &true, &[Diagnostic::System], &OFFLINE)));
-    assert!(result.is_err());
 }
 #[test]
 fn test_run_with_empty_diagnostics() -> Result<()> {

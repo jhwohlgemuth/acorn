@@ -1,8 +1,8 @@
+use crate::prelude::PathBuf;
 use crate::schema::validate::*;
 use crate::schema::*;
 use glob::glob;
 use pretty_assertions::assert_eq;
-use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
 const VALID_ARK_VALUES: [&str; 8] = [
