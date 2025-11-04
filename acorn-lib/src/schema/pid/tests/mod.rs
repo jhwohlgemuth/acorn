@@ -1,6 +1,8 @@
 use crate::prelude::PathBuf;
-use crate::schema::pid::*;
-use crate::schema::*;
+use crate::schema::pid::{
+    iso7064_check_digit, noid_check_digit, raid, Betanumeric, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI, ORCID, PID,
+};
+use crate::schema::Validate;
 
 const FIXTURES: &str = "../tests/fixtures";
 

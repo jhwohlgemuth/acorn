@@ -5,9 +5,13 @@
 use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::vale::{Vale, ValeConfig};
 use crate::analyzer::{link_check, Check, CheckCategory, ErrorKind, StaticAnalyzer, StaticAnalyzerConfig};
-use crate::constants::*;
+use crate::constants::{
+    DEFAULT_AFFILIATION, DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_COUNT_APPROACH, MAX_COUNT_CAPABILITIES, MAX_COUNT_IMPACT,
+    MAX_COUNT_RESEARCH_AREAS, MAX_LENGTH_IMAGE_CAPTION, MAX_LENGTH_RESEARCH_FOCUS, MAX_LENGTH_SECTION_CHALLENGE, MAX_LENGTH_SECTION_MISSION,
+    MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE,
+};
 use crate::prelude::PathBuf;
-use crate::util::*;
+use crate::util::{image_paths, parent, read_file, tokio_runtime, Constant, Label, MimeType, ToAbsoluteString};
 use bon::Builder;
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};
@@ -31,9 +35,12 @@ use validator::Validate;
 pub mod graph;
 pub mod pid;
 pub mod validate;
-use graph::*;
+use graph::{node_from_label, node_name, node_parent};
 use pid::raid;
-use validate::*;
+use validate::{
+    format_phone_number, has_image_extension, is_kebabcase, is_list_url, is_orcid, is_phone_number, validate_attribute_approach,
+    validate_attribute_areas, validate_attribute_capabilities, validate_attribute_doi, validate_attribute_impact, validate_attribute_ror,
+};
 
 /// ## Keywords
 /// > Core concepts related to the associated research activity
@@ -1096,7 +1103,7 @@ impl ResearchActivity {
             | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
             | _ => None,
         };
-        debug!(path = to_absolute_string(path_parent), "=> {} Parent directory", Label::using());
+        debug!(path = path_parent.to_absolute_string(), "=> {} Parent directory", Label::using());
         if let Some(value) = name {
             debug!(value, "=> {} First image", Label::using());
             // Make sure first graphic is well formed with a resolved image URL and caption

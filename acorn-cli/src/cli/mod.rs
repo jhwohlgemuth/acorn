@@ -1,6 +1,6 @@
 use acorn_lib::analyzer::readability::ReadabilityType;
 use acorn_lib::prelude::PathBuf;
-use acorn_lib::util::cli::*;
+use acorn_lib::util::cli::{CheckCategory, Diagnostic, FileFormat, Size, Target};
 use clap::builder::styling::{Ansi256Color, AnsiColor};
 use clap::builder::Styles;
 use clap::{ArgAction, Parser, Subcommand, ValueHint};

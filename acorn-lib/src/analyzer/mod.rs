@@ -7,9 +7,13 @@ use crate::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
     VALE_RELEASES_URL, VALE_VERSION,
 };
+use crate::prelude;
 use crate::prelude::{create_dir_all, exit, io, io::prelude::*, remove_file, File, HashMap, PathBuf};
 use crate::schema::ProgrammingLanguage;
-use crate::{prelude, util::*};
+use crate::util::{
+    checksum, command_exists, download_binary, extension, extract_zip, make_executable, standard_project_folder, suffix, Constant, Label,
+    SemanticVersion, ToAbsoluteString,
+};
 use crate::{Location, Repository};
 use bat::PrettyPrinter;
 use bon::Builder;
@@ -334,7 +338,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         let root = standard_project_folder("check", None);
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
-            | Err(why) => error!(path = to_absolute_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
+            | Err(why) => error!(path = root.clone().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
         }
         let path = root.join(&id);
         let mut file = match File::create(&path) {
@@ -490,7 +494,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
         let command = self.clone().command();
         let parent = match destination {
-            | Some(value) => to_absolute_string(value),
+            | Some(value) => value.to_absolute_string(),
             | None => format!("./.{command}/"),
         };
         match extension(&path).as_str() {
@@ -568,7 +572,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 Ok(())
             }
             | Err(why) => {
-                error!(config = to_absolute_string(config_path), "=> {} Vale sync - {}", Label::fail(), why);
+                error!(config = config_path.to_absolute_string(), "=> {} Vale sync - {}", Label::fail(), why);
                 exit(exitcode::SOFTWARE);
             }
         }
@@ -593,7 +597,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             let version = cmd!(name.clone(), "--version").read().unwrap()[offset..].to_string();
             self.version = Some(SemanticVersion::from_string(&version));
             debug!(
-                path = to_absolute_string(path),
+                path = path.to_absolute_string(),
                 "=> {} System {} (v{}) command",
                 Label::using(),
                 name.green().bold(),
@@ -609,6 +613,9 @@ impl StaticAnalyzer<ValeConfig> for Vale {
 }
 impl StaticAnalyzerConfig for ValeConfig {
     fn default() -> Self {
+        fn to_string(values: Vec<&str>) -> Vec<String> {
+            values.iter().map(|s| s.to_string()).collect()
+        }
         let config = ValeConfig::init()
             .packages(to_string(ENABLED_VALE_PACKAGES.to_vec()))
             .vocabularies(to_string(vec![&ORGANIZATION.to_uppercase(), APPLICATION]))
@@ -657,7 +664,7 @@ impl StaticAnalyzerConfig for ValeConfig {
         }
         match self.clone().ini().write_to_file(path.clone()) {
             | Ok(_) => {
-                debug!(path = to_absolute_string(path), "=> {} Saved configuration", Label::using());
+                debug!(path = path.to_absolute_string(), "=> {} Saved configuration", Label::using());
             }
             | Err(why) => {
                 error!("=> {} Save configuration - {why}", Label::fail());
@@ -793,7 +800,7 @@ pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
             .map(|issue| issue.issue_count())
             .sum::<usize>()
             .to_string();
-        to_string(vec![&category.to_string(), &count])
+        vec![category.to_string(), count]
     })
     .collect::<Vec<_>>()
 }

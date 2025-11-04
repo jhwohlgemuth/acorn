@@ -15,7 +15,7 @@ use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 
 pub mod ooxml;
-use ooxml::*;
+use ooxml::{Relationships, TextParagraph, TextParagraphProperties, TextRun, TextString};
 
 /// Creates zip archive from directory
 pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {

@@ -32,7 +32,7 @@ pub mod schema;
 #[cfg(feature = "util")]
 pub mod util;
 
-use crate::util::*;
+use crate::util::{files_all, parent, read_file, suffix, Label, MimeType, ToAbsoluteString};
 
 /// Files to ignore
 /// - `.gitignore`

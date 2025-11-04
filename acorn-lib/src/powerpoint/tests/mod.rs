@@ -1,4 +1,5 @@
 use crate::powerpoint::*;
+use crate::prelude::PathBuf;
 use crate::util::{read_file, to_string};
 
 const FIXTURES: &str = "../tests/fixtures";

@@ -1,7 +1,7 @@
 //! # Readability utilities
 //!
 //! Analyze readabilty of prose using modern readability metrics.
-use crate::constants::*;
+use crate::constants::{MAX_ALLOWED_ARI, MAX_ALLOWED_CLI, MAX_ALLOWED_FKGL, MAX_ALLOWED_FRES, MAX_ALLOWED_GFI, MAX_ALLOWED_LIX, MAX_ALLOWED_SMOG};
 use crate::prelude::HashMap;
 use crate::util::{find_first, Label};
 use clap::ValueEnum;

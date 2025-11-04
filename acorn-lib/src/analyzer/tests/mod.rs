@@ -1,5 +1,5 @@
 use crate::analyzer::readability::*;
-use crate::analyzer::vale::*;
+use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::analyzer::{checks_to_dataframe, Check, CheckCategory};
 use crate::prelude::PathBuf;
 use crate::util::read_file;
