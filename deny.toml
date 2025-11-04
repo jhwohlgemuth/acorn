@@ -1,0 +1,84 @@
+[graph]
+targets = [
+    "x86_64-unknown-linux-musl",
+    "x86_64-unknown-linux-gnu",
+]
+all-features = false
+no-default-features = false
+
+[output]
+feature-depth = 1
+
+[advisories]
+ignore = [
+    # [vulnerability] Potential segfault in the time crate
+    "RUSTSEC-2020-0071",
+    # [vulnerability] Logging user input may result in poisoning logs with ANSI escape sequences
+    "RUSTSEC-2025-0055",
+    # [unsound] `libyml::string::yaml_string_extend` is unsound and unmaintained
+    "RUSTSEC-2025-0067",
+    # [unsound] serde_yml crate is unsound and unmaintained
+    "RUSTSEC-2025-0068",
+    # adler crate is unmaintained, use adler2 instead
+    "RUSTSEC-2025-0056",
+    # `derivative` is unmaintained; consider using an alternative
+    "RUSTSEC-2024-0388",
+    # paste - no longer maintained
+    "RUSTSEC-2024-0436",
+]
+
+[licenses]
+allow = [
+    "Apache-2.0",
+    # Berkeley Software Distribution License
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    # Boost Software License 1.0
+    "BSL-1.0",
+    # Creative Commons CC0 1.0 Universal
+    "CC0-1.0",
+    # Community Data License Agreement Permissive 2.0
+    "CDLA-Permissive-2.0",
+    # Inetrnet Systems Consortium License
+    "ISC",
+    # GNU Lesser General Public License v3
+    "LGPL-3.0-or-later",
+    "MIT",
+    # Mozilla Public License 2.0
+    # Often termed a “weak copyleft”
+    # https://fossa.com/blog/open-source-software-licenses-101-mozilla-public-license-2-0/
+    "MPL-2.0",
+    # The primary difference between the MIT License and the Unicode License is that the Unicode License expressly covers data and data files
+    # https://www.unicode.org/policies/licensing_policy.html
+    "Unicode-3.0",
+    # Zlib-libpng License
+    "Zlib",
+]
+confidence-threshold = 0.8
+exceptions = []
+
+[licenses.private]
+ignore = false
+registries = []
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+allow = []
+deny = []
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+
+[sources.allow-org]
+github = []
+gitlab = ["https://code.ornl.gov"]
+bitbucket = []
