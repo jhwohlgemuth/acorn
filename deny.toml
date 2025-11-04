@@ -39,6 +39,9 @@ allow = [
     "CC0-1.0",
     # Community Data License Agreement Permissive 2.0
     "CDLA-Permissive-2.0",
+    # CEA CNRS INRIA Logiciel Libre License (BSD compatible)
+    # Fully compatible with BSD-like licenses (BSD, X11, MIT) - used by Sophia crate
+    "CECILL-B",
     # Inetrnet Systems Consortium License
     "ISC",
     # GNU Lesser General Public License v3

@@ -6,6 +6,7 @@ setup:
 	@cargo install $(DEV_DEPENDENCIES)
 
 audit:
+	@cargo udeps
 	@cargo deny check
 	@cargo audit \
 		--ignore RUSTSEC-2020-0071 \
