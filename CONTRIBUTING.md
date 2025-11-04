@@ -53,8 +53,17 @@ If you would like to generously provide a pull request to correct a verified iss
 - Running `make coverage` should not decrease coverage
 - Exceptions to any of these standards should be supported by strong reasoning and sufficient effort
 
+## Running ACORN tasks from source
+ACORN's full API is available without installation. Simply use `cargo run -- <commands, options, and flags>`
+### Examples
+| ACORN Command                                     | Equivalent Command                                      |
+| ------------------------------------------------- | ------------------------------------------------------- |
+| `acorn help`                                      | `cargo run -- help`                                     |
+| `acorn check /path/to/folder -vvvv`               | `cargo run -- check /path/to/folder -vvvv`              |
+| `acorn download --buckets /path/to/buckets.json`  | `cargo run -- download --buckets /path/to/buckets.json` |
 
 -------------
+
 
 **Footnotes**
 -------------
