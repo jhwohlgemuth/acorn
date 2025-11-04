@@ -7,9 +7,9 @@ use crate::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
     VALE_RELEASES_URL, VALE_VERSION,
 };
-use crate::prelude::{create_dir_all, io::prelude::*, remove_file, File, HashMap, PathBuf};
+use crate::prelude::{create_dir_all, exit, io, io::prelude::*, remove_file, File, HashMap, PathBuf};
 use crate::schema::ProgrammingLanguage;
-use crate::util::*;
+use crate::{prelude, util::*};
 use crate::{Location, Repository};
 use bat::PrettyPrinter;
 use bon::Builder;
@@ -56,7 +56,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Run analyzer on content
     fn run(&self, id: String, content: String, output: Option<String>) -> Check;
     /// Perform sync operation (only applies to Vale)
-    fn sync(self, is_offline: bool) -> Result<(), std::io::Error>;
+    fn sync(self, is_offline: bool) -> Result<(), io::Error>;
     /// Set binary
     fn with_binary<P>(self, path: P) -> Self
     where
@@ -347,7 +347,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | Some(value) => value,
             | None => {
                 error!("=> {} {} binary", Label::not_found(), self.clone().command());
-                std::process::exit(exitcode::UNAVAILABLE);
+                exit(exitcode::UNAVAILABLE);
             }
         };
         match &self.config {
@@ -402,22 +402,12 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | None => {
                 let title = self.clone().command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
-                std::process::exit(exitcode::UNAVAILABLE);
+                exit(exitcode::UNAVAILABLE);
             }
         }
     }
     fn download(self, config: Option<ValeConfig>, skip_verify_checksum: bool) -> Vale {
-        // https://doc.rust-lang.org/std/env/consts/constant.OS.html
-        let os = std::env::consts::OS.to_lowercase();
-        let platform = match os.as_str() {
-            | "linux" => "Linux_64-bit.tar.gz",
-            | "macos" | "apple" => "macOS_64-bit.tar.gz",
-            | "windows" => "Windows_64-bit.zip",
-            | _ => {
-                error!(os, "=> {}", Label::not_found());
-                std::process::exit(exitcode::UNAVAILABLE);
-            }
-        };
+        let platform = prelude::vale_release_filename();
         let release = match self.version {
             | Some(value) => value,
             | None => SemanticVersion::from_string(VALE_VERSION),
@@ -428,14 +418,14 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | Ok(path) => {
                 if !skip_verify_checksum {
                     let dowloaded_checksum = match self.clone().download_checksums() {
-                        | Ok(value) => value.get(platform).unwrap().to_string(),
+                        | Ok(value) => value.get(&platform).unwrap().to_string(),
                         | Err(_) => "".to_string(),
                     };
                     if let Some(calculated) = checksum(path.clone()) {
                         if !dowloaded_checksum.eq(&calculated) {
                             error!(dowloaded_checksum, calculated, "=> {}", Label::invalid());
                             let _cleanup = remove_file(path);
-                            std::process::exit(exitcode::USAGE);
+                            exit(exitcode::USAGE);
                         } else {
                             info!(checksum = dowloaded_checksum, "=> {} Checksum verification", Label::pass());
                         }
@@ -515,7 +505,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 }
                 | Err(why) => {
                     error!("=> {} {command} extract - {why}", Label::fail());
-                    std::process::exit(exitcode::UNAVAILABLE);
+                    exit(exitcode::UNAVAILABLE);
                 }
             },
             | "gz" => {
@@ -529,16 +519,16 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
             | _ => {
                 error!("=> {} {command} extract - Unsupported format", Label::fail());
-                std::process::exit(exitcode::UNAVAILABLE);
+                exit(exitcode::UNAVAILABLE);
             }
         }
     }
-    fn sync(self, is_offline: bool) -> Result<(), std::io::Error> {
+    fn sync(self, is_offline: bool) -> Result<(), io::Error> {
         let path = match self.binary {
             | Some(value) => value,
             | None => {
                 error!("=> {} {} binary", Label::not_found(), self.command());
-                std::process::exit(exitcode::UNAVAILABLE);
+                exit(exitcode::UNAVAILABLE);
             }
         };
         let config_path = self.config.unwrap().path;
@@ -579,7 +569,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
             | Err(why) => {
                 error!(config = to_absolute_string(config_path), "=> {} Vale sync - {}", Label::fail(), why);
-                std::process::exit(exitcode::SOFTWARE);
+                exit(exitcode::SOFTWARE);
             }
         }
     }
@@ -671,7 +661,7 @@ impl StaticAnalyzerConfig for ValeConfig {
             }
             | Err(why) => {
                 error!("=> {} Save configuration - {why}", Label::fail());
-                std::process::exit(exitcode::SOFTWARE);
+                exit(exitcode::SOFTWARE);
             }
         }
         self

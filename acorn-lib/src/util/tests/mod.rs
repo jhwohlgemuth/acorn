@@ -1,4 +1,4 @@
-use crate::prelude::{Path, PathBuf};
+use crate::prelude::{io, Path, PathBuf};
 use crate::util::citeas;
 use crate::util::*;
 #[cfg(test)]
@@ -81,7 +81,7 @@ fn test_filter_git_command_result() {
     let result = Ok(response);
     let files = filter_git_command_result(result, Some(vec!["JSON"]));
     assert!(files.is_empty());
-    let empty = Err(std::io::Error::from(std::io::ErrorKind::NotFound));
+    let empty = Err(io::Error::from(io::ErrorKind::NotFound));
     let files = filter_git_command_result(empty, Some(vec!["json"]));
     assert!(files.is_empty());
 }

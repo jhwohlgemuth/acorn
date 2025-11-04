@@ -31,7 +31,10 @@
 //! ```
 //!
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
-use crate::prelude::{copy, create_dir_all, io, BufReader, Cursor, File, HashMap, Path, PathBuf, Read, Write};
+use crate::prelude::{
+    canonicalize, copy, create_dir_all, exit, io, set_permissions, var, BufReader, Cursor, File, HashMap, OsStr, Path, PathBuf, Permissions, Read,
+    Write,
+};
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
@@ -675,7 +678,7 @@ where
 /// A boolean indicating whether the command exists or not.
 pub fn command_exists<S>(name: S) -> bool
 where
-    S: Into<String> + AsRef<std::ffi::OsStr> + tracing::Value,
+    S: Into<String> + AsRef<OsStr> + tracing::Value,
 {
     match which(&name) {
         | Ok(value) => {
@@ -782,17 +785,17 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBu
                                     | Ok(_) => {}
                                     | Err(why) => {
                                         error!(path = target.to_absolute_string(), "=> {} Copy file content - {why}", Label::fail());
-                                        std::process::exit(exitcode::UNAVAILABLE);
+                                        exit(exitcode::UNAVAILABLE);
                                     }
                                 }
                             } else {
                                 error!(path = target.to_absolute_string(), "=> {} Create file", Label::fail());
-                                std::process::exit(exitcode::UNAVAILABLE);
+                                exit(exitcode::UNAVAILABLE);
                             }
                         }
                         | Err(why) => {
                             error!(path = path.to_absolute_string(), "=> {} Extract file - {why}", Label::fail());
-                            std::process::exit(exitcode::UNAVAILABLE);
+                            exit(exitcode::UNAVAILABLE);
                         }
                     }
                 }
@@ -910,9 +913,9 @@ pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<
 ///
 /// [^env]: See <https://docs.gitlab.com/ci/variables/predefined_variables/> for more information about GitLab CI environment variables
 pub fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
-    let root = std::env::var("CI_API_V4_URL").unwrap_or_default();
-    let project_id = std::env::var("CI_MERGE_REQUEST_PROJECT_ID").unwrap_or_default();
-    let merge_request_iid = std::env::var("CI_MERGE_REQUEST_IID").unwrap_or_default();
+    let root = var("CI_API_V4_URL").unwrap_or_default();
+    let project_id = var("CI_MERGE_REQUEST_PROJECT_ID").unwrap_or_default();
+    let merge_request_iid = var("CI_MERGE_REQUEST_IID").unwrap_or_default();
     let path = format!("/projects/{project_id}/merge_requests/{merge_request_iid}/diffs");
     let url = format!("{root}{path}");
     match reqwest_request(url).send() {
@@ -1112,7 +1115,7 @@ where
     P: Into<PathBuf> + Clone,
 {
     use crate::prelude::PermissionsExt;
-    std::fs::set_permissions(path.clone().into(), std::fs::Permissions::from_mode(0o755)).unwrap();
+    set_permissions(path.clone().into(), Permissions::from_mode(0o755)).unwrap();
     path.into().is_executable()
 }
 /// Makes the given file executable.
@@ -1180,7 +1183,7 @@ pub fn to_absolute_string<P>(path: P) -> String
 where
     P: Into<PathBuf> + Clone,
 {
-    let result = match std::fs::canonicalize(path.clone().into().as_path()) {
+    let result = match canonicalize(path.clone().into().as_path()) {
         | Ok(value) => value,
         | Err(_) => path.into(),
     };

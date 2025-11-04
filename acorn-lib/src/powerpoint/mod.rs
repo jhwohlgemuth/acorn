@@ -3,7 +3,7 @@
 //! Here you'll find functions for working with [`OOXML`] and creating PowerPoint files.
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
-use crate::prelude::{io, File, PathBuf, Read, Write};
+use crate::prelude::{exit, io, File, PathBuf, Read, Write};
 use crate::schema::{ContactPoint, Metadata, Notes, Other, ResearchActivity, Sections};
 use crate::util::{files_all, read_file, to_absolute_string, write_file, Label};
 use core::error::Error;
@@ -28,7 +28,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
         | Ok(zip_file) => ZipWriter::new(zip_file),
         | Err(why) => {
             error!(file = to_absolute_string(path), "=> {} Create zip archive - {why}", Label::fail());
-            std::process::exit(exitcode::IOERR);
+            exit(exitcode::IOERR);
         }
     };
     let files = files_all(path.clone(), None).into_iter().filter(|x| x.is_file());
@@ -144,14 +144,14 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
         }
         | Err(why) => {
             error!("=> {} Cannot read file for interpolation - {why}", Label::fail());
-            std::process::exit(exitcode::IOERR);
+            exit(exitcode::IOERR);
         }
     };
     match write_file(path.clone(), updated) {
         | Ok(_) => {}
         | Err(why) => {
             error!("=> {} Cannot write file for interpolation - {why}", Label::fail());
-            std::process::exit(exitcode::IOERR);
+            exit(exitcode::IOERR);
         }
     }
 }
@@ -191,7 +191,7 @@ pub fn read_xml_rel(path: PathBuf) -> Result<Relationships, quick_xml::DeError> 
         }
         | Err(why) => {
             error!("=> {} Cannot read xml.rels file - {why}", Label::fail());
-            std::process::exit(exitcode::IOERR);
+            exit(exitcode::IOERR);
         }
     }
 }

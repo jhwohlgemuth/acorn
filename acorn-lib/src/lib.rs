@@ -5,7 +5,7 @@
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 //!
 use crate::analyzer::{link_check, Check};
-use crate::prelude::{copy, Cursor, File, PathBuf};
+use crate::prelude::{copy, create_dir_all, exit, Cursor, File, PathBuf};
 use color_eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
@@ -392,12 +392,18 @@ impl Bucket {
                 let parent_path = PathBuf::from(relative).parent().unwrap().to_path_buf();
                 let output_filepath = output.join(relative);
                 let folder = format!("{}/{}", output.display(), parent_path.display());
-                std::fs::create_dir_all(folder.clone()).unwrap();
+                let _ = create_dir_all(folder.clone());
                 if let Ok(mut file) = File::create(output_filepath) {
-                    let bytes = std::fs::read(path.clone()).unwrap();
-                    let mut content = Cursor::new(bytes);
-                    let _ = copy(&mut content, &mut file);
-                    progress.inc(1);
+                    match prelude::read(path.clone()) {
+                        | Ok(bytes) => {
+                            let mut content = Cursor::new(bytes);
+                            let _ = copy(&mut content, &mut file);
+                            progress.inc(1);
+                        }
+                        | Err(why) => {
+                            error!(path, "=> {} Read file as bytes - {why}", Label::fail());
+                        }
+                    }
                 }
             });
             progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
@@ -426,7 +432,7 @@ impl Bucket {
             progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
             progress.set_message(format!("Downloading {path}"));
             let folder = format!("{}/{}", output.display(), parent(path.clone()).display());
-            std::fs::create_dir_all(folder.clone()).unwrap();
+            create_dir_all(folder.clone()).unwrap();
             if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
                 if let Some(url) = self.code_repository.raw_url(path.to_string()) {
                     match client.get(url).header(USER_AGENT, "rust-web-api-client").send() {
@@ -540,7 +546,7 @@ impl BucketsConfig {
             Some(content)
         } else {
             error!(path = path.to_str().unwrap(), "=> {} Import configuration", Label::fail());
-            std::process::exit(exitcode::UNAVAILABLE);
+            exit(exitcode::UNAVAILABLE);
         }
     }
     /// Read buckets configuration (e.g., `buckets.json`) using Serde and [`BucketsConfig`] struct
