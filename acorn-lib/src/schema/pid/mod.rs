@@ -10,7 +10,7 @@
 //! [RAiDs]: https://www.raid.org/
 use crate::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT};
 use crate::util::{regex_capture_lookup, ToStringChunks};
-use bon::{builder, Builder};
+use bon::Builder;
 use core::fmt::Display;
 
 pub mod raid;

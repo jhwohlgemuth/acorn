@@ -7,7 +7,7 @@ use crate::prelude::PathBuf;
 use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror, is_unix_epoch};
 use crate::util::{read_file, Label};
 use crate::License;
-use bon::{builder, Builder};
+use bon::Builder;
 use derive_more::Display;
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};

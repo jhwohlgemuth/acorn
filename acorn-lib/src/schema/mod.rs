@@ -8,7 +8,7 @@ use crate::analyzer::{link_check, Check, CheckCategory, ErrorKind, StaticAnalyze
 use crate::constants::*;
 use crate::prelude::PathBuf;
 use crate::util::*;
-use bon::{builder, Builder};
+use bon::Builder;
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};
 use core::num::NonZeroU64;
