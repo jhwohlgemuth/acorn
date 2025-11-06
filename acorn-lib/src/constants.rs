@@ -1,7 +1,6 @@
 //! # Constants, regular expressions, and configuration values
 //!
 //! This module contains a collection of regular expressions, configuration values, and guidelines for research activity data. This includes section character counts and line counts.
-//!
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 

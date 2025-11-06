@@ -1,5 +1,5 @@
-use acorn_lib::analyzer::readability::ReadabilityType;
 use acorn_lib::prelude::PathBuf;
+use acorn_lib::util::cli::ReadabilityTypeArgument;
 use acorn_lib::util::cli::{CheckCategory, Diagnostic, FileFormat, Size, Target};
 use clap::builder::styling::{Ansi256Color, AnsiColor};
 use clap::builder::Styles;
@@ -129,7 +129,7 @@ pub enum Commands {
         merge_request: bool,
         /// Readability test to use
         #[arg(default_value_t, short, long = "readability-test", value_name = "METRIC", help_heading = "OPTIONS")]
-        readability_metric: ReadabilityType,
+        readability_metric: ReadabilityTypeArgument,
         /// Skip one or more available quality check categories
         #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
         skip: Vec<CheckCategory>,

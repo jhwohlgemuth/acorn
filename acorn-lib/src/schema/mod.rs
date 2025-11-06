@@ -941,22 +941,26 @@ impl ResearchActivity {
         }
     }
     /// Calculate readability based on passed options for a list of research activity files
-    pub fn calculate_readability(paths: Vec<PathBuf>, readability_type: ReadabilityType) -> Vec<Check> {
+    pub fn calculate_readability<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
+    where
+        R: Into<ReadabilityType> + core::marker::Sync,
+    {
+        let rtype = readability_type.into();
         paths
             .par_iter()
             .map(|path| match ResearchActivity::read(path.into()) {
                 | Some(data) => {
-                    let index = readability_type.calculate(&data.extract_prose());
-                    let maximum = match readability_type.maximum_allowed_from_env() {
+                    let index = rtype.calculate(&data.extract_prose());
+                    let maximum = match rtype.maximum_allowed_from_env() {
                         | Some(value) => {
                             debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
                             value
                         }
-                        | None => readability_type.maximum_allowed(),
+                        | None => rtype.maximum_allowed(),
                     };
                     debug!(value = index, "=> {} Readability index", Label::using());
                     if index > maximum {
-                        let errors = ErrorKind::Readability((index, readability_type));
+                        let errors = ErrorKind::Readability((index, rtype));
                         Check::init()
                             .category(CheckCategory::Readability)
                             .success(false)
@@ -965,7 +969,7 @@ impl ResearchActivity {
                             .context(maximum.to_string())
                             .build()
                     } else {
-                        let score = format!("({} = {}/{})", readability_type.to_string().to_uppercase(), index, maximum);
+                        let score = format!("({} = {}/{})", rtype.to_string().to_uppercase(), index, maximum);
                         Check::init()
                             .category(CheckCategory::Readability)
                             .success(true)

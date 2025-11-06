@@ -1,7 +1,8 @@
 use acorn_lib::analyzer::readability::ReadabilityType;
 use acorn_lib::analyzer::{summary, Check};
-use acorn_lib::prelude::PathBuf;
+use acorn_lib::prelude::{exit, PathBuf};
 use acorn_lib::schema::ResearchActivity;
+use acorn_lib::util::cli::ReadabilityTypeArgument;
 use acorn_lib::util::cli::{paths_from_options, CheckCategory, Options};
 use acorn_lib::util::{print_values_as_table, Label};
 use color_eyre::eyre::{Report, Result};
@@ -30,7 +31,7 @@ pub fn run(
     merge_request: &bool,
     skip_verify_checksum: &bool,
     offline: &bool,
-    readability_metric: &ReadabilityType,
+    readability_metric: &ReadabilityTypeArgument,
 ) -> Result<(), Report> {
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
@@ -53,7 +54,7 @@ pub fn run(
         if issues > 0 && exit_on_first_error {
             error!("=> {} Found {} schema validation errors", Label::fail(), issues);
             results.iter().for_each(|issue| issue.clone().print());
-            std::process::exit(exitcode::DATAERR);
+            exit(exitcode::DATAERR);
         }
         results
     };
@@ -66,7 +67,7 @@ pub fn run(
         if issues > 0 && exit_on_first_error {
             error!("=> {} Found {} prose issues", Label::fail(), issues);
             results.iter().for_each(|issue| issue.clone().print());
-            std::process::exit(exitcode::DATAERR);
+            exit(exitcode::DATAERR);
         }
         results
     };
@@ -74,22 +75,23 @@ pub fn run(
         warn!("=> {} Readability analysis", Label::skip());
         vec![]
     } else {
+        let metric_value_from_cli = ReadabilityType::from_string(&readability_metric.to_string());
         let metric = match dotenv() {
             | Ok(_) => match dotenvy::var(READABILITY_METRIC) {
                 | Ok(value) if !value.is_empty() => {
                     debug!(value, "=> {} Readability metric from .env", Label::using());
                     ReadabilityType::from_string(&value)
                 }
-                | _ => *readability_metric,
+                | _ => metric_value_from_cli,
             },
-            | _ => *readability_metric,
+            | _ => metric_value_from_cli,
         };
         let results = ResearchActivity::calculate_readability(paths, metric);
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             error!("=> {} Found {} readability issues", Label::fail(), issues);
             results.iter().for_each(|issue| issue.clone().print());
-            std::process::exit(exitcode::DATAERR);
+            exit(exitcode::DATAERR);
         }
         results
     };
@@ -113,7 +115,7 @@ pub fn run(
         let rows = summary(all_issues);
         println!("\n");
         print_values_as_table(&Label::fmt_fail("Issues Overview"), headers, rows);
-        std::process::exit(exitcode::DATAERR);
+        exit(exitcode::DATAERR);
     }
     Ok(())
 }

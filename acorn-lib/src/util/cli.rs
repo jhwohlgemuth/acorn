@@ -68,6 +68,32 @@ pub enum FileFormat {
     #[display("powerpoint")]
     Powerpoint,
 }
+/// Readability Type
+#[derive(Clone, Debug, Default, Display, ValueEnum)]
+pub enum ReadabilityTypeArgument {
+    /// Automated Readability Index (ARI)
+    #[display("ari")]
+    ARI,
+    /// Coleman-Liau Index (CLI)
+    #[display("cli")]
+    CLI,
+    /// Flesch-Kincaid Grade Level (FKGL)
+    #[default]
+    #[display("fkgl")]
+    FKGL,
+    /// Flesch Reading Ease (FRES)
+    #[display("fres")]
+    FRES,
+    /// Gunning Fog Index (GFI)
+    #[display("gfi")]
+    GFI,
+    /// Lix (abbreviation of Swedish läsbarhetsindex)
+    #[display("lix")]
+    Lix,
+    /// SMOG Index (SMOG)
+    #[display("smog")]
+    SMOG,
+}
 /// Target artifact aspect ratio size available when exporting research activity data using acorn
 ///
 /// Used primarily by ACORN CLI
