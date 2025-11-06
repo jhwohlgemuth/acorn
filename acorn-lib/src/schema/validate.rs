@@ -7,7 +7,7 @@ use crate::constants::{
     RE_ISO_8601_DATE, RE_ISO_8601_YEAR, RE_PHONE, RE_RAID, RE_ROR, RE_UNIX_EPOCH,
 };
 use crate::schema::pid::PersistentIdentifierConvert;
-use chrono::prelude::*;
+use chrono::{DateTime, Datelike, Utc};
 use convert_case::{Case, Casing};
 use uriparse::URI;
 use validator::ValidationError;

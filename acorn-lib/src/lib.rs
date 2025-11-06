@@ -11,7 +11,7 @@ use core::fmt::Debug;
 use derive_more::Display;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
-use rayon::prelude::*;
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, USER_AGENT};
 use serde::{Deserialize, Serialize};

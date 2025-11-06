@@ -6,7 +6,7 @@ use data_encoding::BASE64;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
-use percy_dom::prelude::*;
+use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;
 

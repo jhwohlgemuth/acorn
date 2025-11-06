@@ -1,11 +1,11 @@
-use acorn_lib::prelude::{File, PathBuf, Write};
+use acorn_lib::prelude::{exit, File, PathBuf, Write};
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::cli::{paths_from_options, Options};
 use acorn_lib::util::{print_changes, to_absolute_string, Label, MimeType};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
-use rayon::prelude::*;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::{error, info};
 
 #[allow(clippy::too_many_arguments)]
@@ -55,7 +55,7 @@ pub fn run(
                     | Ok(file) => file,
                     | Err(why) => {
                         error!(file = filepath, "=> {} Create - {}", Label::fail(), why);
-                        std::process::exit(exitcode::UNAVAILABLE);
+                        exit(exitcode::UNAVAILABLE);
                     }
                 };
                 match file.write_all(new_content.as_bytes()) {
@@ -64,14 +64,14 @@ pub fn run(
                     }
                     | Err(why) => {
                         error!(file = filepath, "=> {} Write - {}", Label::fail(), why);
-                        std::process::exit(exitcode::UNAVAILABLE);
+                        exit(exitcode::UNAVAILABLE);
                     }
                 }
             }
         }
         | None => {
             error!("=> {} Read research activity data", Label::fail());
-            std::process::exit(exitcode::DATAERR);
+            exit(exitcode::DATAERR);
         }
     });
     Ok(())

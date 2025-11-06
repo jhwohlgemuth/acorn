@@ -8,7 +8,7 @@ use crate::constants::{
     VALE_RELEASES_URL, VALE_VERSION,
 };
 use crate::prelude;
-use crate::prelude::{create_dir_all, exit, io, io::prelude::*, remove_file, File, HashMap, PathBuf};
+use crate::prelude::{create_dir_all, exit, io, remove_file, File, HashMap, PathBuf, Write};
 use crate::schema::ProgrammingLanguage;
 use crate::util::{
     checksum, command_exists, download_binary, extension, extract_zip, make_executable, standard_project_folder, suffix, Constant, Label,

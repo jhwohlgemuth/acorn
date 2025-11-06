@@ -5,7 +5,7 @@ use crate::prelude::PathBuf;
 use crate::util::read_file;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
-use rayon::prelude::*;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 const FIXTURES: &str = "../tests/fixtures";
 
