@@ -6,8 +6,8 @@ mod std {
     pub use std::collections::HashMap;
     pub use std::env::{consts, var};
     pub use std::ffi::OsStr;
-    pub use std::fs::{canonicalize, create_dir_all, read, remove_file, set_permissions, File, Permissions};
-    pub use std::io::{self, copy, BufRead, BufReader, Cursor, Read, Write};
+    pub use std::fs::{canonicalize, copy, create_dir_all, read, remove_file, set_permissions, File, Permissions};
+    pub use std::io::{self, BufRead, BufReader, Cursor, Read, Write};
     pub use std::os::unix::fs::PermissionsExt;
     pub use std::path::{absolute, Path, PathBuf};
     pub use std::process::exit;

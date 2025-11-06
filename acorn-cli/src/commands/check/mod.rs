@@ -1,9 +1,9 @@
+use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument};
+use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn_lib::analyzer::readability::ReadabilityType;
 use acorn_lib::analyzer::{summary, Check};
 use acorn_lib::prelude::{exit, PathBuf};
 use acorn_lib::schema::ResearchActivity;
-use acorn_lib::util::cli::ReadabilityTypeArgument;
-use acorn_lib::util::cli::{paths_from_options, CheckCategory, Options};
 use acorn_lib::util::{print_values_as_table, Label};
 use color_eyre::eyre::{Report, Result};
 use dotenvy::dotenv;
@@ -18,7 +18,6 @@ fn count(issues: Vec<Check>) -> usize {
         .map(|issue| issue.issue_count())
         .sum()
 }
-
 #[allow(clippy::too_many_arguments)]
 pub fn run(
     path: &Option<PathBuf>,
@@ -36,14 +35,14 @@ pub fn run(
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
-    let options = Options::init()
+    let options = CommandLineOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
         .maybe_ignore(ignore.clone())
         .exit_on_first_error(*exit_on_first_error)
         .merge_request(*merge_request)
         .build();
-    let Options { exit_on_first_error, .. } = options;
+    let CommandLineOptions { exit_on_first_error, .. } = options;
     let paths = paths_from_options(path, &Some(options));
     let schema_issues = if skip.contains(&CheckCategory::Schema) {
         warn!("=> {} Schema validation", Label::skip());

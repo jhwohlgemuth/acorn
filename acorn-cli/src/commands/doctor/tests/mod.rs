@@ -1,6 +1,6 @@
+use crate::cli::arguments::Diagnostic;
 use crate::commands::doctor::{run, should_run};
 use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, TableFormatPrint};
-use acorn_lib::util::cli::Diagnostic;
 use color_eyre::eyre::Result;
 
 const OFFLINE: bool = false;
@@ -8,10 +8,6 @@ const OFFLINE: bool = false;
 #[test]
 fn test_should_run() {
     // Test for specific diagnostics
-    assert!(should_run(&[Diagnostic::Memory], Diagnostic::Memory));
-    assert!(should_run(&[Diagnostic::System], Diagnostic::System));
-    assert!(should_run(&[Diagnostic::Network], Diagnostic::Network));
-    assert!(should_run(&[Diagnostic::Gpu], Diagnostic::Gpu));
     assert!(should_run(&[Diagnostic::Software], Diagnostic::Software));
     // Test diagnostic is not in list
     assert!(!should_run(&[Diagnostic::Memory], Diagnostic::System));

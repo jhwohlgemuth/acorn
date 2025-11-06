@@ -1,10 +1,15 @@
 use acorn_lib::prelude::PathBuf;
-use acorn_lib::util::cli::ReadabilityTypeArgument;
-use acorn_lib::util::cli::{CheckCategory, Diagnostic, FileFormat, Size, Target};
-use clap::builder::styling::{Ansi256Color, AnsiColor};
-use clap::builder::Styles;
+use acorn_lib::util::{files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored};
+use bon::Builder;
+use clap::builder::{
+    styling::{Ansi256Color, AnsiColor},
+    Styles,
+};
 use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
+
+pub mod arguments;
+use arguments::{CheckCategory, Diagnostic, FileFormat, ReadabilityTypeArgument, Size, Target};
 
 const PRIMARY_COLOR: u8 = 135;
 const STYLES: Styles = Styles::styled()
@@ -13,6 +18,80 @@ const STYLES: Styles = Styles::styled()
     .literal(AnsiColor::White.on_default())
     .placeholder(Ansi256Color(183).on_default());
 
+/// Container struct for working with subcommand run functions
+#[derive(Builder, Clone, Debug, Default)]
+#[builder(start_fn = init)]
+pub struct CommandLineOptions {
+    /// Path to file or folder to be used for input
+    pub path: Option<PathBuf>,
+    /// Git branch name
+    pub branch: Option<String>,
+    /// Git commit hash
+    pub commit: Option<String>,
+    /// Regex pattern of files to ignore at a given path desginated by `path`
+    pub ignore: Option<String>,
+    /// Path to file or folder to be used for output
+    pub output: Option<PathBuf>,
+    /// Path to reference file
+    ///
+    /// e.g. reference.pptx for exporting RAD to PowerPoint
+    pub reference: Option<PathBuf>,
+    /// Artifact aspect ratio size
+    pub size: Option<Size>,
+    /// Artifact target type
+    pub target: Option<Target>,
+    /// Flag used to indicate if a single error should cause the process to exit
+    #[builder(default)]
+    pub exit_on_first_error: bool,
+    /// Flag used to indicate if changed files should be obtained from a merge request
+    #[builder(default)]
+    pub merge_request: bool,
+}
+/// Returns a vector of PathBuf from the given options
+///
+/// If the options specify a merge request, the files from the current branch are returned.
+/// If the options specify a commit, the files changed in the commit are returned.
+/// If the options specify a branch, the files changed in the branch are returned.
+/// If none of the above options are set, the files in the given path are returned.
+/// If the options include an ignore regex, it is applied to the files returned.
+pub fn paths_from_options(path: &Option<PathBuf>, options: &Option<CommandLineOptions>) -> Vec<PathBuf> {
+    let extensions = Some(vec!["JSON", "YAML"]);
+    match options {
+        | Some(CommandLineOptions {
+            branch,
+            commit,
+            ignore,
+            merge_request,
+            ..
+        }) => {
+            let files = if *merge_request {
+                files_from_gitlab_merge_request(extensions)
+            } else {
+                match commit {
+                    | Some(hash) => files_from_git_commit(hash, extensions),
+                    | None => match branch {
+                        | Some(name) => files_from_git_branch(name, extensions),
+                        | None => {
+                            let value = match path {
+                                | Some(x) => x.clone(),
+                                | None => PathBuf::from("."),
+                            };
+                            files_all(value, extensions)
+                        }
+                    },
+                }
+            };
+            filter_ignored(files, ignore.clone())
+        }
+        | None => {
+            let value = match path {
+                | Some(x) => x.clone(),
+                | None => PathBuf::from("."),
+            };
+            files_all(value, extensions)
+        }
+    }
+}
 /// Multitool for maintaining sustainable research activity data
 ///
 ///⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣄⣀⠀⠀⠀

@@ -1,4 +1,4 @@
-use acorn_lib::prelude::PathBuf;
+use acorn_lib::prelude::{exit, PathBuf};
 use acorn_lib::util::{suffix, Label};
 use acorn_lib::BucketsConfig;
 use color_eyre::eyre::{Report, Result};
@@ -27,7 +27,7 @@ pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) 
             }
             | None => {
                 error!("=> {} Download data", Label::fail());
-                std::process::exit(exitcode::DATAERR);
+                exit(exitcode::DATAERR);
             }
         };
     }

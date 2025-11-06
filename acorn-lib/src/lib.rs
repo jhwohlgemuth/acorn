@@ -4,8 +4,6 @@
 //! `acorn-lib` is a one-stop-shop for everything related to building and maintaining research activity data (RAD)-related technology, including the Accessible Content Optimization for Research Needs (ACORN) tool.
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 //!
-use crate::analyzer::{link_check, Check};
-use crate::prelude::{copy, create_dir_all, exit, Cursor, File, PathBuf};
 use color_eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
@@ -23,7 +21,7 @@ use urlencoding::encode;
 
 pub mod analyzer;
 pub mod constants;
-#[cfg(feature = "cli")]
+#[cfg(feature = "doctor")]
 pub mod doctor;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
@@ -32,6 +30,8 @@ pub mod schema;
 #[cfg(feature = "util")]
 pub mod util;
 
+use crate::analyzer::{link_check, Check};
+use crate::prelude::{create_dir_all, exit, io, Cursor, File, PathBuf};
 use crate::util::{files_all, parent, read_file, suffix, Label, MimeType, ToAbsoluteString};
 
 /// Files to ignore
@@ -397,7 +397,7 @@ impl Bucket {
                     match prelude::read(path.clone()) {
                         | Ok(bytes) => {
                             let mut content = Cursor::new(bytes);
-                            let _ = copy(&mut content, &mut file);
+                            let _ = io::copy(&mut content, &mut file);
                             progress.inc(1);
                         }
                         | Err(why) => {
@@ -439,7 +439,7 @@ impl Bucket {
                         | Ok(response) => match response.bytes() {
                             | Ok(bytes) => {
                                 let mut content = Cursor::new(bytes);
-                                let _ = copy(&mut content, &mut file);
+                                let _ = io::copy(&mut content, &mut file);
                             }
                             | Err(why) => {
                                 error!(path, "=> {} Convert to bytes - {why}", Label::fail());

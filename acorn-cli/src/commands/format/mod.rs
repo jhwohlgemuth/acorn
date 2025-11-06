@@ -1,6 +1,6 @@
+use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn_lib::prelude::{exit, File, PathBuf, Write};
 use acorn_lib::schema::ResearchActivity;
-use acorn_lib::util::cli::{paths_from_options, Options};
 use acorn_lib::util::{print_changes, to_absolute_string, Label, MimeType};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
@@ -23,7 +23,7 @@ pub fn run(
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
         unimplemented!("Offline mode is not implemented yet");
     }
-    let options = Options::init()
+    let options = CommandLineOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
         .maybe_ignore(ignore.clone())

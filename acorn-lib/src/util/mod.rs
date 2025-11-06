@@ -32,8 +32,7 @@
 //!
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 use crate::prelude::{
-    canonicalize, copy, create_dir_all, exit, io, set_permissions, var, BufReader, Cursor, File, HashMap, OsStr, Path, PathBuf, Permissions, Read,
-    Write,
+    canonicalize, create_dir_all, exit, io, set_permissions, var, BufReader, Cursor, File, HashMap, OsStr, Path, PathBuf, Permissions, Read, Write,
 };
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
@@ -65,8 +64,6 @@ use which::which;
 use zip::ZipArchive;
 
 pub mod citeas;
-#[cfg(feature = "cli")]
-pub mod cli;
 
 /// Trait for augmenting path value functionality with absolute path string conversion
 pub trait ToAbsoluteString {
@@ -729,7 +726,7 @@ where
             | Ok(data) => match data.bytes().await {
                 | Ok(content) => {
                     let mut output = File::create(destination.into().join(filename.clone())).unwrap();
-                    let _ = copy(&mut Cursor::new(content.clone()), &mut output);
+                    let _ = io::copy(&mut Cursor::new(content.clone()), &mut output);
                     debug!(filename = filename, "=> {} Downloaded", Label::output());
                     Ok(())
                 }

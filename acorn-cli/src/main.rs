@@ -21,6 +21,7 @@
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
+use acorn_lib::prelude::exit;
 use acorn_lib::schema::pid::raid::Metadata;
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::Label;
@@ -57,11 +58,11 @@ const DISPLAY_THREAD_NAME: bool = false;
 
 fn print_rad_schema() -> Void {
     ResearchActivity::to_schema();
-    std::process::exit(exitcode::OK);
+    exit(exitcode::OK);
 }
 fn print_raid_schema() -> Void {
     Metadata::to_schema();
-    std::process::exit(exitcode::OK);
+    exit(exitcode::OK);
 }
 #[instrument]
 fn main() -> Void {
@@ -69,7 +70,7 @@ fn main() -> Void {
     let args = Arguments::parse();
     if args.version {
         println!("{}", crate_version!());
-        std::process::exit(exitcode::OK);
+        exit(exitcode::OK);
     }
     match dotenv() {
         | Ok(_) if !dotenvy::var(LOG_LEVEL).unwrap_or_default().is_empty() => {

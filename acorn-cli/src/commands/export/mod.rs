@@ -1,9 +1,10 @@
+use crate::cli::arguments::{FileFormat, Size, Target};
+use crate::cli::{paths_from_options, CommandLineOptions};
 use crate::template::Convert;
 use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
 use acorn_lib::powerpoint::{archive, interpolate_values, read_xml_rel};
-use acorn_lib::prelude::{absolute, create_dir_all, remove_file, File, PathBuf};
+use acorn_lib::prelude::{absolute, copy, create_dir_all, exit, remove_file, File, PathBuf};
 use acorn_lib::schema::{Metadata, ResearchActivity};
-use acorn_lib::util::cli::{paths_from_options, FileFormat, Options, Size, Target};
 use acorn_lib::util::{extract_zip, suffix, to_absolute_string, tokio_runtime, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -11,8 +12,8 @@ use playwright::api::Page;
 use playwright::Playwright;
 use tracing::{debug, error, info};
 
-pub async fn create_pdf(page: &Page, options: Options) {
-    let Options { output, size, target, .. } = options;
+pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
+    let CommandLineOptions { output, size, target, .. } = options;
     let path = match options.path {
         | Some(value) => value,
         | None => unimplemented!(),
@@ -21,7 +22,7 @@ pub async fn create_pdf(page: &Page, options: Options) {
         | Some(value) => value.format(Some(path.clone())),
         | None => {
             error!(path = to_absolute_string(path), "=> {} Read data for PDF export", Label::fail());
-            std::process::exit(exitcode::UNAVAILABLE);
+            exit(exitcode::UNAVAILABLE);
         }
     };
     let content = data.to_html(target, size).to_string();
@@ -57,8 +58,8 @@ pub async fn create_pdf(page: &Page, options: Options) {
     };
     let _remove = remove_file(index);
 }
-fn create_powerpoint(options: Options) {
-    let Options { path, output, .. } = options;
+fn create_powerpoint(options: CommandLineOptions) {
+    let CommandLineOptions { path, output, .. } = options;
     let input_path = match path {
         | Some(value) => value,
         | None => unimplemented!(),
@@ -71,7 +72,7 @@ fn create_powerpoint(options: Options) {
                 "=> {} Read data for PowerPoint export",
                 Label::fail()
             );
-            std::process::exit(exitcode::UNAVAILABLE);
+            exit(exitcode::UNAVAILABLE);
         }
     };
     let reference_path = match options.reference {
@@ -92,7 +93,7 @@ fn create_powerpoint(options: Options) {
             | Err(err) => {
                 let path = to_absolute_string(value.clone());
                 error!(path, "=> {} Create directory - {err}", Label::fail());
-                std::process::exit(exitcode::IOERR);
+                exit(exitcode::IOERR);
             }
         },
         | None => unreachable!(),
@@ -105,12 +106,12 @@ fn create_powerpoint(options: Options) {
                     | Ok(value) => value,
                     | Err(err) => {
                         error!(target = target.clone(), "=> {} Find image - {err}", Label::fail());
-                        std::process::exit(exitcode::NOINPUT);
+                        exit(exitcode::NOINPUT);
                     }
                 },
                 | None => {
                     error!(path = to_absolute_string(xml_rels_path), "=> {} Find image relationship", Label::fail());
-                    std::process::exit(exitcode::DATAERR);
+                    exit(exitcode::DATAERR);
                 }
             },
             | Err(err) => {
@@ -119,11 +120,11 @@ fn create_powerpoint(options: Options) {
                     "=> {} Read PowerPoint slide relationships - {err}",
                     Label::fail()
                 );
-                std::process::exit(exitcode::NOINPUT);
+                exit(exitcode::NOINPUT);
             }
         };
         let from = input_path.parent().unwrap().join(data.clone().meta.first_image_content_url());
-        std::fs::copy(from, image_path).unwrap();
+        copy(from, image_path).unwrap();
         ["ppt/slides/slide1.xml", "ppt/notesSlides/notesSlide1.xml"]
             .into_iter()
             .for_each(|fragment| {
@@ -149,7 +150,7 @@ pub fn run(
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
         unimplemented!("Offline mode is not implemented yet");
     }
-    let options = Options::init()
+    let options = CommandLineOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
         .merge_request(*merge_request)
@@ -168,7 +169,7 @@ pub fn run(
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 for path in &paths {
                     progress.set_message(format!("Generating PDF for {}", path.display()));
-                    let pdf_options = Options::init()
+                    let pdf_options = CommandLineOptions::init()
                         .path(path.clone())
                         .maybe_output(output.clone())
                         .size(size.clone())
@@ -198,7 +199,7 @@ pub fn run(
                         progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                         for path in &paths {
                             progress.set_message(format!("Generating PDF for {}", path.display()));
-                            let pdf_options = Options::init()
+                            let pdf_options = CommandLineOptions::init()
                                 .path(path.clone())
                                 .maybe_output(output.clone())
                                 .size(size.clone())
@@ -218,7 +219,7 @@ pub fn run(
                     progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                     for path in &paths {
                         progress.set_message(format!("Generating PowerPoint for {}", path.display()));
-                        let powerpoint_options = Options::init()
+                        let powerpoint_options = CommandLineOptions::init()
                             .path(path.clone())
                             .maybe_output(output.clone())
                             .maybe_reference(reference.clone())

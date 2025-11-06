@@ -1,8 +1,9 @@
+use crate::cli::arguments::{Size, Target};
 use acorn_lib::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
 use acorn_lib::schema::{ContactPoint, Research, ResearchActivity, Sections};
-use acorn_lib::util::cli::{Size, Target, TargetLabel};
 use acorn_lib::util::{Label, MimeType};
 use data_encoding::BASE64;
+use derive_more::Display;
 use fast_qr::convert::image::{ImageBuilder, ImageError};
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
@@ -12,6 +13,31 @@ use tracing::error;
 
 pub trait Convert {
     fn to_html(&self, target: Option<Target>, size: Option<Size>) -> VirtualNode;
+}
+/// Target artifact branding available when exporting research activity data using acorn
+///
+/// Used primarily by ACORN CLI
+#[derive(Default, Clone, Copy, Debug, Display)]
+pub enum TargetLabel {
+    /// National Security Sciences Directorate
+    ///
+    /// See <https://www.ornl.gov/science-area/national-security>
+    #[default]
+    #[display("National Security Sciences")]
+    Nssd,
+    /// Biological and Environmental Systems Sciences Directorate
+    ///
+    /// See <https://www.ornl.gov/directorate/bessd>
+    #[display("Biological and Environmental Systems Sciences")]
+    Bessd,
+    /// ORNL Water Power Program
+    ///
+    /// See <https://www.ornl.gov/waterpower>
+    #[display("Water Power Program")]
+    Wpp,
+    /// General ORNL Branding
+    #[display("Solving Big Problems")]
+    Ornl,
 }
 struct DataUri {}
 #[derive(Embed)]
@@ -63,6 +89,27 @@ impl Style {
             }
         };
         String::from_utf8_lossy(data.as_ref()).into_owned()
+    }
+}
+impl TargetLabel {
+    /// Returns a string representing the folder name for the given TargetLabel
+    pub fn folder(self) -> String {
+        match self {
+            | TargetLabel::Bessd => "bessd".to_string(),
+            | TargetLabel::Wpp => "wpp".to_string(),
+            | TargetLabel::Nssd => "nssd".to_string(),
+            | TargetLabel::Ornl => TargetLabel::default().folder().to_owned(),
+        }
+    }
+    /// Returns a TargetLabel based on the given organization name
+    pub fn from_organization(name: &str) -> Self {
+        match name {
+            | "Biological and Environmental Systems Science Directorate" => TargetLabel::Bessd,
+            | "National Security Sciences Division" => TargetLabel::Nssd,
+            | "Oak Ridge National Laboratory" => TargetLabel::Ornl,
+            | "Water Power Program" => TargetLabel::Wpp,
+            | _ => TargetLabel::default(),
+        }
     }
 }
 impl View for HtmlFooter {

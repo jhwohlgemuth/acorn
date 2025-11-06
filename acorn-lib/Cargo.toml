@@ -25,7 +25,6 @@ aho-corasick = { version = "1.1.4", default-features = false }
 bat = { version = "0.26.0", features = ["regex-onig"], default-features = false }
 bon = { version = "3.8.1", default-features = false }
 chrono = { version = "0.4.42", features = ["serde"], default-features = false }
-clap = { version = "4.5.51", features = ["derive", "unstable-doc", "std"], default-features = false }
 comfy-table = { version = "7.2.1", default-features = false }
 console = { version = "0.16.1", features = ["ansi-parsing"], default-features = false }
 convert_case = { version = "0.8.0", default-features = false }
@@ -76,12 +75,6 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 uriparse = { workspace = true }
 
-[target.'cfg(unix)'.dependencies]
-openssl = { version = "0.10.74", features = ["vendored"], default-features = false }
-
-[target.'cfg(windows)'.dependencies]
-openssl = { version = "0.10.74", default-features = false }
-
 [dev-dependencies]
 mockall = "0.13.1"
 pretty_assertions = "1.4.1"
@@ -90,7 +83,7 @@ temp-env = "0.3.6"
 
 [features]
 default = ["std", "util"]
-cli = []
+doctor = []
 powerpoint = []
 std = []
 util = []
