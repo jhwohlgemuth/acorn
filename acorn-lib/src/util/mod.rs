@@ -776,7 +776,13 @@ pub fn files_from_git_branch(value: &str, extensions: Option<Vec<&str>>) -> Vec<
         };
         let args = vec!["diff", "--name-only", &default_branch, "--merge-base", value];
         let result = cmd("git", args).read();
-        filter_git_command_result(result, extensions)
+        match result {
+            | Ok(value) => filter_git_command_result(value, extensions),
+            | Err(why) => {
+                error!("=> {} Get files from Git branch - {why}", Label::fail());
+                vec![]
+            }
+        }
     } else {
         vec![]
     }
@@ -792,7 +798,13 @@ pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<
         let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
         let result = cmd("git", args).read();
         debug!("=> {} Git command response - {result:?}", Label::using());
-        let files = filter_git_command_result(result, extensions);
+        let files = match result {
+            | Ok(value) => filter_git_command_result(value, extensions),
+            | Err(why) => {
+                error!("=> {} Get files from Git commit - {why}", Label::fail());
+                vec![]
+            }
+        };
         debug!(
             "=> {} Found {} file{} from Git commit - {files:?}",
             Label::using(),
@@ -842,18 +854,15 @@ pub fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<Pat
         }
     }
 }
-fn filter_git_command_result(result: Result<String, crate::prelude::io::Error>, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
-    match result {
-        | Ok(value) => match extensions {
-            | Some(values) => value
-                .to_lowercase()
-                .split("\n")
-                .map(PathBuf::from)
-                .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext.to_lowercase()))
-                .collect::<Vec<_>>(),
-            | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
-        },
-        | Err(_) => vec![],
+fn filter_git_command_result(value: String, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+    match extensions {
+        | Some(values) => value
+            .to_lowercase()
+            .split("\n")
+            .map(PathBuf::from)
+            .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext.to_lowercase()))
+            .collect::<Vec<_>>(),
+        | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
     }
 }
 /// Return file paths in a vector that don't match the ignore pattern

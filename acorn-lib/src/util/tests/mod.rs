@@ -1,4 +1,4 @@
-use crate::prelude::{io, Path, PathBuf};
+use crate::prelude::{Path, PathBuf};
 use crate::util::citeas;
 use crate::util::io::{extract_zip, read_file};
 use crate::util::*;
@@ -73,16 +73,16 @@ fn test_files_all() {
 #[test]
 fn test_filter_git_command_result() {
     let response = "acorn-lib/assets/constants/keywords.csv\nacorn-lib/assets/constants/technology.csv".to_string();
-    let result = Ok(response.clone());
+    let result = response.clone();
     let files = filter_git_command_result(result, Some(vec!["csv"]));
     assert_eq!(files.len(), 2);
-    let result = Ok(response.clone());
+    let result = response.clone();
     let files = filter_git_command_result(result, Some(vec!["json"]));
     assert!(files.is_empty());
-    let result = Ok(response);
+    let result = response.clone();
     let files = filter_git_command_result(result, Some(vec!["JSON"]));
     assert!(files.is_empty());
-    let empty = Err(io::Error::from(io::ErrorKind::NotFound));
+    let empty = "".to_string();
     let files = filter_git_command_result(empty, Some(vec!["json"]));
     assert!(files.is_empty());
 }
