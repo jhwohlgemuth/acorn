@@ -1,5 +1,6 @@
 use crate::prelude::{io, Path, PathBuf};
 use crate::util::citeas;
+use crate::util::io::{extract_zip, read_file};
 use crate::util::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;

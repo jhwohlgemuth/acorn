@@ -11,7 +11,8 @@ use crate::constants::{
     MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE,
 };
 use crate::prelude::PathBuf;
-use crate::util::{image_paths, parent, read_file, tokio_runtime, Constant, Label, MimeType, ToAbsoluteString};
+use crate::util::io::read_file;
+use crate::util::{image_paths, parent, tokio_runtime, Constant, Label, MimeType, ToAbsoluteString};
 use bon::Builder;
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};

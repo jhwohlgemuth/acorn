@@ -2,7 +2,7 @@ use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::readability::*;
 use crate::analyzer::{checks_to_dataframe, Check, CheckCategory};
 use crate::prelude::PathBuf;
-use crate::util::read_file;
+use crate::util::io::read_file;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};

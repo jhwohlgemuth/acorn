@@ -10,9 +10,9 @@ use crate::constants::{
 use crate::prelude;
 use crate::prelude::{create_dir_all, exit, io, remove_file, File, HashMap, PathBuf, Write};
 use crate::schema::ProgrammingLanguage;
+use crate::util::io::{download_binary, extract_zip};
 use crate::util::{
-    checksum, command_exists, download_binary, extension, extract_zip, make_executable, standard_project_folder, suffix, Constant, Label,
-    SemanticVersion, ToAbsoluteString,
+    checksum, command_exists, extension, make_executable, standard_project_folder, suffix, Constant, Label, SemanticVersion, ToAbsoluteString,
 };
 use crate::{Location, Repository};
 use bat::PrettyPrinter;

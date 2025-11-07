@@ -32,7 +32,8 @@ pub mod util;
 
 use crate::analyzer::{link_check, Check};
 use crate::prelude::{create_dir_all, exit, io, Cursor, File, PathBuf};
-use crate::util::{files_all, parent, read_file, suffix, Label, MimeType, ToAbsoluteString};
+use crate::util::io::read_file;
+use crate::util::{files_all, parent, suffix, Label, MimeType, ToAbsoluteString};
 
 /// Files to ignore
 /// - `.gitignore`

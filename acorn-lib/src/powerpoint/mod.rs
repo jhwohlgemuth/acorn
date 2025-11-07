@@ -5,7 +5,8 @@
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::prelude::{exit, io, File, PathBuf, Read, Write};
 use crate::schema::{ContactPoint, Metadata, Notes, Other, ResearchActivity, Sections};
-use crate::util::{files_all, read_file, to_absolute_string, write_file, Label};
+use crate::util::io::{read_file, write_file};
+use crate::util::{files_all, to_absolute_string, Label};
 use core::error::Error;
 use fancy_regex::Regex;
 use quick_xml::events::Event;

@@ -5,7 +5,8 @@
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema raid`
 use crate::prelude::PathBuf;
 use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror, is_unix_epoch};
-use crate::util::{read_file, Label, License};
+use crate::util::io::read_file;
+use crate::util::{Label, License};
 use bon::Builder;
 use derive_more::Display;
 use schemars::{schema_for, JsonSchema};
