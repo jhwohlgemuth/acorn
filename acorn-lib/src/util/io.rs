@@ -1,12 +1,45 @@
 //! # IO Utilities
 //!
 //! Module to isolate input/output operations to enhance portability
-use crate::prelude::{create_dir_all, exit, io, Cursor, File, PathBuf, Read, Write};
-use crate::util::{standard_project_folder, tokio_runtime, Label, ToAbsoluteString};
+use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
+use crate::prelude::{create_dir_all, exit, io, BufReader, Cursor, File, PathBuf, Read, Write};
+use crate::util::{generate_guid, tokio_runtime, Label, ToAbsoluteString};
+use data_encoding::HEXUPPER;
+use directories::ProjectDirs;
 use reqwest::header::USER_AGENT;
+use ring::digest::{Context, SHA256};
 use tracing::{debug, error, info};
 use zip::ZipArchive;
 
+/// Returns path to a folder in the operating system's cache directory that is unique to the given
+/// `namespace` with a random UUID as the name of the final folder.
+///
+/// The folder is ***not*** created.
+///
+/// Used primarily by ACORN CLI where `namespace` is of a subcommand task. e.g. "check", "extract", etc.
+///
+/// # Arguments
+///
+/// * `namespace` - A string slice representing the name of the namespace.
+/// * `default` - An optional `PathBuf` to use as the root directory instead of the cache directory.
+///
+/// # Returns
+///
+/// A `PathBuf` to the folder.
+pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> PathBuf {
+    let root = match default {
+        | Some(value) => value,
+        | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
+            | Some(dirs) => dirs.cache_dir().join(namespace).to_path_buf(),
+            | None => PathBuf::from(format!("./{namespace}")),
+        },
+    };
+    match create_dir_all(root.clone()) {
+        | Ok(_) => {}
+        | Err(why) => error!(directory = root.clone().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
+    };
+    root.join(generate_guid())
+}
 /// Downloads a binary file from the given URL to the destination path.
 ///
 /// # Arguments
@@ -101,6 +134,49 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBu
         | Err(why) => {
             error!(path = path.to_absolute_string(), "=> {} Read file - {why}", Label::fail());
             Err(why)
+        }
+    }
+}
+/// Get SHA256 hash of a file
+///
+/// See <https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html>
+///
+/// ### Example
+/// ```ignore
+/// use acorn_lib::util::checksum;
+///
+/// let checksum = checksum("path/to/file");
+/// assert!(checksum.is_some());
+/// ```
+pub fn file_checksum<P>(path: P) -> Option<String>
+where
+    P: Into<PathBuf>,
+{
+    let value = path.into();
+    match File::open(value.clone()) {
+        | Ok(file) => {
+            let mut buffer = [0; 1024];
+            let mut context = Context::new(&SHA256);
+            let mut reader = BufReader::new(file);
+            loop {
+                let count = reader.read(&mut buffer).unwrap();
+                if count == 0 {
+                    break;
+                }
+                context.update(&buffer[..count]);
+            }
+            let digest = context.finish();
+            let result = HEXUPPER.encode(digest.as_ref());
+            Some(result.to_lowercase())
+        }
+        | Err(err) => {
+            error!(
+                error = err.to_string(),
+                path = value.to_absolute_string(),
+                "=> {} Read file",
+                Label::fail()
+            );
+            None
         }
     }
 }

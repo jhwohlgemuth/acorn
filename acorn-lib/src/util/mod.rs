@@ -30,17 +30,14 @@
 //! write_file(PathBuf::from("/path/to/that/file"), contents);
 //! ```
 //!
-use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
-use crate::prelude::{canonicalize, create_dir_all, set_permissions, var, BufReader, File, HashMap, OsStr, Path, PathBuf, Permissions, Read};
+use crate::prelude::{canonicalize, set_permissions, var, HashMap, OsStr, Path, PathBuf, Permissions};
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::{ContentArrangement, Table};
 use console::Emoji;
 use convert_case::{Case, Casing};
-use data_encoding::HEXUPPER;
 use derive_more::Display;
-use directories::ProjectDirs;
 use duct::cmd;
 use fancy_regex::Regex;
 use glob::glob;
@@ -49,7 +46,6 @@ use itertools::Itertools;
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
 use reqwest::header::USER_AGENT;
-use ring::digest::{Context, SHA256};
 use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -619,49 +615,6 @@ impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
         self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_string()).collect()
     }
 }
-/// Get SHA256 hash of a file
-///
-/// See <https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html>
-///
-/// ### Example
-/// ```ignore
-/// use acorn_lib::util::checksum;
-///
-/// let checksum = checksum("path/to/file");
-/// assert!(checksum.is_some());
-/// ```
-pub fn checksum<P>(path: P) -> Option<String>
-where
-    P: Into<PathBuf>,
-{
-    let value = path.into();
-    match File::open(value.clone()) {
-        | Ok(file) => {
-            let mut buffer = [0; 1024];
-            let mut context = Context::new(&SHA256);
-            let mut reader = BufReader::new(file);
-            loop {
-                let count = reader.read(&mut buffer).unwrap();
-                if count == 0 {
-                    break;
-                }
-                context.update(&buffer[..count]);
-            }
-            let digest = context.finish();
-            let result = HEXUPPER.encode(digest.as_ref());
-            Some(result.to_lowercase())
-        }
-        | Err(err) => {
-            error!(
-                error = err.to_string(),
-                path = to_absolute_string(value),
-                "=> {} Read file",
-                Label::fail()
-            );
-            None
-        }
-    }
-}
 /// Checks if a given command exists in current terminal context.
 ///
 /// # Arguments
@@ -1187,35 +1140,6 @@ where
     S: Into<String>,
 {
     value.into().to_case(Case::Snake)
-}
-/// Returns path to a folder in the operating system's cache directory that is unique to the given
-/// `namespace` with a random UUID as the name of the final folder.
-///
-/// The folder is ***not*** created.
-///
-/// Used primarily by ACORN CLI where `namespace` is of a subcommand task. e.g. "check", "extract", etc.
-///
-/// # Arguments
-///
-/// * `namespace` - A string slice representing the name of the namespace.
-/// * `default` - An optional `PathBuf` to use as the root directory instead of the cache directory.
-///
-/// # Returns
-///
-/// A `PathBuf` to the folder.
-pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> PathBuf {
-    let root = match default {
-        | Some(value) => value,
-        | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
-            | Some(dirs) => dirs.cache_dir().join(namespace).to_path_buf(),
-            | None => PathBuf::from(format!("./{namespace}")),
-        },
-    };
-    match create_dir_all(root.clone()) {
-        | Ok(_) => {}
-        | Err(why) => error!(directory = to_absolute_string(root.clone()), "=> {} Create - {}", Label::fail(), why),
-    };
-    root.join(generate_guid())
 }
 /// Returns "s" if the given value is not 1, otherwise returns an empty string.
 /// ### Example

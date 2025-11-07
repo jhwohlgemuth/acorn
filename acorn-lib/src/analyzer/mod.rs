@@ -8,12 +8,10 @@ use crate::constants::{
     VALE_RELEASES_URL, VALE_VERSION,
 };
 use crate::prelude;
-use crate::prelude::{create_dir_all, exit, io, remove_file, File, HashMap, PathBuf, Write};
+use crate::prelude::{create_dir_all, exit, remove_file, Error,  File, HashMap, PathBuf, Write};
 use crate::schema::ProgrammingLanguage;
-use crate::util::io::{download_binary, extract_zip};
-use crate::util::{
-    checksum, command_exists, extension, make_executable, standard_project_folder, suffix, Constant, Label, SemanticVersion, ToAbsoluteString,
-};
+use crate::util::io::{download_binary, extract_zip, file_checksum, standard_project_folder};
+use crate::util::{command_exists, extension, make_executable, suffix, Constant, Label, SemanticVersion, ToAbsoluteString};
 use crate::{Location, Repository};
 use bat::PrettyPrinter;
 use bon::Builder;
@@ -60,7 +58,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Run analyzer on content
     fn run(&self, id: String, content: String, output: Option<String>) -> Check;
     /// Perform sync operation (only applies to Vale)
-    fn sync(self, is_offline: bool) -> Result<(), io::Error>;
+    fn sync(self, is_offline: bool) -> Result<(), Error>;
     /// Set binary
     fn with_binary<P>(self, path: P) -> Self
     where
@@ -425,7 +423,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         | Ok(value) => value.get(&platform).unwrap().to_string(),
                         | Err(_) => "".to_string(),
                     };
-                    if let Some(calculated) = checksum(path.clone()) {
+                    if let Some(calculated) = file_checksum(path.clone()) {
                         if !dowloaded_checksum.eq(&calculated) {
                             error!(dowloaded_checksum, calculated, "=> {}", Label::invalid());
                             let _cleanup = remove_file(path);
@@ -527,7 +525,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         }
     }
-    fn sync(self, is_offline: bool) -> Result<(), io::Error> {
+    fn sync(self, is_offline: bool) -> Result<(), Error> {
         let path = match self.binary {
             | Some(value) => value,
             | None => {

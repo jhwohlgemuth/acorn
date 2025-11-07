@@ -1,6 +1,6 @@
 use crate::prelude::{Path, PathBuf};
 use crate::util::citeas;
-use crate::util::io::{extract_zip, read_file};
+use crate::util::io::{extract_zip, file_checksum, read_file};
 use crate::util::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;
@@ -11,21 +11,21 @@ const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
 fn test_checksum() {
-    let calculated = checksum(PathBuf::from(FIXTURES).join("glob/a.txt")).unwrap();
+    let calculated = file_checksum(PathBuf::from(FIXTURES).join("glob/a.txt")).unwrap();
     if cfg!(target_os = "windows") {
         assert_eq!(calculated.len(), 64);
     } else {
         let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
         assert_eq!(calculated, expected);
     }
-    let calculated = checksum("../tests/fixtures/glob/a.txt").unwrap();
+    let calculated = file_checksum("../tests/fixtures/glob/a.txt").unwrap();
     if cfg!(target_os = "windows") {
         assert_eq!(calculated.len(), 64);
     } else {
         let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
         assert_eq!(calculated, expected);
     }
-    let result = checksum(PathBuf::from("/path/does/not/exist.txt"));
+    let result = file_checksum(PathBuf::from("/path/does/not/exist.txt"));
     assert!(result.is_none());
 }
 #[test]
