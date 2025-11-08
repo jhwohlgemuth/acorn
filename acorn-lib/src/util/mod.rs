@@ -57,6 +57,7 @@ use tracing::{debug, error, warn};
 use which::which;
 
 pub mod citeas;
+#[cfg_attr(not(feature = "std"), no_std)]
 pub mod io;
 
 /// Trait for augmenting path value functionality with absolute path string conversion

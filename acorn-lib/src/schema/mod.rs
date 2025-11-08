@@ -11,6 +11,7 @@ use crate::constants::{
     MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE,
 };
 use crate::prelude::PathBuf;
+#[cfg_attr(not(feature = "std"), no_std)]
 use crate::util::io::read_file;
 use crate::util::{image_paths, parent, tokio_runtime, Constant, Label, MimeType, ToAbsoluteString};
 use bon::Builder;
@@ -1205,6 +1206,7 @@ impl ResearchActivity {
         }
     }
     /// Read research activity data using Serde and [`ResearchActivity`] struct
+    #[cfg_attr(not(feature = "std"), no_std)]
     fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
@@ -1225,6 +1227,7 @@ impl ResearchActivity {
         data
     }
     /// Read research activity data (e.g., `buckets.yaml`) using Serde and [`ResearchActivity`] struct
+    #[cfg_attr(not(feature = "std"), no_std)]
     fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity> {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,
