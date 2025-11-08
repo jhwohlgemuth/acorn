@@ -53,7 +53,6 @@ dependencies = [
  "directories",
  "dotenvy",
  "duct",
- "exitcode",
  "fancy-regex",
  "flate2",
  "glob",

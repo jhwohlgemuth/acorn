@@ -3,7 +3,7 @@ use crate::cli::{paths_from_options, CommandLineOptions};
 use crate::template::Convert;
 use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
 use acorn_lib::powerpoint::{archive, interpolate_values, read_xml_rel};
-use acorn_lib::prelude::{absolute, copy, create_dir_all, exit, remove_file, File, PathBuf};
+use acorn_lib::prelude::{absolute, copy, create_dir_all, remove_file, File, PathBuf};
 use acorn_lib::schema::{Metadata, ResearchActivity};
 use acorn_lib::util::io::extract_zip;
 use acorn_lib::util::{suffix, to_absolute_string, tokio_runtime, Label};
@@ -11,6 +11,7 @@ use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
 use playwright::Playwright;
+use std::process::exit;
 use tracing::{debug, error, info};
 
 pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
@@ -102,7 +103,7 @@ fn create_powerpoint(options: CommandLineOptions) {
     if let Ok(path) = extract_zip(reference_path, None) {
         let xml_rels_path = path.join("ppt/slides/_rels/slide1.xml.rels");
         let image_path = match read_xml_rel(xml_rels_path.clone()) {
-            | Ok(Relationships { relationship }) => match relationship.clone().into_iter().find(|x| x.target.ends_with(".png")) {
+            | Some(Relationships { relationship }) => match relationship.clone().into_iter().find(|x| x.target.ends_with(".png")) {
                 | Some(Relationship { target, .. }) => match path.join("ppt/slides").join(target.clone()).canonicalize() {
                     | Ok(value) => value,
                     | Err(err) => {
@@ -115,10 +116,10 @@ fn create_powerpoint(options: CommandLineOptions) {
                     exit(exitcode::DATAERR);
                 }
             },
-            | Err(err) => {
+            | None => {
                 error!(
                     path = to_absolute_string(xml_rels_path),
-                    "=> {} Read PowerPoint slide relationships - {err}",
+                    "=> {} Read PowerPoint slide relationships",
                     Label::fail()
                 );
                 exit(exitcode::NOINPUT);

@@ -10,7 +10,6 @@ mod std {
     pub use std::io::{self, BufRead, BufReader, Cursor, Error, Read, Write};
     pub use std::os::unix::fs::PermissionsExt;
     pub use std::path::{absolute, Path, PathBuf};
-    pub use std::process::exit;
 }
 /// Module that provides `no-std` support
 #[allow(unused_imports)]
@@ -20,10 +19,10 @@ mod no_std {
 
 #[cfg(not(feature = "std"))]
 pub use no_std::*;
-#[cfg(feature = "std")]
+#[cfg_attr(not(feature = "std"), no_std)]
 pub use std::*;
 /// Get Vale release filename for a given platform operating system (e.g., linux, windows, macos)
-#[cfg(feature = "std")]
+#[cfg_attr(not(feature = "std"), no_std)]
 pub fn vale_release_filename() -> String {
     // https://doc.rust-lang.org/std/env/consts/constant.OS.html
     let os = std::consts::OS.to_lowercase();

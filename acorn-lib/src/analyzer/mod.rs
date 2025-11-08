@@ -9,7 +9,7 @@ use crate::constants::{
     VALE_RELEASES_URL, VALE_VERSION,
 };
 use crate::prelude;
-use crate::prelude::{create_dir_all, exit, remove_file, Error, File, HashMap, PathBuf, Write};
+use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
 use crate::schema::ProgrammingLanguage;
 use crate::util::io::{download_binary, extract_zip, file_checksum, standard_project_folder};
 use crate::util::{command_exists, extension, make_executable, suffix, Constant, Label, SemanticVersion, ToAbsoluteString};
@@ -349,7 +349,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | Some(value) => value,
             | None => {
                 error!("=> {} {} binary", Label::not_found(), self.clone().command());
-                exit(exitcode::UNAVAILABLE);
+                &PathBuf::from("./.vale/vale")
             }
         };
         match &self.config {
@@ -404,7 +404,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | None => {
                 let title = self.clone().command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
-                exit(exitcode::UNAVAILABLE);
+                Check::init().category(CheckCategory::Prose).success(false).message(id).build()
             }
         }
     }
@@ -426,8 +426,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     if let Some(calculated) = file_checksum(path.clone()) {
                         if !dowloaded_checksum.eq(&calculated) {
                             error!(dowloaded_checksum, calculated, "=> {}", Label::invalid());
-                            let _cleanup = remove_file(path);
-                            exit(exitcode::USAGE);
+                            let _cleanup = remove_file(path.clone());
                         } else {
                             info!(checksum = dowloaded_checksum, "=> {} Checksum verification", Label::pass());
                         }
@@ -507,7 +506,12 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 }
                 | Err(why) => {
                     error!("=> {} {command} extract - {why}", Label::fail());
-                    exit(exitcode::UNAVAILABLE);
+                    let path = PathBuf::from(DEFAULT_VALE_ROOT).join(command);
+                    if cfg!(windows) {
+                        path.with_extension("exe")
+                    } else {
+                        path
+                    }
                 }
             },
             | "gz" => {
@@ -521,16 +525,17 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
             | _ => {
                 error!("=> {} {command} extract - Unsupported format", Label::fail());
-                exit(exitcode::UNAVAILABLE);
+                PathBuf::from(DEFAULT_VALE_ROOT).join(command)
             }
         }
     }
     fn sync(self, is_offline: bool) -> Result<(), Error> {
+        let command = self.clone().command();
         let path = match self.binary {
             | Some(value) => value,
             | None => {
-                error!("=> {} {} binary", Label::not_found(), self.command());
-                exit(exitcode::UNAVAILABLE);
+                error!("=> {} {} binary", Label::not_found(), command);
+                PathBuf::from(DEFAULT_VALE_ROOT).join(command)
             }
         };
         let config_path = self.config.unwrap().path;
@@ -571,7 +576,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
             | Err(why) => {
                 error!(config = config_path.to_absolute_string(), "=> {} Vale sync - {}", Label::fail(), why);
-                exit(exitcode::SOFTWARE);
+                Err(why)
             }
         }
     }
@@ -666,7 +671,6 @@ impl StaticAnalyzerConfig for ValeConfig {
             }
             | Err(why) => {
                 error!("=> {} Save configuration - {why}", Label::fail());
-                exit(exitcode::SOFTWARE);
             }
         }
         self

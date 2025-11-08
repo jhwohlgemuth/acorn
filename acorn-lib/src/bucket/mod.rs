@@ -5,7 +5,7 @@
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 //!
 use crate::analyzer::{link_check, Check};
-use crate::prelude::{self, create_dir_all, exit, io, Cursor, File, PathBuf};
+use crate::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
 use crate::util::io::read_file;
 use crate::util::{files_all, parent, reqwest_request, suffix, Label, MimeType, ToAbsoluteString};
 use color_eyre::eyre;
@@ -532,7 +532,7 @@ impl BucketsConfig {
             Some(content)
         } else {
             error!(path = path.to_str().unwrap(), "=> {} Import configuration", Label::fail());
-            exit(exitcode::UNAVAILABLE);
+            None
         }
     }
     /// Read buckets configuration (e.g., `buckets.json`) using Serde and [`BucketsConfig`] struct

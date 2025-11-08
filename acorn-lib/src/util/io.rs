@@ -2,7 +2,7 @@
 //!
 //! Module to isolate input/output operations to enhance portability
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
-use crate::prelude::{create_dir_all, exit, io, BufReader, Cursor, File, PathBuf, Read, Write};
+use crate::prelude::{create_dir_all, io, BufReader, Cursor, File, PathBuf, Read, Write};
 use crate::util::{generate_guid, tokio_runtime, Label, ToAbsoluteString};
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
@@ -94,6 +94,7 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBu
     match File::open(path.clone()) {
         | Ok(zip_file) => match ZipArchive::new(zip_file) {
             | Ok(mut archive) => {
+                let mut success = true;
                 for index in 0..archive.len() {
                     match archive.by_index(index) {
                         | Ok(mut file) => {
@@ -109,22 +110,27 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBu
                                     | Ok(_) => {}
                                     | Err(why) => {
                                         error!(path = target.to_absolute_string(), "=> {} Copy file content - {why}", Label::fail());
-                                        exit(exitcode::UNAVAILABLE);
+                                        success = false
                                     }
                                 }
                             } else {
                                 error!(path = target.to_absolute_string(), "=> {} Create file", Label::fail());
-                                exit(exitcode::UNAVAILABLE);
+                                success = false
                             }
                         }
                         | Err(why) => {
                             error!(path = path.to_absolute_string(), "=> {} Extract file - {why}", Label::fail());
-                            exit(exitcode::UNAVAILABLE);
+                            success = false
                         }
                     }
                 }
-                info!(path = root.to_absolute_string(), "=> {} Extract zip archive", Label::pass());
-                Ok(root)
+                if success {
+                    info!(path = root.to_absolute_string(), "=> {} Extract zip archive", Label::pass());
+                    Ok(root)
+                } else {
+                    error!(path = root.to_absolute_string(), "=> {} Extract zip archive", Label::fail());
+                    Err(io::Error::from(io::ErrorKind::Other))
+                }
             }
             | Err(why) => {
                 error!(path = path.to_absolute_string(), "=> {} Read zip archive - {why}", Label::fail());

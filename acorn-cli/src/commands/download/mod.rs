@@ -1,8 +1,9 @@
 use acorn_lib::bucket::BucketsConfig;
-use acorn_lib::prelude::{exit, PathBuf};
+use acorn_lib::prelude::PathBuf;
 use acorn_lib::util::{suffix, Label};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
+use std::process::exit;
 use tracing::error;
 
 pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) -> Result<(), Report> {

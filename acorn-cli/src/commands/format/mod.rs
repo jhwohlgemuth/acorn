@@ -1,11 +1,12 @@
 use crate::cli::{paths_from_options, CommandLineOptions};
-use acorn_lib::prelude::{exit, File, PathBuf, Write};
+use acorn_lib::prelude::{File, PathBuf, Write};
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::{print_changes, to_absolute_string, Label, MimeType};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::process::exit;
 use tracing::{error, info};
 
 #[allow(clippy::too_many_arguments)]

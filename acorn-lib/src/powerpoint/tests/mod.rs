@@ -130,8 +130,8 @@ fn test_parse() {
 fn test_read_xml_rel() {
     let path = PathBuf::from(FIXTURES).join("presentation.xml.rels");
     let result = read_xml_rel(path);
-    assert!(result.is_ok());
-    if let Ok(content) = result {
+    assert!(result.is_some());
+    if let Some(content) = result {
         assert_eq!(content.relationship.len(), 10);
         assert_eq!(content.relationship[0].id, "rId8");
     }

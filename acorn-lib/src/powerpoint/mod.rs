@@ -3,7 +3,7 @@
 //! Here you'll find functions for working with [`OOXML`] and creating PowerPoint files.
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
-use crate::prelude::{exit, io, File, PathBuf, Read, Write};
+use crate::prelude::{io, File, PathBuf, Read, Write};
 use crate::schema::{ContactPoint, Metadata, Notes, Other, ResearchActivity, Sections};
 use crate::util::io::{read_file, write_file};
 use crate::util::{files_all, to_absolute_string, Label};
@@ -25,48 +25,52 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
         | Some(value) => value,
         | None => path.with_extension("zip"),
     };
-    let mut zip = match File::create(&zip_file_path) {
-        | Ok(zip_file) => ZipWriter::new(zip_file),
+    let zip_file = match File::create(&zip_file_path) {
+        | Ok(zip_file) => Some(ZipWriter::new(zip_file)),
         | Err(why) => {
-            error!(file = to_absolute_string(path), "=> {} Create zip archive - {why}", Label::fail());
-            exit(exitcode::IOERR);
+            error!(file = to_absolute_string(path.clone()), "=> {} Create zip archive - {why}", Label::fail());
+            None
         }
     };
-    let files = files_all(path.clone(), None).into_iter().filter(|x| x.is_file());
-    for file_path in files {
-        if let Ok(file) = File::open(file_path.clone()) {
-            let name = match path.canonicalize() {
-                | Ok(relative) => file_path.strip_prefix(relative).unwrap_or_else(|_| &file_path),
-                | Err(_) => &file_path,
-            };
-            debug!(file = to_absolute_string(name.to_path_buf()), "=> {} Add file to archive", Label::using());
-            match zip.start_file_from_path(name, options) {
-                | Ok(_) => {
-                    let mut buffer = Vec::new();
-                    match io::copy(&mut file.take(u64::MAX), &mut buffer) {
-                        | Ok(_) => match zip.write_all(&buffer) {
-                            | Ok(_) => {}
+    if let Some(mut zip) = zip_file {
+        let files = files_all(path.clone(), None).into_iter().filter(|x| x.is_file());
+        for file_path in files {
+            if let Ok(file) = File::open(file_path.clone()) {
+                let name = match path.canonicalize() {
+                    | Ok(relative) => file_path.strip_prefix(relative).unwrap_or_else(|_| &file_path),
+                    | Err(_) => &file_path,
+                };
+                debug!(file = to_absolute_string(name.to_path_buf()), "=> {} Add file to archive", Label::using());
+                match zip.start_file_from_path(name, options) {
+                    | Ok(_) => {
+                        let mut buffer = Vec::new();
+                        match io::copy(&mut file.take(u64::MAX), &mut buffer) {
+                            | Ok(_) => match zip.write_all(&buffer) {
+                                | Ok(_) => {}
+                                | Err(why) => {
+                                    error!(file = to_absolute_string(file_path), "=> {} Write zip archive - {why}", Label::fail())
+                                }
+                            },
                             | Err(why) => {
-                                error!(file = to_absolute_string(file_path), "=> {} Write zip archive - {why}", Label::fail())
+                                error!("=> {} Copy buffer - {why}", Label::fail())
                             }
-                        },
-                        | Err(why) => {
-                            error!("=> {} Copy buffer - {why}", Label::fail())
                         }
                     }
-                }
-                | Err(why) => {
-                    error!(file = to_absolute_string(file_path), "=> {} Start zip archive - {why}", Label::fail());
+                    | Err(why) => {
+                        error!(file = to_absolute_string(file_path), "=> {} Start zip archive - {why}", Label::fail());
+                    }
                 }
             }
         }
-    }
-    match zip.finish() {
-        | Ok(_) => Ok(zip_file_path),
-        | Err(why) => {
-            error!(file = to_absolute_string(path), "=> {} Finish zip archive - {why}", Label::fail());
-            Err(why.into())
+        match zip.finish() {
+            | Ok(_) => Ok(zip_file_path),
+            | Err(why) => {
+                error!(file = to_absolute_string(path), "=> {} Finish zip archive - {why}", Label::fail());
+                Err(why.into())
+            }
         }
+    } else {
+        Err("Unable to create zip archive".into())
     }
 }
 /// Interpolate research activity data into PowerPoint template
@@ -141,18 +145,19 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
             content = replace_placeholder_with_bullets(&content, "achievement", achievement.unwrap_or_else(Vec::new));
             content = replace_placeholder_with_bullets(&content, "impact", impact);
             content = replace_placeholder_with_bullets(&content, "technical", approach);
-            content
+            Some(content)
         }
         | Err(why) => {
             error!("=> {} Cannot read file for interpolation - {why}", Label::fail());
-            exit(exitcode::IOERR);
+            None
         }
     };
-    match write_file(path.clone(), updated) {
-        | Ok(_) => {}
-        | Err(why) => {
-            error!("=> {} Cannot write file for interpolation - {why}", Label::fail());
-            exit(exitcode::IOERR);
+    if let Some(content) = updated {
+        match write_file(path.clone(), content) {
+            | Ok(_) => {}
+            | Err(why) => {
+                error!("=> {} Cannot write file for interpolation - {why}", Label::fail());
+            }
         }
     }
 }
@@ -183,16 +188,22 @@ pub fn prettify_xml(xml: &str) -> String {
     result
 }
 /// Read OOXML relationships XML file
-pub fn read_xml_rel(path: PathBuf) -> Result<Relationships, quick_xml::DeError> {
+pub fn read_xml_rel(path: PathBuf) -> Option<Relationships> {
     match read_file(path) {
         | Ok(content) => {
             let parsed = quick_xml::de::from_str::<Relationships>(&content);
             debug!("=> {} Relationships = {:#?}", Label::using(), parsed);
-            parsed
+            match parsed {
+                | Ok(value) => Some(value),
+                | Err(why) => {
+                    error!("=> {} Cannot parse relationships - {why}", Label::fail());
+                    None
+                }
+            }
         }
         | Err(why) => {
             error!("=> {} Cannot read xml.rels file - {why}", Label::fail());
-            exit(exitcode::IOERR);
+            None
         }
     }
 }
