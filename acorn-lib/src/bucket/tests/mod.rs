@@ -1,5 +1,5 @@
+use crate::bucket::*;
 use crate::prelude::PathBuf;
-use crate::*;
 
 const FIXTURES: &str = "../tests/fixtures";
 
@@ -133,6 +133,5 @@ fn test_repository_github() {
         location: Location::Simple("https://github.com/jhwohlgemuth/voxelcss".to_string()),
     };
     let release = repository.latest_release();
-    println!("{release:#?}");
     assert!(release.is_some());
 }

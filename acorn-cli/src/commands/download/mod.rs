@@ -1,11 +1,10 @@
+use acorn_lib::bucket::BucketsConfig;
 use acorn_lib::prelude::{exit, PathBuf};
 use acorn_lib::util::{suffix, Label};
-use acorn_lib::BucketsConfig;
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
 use tracing::error;
 
-#[allow(clippy::too_many_arguments)]
 pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) -> Result<(), Report> {
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));

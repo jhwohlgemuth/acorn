@@ -83,8 +83,8 @@ temp-env = "0.3.6"
 
 [features]
 default = ["std", "util"]
-doctor = []
-powerpoint = []
+doctor = ["std"]
+powerpoint = ["std"]
 std = []
 util = []
 
