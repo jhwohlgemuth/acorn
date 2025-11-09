@@ -1,9 +1,10 @@
 {
   "meta": {
     "id": "valid-project",
-    "trl": 3,
     "archive": false,
     "draft": false,
+    "status": "active",
+    "trl": 3,
     "websites": [
       {
         "title": "Project Repository",

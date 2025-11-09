@@ -201,13 +201,37 @@ pub enum ProgrammingLanguage {
     #[display("yaml")]
     Yaml,
 }
-/// ## TRL
-/// > Technology readiness levels (TRLs) are a method for estimating the maturity of technologies during the acquisition phase of a program.
+/// Status of research activity data
+/// ### Note
+/// > Status is saved as a numeric value and designed to be comparable by priority (i.e., Active > On Hold > Completed > Canceled)
+///
+/// See <https://schema.org/Status>
+#[derive(Clone, Debug, Default, Deserialize, Display, PartialEq, PartialOrd, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
+pub enum Status {
+    /// Activity has been cancelled with not plans to resume
+    #[display("canceled")]
+    #[serde(alias = "cancelled")]
+    Canceled,
+    /// Activity has completed (successfully)
+    #[display("completed")]
+    Completed,
+    /// Activity is postponed with plans to resume
+    #[display("paused")]
+    #[serde(alias = "on-hold", alias = "postponed", alias = "rescheduled")]
+    Paused,
+    /// Activity is in progress
+    #[default]
+    #[display("active")]
+    Active,
+}
+/// TRLs are a method for estimating the maturity of technologies during the acquisition phase of a program.
 ///
 /// The "optimal point" to introduce technology depends on technology maturity (TRL) and program requirements. That point can be virtually anywhere in the acquisition process.
 ///
 /// See [Technology Readiness for Machine Learning Systems](https://doi.org/10.1038/s41467-022-33128-9) for applying TRLs to machine learning (ML) systems
-#[derive(Clone, Debug, Default, Display, Serialize_repr, Deserialize_repr, PartialEq, PartialOrd, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize_repr, Display, Serialize_repr, PartialEq, PartialOrd, JsonSchema)]
 #[repr(u8)]
 #[serde(deny_unknown_fields)]
 pub enum TechnologyReadinessLevel {
@@ -379,8 +403,6 @@ pub struct ImageObject {
 pub struct Metadata {
     /// Classification level of associated research activity data
     pub classification: Option<ClassificationLevel>,
-    /// <abbr title="Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
-    pub trl: Option<TechnologyReadinessLevel>,
     /// Describes the active status of the associated research activity data
     ///
     /// <div class="warning">Archived content typically will be omitted from public artifacts such as <a href="https://research.ornl.gov">the ORNL research activity index</a></div>
@@ -391,6 +413,14 @@ pub struct Metadata {
     /// <div class="warning">Draft content typically will be omitted from public artifacts such as <a href="https://research.ornl.gov">the ORNL research activity index</a></div>
     #[builder(default = true)]
     pub draft: bool,
+    /// Describes the status of the associated research activity data
+    #[builder(default = Status::Active)]
+    #[serde(default)]
+    pub status: Status,
+    /// Technology Readiness Level (TRL) of associated research activity data
+    ///
+    /// <abbr title="Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
+    pub trl: Option<TechnologyReadinessLevel>,
     /// Identifier for associated research activity data
     /// ### Example
     /// > `my-research-project`
@@ -433,6 +463,8 @@ pub struct Metadata {
     /// Websites related to the associated research activity data
     #[validate(nested)]
     pub websites: Option<Vec<Website>>,
+    /// Keywords related to the associated research activity data
+    ///
     /// See [Keyword]
     #[builder(default = Vec::<String>::new())]
     pub keywords: Vec<Keyword>,
@@ -481,8 +513,6 @@ pub struct Notes {
     #[serde(default, deserialize_with = "option_string_trim")]
     pub presentation: Option<String>,
 }
-/// ### Organization
-///
 /// Structured container for information about an organization
 ///
 /// See also [OrganizationType]

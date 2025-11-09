@@ -399,6 +399,19 @@ fn test_research_activity_format() {
     assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
 }
 #[test]
+fn test_status() {
+    let data: Status = serde_json::from_str("\"active\"").unwrap();
+    assert_eq!(data, Status::Active);
+    let data: Status = serde_json::from_str("\"paused\"").unwrap();
+    assert_eq!(data, Status::Paused);
+    let data: Status = serde_json::from_str("\"on-hold\"").unwrap();
+    assert_eq!(data, Status::Paused);
+    let data: Status = serde_json::from_str("\"completed\"").unwrap();
+    assert_eq!(data, Status::Completed);
+    let data: Result<Status, _> = serde_json::from_str("\"not done\"");
+    assert!(!data.is_ok());
+}
+#[test]
 fn test_trl() {
     assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("0").unwrap());
     assert_eq!(TechnologyReadinessLevel::MissionCapable, serde_json::from_str("9").unwrap());
