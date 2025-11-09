@@ -44,6 +44,9 @@ use validate::{
     validate_attribute_areas, validate_attribute_capabilities, validate_attribute_doi, validate_attribute_impact, validate_attribute_ror,
 };
 
+const DEFAULT_CONTACT_POINT_CONTEXT: &str = "https://schema.org/person";
+const SCHEMA_ORG_CONTEXT: &str = "https://schema.org";
+
 /// ## Keywords
 /// > Core concepts related to the associated research activity
 ///
@@ -290,10 +293,21 @@ pub enum TechnologyReadinessLevel {
 /// Contact point (i.e. "point of contact") for research activity
 ///
 /// See <https://schema.org/ContactPoint>
+#[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ContactPoint {
+    /// Linked data (e.g., JSON-LD) context for contact point
+    ///
+    /// See <https://www.w3.org/TR/json-ld11/#example-6-loading-a-relative-context> for more information
+    #[serde(default = "default_contact_point_context", rename = "@context")]
+    pub context: Option<ContactPointContext>,
+    /// Linked data (e.g., JSON-LD) type for contact point
+    ///
+    /// Will always be "https://schema.org/person"
+    #[serde(default = "default_contact_point_type", rename = "@type")]
+    pub contact_point_type: Option<String>,
     /// Job title (e.g., "Group Lead") of role that the contact fills related to the asscociated research activity.
     /// ### Example
     /// > Ideal contact title for a project would be "Primary Investigator"
@@ -358,6 +372,29 @@ pub struct ContactPoint {
     ///
     /// See <https://schema.org/affiliation> for more information
     pub affiliation: Option<String>,
+}
+/// Linked data (e.g., JSON-LD) context for contact point
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ContactPointContext {
+    /// Job title
+    pub job_title: String,
+    /// First (given) name
+    pub given_name: String,
+    /// Last (family) name
+    pub family_name: String,
+    /// ORCiD
+    pub identifier: String,
+    /// Email address
+    pub email: String,
+    /// Phone number
+    pub telephone: String,
+    /// Profile URL
+    pub url: String,
+    /// Organization
+    pub organization: String,
+    /// Affiliation
+    pub affiliation: String,
 }
 /// Image format media (e.g., PNG, JPEG, SVG, etc.)
 ///
@@ -1360,6 +1397,22 @@ impl View for ContactPoint {
             </section>
         }
     }
+}
+fn default_contact_point_context() -> Option<ContactPointContext> {
+    Some(ContactPointContext {
+        job_title: format!("{SCHEMA_ORG_CONTEXT}/jobTitle"),
+        given_name: format!("{SCHEMA_ORG_CONTEXT}/givenName"),
+        family_name: format!("{SCHEMA_ORG_CONTEXT}/familyName"),
+        identifier: "https://orcid.org".to_string(),
+        email: format!("{SCHEMA_ORG_CONTEXT}/email"),
+        telephone: format!("{SCHEMA_ORG_CONTEXT}/telephone"),
+        url: format!("{SCHEMA_ORG_CONTEXT}/url"),
+        organization: format!("{SCHEMA_ORG_CONTEXT}/worksFor"),
+        affiliation: format!("{SCHEMA_ORG_CONTEXT}/affiliation"),
+    })
+}
+fn default_contact_point_type() -> Option<String> {
+    Some(DEFAULT_CONTACT_POINT_CONTEXT.to_string())
 }
 fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);

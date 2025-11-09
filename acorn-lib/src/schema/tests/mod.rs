@@ -409,7 +409,7 @@ fn test_status() {
     let data: Status = serde_json::from_str("\"completed\"").unwrap();
     assert_eq!(data, Status::Completed);
     let data: Result<Status, _> = serde_json::from_str("\"not done\"");
-    assert!(!data.is_ok());
+    assert!(data.is_err());
 }
 #[test]
 fn test_trl() {
