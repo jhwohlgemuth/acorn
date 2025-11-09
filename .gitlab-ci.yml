@@ -145,7 +145,6 @@ publish-crates:
 upload-binaries:
   stage: release
   image: curlimages/curl:latest
-    - cargo publish --token ${CARGO_REGISTRY_TOKEN} --package ${BINARY_NAME}-lib
   inherit:
     default: false
     variables: true
