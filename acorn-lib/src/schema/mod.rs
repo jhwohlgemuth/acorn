@@ -374,6 +374,8 @@ pub struct ContactPoint {
     pub affiliation: Option<String>,
 }
 /// Linked data (e.g., JSON-LD) context for contact point
+///
+/// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ContactPointContext {
