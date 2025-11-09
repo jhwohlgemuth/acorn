@@ -119,7 +119,7 @@ publish-release-linux:
     assets:
       links:
         - name: "${BINARY_NAME} v${PKG_VERSION}"
-          url: "${PKG_REGISTRY_URL}/x86_64-unknown-linux-musl/v${PKG_VERSION}/${BINARY_NAME}"
+          url: "${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/${BINARY_NAME}"
 
 publish-crates:
   stage: release
@@ -162,7 +162,7 @@ upload-binaries:
         - Cargo.toml
   script:
     - ls -la bin/
-    - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/${BINARY_NAME}-v${PKG_VERSION} ${PKG_REGISTRY_URL}/x86_64-unknown-linux-musl/v${PKG_VERSION}/${BINARY_NAME}'
+    - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/${BINARY_NAME}-v${PKG_VERSION} ${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/${BINARY_NAME}'
 
 publish-docs:
   stage: docs
