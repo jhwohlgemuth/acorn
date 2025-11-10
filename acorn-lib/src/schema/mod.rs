@@ -44,8 +44,8 @@ use validate::{
     validate_attribute_areas, validate_attribute_capabilities, validate_attribute_doi, validate_attribute_impact, validate_attribute_ror,
 };
 
-const DEFAULT_CONTACT_POINT_CONTEXT: &str = "https://schema.org/person";
 const SCHEMA_ORG_CONTEXT: &str = "https://schema.org";
+const CODEMETA_CONTEXT: &str = "https://codemeta.github.io/terms";
 
 /// ## Keywords
 /// > Core concepts related to the associated research activity
@@ -301,12 +301,12 @@ pub struct ContactPoint {
     /// Linked data (e.g., JSON-LD) context for contact point
     ///
     /// See <https://www.w3.org/TR/json-ld11/#example-6-loading-a-relative-context> for more information
-    #[serde(default = "default_contact_point_context", rename = "@context")]
+    #[serde(rename = "@context")]
     pub context: Option<ContactPointContext>,
     /// Linked data (e.g., JSON-LD) type for contact point
     ///
     /// Will always be "https://schema.org/person"
-    #[serde(default = "default_contact_point_type", rename = "@type")]
+    #[serde(rename = "@type")]
     pub contact_point_type: Option<String>,
     /// Job title (e.g., "Group Lead") of role that the contact fills related to the asscociated research activity.
     /// ### Example
@@ -376,7 +376,8 @@ pub struct ContactPoint {
 /// Linked data (e.g., JSON-LD) context for contact point
 ///
 /// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ContactPointContext {
     /// Job title
@@ -440,6 +441,16 @@ pub struct ImageObject {
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Metadata {
+    /// Linked data (e.g., JSON-LD) context for contact point
+    ///
+    /// See <https://www.w3.org/TR/json-ld11/#example-6-loading-a-relative-context> for more information
+    #[serde(rename = "@context")]
+    pub context: Option<MetadataContext>,
+    /// Linked data (e.g., JSON-LD) type for contact point
+    ///
+    /// Will always be "https://schema.org/person"
+    #[serde(rename = "@type")]
+    pub metadata_type: Option<String>,
     /// Classification level of associated research activity data
     pub classification: Option<ClassificationLevel>,
     /// Describes the active status of the associated research activity data
@@ -537,6 +548,48 @@ pub struct Metadata {
     /// <div class="warning">WIP</div>
     pub related: Option<Vec<String>>,
 }
+/// Linked data (e.g., JSON-LD) context for metadata
+///
+/// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct MetadataContext {
+    /// Classification level
+    pub classification: String,
+    /// Archive status
+    pub archive: String,
+    /// Draft status
+    pub draft: String,
+    /// Research activity status
+    pub status: String,
+    /// Technology readiness level
+    pub trl: String,
+    /// Local CURIE research activity identifier
+    pub identifier: String,
+    /// Associated Digital Object Identifiers
+    pub doi: String,
+    /// Reseaerch Activity Identifier
+    pub raid: String,
+    /// Research Organization Registry
+    pub ror: String,
+    /// Additional type (for organizations)
+    pub additional_type: String,
+    /// Images, videos, and other media
+    pub media: String,
+    /// Websites
+    pub websites: String,
+    /// Keywords
+    pub keywords: String,
+    /// Software, programmings languages, and digital resources used by research activity
+    pub technology: String,
+    /// Sponsors
+    pub sponsors: String,
+    /// Partners
+    pub partners: String,
+    /// Related research activity data
+    pub related: String,
+}
 /// Notes
 ///
 /// Structured container for information not easily captured in other fields
@@ -596,6 +649,16 @@ pub struct Organization {
 #[display("Research Activity ({title})")]
 #[serde(deny_unknown_fields)]
 pub struct ResearchActivity {
+    /// Linked data (e.g., JSON-LD) context for research activity
+    ///
+    /// See <https://www.w3.org/TR/json-ld11/#example-6-loading-a-relative-context> for more information
+    #[serde(rename = "@context")]
+    pub context: Option<ResearchActivityContext>,
+    /// Linked data (e.g., JSON-LD) type for research activity
+    ///
+    /// Will always be "https://schema.org/person"
+    #[serde(rename = "@type")]
+    pub research_activity_type: Option<String>,
     /// Associated metadata
     #[validate(nested)]
     #[builder(default)]
@@ -619,6 +682,26 @@ pub struct ResearchActivity {
     pub contact: ContactPoint,
     /// Other information related to the associated research activity not easily captured in structured areas of the schema
     pub notes: Option<Other>,
+}
+/// Linked data (e.g., JSON-LD) context for research activity
+///
+/// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ResearchActivityContext {
+    /// Associated metadata
+    pub meta: String,
+    /// Research activity title
+    pub title: String,
+    /// Research activity subtitle
+    pub subtitle: String,
+    /// Research activity sections of prose
+    pub sections: String,
+    /// Research activity contact point
+    pub contact: String,
+    /// Research activity notes
+    pub notes: String,
 }
 /// Video format media (e.g., MP4, AVI, MOV, GIF, etc.)
 ///
@@ -789,14 +872,64 @@ impl Default for ContactPoint {
         Self::init().build()
     }
 }
+impl Default for ContactPointContext {
+    fn default() -> Self {
+        Self::init()
+            .job_title(format!("{SCHEMA_ORG_CONTEXT}/jobTitle"))
+            .given_name(format!("{SCHEMA_ORG_CONTEXT}/givenName"))
+            .family_name(format!("{SCHEMA_ORG_CONTEXT}/familyName"))
+            .identifier("https://orcid.org".to_string())
+            .email(format!("{SCHEMA_ORG_CONTEXT}/email"))
+            .telephone(format!("{SCHEMA_ORG_CONTEXT}/telephone"))
+            .url(format!("{SCHEMA_ORG_CONTEXT}/url"))
+            .organization(format!("{SCHEMA_ORG_CONTEXT}/worksFor"))
+            .affiliation(format!("{SCHEMA_ORG_CONTEXT}/affiliation"))
+            .build()
+    }
+}
 impl Default for Metadata {
     fn default() -> Self {
         Metadata::init().build()
     }
 }
+impl Default for MetadataContext {
+    fn default() -> Self {
+        MetadataContext::init()
+            .classification(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .archive(format!("{SCHEMA_ORG_CONTEXT}/Boolean"))
+            .draft(format!("{SCHEMA_ORG_CONTEXT}/Boolean"))
+            .status(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .trl(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .identifier(format!("{CODEMETA_CONTEXT}/identifier"))
+            .doi("https://doi.org".to_string())
+            .raid("https://raid.org".to_string())
+            .ror("https://ror.org".to_string())
+            .additional_type(format!("{SCHEMA_ORG_CONTEXT}/additionalType"))
+            .media(format!("{SCHEMA_ORG_CONTEXT}/MediaObject"))
+            .websites(format!("{SCHEMA_ORG_CONTEXT}/WebSite"))
+            .keywords(format!("{CODEMETA_CONTEXT}/keywords"))
+            .technology(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .sponsors(format!("{CODEMETA_CONTEXT}/sponsor"))
+            .partners(format!("{SCHEMA_ORG_CONTEXT}/Text"))
+            .related(format!("{SCHEMA_ORG_CONTEXT}/Text"))
+            .build()
+    }
+}
 impl Default for ResearchActivity {
     fn default() -> Self {
         ResearchActivity::init().build()
+    }
+}
+impl Default for ResearchActivityContext {
+    fn default() -> Self {
+        ResearchActivityContext::init()
+            .meta(format!("{SCHEMA_ORG_CONTEXT}/CreativeWork"))
+            .title(format!("{SCHEMA_ORG_CONTEXT}/title"))
+            .subtitle(format!("{SCHEMA_ORG_CONTEXT}/alternativeHeadline"))
+            .sections(format!("{SCHEMA_ORG_CONTEXT}/CreativeWork"))
+            .contact(format!("{SCHEMA_ORG_CONTEXT}/person"))
+            .notes(format!("{SCHEMA_ORG_CONTEXT}/Text"))
+            .build()
     }
 }
 impl Default for Sections {
@@ -990,6 +1123,16 @@ impl ResearchActivity {
         let schema = schema_for!(ResearchActivity);
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
+    /// Add linked data (e.g., JSON-LD) context to research activity
+    pub fn add_context(mut data: Self) -> Self {
+        data.context = Some(ResearchActivityContext::default());
+        data.research_activity_type = None;
+        data.meta.context = Some(MetadataContext::default());
+        data.meta.metadata_type = None;
+        data.contact.context = Some(ContactPointContext::default());
+        data.contact.contact_point_type = Some(format!("{SCHEMA_ORG_CONTEXT}/person"));
+        data
+    }
     /// Analyzes a list of research activity files
     pub fn analyze_prose(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
         let config = ValeConfig::default().save();
@@ -1106,6 +1249,7 @@ impl ResearchActivity {
             sections,
             contact,
             notes,
+            ..
         } = self.clone();
         ResearchActivity::init()
             .meta(meta)
@@ -1399,22 +1543,6 @@ impl View for ContactPoint {
             </section>
         }
     }
-}
-fn default_contact_point_context() -> Option<ContactPointContext> {
-    Some(ContactPointContext {
-        job_title: format!("{SCHEMA_ORG_CONTEXT}/jobTitle"),
-        given_name: format!("{SCHEMA_ORG_CONTEXT}/givenName"),
-        family_name: format!("{SCHEMA_ORG_CONTEXT}/familyName"),
-        identifier: "https://orcid.org".to_string(),
-        email: format!("{SCHEMA_ORG_CONTEXT}/email"),
-        telephone: format!("{SCHEMA_ORG_CONTEXT}/telephone"),
-        url: format!("{SCHEMA_ORG_CONTEXT}/url"),
-        organization: format!("{SCHEMA_ORG_CONTEXT}/worksFor"),
-        affiliation: format!("{SCHEMA_ORG_CONTEXT}/affiliation"),
-    })
-}
-fn default_contact_point_type() -> Option<String> {
-    Some(DEFAULT_CONTACT_POINT_CONTEXT.to_string())
 }
 fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
     let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
