@@ -5,8 +5,8 @@ use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
 use acorn_lib::powerpoint::{archive, interpolate_values, read_xml_rel};
 use acorn_lib::prelude::{absolute, copy, create_dir_all, remove_file, File, PathBuf};
 use acorn_lib::schema::{Metadata, ResearchActivity};
-use acorn_lib::util::io::extract_zip;
-use acorn_lib::util::{suffix, to_absolute_string, tokio_runtime, Label};
+use acorn_lib::util::io::{async_runtime, extract_zip};
+use acorn_lib::util::{suffix, to_absolute_string, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
@@ -160,7 +160,7 @@ pub fn run(
     let paths = paths_from_options(path, &Some(options));
     match target {
         | Target::FactSheet => {
-            tokio_runtime().block_on(async {
+            async_runtime().block_on(async {
                 let playwright = Playwright::initialize().await.unwrap();
                 playwright.install_chromium().unwrap(); // Install browsers
                 let chromium = playwright.chromium();
@@ -190,7 +190,7 @@ pub fn run(
         | Target::Highlight => {
             match format {
                 | FileFormat::Pdf => {
-                    tokio_runtime().block_on(async {
+                    async_runtime().block_on(async {
                         let playwright = Playwright::initialize().await.unwrap();
                         playwright.install_chromium().unwrap(); // Install browsers
                         let chromium = playwright.chromium();

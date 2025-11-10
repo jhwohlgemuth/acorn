@@ -12,8 +12,8 @@ use crate::constants::{
 };
 use crate::prelude::PathBuf;
 #[cfg_attr(not(feature = "std"), no_std)]
-use crate::util::io::read_file;
-use crate::util::{image_paths, parent, tokio_runtime, Constant, Label, MimeType, ToAbsoluteString};
+use crate::util::io::{async_runtime, read_file};
+use crate::util::{image_paths, parent, Constant, Label, MimeType, ToAbsoluteString};
 use bon::Builder;
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};
@@ -1146,7 +1146,7 @@ impl ResearchActivity {
                         Check::init().category(CheckCategory::Prose).success(false).build()
                     }
                 });
-                results.collect::<Vec<Check>>()
+                results.collect()
             }
             | Err(why) => {
                 error!("=> {} Vale sync - {why}", Label::fail());
@@ -1157,7 +1157,7 @@ impl ResearchActivity {
     /// Calculate readability based on passed options for a list of research activity files
     pub fn calculate_readability<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
     where
-        R: Into<ReadabilityType> + core::marker::Sync,
+        R: Into<ReadabilityType>,
     {
         let rtype = readability_type.into();
         paths
@@ -1200,20 +1200,34 @@ impl ResearchActivity {
             .collect::<Vec<Check>>()
     }
     /// Checks a list of research activity files
-    pub fn check(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
-        let runtime = tokio_runtime();
+    pub fn check(paths: Vec<PathBuf>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .map(|path| match ResearchActivity::read(path.into()) {
+                | Some(data) => data
+                    .clone()
+                    .validation_issues()
+                    .into_iter()
+                    .map(|issue| issue.with_uri(path.display().to_string()))
+                    .collect(),
+                | None => {
+                    error!("=> {} Read research activity data at {}", Label::fail(), path.display());
+                    vec![Check::init().category(CheckCategory::Schema).success(false).build()]
+                }
+            })
+            .flatten()
+            .collect()
+    }
+    /// Checks links associated with research activity
+    #[cfg_attr(not(feature = "std"), no_std)]
+    pub fn check_links(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
+        let runtime = async_runtime();
         paths
             .par_iter()
             .map(|path| match ResearchActivity::read(path.into()) {
                 | Some(data) => {
-                    let offline_issues = data
-                        .clone()
-                        .validation_issues()
-                        .into_iter()
-                        .map(|issue| issue.with_uri(path.display().to_string()))
-                        .collect::<Vec<_>>();
-                    let online_issues = runtime.block_on(async {
-                        let mut issues: Vec<Check> = vec![];
+                    let issues = runtime.block_on(async {
+                        let mut _issues = vec![];
                         if !is_offline {
                             let dois = match data.clone().meta.doi {
                                 | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
@@ -1223,14 +1237,15 @@ impl ResearchActivity {
                                 | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
                                 | None => vec![],
                             };
-                            for url in dois.into_iter().chain(websites.into_iter()) {
+                            let links = dois.into_iter().chain(websites);
+                            for url in links {
                                 let result = link_check(Some(url)).await;
-                                issues.push(result);
+                                _issues.push(result);
                             }
                         }
-                        issues
+                        _issues
                     });
-                    offline_issues.into_iter().chain(online_issues).collect::<Vec<Check>>()
+                    issues
                 }
                 | None => {
                     error!("=> {} Read research activity data at {}", Label::fail(), path.display());

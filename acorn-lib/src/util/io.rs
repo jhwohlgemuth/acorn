@@ -3,7 +3,7 @@
 //! Module to isolate input/output operations to enhance portability
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 use crate::prelude::{create_dir_all, io, BufReader, Cursor, File, PathBuf, Read, Write};
-use crate::util::{generate_guid, tokio_runtime, Label, ToAbsoluteString};
+use crate::util::{generate_guid, Label, ToAbsoluteString};
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
 use reqwest::header::USER_AGENT;
@@ -11,6 +11,17 @@ use ring::digest::{Context, SHA256};
 use tracing::{debug, error, info};
 use zip::ZipArchive;
 
+/// Create a new [Tokio](https://tokio.rs/) runtime
+/// ### Example
+/// ```ignore
+/// tokio_runtime().block_on(async {
+///     // ...async stuff
+/// });
+/// ```
+pub fn async_runtime() -> tokio::runtime::Runtime {
+    debug!("=> {} Async runtime", Label::using());
+    tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap()
+}
 /// Returns path to a folder in the operating system's cache directory that is unique to the given
 /// `namespace` with a random UUID as the name of the final folder.
 ///
@@ -78,7 +89,7 @@ where
             | Err(_) => Err(format!("Failed to download {url}")),
         }
     }
-    let runtime = tokio_runtime();
+    let runtime = async_runtime();
     let _ = runtime.block_on(download(url.into(), destination.clone()));
     let filename = PathBuf::from(url.into()).file_name().unwrap().to_str().unwrap().to_string();
     Ok(destination.into().join(filename))

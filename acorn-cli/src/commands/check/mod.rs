@@ -49,7 +49,11 @@ pub fn run(
         warn!("=> {} Schema validation", Label::skip());
         vec![]
     } else {
-        let results = ResearchActivity::check(paths.clone(), *offline || *disable_website_checks);
+        let is_offline = *offline || *disable_website_checks;
+        let results = ResearchActivity::check(paths.clone())
+            .into_iter()
+            .chain(ResearchActivity::check_links(paths.clone(), is_offline))
+            .collect::<Vec<_>>();
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             error!("=> {} Found {} schema validation errors", Label::fail(), issues);

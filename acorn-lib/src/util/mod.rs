@@ -1183,17 +1183,6 @@ pub fn text_diff_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
         })
         .collect::<Vec<_>>()
 }
-/// Create a new [Tokio](https://tokio.rs/) runtime
-/// ### Example
-/// ```ignore
-/// tokio_runtime().block_on(async {
-///     // ...async stuff
-/// });
-/// ```
-pub fn tokio_runtime() -> tokio::runtime::Runtime {
-    debug!("=> {} Tokio runtime", Label::using());
-    tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap()
-}
 /// Convert a vector of string slices to a vector of strings
 pub fn to_string(values: Vec<&str>) -> Vec<String> {
     values.iter().map(|s| s.to_string()).collect()
