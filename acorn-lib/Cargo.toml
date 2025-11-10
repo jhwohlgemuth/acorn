@@ -82,10 +82,10 @@ temp-env = "0.3.6"
 
 [features]
 analyzer = ["util"]
-default = ["std"]
+default = ["analyzer", "std", "util"]
 doctor = ["util"]
 powerpoint = ["util"]
-std = ["analyzer", "doctor", "powerpoint", "util"]
+std = []
 util = []
 
 [lints.rust]
