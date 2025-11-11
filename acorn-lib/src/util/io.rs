@@ -2,54 +2,75 @@
 //!
 //! Module to isolate input/output operations to enhance portability
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
-use crate::prelude::{create_dir_all, io, BufReader, Cursor, File, PathBuf, Read, Write};
-use crate::util::{generate_guid, Label, ToAbsoluteString};
+use crate::prelude::{create_dir_all, io, var, BufReader, Cursor, File, PathBuf, Read, Write};
+use crate::util::{generate_guid, Label, MimeType, ToAbsoluteString};
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
 use reqwest::header::USER_AGENT;
 use ring::digest::{Context, SHA256};
+use serde::Deserialize;
+use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info};
 use zip::ZipArchive;
 
+/// Struct for parsing GitLab API merge request diff responses
+///
+/// Used by [`files_from_gitlab_merge_request`]
+///
+/// ### Example Response JSON
+/// ```json
+/// [
+///     {
+///         "old_path": "README",
+///         "new_path": "README",
+///         "a_mode": "100644",
+///         "b_mode": "100644",
+///         "diff": "@@ -1 +1 @@\ -Title\ +README",
+///         "collapsed": false,
+///         "too_large": false,
+///         "new_file": false,
+///         "renamed_file": false,
+///         "deleted_file": false,
+///         "generated_file": false
+///     },
+///     {
+///         "old_path": "VERSION",
+///         "new_path": "VERSION",
+///         "a_mode": "100644",
+///         "b_mode": "100644",
+///         "diff": "@@\ -1.9.7\ +1.9.8",
+///         "collapsed": false,
+///         "too_large": false,
+///         "new_file": false,
+///         "renamed_file": false,
+///         "deleted_file": false,
+///         "generated_file": false
+///     }
+/// ]
+/// ```
+///
+/// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
+#[derive(Debug, Deserialize)]
+pub struct GitlabMergeRequestDiffResponse {
+    new_path: String,
+    // diff: String,
+    // old_path: String,
+    // too_large: Option<bool>,
+    // new_file: bool,
+    // renamed_file: bool,
+    // deleted_file: bool,
+    // generated_file: bool,
+}
 /// Create a new [Tokio](https://tokio.rs/) runtime
 /// ### Example
 /// ```ignore
-/// tokio_runtime().block_on(async {
+/// async_runtime().block_on(async {
 ///     // ...async stuff
 /// });
 /// ```
-pub fn async_runtime() -> tokio::runtime::Runtime {
+pub fn async_runtime() -> Runtime {
     debug!("=> {} Async runtime", Label::using());
-    tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap()
-}
-/// Returns path to a folder in the operating system's cache directory that is unique to the given
-/// `namespace` with a random UUID as the name of the final folder.
-///
-/// The folder is ***not*** created.
-///
-/// Used primarily by ACORN CLI where `namespace` is of a subcommand task. e.g. "check", "extract", etc.
-///
-/// # Arguments
-///
-/// * `namespace` - A string slice representing the name of the namespace.
-/// * `default` - An optional `PathBuf` to use as the root directory instead of the cache directory.
-///
-/// # Returns
-///
-/// A `PathBuf` to the folder.
-pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> PathBuf {
-    let root = match default {
-        | Some(value) => value,
-        | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
-            | Some(dirs) => dirs.cache_dir().join(namespace).to_path_buf(),
-            | None => PathBuf::from(format!("./{namespace}")),
-        },
-    };
-    match create_dir_all(root.clone()) {
-        | Ok(_) => {}
-        | Err(why) => error!(directory = root.clone().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
-    };
-    root.join(generate_guid())
+    Builder::new_current_thread().enable_all().build().unwrap()
 }
 /// Downloads a binary file from the given URL to the destination path.
 ///
@@ -197,6 +218,51 @@ where
         }
     }
 }
+/// Returns a vector of `PathBuf` containing all files changed in a GitLab merge request, as determined by the `CI_API_V4_URL`, `CI_MERGE_REQUEST_PROJECT_ID`, and `CI_MERGE_REQUEST_IID` environment variables[^env].
+///
+/// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
+///
+/// [^env]: See <https://docs.gitlab.com/ci/variables/predefined_variables/> for more information about GitLab CI environment variables
+pub fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+    let root = var("CI_API_V4_URL").unwrap_or_default();
+    let project_id = var("CI_MERGE_REQUEST_PROJECT_ID").unwrap_or_default();
+    let merge_request_iid = var("CI_MERGE_REQUEST_IID").unwrap_or_default();
+    let path = format!("/projects/{project_id}/merge_requests/{merge_request_iid}/diffs");
+    let url = format!("{root}{path}");
+    match network_request(url).send() {
+        | Ok(response) => {
+            let content: serde_json::Result<Vec<GitlabMergeRequestDiffResponse>> = serde_json::from_str(&response.text().unwrap());
+            match content {
+                | Ok(data) => {
+                    debug!("=> {} GitLab API merge request diff response - {data:#?}", Label::using());
+                    let results = data.into_iter().map(|x| PathBuf::from(x.new_path)).collect::<Vec<PathBuf>>();
+                    match extensions {
+                        | Some(values) => results
+                            .into_iter()
+                            .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext.to_lowercase()))
+                            .collect::<Vec<_>>(),
+                        | None => results,
+                    }
+                }
+                | Err(why) => {
+                    error!("=> {} Parse GitLab API merge request diff response - {why}", Label::fail());
+                    vec![]
+                }
+            }
+        }
+        | Err(why) => {
+            error!("=> {} Get GitLab API merge request diff response - {why}", Label::fail());
+            vec![]
+        }
+    }
+}
+/// Utility method to employ best practices when using a Reqwest client to make HTTP requests.
+pub fn network_request<U>(url: U) -> reqwest::blocking::RequestBuilder
+where
+    U: reqwest::IntoUrl,
+{
+    reqwest::blocking::Client::new().get(url).header(USER_AGENT, "rust-web-api-client")
+}
 /// Reads the given file and returns its contents as a string.
 ///
 /// # Parameters
@@ -223,6 +289,35 @@ where
         }
     };
     Ok(content)
+}
+/// Returns path to a folder in the operating system's cache directory that is unique to the given
+/// `namespace` with a random UUID as the name of the final folder.
+///
+/// The folder is ***not*** created.
+///
+/// Used primarily by ACORN CLI where `namespace` is of a subcommand task. e.g. "check", "extract", etc.
+///
+/// # Arguments
+///
+/// * `namespace` - A string slice representing the name of the namespace.
+/// * `default` - An optional `PathBuf` to use as the root directory instead of the cache directory.
+///
+/// # Returns
+///
+/// A `PathBuf` to the folder.
+pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> PathBuf {
+    let root = match default {
+        | Some(value) => value,
+        | None => match ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION) {
+            | Some(dirs) => dirs.cache_dir().join(namespace).to_path_buf(),
+            | None => PathBuf::from(format!("./{namespace}")),
+        },
+    };
+    match create_dir_all(root.clone()) {
+        | Ok(_) => {}
+        | Err(why) => error!(directory = root.clone().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
+    };
+    root.join(generate_guid())
 }
 /// Writes the given content to a file at the given path.
 ///

@@ -19,10 +19,10 @@ mod no_std {
 
 #[cfg(not(feature = "std"))]
 pub use no_std::*;
-#[cfg_attr(not(feature = "std"), no_std)]
+#[cfg(feature = "std")]
 pub use std::*;
 /// Get Vale release filename for a given platform operating system (e.g., linux, windows, macos)
-#[cfg_attr(not(feature = "std"), no_std)]
+#[cfg(feature = "std")]
 pub fn vale_release_filename() -> String {
     // https://doc.rust-lang.org/std/env/consts/constant.OS.html
     let os = std::consts::OS.to_lowercase();

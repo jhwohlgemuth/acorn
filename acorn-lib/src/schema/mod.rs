@@ -11,7 +11,7 @@ use crate::constants::{
     MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE,
 };
 use crate::prelude::PathBuf;
-#[cfg_attr(not(feature = "std"), no_std)]
+#[cfg(feature = "std")]
 use crate::util::io::{async_runtime, read_file};
 use crate::util::{image_paths, parent, Constant, Label, MimeType, ToAbsoluteString};
 use bon::Builder;
@@ -1219,7 +1219,7 @@ impl ResearchActivity {
             .collect()
     }
     /// Checks links associated with research activity
-    #[cfg_attr(not(feature = "std"), no_std)]
+    #[cfg(feature = "std")]
     pub fn check_links(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
         let runtime = async_runtime();
         paths
@@ -1434,7 +1434,7 @@ impl ResearchActivity {
         }
     }
     /// Read research activity data using Serde and [`ResearchActivity`] struct
-    #[cfg_attr(not(feature = "std"), no_std)]
+    #[cfg(feature = "std")]
     fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
@@ -1455,7 +1455,7 @@ impl ResearchActivity {
         data
     }
     /// Read research activity data (e.g., `buckets.yaml`) using Serde and [`ResearchActivity`] struct
-    #[cfg_attr(not(feature = "std"), no_std)]
+    #[cfg(feature = "std")]
     fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity> {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,

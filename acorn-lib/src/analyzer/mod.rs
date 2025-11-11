@@ -11,7 +11,7 @@ use crate::constants::{
 use crate::prelude;
 use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
 use crate::schema::ProgrammingLanguage;
-use crate::util::io::{download_binary, extract_zip, file_checksum, standard_project_folder};
+use crate::util::io::{download_binary, extract_zip, file_checksum, network_request, standard_project_folder};
 use crate::util::{command_exists, extension, make_executable, suffix, Constant, Label, SemanticVersion, ToAbsoluteString};
 use bat::PrettyPrinter;
 use bon::Builder;
@@ -470,8 +470,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             "{VALE_RELEASES_URL}/download/v{release}/{}_{release}_checksums.txt",
             self.clone().command()
         );
-        let client = reqwest::blocking::Client::new();
-        let response = client.get(url).send().unwrap();
+        let response = network_request(url).send().unwrap();
         let content = response.text().unwrap();
         let checksums = content.lines().clone().fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
             let mut values = line.split("  ").collect::<Vec<&str>>();

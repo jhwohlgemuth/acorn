@@ -1,5 +1,6 @@
 use acorn_lib::prelude::PathBuf;
-use acorn_lib::util::{files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored};
+use acorn_lib::util::io::files_from_gitlab_merge_request;
+use acorn_lib::util::{files_all, files_from_git_branch, files_from_git_commit, filter_ignored};
 use bon::Builder;
 use clap::builder::{
     styling::{Ansi256Color, AnsiColor},

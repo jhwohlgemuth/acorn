@@ -30,7 +30,7 @@
 //! write_file(PathBuf::from("/path/to/that/file"), contents);
 //! ```
 //!
-use crate::prelude::{canonicalize, set_permissions, var, HashMap, OsStr, Path, PathBuf, Permissions};
+use crate::prelude::{canonicalize, set_permissions, HashMap, OsStr, Path, PathBuf, Permissions};
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
@@ -45,7 +45,6 @@ use is_executable::IsExecutable;
 use itertools::Itertools;
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
-use reqwest::header::USER_AGENT;
 use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -56,22 +55,15 @@ use similar::{
 use tracing::{debug, error, warn};
 use which::which;
 
+#[cfg(feature = "std")]
 pub mod citeas;
-#[cfg_attr(not(feature = "std"), no_std)]
+#[cfg(feature = "std")]
 pub mod io;
 
 /// Trait for augmenting path value functionality with absolute path string conversion
 pub trait ToAbsoluteString {
     /// Return a string representation of the absolute path
     fn to_absolute_string(&self) -> String;
-}
-/// Trait for adding chunking functionality
-pub trait ToStringChunks<T>
-where
-    T: AsRef<str> + ToString,
-{
-    /// Chunk a string into substrings of a given size
-    fn chunk(&self, size: usize) -> Vec<String>;
 }
 /// Trait for converting a vector of PathBufs to a vector of strings
 pub trait ToStrings {
@@ -92,6 +84,14 @@ pub trait ToStrings {
     fn to_absolute_strings(&self) -> Vec<String> {
         vec![]
     }
+}
+/// Trait for adding chunking functionality
+pub trait ToStringChunks<T>
+where
+    T: AsRef<str> + ToString,
+{
+    /// Chunk a string into substrings of a given size
+    fn chunk(&self, size: usize) -> Vec<String>;
 }
 /// SPDX compliant license identifier
 ///
@@ -174,54 +174,6 @@ pub enum MimeType {
 #[derive(Embed)]
 #[folder = "assets/constants/"]
 pub struct Constant;
-/// Struct for parsing GitLab API merge request diff responses
-///
-/// Used by [`files_from_gitlab_merge_request`]
-///
-/// ### Example Response JSON
-/// ```json
-/// [
-///     {
-///         "old_path": "README",
-///         "new_path": "README",
-///         "a_mode": "100644",
-///         "b_mode": "100644",
-///         "diff": "@@ -1 +1 @@\ -Title\ +README",
-///         "collapsed": false,
-///         "too_large": false,
-///         "new_file": false,
-///         "renamed_file": false,
-///         "deleted_file": false,
-///         "generated_file": false
-///     },
-///     {
-///         "old_path": "VERSION",
-///         "new_path": "VERSION",
-///         "a_mode": "100644",
-///         "b_mode": "100644",
-///         "diff": "@@\ -1.9.7\ +1.9.8",
-///         "collapsed": false,
-///         "too_large": false,
-///         "new_file": false,
-///         "renamed_file": false,
-///         "deleted_file": false,
-///         "generated_file": false
-///     }
-/// ]
-/// ```
-///
-/// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
-#[derive(Debug, Deserialize)]
-pub struct GitlabMergeRequestDiffResponse {
-    new_path: String,
-    // diff: String,
-    // old_path: String,
-    // too_large: Option<bool>,
-    // new_file: bool,
-    // renamed_file: bool,
-    // deleted_file: bool,
-    // generated_file: bool,
-}
 /// Struct for using and sharing colorized logging labels
 ///
 /// ### Labels [^1]
@@ -770,44 +722,6 @@ pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<
         vec![]
     }
 }
-/// Returns a vector of `PathBuf` containing all files changed in a GitLab merge request, as determined by the `CI_API_V4_URL`, `CI_MERGE_REQUEST_PROJECT_ID`, and `CI_MERGE_REQUEST_IID` environment variables[^env].
-///
-/// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
-///
-/// [^env]: See <https://docs.gitlab.com/ci/variables/predefined_variables/> for more information about GitLab CI environment variables
-pub fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
-    let root = var("CI_API_V4_URL").unwrap_or_default();
-    let project_id = var("CI_MERGE_REQUEST_PROJECT_ID").unwrap_or_default();
-    let merge_request_iid = var("CI_MERGE_REQUEST_IID").unwrap_or_default();
-    let path = format!("/projects/{project_id}/merge_requests/{merge_request_iid}/diffs");
-    let url = format!("{root}{path}");
-    match reqwest_request(url).send() {
-        | Ok(response) => {
-            let content: serde_json::Result<Vec<GitlabMergeRequestDiffResponse>> = serde_json::from_str(&response.text().unwrap());
-            match content {
-                | Ok(data) => {
-                    debug!("=> {} GitLab API merge request diff response - {data:#?}", Label::using());
-                    let results = data.into_iter().map(|x| PathBuf::from(x.new_path)).collect::<Vec<PathBuf>>();
-                    match extensions {
-                        | Some(values) => results
-                            .into_iter()
-                            .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext.to_lowercase()))
-                            .collect::<Vec<_>>(),
-                        | None => results,
-                    }
-                }
-                | Err(why) => {
-                    error!("=> {} Parse GitLab API merge request diff response - {why}", Label::fail());
-                    vec![]
-                }
-            }
-        }
-        | Err(why) => {
-            error!("=> {} Get GitLab API merge request diff response - {why}", Label::fail());
-            vec![]
-        }
-    }
-}
 fn filter_git_command_result(value: String, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     match extensions {
         | Some(values) => value
@@ -1120,13 +1034,6 @@ where
         }
     };
     lookup
-}
-/// Utility method to employ best practices when using a Reqwest client to make HTTP requests.
-pub fn reqwest_request<U>(url: U) -> reqwest::blocking::RequestBuilder
-where
-    U: reqwest::IntoUrl,
-{
-    reqwest::blocking::Client::new().get(url).header(USER_AGENT, "rust-web-api-client")
 }
 /// Converts the given string to snake case.
 /// ### Example

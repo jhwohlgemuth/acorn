@@ -6,15 +6,15 @@
 //!
 use crate::analyzer::{link_check, Check};
 use crate::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
-use crate::util::io::read_file;
-use crate::util::{files_all, parent, reqwest_request, suffix, Label, MimeType, ToAbsoluteString};
+use crate::util::io::{network_request, read_file};
+use crate::util::{files_all, parent, suffix, Label, MimeType, ToAbsoluteString};
 use color_eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use reqwest::blocking::Client;
+use reqwest::blocking::{Client, Response};
 use reqwest::header::{HeaderMap, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
@@ -260,7 +260,7 @@ pub struct Release {
 }
 impl Bucket {
     /// Parse GitHub tree entries
-    fn parse_github_response(response: reqwest::blocking::Response) -> Vec<String> {
+    fn parse_github_response(response: Response) -> Vec<String> {
         let content = response.text().unwrap();
         let data: Result<GithubTreeResponse> = serde_json::from_str(&content);
         match data {
@@ -275,7 +275,7 @@ impl Bucket {
         }
     }
     /// Parse GitLab tree entries
-    fn parse_gitlab_response(response: reqwest::blocking::Response) -> Vec<String> {
+    fn parse_gitlab_response(response: Response) -> Vec<String> {
         let content = response.text().unwrap();
         let data: Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
         debug!("=> {} {} Tree entries", Label::found(), data.as_ref().unwrap().len());
@@ -307,7 +307,7 @@ impl Bucket {
             | Repository::Git { .. } => todo!("Add support for generic repositories"),
         }
     }
-    fn tree(&self, directory: &str, page: Option<u32>) -> eyre::Result<reqwest::blocking::Response, reqwest::Error> {
+    fn tree(&self, directory: &str, page: Option<u32>) -> eyre::Result<Response, reqwest::Error> {
         let url = self.tree_url(directory, page);
         let client = Client::new();
         client.get(url.unwrap_or_default()).header(USER_AGENT, "rust-web-api-client").send()
@@ -445,7 +445,7 @@ impl Bucket {
     }
     fn file_paths(self: Bucket, directory: &str) -> Vec<String> {
         const FIRST_PAGE: Option<u32> = Some(1);
-        fn page_count(response: &reqwest::blocking::Response) -> u32 {
+        fn page_count(response: &Response) -> u32 {
             fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
                 match headers.get(key) {
                     | Some(val) if !val.is_empty() => {
@@ -759,7 +759,7 @@ impl Repository {
         };
         if let Some(url) = maybe_url {
             debug!(url, "=> {}", Label::using());
-            match reqwest_request(url).send() {
+            match network_request(url).send() {
                 | Ok(response) => {
                     let text = response.text();
                     match text {

@@ -6,7 +6,7 @@
 //!
 #[cfg(feature = "analyzer")]
 pub mod analyzer;
-#[cfg_attr(not(feature = "std"), no_std)]
+#[cfg(feature = "std")]
 pub mod bucket;
 pub mod constants;
 #[cfg(feature = "doctor")]
