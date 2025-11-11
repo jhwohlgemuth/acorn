@@ -169,8 +169,9 @@ fn main() -> Void {
             ignore,
             dry_run,
             merge_request,
+            verbose,
             ..
-        }) => commands::link::run(path, branch, commit, ignore, *dry_run, *merge_request),
+        }) => commands::link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose),
         | Some(Commands::Schema { command, .. }) => match command {
             | Some(SchemaCommands::Rad {}) | None => print_rad_schema(),
             | Some(SchemaCommands::Raid {}) => print_raid_schema(),

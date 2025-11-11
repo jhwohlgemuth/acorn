@@ -1133,6 +1133,10 @@ impl ResearchActivity {
         data.contact.contact_point_type = Some(format!("{SCHEMA_ORG_CONTEXT}/person"));
         data
     }
+    /// Add linked data (e.g., JSON-LD) context to research activity using method syntax
+    pub fn with_context(self) -> Self {
+        ResearchActivity::add_context(self)
+    }
     /// Analyzes a list of research activity files
     pub fn analyze_prose(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
         let config = ValeConfig::default().save();
