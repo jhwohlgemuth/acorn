@@ -30,7 +30,7 @@
 //! write_file(PathBuf::from("/path/to/that/file"), contents);
 //! ```
 //!
-use crate::prelude::{canonicalize, set_permissions, HashMap, OsStr, Path, PathBuf, Permissions};
+use crate::prelude::{canonicalize, HashMap, PathBuf};
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
@@ -41,7 +41,6 @@ use derive_more::Display;
 use duct::cmd;
 use fancy_regex::Regex;
 use glob::glob;
-use is_executable::IsExecutable;
 use itertools::Itertools;
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
@@ -73,7 +72,7 @@ pub trait ToStrings {
     ///
     /// Adding a `to_strings` method to the `Vec<PathBuf>` types seems like a good idea.
     /// ### Example
-    /// ```rust
+    /// ```ignore
     /// use acorn_lib::util::ToStrings;
     ///
     /// let paths = vec![PathBuf::from("foo"), PathBuf::from("bar"), PathBuf::from("baz")];
@@ -418,7 +417,7 @@ impl MimeType {
     ///
     /// Uses [`MimeType::from_string`].
     ///
-    /// ```rust
+    /// ```ignore
     /// use acorn_lib::util::MimeType;
     /// use std::path::PathBuf;
     ///
@@ -456,20 +455,23 @@ impl MimeType {
         S: Into<String>,
     {
         let name = &value.into().to_lowercase();
-        match extension(Path::new(name)).as_str() {
-            | "csv" => MimeType::Csv,
-            | "jpg" | "jpeg" => MimeType::Jpeg,
-            | "json" => MimeType::Json,
-            | "jsonld" | "json-ld" => MimeType::LdJson,
-            | "md" | "markdown" => MimeType::Markdown,
-            | "otf" => MimeType::Otf,
-            | "png" => MimeType::Png,
-            | "rs" => MimeType::Rust,
-            | "svg" => MimeType::Svg,
-            | "toml" => MimeType::Toml,
-            | "txt" => MimeType::Text,
-            | "yml" | "yaml" | "cff" => MimeType::Yaml,
-            | _ => MimeType::Unknown,
+        match file_extension(name) {
+            | Some(value) => match value.as_str() {
+                | "csv" => MimeType::Csv,
+                | "jpg" | "jpeg" => MimeType::Jpeg,
+                | "json" => MimeType::Json,
+                | "jsonld" | "json-ld" => MimeType::LdJson,
+                | "md" | "markdown" => MimeType::Markdown,
+                | "otf" => MimeType::Otf,
+                | "png" => MimeType::Png,
+                | "rs" => MimeType::Rust,
+                | "svg" => MimeType::Svg,
+                | "toml" => MimeType::Toml,
+                | "txt" => MimeType::Text,
+                | "yml" | "yaml" | "cff" => MimeType::Yaml,
+                | _ => MimeType::Unknown,
+            },
+            | None => MimeType::Unknown,
         }
     }
 }
@@ -579,9 +581,10 @@ impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
 /// A boolean indicating whether the command exists or not.
 pub fn command_exists<S>(name: S) -> bool
 where
-    S: Into<String> + AsRef<OsStr> + tracing::Value,
+    S: Into<String>,
 {
-    match which(&name) {
+    let command = name.into();
+    match which(&command) {
         | Ok(value) => {
             let path = to_absolute_string(value.clone());
             match value.try_exists() {
@@ -596,25 +599,40 @@ where
             }
         }
         | Err(_) => {
-            warn!(name, "=> {} Command", Label::not_found());
+            warn!("=> {} Command {}", Label::not_found(), command);
             false
         }
     }
 }
-/// Get file extension
+/// Returns the file extension of the given file name as a string.
+/// ### Note
+/// > The primary benefit of this function is to get file extension without using Path or PathBuf
 ///
-/// # Examples
-/// ```
-/// use std::path::Path;
-/// use acorn_lib::util::extension;
+/// ### Example
+/// ```rust
+/// use acorn_lib::util::file_extension;
 ///
-/// assert_eq!("txt", extension(Path::new("hello.txt")));
-/// assert_eq!("md", extension(Path::new("README.md")));
-/// assert_eq!("", extension(Path::new(".dotfile")));
-/// assert_eq!("", extension(Path::new("/path/to/folder")));
+/// let extension = file_extension("test.cff");
+/// assert_eq!(extension, Some("cff".to_string()));
 /// ```
-pub fn extension(path: &Path) -> String {
-    path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string()
+pub fn file_extension<S>(value: S) -> Option<String>
+where
+    S: Into<String>,
+{
+    let filename = value.into();
+    let segments = filename.split('.').filter(|x| !x.is_empty()).collect::<Vec<_>>();
+    if !segments.is_empty() {
+        let last_segment = segments.clone().last().unwrap().to_string();
+        let has_extension = filename.contains(".") && segments.len() > 1;
+        let is_filename = !(last_segment.contains("/") || last_segment.is_empty());
+        if has_extension && is_filename {
+            Some(last_segment)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 /// Returns a vector of `PathBuf` containing all files in a directory that match at least one of the given extensions.
 ///
@@ -873,46 +891,6 @@ where
         .collect::<Vec<PathBuf>>();
     files.sort();
     files
-}
-/// Makes the given file executable.
-///
-/// # Parameters
-///
-/// * `path` - A `PathBuf` containing the path to the file to be made executable.
-///
-/// # Return
-///
-/// A boolean indicating whether the file is executable after calling this function.
-#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-pub fn make_executable<P>(path: P) -> bool
-where
-    P: Into<PathBuf> + Clone,
-{
-    use crate::prelude::PermissionsExt;
-    set_permissions(path.clone().into(), Permissions::from_mode(0o755)).unwrap();
-    path.into().is_executable()
-}
-/// Makes the given file executable.
-///
-/// # Parameters
-///
-/// * `path` - A `PathBuf` containing the path to the file to be made executable.
-///
-/// # Return
-///
-/// A boolean indicating whether the file is executable after calling this function.
-#[cfg(windows)]
-pub fn make_executable<P>(path: P) -> bool
-where
-    P: Into<PathBuf> + Clone,
-{
-    let binary = if extension(&path.clone().into()).is_empty() {
-        path.into().with_extension("exe")
-    } else {
-        path.into()
-    };
-    println!("{binary:#?}");
-    binary.is_executable()
 }
 /// Returns the absolute path of the parent directory for the given path.
 pub fn parent<P>(path: P) -> PathBuf

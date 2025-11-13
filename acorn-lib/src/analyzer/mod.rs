@@ -11,8 +11,8 @@ use crate::constants::{
 use crate::prelude;
 use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
 use crate::schema::ProgrammingLanguage;
-use crate::util::io::{download_binary, extract_zip, file_checksum, network_request, standard_project_folder};
-use crate::util::{command_exists, extension, make_executable, suffix, Constant, Label, SemanticVersion, ToAbsoluteString};
+use crate::util::io::{download_binary, extract_zip, file_checksum, make_executable, network_request, standard_project_folder};
+use crate::util::{command_exists, suffix, Constant, Label, SemanticVersion, ToAbsoluteString};
 use bat::PrettyPrinter;
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -493,7 +493,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | Some(value) => value.to_absolute_string(),
             | None => format!("./.{command}/"),
         };
-        match extension(&path).as_str() {
+        let extension = path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string();
+        match extension.as_str() {
             | "zip" => match extract_zip(path, Some(parent.into())) {
                 | Ok(value) => {
                     let path = value.join(command);

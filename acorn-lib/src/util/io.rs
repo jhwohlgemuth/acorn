@@ -2,10 +2,11 @@
 //!
 //! Module to isolate input/output operations to enhance portability
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
-use crate::prelude::{create_dir_all, io, var, BufReader, Cursor, File, PathBuf, Read, Write};
+use crate::prelude::{create_dir_all, io, set_permissions, var, BufReader, Cursor, File, PathBuf, Permissions, Read, Write};
 use crate::util::{generate_guid, Label, MimeType, ToAbsoluteString};
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
+use is_executable::IsExecutable;
 use reqwest::header::USER_AGENT;
 use ring::digest::{Context, SHA256};
 use serde::Deserialize;
@@ -255,6 +256,46 @@ pub fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<Pat
             vec![]
         }
     }
+}
+/// Makes the given file executable.
+///
+/// # Parameters
+///
+/// * `path` - A `PathBuf` containing the path to the file to be made executable.
+///
+/// # Return
+///
+/// A boolean indicating whether the file is executable after calling this function.
+#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
+pub fn make_executable<P>(path: P) -> bool
+where
+    P: Into<PathBuf> + Clone,
+{
+    use crate::prelude::PermissionsExt;
+    set_permissions(path.clone().into(), Permissions::from_mode(0o755)).unwrap();
+    path.into().is_executable()
+}
+/// Makes the given file executable.
+///
+/// # Parameters
+///
+/// * `path` - A `PathBuf` containing the path to the file to be made executable.
+///
+/// # Return
+///
+/// A boolean indicating whether the file is executable after calling this function.
+#[cfg(windows)]
+pub fn make_executable<P>(path: P) -> bool
+where
+    P: Into<PathBuf> + Clone,
+{
+    let binary = if extension(&path.clone().into()).is_empty() {
+        path.into().with_extension("exe")
+    } else {
+        path.into()
+    };
+    println!("{binary:#?}");
+    binary.is_executable()
 }
 /// Utility method to employ best practices when using a Reqwest client to make HTTP requests.
 pub fn network_request<U>(url: U) -> reqwest::blocking::RequestBuilder

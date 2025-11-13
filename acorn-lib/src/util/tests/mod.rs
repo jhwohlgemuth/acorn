@@ -48,18 +48,26 @@ fn test_citeas() {
     };
 }
 #[test]
-fn test_extension() {
-    assert_eq!("txt", extension(Path::new("hello.txt")));
-    assert_eq!("md", extension(Path::new("README.md")));
-    assert_eq!("", extension(Path::new(".dotfile")));
-    assert_eq!("", extension(Path::new("/path/to/folder")));
-}
-#[test]
 fn test_extract_zip() {
     let path = PathBuf::from(FIXTURES).join("data/highlight/reference.pptx");
     let result = extract_zip(path, None);
     println!("{:?}", result);
     assert!(result.is_ok());
+}
+#[test]
+fn test_file_extension() {
+    assert_eq!(file_extension("hello.txt"), Some("txt".to_string()));
+    assert_eq!(file_extension("README.md"), Some("md".to_string()));
+    assert_eq!(file_extension("file.tar.gz"), Some("gz".to_string()));
+    assert_eq!(file_extension("/path/to/folder/file.csv"), Some("csv".to_string()));
+    assert_eq!(file_extension("./path/to/folder/file.csv"), Some("csv".to_string()));
+    assert_eq!(file_extension(".dotfile"), None);
+    assert_eq!(file_extension(".env"), None);
+    assert_eq!(file_extension("filename"), None);
+    assert_eq!(file_extension("/path/to/folder"), None);
+    assert_eq!(file_extension("./path/to/folder"), None);
+    assert_eq!(file_extension("/path/to/.hidden/folder"), None);
+    assert_eq!(file_extension("path/to/.hidden/folder"), None);
 }
 #[test]
 fn test_files_all() {
