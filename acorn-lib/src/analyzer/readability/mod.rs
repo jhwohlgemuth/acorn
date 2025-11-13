@@ -1,7 +1,9 @@
 //! # Readability utilities
 //!
 //! Analyze readabilty of prose using modern readability metrics.
-use crate::constants::{MAX_ALLOWED_ARI, MAX_ALLOWED_CLI, MAX_ALLOWED_FKGL, MAX_ALLOWED_FRES, MAX_ALLOWED_GFI, MAX_ALLOWED_LIX, MAX_ALLOWED_SMOG};
+use crate::util::constants::{
+    MAX_ALLOWED_ARI, MAX_ALLOWED_CLI, MAX_ALLOWED_FKGL, MAX_ALLOWED_FRES, MAX_ALLOWED_GFI, MAX_ALLOWED_LIX, MAX_ALLOWED_SMOG,
+};
 use crate::util::find_first;
 use crate::util::Label;
 use derive_more::Display;

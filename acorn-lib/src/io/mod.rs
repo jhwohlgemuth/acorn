@@ -1,8 +1,8 @@
 //! # IO Utilities
 //!
 //! Module to isolate input/output operations to enhance portability
-use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 use crate::prelude::{create_dir_all, io, set_permissions, var, BufReader, Cursor, File, PathBuf, Permissions, Read, Write};
+use crate::util::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 use crate::util::{command_exists, filter_git_command_result, generate_guid, suffix, Label, MimeType, ToAbsoluteString};
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;

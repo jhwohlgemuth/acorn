@@ -8,7 +8,6 @@
 pub mod analyzer;
 #[cfg(feature = "std")]
 pub mod bucket;
-pub mod constants;
 #[cfg(feature = "doctor")]
 pub mod doctor;
 #[cfg(feature = "std")]

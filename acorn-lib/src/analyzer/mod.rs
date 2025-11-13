@@ -4,14 +4,14 @@
 //!
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::bucket::{Location, Repository};
-use crate::constants::{
-    APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
-    VALE_RELEASES_URL, VALE_VERSION,
-};
 use crate::io::{download_binary, extract_zip, file_checksum, make_executable, network_request, standard_project_folder};
 use crate::prelude;
 use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
 use crate::schema::ProgrammingLanguage;
+use crate::util::constants::{
+    APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
+    VALE_RELEASES_URL, VALE_VERSION,
+};
 use crate::util::{command_exists, suffix, Constant, Label, SemanticVersion, ToAbsoluteString};
 use bat::PrettyPrinter;
 use bon::Builder;

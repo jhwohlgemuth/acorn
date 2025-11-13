@@ -57,6 +57,7 @@ use which::which;
 
 #[cfg(feature = "std")]
 pub mod citeas;
+pub mod constants;
 
 /// Trait for augmenting path value functionality with absolute path string conversion
 pub trait ToAbsoluteString {
