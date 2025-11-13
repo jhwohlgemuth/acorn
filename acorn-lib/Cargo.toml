@@ -29,6 +29,7 @@ comfy-table = { version = "7.2.1", default-features = false }
 console = { version = "0.16.1", features = ["ansi-parsing"], default-features = false }
 convert_case = { version = "0.8.0", default-features = false }
 directories = { version = "6.0.0", default-features = false }
+duct = { version = "1.1.0", default-features = false, optional = true }
 fancy-regex = { version = "0.16.2", default-features = false }
 flate2 = { version = "1.1.5", default-features = false }
 human-units = { version = "0.5.3", default-features = false }
@@ -60,7 +61,6 @@ color-eyre = { workspace = true }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
 dotenvy = { workspace = true }
-duct = { workspace = true }
 glob = { workspace = true }
 indicatif = { workspace = true }
 lazy_static = { workspace = true }
@@ -85,7 +85,7 @@ analyzer = ["dep:bat", "util"]
 default = ["analyzer", "std", "util"]
 doctor = ["util"]
 powerpoint = ["util"]
-std = ["dep:lychee-lib", "dep:reqwest", "dep:tokio"]
+std = ["dep:duct", "dep:lychee-lib", "dep:reqwest", "dep:tokio"]
 util = []
 
 [lints.rust]

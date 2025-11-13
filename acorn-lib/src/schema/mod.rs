@@ -10,9 +10,9 @@ use crate::constants::{
     MAX_COUNT_RESEARCH_AREAS, MAX_LENGTH_IMAGE_CAPTION, MAX_LENGTH_RESEARCH_FOCUS, MAX_LENGTH_SECTION_CHALLENGE, MAX_LENGTH_SECTION_MISSION,
     MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE,
 };
-use crate::prelude::PathBuf;
 #[cfg(feature = "std")]
-use crate::util::io::{async_runtime, read_file};
+use crate::io::{async_runtime, read_file};
+use crate::prelude::PathBuf;
 use crate::util::{image_paths, parent, Constant, Label, MimeType, ToAbsoluteString};
 use bon::Builder;
 use convert_case::{Case, Casing};

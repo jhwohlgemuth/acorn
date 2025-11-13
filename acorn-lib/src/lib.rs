@@ -11,6 +11,8 @@ pub mod bucket;
 pub mod constants;
 #[cfg(feature = "doctor")]
 pub mod doctor;
+#[cfg(feature = "std")]
+pub mod io;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
 pub mod prelude;

@@ -3,9 +3,10 @@
 //! Module to isolate input/output operations to enhance portability
 use crate::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 use crate::prelude::{create_dir_all, io, set_permissions, var, BufReader, Cursor, File, PathBuf, Permissions, Read, Write};
-use crate::util::{generate_guid, Label, MimeType, ToAbsoluteString};
+use crate::util::{command_exists, filter_git_command_result, generate_guid, suffix, Label, MimeType, ToAbsoluteString};
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
+use duct::cmd;
 use is_executable::IsExecutable;
 use reqwest::header::USER_AGENT;
 use ring::digest::{Context, SHA256};
@@ -219,6 +220,60 @@ where
         }
     }
 }
+/// Returns a vector of `PathBuf` containing all files changed in the given Git branch relative to the default branch.
+///
+/// # Arguments
+///
+/// * `value` - A string slice representing the name of the Git branch to check.
+/// * `extension` - An `Option` containing a string slice representing the file extension to filter results by.
+pub fn files_from_git_branch(value: &str, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+    if command_exists("git".to_owned()) {
+        let default_branch = match git_default_branch_name() {
+            | Some(value) => value,
+            | None => "main".to_string(),
+        };
+        let args = vec!["diff", "--name-only", &default_branch, "--merge-base", value];
+        let result = cmd("git", args).read();
+        match result {
+            | Ok(value) => filter_git_command_result(value, extensions),
+            | Err(why) => {
+                error!("=> {} Get files from Git branch - {why}", Label::fail());
+                vec![]
+            }
+        }
+    } else {
+        vec![]
+    }
+}
+/// Returns a vector of `PathBuf` containing all files changed in the given Git commit.
+///
+/// # Arguments
+///
+/// * `value` - A string slice representing the Git commit hash to check.
+/// * `extension` - An `Option` containing a string slice representing the file extension to filter results by.
+pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+    if command_exists("git".to_owned()) {
+        let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
+        let result = cmd("git", args).read();
+        debug!("=> {} Git command response - {result:?}", Label::using());
+        let files = match result {
+            | Ok(value) => filter_git_command_result(value, extensions),
+            | Err(why) => {
+                error!("=> {} Get files from Git commit - {why}", Label::fail());
+                vec![]
+            }
+        };
+        debug!(
+            "=> {} Found {} file{} from Git commit - {files:?}",
+            Label::using(),
+            files.len(),
+            suffix(files.len())
+        );
+        files
+    } else {
+        vec![]
+    }
+}
 /// Returns a vector of `PathBuf` containing all files changed in a GitLab merge request, as determined by the `CI_API_V4_URL`, `CI_MERGE_REQUEST_PROJECT_ID`, and `CI_MERGE_REQUEST_IID` environment variables[^env].
 ///
 /// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
@@ -255,6 +310,52 @@ pub fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<Pat
             error!("=> {} Get GitLab API merge request diff response - {why}", Label::fail());
             vec![]
         }
+    }
+}
+/// Returns the current Git branch name if the `git` command is available and executed successfully.
+///
+/// This function executes the `git symbolic-ref --short HEAD` command to retrieve the name of
+/// the current Git branch. If the command is successful, the branch name is extracted and returned
+/// as a `String`. If the command fails or if `git` is not available, the function returns `None`.
+pub fn git_branch_name() -> Option<String> {
+    if command_exists("git".to_owned()) {
+        let args = vec!["symbolic-ref", "--short", "HEAD"];
+        let result = cmd("git", args).read();
+        match result {
+            | Ok(ref value) => {
+                let name = match value.clone().split("/").last() {
+                    | Some(x) => Some(x.to_string()),
+                    | None => None,
+                };
+                name
+            }
+            | Err(_) => None,
+        }
+    } else {
+        None
+    }
+}
+/// Returns the default Git branch name if the `git` command is available and executed successfully.
+///
+/// This function executes the `git symbolic-ref refs/remotes/origin/HEAD --short` command to retrieve
+/// the default Git branch name. If the command is successful, the branch name is extracted and returned
+/// as a `String`. If the command fails or if `git` is not available, the function returns `None`.
+pub fn git_default_branch_name() -> Option<String> {
+    if command_exists("git".to_owned()) {
+        let args = vec!["symbolic-ref", "refs/remotes/origin/HEAD", "--short"];
+        let result = cmd("git", args).read();
+        match result {
+            | Ok(ref value) => {
+                let name = match value.clone().split("/").last() {
+                    | Some(x) => Some(x.to_string()),
+                    | None => None,
+                };
+                name
+            }
+            | Err(_) => None,
+        }
+    } else {
+        None
     }
 }
 /// Makes the given file executable.

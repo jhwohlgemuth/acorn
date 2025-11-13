@@ -1,6 +1,9 @@
+use crate::io::{
+    extract_zip, file_checksum, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, git_branch_name,
+    git_default_branch_name, read_file,
+};
 use crate::prelude::{Path, PathBuf};
 use crate::util::citeas;
-use crate::util::io::{extract_zip, file_checksum, files_from_gitlab_merge_request, read_file};
 use crate::util::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;

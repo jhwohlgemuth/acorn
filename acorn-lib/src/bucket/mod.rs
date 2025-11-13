@@ -5,8 +5,8 @@
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 //!
 use crate::analyzer::{link_check, Check};
+use crate::io::{network_request, read_file};
 use crate::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
-use crate::util::io::{network_request, read_file};
 use crate::util::{files_all, parent, suffix, Label, MimeType, ToAbsoluteString};
 use color_eyre::eyre;
 use core::fmt::Debug;

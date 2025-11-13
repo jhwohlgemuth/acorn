@@ -38,6 +38,7 @@ use comfy_table::{ContentArrangement, Table};
 use console::Emoji;
 use convert_case::{Case, Casing};
 use derive_more::Display;
+#[cfg(feature = "std")]
 use duct::cmd;
 use fancy_regex::Regex;
 use glob::glob;
@@ -56,8 +57,6 @@ use which::which;
 
 #[cfg(feature = "std")]
 pub mod citeas;
-#[cfg(feature = "std")]
-pub mod io;
 
 /// Trait for augmenting path value functionality with absolute path string conversion
 pub trait ToAbsoluteString {
@@ -488,6 +487,7 @@ impl SemanticVersion {
     /// let version = SemanticVersion::from_command("cargo").to_string();
     /// assert_eq!(version, "1.90.0");
     /// ```
+    #[cfg(feature = "std")]
     pub fn from_command<S>(name: S) -> Option<SemanticVersion>
     where
         S: Into<String> + duct::IntoExecutablePath + core::marker::Copy,
@@ -686,61 +686,8 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
         vec![path]
     }
 }
-/// Returns a vector of `PathBuf` containing all files changed in the given Git branch relative to the default branch.
-///
-/// # Arguments
-///
-/// * `value` - A string slice representing the name of the Git branch to check.
-/// * `extension` - An `Option` containing a string slice representing the file extension to filter results by.
-pub fn files_from_git_branch(value: &str, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
-    if command_exists("git".to_owned()) {
-        let default_branch = match git_default_branch_name() {
-            | Some(value) => value,
-            | None => "main".to_string(),
-        };
-        let args = vec!["diff", "--name-only", &default_branch, "--merge-base", value];
-        let result = cmd("git", args).read();
-        match result {
-            | Ok(value) => filter_git_command_result(value, extensions),
-            | Err(why) => {
-                error!("=> {} Get files from Git branch - {why}", Label::fail());
-                vec![]
-            }
-        }
-    } else {
-        vec![]
-    }
-}
-/// Returns a vector of `PathBuf` containing all files changed in the given Git commit.
-///
-/// # Arguments
-///
-/// * `value` - A string slice representing the Git commit hash to check.
-/// * `extension` - An `Option` containing a string slice representing the file extension to filter results by.
-pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
-    if command_exists("git".to_owned()) {
-        let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
-        let result = cmd("git", args).read();
-        debug!("=> {} Git command response - {result:?}", Label::using());
-        let files = match result {
-            | Ok(value) => filter_git_command_result(value, extensions),
-            | Err(why) => {
-                error!("=> {} Get files from Git commit - {why}", Label::fail());
-                vec![]
-            }
-        };
-        debug!(
-            "=> {} Found {} file{} from Git commit - {files:?}",
-            Label::using(),
-            files.len(),
-            suffix(files.len())
-        );
-        files
-    } else {
-        vec![]
-    }
-}
-fn filter_git_command_result(value: String, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+/// Filter Git command result by file extension
+pub fn filter_git_command_result(value: String, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     match extensions {
         | Some(values) => value
             .to_lowercase()
@@ -817,52 +764,6 @@ pub fn generate_guid() -> String {
     let id = nanoid!(10, &alphabet);
     debug!(id, "=> {}", Label::using());
     id
-}
-/// Returns the current Git branch name if the `git` command is available and executed successfully.
-///
-/// This function executes the `git symbolic-ref --short HEAD` command to retrieve the name of
-/// the current Git branch. If the command is successful, the branch name is extracted and returned
-/// as a `String`. If the command fails or if `git` is not available, the function returns `None`.
-pub fn git_branch_name() -> Option<String> {
-    if command_exists("git".to_owned()) {
-        let args = vec!["symbolic-ref", "--short", "HEAD"];
-        let result = cmd("git", args).read();
-        match result {
-            | Ok(ref value) => {
-                let name = match value.clone().split("/").last() {
-                    | Some(x) => Some(x.to_string()),
-                    | None => None,
-                };
-                name
-            }
-            | Err(_) => None,
-        }
-    } else {
-        None
-    }
-}
-/// Returns the default Git branch name if the `git` command is available and executed successfully.
-///
-/// This function executes the `git symbolic-ref refs/remotes/origin/HEAD --short` command to retrieve
-/// the default Git branch name. If the command is successful, the branch name is extracted and returned
-/// as a `String`. If the command fails or if `git` is not available, the function returns `None`.
-pub fn git_default_branch_name() -> Option<String> {
-    if command_exists("git".to_owned()) {
-        let args = vec!["symbolic-ref", "refs/remotes/origin/HEAD", "--short"];
-        let result = cmd("git", args).read();
-        match result {
-            | Ok(ref value) => {
-                let name = match value.clone().split("/").last() {
-                    | Some(x) => Some(x.to_string()),
-                    | None => None,
-                };
-                name
-            }
-            | Err(_) => None,
-        }
-    } else {
-        None
-    }
 }
 /// Returns a vector of `PathBuf` representing paths to all images found in the given
 /// directory and all of its subdirectories.
