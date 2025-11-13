@@ -15,6 +15,8 @@ use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info};
 use zip::ZipArchive;
 
+pub mod citeas;
+
 /// Struct for parsing GitLab API merge request diff responses
 ///
 /// Used by [`files_from_gitlab_merge_request`]
@@ -487,3 +489,6 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

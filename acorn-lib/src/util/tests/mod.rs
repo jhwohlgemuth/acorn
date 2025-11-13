@@ -3,7 +3,6 @@ use crate::io::{
     git_default_branch_name, read_file,
 };
 use crate::prelude::{Path, PathBuf};
-use crate::util::citeas;
 use crate::util::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;
@@ -36,19 +35,6 @@ fn test_chunk_string() {
     assert_eq!("abcdefghi".chunk(3), vec!["abc", "def", "ghi"]);
     assert_eq!("abcdefghi".chunk(2), vec!["ab", "cd", "ef", "gh", "i"]);
     assert_eq!("abcdefghi".to_string().chunk(3), vec!["abc", "def", "ghi"]);
-}
-#[test]
-fn test_citeas() {
-    let status = citeas::status();
-    assert!(status.is_some());
-    if let Some(citeas::Status { documentation_url, .. }) = status {
-        assert_eq!(documentation_url, "https://citeas.org/api");
-    }
-    if let Some(citeas::Citation { text, .. }) = citeas::Citations::from_doi("10.11578/dc.20250604.1").match_style("apa") {
-        println!("CiteAs Test Response Received");
-        let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
-        assert_eq!(text, expected);
-    };
 }
 #[test]
 fn test_extract_zip() {
