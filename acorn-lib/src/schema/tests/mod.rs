@@ -478,9 +478,9 @@ fn test_validate_attribute_impact() {
 #[test]
 fn test_validate_attribute_ror() {
     let valid = VALID_ROR_VALUES.into_iter().map(|x| x.to_string()).collect::<Vec<String>>();
-    assert!(validate_attribute_ror(&valid).is_ok());
+    assert!(validate_attribute_ror_list(&valid).is_ok());
     let invalid = ["https://doi.org/10.1000/182".to_string()];
-    assert!(validate_attribute_ror(&invalid).is_err());
+    assert!(validate_attribute_ror_list(&invalid).is_err());
 }
 #[test]
 fn test_validate_has_image_extension() {

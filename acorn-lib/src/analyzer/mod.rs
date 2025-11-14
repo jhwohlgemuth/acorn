@@ -4,7 +4,7 @@
 //!
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::bucket::{Location, Repository};
-use crate::io::{download_binary, extract_zip, file_checksum, make_executable, network_request, standard_project_folder};
+use crate::io::{download_binary, extract_zip, file_checksum, make_executable, network_get_request, standard_project_folder};
 use crate::prelude;
 use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
 use crate::schema::ProgrammingLanguage;
@@ -470,7 +470,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             "{VALE_RELEASES_URL}/download/v{release}/{}_{release}_checksums.txt",
             self.clone().command()
         );
-        let response = network_request(url).send().unwrap();
+        let response = network_get_request(url).send().unwrap();
         let content = response.text().unwrap();
         let checksums = content.lines().clone().fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
             let mut values = line.split("  ").collect::<Vec<&str>>();

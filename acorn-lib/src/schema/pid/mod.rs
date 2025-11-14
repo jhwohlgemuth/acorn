@@ -123,6 +123,14 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     fn is_orcid(&self) -> bool {
         false
     }
+    /// Determines if `self` is a RAID
+    /// ```rust
+    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    ///
+    /// assert!("https://raid.org/10.83962/fb5be317".is_raid());
+    fn is_raid(&self) -> bool {
+        false
+    }
 }
 /// Internal representation of a persistent identifier
 #[derive(Default)]
@@ -276,6 +284,27 @@ pub struct ORCID {
     /// Check digit should be verified IAW by [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html) (see [`iso7064_check_digit`])
     pub check_digit: Option<String>,
 }
+/// Research Activity Identifier (RAiD)[^raid]
+///
+/// RAiDs are expressed in the form of `https://raid.org/prefix/suffix`, resolvable through the RAiD portal operated by the ARDC[^ardc] at <https://raid.org/> —though they may still be resolved through any DOI or handle resolver.
+///
+/// RAiDs are governed by [ISO 23527](https://www.iso.org/standard/75931.html)
+///
+/// [^ardc]: [Australian Research Data Commons](https://ardc.edu.au/)
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init)]
+pub struct RAID {
+    /// Schema URI (e.g., <https://www.raid.org/>)
+    pub schema_uri: Option<String>,
+    /// RAiD prefix value
+    pub prefix: Option<String>,
+    /// RAiD suffix value
+    pub suffix: Option<String>,
+    /// RAiD metadata
+    ///
+    /// Metadata associated with identifier. See <https://metadata.raid.org> for more information.
+    pub metadata: Option<raid::Metadata>,
+}
 impl ARK {
     /// Convenience method for easily parsing and formatting an ARK from a string value
     /// ### Example
@@ -296,8 +325,8 @@ impl ARK {
     /// ```rust
     /// use acorn_lib::schema::pid::ARK;
     ///
-    /// let doi = ARK::from_string("");
-    ///
+    /// let ark = ARK::from_string("https://n2t.net/ark:12148/btv1b8449691v/f42");
+    /// assert_eq!(ark.suffix(), Some("f42".to_string()));
     /// ```
     pub fn from_string<S>(value: S) -> ARK
     where
@@ -341,16 +370,16 @@ impl ARK {
     where
         S: AsRef<str>,
     {
-        let ark = ARK::from_string(value);
+        let pid = ARK::from_string(value);
         // TODO: Test NAAN length? Test betanumeric?
-        let naan_is_integer = match ark.name_assigning_authority_number {
+        let naan_is_integer = match pid.name_assigning_authority_number {
             | Some(value) => match value.parse::<u32>() {
                 | Ok(_) => true,
                 | Err(_) => false,
             },
             | None => false,
         };
-        let shoulder_starts_with_lowercase_letter = match ark.assigned_name {
+        let shoulder_starts_with_lowercase_letter = match pid.assigned_name {
             | Some(value) => match value.chars().next() {
                 | Some(value) => value.is_ascii_lowercase() && !value.eq(&'l'),
                 | None => false,
@@ -476,8 +505,8 @@ impl ORCID {
     where
         S: AsRef<str>,
     {
-        let orcid = ORCID::from_string(value.as_ref());
-        let identifier = orcid.identifier();
+        let pid = ORCID::from_string(value.as_ref());
+        let identifier = pid.identifier();
         let last = identifier.chars().last().unwrap_or_default();
         match iso7064_check_digit(identifier.as_str()) {
             | Some(check_digit) => match RE_ORCID.is_match(value.as_ref()) {
@@ -486,6 +515,31 @@ impl ORCID {
             },
             | _ => false,
         }
+    }
+}
+impl RAID {
+    /// Create new RAiD by parsing a raw string value
+    /// ### Note
+    /// > RAiD identifiers are DOI identifiers. See this [blog post by DataCite](https://datacite.org/blog/datacite-ardc-announce-partnership-to-deliver-the-raid-service/) for details.
+    pub fn from_string<S>(value: S) -> RAID
+    where
+        S: AsRef<str>,
+    {
+        let names = ["schema_uri", "directory_indicator", "registrant_code"];
+        let lookup = regex_capture_lookup(RE_DOI_TEXT, value.as_ref(), names.to_vec());
+        RAID::init()
+            .maybe_schema_uri(lookup.get("schema_uri").cloned())
+            .maybe_prefix(lookup.get("directory_indicator").cloned())
+            .maybe_suffix(lookup.get("registrant_code").cloned())
+            .build()
+    }
+    /// Check if value is a valid RAID
+    pub fn is_valid<S>(_value: S) -> bool
+    where
+        S: AsRef<str>,
+    {
+        // TODO: Validate as a DOI value
+        false
     }
 }
 impl Default for ARK {
@@ -499,6 +553,11 @@ impl Default for DOI {
     }
 }
 impl Default for ORCID {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Default for RAID {
     fn default() -> Self {
         Self::new()
     }
@@ -535,6 +594,13 @@ impl Display for ORCID {
             .map(String::from)
             .collect::<Vec<String>>()
             .join("");
+        write!(f, "{result}")
+    }
+}
+impl Display for RAID {
+    /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let result = self.identifier();
         write!(f, "{result}")
     }
 }
@@ -679,6 +745,30 @@ impl PersistentIdentifier for ORCID {
         iso7064_check_digit(self.identifier())
     }
 }
+impl PersistentIdentifier for RAID {
+    fn new() -> Self {
+        RAID::init().build()
+    }
+    fn schema_uri(&self) -> String {
+        self.schema_uri.as_ref().cloned().unwrap_or_default()
+    }
+    fn prefix(&self) -> Option<String> {
+        self.prefix.clone()
+    }
+    fn suffix(&self) -> Option<String> {
+        self.suffix.clone()
+    }
+    fn identifier(&self) -> String {
+        let values = [self.prefix(), self.suffix()];
+        values
+            .iter()
+            .flatten()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join("/")
+    }
+}
 impl<T: AsRef<str>> PersistentIdentifierConvert<T> for T
 where
     T: ToString,
@@ -705,6 +795,10 @@ where
                 value: self.as_ref().to_string(),
                 pid_type: PID::ORCID,
             },
+            | PID::RAID => PersistentIdentifierInternal {
+                value: self.as_ref().to_string(),
+                pid_type: PID::RAID,
+            },
             | _ => PersistentIdentifierInternal::default(),
         }
     }
@@ -713,6 +807,7 @@ where
             | PID::ARK => self.is_ark(),
             | PID::DOI => self.is_doi(),
             | PID::ORCID => self.is_orcid(),
+            | PID::RAID => self.is_raid(),
             | _ => false,
         }
     }
@@ -724,6 +819,9 @@ where
     }
     fn is_orcid(&self) -> bool {
         ORCID::is_valid(self.as_ref())
+    }
+    fn is_raid(&self) -> bool {
+        RAID::is_valid(self.as_ref())
     }
 }
 impl PersistentIdentifierInternal {
@@ -749,6 +847,14 @@ impl PersistentIdentifierInternal {
         match pid_type {
             | PID::ORCID => ORCID::from_string(value),
             | _ => ORCID::default(),
+        }
+    }
+    /// Convert a `PersistentIdentifierInternal` to a `RAID`
+    pub fn to_raid(&self) -> RAID {
+        let PersistentIdentifierInternal { value, pid_type } = self;
+        match pid_type {
+            | PID::RAID => RAID::from_string(value),
+            | _ => RAID::default(),
         }
     }
 }

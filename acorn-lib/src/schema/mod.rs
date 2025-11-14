@@ -41,7 +41,7 @@ use graph::{node_from_label, node_name, node_parent};
 use pid::raid;
 use validate::{
     format_phone_number, has_image_extension, is_kebabcase, is_list_url, is_orcid, is_phone_number, validate_attribute_approach,
-    validate_attribute_areas, validate_attribute_capabilities, validate_attribute_doi, validate_attribute_impact, validate_attribute_ror,
+    validate_attribute_areas, validate_attribute_capabilities, validate_attribute_doi, validate_attribute_impact, validate_attribute_ror_list,
 };
 
 const SCHEMA_ORG_CONTEXT: &str = "https://schema.org";
@@ -500,7 +500,7 @@ pub struct Metadata {
     /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
-    #[validate(custom(function = "validate_attribute_ror"))]
+    #[validate(custom(function = "validate_attribute_ror_list"))]
     #[serde(default)]
     pub ror: Option<Vec<String>>,
     /// Additional type

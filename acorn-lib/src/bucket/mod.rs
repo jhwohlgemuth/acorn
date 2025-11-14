@@ -5,7 +5,7 @@
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 //!
 use crate::analyzer::{link_check, Check};
-use crate::io::{network_request, read_file};
+use crate::io::{network_get_request, read_file};
 use crate::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
 use crate::util::{files_all, parent, suffix, Label, MimeType, ToAbsoluteString};
 use color_eyre::eyre;
@@ -759,7 +759,7 @@ impl Repository {
         };
         if let Some(url) = maybe_url {
             debug!(url, "=> {}", Label::using());
-            match network_request(url).send() {
+            match network_get_request(url).send() {
                 | Ok(response) => {
                     let text = response.text();
                     match text {

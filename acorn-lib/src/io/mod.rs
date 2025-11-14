@@ -16,6 +16,7 @@ use tracing::{debug, error, info};
 use zip::ZipArchive;
 
 pub mod citeas;
+pub mod raid;
 
 /// Struct for parsing GitLab API merge request diff responses
 ///
@@ -287,7 +288,7 @@ pub fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<Pat
     let merge_request_iid = var("CI_MERGE_REQUEST_IID").unwrap_or_default();
     let path = format!("/projects/{project_id}/merge_requests/{merge_request_iid}/diffs");
     let url = format!("{root}{path}");
-    match network_request(url).send() {
+    match network_get_request(url).send() {
         | Ok(response) => {
             let content: serde_json::Result<Vec<GitlabMergeRequestDiffResponse>> = serde_json::from_str(&response.text().unwrap());
             match content {
@@ -400,12 +401,26 @@ where
     println!("{binary:#?}");
     binary.is_executable()
 }
-/// Utility method to employ best practices when using a Reqwest client to make HTTP requests.
-pub fn network_request<U>(url: U) -> reqwest::blocking::RequestBuilder
+/// Utility method to employ best practices when using a Reqwest client to make HTTP GET requests.
+pub fn network_get_request<U>(url: U) -> reqwest::blocking::RequestBuilder
 where
     U: reqwest::IntoUrl,
 {
     reqwest::blocking::Client::new().get(url).header(USER_AGENT, "rust-web-api-client")
+}
+/// Utility method to employ best practices when using a Reqwest client to make HTTP POST requests.
+pub fn network_post_request<U>(url: U) -> reqwest::blocking::RequestBuilder
+where
+    U: reqwest::IntoUrl,
+{
+    reqwest::blocking::Client::new().post(url).header(USER_AGENT, "rust-web-api-client")
+}
+/// Utility method to employ best practices when using a Reqwest client to make HTTP PUT requests.
+pub fn network_put_request<U>(url: U) -> reqwest::blocking::RequestBuilder
+where
+    U: reqwest::IntoUrl,
+{
+    reqwest::blocking::Client::new().put(url).header(USER_AGENT, "rust-web-api-client")
 }
 /// Reads the given file and returns its contents as a string.
 ///
