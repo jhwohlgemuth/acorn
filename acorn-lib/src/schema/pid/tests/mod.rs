@@ -1,6 +1,6 @@
 use crate::prelude::PathBuf;
 use crate::schema::pid::{
-    iso7064_check_digit, noid_check_digit, raid, Betanumeric, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI, ORCID, PID,
+    iso7064_check_digit, noid_check_digit, raid, Betanumeric, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI, ORCID, PID, RAID,
 };
 use crate::schema::Validate;
 
@@ -116,6 +116,13 @@ fn test_noid_check_digit() {
     let value = "13030/xf93gt2";
     let expected = Some('q');
     assert_eq!(noid_check_digit(value), expected);
+}
+#[test]
+fn test_raid() {
+    let valid = "https://raid.org/10.83962/fb5be317";
+    let pid = RAID::from_string(valid);
+    assert_eq!(pid.to_string(), "10.83962/fb5be317");
+    assert_eq!(pid.schema_uri(), "https://raid.org");
 }
 #[test]
 fn test_raid_read() {

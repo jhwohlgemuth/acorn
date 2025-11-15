@@ -891,7 +891,7 @@ pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<Stri
 /// assert_eq!(lookup["month"], "06");
 /// assert_eq!(lookup["day"], "30");
 /// ```
-pub fn regex_capture_lookup<S>(pattern: S, value: S, names: Vec<S>) -> HashMap<S, String>
+pub fn regex_capture_lookup<S>(pattern: S, value: S, groups: Vec<S>) -> HashMap<S, String>
 where
     S: Into<String> + AsRef<str> + Clone + core::cmp::Eq + core::hash::Hash,
 {
@@ -902,7 +902,7 @@ where
             | Ok(captures) => {
                 captures.iter().skip(1).enumerate().for_each(|(index, data)| {
                     if let Some(results) = data {
-                        let key = names[index].clone();
+                        let key = groups[index].clone();
                         let value = results.as_str().to_string();
                         lookup.insert(key, value);
                     }

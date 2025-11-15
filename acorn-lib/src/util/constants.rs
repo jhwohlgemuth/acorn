@@ -138,6 +138,9 @@ pub const RE_DOI_TEXT: &str =
 /// Patter text for ORCiD regular expression defined by [`RE_ORCID`]
 pub const RE_ORCID_TEXT: &str =
     r#"^(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))$"#;
+/// Pattern text for DOI regular expression defined by [`RE_DOI`]
+pub const RE_RAID_TEXT: &str =
+    r#"^(?<schema_uri>https[:]\/\/raid\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#;
 
 lazy_static! {
     /// Regex that should match a Archival Resource Key (ARK)

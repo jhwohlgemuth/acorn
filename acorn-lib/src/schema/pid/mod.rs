@@ -8,7 +8,7 @@
 //! - Access the sub parts of a persistent identifier
 //!
 //! [RAiDs]: https://www.raid.org/
-use crate::util::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT};
+use crate::util::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT};
 use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::Builder;
 use core::fmt::Display;
@@ -417,8 +417,8 @@ impl DOI {
     where
         S: AsRef<str>,
     {
-        let names = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
-        let lookup = regex_capture_lookup(RE_DOI_TEXT, value.as_ref(), names.to_vec());
+        let groups = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
+        let lookup = regex_capture_lookup(RE_DOI_TEXT, value.as_ref(), groups.to_vec());
         DOI::init()
             .maybe_schema_uri(lookup.get("schema_uri").cloned())
             .maybe_directory_indicator(lookup.get("directory_indicator").cloned())
@@ -525,12 +525,19 @@ impl RAID {
     where
         S: AsRef<str>,
     {
-        let names = ["schema_uri", "directory_indicator", "registrant_code"];
-        let lookup = regex_capture_lookup(RE_DOI_TEXT, value.as_ref(), names.to_vec());
+        let groups = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
+        let lookup = regex_capture_lookup(RE_RAID_TEXT, value.as_ref(), groups.to_vec());
+        let directory_indicator = lookup.get("directory_indicator").cloned();
+        let registrant_code = lookup.get("registrant_code").cloned();
+        let prefix = [directory_indicator, registrant_code]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<String>>()
+            .join(".");
         RAID::init()
+            .prefix(prefix)
             .maybe_schema_uri(lookup.get("schema_uri").cloned())
-            .maybe_prefix(lookup.get("directory_indicator").cloned())
-            .maybe_suffix(lookup.get("registrant_code").cloned())
+            .maybe_suffix(lookup.get("suffix").cloned())
             .build()
     }
     /// Check if value is a valid RAID
@@ -684,7 +691,7 @@ impl PersistentIdentifier for DOI {
         DOI::init().build()
     }
     fn schema_uri(&self) -> String {
-        self.schema_uri.as_ref().cloned().unwrap_or_default()
+        self.schema_uri.as_ref().cloned().unwrap_or_default().trim_end_matches("/").to_string()
     }
     fn identifier(&self) -> String {
         let values = [self.prefix(), self.suffix()];
@@ -750,7 +757,7 @@ impl PersistentIdentifier for RAID {
         RAID::init().build()
     }
     fn schema_uri(&self) -> String {
-        self.schema_uri.as_ref().cloned().unwrap_or_default()
+        self.schema_uri.as_ref().cloned().unwrap_or_default().trim_end_matches("/").to_string()
     }
     fn prefix(&self) -> Option<String> {
         self.prefix.clone()
