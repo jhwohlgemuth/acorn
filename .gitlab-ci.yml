@@ -54,6 +54,8 @@ test:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - ${BINARY_NAME}-cli/**/*
         - ${BINARY_NAME}-lib/**/*
@@ -70,6 +72,8 @@ test-python:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - ${BINARY_NAME}-py/**/*
