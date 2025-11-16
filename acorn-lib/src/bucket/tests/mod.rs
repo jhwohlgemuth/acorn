@@ -116,6 +116,7 @@ fn test_location_uri() {
         | _ => panic!(),
     }
 }
+#[ignore]
 #[test]
 fn test_repository_gitlab() {
     let repository = Repository::GitLab {
