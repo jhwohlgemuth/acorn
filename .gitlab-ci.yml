@@ -71,7 +71,7 @@ test-python:
   script:
     - apt-get update && apt-get install -y curl
     - curl -LsSf https://astral.sh/uv/install.sh | sh
-    - cd ${BINARY_NAME}-py && pixi run test --environment test
+    - source $HOME/.local/bin/env && cd ${BINARY_NAME}-py && pixi run test --environment test
 
 build-release:
   stage: build
