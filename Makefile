@@ -129,6 +129,18 @@ bucket-push-docker:
 bucket-push-ghcr:
 	@docker push ghcr.io/jhwohlgemuth/bucket:$(VERSION)
 	@docker push ghcr.io/jhwohlgemuth/bucket:latest
+
+rust-clean:
+	@docker rmi -f $(REGISTRY)/acorn/rust:$(VERSION)
+	@docker rmi -f $(REGISTRY)/acorn/rust:latest
+
+rust-image:
+	@docker build --no-cache --platform $(PLATFORM) -t $(REGISTRY)/acorn/rust:$(VERSION) -f Dockerfile.rust .
+	@docker tag $(REGISTRY)/acorn/rust:$(VERSION) $(REGISTRY)/acorn/rust:latest
+
+rust-push:
+	@docker push $(REGISTRY)/acorn/rust:$(VERSION)
+	@docker push $(REGISTRY)/acorn/rust:latest
 #
 # Variables
 #

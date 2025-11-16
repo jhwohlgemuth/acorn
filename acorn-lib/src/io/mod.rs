@@ -5,7 +5,9 @@ use crate::prelude::{create_dir_all, io, var, BufReader, Cursor, File, PathBuf, 
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, Permissions, PermissionsExt};
 use crate::util::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
-use crate::util::{command_exists, file_extension, filter_git_command_result, generate_guid, suffix, Label, MimeType, ToAbsoluteString};
+#[cfg(windows)]
+use crate::util::file_extension;
+use crate::util::{command_exists, filter_git_command_result, generate_guid, suffix, Label, MimeType, ToAbsoluteString};
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
 use duct::cmd;
