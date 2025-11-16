@@ -94,7 +94,9 @@ fn test_doi_struct() {
     assert!(DOI::is_valid(valid));
     assert!(DOI::is_valid("10.1000/182"));
     assert!(!DOI::is_valid("invalid DOI URL"));
-    assert_eq!(DOI::from_string(valid).to_string(), "10.1000/182");
+    let pid = DOI::from_string(valid);
+    assert!(pid.check_digit().is_none());
+    assert_eq!(pid.to_string(), "10.1000/182");
     assert_eq!(DOI::from_string("10.1000/182").to_string(), "10.1000/182");
     assert_eq!(DOI::from_string("invalid DOI URL").to_string(), "");
     assert_eq!(DOI::format(valid), "10.1000/182");
