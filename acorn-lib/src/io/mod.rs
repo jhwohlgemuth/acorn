@@ -1,9 +1,11 @@
 //! # IO Utilities
 //!
 //! Module to isolate input/output operations to enhance portability
-use crate::prelude::{create_dir_all, io, set_permissions, var, BufReader, Cursor, File, PathBuf, Permissions, Read, Write};
+use crate::prelude::{create_dir_all, io, var, BufReader, Cursor, File, PathBuf, Read, Write};
+#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
+use crate::prelude::{set_permissions, Permissions, PermissionsExt};
 use crate::util::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
-use crate::util::{command_exists, filter_git_command_result, generate_guid, suffix, Label, MimeType, ToAbsoluteString};
+use crate::util::{command_exists, file_extension, filter_git_command_result, generate_guid, suffix, Label, MimeType, ToAbsoluteString};
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
 use duct::cmd;
@@ -375,7 +377,6 @@ pub fn make_executable<P>(path: P) -> bool
 where
     P: Into<PathBuf> + Clone,
 {
-    use crate::prelude::PermissionsExt;
     set_permissions(path.clone().into(), Permissions::from_mode(0o755)).unwrap();
     path.into().is_executable()
 }
@@ -393,10 +394,9 @@ pub fn make_executable<P>(path: P) -> bool
 where
     P: Into<PathBuf> + Clone,
 {
-    let binary = if extension(&path.clone().into()).is_empty() {
-        path.into().with_extension("exe")
-    } else {
-        path.into()
+    let binary = match file_extension(path.clone().into().to_absolute_string()) {
+        | None => path.into().with_extension("exe"),
+        | _ => path.into(),
     };
     println!("{binary:#?}");
     binary.is_executable()

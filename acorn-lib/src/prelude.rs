@@ -6,8 +6,11 @@ mod std {
     pub use std::collections::HashMap;
     pub use std::env::{consts, var};
     pub use std::ffi::OsStr;
-    pub use std::fs::{canonicalize, copy, create_dir_all, read, remove_file, set_permissions, File, Permissions};
+    pub use std::fs::{canonicalize, copy, create_dir_all, read, remove_file, File};
+    #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
+    pub use std::fs::{set_permissions, Permissions};
     pub use std::io::{self, BufRead, BufReader, Cursor, Error, Read, Write};
+    #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
     pub use std::os::unix::fs::PermissionsExt;
     pub use std::path::{absolute, Path, PathBuf};
 }
