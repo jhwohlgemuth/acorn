@@ -8,7 +8,7 @@
 //! - Access the sub parts of a persistent identifier
 //!
 //! [RAiDs]: https://www.raid.org/
-use crate::util::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT};
+use crate::util::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT};
 use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::Builder;
 use core::fmt::Display;
@@ -54,9 +54,7 @@ pub trait PersistentIdentifier: Display {
     /// Get PID suffix (different interpretation depending on PID type)
     ///
     /// Not every PID type has a suffix, but generally every PID has a "second" part that can losely be considered a "suffix"
-    fn suffix(&self) -> Option<String> {
-        None
-    }
+    fn suffix(&self) -> Option<String>;
     /// Get PID check digit (when applicable)
     fn check_digit(&self) -> Option<char> {
         None
@@ -64,10 +62,6 @@ pub trait PersistentIdentifier: Display {
     /// Convert `self` into a string with a standard format
     fn format(&self) -> String {
         self.to_string()
-    }
-    /// Check if PID is valid
-    fn is_valid(&self) -> bool {
-        false
     }
 }
 /// Add coercion to persistent identifier (PID) functionality to string values
@@ -93,44 +87,34 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     /// assert!("https://doi.org/10.1234/5678".is_pid(PID::DOI));
     /// ```
-    fn is_pid(&self, _pid_type: PID) -> bool {
-        false
-    }
+    fn is_pid(&self, _pid_type: PID) -> bool;
     /// Determines if `self` is an archival resource key (ARK)
     /// ```rust
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://n2t.net/ark:12148/btv1b8449691v/f29".is_ark());
     /// ```
-    fn is_ark(&self) -> bool {
-        false
-    }
+    fn is_ark(&self) -> bool;
     /// Determines if `self` is a DOI
     /// ```rust
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://doi.org/10.1234/5678".is_doi());
     /// ```
-    fn is_doi(&self) -> bool {
-        false
-    }
+    fn is_doi(&self) -> bool;
     /// Determines if `self` is a ORCID
     /// ```rust
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://orcid.org/0000-0000-0000-0000".is_orcid());
     /// ```
-    fn is_orcid(&self) -> bool {
-        false
-    }
+    fn is_orcid(&self) -> bool;
     /// Determines if `self` is a RAID
     /// ```rust
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://raid.org/10.83962/fb5be317".is_raid());
-    fn is_raid(&self) -> bool {
-        false
-    }
+    fn is_raid(&self) -> bool;
 }
 /// Internal representation of a persistent identifier
 #[derive(Default)]
@@ -249,7 +233,7 @@ pub struct DOI {
     /// Directory indicator
     /// ### Rules
     /// - Can contain only numeric values
-    /// - usually 10 but other indicators may be designated as compliant by the DOI Foundation
+    /// - Usually 10 but other indicators may be designated as compliant by the DOI Foundation
     pub directory_indicator: Option<String>,
     /// Registrant code
     /// ### Rules
@@ -332,8 +316,8 @@ impl ARK {
     where
         S: AsRef<str>,
     {
-        let names = ["nma", "schema_uri", "label", "naan", "assigned_name", "parts", "variants"];
-        let lookup = regex_capture_lookup(RE_ARK_TEXT, value.as_ref(), names.to_vec());
+        let groups = ["nma", "schema_uri", "label", "naan", "assigned_name", "parts", "variants"];
+        let lookup = regex_capture_lookup(RE_ARK_TEXT, value.as_ref(), groups.to_vec());
         let parts = match lookup.get("parts") {
             | Some(value) => value.split('/').map(String::from).collect(),
             | None => vec![],
@@ -444,10 +428,13 @@ impl DOI {
     where
         S: AsRef<str>,
     {
-        match RE_DOI.is_match(value.as_ref()) {
-            | Ok(x) if x && !value.as_ref().contains("10.5555/") => true,
+        let pid = DOI::from_string(value.as_ref());
+        let prefix_is_valid = match pid.prefix() {
+            | Some(x) => is_numeric(&x.replace(".", "")) && !x.eq("10.5555"),
             | _ => false,
-        }
+        };
+        let suffix_is_valid = pid.suffix().is_some();
+        prefix_is_valid && suffix_is_valid
     }
 }
 impl ORCID {
@@ -477,8 +464,8 @@ impl ORCID {
     where
         S: AsRef<str>,
     {
-        let names = ["schema_uri", "identifier", "check_digit"];
-        let lookup = regex_capture_lookup(RE_ORCID_TEXT, value.as_ref(), names.to_vec());
+        let groups = ["schema_uri", "identifier", "check_digit"];
+        let lookup = regex_capture_lookup(RE_ORCID_TEXT, value.as_ref(), groups.to_vec());
         ORCID::init()
             .maybe_schema_uri(lookup.get("schema_uri").cloned())
             .maybe_identifier(lookup.get("identifier").cloned())
@@ -518,6 +505,19 @@ impl ORCID {
     }
 }
 impl RAID {
+    /// Convenience method for easily parsing and formatting a `RAID` from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn_lib::schema::pid::RAID;
+    ///
+    /// assert_eq!(RAID::format("https://raid.org/10.83962/fb5be317"), "10.83962/fb5be317");
+    /// ```
+    pub fn format<S>(value: S) -> String
+    where
+        S: AsRef<str>,
+    {
+        RAID::from_string(value).to_string()
+    }
     /// Create new RAiD by parsing a raw string value
     /// ### Note
     /// > RAiD identifiers are DOI identifiers. See this [blog post by DataCite](https://datacite.org/blog/datacite-ardc-announce-partnership-to-deliver-the-raid-service/) for details.
@@ -545,8 +545,13 @@ impl RAID {
     where
         S: AsRef<str>,
     {
-        // TODO: Validate as a DOI value
-        false
+        let pid = RAID::from_string(_value.as_ref());
+        let prefix_is_valid = match pid.prefix() {
+            | Some(x) => is_numeric(&x.replace(".", "")) && !x.eq("10.5555"),
+            | _ => false,
+        };
+        let suffix_is_valid = pid.suffix().is_some();
+        prefix_is_valid && suffix_is_valid
     }
 }
 impl Default for ARK {
@@ -600,12 +605,12 @@ impl Display for ORCID {
             .filter(|x| !x.is_empty())
             .map(String::from)
             .collect::<Vec<String>>()
-            .join("");
+            .join("/");
         write!(f, "{result}")
     }
 }
 impl Display for RAID {
-    /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
+    /// Format a RAID into a standard format of `"{prefix}/{suffix}"`
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let result = self.identifier();
         write!(f, "{result}")
@@ -615,15 +620,12 @@ impl PersistentIdentifier for ARK {
     fn new() -> Self {
         ARK::init().build()
     }
-    fn format(&self) -> String {
-        self.to_string()
-    }
     fn schema_uri(&self) -> String {
         let uri = match &self.name_mapping_authority {
             | Some(value) => value,
             | None => "",
         };
-        uri.to_string()
+        uri.trim_end_matches("/").to_string()
     }
     fn identifier(&self) -> String {
         let values = [self.prefix(), self.suffix()];
@@ -657,8 +659,6 @@ impl PersistentIdentifier for ARK {
             None
         }
     }
-    /// Returns consistent string representation of ARK qualifiers which often name subobjects
-    /// of a persistent object that are less stable and less opaquely named than the parent object
     fn suffix(&self) -> Option<String> {
         let parts = self.parts.join("/");
         let variants = self.variants.join(".");
@@ -680,7 +680,7 @@ impl PersistentIdentifier for ARK {
         let values = [naan.clone(), name.clone()];
         if values.iter().all(|x| x.is_some()) {
             let value = values.iter().flatten().map(String::from).collect::<Vec<String>>().join("/");
-            noid_check_digit(value)
+            noid_check_digit(&value[..value.len() - 1])
         } else {
             None
         }
@@ -735,7 +735,7 @@ impl PersistentIdentifier for ORCID {
     /// ### Notes
     /// - Should always be "<https://orcid.org/>"
     fn schema_uri(&self) -> String {
-        self.schema_uri.as_ref().cloned().unwrap_or_default()
+        self.schema_uri.as_ref().cloned().unwrap_or_default().trim_end_matches("/").to_string()
     }
     /// Get ORCID identifier
     /// ### Notes
@@ -785,27 +785,17 @@ where
             | PID::ARK => ARK::format(self.as_ref()),
             | PID::DOI => DOI::format(self.as_ref()),
             | PID::ORCID => ORCID::format(self.as_ref()),
+            | PID::RAID => RAID::format(self.as_ref()),
             | _ => self.as_ref().to_string(),
         }
     }
-    fn to_pid(&self, _pid_type: PID) -> PersistentIdentifierInternal {
-        match _pid_type {
-            | PID::ARK => PersistentIdentifierInternal {
-                value: self.as_ref().to_string(),
-                pid_type: PID::ARK,
-            },
-            | PID::DOI => PersistentIdentifierInternal {
-                value: self.as_ref().to_string(),
-                pid_type: PID::DOI,
-            },
-            | PID::ORCID => PersistentIdentifierInternal {
-                value: self.as_ref().to_string(),
-                pid_type: PID::ORCID,
-            },
-            | PID::RAID => PersistentIdentifierInternal {
-                value: self.as_ref().to_string(),
-                pid_type: PID::RAID,
-            },
+    fn to_pid(&self, pid_type: PID) -> PersistentIdentifierInternal {
+        let value = self.as_ref().to_string();
+        match pid_type {
+            | PID::ARK => PersistentIdentifierInternal { value, pid_type: PID::ARK },
+            | PID::DOI => PersistentIdentifierInternal { value, pid_type: PID::DOI },
+            | PID::ORCID => PersistentIdentifierInternal { value, pid_type: PID::ORCID },
+            | PID::RAID => PersistentIdentifierInternal { value, pid_type: PID::RAID },
             | _ => PersistentIdentifierInternal::default(),
         }
     }
@@ -935,6 +925,9 @@ fn to_betanumeric(value: u8) -> Option<char> {
         | Some((_, x)) => Some(x),
         | None => None,
     }
+}
+fn is_numeric(value: &str) -> bool {
+    value.chars().all(|x| x.is_numeric())
 }
 
 #[cfg(test)]

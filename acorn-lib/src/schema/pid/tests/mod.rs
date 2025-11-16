@@ -24,13 +24,21 @@ fn test_ark() {
         "ark:12148/btv1b8449691v/f29/abc.pdf.v2"
     );
     assert!(valid.is_ark());
+    assert_eq!(
+        ARK::format("https://n2t.net/ark:12148/btv1b8449691v/f29"),
+        "https://n2t.net/ark:12148/btv1b8449691v/f29"
+    );
     assert!(valid.format_as(PID::ARK).is_ark());
     assert_eq!(valid.format_as(PID::ARK), valid);
     assert_eq!(valid.to_pid(PID::ARK).to_ark().to_string(), valid);
-    let ark = ARK::from_string(valid);
-    assert_eq!(ark.prefix(), Some("ark:12148/btv1b8449691v".to_string()));
-    assert_eq!(ark.suffix(), Some("f29".to_string()));
-    assert_eq!(ark.identifier(), "ark:12148/btv1b8449691v/f29");
+    let pid = ARK::from_string(valid);
+    assert_eq!(pid.schema_uri(), "https://n2t.net");
+    assert_eq!(pid.format(), valid);
+    assert_eq!(pid.prefix(), Some("ark:12148/btv1b8449691v".to_string()));
+    assert_eq!(pid.suffix(), Some("f29".to_string()));
+    assert_eq!(pid.identifier(), "ark:12148/btv1b8449691v/f29");
+    let pid = ARK::from_string("ark:13030/xf93gt2q");
+    assert_eq!(pid.check_digit(), Some('q'));
 }
 #[test]
 fn test_ark_struct() {
@@ -66,7 +74,9 @@ fn test_orcid_struct() {
     let valid = "https://orcid.org/0000-0002-2057-9115";
     assert!(ORCID::is_valid(valid));
     assert!(!ORCID::is_valid("Invalid ORCID value"));
-    assert_eq!(ORCID::from_string(valid).to_string(), valid);
+    let pid = ORCID::from_string(valid);
+    assert_eq!(pid.format(), valid);
+    assert_eq!(pid.to_string(), valid);
     assert_eq!(ORCID::from_string("0000-0002-2057-9115").to_string(), valid);
     assert_eq!(ORCID::from_string("invalid ORCID value").to_string(), "");
 }
@@ -76,6 +86,7 @@ fn test_doi() {
     assert_eq!(valid.to_pid(PID::DOI).to_doi().to_string(), "10.11578/dc.20250604.1");
     assert!(valid.is_pid(PID::DOI));
     assert!(valid.is_doi());
+    assert_eq!(valid.format_as(PID::DOI), "10.11578/dc.20250604.1");
 }
 #[test]
 fn test_doi_struct() {
@@ -123,6 +134,12 @@ fn test_raid() {
     let pid = RAID::from_string(valid);
     assert_eq!(pid.to_string(), "10.83962/fb5be317");
     assert_eq!(pid.schema_uri(), "https://raid.org");
+    assert_eq!(valid.to_pid(PID::RAID).to_raid().to_string(), "10.83962/fb5be317");
+    assert!(valid.is_pid(PID::RAID));
+    assert!(RAID::is_valid(valid));
+    assert_eq!(RAID::format("10.1000/182"), "10.1000/182");
+    assert_eq!(RAID::format("https://raid.org/10.1000/182"), "10.1000/182");
+    assert_eq!(valid.format_as(PID::RAID), "10.83962/fb5be317");
 }
 #[test]
 fn test_raid_read() {

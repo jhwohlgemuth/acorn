@@ -2948,39 +2948,32 @@ TN:
 SF:/root/dev/re/acorn/acorn-lib/src/schema/pid/mod.rs
 FN:25,Betanumeric::is_betanumeric
 FN:51,PersistentIdentifier::prefix
-FN:57,PersistentIdentifier::suffix
-FN:61,PersistentIdentifier::check_digit
-FN:65,PersistentIdentifier::format
-FN:69,PersistentIdentifier::is_valid
-FN:96,PersistentIdentifierConvert::is_pid
-FN:105,PersistentIdentifierConvert::is_ark
-FN:114,PersistentIdentifierConvert::is_doi
-FN:123,PersistentIdentifierConvert::is_orcid
-FN:131,PersistentIdentifierConvert::is_raid
-FN:317,ARK::format
-FN:331,ARK::from_string
-FN:369,ARK::is_valid
-FN:401,DOI::format
-FN:416,DOI::from_string
-FN:443,DOI::is_valid
-FN:462,ORCID::format
-FN:476,ORCID::from_string
-FN:504,ORCID::is_valid
+FN:59,PersistentIdentifier::check_digit
+FN:63,PersistentIdentifier::format
+FN:301,ARK::format
+FN:315,ARK::from_string
+FN:353,ARK::is_valid
+FN:385,DOI::format
+FN:400,DOI::from_string
+FN:427,DOI::is_valid
+FN:449,ORCID::format
+FN:463,ORCID::from_string
+FN:491,ORCID::is_valid
+FN:515,RAID::format
 FN:524,RAID::from_string
 FN:544,RAID::is_valid
-FN:553,<impl Default for ARK>::default
-FN:558,<impl Default for DOI>::default
-FN:563,<impl Default for ORCID>::default
-FN:568,<impl Default for RAID>::default
-FN:574,<impl Display for ARK>::fmt
-FN:583,<impl Display for DOI>::fmt
-FN:590,<impl Display for ORCID>::fmt
-FN:609,<impl Display for RAID>::fmt
-FN:615,<impl PersistentIdentifier for ARK>::new
-FN:618,<impl PersistentIdentifier for ARK>::format
-FN:621,<impl PersistentIdentifier for ARK>::schema_uri
-FN:628,<impl PersistentIdentifier for ARK>::identifier
-FN:638,<impl PersistentIdentifier for ARK>::prefix
+FN:558,<impl Default for ARK>::default
+FN:563,<impl Default for DOI>::default
+FN:568,<impl Default for ORCID>::default
+FN:573,<impl Default for RAID>::default
+FN:579,<impl Display for ARK>::fmt
+FN:588,<impl Display for DOI>::fmt
+FN:595,<impl Display for ORCID>::fmt
+FN:614,<impl Display for RAID>::fmt
+FN:620,<impl PersistentIdentifier for ARK>::new
+FN:623,<impl PersistentIdentifier for ARK>::schema_uri
+FN:630,<impl PersistentIdentifier for ARK>::identifier
+FN:640,<impl PersistentIdentifier for ARK>::prefix
 FN:662,<impl PersistentIdentifier for ARK>::suffix
 FN:674,<impl PersistentIdentifier for ARK>::check_digit
 FN:690,<impl PersistentIdentifier for DOI>::new
@@ -2999,290 +2992,279 @@ FN:762,<impl PersistentIdentifier for RAID>::prefix
 FN:765,<impl PersistentIdentifier for RAID>::suffix
 FN:768,<impl PersistentIdentifier for RAID>::identifier
 FN:783,<impl PersistentIdentifierConvert for T>::format_as
-FN:791,<impl PersistentIdentifierConvert for T>::to_pid
-FN:812,<impl PersistentIdentifierConvert for T>::is_pid
-FN:821,<impl PersistentIdentifierConvert for T>::is_ark
-FN:824,<impl PersistentIdentifierConvert for T>::is_doi
-FN:827,<impl PersistentIdentifierConvert for T>::is_orcid
-FN:830,<impl PersistentIdentifierConvert for T>::is_raid
-FN:836,PersistentIdentifierInternal::to_ark
-FN:844,PersistentIdentifierInternal::to_doi
-FN:852,PersistentIdentifierInternal::to_orcid
-FN:860,PersistentIdentifierInternal::to_raid
-FN:869,<impl Betanumeric for char>::is_betanumeric
-FN:872,<impl Betanumeric for char>::to_betanumeric_ordinal
-FN:887,iso7064_check_digit
-FN:917,noid_check_digit
-FN:933,to_betanumeric
-FNF:68
+FN:792,<impl PersistentIdentifierConvert for T>::to_pid
+FN:802,<impl PersistentIdentifierConvert for T>::is_pid
+FN:811,<impl PersistentIdentifierConvert for T>::is_ark
+FN:814,<impl PersistentIdentifierConvert for T>::is_doi
+FN:817,<impl PersistentIdentifierConvert for T>::is_orcid
+FN:820,<impl PersistentIdentifierConvert for T>::is_raid
+FN:826,PersistentIdentifierInternal::to_ark
+FN:834,PersistentIdentifierInternal::to_doi
+FN:842,PersistentIdentifierInternal::to_orcid
+FN:850,PersistentIdentifierInternal::to_raid
+FN:859,<impl Betanumeric for char>::is_betanumeric
+FN:862,<impl Betanumeric for char>::to_betanumeric_ordinal
+FN:877,iso7064_check_digit
+FN:907,noid_check_digit
+FN:923,to_betanumeric
+FN:929,is_numeric
+FNF:62
 FNDA:0,Betanumeric::is_betanumeric
 FNDA:0,PersistentIdentifier::prefix
-FNDA:0,PersistentIdentifier::suffix
 FNDA:0,PersistentIdentifier::check_digit
-FNDA:0,PersistentIdentifier::format
-FNDA:0,PersistentIdentifier::is_valid
-FNDA:0,PersistentIdentifierConvert::is_pid
-FNDA:0,PersistentIdentifierConvert::is_ark
-FNDA:0,PersistentIdentifierConvert::is_doi
-FNDA:0,PersistentIdentifierConvert::is_orcid
-FNDA:0,PersistentIdentifierConvert::is_raid
-FNDA:2,ARK::format
-FNDA:30,ARK::from_string
+FNDA:2,PersistentIdentifier::format
+FNDA:3,ARK::format
+FNDA:32,ARK::from_string
 FNDA:19,ARK::is_valid
-FNDA:3,DOI::format
-FNDA:7,DOI::from_string
+FNDA:4,DOI::format
+FNDA:51,DOI::from_string
 FNDA:43,DOI::is_valid
 FNDA:4,ORCID::format
 FNDA:32,ORCID::from_string
 FNDA:24,ORCID::is_valid
-FNDA:1,RAID::from_string
-FNDA:0,RAID::is_valid
+FNDA:3,RAID::format
+FNDA:7,RAID::from_string
+FNDA:2,RAID::is_valid
 FNDA:0,<impl Default for ARK>::default
 FNDA:0,<impl Default for DOI>::default
 FNDA:0,<impl Default for ORCID>::default
 FNDA:0,<impl Default for RAID>::default
-FNDA:9,<impl Display for ARK>::fmt
-FNDA:7,<impl Display for DOI>::fmt
-FNDA:8,<impl Display for ORCID>::fmt
-FNDA:1,<impl Display for RAID>::fmt
+FNDA:11,<impl Display for ARK>::fmt
+FNDA:8,<impl Display for DOI>::fmt
+FNDA:9,<impl Display for ORCID>::fmt
+FNDA:5,<impl Display for RAID>::fmt
 FNDA:0,<impl PersistentIdentifier for ARK>::new
-FNDA:0,<impl PersistentIdentifier for ARK>::format
-FNDA:0,<impl PersistentIdentifier for ARK>::schema_uri
-FNDA:10,<impl PersistentIdentifier for ARK>::identifier
-FNDA:11,<impl PersistentIdentifier for ARK>::prefix
-FNDA:11,<impl PersistentIdentifier for ARK>::suffix
-FNDA:0,<impl PersistentIdentifier for ARK>::check_digit
+FNDA:1,<impl PersistentIdentifier for ARK>::schema_uri
+FNDA:12,<impl PersistentIdentifier for ARK>::identifier
+FNDA:13,<impl PersistentIdentifier for ARK>::prefix
+FNDA:13,<impl PersistentIdentifier for ARK>::suffix
+FNDA:1,<impl PersistentIdentifier for ARK>::check_digit
 FNDA:0,<impl PersistentIdentifier for DOI>::new
 FNDA:0,<impl PersistentIdentifier for DOI>::schema_uri
-FNDA:7,<impl PersistentIdentifier for DOI>::identifier
-FNDA:7,<impl PersistentIdentifier for DOI>::prefix
-FNDA:7,<impl PersistentIdentifier for DOI>::suffix
+FNDA:8,<impl PersistentIdentifier for DOI>::identifier
+FNDA:51,<impl PersistentIdentifier for DOI>::prefix
+FNDA:51,<impl PersistentIdentifier for DOI>::suffix
 FNDA:0,<impl PersistentIdentifier for ORCID>::new
-FNDA:8,<impl PersistentIdentifier for ORCID>::schema_uri
-FNDA:32,<impl PersistentIdentifier for ORCID>::identifier
+FNDA:9,<impl PersistentIdentifier for ORCID>::schema_uri
+FNDA:33,<impl PersistentIdentifier for ORCID>::identifier
 FNDA:0,<impl PersistentIdentifier for ORCID>::suffix
 FNDA:0,<impl PersistentIdentifier for ORCID>::check_digit
 FNDA:0,<impl PersistentIdentifier for RAID>::new
 FNDA:1,<impl PersistentIdentifier for RAID>::schema_uri
-FNDA:1,<impl PersistentIdentifier for RAID>::prefix
-FNDA:1,<impl PersistentIdentifier for RAID>::suffix
-FNDA:1,<impl PersistentIdentifier for RAID>::identifier
-FNDA:6,<impl PersistentIdentifierConvert for T>::format_as
-FNDA:7,<impl PersistentIdentifierConvert for T>::to_pid
-FNDA:3,<impl PersistentIdentifierConvert for T>::is_pid
+FNDA:7,<impl PersistentIdentifier for RAID>::prefix
+FNDA:7,<impl PersistentIdentifier for RAID>::suffix
+FNDA:5,<impl PersistentIdentifier for RAID>::identifier
+FNDA:8,<impl PersistentIdentifierConvert for T>::format_as
+FNDA:8,<impl PersistentIdentifierConvert for T>::to_pid
+FNDA:4,<impl PersistentIdentifierConvert for T>::is_pid
 FNDA:17,<impl PersistentIdentifierConvert for T>::is_ark
 FNDA:40,<impl PersistentIdentifierConvert for T>::is_doi
 FNDA:22,<impl PersistentIdentifierConvert for T>::is_orcid
-FNDA:0,<impl PersistentIdentifierConvert for T>::is_raid
+FNDA:1,<impl PersistentIdentifierConvert for T>::is_raid
 FNDA:5,PersistentIdentifierInternal::to_ark
 FNDA:1,PersistentIdentifierInternal::to_doi
 FNDA:1,PersistentIdentifierInternal::to_orcid
-FNDA:0,PersistentIdentifierInternal::to_raid
-FNDA:16,<impl Betanumeric for char>::is_betanumeric
-FNDA:14,<impl Betanumeric for char>::to_betanumeric_ordinal
+FNDA:1,PersistentIdentifierInternal::to_raid
+FNDA:29,<impl Betanumeric for char>::is_betanumeric
+FNDA:26,<impl Betanumeric for char>::to_betanumeric_ordinal
 FNDA:30,iso7064_check_digit
-FNDA:1,noid_check_digit
-FNDA:1,to_betanumeric
+FNDA:2,noid_check_digit
+FNDA:2,to_betanumeric
+FNDA:45,is_numeric
 DA:25,0
 DA:26,0
 DA:51,0
 DA:52,0
-DA:57,0
-DA:58,0
-DA:61,0
-DA:62,0
-DA:65,0
-DA:66,0
-DA:69,0
-DA:70,0
-DA:96,0
-DA:97,0
-DA:105,0
-DA:106,0
-DA:114,0
-DA:115,0
-DA:123,0
-DA:124,0
-DA:131,0
-DA:132,0
-DA:317,2
-DA:321,4
-DA:331,30
-DA:335,180
-DA:336,150
-DA:337,90
-DA:338,72
-DA:339,12
-DA:341,90
-DA:342,24
-DA:343,24
-DA:345,30
-DA:346,150
-DA:347,150
-DA:348,150
-DA:349,150
-DA:350,60
-DA:351,60
-DA:369,19
-DA:373,57
-DA:375,38
-DA:376,24
-DA:377,12
-DA:378,0
-DA:380,7
-DA:382,38
-DA:383,24
-DA:384,60
-DA:385,0
-DA:387,7
-DA:389,31
-DA:401,3
-DA:405,6
-DA:416,7
-DA:420,21
-DA:421,35
-DA:422,7
-DA:423,35
-DA:424,35
-DA:425,35
-DA:426,35
-DA:443,43
-DA:447,129
-DA:448,156
-DA:449,6
-DA:462,4
-DA:466,8
-DA:476,32
-DA:480,64
-DA:481,160
-DA:482,32
-DA:483,160
-DA:484,160
-DA:485,160
-DA:504,24
-DA:508,96
-DA:509,72
-DA:510,96
-DA:511,48
-DA:512,24
-DA:513,136
-DA:514,5
-DA:516,0
-DA:524,1
-DA:528,3
-DA:529,5
-DA:530,5
-DA:531,5
-DA:532,4
-DA:537,1
-DA:538,2
-DA:539,5
-DA:540,5
-DA:544,0
-DA:549,0
-DA:553,0
-DA:554,0
+DA:59,0
+DA:60,0
+DA:63,2
+DA:64,4
+DA:301,3
+DA:305,6
+DA:315,32
+DA:319,192
+DA:320,160
+DA:321,96
+DA:322,76
+DA:323,13
+DA:325,96
+DA:326,24
+DA:327,26
+DA:329,32
+DA:330,160
+DA:331,160
+DA:332,160
+DA:333,160
+DA:334,64
+DA:335,64
+DA:353,19
+DA:357,57
+DA:359,38
+DA:360,24
+DA:361,12
+DA:362,0
+DA:364,7
+DA:366,38
+DA:367,24
+DA:368,60
+DA:369,0
+DA:371,7
+DA:373,31
+DA:385,4
+DA:389,8
+DA:400,51
+DA:404,153
+DA:405,255
+DA:406,51
+DA:407,255
+DA:408,255
+DA:409,255
+DA:410,255
+DA:427,43
+DA:431,172
+DA:432,86
+DA:433,129
+DA:434,0
+DA:436,129
+DA:437,85
+DA:449,4
+DA:453,8
+DA:463,32
+DA:467,64
+DA:468,160
+DA:469,32
+DA:470,160
+DA:471,160
+DA:472,160
+DA:491,24
+DA:495,96
+DA:496,72
+DA:497,96
+DA:498,48
+DA:499,24
+DA:500,136
+DA:501,5
+DA:503,0
+DA:515,3
+DA:519,6
+DA:524,7
+DA:528,21
+DA:529,35
+DA:530,35
+DA:531,35
+DA:532,28
+DA:537,7
+DA:538,14
+DA:539,35
+DA:540,35
+DA:544,2
+DA:548,8
+DA:549,4
+DA:550,6
+DA:551,0
+DA:553,6
+DA:554,4
 DA:558,0
 DA:559,0
 DA:563,0
 DA:564,0
 DA:568,0
 DA:569,0
-DA:574,9
-DA:575,36
-DA:576,27
-DA:577,99
-DA:578,27
-DA:583,7
-DA:584,21
-DA:585,21
-DA:590,8
-DA:591,24
-DA:592,24
-DA:593,32
-DA:594,16
-DA:595,14
-DA:596,1
-DA:598,16
-DA:600,36
-DA:601,8
-DA:604,24
-DA:609,1
-DA:610,3
-DA:611,3
-DA:615,0
-DA:616,0
-DA:618,0
-DA:619,0
+DA:573,0
+DA:574,0
+DA:579,11
+DA:580,44
+DA:581,33
+DA:582,121
+DA:583,33
+DA:588,8
+DA:589,24
+DA:590,24
+DA:595,9
+DA:596,27
+DA:597,27
+DA:598,36
+DA:599,18
+DA:600,16
+DA:601,1
+DA:603,18
+DA:605,41
+DA:606,9
+DA:609,27
+DA:614,5
+DA:615,15
+DA:616,15
+DA:620,0
 DA:621,0
-DA:622,0
-DA:623,0
-DA:624,0
+DA:623,1
+DA:624,2
+DA:625,2
 DA:626,0
-DA:628,10
-DA:629,40
-DA:630,10
-DA:633,48
-DA:634,10
-DA:638,11
-DA:640,11
-DA:641,11
-DA:642,11
-DA:644,11
-DA:645,33
-DA:647,53
-DA:649,20
-DA:651,10
-DA:652,30
-DA:653,30
-DA:655,10
-DA:657,1
-DA:662,11
-DA:663,33
-DA:664,33
-DA:665,22
-DA:666,22
-DA:668,55
-DA:669,11
-DA:672,11
-DA:674,0
-DA:676,0
-DA:677,0
-DA:679,0
-DA:680,0
-DA:681,0
-DA:682,0
-DA:683,0
+DA:628,2
+DA:630,12
+DA:631,48
+DA:632,12
+DA:635,58
+DA:636,12
+DA:640,13
+DA:642,13
+DA:643,13
+DA:644,13
+DA:646,13
+DA:647,39
+DA:649,63
+DA:651,24
+DA:653,12
+DA:654,36
+DA:655,36
+DA:657,12
+DA:659,1
+DA:662,13
+DA:663,39
+DA:664,39
+DA:665,26
+DA:666,26
+DA:668,65
+DA:669,13
+DA:672,13
+DA:674,1
+DA:676,1
+DA:677,1
+DA:679,1
+DA:680,4
+DA:681,6
+DA:682,6
+DA:683,3
 DA:685,0
 DA:690,0
 DA:691,0
 DA:693,0
 DA:694,0
-DA:696,7
-DA:697,28
-DA:698,7
-DA:701,31
-DA:702,7
-DA:707,7
-DA:708,14
-DA:709,35
-DA:710,21
-DA:712,14
-DA:714,35
-DA:715,7
-DA:718,7
-DA:721,7
-DA:722,35
-DA:723,7
-DA:724,5
-DA:726,2
+DA:696,8
+DA:697,32
+DA:698,8
+DA:701,36
+DA:702,8
+DA:707,51
+DA:708,102
+DA:709,255
+DA:710,153
+DA:712,102
+DA:714,255
+DA:715,51
+DA:718,51
+DA:721,51
+DA:722,255
+DA:723,51
+DA:724,44
+DA:726,7
 DA:731,0
 DA:732,0
-DA:737,8
-DA:738,32
-DA:744,32
-DA:745,160
-DA:746,64
+DA:737,9
+DA:738,36
+DA:744,33
+DA:745,165
+DA:746,66
 DA:748,0
 DA:749,0
 DA:751,0
@@ -3291,92 +3273,92 @@ DA:756,0
 DA:757,0
 DA:759,1
 DA:760,4
-DA:762,1
-DA:763,2
-DA:765,1
-DA:766,2
-DA:768,1
-DA:769,4
-DA:770,1
-DA:773,5
-DA:774,1
-DA:783,6
-DA:784,6
+DA:762,7
+DA:763,14
+DA:765,7
+DA:766,14
+DA:768,5
+DA:769,20
+DA:770,5
+DA:773,25
+DA:774,5
+DA:783,8
+DA:784,8
 DA:785,2
-DA:786,0
+DA:786,3
 DA:787,12
-DA:788,0
-DA:791,7
-DA:792,7
-DA:794,5
-DA:798,2
-DA:802,2
-DA:806,0
-DA:809,0
-DA:812,3
-DA:813,3
-DA:814,1
-DA:815,2
-DA:816,2
-DA:817,0
-DA:818,0
-DA:821,17
-DA:822,51
-DA:824,40
-DA:825,120
-DA:827,22
-DA:828,66
+DA:788,3
+DA:789,0
+DA:792,8
+DA:793,24
+DA:794,8
+DA:799,0
+DA:802,4
+DA:803,4
+DA:804,1
+DA:805,2
+DA:806,2
+DA:807,2
+DA:808,0
+DA:811,17
+DA:812,51
+DA:814,40
+DA:815,120
+DA:817,22
+DA:818,66
+DA:820,1
+DA:821,3
+DA:826,5
+DA:827,15
+DA:828,5
+DA:829,5
 DA:830,0
-DA:831,0
-DA:836,5
-DA:837,15
-DA:838,5
-DA:839,5
-DA:840,0
+DA:834,1
+DA:835,3
+DA:836,1
+DA:837,1
+DA:838,0
+DA:842,1
+DA:843,3
 DA:844,1
-DA:845,3
-DA:846,1
-DA:847,1
-DA:848,0
+DA:845,1
+DA:846,0
+DA:850,1
+DA:851,3
 DA:852,1
-DA:853,3
-DA:854,1
-DA:855,1
-DA:856,0
-DA:860,0
-DA:861,0
-DA:862,0
-DA:863,0
-DA:864,0
-DA:869,16
-DA:870,48
-DA:872,14
-DA:873,451
-DA:887,30
-DA:893,120
-DA:894,510
-DA:895,1560
-DA:896,390
-DA:898,60
-DA:899,60
-DA:900,30
-DA:901,3
-DA:903,27
-DA:917,1
-DA:922,18
-DA:923,26
-DA:924,26
-DA:925,36
-DA:926,1
-DA:928,26
-DA:930,2
-DA:931,2
-DA:933,1
-DA:934,47
-DA:935,2
-DA:936,0
-LF:292
-LH:210
+DA:853,1
+DA:854,0
+DA:859,29
+DA:860,87
+DA:862,26
+DA:863,808
+DA:877,30
+DA:883,120
+DA:884,510
+DA:885,1560
+DA:886,390
+DA:888,60
+DA:889,60
+DA:890,30
+DA:891,3
+DA:893,27
+DA:907,2
+DA:912,36
+DA:913,52
+DA:914,52
+DA:915,72
+DA:916,2
+DA:918,52
+DA:920,4
+DA:921,4
+DA:923,2
+DA:924,94
+DA:925,4
+DA:926,0
+DA:929,45
+DA:930,620
+LF:286
+LH:243
 end_of_record
 TN:
 SF:/root/dev/re/acorn/acorn-lib/src/schema/pid/raid.rs
@@ -3666,18 +3648,18 @@ FNDA:0,Label::skip
 FNDA:0,Label::fmt_skip
 FNDA:8,Label::using
 FNDA:8,Label::fmt_using
-FNDA:20,MimeType::file_type
-FNDA:23,MimeType::from_path
-FNDA:26,MimeType::from_string
+FNDA:15,MimeType::file_type
+FNDA:18,MimeType::from_path
+FNDA:21,MimeType::from_string
 FNDA:24,SemanticVersion::from_command
 FNDA:21,SemanticVersion::from_string
 FNDA:0,<impl Default for SemanticVersion>::default
 FNDA:1,<impl ToAbsoluteString for PathBuf>::to_absolute_string
-FNDA:35,<impl ToStringChunks for T>::chunk
+FNDA:36,<impl ToStringChunks for T>::chunk
 FNDA:4,<impl ToStrings for Vec<P>>::to_strings
 FNDA:0,<impl ToStrings for Vec<P>>::to_absolute_strings
 FNDA:30,command_exists
-FNDA:38,file_extension
+FNDA:33,file_extension
 FNDA:6,files_all
 FNDA:5,files_all::paths_to_vec
 FNDA:4,files_all::pattern
@@ -3690,7 +3672,7 @@ FNDA:7,parent
 FNDA:38,to_absolute_string
 FNDA:0,print_changes
 FNDA:24,print_values_as_table
-FNDA:71,regex_capture_lookup
+FNDA:123,regex_capture_lookup
 FNDA:5,snake_case
 FNDA:3,suffix
 FNDA:0,text_diff_changes
@@ -3775,8 +3757,8 @@ DA:378,16
 DA:381,8
 DA:382,24
 DA:383,24
-DA:395,20
-DA:396,20
+DA:395,15
+DA:396,15
 DA:397,0
 DA:398,6
 DA:399,0
@@ -3785,26 +3767,26 @@ DA:401,0
 DA:402,0
 DA:403,0
 DA:404,0
-DA:405,9
+DA:405,4
 DA:406,0
 DA:407,0
 DA:408,0
 DA:409,1
 DA:410,3
-DA:425,23
-DA:429,69
-DA:451,26
-DA:455,52
-DA:456,26
-DA:457,48
-DA:458,30
-DA:459,36
-DA:460,22
-DA:461,28
-DA:462,28
-DA:463,15
-DA:464,13
-DA:465,22
+DA:425,18
+DA:429,54
+DA:451,21
+DA:455,42
+DA:456,21
+DA:457,38
+DA:458,25
+DA:459,26
+DA:460,17
+DA:461,18
+DA:462,18
+DA:463,10
+DA:464,8
+DA:465,12
 DA:466,4
 DA:467,4
 DA:468,5
@@ -3835,10 +3817,10 @@ DA:541,0
 DA:542,0
 DA:546,1
 DA:547,3
-DA:554,35
-DA:555,35
-DA:557,70
-DA:558,511
+DA:554,36
+DA:555,36
+DA:557,72
+DA:558,528
 DA:563,4
 DA:564,4
 DA:565,31
@@ -3859,15 +3841,15 @@ DA:596,0
 DA:600,0
 DA:601,8
 DA:602,8
-DA:617,38
-DA:621,114
-DA:622,312
-DA:623,38
-DA:624,36
-DA:625,34
-DA:626,32
-DA:627,31
-DA:628,29
+DA:617,33
+DA:621,99
+DA:622,272
+DA:623,33
+DA:624,31
+DA:625,29
+DA:626,27
+DA:627,26
+DA:628,24
 DA:630,7
 DA:633,2
 DA:647,6
@@ -3900,7 +3882,7 @@ DA:689,6
 DA:690,6
 DA:691,12
 DA:694,6
-DA:695,96
+DA:695,71
 DA:697,0
 DA:711,3
 DA:712,3
@@ -3969,19 +3951,19 @@ DA:875,48
 DA:876,181
 DA:877,327
 DA:879,96
-DA:894,71
-DA:898,284
-DA:899,213
-DA:900,269
+DA:894,123
+DA:898,492
+DA:899,369
+DA:900,472
 DA:901,0
-DA:902,56
-DA:903,262
-DA:904,474
+DA:902,103
+DA:903,456
+DA:904,824
 DA:905,0
 DA:906,0
 DA:907,0
 DA:911,0
-DA:914,71
+DA:914,123
 DA:924,5
 DA:928,15
 DA:938,3
