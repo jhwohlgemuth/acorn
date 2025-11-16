@@ -124,6 +124,7 @@ fn main() -> Void {
             merge_request,
             skip_verify_checksum,
             readability_metric,
+            verbose,
             ..
         }) => commands::check::run(
             path,
@@ -137,6 +138,7 @@ fn main() -> Void {
             skip_verify_checksum,
             &offline,
             readability_metric,
+            verbose,
         ),
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline),
         | Some(Commands::Download { buckets, output, .. }) => commands::download::run(buckets, output, &offline),

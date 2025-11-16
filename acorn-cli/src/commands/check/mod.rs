@@ -5,6 +5,7 @@ use acorn_lib::analyzer::{summary, Check};
 use acorn_lib::prelude::PathBuf;
 use acorn_lib::schema::ResearchActivity;
 use acorn_lib::util::{print_values_as_table, Label};
+use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 use dotenvy::dotenv;
 use std::process::exit;
@@ -32,7 +33,9 @@ pub fn run(
     skip_verify_checksum: &bool,
     offline: &bool,
     readability_metric: &ReadabilityTypeArgument,
+    verbose: &Verbosity,
 ) -> Result<(), Report> {
+    let level = verbose.log_level();
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
@@ -56,8 +59,10 @@ pub fn run(
             .collect::<Vec<_>>();
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
-            error!("=> {} Found {} schema validation errors", Label::fail(), issues);
-            results.iter().for_each(|issue| issue.clone().print());
+            if level.is_some() {
+                error!("=> {} Found {} schema validation errors", Label::fail(), issues);
+                results.iter().for_each(|issue| issue.clone().print());
+            }
             exit(exitcode::DATAERR);
         }
         results
@@ -69,8 +74,10 @@ pub fn run(
         let results = ResearchActivity::analyze_prose(paths.clone(), *offline, *skip_verify_checksum);
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
-            error!("=> {} Found {} prose issues", Label::fail(), issues);
-            results.iter().for_each(|issue| issue.clone().print());
+            if level.is_some() {
+                error!("=> {} Found {} prose issues", Label::fail(), issues);
+                results.iter().for_each(|issue| issue.clone().print());
+            }
             exit(exitcode::DATAERR);
         }
         results
@@ -93,8 +100,10 @@ pub fn run(
         let results = ResearchActivity::calculate_readability(paths, metric);
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
-            error!("=> {} Found {} readability issues", Label::fail(), issues);
-            results.iter().for_each(|issue| issue.clone().print());
+            if level.is_some() {
+                error!("=> {} Found {} readability issues", Label::fail(), issues);
+                results.iter().for_each(|issue| issue.clone().print());
+            }
             exit(exitcode::DATAERR);
         }
         results
@@ -111,14 +120,20 @@ pub fn run(
         .chain(prose_issues.clone())
         .chain(readability_issues.clone())
         .chain(conventions_issues.clone())
-        .inspect(|issue| issue.clone().print())
+        .inspect(|issue| {
+            if level.is_some() {
+                issue.clone().print();
+            }
+        })
         .filter(|Check { success, .. }| !success)
         .collect::<Vec<Check>>();
     if count(all_issues.clone()) > 0 {
-        let headers = vec!["Issue Type", "Issue Count"];
-        let rows = summary(all_issues);
-        println!("\n");
-        print_values_as_table(&Label::fmt_fail("Issues Overview"), headers, rows);
+        if level.is_some() {
+            let headers = vec!["Issue Type", "Issue Count"];
+            let rows = summary(all_issues);
+            println!("\n");
+            print_values_as_table(&Label::fmt_fail("Issues Overview"), headers, rows);
+        }
         exit(exitcode::DATAERR);
     }
     Ok(())

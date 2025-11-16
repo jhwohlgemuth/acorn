@@ -47,6 +47,12 @@ pub fn run(
             if dry_run {
                 println!("{} Format {}", Label::dry_run(), to_absolute_string(path.clone()).yellow());
             }
+            match verbose.log_level() {
+                | Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace) | _ if dry_run => {
+                    print_changes(&old_content, &new_content);
+                }
+                | _ => (),
+            }
             if dry_run || verbose.log_level().unwrap() > Level::Error {
                 print_changes(&old_content, &new_content);
             }
