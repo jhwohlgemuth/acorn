@@ -69,7 +69,7 @@ test-python:
         - ${BINARY_NAME}-py/**/*
     - when: manual
   script:
-    - apt-get update && apt-get install -y curl
+    - apt-get update && apt-get install -y build-essential curl
     - curl -LsSf https://astral.sh/uv/install.sh | sh
     - source $HOME/.local/bin/env && cd ${BINARY_NAME}-py && pixi run test --environment test
 
