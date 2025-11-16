@@ -54,12 +54,11 @@ test:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - ${BINARY_NAME}-cli/**/*
         - ${BINARY_NAME}-lib/**/*
         - Cargo.toml
+    - when: manual
   script:
     - make test-ci
 
@@ -73,10 +72,9 @@ test-python:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - ${BINARY_NAME}-py/**/*
+    - when: manual
   script:
     - cd ${BINARY_NAME}-py && pixi run test
 
@@ -158,8 +156,8 @@ publish-crates:
   rules:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
   script:
-    - cargo publish --token ${CARGO_REGISTRY_TOKEN} --package ${BINARY_NAME}-lib
-    - cargo publish --token ${CARGO_REGISTRY_TOKEN} --package ${BINARY_NAME}-cli
+    - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-lib"
+    - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-cli"
 
 publish-book:
   stage: docs
