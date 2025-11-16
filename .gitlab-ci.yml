@@ -84,7 +84,11 @@ build-release:
   script:
     - make build
   rules:
-    - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - Cargo.toml
   artifacts:
     paths:
       - bin/
@@ -102,7 +106,11 @@ publish-release-linux:
   script:
     - echo "Publishing ${BINARY_NAME} v${PKG_VERSION}"
   rules:
-    - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - Cargo.toml
   release:
     tag_name: "v${PKG_VERSION}"
     description: "## ${BINARY_NAME} v${PKG_VERSION}\n> See [CHANGELOG](${CHANGELOG}) for details"
