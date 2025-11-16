@@ -17,6 +17,9 @@ audit:
 		--ignore RUSTSEC-2024-0388 \
 		--ignore RUSTSEC-2024-0436
 
+book:
+	@echo "Under construction"
+
 build: clean
 	@mkdir -p ./bin
 	@cargo build --release --package acorn-cli --target $(DEFAULT_TARGET)
@@ -24,16 +27,6 @@ build: clean
 
 clean:
 	@cargo clean
-
-lint:
-	@cargo fmt --verbose
-	@cargo clippy --workspace --no-deps --all-targets --fix --allow-dirty
-
-test:
-	@cargo nextest run --run-ignored all
-
-test-ci: clean lint
-	@cargo test --lib --bins --tests
 
 changelog:
 	@git pull origin main --tags
@@ -53,15 +46,22 @@ doc:
 doctest:
 	@cargo test --doc
 
-publish-docs: doc
+lint:
+	@cargo fmt --verbose
+	@cargo clippy --workspace --no-deps --all-targets --fix --allow-dirty
+
+publish-book: book
 	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site
 	@rm -rf ./site/html
 	@mv target/doc/ ./site/html
 	@echo '<meta http-equiv="refresh" content="0; url=acorn_lib/index.html">' > ./site/html/index.html
 	@cd ./site && git add html && git commit -m "Publish documentation" && git push
 
-release: clean
-	@echo "Under Construction"
+test:
+	@cargo nextest run --run-ignored all
+
+test-ci: clean lint
+	@cargo test --lib --bins --tests
 
 version: 
 	@echo $(VERSION)
@@ -143,7 +143,8 @@ DEV_DEPENDENCIES = \
 	cargo-deny \
 	cargo-nextest \
 	cargo-tarpaulin \
-	cargo-udeps
+	cargo-udeps \
+	mdbook
 TARGETS = \
 	i586-unknown-linux-musl \
 	i686-unknown-linux-gnu \
@@ -155,20 +156,18 @@ TARGETS = \
 	x86_64-unknown-linux-musl
 TASKS = \
 	audit \
+	book \
 	build \
-	clean \
-	lint \
-	test \
-	test-ci \
 	changelog \
 	changelog-release \
+	clean \
 	coverage \
 	doc \
-	publish-docs \
-	develop \
-	pypi \
-	release \
+	lint \
+	publish-book \
 	setup \
+	test \
+	test-ci \
 	version \
 	acorn-clean \
 	acorn-image \
