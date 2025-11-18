@@ -7,7 +7,6 @@ LABEL author="Jason Wohlgemuth"
 # %arguments
 #
 ARG DEBIAN_FRONTEND=noninteractive
-ARG NODE_VERSION=22
 #
 # %post
 #

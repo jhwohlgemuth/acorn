@@ -109,7 +109,12 @@ bucket-clean:
 	@docker rmi -f ghcr.io/jhwohlgemuth/bucket:latest
 
 bucket-image:
-	@docker build --no-cache --platform $(PLATFORM) -t bucket:$(VERSION) -f Dockerfile.bucket .
+	@docker build --no-cache \
+		--platform $(PLATFORM) \
+		--build-arg ACORN_VERSION=$(VERSION) \
+		--build-arg DEFAULT_TARGET=$(DEFAULT_TARGET) \
+		-t bucket:$(VERSION) \
+		-f Dockerfile.bucket .
 	@docker tag bucket:$(VERSION) bucket:latest
 	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:$(VERSION)
 	@docker tag bucket:$(VERSION) $(REGISTRY)/bucket/runner:latest
