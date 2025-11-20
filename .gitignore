@@ -3,6 +3,7 @@
 /.vale
 /bin
 /content
+/docs/book
 /export
 /extract
 target/

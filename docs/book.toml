@@ -1,0 +1,30 @@
+[book]
+authors = ["Jason Wohlgemuth", "Audrey Carson"]
+language = "en"
+src = "src"
+title = "ACORN"
+text-direction = "ltr"
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+
+[output.html.fold]
+enable = true
+level = 1
+
+[output.html.playground]
+editable = false
+copyable = true
+line-numbers = false
+runnable = true
+
+# [preprocessor.footnote]
+[preprocessor.mermaid]
+[preprocessor.pikchr]
+

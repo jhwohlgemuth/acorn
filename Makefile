@@ -18,7 +18,7 @@ audit:
 		--ignore RUSTSEC-2024-0436
 
 book:
-	@echo "Under construction"
+	@mdbook serve --open docs
 
 build: clean
 	@mkdir -p ./bin
@@ -161,7 +161,10 @@ DEV_DEPENDENCIES = \
 	cargo-nextest \
 	cargo-tarpaulin \
 	cargo-udeps \
-	mdbook
+	mdbook \
+	mdbook-footnote \
+	mdbook-mermaid \
+	mdbook-pikchr
 TARGETS = \
 	i586-unknown-linux-musl \
 	i686-unknown-linux-gnu \
