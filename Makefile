@@ -3,7 +3,7 @@
 -include .env
 
 setup:
-	@cargo install $(DEV_DEPENDENCIES)
+	@cargo install $(DEV_DEPENDENCIES) --locked
 
 audit:
 	@cargo udeps

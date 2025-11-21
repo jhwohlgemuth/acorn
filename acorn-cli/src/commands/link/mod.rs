@@ -46,8 +46,8 @@ pub fn run(
                 print_changes(&old_content, &new_content);
             }
             if !dry_run {
-                let filepath = to_absolute_string(path.clone());
-                let mut file = match File::create(path) {
+                let filepath = to_absolute_string(path.clone().with_extension("jsonld"));
+                let mut file = match File::create(&filepath) {
                     | Ok(file) => file,
                     | Err(why) => {
                         error!(file = filepath, "=> {} Create - {}", Label::fail(), why);

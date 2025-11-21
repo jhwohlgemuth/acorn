@@ -40,7 +40,7 @@ fn test_chunk_string() {
 fn test_extract_zip() {
     let path = PathBuf::from(FIXTURES).join("data/highlight/reference.pptx");
     let result = extract_zip(path, None);
-    println!("{:?}", result);
+    println!("{result:?}");
     assert!(result.is_ok());
 }
 #[test]
