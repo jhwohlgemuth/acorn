@@ -7,7 +7,7 @@ use crate::prelude::{set_permissions, Permissions, PermissionsExt};
 use crate::util::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
-use crate::util::{command_exists, filter_git_command_result, generate_guid, suffix, Label, MimeType, ToAbsoluteString};
+use crate::util::{filter_git_command_result, generate_guid, suffix, Label, MimeType, SemanticVersion, ToAbsoluteString};
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
 use duct::cmd;
@@ -16,11 +16,56 @@ use reqwest::header::USER_AGENT;
 use ring::digest::{Context, SHA256};
 use serde::Deserialize;
 use tokio::runtime::{Builder, Runtime};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
+use which::which;
 use zip::ZipArchive;
 
 pub mod citeas;
 pub mod raid;
+
+/// Add `from_command` trait to `SemanticVersion`
+pub trait FromCommand {
+    /// Convert a command name to a `SemanticVersion` value
+    fn from_command<S>(name: S) -> Option<Self>
+    where
+        Self: Sized,
+        S: Into<String> + duct::IntoExecutablePath + core::marker::Copy;
+}
+impl FromCommand for SemanticVersion {
+    /// Returns a `SemanticVersion` value based on the output of the `--version` command-line flag
+    /// of the given executable name. Tested with [cargo](https://rustup.rs/), [git](https://git-scm.com/book/en/v2/Getting-Started-The-Command-Line), and [pandoc](https://pandoc.org/).
+    ///
+    /// <div class="warning">this function only supports commands that provide a `--version` flag</div>
+    ///
+    /// ### Example
+    /// ```ignore
+    /// use acorn_lib::schema::validate::SemanticVersion;
+    ///
+    /// let version = SemanticVersion::from_command("cargo").to_string();
+    /// assert_eq!(version, "1.90.0");
+    /// ```
+    #[cfg(feature = "std")]
+    fn from_command<S>(name: S) -> Option<SemanticVersion>
+    where
+        S: Into<String> + duct::IntoExecutablePath + core::marker::Copy,
+    {
+        if command_exists(name.into()) {
+            let result = cmd(name, vec!["--version"]).read();
+            match result {
+                | Ok(value) => {
+                    let first_line = value.lines().collect::<Vec<_>>().first().cloned();
+                    match first_line {
+                        | Some(line) => Some(SemanticVersion::from_string(line)),
+                        | None => None,
+                    }
+                }
+                | Err(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+}
 
 /// Struct for parsing GitLab API merge request diff responses
 ///
@@ -80,6 +125,40 @@ pub struct GitlabMergeRequestDiffResponse {
 pub fn async_runtime() -> Runtime {
     debug!("=> {} Async runtime", Label::using());
     Builder::new_current_thread().enable_all().build().unwrap()
+}
+/// Checks if a given command exists in current terminal context.
+///
+/// # Arguments
+///
+/// * `name` - A string slice or `String` containing the name of the command to be checked.
+///
+/// # Return
+///
+/// A boolean indicating whether the command exists or not.
+pub fn command_exists<S>(name: S) -> bool
+where
+    S: Into<String>,
+{
+    let command = name.into();
+    match which(&command) {
+        | Ok(value) => {
+            let path = value.clone().to_absolute_string();
+            match value.try_exists() {
+                | Ok(true) => {
+                    debug!(path, "=> {} Command", Label::found());
+                    true
+                }
+                | _ => {
+                    debug!(path, "=> {} Command", Label::not_found());
+                    false
+                }
+            }
+        }
+        | Err(_) => {
+            warn!("=> {} Command {}", Label::not_found(), command);
+            false
+        }
+    }
 }
 /// Downloads a binary file from the given URL to the destination path.
 ///

@@ -7,10 +7,13 @@
 //! * display information about the system,
 //! * and semi-automatically repair issues with the system.
 //!
+#[cfg(feature = "std")]
+use crate::io::FromCommand;
 use crate::schema::validate::is_ip6;
 use crate::util::{print_values_as_table, to_string, Label, SemanticVersion};
 use human_units::FormatSize;
 use sysinfo::{Networks, System};
+#[cfg(feature = "std")]
 use which::which;
 
 /// Trait for printing tables

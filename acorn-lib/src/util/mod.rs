@@ -38,8 +38,6 @@ use comfy_table::{ContentArrangement, Table};
 use console::Emoji;
 use convert_case::{Case, Casing};
 use derive_more::Display;
-#[cfg(feature = "std")]
-use duct::cmd;
 use fancy_regex::Regex;
 use glob::glob;
 use itertools::Itertools;
@@ -53,7 +51,6 @@ use similar::{
     TextDiff,
 };
 use tracing::{debug, error, warn};
-use which::which;
 
 pub mod constants;
 
@@ -474,39 +471,6 @@ impl MimeType {
     }
 }
 impl SemanticVersion {
-    /// Returns a `SemanticVersion` value based on the output of the `--version` command-line flag
-    /// of the given executable name. Tested with [cargo](https://rustup.rs/), [git](https://git-scm.com/book/en/v2/Getting-Started-The-Command-Line), and [pandoc](https://pandoc.org/).
-    ///
-    /// <div class="warning">this function only supports commands that provide a `--version` flag</div>
-    ///
-    /// ### Example
-    /// ```ignore
-    /// use acorn_lib::schema::validate::SemanticVersion;
-    ///
-    /// let version = SemanticVersion::from_command("cargo").to_string();
-    /// assert_eq!(version, "1.90.0");
-    /// ```
-    #[cfg(feature = "std")]
-    pub fn from_command<S>(name: S) -> Option<SemanticVersion>
-    where
-        S: Into<String> + duct::IntoExecutablePath + core::marker::Copy,
-    {
-        if command_exists(name.into()) {
-            let result = cmd(name, vec!["--version"]).read();
-            match result {
-                | Ok(value) => {
-                    let first_line = value.lines().collect::<Vec<_>>().first().cloned();
-                    match first_line {
-                        | Some(line) => Some(SemanticVersion::from_string(line)),
-                        | None => None,
-                    }
-                }
-                | Err(_) => None,
-            }
-        } else {
-            None
-        }
-    }
     /// Parses a string into a `SemanticVersion` value
     ///
     /// ### Example
@@ -567,40 +531,6 @@ impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
     }
     fn to_absolute_strings(&self) -> Vec<String> {
         self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_string()).collect()
-    }
-}
-/// Checks if a given command exists in current terminal context.
-///
-/// # Arguments
-///
-/// * `name` - A string slice or `String` containing the name of the command to be checked.
-///
-/// # Return
-///
-/// A boolean indicating whether the command exists or not.
-pub fn command_exists<S>(name: S) -> bool
-where
-    S: Into<String>,
-{
-    let command = name.into();
-    match which(&command) {
-        | Ok(value) => {
-            let path = to_absolute_string(value.clone());
-            match value.try_exists() {
-                | Ok(true) => {
-                    debug!(path, "=> {} Command", Label::found());
-                    true
-                }
-                | _ => {
-                    debug!(path, "=> {} Command", Label::not_found());
-                    false
-                }
-            }
-        }
-        | Err(_) => {
-            warn!("=> {} Command {}", Label::not_found(), command);
-            false
-        }
     }
 }
 /// Returns the file extension of the given file name as a string.
