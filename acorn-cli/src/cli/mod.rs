@@ -254,16 +254,16 @@ pub enum Commands {
     /// Download research activity data from buckets
     ///
     ///     Download research activity data from a list of buckets
-    ///     $> acorn download --buckets /path/to/buckets.json
+    ///     $> acorn download --config /path/to/.acorn.json
     ///
     ///     Download research activity data to a specific output directory
-    ///     $> acorn download --buckets /path/to/buckets.json --output /path/to/output
+    ///     $> acorn download --config /path/to/.acorn.yml --output /path/to/output
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Download {
         /// Path to buckets configuration file
-        #[arg(default_value = "./buckets.json", short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
-        buckets: Option<PathBuf>,
+        #[arg(default_value = "./.acorn.json", short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+        config: Option<PathBuf>,
         /// Path to output directory where the downloaded content should be saved
         #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
         output: Option<PathBuf>,

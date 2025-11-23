@@ -1,4 +1,9 @@
 //! Application configuration functions and data structures
+//!
+//! ACORN is configured by a JSON or YAML file (typically named `.acorn.json`)
+//!
+//! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
+//!
 use acorn_lib::io::read_file;
 use acorn_lib::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
 use acorn_lib::util::{files_all, parent, suffix, Label, MimeType, ToAbsoluteString};
