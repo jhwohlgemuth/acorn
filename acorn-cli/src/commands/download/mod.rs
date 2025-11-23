@@ -1,4 +1,4 @@
-use acorn_lib::bucket::BucketsConfig;
+use crate::config::ApplicationConfiguration;
 use acorn_lib::prelude::PathBuf;
 use acorn_lib::util::{suffix, Label};
 use color_eyre::eyre::{Report, Result};
@@ -11,7 +11,7 @@ pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) 
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
     if let Some(path) = buckets {
-        match BucketsConfig::read(path.clone()) {
+        match ApplicationConfiguration::read(path.clone()) {
             | Some(content) => {
                 let mut total: usize = 0;
                 content.buckets.into_iter().for_each(|bucket| {

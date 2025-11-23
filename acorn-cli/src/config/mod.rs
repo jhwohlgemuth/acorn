@@ -1,13 +1,8 @@
-//! # 🌱 ACORN Library
-//! > "Plant an ACORN and grow your research"
-//!
-//! `acorn-lib` is a one-stop-shop for everything related to building and maintaining research activity data (RAD)-related technology, including the Accessible Content Optimization for Research Needs (ACORN) tool.
-//! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
-//!
-use crate::analyzer::{link_check, Check};
-use crate::io::{network_get_request, read_file};
-use crate::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
-use crate::util::{files_all, parent, suffix, Label, MimeType, ToAbsoluteString};
+//! Application configuration functions and data structures
+use acorn_lib::io::read_file;
+use acorn_lib::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
+use acorn_lib::util::{files_all, parent, suffix, Label, MimeType, ToAbsoluteString};
+use acorn_lib::Repository;
 use color_eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
@@ -20,116 +15,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace, warn};
-use uriparse::URI;
-use urlencoding::encode;
 
 const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
 
-/// Type for GitLab tree entry
-#[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
-#[serde(rename_all = "lowercase")]
-pub enum EntryType {
-    /// List of files and directories
-    ///
-    /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
-    #[display("tree")]
-    Tree,
-    /// Base64 enoded content
-    ///
-    /// See <https://docs.gitlab.com/api/repositories/#get-a-blob-from-repository>
-    #[display("blob")]
-    Blob,
-}
-/// Abstraction for file and folder locations that can be local (e.g., file:///path/to/project) or remote (e.g., <https://gitlab.com/project>)
-#[derive(Clone, Debug, Display, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Location {
-    /// Just the URI string (assumes remote location)
-    Simple(String),
-    /// Local file path
-    #[display("{uri}")]
-    Detailed {
-        /// URI Scheme
-        ///
-        /// See [RFC 8089] for more information
-        ///
-        /// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
-        scheme: Scheme,
-        /// Full URI value
-        uri: String,
-    },
-}
-/// Git hosting repository data
-#[derive(Clone, Debug, Display, Serialize, Deserialize)]
-#[serde(tag = "provider", rename_all = "lowercase")]
-pub enum Repository {
-    /// Generic Git repository
-    /// ### Note
-    /// > This repository type should be used for local and offline repositories. Having the associated data be version controlled by Git is recommended, but not required.
-    #[display("git")]
-    Git {
-        /// Repository location information
-        location: Location,
-    },
-    /// GitHub
-    ///
-    /// See <https://docs.github.com/en/rest/reference/repos>
-    #[display("github")]
-    GitHub {
-        /// Repository location information
-        #[serde(alias = "uri")]
-        location: Location,
-    },
-    /// GitLab
-    ///
-    /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
-    #[display("gitlab")]
-    GitLab {
-        /// Integer ID of GitLab project
-        ///
-        /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
-        id: Option<u64>,
-        /// Repository location information
-        #[serde(alias = "uri")]
-        location: Location,
-    },
-}
-/// URI Scheme
-///
-/// See [RFC 8089] for more information
-///
-/// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
-#[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum Scheme {
-    /// Secure HTTP
-    #[display("https")]
-    HTTPS,
-    /// Local file or folder
-    #[display("file")]
-    File,
-    /// Unsupported scheme (e.g., insecure, not implemented, etc.)
-    Unsupported,
-}
-/// Struct for bucket data
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Bucket {
-    /// Bucket name
-    ///
-    /// See <https://schema.org/name>
-    pub name: String,
-    /// Bucket description
-    ///
-    /// See <https://schema.org/description>
-    pub description: Option<String>,
-    /// Code repository data of bucket
-    ///
-    /// See <https://schema.org/codeRepository>
-    #[serde(alias = "repository")]
-    pub code_repository: Repository,
-}
-/// Struct for buckets configuration
+/// Struct for application configuration
 ///
 /// ### Example `buckets.json`
 /// ```json
@@ -154,9 +43,42 @@ pub struct Bucket {
 /// }
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BucketsConfig {
+pub struct ApplicationConfiguration {
     /// List of buckets
     pub buckets: Vec<Bucket>,
+}
+/// Type for GitLab tree entry
+#[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
+#[serde(rename_all = "lowercase")]
+pub enum EntryType {
+    /// List of files and directories
+    ///
+    /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
+    #[display("tree")]
+    Tree,
+    /// Base64 enoded content
+    ///
+    /// See <https://docs.gitlab.com/api/repositories/#get-a-blob-from-repository>
+    #[display("blob")]
+    Blob,
+}
+/// Struct for bucket data
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Bucket {
+    /// Bucket name
+    ///
+    /// See <https://schema.org/name>
+    pub name: String,
+    /// Bucket description
+    ///
+    /// See <https://schema.org/description>
+    pub description: Option<String>,
+    /// Code repository data of bucket
+    ///
+    /// See <https://schema.org/codeRepository>
+    #[serde(alias = "repository")]
+    pub code_repository: Repository,
 }
 /// Struct for [GitHub] tree entry
 ///
@@ -237,26 +159,6 @@ pub struct GitlabTreeEntry {
     pub path: String,
     /// Mode of tree entry
     pub mode: String,
-}
-/// Struct for release data from GitLab or GitHub
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Release {
-    /// Name of release
-    pub name: String,
-    /// Tag name of release
-    /// ### Example
-    /// > `v1.0.0`
-    pub tag_name: String,
-    /// Prose description of release
-    #[serde(alias = "body")]
-    pub description: String,
-    /// Date of release creation
-    pub created_at: String,
-    /// Date of release publication
-    #[serde(alias = "published_at")]
-    pub released_at: String,
-    /// Release response message
-    pub message: Option<String>,
 }
 impl Bucket {
     /// Parse GitHub tree entries
@@ -514,15 +416,15 @@ impl Bucket {
         }
     }
 }
-impl BucketsConfig {
+impl ApplicationConfiguration {
     /// Read and parse buckets configuration file (JSON or YAML)
-    pub fn read(path: PathBuf) -> Option<BucketsConfig> {
+    pub fn read(path: PathBuf) -> Option<ApplicationConfiguration> {
         let content = match MimeType::from_path(path.clone()) {
-            | MimeType::Json => match BucketsConfig::read_json(path.clone()) {
+            | MimeType::Json => match ApplicationConfiguration::read_json(path.clone()) {
                 | Ok(value) => Some(value),
                 | Err(_) => None,
             },
-            | MimeType::Yaml => match BucketsConfig::read_yaml(path.clone()) {
+            | MimeType::Yaml => match ApplicationConfiguration::read_yaml(path.clone()) {
                 | Ok(value) => Some(value),
                 | Err(_) => None,
             },
@@ -536,7 +438,7 @@ impl BucketsConfig {
         }
     }
     /// Read buckets configuration (e.g., `buckets.json`) using Serde and [`BucketsConfig`] struct
-    fn read_json(path: PathBuf) -> Result<BucketsConfig> {
+    fn read_json(path: PathBuf) -> Result<ApplicationConfiguration> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
@@ -548,7 +450,7 @@ impl BucketsConfig {
                 "{}".to_owned()
             }
         };
-        let data: Result<BucketsConfig> = serde_json::from_str(&content);
+        let data: Result<ApplicationConfiguration> = serde_json::from_str(&content);
         let label = match data {
             | Ok(_) => Label::using(),
             | Err(_) => Label::invalid(),
@@ -557,7 +459,7 @@ impl BucketsConfig {
         data
     }
     /// Read buckets configuration (e.g., `buckets.yaml`) using Serde and [`BucketsConfig`] struct
-    fn read_yaml(path: PathBuf) -> serde_yml::Result<BucketsConfig> {
+    fn read_yaml(path: PathBuf) -> serde_yml::Result<ApplicationConfiguration> {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,
             | Err(_) => {
@@ -569,7 +471,7 @@ impl BucketsConfig {
                 "".to_owned()
             }
         };
-        let data: serde_yml::Result<BucketsConfig> = serde_yml::from_str(&content);
+        let data: serde_yml::Result<ApplicationConfiguration> = serde_yml::from_str(&content);
         let label = match data {
             | Ok(_) => Label::output(),
             | Err(_) => Label::fail(),
@@ -592,221 +494,6 @@ impl GitlabTreeEntry {
     }
     fn is_blob(&self) -> bool {
         self.entry_type.eq(&EntryType::Blob)
-    }
-}
-impl Location {
-    /// Get associated location hash
-    /// > Useful for standardizing file path handling across local and remote contexts
-    /// ### Example
-    /// ```rust
-    /// use acorn_lib::Location;
-    ///
-    /// let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string());
-    /// assert_eq!(location.hash(), "code_ornl_gov_buckets_nssd");
-    /// ```
-    pub fn hash(&self) -> String {
-        let uri = self.uri().unwrap();
-        let host = match uri.host() {
-            | Some(value) => value.clone().to_string().replace('.', "_"),
-            | None => "".to_string(),
-        };
-        let segments = uri
-            .path()
-            .segments()
-            .iter()
-            .map(|s| s.to_string())
-            .filter(|s| !(s.is_empty() || s.eq(".")))
-            .collect::<Vec<_>>();
-        [host, segments.join("_").to_lowercase()]
-            .into_iter()
-            .filter(|x| !x.is_empty())
-            .collect::<Vec<String>>()
-            .join("_")
-    }
-    /// Get associated location value scheme (e.g., https, file, etc.)
-    /// ### Example
-    /// ```rust
-    /// use acorn_lib::{Location, Scheme};
-    ///
-    /// let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string());
-    /// assert_eq!(location.scheme(), Scheme::HTTPS);
-    /// let location = Location::Simple("file://localhost/buckets/nssd".to_string());
-    /// assert_eq!(location.scheme(), Scheme::File);
-    /// ```
-    pub fn scheme(&self) -> Scheme {
-        match self {
-            | Location::Simple(value) => match URI::try_from(value.as_str()) {
-                | Ok(uri) => match uri.scheme() {
-                    | uriparse::Scheme::HTTPS => Scheme::HTTPS,
-                    | uriparse::Scheme::File => Scheme::File,
-                    | _ => Scheme::Unsupported,
-                },
-                | Err(_) => Scheme::Unsupported,
-            },
-            | Location::Detailed { scheme, .. } => scheme.clone(),
-        }
-    }
-    /// Check if a location exists (i.e., is reachable and accessible)
-    pub async fn exists(self) -> bool {
-        let uri = self.uri();
-        match self.scheme() {
-            | Scheme::HTTPS => match uri {
-                | Some(uri) => match link_check(Some(uri.into())).await {
-                    | Check { success, .. } if success => true,
-                    | _ => false,
-                },
-                | None => false,
-            },
-            | Scheme::File => match uri {
-                | Some(value) => PathBuf::from(value.path().to_string()).exists(),
-                | None => false,
-            },
-            | Scheme::Unsupported => false,
-        }
-    }
-    /// Extract and return URI from a location value
-    pub fn uri(&self) -> Option<URI<'_>> {
-        fn parse_uri(value: &str) -> Option<URI<'_>> {
-            match URI::try_from(value) {
-                | Ok(value) => Some(value),
-                | Err(why) => {
-                    warn!("=> {} Parse URI - {why}", Label::fail());
-                    None
-                }
-            }
-        }
-        match self {
-            | Location::Simple(value) => parse_uri(value),
-            | Location::Detailed { uri, .. } => parse_uri(uri),
-        }
-    }
-}
-impl Repository {
-    /// Return whether or not the associated URI for a repository is local (e.g., has "file" scheme)
-    pub fn is_local(self) -> bool {
-        let local_schemes = [Scheme::File];
-        local_schemes.contains(&self.location().scheme())
-    }
-    /// Get metadata for latest release of a Gitlab or GitHub repository
-    pub fn latest_release(self) -> Option<Release> {
-        match self.releases() {
-            | releases if releases.is_empty() => None,
-            | releases => {
-                let release = releases[0].clone();
-                trace!("=> {} Latest {:#?}", Label::using(), release);
-                Some(release)
-            }
-        }
-    }
-    /// Get repository location
-    pub fn location(self) -> Location {
-        match self {
-            | Repository::Git { location, .. } => location,
-            | Repository::GitHub { location, .. } => location,
-            | Repository::GitLab { location, .. } => location,
-        }
-    }
-    fn id(&self) -> Option<String> {
-        match self {
-            | Repository::Git { .. } => None,
-            | Repository::GitHub { .. } => None,
-            | Repository::GitLab { id, location } => match location.uri() {
-                | Some(value) => {
-                    let mut path = value.path().to_string();
-                    path.remove(0);
-                    let encoded = encode(&path).to_string();
-                    trace!(encoded, "=> {} ID", Label::using());
-                    Some(encoded)
-                }
-                | None => {
-                    warn!("=> {} Parse GitLab URI", Label::fail());
-                    match id {
-                        | Some(value) => Some(value.to_string()),
-                        | None => None,
-                    }
-                }
-            },
-        }
-    }
-    fn releases(self) -> Vec<Release> {
-        let maybe_url = match &self {
-            | Repository::Git { .. } => None,
-            | Repository::GitHub { location } => match location.uri() {
-                | Some(uri) => {
-                    let host = uri.host().unwrap().to_string();
-                    let path = uri.path();
-                    let endpoint = Some(format!("https://api.{host}/repos{path}/releases"));
-                    endpoint
-                }
-                | None => {
-                    error!("=> {} Parse GitHub URI", Label::fail());
-                    None
-                }
-            },
-            | Repository::GitLab { location, .. } => match self.id() {
-                | Some(id) => match location.uri() {
-                    | Some(uri) => {
-                        let host = uri.host().unwrap().to_string();
-                        Some(format!("https://{host}/api/v4/projects/{id}/releases"))
-                    }
-                    | None => {
-                        error!("=> {} Parse GitLab URI", Label::fail());
-                        None
-                    }
-                },
-                | None => None,
-            },
-        };
-        if let Some(url) = maybe_url {
-            debug!(url, "=> {}", Label::using());
-            match network_get_request(url).send() {
-                | Ok(response) => {
-                    let text = response.text();
-                    match text {
-                        | Ok(text) => {
-                            if text.contains("API rate limit exceeded") {
-                                println!("API rate limit exceeded");
-                                error!("=> {} GitHub API rate limit exceeded", Label::fail());
-                                vec![]
-                            } else {
-                                let releases: Vec<Release> = match serde_json::from_str(&text) {
-                                    | Ok(values) => values,
-                                    | Err(why) => {
-                                        error!("=> {} Parse {} API JSON response - {why}", self, Label::fail());
-                                        vec![]
-                                    }
-                                };
-                                releases
-                            }
-                        }
-                        | Err(why) => {
-                            error!("=> {} Parse {} API text response - {why}", self, Label::fail());
-                            vec![]
-                        }
-                    }
-                }
-                | Err(why) => {
-                    error!("=> {} Download {} releases - {why}", self, Label::fail());
-                    vec![]
-                }
-            }
-        } else {
-            vec![]
-        }
-    }
-    /// Get URL for raw data of a file at a given path
-    fn raw_url(&self, path: String) -> Option<String> {
-        match self {
-            | Repository::GitHub { location, .. } => match location.uri() {
-                | Some(ref value) => Some(format!("https://raw.githubusercontent.com{}/refs/heads/main/{path}", value.path())),
-                | None => {
-                    error!("=> {} Parse GitHub URI", Label::fail());
-                    None
-                }
-            },
-            | Repository::GitLab { location, .. } => Some(format!("{location}/-/raw/main/{path}")),
-            | Repository::Git { .. } => None,
-        }
     }
 }
 fn count_json_files(paths: Vec<String>) -> usize {

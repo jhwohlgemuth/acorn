@@ -3,7 +3,6 @@
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
-use crate::bucket::{Location, Repository};
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, network_get_request, standard_project_folder};
 use crate::prelude;
 use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
@@ -13,6 +12,7 @@ use crate::util::constants::{
     VALE_RELEASES_URL, VALE_VERSION,
 };
 use crate::util::{suffix, Constant, Label, SemanticVersion, ToAbsoluteString};
+use crate::{Location, Repository};
 use bat::PrettyPrinter;
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;

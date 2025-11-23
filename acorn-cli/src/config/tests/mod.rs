@@ -1,21 +1,22 @@
-use crate::bucket::*;
-use crate::prelude::PathBuf;
+use crate::config::*;
+use acorn_lib::prelude::PathBuf;
+use acorn_lib::{Location, Scheme};
 
 const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
 fn test_bucket_config_json() {
     let path = PathBuf::from(FIXTURES).join("buckets_with_github.json");
-    let config = BucketsConfig::read_json(path).unwrap();
+    let config = ApplicationConfiguration::read_json(path).unwrap();
     assert_eq!(config.buckets.len(), 2);
     let path = PathBuf::from(FIXTURES).join("buckets.json");
-    let config = BucketsConfig::read_json(path).unwrap();
+    let config = ApplicationConfiguration::read_json(path).unwrap();
     assert_eq!(config.buckets.len(), 3);
 }
 #[test]
 fn test_bucket_config_yaml() {
     let path = PathBuf::from(FIXTURES).join("buckets.yaml");
-    let config = BucketsConfig::read_yaml(path).unwrap();
+    let config = ApplicationConfiguration::read_yaml(path).unwrap();
     assert_eq!(config.buckets.len(), 3);
 }
 #[test]

@@ -40,6 +40,7 @@ use tracing_subscriber::EnvFilter;
 
 mod cli;
 mod commands;
+mod config;
 mod io;
 mod template;
 
