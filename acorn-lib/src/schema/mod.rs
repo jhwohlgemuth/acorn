@@ -103,7 +103,8 @@ enum FuzzyValue {
     #[display("technology")]
     Technology,
 }
-/// Media object such as image or video
+/// # Media Object
+/// Digital artifact such as an image or video
 ///
 /// See <https://schema.org/MediaObject>
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -151,7 +152,7 @@ pub enum OrganizationType {
     #[display("program")]
     Program,
 }
-/// "Other" content not easily placed into the schema
+/// Content not easily placed into the schema
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Other {
@@ -291,21 +292,15 @@ pub enum TechnologyReadinessLevel {
     MissionCapable = 9,
 }
 /// Contact point (i.e. "point of contact") for research activity
-///
-/// See <https://schema.org/ContactPoint>
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ContactPoint {
     /// Linked data (e.g., JSON-LD) context for contact point
-    ///
-    /// See <https://www.w3.org/TR/json-ld11/#example-6-loading-a-relative-context> for more information
     #[serde(rename = "@context")]
     pub context: Option<ContactPointContext>,
     /// Linked data (e.g., JSON-LD) type for contact point
-    ///
-    /// Will always be "https://schema.org/person"
     #[serde(rename = "@type")]
     pub contact_point_type: Option<String>,
     /// Job title (e.g., "Group Lead") of role that the contact fills related to the asscociated research activity.
@@ -442,13 +437,9 @@ pub struct ImageObject {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Metadata {
     /// Linked data (e.g., JSON-LD) context for contact point
-    ///
-    /// See <https://www.w3.org/TR/json-ld11/#example-6-loading-a-relative-context> for more information
     #[serde(rename = "@context")]
     pub context: Option<MetadataContext>,
     /// Linked data (e.g., JSON-LD) type for contact point
-    ///
-    /// Will always be "https://schema.org/person"
     #[serde(rename = "@type")]
     pub metadata_type: Option<String>,
     /// Classification level of associated research activity data
@@ -491,9 +482,7 @@ pub struct Metadata {
     #[validate(custom(function = "is_list_url"))]
     #[serde(default)]
     pub publications: Option<Vec<String>>,
-    /// Research Activity Identifier
-    ///
-    /// See <https://www.raid.org/> for more information
+    /// Research Activity Identifier (RAiD)
     #[validate(nested)]
     #[serde(default)]
     pub raid: Option<raid::Metadata>,
@@ -503,8 +492,6 @@ pub struct Metadata {
     #[validate(custom(function = "validate_attribute_ror_list"))]
     #[serde(default)]
     pub ror: Option<Vec<String>>,
-    /// Additional type
-    ///
     /// Type of associated research activity data when directly associated with an organization
     pub additional_type: Option<OrganizationType>,
     /// Images, videos, and other media related to the associated research activity data
@@ -544,8 +531,6 @@ pub struct Metadata {
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
     pub partners: Option<Vec<String>>,
     /// Related resarch activity data identifiers of related research activity data
-    ///
-    /// <div class="warning">WIP</div>
     pub related: Option<Vec<String>>,
 }
 /// Linked data (e.g., JSON-LD) context for metadata
@@ -639,10 +624,8 @@ pub struct Organization {
     /// See <https://schema.org/member> for more information
     pub member: Vec<Organization>,
 }
-/// ## Research Activity
-/// > Research activity is an identifiable package of work involving organized, systematic investigation.
-///
-/// See <https://www.raid.org/> for more information
+/// # Research Activity
+/// Identifiable package of work involving organized, systematic investigation
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Display, Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
@@ -650,13 +633,9 @@ pub struct Organization {
 #[serde(deny_unknown_fields)]
 pub struct ResearchActivity {
     /// Linked data (e.g., JSON-LD) context for research activity
-    ///
-    /// See <https://www.w3.org/TR/json-ld11/#example-6-loading-a-relative-context> for more information
     #[serde(rename = "@context")]
     pub context: Option<ResearchActivityContext>,
     /// Linked data (e.g., JSON-LD) type for research activity
-    ///
-    /// Will always be "https://schema.org/person"
     #[serde(rename = "@type")]
     pub research_activity_type: Option<String>,
     /// Associated metadata
@@ -676,7 +655,7 @@ pub struct ResearchActivity {
     #[validate(nested)]
     #[builder(default)]
     pub sections: Sections,
-    /// Contact point (i.e. "point of contact") for research activity
+    /// Contact point (i.e. point of contact) for research activity
     #[validate(nested)]
     #[builder(default)]
     pub contact: ContactPoint,
@@ -738,8 +717,7 @@ pub struct VideoObject {
     /// See <https://schema.org/width> for more information
     pub width: Option<NonZeroU64>,
 }
-/// ## Website
-/// > Website link and title description
+/// Website link and title description
 /// ### Example
 /// When deserializing research activity data, websites can be provided as a list of JSON objects.
 /// ```json

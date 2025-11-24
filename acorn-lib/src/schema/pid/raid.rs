@@ -17,7 +17,7 @@ use validator::Validate;
 
 /// Allowed values for access types
 #[derive(Clone, Debug, Default, Deserialize, Display, JsonSchema, Serialize)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum AccessType {
     /// Open access
     #[default]
@@ -35,7 +35,7 @@ pub enum AccessType {
 ///
 /// See <https://www.niso.org/publications/z39104-2022-credit>
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum CreditRole {
     /// Ideas; formulation or evolution of overarching research goals and aims.
     #[display("conceptualization")]
@@ -96,7 +96,7 @@ pub enum CreditRole {
 }
 /// Description types
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum DescriptionType {
     /// Primary description (i.e., a preferred full description or abstract)
     #[serde(alias = "https://vocabulary.raid.org/description.type.schema/318")]
@@ -126,7 +126,7 @@ pub enum DescriptionType {
 }
 /// Category of input, output, or process document
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum ObjectCategoryType {
     /// Output
     #[display("output")]
@@ -143,7 +143,7 @@ pub enum ObjectCategoryType {
 }
 /// Type of input, output, or process document
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum ObjectType {
     /// Output management plan
     #[display("output-management-plan")]
@@ -263,7 +263,7 @@ pub enum ObjectType {
 }
 /// Organization role identifier
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum OrganizationRoleType {
     /// Lead research organization
     #[display("lead-research-organization")]
@@ -298,7 +298,7 @@ pub enum OrganizationRoleType {
 ///
 /// <div class="warning">Use contributor role to define scientific or scholarly contributions</div>
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum PositionType {
     /// Principal Investigator
     #[display("principal-investigator")]
@@ -325,7 +325,7 @@ pub enum PositionType {
 ///
 /// Describes the relationship being one activity and another
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum RelatedRaidType {
     /// Obsoletes
     /// > For resolving duplicate RAiDs
@@ -377,8 +377,6 @@ pub enum TitleType {
     Short,
 }
 /// Metadata schema block containing RAiD access information
-///
-/// See <https://metadata.raid.org/en/v1.6/core/access.html>
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Access {
@@ -784,8 +782,6 @@ pub struct Place {
     pub language: Option<Language>,
 }
 /// Metadata schema block containing inputs, outputs, and process documents related to a RAiD plus associated properties
-///
-/// See <https://metadata.raid.org/en/v1.6/core/relatedObjects.html>
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RelatedObject {
@@ -828,8 +824,6 @@ pub struct RelatedObjectIdentifier {
     pub schema_uri: Option<String>,
 }
 /// Metadata schema block containing related RAiDs and qualifying the relationship
-///
-/// See <https://metadata.raid.org/en/v1.6/core/relatedRaids.html>
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RelatedRaid {
