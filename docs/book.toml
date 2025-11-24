@@ -10,7 +10,7 @@ build-dir = "book"
 create-missing = false
 
 [output.html]
-default-theme = "navy"
+default-theme = "rust"
 preferred-dark-theme = "navy"
 additional-js = ["mermaid.min.js", "mermaid-init.js"]
 
