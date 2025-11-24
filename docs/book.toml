@@ -24,7 +24,6 @@ copyable = true
 line-numbers = false
 runnable = true
 
-# [preprocessor.footnote]
 [preprocessor.mermaid]
 [preprocessor.pikchr]
 
