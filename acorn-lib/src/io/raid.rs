@@ -53,6 +53,7 @@ pub struct ServicePoint {
 /// }
 /// ```
 #[derive(Debug, Deserialize, Serialize, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ServicePointResponse {
     /// Identifier of associated response
     #[serde(alias = "id")]
