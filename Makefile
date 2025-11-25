@@ -18,6 +18,10 @@ audit:
 		--ignore RUSTSEC-2024-0436
 
 book:
+	@mdbook clean docs
+	@mdbook build docs
+
+book-write:
 	@mdbook serve --open docs
 
 build: clean
@@ -53,9 +57,8 @@ lint:
 publish-book: book
 	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site
 	@rm -rf ./site/html
-	@mv target/doc/ ./site/html
-	@echo '<meta http-equiv="refresh" content="0; url=acorn_lib/index.html">' > ./site/html/index.html
-	@cd ./site && git add html && git commit -m "Publish documentation" && git push
+	@mv docs/book ./site/html
+	@cd ./site && git add html && git commit -m "Publish ACORN Book" && git push
 
 test:
 	@cargo nextest run --run-ignored all

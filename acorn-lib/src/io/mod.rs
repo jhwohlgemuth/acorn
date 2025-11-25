@@ -172,7 +172,7 @@ where
 /// A `Result` containing a `PathBuf` to the downloaded file on success, or a string error message on failure.
 ///
 /// # Notes
-/// - Uses [`tokio_runtime`] for asynchronous operations.
+/// - Uses [`async_runtime`] for asynchronous operations.
 pub fn download_binary<S, P>(url: S, destination: P) -> Result<PathBuf, String>
 where
     S: Into<String> + Clone + core::marker::Copy,

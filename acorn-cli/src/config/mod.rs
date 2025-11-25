@@ -422,7 +422,7 @@ impl Bucket {
     }
 }
 impl ApplicationConfiguration {
-    /// Read and parse buckets configuration file (JSON or YAML)
+    /// Read and parse application configuration file (JSON or YAML)
     pub fn read(path: PathBuf) -> Option<ApplicationConfiguration> {
         let content = match MimeType::from_path(path.clone()) {
             | MimeType::Json => match ApplicationConfiguration::read_json(path.clone()) {
@@ -442,7 +442,7 @@ impl ApplicationConfiguration {
             None
         }
     }
-    /// Read buckets configuration (e.g., `buckets.json`) using Serde and [`BucketsConfig`] struct
+    /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
     fn read_json(path: PathBuf) -> Result<ApplicationConfiguration> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
@@ -463,7 +463,7 @@ impl ApplicationConfiguration {
         trace!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
         data
     }
-    /// Read buckets configuration (e.g., `buckets.yaml`) using Serde and [`BucketsConfig`] struct
+    /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
     fn read_yaml(path: PathBuf) -> serde_yml::Result<ApplicationConfiguration> {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,

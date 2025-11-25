@@ -196,7 +196,7 @@ pub struct ARK {
     pub label: String,
     /// Number (here represented as a string) identifying an organization that creates or assigns identifiers
     /// ### Notes
-    /// - Since 2001, every assigned name assigning authority number (NAAN) has consisted of exactly five digits, specifically five [beta-numeric digits](`BETA_NUMERIC_DIGITS`)
+    /// - Since 2001, every assigned name assigning authority number (NAAN) has consisted of exactly five digits, specifically five beta-numeric digits
     /// - Any given identifier will have exactly one NAAN but may have more than one NMA (at a time or over time)
     /// - Similar to registration authority or prefix for [`DOI`]s, naming authority for [Handles], and namespace identifier for [URNs]
     ///
