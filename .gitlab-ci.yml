@@ -167,7 +167,11 @@ publish-book:
   inherit:
     variables: true
   rules:
-    - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - ${BINARY_NAME}-lib/**/*
     - when: manual
   script:
     - cargo install mdbook
