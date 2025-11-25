@@ -7,11 +7,11 @@ variables:
   IS_VERSION_TAGGED: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
 stages:
-  - docs
   - prepare
   - test
   - build
   - release
+  - docs
 
 prepare-environment:
   stage: prepare
@@ -158,6 +158,7 @@ publish-crates:
   script:
     - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-lib"
     - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-cli"
+  allow_failure: true
 
 publish-book:
   stage: docs
