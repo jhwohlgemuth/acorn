@@ -109,7 +109,7 @@ pub fn run(
         results
     };
     let conventions_issues = if skip.contains(&CheckCategory::Conventions) {
-        warn!("=> {} Conventions verification", Label::skip());
+        warn!("=> {} Conventions adherence", Label::skip());
         vec![]
     } else {
         vec![]

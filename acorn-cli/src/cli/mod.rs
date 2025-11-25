@@ -201,9 +201,6 @@ pub enum Commands {
         /// Example: --ignore "[/]valid.json$"
         #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
         ignore: Option<String>,
-        /// Format JSON files in-place to maintain consistent format
-        #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
-        format: bool,
         /// Format files that were changed in a given merge request (Gitlab) or pull request (GitHub)
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,
