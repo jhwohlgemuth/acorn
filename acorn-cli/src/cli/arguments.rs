@@ -31,15 +31,16 @@ pub enum FileFormat {
 /// Readability Type
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum ReadabilityTypeArgument {
-    /// Automated Readability Index (ARI)
-    Ari,
-    /// Coleman-Liau Index (CLI)
-    #[display("cli")]
-    Cli,
     /// Flesch-Kincaid Grade Level (FKGL)
     #[default]
     #[display("fkgl")]
     Fkgl,
+    /// Automated Readability Index (ARI)
+    #[display("ari")]
+    Ari,
+    /// Coleman-Liau Index (CLI)
+    #[display("cli")]
+    Cli,
     /// Flesch Reading Ease (FRES)
     #[display("fres")]
     Fres,
@@ -56,13 +57,13 @@ pub enum ReadabilityTypeArgument {
 /// Target artifact aspect ratio size available when exporting research activity data using acorn
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum Size {
-    /// Standard size (4:3)
-    #[display("standard")]
-    Standard,
     /// Widescreen size (16:9)
     #[default]
     #[display("widescreen")]
     Widescreen,
+    /// Standard size (4:3)
+    #[display("standard")]
+    Standard,
 }
 /// Target artifact types available when exporting research activity data using acorn
 ///
