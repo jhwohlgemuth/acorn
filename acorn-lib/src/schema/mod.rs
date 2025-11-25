@@ -13,7 +13,7 @@ use crate::util::constants::{
     MAX_COUNT_RESEARCH_AREAS, MAX_LENGTH_IMAGE_CAPTION, MAX_LENGTH_RESEARCH_FOCUS, MAX_LENGTH_SECTION_CHALLENGE, MAX_LENGTH_SECTION_MISSION,
     MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE,
 };
-use crate::util::{image_paths, parent, Constant, Label, MimeType, ToAbsoluteString};
+use crate::util::{image_paths, parent, Constant, Label, LinkedData, MimeType, ToAbsoluteString, ToMarkdown};
 use bon::Builder;
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};
@@ -920,6 +920,32 @@ impl Hash for ResearchActivity {
         self.meta.identifier.hash(state);
     }
 }
+impl LinkedData for ContactPoint {
+    fn with_context(&self) -> Self {
+        let mut clone = self.clone();
+        clone.context = Some(ContactPointContext::default());
+        clone.contact_point_type = Some(format!("{SCHEMA_ORG_CONTEXT}/person"));
+        clone
+    }
+}
+impl LinkedData for Metadata {
+    fn with_context(&self) -> Self {
+        let mut clone = self.clone();
+        clone.context = Some(MetadataContext::default());
+        clone.metadata_type = None;
+        clone
+    }
+}
+impl LinkedData for ResearchActivity {
+    fn with_context(&self) -> Self {
+        let mut clone = self.clone().copy();
+        clone.context = Some(ResearchActivityContext::default());
+        clone.research_activity_type = None;
+        clone.meta = self.meta.with_context();
+        clone.contact = self.contact.with_context();
+        clone
+    }
+}
 impl MediaObject {
     /// Returns the content URL of the media object
     pub fn content_url(self) -> Option<String> {
@@ -1101,20 +1127,6 @@ impl ResearchActivity {
         let schema = schema_for!(ResearchActivity);
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
-    /// Add linked data (e.g., JSON-LD) context to research activity
-    pub fn add_context(mut data: Self) -> Self {
-        data.context = Some(ResearchActivityContext::default());
-        data.research_activity_type = None;
-        data.meta.context = Some(MetadataContext::default());
-        data.meta.metadata_type = None;
-        data.contact.context = Some(ContactPointContext::default());
-        data.contact.contact_point_type = Some(format!("{SCHEMA_ORG_CONTEXT}/person"));
-        data
-    }
-    /// Add linked data (e.g., JSON-LD) context to research activity using method syntax
-    pub fn with_context(self) -> Self {
-        ResearchActivity::add_context(self)
-    }
     /// Analyzes a list of research activity files
     pub fn analyze_prose(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
         let config = ValeConfig::default().save();
@@ -1122,7 +1134,7 @@ impl ResearchActivity {
         match vale.clone().sync(is_offline) {
             | Ok(_) => {
                 let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
-                    | Some(data) => vale.clone().run(data.clone().meta.identifier, data.extract_prose(), Some("JSON".into())),
+                    | Some(data) => vale.clone().run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into())),
                     | None => {
                         error!("=> {} Read research activity data", Label::fail());
                         Check::init().category(CheckCategory::Prose).success(false).build()
@@ -1146,7 +1158,7 @@ impl ResearchActivity {
             .par_iter()
             .map(|path| match ResearchActivity::read(path.into()) {
                 | Some(data) => {
-                    let index = rtype.calculate(&data.extract_prose());
+                    let index = rtype.calculate(&data.to_markdown());
                     let maximum = match rtype.maximum_allowed_from_env() {
                         | Some(value) => {
                             debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
@@ -1256,53 +1268,6 @@ impl ResearchActivity {
             .contact(contact)
             .maybe_notes(notes)
             .build()
-    }
-    /// Extracts prose from a `ResearchActivity`
-    pub fn extract_prose(self) -> String {
-        let Sections {
-            mission,
-            challenge,
-            approach,
-            impact,
-            research,
-            ..
-        } = self.sections;
-        let Research { focus, areas } = research;
-        let sections = format!(
-            r#"
-<!-- Introduction -->
-{}
-
-<!-- Challenge -->
-{}
-
-<!-- Approach -->
-{}
-
-<!-- Impact -->
-{}
-
-<!-- Focus -->
-{}
-
-<!-- Areas -->
-{}"#,
-            mission,
-            challenge,
-            approach.into_iter().map(|x| format!("- {x}")).collect::<Vec<String>>().join("\n"),
-            impact.into_iter().map(|x| format!("- {x}")).collect::<Vec<String>>().join("\n"),
-            focus,
-            areas.into_iter().map(|x| format!("- {x}")).collect::<Vec<String>>().join("\n")
-        );
-        match self.subtitle {
-            | Some(subtitle) => format!(
-                r#"# {}
-> {}
-{}"#,
-                self.title, subtitle, sections
-            ),
-            | None => sections.to_string(),
-        }
     }
     /// Formats research activity data
     /// ### Actions
@@ -1479,11 +1444,6 @@ impl ResearchActivity {
         data.dedup();
         data
     }
-    /// Export to markdown
-    pub fn to_markdown(self) -> String {
-        let ResearchActivity { title, .. } = self.clone();
-        format!("# {title}")
-    }
     fn validation_issues(self) -> Vec<Check> {
         fn errors_collect<T: Validate>(attribute: T) -> Option<Vec<Check>> {
             match attribute.validate() {
@@ -1512,6 +1472,71 @@ impl ResearchActivity {
             | None => {}
         }
         found.into_iter().flatten().flatten().collect::<Vec<_>>()
+    }
+}
+impl ToMarkdown for Research {
+    fn to_markdown(&self) -> String {
+        let Research { focus, areas } = self;
+        format!(
+            r#"
+## Focus
+{focus}
+
+## Areas
+{}"#,
+            areas.to_markdown(),
+        )
+    }
+}
+impl ToMarkdown for ResearchActivity {
+    fn to_markdown(&self) -> String {
+        let Self {
+            title, subtitle, sections, ..
+        } = self;
+        let sections = sections.to_markdown();
+        match &subtitle {
+            | Some(subtitle) => format!(
+                r#"# {title}
+> {subtitle}
+{sections}"#
+            ),
+            | None => format!(
+                r#"# {title}
+{sections}"#
+            ),
+        }
+    }
+}
+impl ToMarkdown for Sections {
+    fn to_markdown(&self) -> String {
+        let Sections {
+            mission,
+            challenge,
+            approach,
+            impact,
+            research,
+            ..
+        } = self;
+        format!(
+            r#"
+## Mission
+{}
+
+## Challenge
+{}
+
+## Approach
+{}
+
+## Impact
+{}
+{}"#,
+            mission,
+            challenge,
+            approach.to_markdown(),
+            impact.to_markdown(),
+            research.to_markdown(),
+        )
     }
 }
 impl View for ContactPoint {

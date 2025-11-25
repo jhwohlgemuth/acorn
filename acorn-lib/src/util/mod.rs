@@ -54,10 +54,20 @@ use tracing::{debug, error, warn};
 
 pub mod constants;
 
+/// Trait for augmenting data with linked data context
+pub trait LinkedData {
+    /// Add linked data (e.g., JSON-LD) context
+    fn with_context(&self) -> Self;
+}
 /// Trait for augmenting path value functionality with absolute path string conversion
 pub trait ToAbsoluteString {
     /// Return a string representation of the absolute path
     fn to_absolute_string(&self) -> String;
+}
+/// Format data structures as Markdown
+pub trait ToMarkdown {
+    /// Convert `self` to Markdown format string
+    fn to_markdown(&self) -> String;
 }
 /// Trait for converting a vector of PathBufs to a vector of strings
 pub trait ToStrings {
@@ -510,6 +520,11 @@ impl Default for SemanticVersion {
 impl ToAbsoluteString for PathBuf {
     fn to_absolute_string(&self) -> String {
         to_absolute_string(self.clone())
+    }
+}
+impl<P: AsRef<str>> ToMarkdown for Vec<P> {
+    fn to_markdown(&self) -> String {
+        self.iter().map(|x| format!("- {}", x.as_ref())).collect::<Vec<String>>().join("\n")
     }
 }
 impl<T: AsRef<str>> ToStringChunks<T> for T

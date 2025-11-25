@@ -344,8 +344,27 @@ fn test_read() {
 }
 #[test]
 fn test_research_activity_default() {
+    let expected = r#"# Research Activity Title
+
+## Mission
+Purpose of the research
+
+## Challenge
+Reason for the research
+
+## Approach
+- List of actions taken to perform the research
+
+## Impact
+- List of tangible proof that validates the research approach
+
+## Focus
+Focus of the research
+
+## Areas
+- Areas of research"#;
     let data = ResearchActivity::default();
-    assert_eq!(data.to_markdown(), "# Research Activity Title");
+    assert_eq!(data.to_markdown(), expected);
 }
 #[test]
 fn test_research_activity_format() {
