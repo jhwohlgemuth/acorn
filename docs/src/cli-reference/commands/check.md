@@ -1,8 +1,12 @@
-# 🗸 Check
+# ✅ Check
 > Perform various checks on associated research activity data
 
 ## Example Usage
-```shell
+```sh
+# Check a specific research activity index
+acorn check path/to/project/index.json
+
+# Check all research activity data in a directory
 acorn check path/to/project/
 ```
 
