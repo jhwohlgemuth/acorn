@@ -1,4 +1,5 @@
 use crate::prelude::PathBuf;
+use crate::schema::research_activity::*;
 use crate::schema::validate::*;
 use crate::schema::*;
 use glob::glob;

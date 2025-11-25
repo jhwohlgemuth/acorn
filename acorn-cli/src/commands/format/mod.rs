@@ -1,6 +1,6 @@
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn_lib::prelude::{File, PathBuf, Write};
-use acorn_lib::schema::ResearchActivity;
+use acorn_lib::schema::research_activity::ResearchActivity;
 use acorn_lib::util::{print_changes, to_absolute_string, Label, MimeType};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};

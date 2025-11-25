@@ -3,7 +3,7 @@ use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn_lib::analyzer::readability::ReadabilityType;
 use acorn_lib::analyzer::{summary, Check};
 use acorn_lib::prelude::PathBuf;
-use acorn_lib::schema::ResearchActivity;
+use acorn_lib::schema::research_activity::ResearchActivity;
 use acorn_lib::util::{print_values_as_table, Label};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
