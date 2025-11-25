@@ -165,7 +165,6 @@ DEV_DEPENDENCIES = \
 	cargo-tarpaulin \
 	cargo-udeps \
 	mdbook \
-	mdbook-footnote \
 	mdbook-mermaid \
 	mdbook-pikchr
 TARGETS = \
