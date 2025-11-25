@@ -174,3 +174,4 @@ publish-book:
     - git config --global user.name "${USER}"
     - git config --global user.email "${EMAIL}"
     - make publish-book
+  allow_failure: true
