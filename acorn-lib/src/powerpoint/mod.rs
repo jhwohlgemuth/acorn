@@ -209,7 +209,7 @@ pub fn read_xml_rel(path: PathBuf) -> Option<Relationships> {
     }
 }
 /// Replace placeholder with bullet values in PowerPoint template
-pub fn replace_placeholder_with_bullets<I: IntoIterator<Item = String>>(xml: &str, placeholder: &str, values: I) -> String {
+pub(crate) fn replace_placeholder_with_bullets<I: IntoIterator<Item = String>>(xml: &str, placeholder: &str, values: I) -> String {
     let paragraphs = match Regex::new(r#"<a:p>(?:(?!<a:p>|</a:p>)[\s\S])*</a:p>"#) {
         | Ok(re) => re
             .find_iter(xml)
@@ -271,7 +271,7 @@ pub fn replace_placeholder_with_bullets<I: IntoIterator<Item = String>>(xml: &st
     }
 }
 /// Replace placeholder with string value in PowerPoint template
-pub fn replace_placeholder_with_string(content: &str, placeholder: &str, value: &str) -> String {
+pub(crate) fn replace_placeholder_with_string(content: &str, placeholder: &str, value: &str) -> String {
     match Regex::new(&format!(r"{{{{\s*{placeholder}\s*}}}}")) {
         | Ok(re) => re.replace_all(content, value).to_string(),
         | Err(err) => {

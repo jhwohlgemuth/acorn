@@ -140,12 +140,12 @@ impl ValeOutputItemSeverity {
 }
 /// Preprocess Vale output
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-pub fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
+pub(crate) fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
     output.replace(path.to_str().unwrap(), "items")
 }
 /// Preprocess Vale output
 #[cfg(windows)]
-pub fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
+pub(crate) fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
     let input = path.as_path().display().to_string().replace("\\", "/");
     output.replace("\\\\", "/").replace(&input, "items")
 }

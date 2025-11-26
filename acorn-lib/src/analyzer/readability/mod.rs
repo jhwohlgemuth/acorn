@@ -366,7 +366,7 @@ pub fn syllable_count(text: &str) -> usize {
 /// Currently replaces `é` and `ë` with `-e`, splits on hyphens, and removes non-alphabetic characters.
 ///
 /// This function is a good entry point for adding support for the nuacnces of 'scientific" texts
-pub fn tokenize(value: &str) -> Vec<String> {
+pub(crate) fn tokenize(value: &str) -> Vec<String> {
     value
         .replace("é", "-e")
         .replace("ë", "-e")

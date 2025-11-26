@@ -178,7 +178,7 @@ pub fn is_unix_epoch(value: usize) -> Result<(), ValidationError> {
     }
 }
 /// Custom validator function for [approach](/acorn_lib/schema/struct.Sections.html#structfield.approach)
-pub fn validate_attribute_approach(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn validate_attribute_approach(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_APPROACH;
     let message: String = format!("Each approach statement should be less than {MAX_LENGTH} characters");
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
@@ -188,7 +188,7 @@ pub fn validate_attribute_approach(value: &[String]) -> Result<(), ValidationErr
     }
 }
 /// Custom validator function for [research areas](/acorn_lib/schema/struct.Research.html#structfield.areas)
-pub fn validate_attribute_areas(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn validate_attribute_areas(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_RESEARCH_AREA;
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
@@ -199,7 +199,7 @@ pub fn validate_attribute_areas(value: &[String]) -> Result<(), ValidationError>
 /// Custom validator function for [`ResearchActivity`] [capabilities](/acorn_lib/schema/struct.Sections.html#structfield.capabilities)
 ///
 /// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub fn validate_attribute_capabilities(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn validate_attribute_capabilities(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_CAPABILIY;
     let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
     match is_valid {
@@ -210,7 +210,7 @@ pub fn validate_attribute_capabilities(value: &[String]) -> Result<(), Validatio
 /// Custom validator function for [`ResearchActivity`] [doi](/acorn_lib/schema/struct.Metadata.html#structfield.doi)
 ///
 /// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub fn validate_attribute_doi(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn validate_attribute_doi(value: &[String]) -> Result<(), ValidationError> {
     let is_valid = value.iter().all(|x| is_doi(x).is_ok());
     match is_valid {
         | true => Ok(()),
@@ -220,7 +220,7 @@ pub fn validate_attribute_doi(value: &[String]) -> Result<(), ValidationError> {
 /// Custom validator function for [`ResearchActivity`] [ror](/acorn_lib/schema/struct.Metadata.html#structfield.ror)
 ///
 /// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub fn validate_attribute_ror(value: &str) -> Result<(), ValidationError> {
+pub(crate) fn validate_attribute_ror(value: &str) -> Result<(), ValidationError> {
     match is_ror(value).is_ok() {
         | true => Ok(()),
         | _ => Err(ValidationError::new("RORs").with_message("Every ROR should be valid".to_string().into())),
@@ -229,7 +229,7 @@ pub fn validate_attribute_ror(value: &str) -> Result<(), ValidationError> {
 /// Custom validator function for [`ResearchActivity`] [ror](/acorn_lib/schema/struct.Metadata.html#structfield.ror)
 ///
 /// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub fn validate_attribute_ror_list(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn validate_attribute_ror_list(value: &[String]) -> Result<(), ValidationError> {
     let is_valid = value.iter().all(|x| is_ror(x).is_ok());
     match is_valid {
         | true => Ok(()),
@@ -240,7 +240,7 @@ pub fn validate_attribute_ror_list(value: &[String]) -> Result<(), ValidationErr
 /// Custom validator function for [`ResearchActivity`] [impact](/acorn_lib/schema/struct.Sections.html#structfield.impact)
 ///
 /// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
     const MAX_LENGTH: usize = MAX_LENGTH_IMPACT;
     match value.iter().all(|x| x.len() <= MAX_LENGTH) {
         | true => {
