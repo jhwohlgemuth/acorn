@@ -1,7 +1,7 @@
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn_lib::prelude::{File, PathBuf, Write};
 use acorn_lib::schema::research_activity::ResearchActivity;
-use acorn_lib::util::{print_changes, to_absolute_string, Label, MimeType};
+use acorn_lib::util::{print_changes, Label, MimeType, ToAbsoluteString};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
@@ -45,7 +45,7 @@ pub fn run(
                 | _ => unimplemented!("Unsupported file type"),
             };
             if dry_run {
-                println!("{} Format {}", Label::dry_run(), to_absolute_string(path.clone()).yellow());
+                println!("{} Format {}", Label::dry_run(), path.clone().to_absolute_string().yellow());
             }
             match verbose.log_level() {
                 | Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace) | _ if dry_run => {
@@ -57,7 +57,7 @@ pub fn run(
                 print_changes(&old_content, &new_content);
             }
             if !dry_run {
-                let filepath = to_absolute_string(path.clone());
+                let filepath = path.clone().to_absolute_string();
                 let mut file = match File::create(path) {
                     | Ok(file) => file,
                     | Err(why) => {

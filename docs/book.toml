@@ -2,7 +2,7 @@
 authors = ["Jason Wohlgemuth", "Audrey Carson"]
 language = "en"
 src = "src"
-title = "ACORN"
+title = "🌱 ACORN Book"
 text-direction = "ltr"
 
 [build]

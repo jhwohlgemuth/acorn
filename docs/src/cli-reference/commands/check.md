@@ -18,9 +18,6 @@ acorn check path/to/project/
 - 📊 **Data Consistency**: Check for consistency and completeness in datasets
 - 🚦 **Convention Adherence**: Ensure that naming conventions and organizational standards are followed
 
-> [!NOTE]
-> The [`check`](./check.md) command is run as part of the [`format`](./format.md) command to ensure that content meets quality standards before formatting.
-
 ## Customization Options
 The `check` command supports several flags and options to customize its behavior (e.g., skipping certain checks, disabling certain behaviors, etc.)
 
