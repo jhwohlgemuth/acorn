@@ -1,6 +1,7 @@
 # Summary
 
 - [Overview](./overview.md)
+- [Why ACORN?](./motivation.md)
 - [Getting Started](./getting-started.md)
 - [ACORN Schema](./schema.md)
 - [Command Line Reference](./cli-reference/README.md)
