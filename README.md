@@ -1,11 +1,10 @@
-<div align="center">
+<div align="center" style="margin-bottom: 30px;">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/src/assets/banner_dark_mode.png">
     <source media="(prefers-color-scheme: light)" srcset="docs/src/assets/banner_light_mode.png">
     <img src="docs/src/assets/banner_light_mode.png" alt="ACORN Banner" width="350px">
   </picture>
 </div>
-</br>
 
 [<img alt="gitlab" src="https://img.shields.io/badge/code.ornl.gov-research_enablement-00662C?style=for-the-badge&logo=gitlab&color=%2300662C
 " height="20">](https://code.ornl.gov/research-enablement/acorn)
