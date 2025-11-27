@@ -1,4 +1,9 @@
-# ACORN 🌱
+<div align="center">
+    <p>
+        <img class="banner light" src="docs/src/assets/banner_light_mode.png" alt="ACORN Banner" width="400px" />
+    </p>
+</div>
+
 [<img alt="gitlab" src="https://img.shields.io/badge/code.ornl.gov-research_enablement-00662C?style=for-the-badge&logo=gitlab&color=%2300662C
 " height="20">](https://code.ornl.gov/research-enablement/acorn)
 [<img alt="unsafe forbidden" src="https://img.shields.io/badge/unsafe-forbidden-00662C?style=for-the-badge&logo=rust" height="20">](https://github.com/rust-secure-code/safety-dance/)
