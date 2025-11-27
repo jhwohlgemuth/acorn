@@ -5,8 +5,8 @@
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::io::{read_file, write_file};
 use crate::prelude::{io, File, PathBuf, Read, Write};
-use crate::schema::research_activity::ResearchActivity;
-use crate::schema::{ContactPoint, Metadata, Notes, Other, Sections};
+use crate::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
+use crate::schema::{ContactPoint, Notes, Other, Sections};
 use crate::util::{files_all, to_absolute_string, Label};
 use core::error::Error;
 use fancy_regex::Regex;
@@ -87,7 +87,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 sections,
                 ..
             } = data.clone();
-            let Metadata { doi, partners, .. } = meta.clone();
+            let ResearchActivityMetadata { doi, partners, .. } = meta.clone();
             let Sections {
                 achievement,
                 impact,

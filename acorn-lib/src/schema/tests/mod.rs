@@ -277,7 +277,7 @@ fn test_fuzzy_matching_techology() {
 fn test_metadata() {
     const DEFAULT_HREF: &str = "00.png";
     const DEFAULT_CAPTION: &str = "";
-    let meta = Metadata::init().identifier("test-data".to_string()).build();
+    let meta = ResearchActivityMetadata::init().identifier("test-data".to_string()).build();
     assert_eq!(meta.identifier, "test-data".to_string());
     assert_eq!(meta.first_image_content_url(), DEFAULT_HREF);
     let href = "abc.png";
@@ -285,14 +285,20 @@ fn test_metadata() {
     let graphics = vec![MediaObject::Image(
         ImageObject::init().caption(caption.to_owned()).content_url(href.to_owned()).build(),
     )];
-    let meta = Metadata::init().identifier("test-data".to_string()).media(graphics).build();
+    let meta = ResearchActivityMetadata::init()
+        .identifier("test-data".to_string())
+        .media(graphics)
+        .build();
     assert_eq!(meta.clone().first_image_content_url(), href);
     assert_eq!(meta.first_image_caption(), caption);
-    let meta = Metadata::init().identifier("test-data".to_string()).media(vec![]).build();
+    let meta = ResearchActivityMetadata::init().identifier("test-data".to_string()).media(vec![]).build();
     assert_eq!(meta.clone().first_image_content_url(), DEFAULT_HREF);
     assert_eq!(meta.first_image_caption(), DEFAULT_CAPTION);
     let graphics = vec![MediaObject::Image(ImageObject::init().caption("".to_owned()).build())];
-    let meta = Metadata::init().identifier("test-data".to_string()).media(graphics).build();
+    let meta = ResearchActivityMetadata::init()
+        .identifier("test-data".to_string())
+        .media(graphics)
+        .build();
     assert_eq!(meta.clone().first_image_content_url(), DEFAULT_HREF);
     assert_eq!(meta.first_image_caption(), DEFAULT_CAPTION);
 }

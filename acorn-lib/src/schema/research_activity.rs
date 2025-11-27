@@ -2,7 +2,9 @@
 //!
 //! Module that defines the research activity schema
 //!
+use super::pid::raid;
 use super::validate::format_phone_number;
+use super::validate::{is_kebabcase, is_list_url, validate_attribute_doi, validate_attribute_ror_list};
 use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::vale::{Vale, ValeConfig};
 use crate::analyzer::{link_check, Check, CheckCategory, ErrorKind, StaticAnalyzer, StaticAnalyzerConfig};
@@ -10,9 +12,11 @@ use crate::analyzer::{link_check, Check, CheckCategory, ErrorKind, StaticAnalyze
 use crate::io::{async_runtime, read_file};
 use crate::prelude::PathBuf;
 use crate::schema::{
-    ContactPoint, FuzzyValue, ImageObject, MediaObject, Metadata, Organization, OrganizationType, Other, Sections, VideoObject, Website,
+    ClassificationLevel, ContactPoint, FuzzyValue, ImageObject, Keyword, MediaObject, Organization, OrganizationType, Other, Sections, Status,
+    TechnologyReadinessLevel, VideoObject, Website,
 };
 use crate::util::constants::{DEFAULT_AFFILIATION, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
+use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF};
 use crate::util::{image_paths, parent, Constant, Label, LinkedData, MimeType, ToAbsoluteString, ToMarkdown};
 use bon::Builder;
 use convert_case::{Case, Casing};
@@ -25,12 +29,13 @@ use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
-use serde_trim::{option_string_trim, string_trim};
+use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace};
 use validator::Validate;
 
 const SCHEMA_ORG_CONTEXT: &str = "https://schema.org";
+const CODEMETA_CONTEXT: &str = "https://codemeta.github.io/terms";
 
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
@@ -49,7 +54,7 @@ pub struct ResearchActivity {
     /// Associated metadata
     #[validate(nested)]
     #[builder(default)]
-    pub meta: Metadata,
+    pub meta: ResearchActivityMetadata,
     /// Heading that identifies and describes the associated research activity
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
     #[builder(default = "Research Activity Title".to_string())]
@@ -90,6 +95,151 @@ pub struct ResearchActivityContext {
     /// Research activity notes
     pub notes: String,
 }
+/// ## Research Activity Metadata
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ResearchActivityMetadata {
+    /// Linked data (e.g., JSON-LD) context for contact point
+    #[serde(rename = "@context")]
+    pub context: Option<ResearchActivityMetadataContext>,
+    /// Linked data (e.g., JSON-LD) type for contact point
+    #[serde(rename = "@type")]
+    pub metadata_type: Option<String>,
+    /// Classification level of associated research activity data
+    pub classification: Option<ClassificationLevel>,
+    /// Describes the active status of the associated research activity data
+    ///
+    /// <div class="warning">Archived content typically will be omitted from public artifacts such as <a href="https://research.ornl.gov">the ORNL research activity index</a></div>
+    #[builder(default = false)]
+    pub archive: bool,
+    /// Describes the draft status of the associated research activity data
+    ///
+    /// <div class="warning">Draft content typically will be omitted from public artifacts such as <a href="https://research.ornl.gov">the ORNL research activity index</a></div>
+    #[builder(default = true)]
+    pub draft: bool,
+    /// Describes the status of the associated research activity data
+    #[builder(default = Status::Active)]
+    #[serde(default)]
+    pub status: Status,
+    /// Technology Readiness Level (TRL) of associated research activity data
+    ///
+    /// <abbr title="Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
+    pub trl: Option<TechnologyReadinessLevel>,
+    /// Identifier for associated research activity data
+    /// ### Example
+    /// > `my-research-project`
+    ///
+    /// <div class="warning">Should be <a href="https://developer.mozilla.org/en-US/docs/Glossary/Kebab_case">lower-kebab-case</a></div>
+    ///
+    #[validate(custom(function = "is_kebabcase"))]
+    #[builder(default = "some-research-project".to_string())]
+    #[serde(alias = "id", rename = "identifier", deserialize_with = "string_trim")]
+    pub identifier: String,
+    /// Digital Object Identifier(s) related to the associated research activity data
+    ///
+    /// See <https://www.doi.org/> for more information
+    #[validate(custom(function = "validate_attribute_doi"))]
+    #[serde(default)]
+    pub doi: Option<Vec<String>>,
+    /// URL(s) of internet location where associated publication(s) can be found
+    #[validate(custom(function = "is_list_url"))]
+    #[serde(default)]
+    pub publications: Option<Vec<String>>,
+    /// Research Activity Identifier (RAiD)
+    #[validate(nested)]
+    #[serde(default)]
+    pub raid: Option<raid::Metadata>,
+    /// Research Organization Registry
+    ///
+    /// See <https://www.ror.org/> for more information
+    #[validate(custom(function = "validate_attribute_ror_list"))]
+    #[serde(default)]
+    pub ror: Option<Vec<String>>,
+    /// Type of associated research activity data when directly associated with an organization
+    pub additional_type: Option<OrganizationType>,
+    /// Images, videos, and other media related to the associated research activity data
+    #[serde(alias = "graphics")]
+    pub media: Option<Vec<MediaObject>>,
+    /// Websites related to the associated research activity data
+    #[validate(nested)]
+    pub websites: Option<Vec<Website>>,
+    /// Keywords related to the associated research activity data
+    ///
+    /// See [Keyword]
+    #[builder(default = Vec::<String>::new())]
+    pub keywords: Vec<Keyword>,
+    /// Software, programmings languages, and digital resources (e.g., tools, libraries, frameworks, data) related to the associated research activity data
+    /// ### Examples
+    /// - Rust
+    /// - Polars
+    /// - gdal
+    /// - matplotlib
+    /// - LaTeX
+    ///
+    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/technology.csv">Full list of technologies</a></div>
+    #[builder(default = Vec::<String>::new())]
+    #[serde(deserialize_with = "vec_string_trim")]
+    pub technology: Vec<String>,
+    /// Organization(s) responsible for funding associated research activity data
+    ///
+    /// Includes any office within a US cabinet-level department that has leadership appointed by the president and confirmed by the Senate, e.g., NNSA or Office of Science.
+    ///
+    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv">Full list of sponsors</a></div>
+    pub sponsors: Option<Vec<String>>,
+    /// Organization(s) related to the associated research activity data
+    /// ### Examples
+    /// - Los Alamos National Laboratory
+    /// - University of Tennessee
+    /// - IBM
+    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv">Full list of partners</a></div>
+    pub partners: Option<Vec<String>>,
+    /// Related resarch activity data identifiers of related research activity data
+    pub related: Option<Vec<String>>,
+}
+/// Linked data (e.g., JSON-LD) context for metadata
+///
+/// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ResearchActivityMetadataContext {
+    /// Classification level
+    pub classification: String,
+    /// Archive status
+    pub archive: String,
+    /// Draft status
+    pub draft: String,
+    /// Research activity status
+    pub status: String,
+    /// Technology readiness level
+    pub trl: String,
+    /// Local CURIE research activity identifier
+    pub identifier: String,
+    /// Associated Digital Object Identifiers
+    pub doi: String,
+    /// Reseaerch Activity Identifier
+    pub raid: String,
+    /// Research Organization Registry
+    pub ror: String,
+    /// Additional type (for organizations)
+    pub additional_type: String,
+    /// Images, videos, and other media
+    pub media: String,
+    /// Websites
+    pub websites: String,
+    /// Keywords
+    pub keywords: String,
+    /// Software, programmings languages, and digital resources used by research activity
+    pub technology: String,
+    /// Sponsors
+    pub sponsors: String,
+    /// Partners
+    pub partners: String,
+    /// Related research activity data
+    pub related: String,
+}
 impl Default for ResearchActivity {
     fn default() -> Self {
         ResearchActivity::init().build()
@@ -107,6 +257,34 @@ impl Default for ResearchActivityContext {
             .build()
     }
 }
+impl Default for ResearchActivityMetadata {
+    fn default() -> Self {
+        ResearchActivityMetadata::init().build()
+    }
+}
+impl Default for ResearchActivityMetadataContext {
+    fn default() -> Self {
+        ResearchActivityMetadataContext::init()
+            .classification(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .archive(format!("{SCHEMA_ORG_CONTEXT}/Boolean"))
+            .draft(format!("{SCHEMA_ORG_CONTEXT}/Boolean"))
+            .status(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .trl(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .identifier(format!("{CODEMETA_CONTEXT}/identifier"))
+            .doi("https://doi.org".to_string())
+            .raid("https://raid.org".to_string())
+            .ror("https://ror.org".to_string())
+            .additional_type(format!("{SCHEMA_ORG_CONTEXT}/additionalType"))
+            .media(format!("{SCHEMA_ORG_CONTEXT}/MediaObject"))
+            .websites(format!("{SCHEMA_ORG_CONTEXT}/WebSite"))
+            .keywords(format!("{CODEMETA_CONTEXT}/keywords"))
+            .technology(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .sponsors(format!("{CODEMETA_CONTEXT}/sponsor"))
+            .partners(format!("{SCHEMA_ORG_CONTEXT}/Text"))
+            .related(format!("{SCHEMA_ORG_CONTEXT}/Text"))
+            .build()
+    }
+}
 impl Hash for ResearchActivity {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.meta.identifier.hash(state);
@@ -119,6 +297,14 @@ impl LinkedData for ResearchActivity {
         clone.research_activity_type = None;
         clone.meta = self.meta.with_context();
         clone.contact = self.contact.with_context();
+        clone
+    }
+}
+impl LinkedData for ResearchActivityMetadata {
+    fn with_context(&self) -> Self {
+        let mut clone = self.clone();
+        clone.context = Some(ResearchActivityMetadataContext::default());
+        clone.metadata_type = None;
         clone
     }
 }
@@ -496,6 +682,37 @@ impl ResearchActivity {
             | None => {}
         }
         found.into_iter().flatten().flatten().collect::<Vec<_>>()
+    }
+}
+impl ResearchActivityMetadata {
+    pub(crate) fn first_image(self) -> Option<MediaObject> {
+        match self.media {
+            | Some(values) => values.into_iter().filter(|x| x.clone().is_image()).collect::<Vec<_>>().first().cloned(),
+            | None => None,
+        }
+    }
+    /// Returns the content URL of the first image in the list of media objects, or a default value if none are present.
+    pub fn first_image_content_url(self) -> String {
+        match self.first_image() {
+            | Some(media) => match media {
+                | MediaObject::Image(ImageObject { content_url, .. }) => match content_url {
+                    | Some(value) if !value.is_empty() => value.clone().trim().to_string(),
+                    | Some(_) | None => DEFAULT_GRAPHIC_HREF.to_string(),
+                },
+                | _ => DEFAULT_GRAPHIC_HREF.to_string(),
+            },
+            | None => DEFAULT_GRAPHIC_HREF.to_string(),
+        }
+    }
+    /// Returns the caption of the first image in the list of media objects, or a default value if none are present.
+    pub fn first_image_caption(self) -> String {
+        match self.first_image() {
+            | Some(MediaObject::Image(ImageObject { caption, .. })) => match caption.clone() {
+                | value if !value.is_empty() => value.clone(),
+                | _ => DEFAULT_GRAPHIC_CAPTION.to_string(),
+            },
+            | Some(_) | None => DEFAULT_GRAPHIC_CAPTION.to_string(),
+        }
     }
 }
 fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {

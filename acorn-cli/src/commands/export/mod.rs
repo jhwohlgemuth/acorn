@@ -5,8 +5,7 @@ use acorn_lib::io::{async_runtime, extract_zip};
 use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
 use acorn_lib::powerpoint::{archive, interpolate_values, read_xml_rel};
 use acorn_lib::prelude::{absolute, copy, create_dir_all, remove_file, File, PathBuf};
-use acorn_lib::schema::research_activity::ResearchActivity;
-use acorn_lib::schema::Metadata;
+use acorn_lib::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
 use acorn_lib::util::{suffix, to_absolute_string, Label};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -88,7 +87,7 @@ fn create_powerpoint(options: CommandLineOptions) {
     let output_path = match output {
         | Some(value) => match create_dir_all(value.clone()) {
             | Ok(_) => {
-                let Metadata { identifier, .. } = data.meta.clone();
+                let ResearchActivityMetadata { identifier, .. } = data.meta.clone();
                 let path = format!("{}/{}.pptx", value.display(), identifier);
                 debug!(path, "=> {} Output", Label::using());
                 path
