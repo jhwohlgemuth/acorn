@@ -1,15 +1,15 @@
-<style>
+<!-- <style>
     .gl-dark img.banner.light {
         display: none;
     }
     .gl-light img.banner.dark {
         display: none;
     }
-</style>
+</style> -->
 <div align="center">
     <p>
-        <img class="banner light" src="docs/src/assets/banner_light_mode.png" alt="ACORN Banner" width="400px" />
-        <img class="banner dark" src="docs/src/assets/banner_dark_mode.png" alt="ACORN Banner" width="400px" />
+        <img class="banner light" src="docs/src/assets/banner_light_mode.png#gl-light" alt="ACORN Banner" width="400px" />
+        <img class="banner dark" src="docs/src/assets/banner_dark_mode.png#gl-dark" alt="ACORN Banner" width="400px" />
     </p>
 </div>
 
