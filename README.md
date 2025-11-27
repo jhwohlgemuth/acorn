@@ -1,17 +1,11 @@
-<!-- <style>
-    .gl-dark img.banner.light {
-        display: none;
-    }
-    .gl-light img.banner.dark {
-        display: none;
-    }
-</style> -->
 <div align="center">
-    <p>
-        <img class="banner light" src="docs/src/assets/banner_light_mode.png#gl-light" alt="ACORN Banner" width="400px" />
-        <img class="banner dark" src="docs/src/assets/banner_dark_mode.png#gl-dark" alt="ACORN Banner" width="400px" />
-    </p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/src/assets/banner_dark_mode.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/src/assets/banner_light_mode.png">
+    <img src="docs/src/assets/banner_light_mode.png" alt="ACORN Banner" width="350px">
+  </picture>
 </div>
+</br>
 
 [<img alt="gitlab" src="https://img.shields.io/badge/code.ornl.gov-research_enablement-00662C?style=for-the-badge&logo=gitlab&color=%2300662C
 " height="20">](https://code.ornl.gov/research-enablement/acorn)
