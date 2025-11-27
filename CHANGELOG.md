@@ -1,8 +1,7 @@
 # CHANGELOG 🌱
 > Wisdom is knowledge of things that don't change, intelligence is the knowledge of things that do
 
-## Unreleased
-> ⚠️ If you want to use these changes, you will need to build from source. Consult [CONTRIBUTING.md](https://code.ornl.gov/research-enablement/acorn/-/blob/main/CONTRIBUTING.md) for details.
+## [0.1.43](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.42..v0.1.43) - 2025-11-27
 
 ### 🚀 Features
 
@@ -37,6 +36,7 @@
 
 ### 📚 Documentation
 
+- Generate changelog - ([ea6bf8f](https://code.ornl.gov/research-enablement/acorn/commit/ea6bf8f3daa3ba620fb679f4b5ae090f3af44c55))
 - Update acorn banner again - ([0020f9b](https://code.ornl.gov/research-enablement/acorn/commit/0020f9b523a21d3a6d2177b4ff5fa44c580bda3c))
 - Update acorn banner - ([acaa09b](https://code.ornl.gov/research-enablement/acorn/commit/acaa09b921ddea85ede674faa827d85abba38292))
 - Update link command page - ([7655077](https://code.ornl.gov/research-enablement/acorn/commit/76550778bef2096a545ebb0f2cb589cf1a438d88))
