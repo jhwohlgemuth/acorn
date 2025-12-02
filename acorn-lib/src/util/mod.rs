@@ -173,6 +173,22 @@ pub enum MimeType {
     #[display("application/unknown")]
     Unknown,
 }
+/// Enumeration for hardware resources used by technology
+#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+pub enum Resource {
+    /// Central Processing Unit for "classical" computing
+    CPU,
+    /// Graphics Processing Unit
+    GPU,
+    /// Tensor Processing Unit
+    TPU,
+    /// Neuromorphic compute
+    Neuromorphic,
+    /// Quantum computing (e.g., NISQ, etc.)
+    Quantum,
+    /// Unknown, unspecified, or otherwise unclassified resource
+    Other,
+}
 /// Struct for using and sharing constants
 ///
 /// See <https://git.sr.ht/~pyrossh/rust-embed>

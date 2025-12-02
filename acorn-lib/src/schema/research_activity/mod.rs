@@ -34,6 +34,8 @@ use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace};
 use validator::Validate;
 
+pub mod aspect;
+
 const SCHEMA_ORG_CONTEXT: &str = "https://schema.org";
 const CODEMETA_CONTEXT: &str = "https://codemeta.github.io/terms";
 
