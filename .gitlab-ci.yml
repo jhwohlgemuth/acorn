@@ -7,11 +7,11 @@ variables:
   IS_VERSION_TAGGED: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
 stages:
-  - docs
   - prepare
   - test
   - build
   - release
+  - docs
 
 prepare-environment:
   stage: prepare
