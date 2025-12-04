@@ -1,5 +1,18 @@
-//! Module defining schema elements of ASPECT
-//! > ASPECT = A Scientific Prescription for the Efficient Classification of Technology
+//! # ASPECT
+//! > A Scientific Prescription for the Efficient Classification of Technology
+//!
+//! What is ASPECT?
+//! ASPECT
+//! - is scientific in that it was designed based on a thorough analysis of the existing scientific literature,
+//! - prescribes a set of terms and definitions that are intended to be both clear and concise, and to be easy to understand by both scientists and non-scientists,
+//! - is efficient in its design and implementation - ASPECT includes only what is required and is implemented in Rust to provide maximum safety, expresiveness, and flexibility,
+//! - seeks to classify technology in a way that is consistent, informative, and useful.
+//!
+//! ASPECT was designed with the goal of unifying our understanding of automation, AI/ML technology, and "classical" software.
+//! We focus on "technology" instead of "AI/ML technology" because the latter is a subset of the former. Furthermore, focusing on AI/ML as the end goal is not fruitful or correct. In fact, doing so is backwards.
+//! AI/ML software is not novel in any meaningful sense. Even if it was, it would still be 100% predicated on the scientific principles of software.
+//!
+//! In the context of technology, AI/ML and automation are the same.
 //!
 use super::TechnologyReadinessLevel;
 use crate::util::{License, Resource};
@@ -8,7 +21,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-/// Description of obstacles to access
+/// Description of obstacles to shared access
 #[derive(Clone, Debug, Default, Deserialize_repr, Display, Serialize_repr, PartialEq, PartialOrd, JsonSchema)]
 #[repr(u8)]
 #[serde(deny_unknown_fields)]
@@ -36,11 +49,11 @@ pub enum DataQuality {
     Raw = 0,
     /// Ingested
     Bronze = 1,
-    /// Processed
+    /// Processed in some form short of being "AI ready" (e.g., large scale consumption)
     Silver = 2,
     /// AI-ready
     Gold = 3,
-    /// Training
+    /// AI-ready data that is adapted to a specific application and/or subjected to additional processing
     Platinum = 4,
 }
 /// Efficacy of a given technology that describes how it interacts with the environment
@@ -48,17 +61,21 @@ pub enum DataQuality {
 #[repr(u8)]
 #[serde(deny_unknown_fields)]
 pub enum Efficacy {
-    /// No input or output. Basically any operation without no side effects (e.g., simulations)
-    #[display("Type 0")]
+    /// No input or output. Basically any operation with no side effects
+    /// ## Example
+    /// > digital models
+    #[display("Type-0")]
     Type0 = 0,
     /// Receive input from environment
-    #[display("Type 1A")]
+    #[display("Type-1A")]
     Type1A = 1,
     /// Applies output to environment
-    #[display("Type 1B")]
+    #[display("Type-1B")]
     Type1B = 2,
     /// Receives input and applies output to environment
-    #[display("Type 2")]
+    /// ## Example
+    /// > digital twins
+    #[display("Type-2")]
     Type2 = 3,
 }
 /// Adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved mission outcomes
@@ -110,11 +127,29 @@ pub enum Modality {
 /// Tasks that can describe the capabilities of a given technology
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 pub enum TaskType {
-    /// Reduce entroy of environment input
+    /// Reduce entropy of environment input and/or identify patterns in environment
+    /// ## Examples
+    /// > object detection and optical character recognition (OCR)
+    /// ## Note
+    /// > Research activity data with associated technology the implements the `Perceive` task type can only be present in Type-1A and Type-2 efficacy aspects, but are not necessary to be present.
+    #[display("perceive")]
+    #[serde(alias = "perception")]
     Perceive,
     /// Apply internal model to external environment
+    /// ## Examples
+    /// > robot actuator control, code generation, and image optimization
+    /// ## Note
+    /// > Research activity data with associated technology the implements the `Project` task type can only be present in Type-1B and Type-2 efficacy aspects, but are not necessary to be present.
+    #[display("project")]
+    #[serde(alias = "projection")]
     Project,
     /// Inference, pattern recognition, etc.
+    /// ## Examples
+    /// > image classification, most NLP tasks, and schema validation
+    /// ## Note
+    /// > Research activity data with associated technology the implements the `Reason` task type can be present in any efficacy aspect, but are not necessary to be present.
+    #[display("reason")]
+    #[serde(alias = "infer", alias = "inference")]
     Reason,
 }
 /// Model the "AI triad" of data, compute, and algorithms
@@ -122,13 +157,13 @@ pub enum TaskType {
 pub struct ASPECT {
     /// Data associated with technology (e.g., training data, input data, etc.)
     pub data: Option<Vec<Data>>,
-    /// Measure of efficacy (e.g., interactivity)
+    /// Measure of efficacy (e.g., interactivity and impact on environment)
     pub efficacy: Option<Efficacy>,
     /// Human-machine teaming level
     pub human_machine_teaming_level: Option<HumanMachineTeamingLevel>,
     /// Hardware/compute resource requirements
     pub resources: Vec<Resource>,
-    /// Technology maturity (e.g., TRL)
+    /// Technology maturity (e.g., technology readiness level)
     pub maturity: Option<TechnologyReadinessLevel>,
     /// Tasks that best describe the capabilities of the associated technology
     pub task_type: Vec<TaskType>,

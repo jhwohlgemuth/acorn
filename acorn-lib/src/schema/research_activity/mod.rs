@@ -2,6 +2,7 @@
 //!
 //! Module that defines the research activity schema
 //!
+use super::constants::{CODEMETA_CONTEXT, SCHEMA_ORG_CONTEXT};
 use super::pid::raid;
 use super::validate::format_phone_number;
 use super::validate::{is_kebabcase, is_list_url, validate_attribute_doi, validate_attribute_ror_list};
@@ -35,9 +36,7 @@ use tracing::{debug, error, trace};
 use validator::Validate;
 
 pub mod aspect;
-
-const SCHEMA_ORG_CONTEXT: &str = "https://schema.org";
-const CODEMETA_CONTEXT: &str = "https://codemeta.github.io/terms";
+use aspect::ASPECT;
 
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
@@ -57,6 +56,8 @@ pub struct ResearchActivity {
     #[validate(nested)]
     #[builder(default)]
     pub meta: ResearchActivityMetadata,
+    /// Technology ASPECT of associated research activity - describes the data, compute, and algorithms used in the associated research activity
+    pub aspect: Option<ASPECT>,
     /// Heading that identifies and describes the associated research activity
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
     #[builder(default = "Research Activity Title".to_string())]
@@ -125,10 +126,6 @@ pub struct ResearchActivityMetadata {
     #[builder(default = Status::Active)]
     #[serde(default)]
     pub status: Status,
-    /// Technology Readiness Level (TRL) of associated research activity data
-    ///
-    /// <abbr title="Technology Readiness Level">TRL</abbr> is applicable to acquisition, machine learning, and more
-    pub trl: Option<TechnologyReadinessLevel>,
     /// Identifier for associated research activity data
     /// ### Example
     /// > `my-research-project`

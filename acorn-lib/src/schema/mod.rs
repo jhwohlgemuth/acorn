@@ -1,4 +1,4 @@
-//! ## ACORN schemas
+//! # ACORN schemas
 //!
 //! Here you'll find everything needed to build and use the research activity data schema, including metadata fields, section information, media objects, formats, and functions that power ACORN CLI commands.
 //!
@@ -20,17 +20,17 @@ use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
 use validator::Validate;
 
+pub mod constants;
 pub mod graph;
 pub mod pid;
 pub mod research_activity;
 pub mod validate;
+use constants::SCHEMA_ORG_CONTEXT;
 use graph::{node_from_label, node_name, node_parent};
 use validate::{
     has_image_extension, is_orcid, is_phone_number, validate_attribute_approach, validate_attribute_areas, validate_attribute_capabilities,
     validate_attribute_impact,
 };
-
-const SCHEMA_ORG_CONTEXT: &str = "https://schema.org";
 
 /// ## Keywords
 /// > Core concepts related to the associated research activity
