@@ -34,13 +34,15 @@ pub enum Availability {
     /// Data is available and access is unrestricted (open source)
     Unrestricted = 2,
 }
-/// Describe the data that a system can process and learn from
+/// Describe the data that a system can process, use, and depend on
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub enum Data {
     /// Data that has been collected from natural events
     Real(DataDescription),
     /// Data that has been artificially created by computer algorithms
     Synthetic(DataDescription),
+    /// Opaque data artifact
+    Model(Model),
 }
 /// Framework for partitioning data by quality using metaphor of mined metals
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
@@ -124,6 +126,12 @@ pub enum Modality {
     #[display("graph")]
     Graph,
 }
+/// Opaque data artifact that is consumed by a given technology
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+pub enum Model {
+    /// Large language model useful for natural language processing, generative AI, etc.
+    LLM(LargeLanguageModel),
+}
 /// Tasks that can describe the capabilities of a given technology
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 pub enum TaskType {
@@ -179,4 +187,21 @@ pub struct DataDescription {
     pub modality: Option<Modality>,
     /// Quality of data
     pub quality: Option<DataQuality>,
+}
+/// Describe a large language model (LLM)
+///
+/// This struct strives to accomodate the wide myriad varieties of the LLMs in the wild.
+/// As such, version is a string instead of a `SemanticVersion` because versions are attached to LLMs inconsistently.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+pub struct LargeLanguageModel {
+    /// Model family that generally describes model architecture (e.g., llama, gemma, qwen, etc.)
+    pub family: String,
+    /// String value to override full model string descriptor in cases of ambiguity and in consistency
+    pub name: Option<String>,
+    /// Value that describes niche application of a given model family (e.g., "coder" in "qwen-coder")
+    pub variant: Option<String>,
+    /// Version of model
+    pub version: Option<String>,
+    /// Number of parameters (in billions) (e.g., 14 for "14B")
+    pub parameters: Option<i64>,
 }
