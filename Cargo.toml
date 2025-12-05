@@ -4,7 +4,7 @@ exclude = ["acorn-py"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.44"
+version = "0.1.45"
 license = "MIT"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
 description = "Accessible Content Optimization for Research Needs - Multitool for maintaining sustainable research activity data"
