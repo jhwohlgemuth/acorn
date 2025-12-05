@@ -36,7 +36,7 @@ use tracing::{debug, error, trace};
 use validator::Validate;
 
 pub mod aspect;
-use aspect::ASPECT;
+use aspect::AspectFramework;
 
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
@@ -57,7 +57,7 @@ pub struct ResearchActivity {
     #[builder(default)]
     pub meta: ResearchActivityMetadata,
     /// Technology ASPECT of associated research activity - describes the data, compute, and algorithms used in the associated research activity
-    pub aspect: Option<ASPECT>,
+    pub aspect: Option<AspectFramework>,
     /// Heading that identifies and describes the associated research activity
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
     #[builder(default = "Research Activity Title".to_string())]
@@ -212,8 +212,6 @@ pub struct ResearchActivityMetadataContext {
     pub draft: String,
     /// Research activity status
     pub status: String,
-    /// Technology readiness level
-    pub trl: String,
     /// Local CURIE research activity identifier
     pub identifier: String,
     /// Associated Digital Object Identifiers
@@ -268,7 +266,6 @@ impl Default for ResearchActivityMetadataContext {
             .archive(format!("{SCHEMA_ORG_CONTEXT}/Boolean"))
             .draft(format!("{SCHEMA_ORG_CONTEXT}/Boolean"))
             .status(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .trl(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .identifier(format!("{CODEMETA_CONTEXT}/identifier"))
             .doi("https://doi.org".to_string())
             .raid("https://raid.org".to_string())

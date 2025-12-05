@@ -224,6 +224,7 @@ pub enum Status {
 #[repr(u8)]
 #[serde(deny_unknown_fields)]
 pub enum TechnologyReadinessLevel {
+    #[default]
     /// A stage for greenfield research
     ///
     /// Not a standard TRL
@@ -232,7 +233,6 @@ pub enum TechnologyReadinessLevel {
     /// Basic principles observed and reported
     ///
     /// ML: Goal-oriented research
-    #[default]
     #[display("Basic Research")]
     Research = 1,
     /// Technology concept and/or application formulated

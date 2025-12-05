@@ -14,8 +14,10 @@
 //!
 //! In the context of technology, AI/ML and automation are the same.
 //!
+use super::super::constants::{CODEMETA_CONTEXT, SCHEMA_ORG_CONTEXT};
 use super::TechnologyReadinessLevel;
-use crate::util::{License, Resource};
+use crate::util::{License, LinkedData, Resource};
+use bon::Builder;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -80,7 +82,7 @@ pub enum Efficacy {
     #[display("Type-2")]
     Type2 = 3,
 }
-/// Adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved mission outcomes
+/// Adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes
 /// ## Notes
 /// - In general, represents the integration of human interaction with machine intelligence capabilities (see ISO 22989)
 /// - Originally derived from [Society of Automotive Engineers](https://www.sae.org/) (SAE) [Standard J3016](https://www.sae.org/standards/content/j3016_202104)
@@ -161,8 +163,16 @@ pub enum TaskType {
     Reason,
 }
 /// Model the "AI triad" of data, compute, and algorithms
-#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
-pub struct ASPECT {
+#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct AspectFramework {
+    /// Linked data (e.g., JSON-LD) context for ASPECT information
+    #[serde(rename = "@context")]
+    pub context: Option<AspectFrameworkContext>,
+    /// Linked data (e.g., JSON-LD) type for ASPECT information
+    #[serde(rename = "@type")]
+    pub aspect_type: Option<String>,
     /// Data associated with technology (e.g., training data, input data, etc.)
     pub data: Option<Vec<Data>>,
     /// Measure of efficacy (e.g., interactivity and impact on environment)
@@ -170,15 +180,35 @@ pub struct ASPECT {
     /// Human-machine teaming level
     pub human_machine_teaming_level: Option<HumanMachineTeamingLevel>,
     /// Hardware/compute resource requirements
+    #[builder(default = Vec::new())]
     pub resources: Vec<Resource>,
     /// Technology maturity (e.g., technology readiness level)
     pub maturity: Option<TechnologyReadinessLevel>,
     /// Tasks that best describe the capabilities of the associated technology
+    #[builder(default = Vec::new())]
     pub task_type: Vec<TaskType>,
 }
+/// Linked data (e.g., JSON-LD) context for ASPECT information
+#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
+pub struct AspectFrameworkContext {
+    pub(crate) data: String,
+    pub(crate) efficacy: String,
+    pub(crate) human_machine_teaming_level: String,
+    pub(crate) resources: String,
+    pub(crate) maturity: String,
+    pub(crate) task_type: String,
+}
 /// Common attributes of data
-#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
 pub struct DataDescription {
+    /// Linked data (e.g., JSON-LD) context for data description
+    #[serde(rename = "@context")]
+    pub context: Option<DataDescriptionContext>,
+    /// Linked data (e.g., JSON-LD) type for data description
+    #[serde(rename = "@type")]
+    pub description_type: Option<String>,
     /// Replaces ADEPT concept of "openness"
     pub availability: Option<Availability>,
     /// License that governs use of data
@@ -188,11 +218,21 @@ pub struct DataDescription {
     /// Quality of data
     pub quality: Option<DataQuality>,
 }
+/// Linked data (e.g., JSON-LD) context for data description
+#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
+pub struct DataDescriptionContext {
+    pub(crate) availability: String,
+    pub(crate) license: String,
+    pub(crate) modality: String,
+    pub(crate) quality: String,
+}
 /// Describe a large language model (LLM)
 ///
 /// This struct strives to accomodate the wide myriad varieties of the LLMs in the wild.
 /// As such, version is a string instead of a `SemanticVersion` because versions are attached to LLMs inconsistently.
-#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+#[derive(Builder, Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+#[builder(start_fn = init)]
 pub struct LargeLanguageModel {
     /// Model family that generally describes model architecture (e.g., llama, gemma, qwen, etc.)
     pub family: String,
@@ -204,4 +244,53 @@ pub struct LargeLanguageModel {
     pub version: Option<String>,
     /// Number of parameters (in billions) (e.g., 14 for "14B")
     pub parameters: Option<i64>,
+}
+
+impl Default for AspectFramework {
+    fn default() -> Self {
+        AspectFramework::init().build()
+    }
+}
+impl Default for AspectFrameworkContext {
+    fn default() -> Self {
+        AspectFrameworkContext::init()
+            .data(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .efficacy(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .human_machine_teaming_level(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .resources(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .maturity(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .task_type(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .build()
+    }
+}
+impl Default for DataDescription {
+    fn default() -> Self {
+        DataDescription::init().build()
+    }
+}
+impl Default for DataDescriptionContext {
+    fn default() -> Self {
+        DataDescriptionContext::init()
+            .availability(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .license(format!("{CODEMETA_CONTEXT}/softwareVersion"))
+            .modality(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .quality(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .build()
+    }
+}
+impl LinkedData for AspectFramework {
+    fn with_context(&self) -> Self {
+        let mut clone = self.clone();
+        clone.context = Some(AspectFrameworkContext::default());
+        clone.aspect_type = None;
+        clone
+    }
+}
+impl LinkedData for DataDescription {
+    fn with_context(&self) -> Self {
+        let mut clone = self.clone();
+        clone.context = Some(DataDescriptionContext::default());
+        clone.description_type = None;
+        clone
+    }
 }
