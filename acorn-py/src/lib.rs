@@ -1,4 +1,5 @@
-use acorn_lib::schema::{self, ContactPoint, ResearchActivity};
+use acorn_lib::schema::{self, ContactPoint};
+use acorn_lib::schema::research_activity::ResearchActivity;
 use pyo3::prelude::*;
 use acorn_lib::prelude::PathBuf;
 
