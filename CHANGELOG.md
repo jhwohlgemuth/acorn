@@ -1,6 +1,32 @@
 # CHANGELOG 🌱
 > Wisdom is knowledge of things that don't change, intelligence is the knowledge of things that do
 
+## [0.1.45](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.43..v0.1.45) - 2025-12-05
+
+### 🚀 Features
+
+- Add model and llm structs to aspect - ([2322569](https://code.ornl.gov/research-enablement/acorn/commit/2322569b08b24b3ad1f729df13ea4c6016726bdd))
+- Integrate aspect attribute in RAD schema - ([a4ca38b](https://code.ornl.gov/research-enablement/acorn/commit/a4ca38b2f88ed0aa18c6c6a4d4b306df279e1ffb))
+- Initial addition of ASPECT schema - ([0aa3a2a](https://code.ornl.gov/research-enablement/acorn/commit/0aa3a2a361a86d8e058eee39d0b1d6ff3cc42f35))
+- Move RAD metadata struct to research_activity module - ([fd8636f](https://code.ornl.gov/research-enablement/acorn/commit/fd8636f4e8d0723fcf49251b8fa51bfa53d46de9))
+
+### 🐛 Bug Fixes
+
+- *(ci)* Move docs stage back to end - ([7bda57b](https://code.ornl.gov/research-enablement/acorn/commit/7bda57b358bdd6d92bc8ec53bf1e8ff662e05f0f))
+- *(tests)* Update import in python package and remove trl attribute from test data - ([705f641](https://code.ornl.gov/research-enablement/acorn/commit/705f6418cd2a545a1e2fcb67632b0cfc791d543a))
+- Re-add LLM struct to aspect - ([3921c79](https://code.ornl.gov/research-enablement/acorn/commit/3921c795807eba4d68ba99a3fbadea9838ab96cc))
+
+### 📚 Documentation
+
+- Add bottom margin to banner - ([f0f1b64](https://code.ornl.gov/research-enablement/acorn/commit/f0f1b64b1f015ed10b3d1551ebd97ecaeceeb1bc))
+- Add light and dark mode support for real hopefully - ([aa2aed1](https://code.ornl.gov/research-enablement/acorn/commit/aa2aed1499bef3b85726a0bd3fed3cc20309f3b3))
+- Add light and dark mode support - ([43e2e2e](https://code.ornl.gov/research-enablement/acorn/commit/43e2e2e70eef4b26553cd9b4cd7feadca0c80b69))
+- Add ACORN banner to README - ([5930805](https://code.ornl.gov/research-enablement/acorn/commit/59308055ac8842760f4e639f6a5ebb5d17311f06))
+- Generate changelog - ([1905ace](https://code.ornl.gov/research-enablement/acorn/commit/1905ace81ac17b149aad9fbd4977c2f9af31c1d2))
+
+### 🚧 In Progress
+
+- *(docs)* Try to enable light and dark mode support - ([9c3f750](https://code.ornl.gov/research-enablement/acorn/commit/9c3f7508acf409812b4355515083b1679ae3ffc3))
 ## [0.1.43](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.42..v0.1.43) - 2025-11-27
 
 ### 🚀 Features
