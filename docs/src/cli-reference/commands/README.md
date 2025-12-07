@@ -9,11 +9,12 @@
 
 ## ACORN Command Workflow
 ```mermaid
-graph LR
-    User -.->|create| A
-    A[RAD] --> B[check]
-    B --> A
-    B --> C[format]
-    C --> D[link]
-    C --> E[export]
+stateDiagram
+    direction LR
+    [*] --> RAD: create
+    RAD --> check
+    check --> RAD
+    check --> format
+    format --> link
+    format --> export
 ```
