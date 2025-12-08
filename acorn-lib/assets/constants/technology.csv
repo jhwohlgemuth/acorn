@@ -2,11 +2,13 @@ airflow,Apache Airflow,https://airflow.apache.org/
 angular,AngularJS,https://angularjs.org/
 apptainer,Singularity,https://apptainer.org/
 astro,astro.js,AstroJS,https://astro.build/
-c#,C sharp,programming_language::C#,https://dotnet.microsoft.com/en-us/languages/csharp
+c#,C sharp,programming_language::C#,https://dotnet.microsoft.com/en-us/languages/csharp/
 c++,C plus plus,programming_language::C++,https://isocpp.org/
+celery,Celery,https://github.com/celery/celery
 cog,Cloud Optimized GeoTIFF,data_format::COG,https://cogeo.org/
+conda,mamba,miniconda,micromamba,https://github.com/mamba-org/mamba/
 css,programming_language::CSS,https://www.w3.org/groups/wg/css/
-cuda,Compute Unified Device Architecture,NVIDIA CUDA,CUDA Toolkit,https://developer.nvidia.com/cuda-toolkit
+cuda,Compute Unified Device Architecture,NVIDIA CUDA,CUDA Toolkit,https://developer.nvidia.com/cuda-toolkit/
 docker,https://www.docker.com/
 duckdb,DuckDB,https://duckdb.org/
 fortran,programming_language::Fortran,https://fortran-lang.org/
@@ -14,6 +16,7 @@ gdal,Geospatial Data Abstraction Library,https://gdal.org/
 geoparquet,GeoParquet,data_format::GeoParquet,https://geoparquet.org/
 geoserver,GeoServer,https://geoserver.org/
 geotiff,data_format::GeoTIFF,https://www.ogc.org/standards/geotiff/
+git,Git SCM,https://git-scm.com/
 go,Golang,programming_language::Go,https://go.dev/
 hdf5,data_format::HDF5,https://www.hdfgroup.org/solutions/hdf5/
 html,programming_language::HTML,https://html.spec.whatwg.org/
@@ -26,11 +29,16 @@ kokkos,https://kokkos.org/
 kotlin,kt,programming_language::Kotlin,https://kotlinlang.org/
 kubernetes,k8s,https://kubernetes.io/
 latex,LaTeX,https://www.latex-project.org/
+mathematica,programming_language::Mathematica,https://www.wolfram.com/mathematica/
 matlab,MathWorks MATLAB,https://www.latex-project.org/
 matplotlib,Matplotlib,https://matplotlib.org/
 neo4j,https://neo4j.com/
 nix,https://nixos.org/
 numpy,NumPy,https://numpy.org/
+octave,GNU Octave,programming_language::Octave,https://octave.org/
+open mpi,Open MPI,https://www.open-mpi.org/
+opensearch,OpenSearch,https://opensearch.org/
+openshift,Red Hat OpenShift,https://www.redhat.com/en/technologies/cloud-computing/openshift/
 pandas,Pandas,https://pandas.pydata.org/
 parquet,Apache Parquet,data_format::Parquet,https://parquet.apache.org/
 perl,programming_language::Perl,https://www.perl.org/
@@ -39,10 +47,12 @@ podman,https://podman.io/
 polars,Polars,https://pola.rs/
 postgis,PostGIS,https://postgis.net/
 postgresql,PostgreSQL,https://www.postgresql.org/
+powershell,pwsh,PowerShell,programming_language::PowerShell,https://github.com/PowerShell/PowerShell/
 prefect,Prefect Open Source,https://www.prefect.io/
 python,py,programming_language::Python,https://www.python.org/
 pytorch,PyTorch,https://pytorch.org/
 r,programming_language::R_language,https://www.r-project.org/
+rasterio,Rasterio,https://github.com/rasterio/rasterio/
 react,react.js,ReactJS,https://react.dev/
 redis,Redis Open Source,https://redis.io/
 ruby,programming_language::Ruby,https://www.ruby-lang.org/
@@ -52,11 +62,16 @@ scikit-learn,SciKit-Learn,https://scikit-learn.org/
 scipy,SciPy,https://scipy.org/
 seaborn,Seaborn,https://seaborn.pydata.org/
 shell,bash,fish,ksh,powershell,pwsh,tcsh,zsh
+slurm,Slurm Workload Manager,https://slurm.schedmd.com/overview.html/
 solr,Apache Solr,https://solr.apache.org/
 sql,SQL,programming_language::SQL
 stan,programming_language::Stan,https://mc-stan.org/
 tensorflow,TensorFlow,https://www.tensorflow.org/
 typescript,programming_language::TypeScript,https://www.typescriptlang.org/
 typespec,programming_language::TypeSpec,https://typespec.io/
+unity,Unity,https://unity.com/
+unreal engine,Unreal Engine,https://www.unrealengine.com/
 vhdl,VHSIC Hardware Description Language,programming_language::VHDL
 visual basic,VB,programming_language::VB
+vllm,vLLM,https://github.com/vllm-project/vllm/
+wasm,WebAssembly,https://webassembly.org/
