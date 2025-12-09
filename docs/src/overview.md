@@ -11,8 +11,8 @@
 </style>
 <div align="center">
     <p>
-        <img class="banner light" src="_assets/banner_light_mode.png" alt="ACORN Banner" height="125" />
-        <img class="banner dark" src="_assets/banner_dark_mode.png" alt="ACORN Banner" height="125" />
+        <img class="banner light" src="_assets/banner_light_mode.png" alt="ACORN Banner" height="150" />
+        <img class="banner dark" src="_assets/banner_dark_mode.png" alt="ACORN Banner" height="150" />
     </p>
 </div>
 
