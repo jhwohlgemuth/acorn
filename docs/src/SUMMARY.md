@@ -7,6 +7,7 @@
   - [ACORN](./schemas/acorn.md)
   - [ASPECT](./schemas/aspect/README.md)
     - [Data](./schemas/aspect/data.md)
+    - [Portability](./schemas/aspect/portability.md)
     - [Efficacy](./schemas/aspect/efficacy.md)
     - [Human-machine teaming](./schemas/aspect/human-machine-teaming.md)
     - [(Hardware) Resources](./schemas/aspect/resources.md)
