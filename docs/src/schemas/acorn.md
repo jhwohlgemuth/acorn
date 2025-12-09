@@ -1,3 +1,7 @@
 # ACORN Schema
 
-![ACORN Schema Overview](_assets/schema_overview.png)
+<div align="left">
+    <p>
+        <img src="../_assets/schema_overview.png" alt="ACORN Schema Overview" width="500" />
+    </p>
+</div>
