@@ -16,8 +16,21 @@
     </p>
 </div>
 
-> [!WARNING]  
-> This documentation is a work in progress. Some sections may be incomplete or subject to change.
+<div align="center">
+  <div>
+    <a href="https://code.ornl.gov/research-enablement/acorn">
+        <img alt="gitlab" src="https://img.shields.io/badge/code.ornl.gov-read_the_code-00662C?style=for-the-badge&logo=gitlab&color=%2300662C
+" height="20">
+    </a>
+    <a href="https://crates.io/crates/acorn-cli">
+        <img alt="crates.io" src="https://img.shields.io/crates/v/acorn-cli.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">
+    </a>
+    <a href="https://code.ornl.gov/research-enablement/acorn/-/releases">
+        <img alt="Releases" src="https://code.ornl.gov/research-enablement/acorn/-/badges/release.svg?style=flat-square" height="20">
+    </a>
+  </div>
+</div>
+<br/>
 
 🌱 ACORN[^acronym] provides and operationalizes an ontology for research activity data (RAD) and enables adding linked data context and transforming RAD into a knowledge graph that is amenable to automated reasoning and artifact generation (e.g. PDFs, PPTX, etc.)
 

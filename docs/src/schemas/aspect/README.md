@@ -34,7 +34,7 @@ The ASPECT framework can be applied in various scenarios
     - Human-machine teaming
         - ***Machine-assisted*** (Level 1)
     - Maturity
-        - ***Developed*** (TRL 5)
+        - ***Developed*** (<span title="Technology Readiness Level">TRL</span> 5)
     - Task classification
         - ***Perceive***
         - ***Reason***

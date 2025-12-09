@@ -7,7 +7,7 @@
 - [🤖 Format](./format.md)
 - [🕸️ Link](./link.md)
 
-## ACORN Command Workflow
+## Command Workflow
 ```mermaid
 stateDiagram
     direction LR
