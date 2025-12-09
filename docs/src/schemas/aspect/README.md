@@ -11,6 +11,7 @@ In the context of technology, AI/ML and automation are the same.
 
 ### Key Components
 - 💾 [Data](./data.md)
+- 💼 [Portability](./portability.md)
 - ⚡ [Efficacy](./efficacy.md)
 - 🤝 [Human-machine teaming](./human-machine-teaming.md)
 - 🖥️ [(Hardware) Resources](./resources.md)
@@ -26,6 +27,11 @@ The ASPECT framework can be applied in various scenarios
         - ***Unavailable*** to public
         - ***Silver*** quality
         - ***Textual*** modality training data
+    - Software Portability
+        - ***Source*** (Level 1)
+            - Has restrictive hardware requirements (e.g., high-end GPU with CUDA support)
+            - Provided as a software repository and requires significant manual setup to run
+            - Common with research software that pushes the boundaries of current technology
     - Efficacy
         - ***Type 2***
             - Ingests training data

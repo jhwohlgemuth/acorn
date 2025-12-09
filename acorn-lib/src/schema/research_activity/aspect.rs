@@ -134,6 +134,31 @@ pub enum Model {
     /// Large language model useful for natural language processing, generative AI, etc.
     LLM(LargeLanguageModel),
 }
+/// Describe the portability of a given software project (e.g., how easily it can be used on multiple platforms/architectures)
+///
+/// The levels of portability are intended to be interpreted as nested capabilities.
+/// That is, if a technology has "Installer" (level 3) portability, it also meets the requirements of levels 1 and 2.
+#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+#[repr(u8)]
+#[serde(deny_unknown_fields)]
+pub enum SoftwarePortability {
+    /// Extensive preparation is required and/or technology can only function on severely limited number of platforms/architectures
+    Limited = 0,
+    /// Running source code and/or compiling from source are only options
+    Source = 1,
+    /// Software is provided via a container image automatically generated via a build script using an image configuration (e.g., Dockerfile)
+    Containerized = 2,
+    /// Involves steps that cannot be immediately automated (e.g., GUI installer, manual configuration, installer that cannot be downloaded automatically)
+    Installer = 3,
+    /// Available via TUI package manager (e.g., npm, brew, scoop)
+    /// ## Note
+    /// > This level is basically level 3 technology published to public package repositories and available via one or more package managers.
+    AutomatedInstaller = 4,
+    /// Software can be used within WASM runtime and web browser VM
+    /// ## Note
+    /// > Since every operating system comes with a web browser, his level represents the current apex of portability.
+    WebAssembly = 5,
+}
 /// Tasks that can describe the capabilities of a given technology
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 pub enum TaskType {
@@ -175,6 +200,8 @@ pub struct AspectFramework {
     pub aspect_type: Option<String>,
     /// Data associated with technology (e.g., training data, input data, etc.)
     pub data: Option<Vec<Data>>,
+    /// Software portability level
+    pub portability: Option<SoftwarePortability>,
     /// Measure of efficacy (e.g., interactivity and impact on environment)
     pub efficacy: Option<Efficacy>,
     /// Human-machine teaming level
@@ -193,6 +220,7 @@ pub struct AspectFramework {
 #[builder(start_fn = init)]
 pub struct AspectFrameworkContext {
     pub(crate) data: String,
+    pub(crate) portability: String,
     pub(crate) efficacy: String,
     pub(crate) human_machine_teaming_level: String,
     pub(crate) resources: String,
@@ -255,6 +283,7 @@ impl Default for AspectFrameworkContext {
     fn default() -> Self {
         AspectFrameworkContext::init()
             .data(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .portability(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .efficacy(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .human_machine_teaming_level(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .resources(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
