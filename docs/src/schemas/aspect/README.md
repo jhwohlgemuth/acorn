@@ -9,7 +9,7 @@ In the context of technology, AI/ML and automation are the same.
 
 [Read docs.rs documentation for ASPECT](https://docs.rs/acorn-lib/latest/acorn_lib/schema/research_activity/aspect/index.html)
 
-### Key Components of ASPECT
+### Key Components
 - 💾 [Data](./data.md)
 - ⚡ [Efficacy](./efficacy.md)
 - 🤝 [Human-machine teaming](./human-machine-teaming.md)
@@ -17,24 +17,24 @@ In the context of technology, AI/ML and automation are the same.
 - 📈 [Maturity](./maturity.md)
 - 🎯 [Task classification](./task-classification.md)
 
-### Example Application
+### Real-world Example
 The ASPECT framework can be applied in various scenarios
 
 - [AI-driven Gravity Mapping](https://research.ornl.gov/gravity/)
     - Data
-        - Real
-        - Unavailable to public
-        - Silver quality
-        - Textual modality training data
+        - ***Real***
+        - ***Unavailable*** to public
+        - ***Silver*** quality
+        - ***Textual*** modality training data
     - Efficacy
-        - Type 2
+        - ***Type 2***
             - Ingests training data
             - Creates machine learning models using PyTorch
             - Creates a global map of gravity anomalies
     - Human-machine teaming
-        - Machine-assisted (Level 1)
+        - ***Machine-assisted*** (Level 1)
     - Maturity
-        - Developed (TRL 5)
+        - ***Developed*** (TRL 5)
     - Task classification
-        - Perceive
-        - Reason
+        - ***Perceive***
+        - ***Reason***
