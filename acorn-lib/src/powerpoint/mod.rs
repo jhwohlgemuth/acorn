@@ -3,11 +3,11 @@
 //! Here you'll find functions for working with [`OOXML`] and creating PowerPoint files.
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
-use crate::io::{read_file, write_file};
+use crate::io::{files_all, read_file, to_absolute_string, write_file};
 use crate::prelude::{io, File, PathBuf, Read, Write};
 use crate::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
 use crate::schema::{ContactPoint, Notes, Other, Sections};
-use crate::util::{files_all, to_absolute_string, Label};
+use crate::util::Label;
 use core::error::Error;
 use fancy_regex::Regex;
 use quick_xml::events::Event;

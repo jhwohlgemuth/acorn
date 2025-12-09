@@ -1,6 +1,6 @@
 use crate::io::{
-    command_exists, extract_zip, file_checksum, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, git_branch_name,
-    git_default_branch_name, read_file, FromCommand,
+    command_exists, extract_zip, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request,
+    git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand,
 };
 use crate::prelude::{Path, PathBuf};
 use crate::util::*;
@@ -66,38 +66,6 @@ fn test_files_all() {
     let files = files_all(PathBuf::from(FIXTURES).join("glob"), Some(vec!["jpg"]));
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
-}
-#[test]
-fn test_filter_git_command_result() {
-    let response = "acorn-lib/assets/constants/keywords.csv\nacorn-lib/assets/constants/technology.csv".to_string();
-    let result = response.clone();
-    let files = filter_git_command_result(result, Some(vec!["csv"]));
-    assert_eq!(files.len(), 2);
-    let result = response.clone();
-    let files = filter_git_command_result(result, Some(vec!["json"]));
-    assert!(files.is_empty());
-    let result = response.clone();
-    let files = filter_git_command_result(result, Some(vec!["JSON"]));
-    assert!(files.is_empty());
-    let empty = "".to_string();
-    let files = filter_git_command_result(empty, Some(vec!["json"]));
-    assert!(files.is_empty());
-}
-#[test]
-fn test_filter_ignored() {
-    if cfg!(target_os = "linux") {
-        let extensions = Some(vec!["json"]);
-        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions.clone());
-        let filtered = filter_ignored(files, Some("[/]a.json$".to_string()));
-        assert_eq!(filtered.len(), 2);
-        let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions);
-        let filtered = filter_ignored(files, Some("[/](a|b).json$".to_string()));
-        assert_eq!(filtered.len(), 1);
-        let files = files_all(PathBuf::from(FIXTURES).join("glob/a.txt"), None);
-        let filtered = filter_ignored(files, None);
-        assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].file_name().unwrap().to_str().unwrap(), "a.txt");
-    }
 }
 #[test]
 fn test_files_from_git() {

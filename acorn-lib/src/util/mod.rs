@@ -30,7 +30,7 @@
 //! write_file(PathBuf::from("/path/to/that/file"), contents);
 //! ```
 //!
-use crate::prelude::{canonicalize, HashMap, PathBuf};
+use crate::prelude::{HashMap, PathBuf};
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
@@ -40,7 +40,6 @@ use convert_case::{Case, Casing};
 use derive_more::Display;
 use fancy_regex::Regex;
 use glob::glob;
-use itertools::Itertools;
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
 use rust_embed::Embed;
@@ -50,7 +49,7 @@ use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
 };
-use tracing::{debug, error, warn};
+use tracing::{debug, error};
 
 pub mod constants;
 
@@ -533,11 +532,6 @@ impl Default for SemanticVersion {
         SemanticVersion::init().build()
     }
 }
-impl ToAbsoluteString for PathBuf {
-    fn to_absolute_string(&self) -> String {
-        to_absolute_string(self.clone())
-    }
-}
 impl<P: AsRef<str>> ToMarkdown for Vec<P> {
     fn to_markdown(&self) -> String {
         self.iter().map(|x| format!("- {}", x.as_ref())).collect::<Vec<String>>().join("\n")
@@ -593,98 +587,6 @@ where
         }
     } else {
         None
-    }
-}
-/// Returns a vector of `PathBuf` containing all files in a directory that match at least one of the given extensions.
-///
-/// # Arguments
-///
-/// * `path` - A `PathBuf` to the directory to search.
-/// * `extensions` - An `Option` containing a list of string slice(s) representing the file extension(s) to search for.
-///
-/// # Returns
-///
-/// A `Vec` containing `PathBuf` values of all files in the given directory that match at least one of the given extensions.
-// TODO: Add support for URI path
-pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
-    fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
-        paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
-    }
-    fn pattern(path: PathBuf, extension: &str) -> String {
-        let ext = &extension.to_lowercase();
-        let result = format!("{}/**/*.{}", to_absolute_string(path), ext);
-        debug!("=> {} {result}", Label::using());
-        result
-    }
-    if path.is_dir() {
-        match extensions {
-            | Some(values) => values
-                .into_iter()
-                .map(|extension| {
-                    let glob_pattern = pattern(path.clone(), extension);
-                    glob(&glob_pattern)
-                })
-                .filter(|x| x.is_ok())
-                .flat_map(|x| paths_to_vec(x.unwrap()))
-                .unique()
-                .collect::<Vec<PathBuf>>(),
-            | None => match glob(&format!("{}/**/*", to_absolute_string(path))) {
-                | Ok(paths) => paths_to_vec(paths),
-                | Err(why) => {
-                    error!("=> {} Get all files (Glob) - {why}", Label::fail());
-                    vec![]
-                }
-            },
-        }
-    } else {
-        if extensions.is_some() {
-            warn!(
-                path = to_absolute_string(path.clone()),
-                "=> {} Extension passed with single file to files_all() - please make sure this is desired",
-                Label::using()
-            );
-        }
-        vec![path]
-    }
-}
-/// Filter Git command result by file extension
-pub fn filter_git_command_result(value: String, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
-    match extensions {
-        | Some(values) => value
-            .to_lowercase()
-            .split("\n")
-            .map(PathBuf::from)
-            .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext.to_lowercase()))
-            .collect::<Vec<_>>(),
-        | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
-    }
-}
-/// Return file paths in a vector that don't match the ignore pattern
-/// ### Example
-/// ```rust
-/// use acorn_lib::util::filter_ignored;
-/// use std::path::PathBuf;
-///
-/// let paths = vec![PathBuf::from("/path/to/foo.txt"), PathBuf::from("/path/to/bar.txt")];
-/// let ignore = Some("*.txt".to_string());
-/// let result = filter_ignored(paths, ignore);
-/// assert!(result.is_empty());
-/// ```
-pub fn filter_ignored(paths: Vec<PathBuf>, ignore: Option<String>) -> Vec<PathBuf> {
-    match ignore {
-        | Some(ignore_pattern) => match Regex::new(&ignore_pattern) {
-            | Ok(re) => paths
-                .into_iter()
-                .map(to_absolute_string)
-                .filter(|x| !re.is_match(x).unwrap())
-                .map(PathBuf::from)
-                .collect(),
-            | Err(why) => {
-                error!("=> {} Filter ignored - {why}", Label::fail());
-                vec![]
-            }
-        },
-        | None => paths,
     }
 }
 /// Return fisrt key/value pair with key that matches pattern
@@ -753,55 +655,6 @@ where
         .collect::<Vec<PathBuf>>();
     files.sort();
     files
-}
-/// Returns the absolute path of the parent directory for the given path.
-pub fn parent<P>(path: P) -> PathBuf
-where
-    P: Into<PathBuf> + Clone,
-{
-    let default = PathBuf::from(".");
-    match path.clone().into().canonicalize() {
-        | Ok(value) => match value.parent() {
-            | Some(value) => value.to_path_buf(),
-            | None => {
-                warn!("=> {} Resolve parent path", Label::fail());
-                default
-            }
-        },
-        | Err(why) => {
-            debug!("=> {} Resolve absolute path - {why}", Label::fail());
-            match path.into().parent() {
-                | Some(value) if !to_absolute_string(value.to_path_buf()).is_empty() => value.to_path_buf(),
-                | Some(_) | None => {
-                    warn!("=> {} Parent path was empty or could not be resolved", Label::fail());
-                    default
-                }
-            }
-        }
-    }
-}
-/// Converts a `PathBuf` into a `String` representation of the **absolute** path.
-/// <div class="warning">Uses <code>fs::canonicalize</code>, which might cause problems on Windows</div>
-///
-/// This function attempts to canonicalize the provided path, which resolves any symbolic links
-/// and returns an absolute path. If canonicalization fails, the original path is returned as a string.
-///
-/// # Arguments
-///
-/// * `path` - A `PathBuf` representing the file system path to be converted.
-///
-/// # Returns
-///
-/// A `String` containing the absolute path if canonicalization succeeds, or the original path as a string otherwise.
-pub fn to_absolute_string<P>(path: P) -> String
-where
-    P: Into<PathBuf> + Clone,
-{
-    let result = match canonicalize(path.clone().into().as_path()) {
-        | Ok(value) => value,
-        | Err(_) => path.into(),
-    };
-    result.display().to_string()
 }
 /// Prints a diff of changes between two strings.
 ///
