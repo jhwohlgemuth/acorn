@@ -1,4 +1,5 @@
 use crate::cli::{paths_from_options, CommandLineOptions};
+use acorn_lib::io::FromPath;
 use acorn_lib::prelude::{File, PathBuf, Write};
 use acorn_lib::schema::research_activity::ResearchActivity;
 use acorn_lib::util::{print_changes, Label, MimeType, ToAbsoluteString};

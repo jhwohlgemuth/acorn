@@ -10,7 +10,7 @@ use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::vale::{Vale, ValeConfig};
 use crate::analyzer::{link_check, Check, CheckCategory, ErrorKind, StaticAnalyzer, StaticAnalyzerConfig};
 #[cfg(feature = "std")]
-use crate::io::{async_runtime, parent, read_file};
+use crate::io::{async_runtime, image_paths, parent, read_file, FromPath};
 use crate::prelude::PathBuf;
 use crate::schema::{
     ClassificationLevel, ContactPoint, FuzzyValue, ImageObject, Keyword, MediaObject, Organization, OrganizationType, Other, Sections, Status,
@@ -18,7 +18,7 @@ use crate::schema::{
 };
 use crate::util::constants::{DEFAULT_AFFILIATION, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF};
-use crate::util::{image_paths, Constant, Label, LinkedData, MimeType, ToAbsoluteString, ToMarkdown};
+use crate::util::{Constant, Label, LinkedData, MimeType, ToAbsoluteString, ToMarkdown};
 use bon::Builder;
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};

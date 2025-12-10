@@ -1,4 +1,4 @@
-use crate::io::{citeas, files_all, filter_git_command_result, filter_ignored};
+use crate::io::{citeas, files_all, filter_git_command_result, filter_ignored, image_paths};
 use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
@@ -47,4 +47,13 @@ fn test_filter_ignored() {
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].file_name().unwrap().to_str().unwrap(), "a.txt");
     }
+}
+#[test]
+fn test_image_paths() {
+    let path = PathBuf::from(FIXTURES).join("data/empty/");
+    let files = image_paths(path);
+    assert_eq!(files.len(), 0);
+    let path = PathBuf::from(".");
+    let files = image_paths(path);
+    assert_eq!(files.len(), 0);
 }

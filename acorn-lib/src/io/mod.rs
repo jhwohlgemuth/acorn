@@ -1,13 +1,31 @@
 //! # IO Utilities
 //!
 //! Module to isolate input/output operations to enhance portability
+//!
+//! ## Example Uses
+//!
+//! ### Perform file read and write operations
+//! ```ignore
+//! use acorn_lib::util::{checksum, read_file, write_file};
+//! use std::path::PathBuf;
+//!
+//! // Verify file integrity
+//! assert_eq!(checksum(PathBuf::from("/path/to/file")), "somesha256hashvaluethatisreallylong");
+//!
+//! // Read file contents
+//! let contents = read_file(PathBuf::from("/path/to/this/file"));
+//!
+//! // Write file contents
+//! write_file(PathBuf::from("/path/to/that/file"), contents);
+//! ```
+//!
 use crate::prelude::{canonicalize, create_dir_all, io, var, BufReader, Cursor, File, PathBuf, Read, Write};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, Permissions, PermissionsExt};
 use crate::util::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
-use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, ToAbsoluteString};
+use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, ToAbsoluteString, ToStrings};
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
 use duct::cmd;
@@ -34,6 +52,15 @@ pub trait FromCommand {
         Self: Sized,
         S: Into<String> + duct::IntoExecutablePath + core::marker::Copy;
 }
+/// Add `from_path` trait to a value (like `MimeType`)
+pub trait FromPath {
+    /// Convert a path to a value
+    fn from_path<P>(value: P) -> Self
+    where
+        P: Into<PathBuf>;
+}
+/// Struct for adding ToStringList functionality
+pub struct StringList<'a>(pub &'a Vec<PathBuf>);
 impl FromCommand for SemanticVersion {
     /// Returns a `SemanticVersion` value based on the output of the `--version` command-line flag
     /// of the given executable name. Tested with [cargo](https://rustup.rs/), [git](https://git-scm.com/book/en/v2/Getting-Started-The-Command-Line), and [pandoc](https://pandoc.org/).
@@ -69,7 +96,35 @@ impl FromCommand for SemanticVersion {
         }
     }
 }
-
+impl FromPath for MimeType {
+    /// Returns a [`MimeType`] value based on the file extension of the given file name.
+    ///
+    /// Uses [`MimeType::from_string`].
+    ///
+    /// ```ignore
+    /// use acorn_lib::util::MimeType;
+    /// use std::path::PathBuf;
+    ///
+    /// let mime = MimeType::from_path(PathBuf::from("test.cff"));
+    /// assert_eq!(mime, MimeType::Yaml);
+    /// ```
+    fn from_path<P>(value: P) -> MimeType
+    where
+        P: Into<PathBuf>,
+    {
+        MimeType::from_string(value.into().display().to_string())
+    }
+}
+impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
+    fn to_strings(&self) -> Vec<String> {
+        self.iter()
+            .map(|p| <P as Into<PathBuf>>::into(p.clone()).to_string_lossy().to_string())
+            .collect()
+    }
+    fn to_absolute_strings(&self) -> Vec<String> {
+        self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_string()).collect()
+    }
+}
 /// Struct for parsing GitLab API merge request diff responses
 ///
 /// Used by [`files_from_gitlab_merge_request`]
@@ -543,6 +598,34 @@ pub fn git_default_branch_name() -> Option<String> {
     } else {
         None
     }
+}
+/// Returns a vector of `PathBuf` representing paths to all images found in the given
+/// directory and all of its subdirectories.
+///
+/// # Arguments
+///
+/// * `root` - A value that can be converted into a `PathBuf` and implements the `Clone` trait. This is the directory in which the search for images is performed.
+///
+/// # Returns
+///
+/// A vector of `PathBuf` representing paths to all images found in the given directory and
+/// all of its subdirectories. The paths are sorted alphabetically.
+///
+/// # Notes
+/// - Supported image formats are "JPEG", "PNG", "SVG", and "GIF"
+pub fn image_paths<P>(root: P) -> Vec<PathBuf>
+where
+    P: Into<PathBuf> + Clone,
+{
+    let extensions = ["jpg", "jpeg", "png", "svg", "gif"];
+    let mut files = extensions
+        .iter()
+        .flat_map(|ext| glob(&format!("{}/**/*.{}", root.clone().into().display(), ext)))
+        .flat_map(|paths| paths.collect::<Vec<_>>())
+        .flatten()
+        .collect::<Vec<PathBuf>>();
+    files.sort();
+    files
 }
 /// Makes the given file executable.
 ///

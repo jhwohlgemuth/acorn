@@ -1,6 +1,6 @@
 use crate::io::{
     command_exists, extract_zip, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request,
-    git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand,
+    git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand, FromPath,
 };
 use crate::prelude::{Path, PathBuf};
 use crate::util::*;
@@ -130,15 +130,6 @@ fn test_generate_guid() {
 fn test_git_branch() {
     assert_eq!(git_default_branch_name(), Some("main".to_string()));
     assert!(git_branch_name().is_some());
-}
-#[test]
-fn test_image_paths() {
-    let path = PathBuf::from(FIXTURES).join("data/empty/");
-    let files = image_paths(path);
-    assert_eq!(files.len(), 0);
-    let path = PathBuf::from(".");
-    let files = image_paths(path);
-    assert_eq!(files.len(), 0);
 }
 #[test]
 fn test_mimetype() {

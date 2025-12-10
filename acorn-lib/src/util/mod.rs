@@ -15,22 +15,7 @@
 //! }
 //! ```
 //!
-//! ### Perform file read and write operations
-//! ```ignore
-//! use acorn_lib::util::{checksum, read_file, write_file};
-//! use std::path::PathBuf;
-//!
-//! // Verify file integrity
-//! assert_eq!(checksum(PathBuf::from("/path/to/file")), "somesha256hashvaluethatisreallylong");
-//!
-//! // Read file contents
-//! let contents = read_file(PathBuf::from("/path/to/this/file"));
-//!
-//! // Write file contents
-//! write_file(PathBuf::from("/path/to/that/file"), contents);
-//! ```
-//!
-use crate::prelude::{HashMap, PathBuf};
+use crate::prelude::HashMap;
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
@@ -39,7 +24,6 @@ use console::Emoji;
 use convert_case::{Case, Casing};
 use derive_more::Display;
 use fancy_regex::Regex;
-use glob::glob;
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
 use rust_embed::Embed;
@@ -68,7 +52,7 @@ pub trait ToMarkdown {
     /// Convert `self` to Markdown format string
     fn to_markdown(&self) -> String;
 }
-/// Trait for converting a vector of PathBufs to a vector of strings
+/// Trait for converting a vector of non-string values to a vector of strings
 pub trait ToStrings {
     /// Convert a vector of string slices to a vector of string values of paths
     ///
@@ -232,8 +216,6 @@ pub struct SemanticVersion {
     #[builder(default = 0)]
     pub patch: u32,
 }
-/// Struct for adding ToStringList functionality
-pub struct StringList<'a>(pub &'a Vec<PathBuf>);
 impl Constant {
     /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
     ///
@@ -434,23 +416,6 @@ impl MimeType {
         }
         .to_string()
     }
-    /// Returns a [`MimeType`] value based on the file extension of the given file name.
-    ///
-    /// Uses [`MimeType::from_string`].
-    ///
-    /// ```ignore
-    /// use acorn_lib::util::MimeType;
-    /// use std::path::PathBuf;
-    ///
-    /// let mime = MimeType::from_path(PathBuf::from("test.cff"));
-    /// assert_eq!(mime, MimeType::Yaml);
-    /// ```
-    pub fn from_path<P>(value: P) -> MimeType
-    where
-        P: Into<PathBuf>,
-    {
-        MimeType::from_string(value.into().display().to_string())
-    }
     /// Returns a `MimeType` value based on the file extension of the given file name.
     ///
     /// # Supported MIME types
@@ -549,16 +514,6 @@ where
             .collect::<Vec<_>>()
     }
 }
-impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
-    fn to_strings(&self) -> Vec<String> {
-        self.iter()
-            .map(|p| <P as Into<PathBuf>>::into(p.clone()).to_string_lossy().to_string())
-            .collect()
-    }
-    fn to_absolute_strings(&self) -> Vec<String> {
-        self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_string()).collect()
-    }
-}
 /// Returns the file extension of the given file name as a string.
 /// ### Note
 /// > The primary benefit of this function is to get file extension without using Path or PathBuf
@@ -627,34 +582,6 @@ pub fn generate_guid() -> String {
     let id = nanoid!(10, &alphabet);
     debug!(id, "=> {}", Label::using());
     id
-}
-/// Returns a vector of `PathBuf` representing paths to all images found in the given
-/// directory and all of its subdirectories.
-///
-/// # Arguments
-///
-/// * `root` - A value that can be converted into a `PathBuf` and implements the `Clone` trait. This is the directory in which the search for images is performed.
-///
-/// # Returns
-///
-/// A vector of `PathBuf` representing paths to all images found in the given directory and
-/// all of its subdirectories. The paths are sorted alphabetically.
-///
-/// # Notes
-/// - Supported image formats are "JPEG", "PNG", "SVG", and "GIF"
-pub fn image_paths<P>(root: P) -> Vec<PathBuf>
-where
-    P: Into<PathBuf> + Clone,
-{
-    let extensions = ["jpg", "jpeg", "png", "svg", "gif"];
-    let mut files = extensions
-        .iter()
-        .flat_map(|ext| glob(&format!("{}/**/*.{}", root.clone().into().display(), ext)))
-        .flat_map(|paths| paths.collect::<Vec<_>>())
-        .flatten()
-        .collect::<Vec<PathBuf>>();
-    files.sort();
-    files
 }
 /// Prints a diff of changes between two strings.
 ///
