@@ -12,36 +12,61 @@ In the context of technology, AI/ML and automation are the same.
 
 ### Key Components
 - 💾 [Data](./data.md)
+    - Real / Synthetic
+    - Availability
+    - Modality
+    - Quality
 - 💼 [Portability](./portability.md)
+    - Limited
+    - Source
+    - Containerized
+    - Installer
+    - Automated Installer
+    - WebAssembly
 - ⚡ [Efficacy](./efficacy.md)
+    - Type 0
+    - Type 1A
+    - Type 1B
+    - Type 2
 - 🤝 [Human-machine teaming](./human-machine-teaming.md)
+    - Manual
+    - Machine-assisted
+    - Human-as-primary
+    - Machine-as-primary
+    - Human-supervised
+    - Machine-only
 - 🖥️ [(Hardware) Resources](./resources.md)
+    - CPU, GPU, TPU, FPGAs, Quantum, Neuromorphic, etc.
 - 📈 [Maturity](./maturity.md)
+    - Augmented technology readiness level (TRL) classification
 - 🎯 [Task classification](./task-classification.md)
+    - Percieve
+    - Reason
+    - Project
 
 ### Real-world Example
 The ASPECT framework can be applied in various scenarios
 
 - [AI-driven Gravity Mapping](https://research.ornl.gov/gravity/)
-    - Data
+    - 💾 Data
         - ***Real***
         - ***Unavailable*** to public
         - ***Silver*** quality
         - ***Textual*** modality training data
-    - Software Portability
+    - 💼 Software Portability
         - ***Source*** (Level 1)
             - Has restrictive hardware requirements (e.g., high-end GPU with CUDA support)
             - Provided as a software repository and requires significant manual setup to run
             - Common with research software that pushes the boundaries of current technology
-    - Efficacy
+    - ⚡ Efficacy
         - ***Type 2***
             - Ingests training data
             - Creates machine learning models using PyTorch
             - Creates a global map of gravity anomalies
-    - Human-machine teaming
+    - 🤝 Human-machine teaming
         - ***Machine-assisted*** (Level 1)
-    - Maturity
+    - 🖥️ Maturity
         - ***Developed*** (<span title="Technology Readiness Level">TRL</span> 5)
-    - Task classification
+    - 🎯 Task classification
         - ***Perceive***
         - ***Reason***
