@@ -1,4 +1,4 @@
-# ACORN Schema
+# ACORN Schemas and Ontologies
 
 <div align="left">
     <p>

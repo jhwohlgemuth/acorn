@@ -1,5 +1,8 @@
 # 🚀 Getting Started
 
+> [!IMPORTANT]
+> The most popular way to use **ACORN** is to not install it at all --- simply leverage the power and promise of **ACORN** within a <span title="Continuous Integration">CI</span> job (see this [example `.gitlab-ci.yml`](https://code.ornl.gov/research-enablement/templates/-/blob/main/bucket.gitlab-ci.yml))
+
 ## Installation
 
 ### Install with Scoop
