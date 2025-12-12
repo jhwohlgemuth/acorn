@@ -8,6 +8,7 @@
 use crate::analyzer::{link_check, Check};
 #[cfg(feature = "std")]
 use crate::io::network_get_request;
+#[cfg(feature = "std")]
 use crate::prelude::PathBuf;
 use crate::util::Label;
 use derive_more::Display;
@@ -26,7 +27,6 @@ pub mod io;
 pub mod powerpoint;
 pub mod prelude;
 pub mod schema;
-#[cfg(feature = "util")]
 pub mod util;
 
 /// Abstraction for file and folder locations that can be local (e.g., file:///path/to/project) or remote (e.g., <https://gitlab.com/project>)
@@ -173,6 +173,7 @@ impl Location {
         }
     }
     /// Check if a location exists (i.e., is reachable and accessible)
+    #[cfg(feature = "std")]
     pub async fn exists(self) -> bool {
         let uri = self.uri();
         match self.scheme() {

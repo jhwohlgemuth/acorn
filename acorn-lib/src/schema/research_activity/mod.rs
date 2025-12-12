@@ -4,21 +4,22 @@
 //!
 use super::constants::{CODEMETA_CONTEXT, SCHEMA_ORG_CONTEXT};
 use super::pid::raid;
+#[cfg(feature = "std")]
 use super::validate::format_phone_number;
 use super::validate::{is_kebabcase, is_list_url, validate_attribute_doi, validate_attribute_ror_list};
-use crate::analyzer::readability::ReadabilityType;
-use crate::analyzer::vale::{Vale, ValeConfig};
-use crate::analyzer::{link_check, Check, CheckCategory, ErrorKind, StaticAnalyzer, StaticAnalyzerConfig};
 #[cfg(feature = "std")]
-use crate::io::{async_runtime, image_paths, parent, read_file, FromPath};
+use crate::io::{image_paths, parent, read_file, FromPath};
+#[cfg(feature = "std")]
 use crate::prelude::PathBuf;
 use crate::schema::{
     ClassificationLevel, ContactPoint, FuzzyValue, ImageObject, Keyword, MediaObject, Organization, OrganizationType, Other, Sections, Status,
-    TechnologyReadinessLevel, VideoObject, Website,
+    TechnologyReadinessLevel, Website,
 };
 use crate::util::constants::{DEFAULT_AFFILIATION, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF};
-use crate::util::{Constant, Label, LinkedData, MimeType, ToAbsoluteString, ToMarkdown};
+#[cfg(feature = "std")]
+use crate::util::ToAbsoluteString;
+use crate::util::{Constant, Label, LinkedData, MimeType, ToMarkdown};
 use bon::Builder;
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};
@@ -27,7 +28,6 @@ use fancy_regex::Regex;
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher};
 use owo_colors::OwoColorize;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim, vec_string_trim};
@@ -333,128 +333,6 @@ impl ResearchActivity {
         let schema = schema_for!(ResearchActivity);
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
-    /// Analyzes a list of research activity files
-    pub fn analyze_prose(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
-        let config = ValeConfig::default().save();
-        let vale = Vale::resolve(config, is_offline, skip_verify_checksum);
-        match vale.clone().sync(is_offline) {
-            | Ok(_) => {
-                let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
-                    | Some(data) => vale.clone().run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into())),
-                    | None => {
-                        error!("=> {} Read research activity data", Label::fail());
-                        Check::init().category(CheckCategory::Prose).success(false).build()
-                    }
-                });
-                results.collect()
-            }
-            | Err(why) => {
-                error!("=> {} Vale sync - {why}", Label::fail());
-                vec![Check::init().category(CheckCategory::Prose).success(false).build()]
-            }
-        }
-    }
-    /// Calculate readability based on passed options for a list of research activity files
-    pub fn calculate_readability<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
-    where
-        R: Into<ReadabilityType>,
-    {
-        let rtype = readability_type.into();
-        paths
-            .par_iter()
-            .map(|path| match ResearchActivity::read(path.into()) {
-                | Some(data) => {
-                    let index = rtype.calculate(&data.to_markdown());
-                    let maximum = match rtype.maximum_allowed_from_env() {
-                        | Some(value) => {
-                            debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
-                            value
-                        }
-                        | None => rtype.maximum_allowed(),
-                    };
-                    debug!(value = index, "=> {} Readability index", Label::using());
-                    if index > maximum {
-                        let errors = ErrorKind::Readability((index, rtype));
-                        Check::init()
-                            .category(CheckCategory::Readability)
-                            .success(false)
-                            .message(path.display().to_string())
-                            .errors(errors)
-                            .context(maximum.to_string())
-                            .build()
-                    } else {
-                        let score = format!("({} = {}/{})", rtype.to_string().to_uppercase(), index, maximum);
-                        Check::init()
-                            .category(CheckCategory::Readability)
-                            .success(true)
-                            .message(path.display().to_string())
-                            .context(score)
-                            .build()
-                    }
-                }
-                | None => {
-                    error!("=> {} Read research activity data", Label::fail());
-                    Check::init().category(CheckCategory::Readability).success(false).build()
-                }
-            })
-            .collect::<Vec<Check>>()
-    }
-    /// Checks a list of research activity files
-    pub fn check(paths: Vec<PathBuf>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .map(|path| match ResearchActivity::read(path.into()) {
-                | Some(data) => data
-                    .clone()
-                    .validation_issues()
-                    .into_iter()
-                    .map(|issue| issue.with_uri(path.display().to_string()))
-                    .collect(),
-                | None => {
-                    error!("=> {} Read research activity data at {}", Label::fail(), path.display());
-                    vec![Check::init().category(CheckCategory::Schema).success(false).build()]
-                }
-            })
-            .flatten()
-            .collect()
-    }
-    /// Checks links associated with research activity
-    #[cfg(feature = "std")]
-    pub fn check_links(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
-        let runtime = async_runtime();
-        paths
-            .par_iter()
-            .map(|path| match ResearchActivity::read(path.into()) {
-                | Some(data) => {
-                    let issues = runtime.block_on(async {
-                        let mut _issues = vec![];
-                        if !is_offline {
-                            let dois = match data.clone().meta.doi {
-                                | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
-                                | None => vec![],
-                            };
-                            let websites = match data.clone().meta.websites {
-                                | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
-                                | None => vec![],
-                            };
-                            let links = dois.into_iter().chain(websites);
-                            for url in links {
-                                let result = link_check(Some(url)).await;
-                                _issues.push(result);
-                            }
-                        }
-                        _issues
-                    });
-                    issues
-                }
-                | None => {
-                    error!("=> {} Read research activity data at {}", Label::fail(), path.display());
-                    vec![Check::init().category(CheckCategory::Schema).success(false).build()]
-                }
-            })
-            .flatten()
-            .collect()
-    }
     /// Creates a copy of a `ResearchActivity`
     pub fn copy(self) -> ResearchActivity {
         let ResearchActivity {
@@ -480,6 +358,7 @@ impl ResearchActivity {
     /// - Resolves URL of first media object (if found) and add empty caption
     /// - Resolves keywords, technology, organization, partners, sponsors, and affiliation using fuzzy matching against controlled vocabularies
     /// - Formats telephone number
+    #[cfg(feature = "std")]
     pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
         let mut clone = self.clone().copy();
         let path_parent = match path {
@@ -558,6 +437,7 @@ impl ResearchActivity {
         clone
     }
     /// Read and parse research activity data (JSON or YAML)
+    #[cfg(feature = "std")]
     pub fn read(path: PathBuf) -> Option<ResearchActivity> {
         let content = match MimeType::from_path(path.clone()) {
             | MimeType::Json => match ResearchActivity::read_json(path.clone()) {
@@ -649,35 +529,6 @@ impl ResearchActivity {
         data.sort();
         data.dedup();
         data
-    }
-    fn validation_issues(self) -> Vec<Check> {
-        fn errors_collect<T: Validate>(attribute: T) -> Option<Vec<Check>> {
-            match attribute.validate() {
-                | Ok(_) => None,
-                | Err(err) => Some(
-                    err.into_errors()
-                        .into_iter()
-                        .map(|(key, value)| {
-                            Check::init()
-                                .category(CheckCategory::Schema)
-                                .success(false)
-                                .errors(ErrorKind::Validator(value))
-                                .message(key.to_string())
-                                .build()
-                        })
-                        .collect::<Vec<Check>>(),
-                ),
-            }
-        }
-        let mut found = vec![errors_collect::<ResearchActivity>(self.clone())];
-        match self.meta.media {
-            | Some(values) => values.iter().for_each(|media| match media {
-                | MediaObject::Image(x) => found.push(errors_collect::<ImageObject>(x.clone())),
-                | MediaObject::Video(x) => found.push(errors_collect::<VideoObject>(x.clone())),
-            }),
-            | None => {}
-        }
-        found.into_iter().flatten().flatten().collect::<Vec<_>>()
     }
 }
 impl ResearchActivityMetadata {

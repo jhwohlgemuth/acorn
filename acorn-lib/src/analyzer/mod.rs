@@ -3,15 +3,18 @@
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
+#[cfg(feature = "std")]
+use crate::io::async_runtime;
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, network_get_request, standard_project_folder};
 use crate::prelude;
 use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
-use crate::schema::ProgrammingLanguage;
+use crate::schema::research_activity::ResearchActivity;
+use crate::schema::{ImageObject, MediaObject, ProgrammingLanguage, VideoObject, Website};
 use crate::util::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
     VALE_RELEASES_URL, VALE_VERSION,
 };
-use crate::util::{suffix, Constant, Label, SemanticVersion, ToAbsoluteString};
+use crate::util::{suffix, Constant, Label, SemanticVersion, ToAbsoluteString, ToMarkdown};
 use crate::{Location, Repository};
 use bat::PrettyPrinter;
 use bon::Builder;
@@ -25,8 +28,10 @@ use lychee_lib::{CacheStatus, Response, Status};
 use polars::datatypes::PlSmallStr;
 use polars::frame::row::Row;
 use polars::prelude::{AnyValue, DataFrame, PolarsResult};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tar::Archive;
 use tracing::{debug, error, info, trace, warn};
+use validator::Validate;
 use validator::ValidationErrorsKind;
 use which::which;
 
@@ -36,6 +41,17 @@ pub mod vale;
 use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
+/// Trait for adding analysis capabilities
+pub trait Analysis {
+    /// Perform analysis of prose
+    fn prose_analysis(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check>;
+    /// Calculate readability using a given metric
+    fn readability_analysis<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
+    where
+        R: Into<ReadabilityType>;
+    /// Check if URLs links are valid and readable
+    fn url_analysis(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check>;
+}
 /// Trait for converting to a ([Polars]) row
 ///
 /// [Polars]: https://docs.rs/polars/latest/polars/
@@ -80,6 +96,13 @@ pub trait StaticAnalyzerConfig {
     fn save(self) -> Self;
     /// Set parent path of configuration
     fn with_path(self, path: PathBuf) -> Self;
+}
+/// Trait for schema validation
+pub trait Validation {
+    /// Execute validation checks for a given item
+    fn check(paths: Vec<PathBuf>) -> Vec<Check>;
+    /// Get validation issues for a given item
+    fn validation_issues(self) -> Vec<Check>;
 }
 /// Various check categories available for validating research activity data
 #[derive(Clone, Debug, Display, PartialEq)]
@@ -130,6 +153,109 @@ pub struct Check {
     /// Message related to or description of validation issue (e.g., key name of invalid value, result of validation, etc.)
     #[builder(default = "".to_string())]
     pub message: String,
+}
+impl Analysis for ResearchActivity {
+    /// Checks links associated with research activity
+    #[cfg(feature = "std")]
+    fn url_analysis(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
+        let runtime = async_runtime();
+        paths
+            .par_iter()
+            .map(|path| match ResearchActivity::read(path.into()) {
+                | Some(data) => {
+                    let issues = runtime.block_on(async {
+                        let mut _issues = vec![];
+                        if !is_offline {
+                            let dois = match data.clone().meta.doi {
+                                | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
+                                | None => vec![],
+                            };
+                            let websites = match data.clone().meta.websites {
+                                | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
+                                | None => vec![],
+                            };
+                            let links = dois.into_iter().chain(websites);
+                            for url in links {
+                                let result = link_check(Some(url)).await;
+                                _issues.push(result);
+                            }
+                        }
+                        _issues
+                    });
+                    issues
+                }
+                | None => {
+                    error!("=> {} Read research activity data at {}", Label::fail(), path.display());
+                    vec![Check::init().category(CheckCategory::Schema).success(false).build()]
+                }
+            })
+            .flatten()
+            .collect()
+    }
+    fn prose_analysis(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
+        let config = ValeConfig::default().save();
+        let vale = Vale::resolve(config, is_offline, skip_verify_checksum);
+        match vale.clone().sync(is_offline) {
+            | Ok(_) => {
+                let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
+                    | Some(data) => vale.clone().run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into())),
+                    | None => {
+                        error!("=> {} Read research activity data", Label::fail());
+                        Check::init().category(CheckCategory::Prose).success(false).build()
+                    }
+                });
+                results.collect()
+            }
+            | Err(why) => {
+                error!("=> {} Vale sync - {why}", Label::fail());
+                vec![Check::init().category(CheckCategory::Prose).success(false).build()]
+            }
+        }
+    }
+    fn readability_analysis<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
+    where
+        R: Into<ReadabilityType>,
+    {
+        let rtype = readability_type.into();
+        paths
+            .par_iter()
+            .map(|path| match ResearchActivity::read(path.into()) {
+                | Some(data) => {
+                    let index = rtype.calculate(&data.to_markdown());
+                    let maximum = match rtype.maximum_allowed_from_env() {
+                        | Some(value) => {
+                            debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
+                            value
+                        }
+                        | None => rtype.maximum_allowed(),
+                    };
+                    debug!(value = index, "=> {} Readability index", Label::using());
+                    if index > maximum {
+                        let errors = ErrorKind::Readability((index, rtype));
+                        Check::init()
+                            .category(CheckCategory::Readability)
+                            .success(false)
+                            .message(path.display().to_string())
+                            .errors(errors)
+                            .context(maximum.to_string())
+                            .build()
+                    } else {
+                        let score = format!("({} = {}/{})", rtype.to_string().to_uppercase(), index, maximum);
+                        Check::init()
+                            .category(CheckCategory::Readability)
+                            .success(true)
+                            .message(path.display().to_string())
+                            .context(score)
+                            .build()
+                    }
+                }
+                | None => {
+                    error!("=> {} Read research activity data", Label::fail());
+                    Check::init().category(CheckCategory::Readability).success(false).build()
+                }
+            })
+            .collect::<Vec<Check>>()
+    }
 }
 impl Check {
     /// Returns the number of errors
@@ -678,6 +804,56 @@ impl StaticAnalyzerConfig for ValeConfig {
     fn with_path(mut self, path: PathBuf) -> Self {
         self.path = path;
         self
+    }
+}
+impl Validation for ResearchActivity {
+    /// Checks a list of research activity files
+    fn check(paths: Vec<PathBuf>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .map(|path| match ResearchActivity::read(path.into()) {
+                | Some(data) => data
+                    .clone()
+                    .validation_issues()
+                    .into_iter()
+                    .map(|issue| issue.with_uri(path.display().to_string()))
+                    .collect(),
+                | None => {
+                    error!("=> {} Read research activity data at {}", Label::fail(), path.display());
+                    vec![Check::init().category(CheckCategory::Schema).success(false).build()]
+                }
+            })
+            .flatten()
+            .collect()
+    }
+    fn validation_issues(self) -> Vec<Check> {
+        fn errors_collect<T: Validate>(attribute: T) -> Option<Vec<Check>> {
+            match attribute.validate() {
+                | Ok(_) => None,
+                | Err(err) => Some(
+                    err.into_errors()
+                        .into_iter()
+                        .map(|(key, value)| {
+                            Check::init()
+                                .category(CheckCategory::Schema)
+                                .success(false)
+                                .errors(ErrorKind::Validator(value))
+                                .message(key.to_string())
+                                .build()
+                        })
+                        .collect::<Vec<Check>>(),
+                ),
+            }
+        }
+        let mut found = vec![errors_collect::<ResearchActivity>(self.clone())];
+        match self.meta.media {
+            | Some(values) => values.iter().for_each(|media| match media {
+                | MediaObject::Image(x) => found.push(errors_collect::<ImageObject>(x.clone())),
+                | MediaObject::Video(x) => found.push(errors_collect::<VideoObject>(x.clone())),
+            }),
+            | None => {}
+        }
+        found.into_iter().flatten().flatten().collect::<Vec<_>>()
     }
 }
 /// Convert Lychee response to [`Check`]

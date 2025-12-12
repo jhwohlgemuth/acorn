@@ -3,7 +3,9 @@
 //! See <https://metadata.raid.org/en/v1.6/index.html> for official documentation on reference schema.
 //!
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema raid`
+#[cfg(feature = "std")]
 use crate::io::read_file;
+#[cfg(feature = "std")]
 use crate::prelude::PathBuf;
 use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror, is_unix_epoch};
 use crate::util::{Label, License};
@@ -979,6 +981,7 @@ impl Metadata {
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
     /// Read RAiD metadata from a file
+    #[cfg(feature = "std")]
     pub fn read(path: PathBuf) -> Option<Metadata> {
         match read_file(path) {
             | Ok(data) => match serde_json::from_str(&data) {

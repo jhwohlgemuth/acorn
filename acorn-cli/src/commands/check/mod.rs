@@ -1,7 +1,7 @@
 use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument};
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn_lib::analyzer::readability::ReadabilityType;
-use acorn_lib::analyzer::{summary, Check};
+use acorn_lib::analyzer::{summary, Analysis, Check, Validation};
 use acorn_lib::prelude::PathBuf;
 use acorn_lib::schema::research_activity::ResearchActivity;
 use acorn_lib::util::{print_values_as_table, Label};
@@ -55,7 +55,7 @@ pub fn run(
         let is_offline = *offline || *disable_website_checks;
         let results = ResearchActivity::check(paths.clone())
             .into_iter()
-            .chain(ResearchActivity::check_links(paths.clone(), is_offline))
+            .chain(ResearchActivity::url_analysis(paths.clone(), is_offline))
             .collect::<Vec<_>>();
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
@@ -71,7 +71,7 @@ pub fn run(
         warn!("=> {} Prose analysis", Label::skip());
         vec![]
     } else {
-        let results = ResearchActivity::analyze_prose(paths.clone(), *offline, *skip_verify_checksum);
+        let results = ResearchActivity::prose_analysis(paths.clone(), *offline, *skip_verify_checksum);
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             if level.is_some() {
@@ -97,7 +97,7 @@ pub fn run(
             },
             | _ => metric_value_from_cli,
         };
-        let results = ResearchActivity::calculate_readability(paths, metric);
+        let results = ResearchActivity::readability_analysis(paths, metric);
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             if level.is_some() {

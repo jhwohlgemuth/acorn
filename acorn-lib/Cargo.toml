@@ -48,7 +48,7 @@ ring = { version = "0.17.14", default-features = false }
 rust-ini = { version = "0.21.3", default-features = false }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false}
 serde_trim = { version = "1.1.0", default-features = false }
-serde_with = { version = "3.15.1", default-features = false }
+serde_with = { version = "3.15.1", features = ["macros"], default-features = false }
 similar = { version = "2.7.0", features = ["text"], default-features = false}
 sysinfo = { version = "0.37.2", features = ["network", "system"], default-features = false}
 tar = { version = "0.4.44", default-features = false }
@@ -81,12 +81,11 @@ similar-asserts = "1.7.0"
 temp-env = "0.3.6"
 
 [features]
-analyzer = ["dep:bat", "util"]
-default = ["analyzer", "std", "util"]
-doctor = ["util"]
-powerpoint = ["util"]
+analyzer = ["dep:bat"]
+default = ["analyzer", "std"]
+doctor = []
+powerpoint = []
 std = ["dep:duct", "dep:lychee-lib", "dep:reqwest", "dep:tokio", "dep:which"]
-util = []
 
 [lints.rust]
 missing-docs = "deny"
