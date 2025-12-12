@@ -638,7 +638,7 @@ where
     S: Into<String> + AsRef<str> + Clone + core::cmp::Eq + core::hash::Hash,
 {
     let re = Regex::new(pattern.as_ref()).unwrap();
-    let mut lookup: HashMap<S, String> = HashMap::new();
+    let mut lookup = HashMap::new();
     if let Some(capture_matches) = re.captures_iter(value.as_ref()).last() {
         match capture_matches {
             | Ok(captures) => {

@@ -3,7 +3,7 @@
 /// Module that provides `std` support
 #[allow(unused_imports)]
 mod std {
-    pub use std::collections::HashMap;
+    pub use hashbrown::{DefaultHashBuilder, HashMap};
     pub use std::env::{consts, var};
     pub use std::ffi::OsStr;
     pub use std::fs::{canonicalize, copy, create_dir_all, read, remove_file, File};
@@ -17,7 +17,7 @@ mod std {
 /// Module that provides `no-std` support
 #[allow(unused_imports)]
 mod no_std {
-    pub use hashbrown::HashMap;
+    pub use hashbrown::{DefaultHashBuilder, HashMap};
 }
 
 #[cfg(not(feature = "std"))]
