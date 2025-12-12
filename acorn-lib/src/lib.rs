@@ -13,7 +13,9 @@ use crate::prelude::PathBuf;
 use crate::util::Label;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, trace, warn};
+#[cfg(feature = "std")]
+use tracing::debug;
+use tracing::{error, trace, warn};
 use uriparse::URI;
 use urlencoding::encode;
 
@@ -215,6 +217,7 @@ impl Repository {
         local_schemes.contains(&self.location().scheme())
     }
     /// Get metadata for latest release of a Gitlab or GitHub repository
+    #[cfg(feature = "std")]
     pub fn latest_release(self) -> Option<Release> {
         match self.releases() {
             | releases if releases.is_empty() => None,
@@ -256,6 +259,7 @@ impl Repository {
             },
         }
     }
+    #[cfg(feature = "std")]
     fn releases(self) -> Vec<Release> {
         let maybe_url = match &self {
             | Repository::Git { .. } => None,

@@ -8,12 +8,15 @@ use crate::io::read_file;
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
 use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror, is_unix_epoch};
-use crate::util::{Label, License};
+#[cfg(feature = "std")]
+use crate::util::Label;
+use crate::util::License;
 use bon::Builder;
 use derive_more::Display;
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+#[cfg(feature = "std")]
 use tracing::error;
 use validator::Validate;
 

@@ -11,33 +11,58 @@ use super::validate::{is_kebabcase, is_list_url, validate_attribute_doi, validat
 use crate::io::{image_paths, parent, read_file, FromPath};
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
+#[cfg(feature = "std")]
+use crate::schema::Organization;
 use crate::schema::{
-    ClassificationLevel, ContactPoint, FuzzyValue, ImageObject, Keyword, MediaObject, Organization, OrganizationType, Other, Sections, Status,
+    ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Sections, Status,
     TechnologyReadinessLevel, Website,
 };
-use crate::util::constants::{DEFAULT_AFFILIATION, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
-use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF};
 #[cfg(feature = "std")]
-use crate::util::ToAbsoluteString;
-use crate::util::{Constant, Label, LinkedData, MimeType, ToMarkdown};
+use crate::util::constants::DEFAULT_AFFILIATION;
+use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
+#[cfg(feature = "std")]
+use crate::util::{Constant, Label};
+use crate::util::{LinkedData, ToMarkdown};
+#[cfg(feature = "std")]
+use crate::util::{MimeType, ToAbsoluteString};
 use bon::Builder;
+#[cfg(feature = "std")]
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};
 use derive_more::Display;
+#[cfg(feature = "std")]
 use fancy_regex::Regex;
-use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
-use nucleo_matcher::{Config, Matcher};
+#[cfg(feature = "std")]
+use nucleo_matcher::{
+    pattern::{CaseMatching, Normalization, Pattern},
+    Config, Matcher,
+};
+#[cfg(feature = "std")]
 use owo_colors::OwoColorize;
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
+#[cfg(feature = "std")]
 use tracing::{debug, error, trace};
 use validator::Validate;
 
 pub mod aspect;
 use aspect::AspectFramework;
 
+#[cfg(feature = "std")]
+#[derive(Clone, Debug, Serialize, Deserialize, Display)]
+enum FuzzyValue {
+    #[display("partners")]
+    Partner,
+    /// See [Keyword]
+    #[display("keywords")]
+    Keyword,
+    #[display("sponsors")]
+    Sponsor,
+    #[display("technology")]
+    Technology,
+}
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
 #[skip_serializing_none]
@@ -358,18 +383,41 @@ impl ResearchActivity {
     /// - Resolves URL of first media object (if found) and add empty caption
     /// - Resolves keywords, technology, organization, partners, sponsors, and affiliation using fuzzy matching against controlled vocabularies
     /// - Formats telephone number
+    // TODO: Isolate formatting that can be done without filesystem access
     #[cfg(feature = "std")]
     pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
-        let mut clone = self.clone().copy();
+        /// Resolve values to intended values according to controlled vocabularies and conventions
+        fn resolve(data: &ResearchActivity, value_type: FuzzyValue) -> Vec<String> {
+            let values: Vec<_> = match value_type {
+                | FuzzyValue::Keyword => data.meta.keywords.clone(),
+                | FuzzyValue::Partner => match data.meta.partners.clone() {
+                    | Some(values) => values,
+                    | None => vec![],
+                },
+                | FuzzyValue::Sponsor => match data.meta.sponsors.clone() {
+                    | Some(values) => values,
+                    | None => vec![],
+                },
+                | FuzzyValue::Technology => data.meta.technology.clone(),
+            };
+            let mut data: Vec<_> = values
+                .into_iter()
+                .flat_map(|x| resolve_from_csv_asset(format!("{value_type}"), x))
+                .collect();
+            data.sort();
+            data.dedup();
+            data
+        }
         let path_parent = match path {
             | Some(value) => parent(value),
             | None => PathBuf::from("."),
         };
+        debug!(path = path_parent.to_absolute_string(), "=> {} Parent directory", Label::using());
         let name = match image_paths(&path_parent) {
             | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
             | _ => None,
         };
-        debug!(path = path_parent.to_absolute_string(), "=> {} Parent directory", Label::using());
+        let mut clone = self.clone().copy();
         if let Some(value) = name {
             debug!(value, "=> {} First image", Label::using());
             // Make sure first graphic is well formed with a resolved image URL and caption
@@ -391,8 +439,8 @@ impl ResearchActivity {
             };
             clone.meta.media = Some([vec![first_graphic], rest].concat());
         };
-        clone.meta.keywords = self.clone().resolve(FuzzyValue::Keyword);
-        clone.meta.technology = self.clone().resolve(FuzzyValue::Technology);
+        clone.meta.keywords = resolve(&self, FuzzyValue::Keyword);
+        clone.meta.technology = resolve(&self, FuzzyValue::Technology);
         clone.contact.telephone = match format_phone_number(&self.contact.telephone) {
             | Ok(value) => value,
             | Err(_) => {
@@ -426,11 +474,11 @@ impl ResearchActivity {
                 }
             }
         };
-        clone.meta.partners = match self.clone().resolve(FuzzyValue::Partner) {
+        clone.meta.partners = match resolve(&self, FuzzyValue::Partner) {
             | values if !values.is_empty() => Some(values),
             | _ => None,
         };
-        clone.meta.sponsors = match self.clone().resolve(FuzzyValue::Sponsor) {
+        clone.meta.sponsors = match resolve(&self, FuzzyValue::Sponsor) {
             | values if !values.is_empty() => Some(values),
             | _ => None,
         };
@@ -457,7 +505,7 @@ impl ResearchActivity {
         match content {
             | Some(data) => {
                 debug!(path = path.to_str().unwrap(), "=> {}", label);
-                trace!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
+                debug!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
                 Some(data)
             }
             | None => {
@@ -482,7 +530,7 @@ impl ResearchActivity {
             | Err(_) => Label::invalid(),
         };
         match &data {
-            | Ok(_) => trace!("=> {} RAD content = {:#?}", label, data.dimmed()),
+            | Ok(_) => (),
             | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
         }
         data
@@ -503,31 +551,9 @@ impl ResearchActivity {
             | Err(_) => Label::fail(),
         };
         match &data {
-            | Ok(_) => trace!("=> {} RAD content = {:#?}", label, data.dimmed()),
+            | Ok(_) => (),
             | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
         }
-        data
-    }
-    /// Resolve values to intended values according to controlled vocabularies and conventions
-    fn resolve(self, value_type: FuzzyValue) -> Vec<String> {
-        let values: Vec<_> = match value_type {
-            | FuzzyValue::Keyword => self.meta.keywords,
-            | FuzzyValue::Partner => match self.meta.partners {
-                | Some(values) => values,
-                | None => vec![],
-            },
-            | FuzzyValue::Sponsor => match self.meta.sponsors {
-                | Some(values) => values,
-                | None => vec![],
-            },
-            | FuzzyValue::Technology => self.meta.technology,
-        };
-        let mut data: Vec<_> = values
-            .into_iter()
-            .flat_map(|x| resolve_from_csv_asset(format!("{value_type}"), x))
-            .collect();
-        data.sort();
-        data.dedup();
         data
     }
 }
@@ -562,31 +588,39 @@ impl ResearchActivityMetadata {
         }
     }
 }
-fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
-    let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
-    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-    pattern.match_list(values.clone(), &mut matcher)
-}
-fn print_resolution(output: Option<String>, value: String, name: String) {
-    let label = name.to_case(Case::Title);
-    match output {
-        | Some(resolved) => {
-            if resolved.eq(&value.to_string()) {
-                trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
-            } else {
-                debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
-            }
-        }
-        | None => {
-            debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
-        }
-    };
-}
+#[cfg(feature = "std")]
 pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
     let data = Constant::csv(&name);
     resolve_from_list_of_lists(value, data, name)
 }
+#[cfg(feature = "std")]
 pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I, name: String) -> Option<String> {
+    fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
+        let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
+        let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+        pattern.match_list(values.clone(), &mut matcher)
+    }
+    fn print_resolution(output: Option<String>, value: String, name: String) {
+        let label = name.to_case(Case::Title);
+        match output {
+            | Some(resolved) => {
+                if resolved.eq(&value.to_string()) {
+                    trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
+                } else {
+                    debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
+                }
+            }
+            | None => {
+                debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
+            }
+        };
+    }
+    fn sanitize(value: String) -> String {
+        match Regex::new(r"[-_.,]") {
+            | Ok(re) => re.replace_all(&value, "").replace("&", "and").trim().to_string(),
+            | Err(err) => err.to_string(),
+        }
+    }
     let output = data
         .into_iter()
         .flat_map(|values| {
@@ -617,6 +651,7 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
     print_resolution(output.clone(), value, name);
     output
 }
+#[cfg(feature = "std")]
 pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
     let organization = &Organization::load()[0];
     let mut items = vec![organization.clone()];
@@ -641,10 +676,4 @@ pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
         })
         .collect::<Vec<Vec<String>>>();
     resolve_from_list_of_lists(value, data, "organization".to_string())
-}
-fn sanitize(value: String) -> String {
-    match Regex::new(r"[-_.,]") {
-        | Ok(re) => re.replace_all(&value, "").replace("&", "and").trim().to_string(),
-        | Err(err) => err.to_string(),
-    }
 }

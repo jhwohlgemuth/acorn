@@ -220,7 +220,7 @@ pub(crate) fn validate_attribute_doi(value: &[String]) -> Result<(), ValidationE
 /// Custom validator function for [`ResearchActivity`] [ror](/acorn_lib/schema/struct.Metadata.html#structfield.ror)
 ///
 /// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub(crate) fn validate_attribute_ror(value: &str) -> Result<(), ValidationError> {
+pub fn validate_attribute_ror(value: &str) -> Result<(), ValidationError> {
     match is_ror(value).is_ok() {
         | true => Ok(()),
         | _ => Err(ValidationError::new("RORs").with_message("Every ROR should be valid".to_string().into())),

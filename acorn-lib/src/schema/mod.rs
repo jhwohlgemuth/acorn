@@ -76,18 +76,6 @@ pub enum ClassificationLevel {
     #[serde(alias = "top secret")]
     TopSecret,
 }
-#[derive(Clone, Debug, Serialize, Deserialize, Display)]
-enum FuzzyValue {
-    #[display("partners")]
-    Partner,
-    /// See [Keyword]
-    #[display("keywords")]
-    Keyword,
-    #[display("sponsors")]
-    Sponsor,
-    #[display("technology")]
-    Technology,
-}
 /// # Media Object
 /// Digital artifact such as an image or video
 ///
