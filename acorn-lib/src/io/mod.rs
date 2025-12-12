@@ -112,7 +112,7 @@ impl FromPath for MimeType {
     where
         P: Into<PathBuf>,
     {
-        MimeType::from_string(value.into().display().to_string())
+        MimeType::from(value.into().display().to_string())
     }
 }
 impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
@@ -662,7 +662,7 @@ where
         | None => path.into().with_extension("exe"),
         | _ => path.into(),
     };
-    println!("{binary:#?}");
+    debug!("=> {} {binary:#?}", Label::using());
     binary.is_executable()
 }
 /// Utility method to employ best practices when using a Reqwest client to make HTTP GET requests.

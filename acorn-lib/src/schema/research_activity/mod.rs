@@ -14,8 +14,8 @@ use crate::prelude::PathBuf;
 #[cfg(feature = "std")]
 use crate::schema::Organization;
 use crate::schema::{
-    ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Sections, Status,
-    TechnologyReadinessLevel, Website,
+    ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Sections, Status, TechnologyReadinessLevel,
+    Website,
 };
 #[cfg(feature = "std")]
 use crate::util::constants::DEFAULT_AFFILIATION;
@@ -625,7 +625,7 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
         .into_iter()
         .flat_map(|values| {
             let sanitized = sanitize(value.clone());
-            let matched = match_list(sanitized, values.clone());
+            let matched = match_list(sanitized, values.clone().into_iter().take(4));
             trace!("{} => {:?}", value.clone(), matched.clone());
             if matched.clone().is_empty() {
                 None

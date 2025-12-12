@@ -84,15 +84,83 @@ where
 /// SPDX compliant license identifier
 ///
 /// See <https://spdx.org/licenses/>
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Display, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum License {
-    /// MIT License
-    Mit,
-    /// Creative Commons
-    #[serde(alias = "Creative Commons CC-0")]
+    /// GNU Affero General Public License v3.0 only
+    #[display("AGPL-3.0-only")]
+    #[serde(alias = "AGPL-3.0-only")]
+    Agpl3Only,
+    /// Apache License 2.0
+    #[display("Apache-2.0")]
+    #[serde(alias = "Apache-2.0")]
+    Apache2,
+    /// BSD 3-Clause "New" or "Revised" License
+    #[display("BSD-3-Clause")]
+    #[serde(alias = "BSD-3-Clause")]
+    Bsd3Clause,
+    /// Creative Commons Zero v1.0 Universal
+    #[display("CC0-1.0")]
+    #[serde(alias = "CC0-1.0", alias = "Creative Commons CC-0")]
     CreativeCommons,
+    /// GNU General Public License v2.0 only
+    #[display("GPL-2.0-only")]
+    #[serde(alias = "GPL-2.0-only")]
+    Gpl2Only,
+    /// GNU General Public License v2.0 with Classpath exception
+    #[display("GPL-2.0-with-classpath-exception")]
+    #[serde(alias = "GPL-2.0-with-classpath-exception")]
+    Gpl2WithClasspathException,
+    /// GNU General Public License v3.0 only
+    #[display("GPL-3.0-only")]
+    #[serde(alias = "GPL-3.0-only")]
+    Gpl3Only,
+    /// GNU General Public License v3.0 or later
+    #[display("GPL-3.0-or-later")]
+    #[serde(alias = "GPL-3.0-or-later")]
+    Gpl3OrLater,
+    /// GNU Lesser General Public License v2.1 only
+    #[display("LGPL-2.1-only")]
+    #[serde(alias = "LGPL-2.1-only")]
+    Lgpl21Only,
+    /// LaTeX Project Public License v1.3c
+    #[display("LPPL-1.3c")]
+    #[serde(alias = "LPPL-1.3c")]
+    Lppl13c,
+    /// MIT License
+    #[display("MIT")]
+    #[serde(alias = "MIT")]
+    Mit,
+    /// PostgreSQL License
+    #[display("PostgreSQL")]
+    #[serde(alias = "PostgreSQL")]
+    PostgreSql,
+    /// Custom license reference for proprietary software
+    #[display("Proprietary")]
+    #[serde(alias = "LicenseRef-Proprietary")]
+    Proprietary,
+    /// Python Software Foundation License (based on PSF)
+    #[display("PSF-based")]
+    #[serde(alias = "PSF-based")]
+    PsfBased,
+    /// Python Software Foundation License 2.0
+    #[display("PSF-2.0")]
+    #[serde(alias = "PSF-2.0")]
+    Psf2,
+    /// Public domain (i.e., no license)
+    #[display("Public Domain")]
+    #[serde(alias = "Public Domain")]
+    PublicDomain,
     /// Unknown license
+    #[display("Unknown")]
     Unknown,
+    /// Various licenses (mixed or unspecified)
+    #[display("Various")]
+    #[serde(alias = "Various")]
+    Various,
+    /// World Wide Web Consortium License
+    #[display("W3C")]
+    #[serde(alias = "W3C")]
+    W3C,
 }
 /// Supports an incomplete list of common <span title="Multipurpose Internet Mail Extension">MIME</span> types
 ///
@@ -388,6 +456,101 @@ impl Label {
         value.style(style).to_string()
     }
 }
+impl<T: AsRef<str>> From<T> for License
+where
+    T: ToString,
+{
+    /// Convert SPDX standard indentifier to associated `License` value
+    /// ## Notes
+    /// - Custom license identifiers (i.e., start with `LicenseRef-`) are mapped to `License::Proprietary`
+    /// - `"Public Domain"`, which is not a valid SPDX identifier is mapped to `License::PublicDomain`
+    /// - `"Unknown"`, which is not a valid SPDX identifier is mapped to `License::Unknown`
+    /// - `"Various"`, which is not a valid SPDX identifier is mapped to `License::Various`
+    fn from(value: T) -> Self {
+        match value.as_ref().to_lowercase().as_str() {
+            | "agpl-3.0-only" => License::Agpl3Only,
+            | "apache-2.0" => License::Apache2,
+            | "bsd-2-clause" => License::Bsd3Clause,
+            | "bsd-3-clause" => License::Bsd3Clause,
+            | "cc0-1.0" | "creative commons cc-0" => License::CreativeCommons,
+            | "gpl-1.0-or-later" => License::Gpl2Only,
+            | "gpl-2.0-only" => License::Gpl2Only,
+            | "gpl-2.0-with-classpath-exception" => License::Gpl2WithClasspathException,
+            | "gpl-3.0-only" => License::Gpl3Only,
+            | "gpl-3.0-or-later" => License::Gpl3OrLater,
+            | "lgpl-2.1-only" => License::Lgpl21Only,
+            | "lppl-1.3c" => License::Lppl13c,
+            | "mit" => License::Mit,
+            | "postgresql" => License::PostgreSql,
+            | "proprietary" | "licenseref-proprietary" => License::Proprietary,
+            | "psf-based" => License::PsfBased,
+            | "psf-2.0" => License::Psf2,
+            | "public-domain" | "public domain" => License::PublicDomain,
+            | "various" => License::Various,
+            | "w3c" => License::W3C,
+            | _ => License::Unknown,
+        }
+    }
+}
+impl License {
+    fn is_open_source(&self) -> bool {
+        let data = Constant::csv("technology");
+        let result = data
+            .into_iter()
+            .map(|row| row.into_iter().skip(4).collect::<Vec<String>>())
+            .find(|pair| pair[0] == self.to_string());
+        match result {
+            | Some(value) => value[1] == "true",
+            | None => false,
+        }
+    }
+}
+impl<T: AsRef<str>> From<T> for MimeType
+where
+    T: ToString,
+{
+    /// Returns a `MimeType` value based on the file extension of the given file name.
+    ///
+    /// # Supported MIME types
+    ///
+    /// | File Extension | MIME Type |
+    /// | --- | --- |
+    /// | cff | application/yaml |
+    /// | csv | text/csv |
+    /// | jpg | image/jpeg |
+    /// | jpeg | image/jpeg |
+    /// | json | application/json |
+    /// | jsonld | application/ld+json |
+    /// | md | text/markdown |
+    /// | otf | font/otf |
+    /// | png | image/png |
+    /// | rs | text/rust |
+    /// | svg | image/svg+xml |
+    /// | toml | application/toml |
+    /// | txt | text/plain |
+    /// | yaml | application/yaml |
+    fn from(value: T) -> Self {
+        let name = value.to_string().to_lowercase();
+        match file_extension(name) {
+            | Some(value) => match value.as_str() {
+                | "csv" => MimeType::Csv,
+                | "jpg" | "jpeg" => MimeType::Jpeg,
+                | "json" => MimeType::Json,
+                | "jsonld" | "json-ld" => MimeType::LdJson,
+                | "md" | "markdown" => MimeType::Markdown,
+                | "otf" => MimeType::Otf,
+                | "png" => MimeType::Png,
+                | "rs" => MimeType::Rust,
+                | "svg" => MimeType::Svg,
+                | "toml" => MimeType::Toml,
+                | "txt" => MimeType::Text,
+                | "yml" | "yaml" | "cff" => MimeType::Yaml,
+                | _ => MimeType::Unknown,
+            },
+            | None => MimeType::Unknown,
+        }
+    }
+}
 impl MimeType {
     /// Returns the file type as a string
     /// ### Example
@@ -415,50 +578,6 @@ impl MimeType {
             | _ => "unknown-file-type",
         }
         .to_string()
-    }
-    /// Returns a `MimeType` value based on the file extension of the given file name.
-    ///
-    /// # Supported MIME types
-    ///
-    /// | File Extension | MIME Type |
-    /// | --- | --- |
-    /// | cff | application/yaml |
-    /// | csv | text/csv |
-    /// | jpg | image/jpeg |
-    /// | jpeg | image/jpeg |
-    /// | json | application/json |
-    /// | jsonld | application/ld+json |
-    /// | md | text/markdown |
-    /// | otf | font/otf |
-    /// | png | image/png |
-    /// | rs | text/rust |
-    /// | svg | image/svg+xml |
-    /// | toml | application/toml |
-    /// | txt | text/plain |
-    /// | yaml | application/yaml |
-    pub fn from_string<S>(value: S) -> MimeType
-    where
-        S: Into<String>,
-    {
-        let name = &value.into().to_lowercase();
-        match file_extension(name) {
-            | Some(value) => match value.as_str() {
-                | "csv" => MimeType::Csv,
-                | "jpg" | "jpeg" => MimeType::Jpeg,
-                | "json" => MimeType::Json,
-                | "jsonld" | "json-ld" => MimeType::LdJson,
-                | "md" | "markdown" => MimeType::Markdown,
-                | "otf" => MimeType::Otf,
-                | "png" => MimeType::Png,
-                | "rs" => MimeType::Rust,
-                | "svg" => MimeType::Svg,
-                | "toml" => MimeType::Toml,
-                | "txt" => MimeType::Text,
-                | "yml" | "yaml" | "cff" => MimeType::Yaml,
-                | _ => MimeType::Unknown,
-            },
-            | None => MimeType::Unknown,
-        }
     }
 }
 impl SemanticVersion {
