@@ -162,6 +162,7 @@ DEV_DEPENDENCIES = \
 	cargo-auditable \
 	cargo-deny \
 	cargo-nextest \
+	cargo-shear \
 	cargo-tarpaulin \
 	cargo-udeps \
 	mdbook \
