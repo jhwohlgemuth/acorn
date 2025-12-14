@@ -50,19 +50,6 @@ use validator::Validate;
 pub mod aspect;
 use aspect::AspectFramework;
 
-#[cfg(feature = "std")]
-#[derive(Clone, Debug, Serialize, Deserialize, Display)]
-enum FuzzyValue {
-    #[display("partners")]
-    Partner,
-    /// See [Keyword]
-    #[display("keywords")]
-    Keyword,
-    #[display("sponsors")]
-    Sponsor,
-    #[display("technology")]
-    Technology,
-}
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
 #[skip_serializing_none]
@@ -386,27 +373,25 @@ impl ResearchActivity {
     // TODO: Isolate formatting that can be done without filesystem access
     #[cfg(feature = "std")]
     pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
-        /// Resolve values to intended values according to controlled vocabularies and conventions
-        fn resolve(data: &ResearchActivity, value_type: FuzzyValue) -> Vec<String> {
-            let values: Vec<_> = match value_type {
-                | FuzzyValue::Keyword => data.meta.keywords.clone(),
-                | FuzzyValue::Partner => match data.meta.partners.clone() {
-                    | Some(values) => values,
-                    | None => vec![],
-                },
-                | FuzzyValue::Sponsor => match data.meta.sponsors.clone() {
-                    | Some(values) => values,
-                    | None => vec![],
-                },
-                | FuzzyValue::Technology => data.meta.technology.clone(),
-            };
-            let mut data: Vec<_> = values
-                .into_iter()
-                .flat_map(|x| resolve_from_csv_asset(format!("{value_type}"), x))
-                .collect();
-            data.sort();
-            data.dedup();
-            data
+        /// Resolve values to intended values according to associated controlled vocabulary
+        /// ## Vocabularies
+        /// - partners
+        /// - keywords
+        /// - sponsors
+        /// - technology
+        fn resolve_from_controlled_vocabulary(vocabulary: &str, values: Option<Vec<String>>) -> Vec<String> {
+            match values {
+                | Some(items) => {
+                    let mut data: Vec<_> = items
+                        .into_iter()
+                        .flat_map(|x| resolve_from_csv_asset(vocabulary.to_string(), x))
+                        .collect();
+                    data.sort();
+                    data.dedup();
+                    data
+                }
+                | None => vec![],
+            }
         }
         let path_parent = match path {
             | Some(value) => parent(value),
@@ -439,8 +424,8 @@ impl ResearchActivity {
             };
             clone.meta.media = Some([vec![first_graphic], rest].concat());
         };
-        clone.meta.keywords = resolve(&self, FuzzyValue::Keyword);
-        clone.meta.technology = resolve(&self, FuzzyValue::Technology);
+        clone.meta.keywords = resolve_from_controlled_vocabulary("keywords", Some(clone.meta.keywords));
+        clone.meta.technology = resolve_from_controlled_vocabulary("technology", Some(clone.meta.technology));
         clone.contact.telephone = match format_phone_number(&self.contact.telephone) {
             | Ok(value) => value,
             | Err(_) => {
@@ -474,11 +459,11 @@ impl ResearchActivity {
                 }
             }
         };
-        clone.meta.partners = match resolve(&self, FuzzyValue::Partner) {
+        clone.meta.partners = match resolve_from_controlled_vocabulary("partners", clone.meta.partners) {
             | values if !values.is_empty() => Some(values),
             | _ => None,
         };
-        clone.meta.sponsors = match resolve(&self, FuzzyValue::Sponsor) {
+        clone.meta.sponsors = match resolve_from_controlled_vocabulary("sponsors", clone.meta.sponsors) {
             | values if !values.is_empty() => Some(values),
             | _ => None,
         };

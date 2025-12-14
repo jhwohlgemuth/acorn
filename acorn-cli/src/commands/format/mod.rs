@@ -34,7 +34,6 @@ pub fn run(
     let paths = paths_from_options(path, &Some(options));
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
         | Some(data) => {
-            println!("{}", path.clone().to_absolute_string().yellow());
             let mime = MimeType::from_path(path);
             let old_content = match mime {
                 | MimeType::Json => serde_json::to_string_pretty(&data).unwrap(),
