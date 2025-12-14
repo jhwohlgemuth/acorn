@@ -57,7 +57,7 @@ Maturity uses an augmented version of technology readiness levels (TRL) and incl
 - Other
 </details>
 <details>
-  <summary>⚡ <a href="./efficacy.md">Efficacy</a></summary>
+  <summary>⚡ <a href="./agency.md">Agency</a></summary>
 
 - Type 0
 - Type 1A

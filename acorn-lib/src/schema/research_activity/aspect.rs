@@ -60,11 +60,11 @@ pub enum DataQuality {
     /// AI-ready data that is adapted to a specific application and/or subjected to additional processing
     Platinum = 4,
 }
-/// Efficacy of a given technology that describes how it interacts with the environment
+/// Agency of a given technology that describes how it interacts with the environment
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 #[repr(u8)]
 #[serde(deny_unknown_fields)]
-pub enum Efficacy {
+pub enum Agency {
     /// No input or output. Basically any operation with no side effects
     /// ## Example
     /// > digital models
@@ -166,7 +166,7 @@ pub enum TaskType {
     /// ## Examples
     /// > object detection and optical character recognition (OCR)
     /// ## Note
-    /// > Research activity data with associated technology the implements the `Perceive` task type can only be present in Type-1A and Type-2 efficacy aspects, but are not necessary to be present.
+    /// > Research activity data with associated technology the implements the `Perceive` task type can only be present in Type-1A and Type-2 agency aspects, but are not necessary to be present.
     #[display("perceive")]
     #[serde(alias = "perception")]
     Perceive,
@@ -174,7 +174,7 @@ pub enum TaskType {
     /// ## Examples
     /// > robot actuator control, code generation, and image optimization
     /// ## Note
-    /// > Research activity data with associated technology the implements the `Project` task type can only be present in Type-1B and Type-2 efficacy aspects, but are not necessary to be present.
+    /// > Research activity data with associated technology the implements the `Project` task type can only be present in Type-1B and Type-2 agency aspects, but are not necessary to be present.
     #[display("project")]
     #[serde(alias = "projection")]
     Project,
@@ -182,7 +182,7 @@ pub enum TaskType {
     /// ## Examples
     /// > image classification, most NLP tasks, and schema validation
     /// ## Note
-    /// > Research activity data with associated technology the implements the `Reason` task type can be present in any efficacy aspect, but are not necessary to be present.
+    /// > Research activity data with associated technology the implements the `Reason` task type can be present in any agency aspect, but are not necessary to be present.
     #[display("reason")]
     #[serde(alias = "infer", alias = "inference")]
     Reason,
@@ -202,8 +202,8 @@ pub struct AspectFramework {
     pub data: Option<Vec<Data>>,
     /// Software portability level
     pub portability: Option<SoftwarePortability>,
-    /// Measure of efficacy (e.g., interactivity and impact on environment)
-    pub efficacy: Option<Efficacy>,
+    /// Type of agency (e.g., interactivity and impact on environment)
+    pub agency: Option<Agency>,
     /// Human-machine teaming level
     pub human_machine_teaming_level: Option<HumanMachineTeamingLevel>,
     /// Hardware/compute resource requirements
@@ -221,7 +221,7 @@ pub struct AspectFramework {
 pub struct AspectFrameworkContext {
     pub(crate) data: String,
     pub(crate) portability: String,
-    pub(crate) efficacy: String,
+    pub(crate) agency: String,
     pub(crate) human_machine_teaming_level: String,
     pub(crate) resources: String,
     pub(crate) maturity: String,
@@ -284,7 +284,7 @@ impl Default for AspectFrameworkContext {
         AspectFrameworkContext::init()
             .data(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .portability(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .efficacy(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .agency(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .human_machine_teaming_level(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .resources(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .maturity(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))

@@ -1,6 +1,6 @@
 # 🤝 Human-Machine Teaming
 
-**ASPECT** Human-machine teaming level describes the adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes. This attribute incorporates on prior work by the [Society of Automative Engineers' six levels of driving automation](https://www.sae.org/standards/j3016_202104-taxonomy-definitions-terms-related-driving-automation-systems-road-motor-vehicles) and expands on <span title="International Organization for Standardization">ISO</span> definitions to partition technology into distinct and employable categories.
+In the context of **ASPECT**, human-machine teaming level describes the adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes. This attribute incorporates on prior work by the [Society of Automative Engineers' six levels of driving automation](https://www.sae.org/standards/j3016_202104-taxonomy-definitions-terms-related-driving-automation-systems-road-motor-vehicles) and expands on <span title="International Organization for Standardization">ISO</span> definitions to partition technology into distinct and employable categories.
 
 > [!TIP]
 > ISO 22989[^ISO] defines human-machine teaming as "*integration of human interaction with machine intelligence capabilities*."
