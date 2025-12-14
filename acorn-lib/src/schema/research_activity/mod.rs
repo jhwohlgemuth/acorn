@@ -371,61 +371,68 @@ impl ResearchActivity {
     /// - Resolves keywords, technology, organization, partners, sponsors, and affiliation using fuzzy matching against controlled vocabularies
     /// - Formats telephone number
     // TODO: Isolate formatting that can be done without filesystem access
-    #[cfg(feature = "std")]
     pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
-        /// Resolve values to intended values according to associated controlled vocabulary
-        /// ## Vocabularies
-        /// - partners
-        /// - keywords
-        /// - sponsors
-        /// - technology
-        fn resolve_from_controlled_vocabulary(vocabulary: &str, values: Option<Vec<String>>) -> Vec<String> {
-            match values {
-                | Some(items) => {
-                    let mut data: Vec<_> = items
-                        .into_iter()
-                        .flat_map(|x| resolve_from_csv_asset(vocabulary.to_string(), x))
-                        .collect();
-                    data.sort();
-                    data.dedup();
-                    data
+        #[derive(Debug, Display)]
+        enum Vocabulary {
+            #[display("keywords")]
+            Keywords,
+            #[display("partners")]
+            Partners,
+            #[display("sponsors")]
+            Sponsors,
+            #[display("technology")]
+            Technology,
+        }
+        impl Vocabulary {
+            /// Resolve values to intended values according to associated controlled vocabulary
+            fn resolve(self, values: Option<Vec<String>>) -> Vec<String> {
+                match values {
+                    | Some(items) => {
+                        let mut data: Vec<_> = items.into_iter().flat_map(|x| resolve_from_csv_asset(self.to_string(), x)).collect();
+                        data.sort();
+                        data.dedup();
+                        data
+                    }
+                    | None => vec![],
                 }
-                | None => vec![],
             }
         }
-        let path_parent = match path {
-            | Some(value) => parent(value),
-            | None => PathBuf::from("."),
-        };
-        debug!(path = path_parent.to_absolute_string(), "=> {} Parent directory", Label::using());
-        let name = match image_paths(&path_parent) {
-            | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
-            | _ => None,
-        };
         let mut clone = self.clone().copy();
-        if let Some(value) = name {
-            debug!(value, "=> {} First image", Label::using());
-            // Make sure first graphic is well formed with a resolved image URL and caption
-            let first_graphic = match self.meta.clone().media {
-                | Some(values) if !values.is_empty() => {
-                    let caption = self.meta.clone().first_image_caption();
-                    let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
-                    MediaObject::Image(image_data)
-                }
-                | Some(_) | None => {
-                    let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
-                    MediaObject::Image(image_data)
-                }
+        #[cfg(feature = "std")]
+        {
+            let path_parent = match path {
+                | Some(value) => parent(value),
+                | None => PathBuf::from("."),
             };
-            // Get the rest of the media objects
-            let rest = match self.clone().meta.media {
-                | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
-                | Some(_) | None => vec![],
+            debug!(path = path_parent.to_absolute_string(), "=> {} Parent directory", Label::using());
+            let name = match image_paths(&path_parent) {
+                | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
+                | _ => None,
             };
-            clone.meta.media = Some([vec![first_graphic], rest].concat());
-        };
-        clone.meta.keywords = resolve_from_controlled_vocabulary("keywords", Some(clone.meta.keywords));
-        clone.meta.technology = resolve_from_controlled_vocabulary("technology", Some(clone.meta.technology));
+            if let Some(value) = name {
+                debug!(value, "=> {} First image", Label::using());
+                // Make sure first graphic is well formed with a resolved image URL and caption
+                let first_graphic = match self.meta.clone().media {
+                    | Some(values) if !values.is_empty() => {
+                        let caption = self.meta.clone().first_image_caption();
+                        let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
+                        MediaObject::Image(image_data)
+                    }
+                    | Some(_) | None => {
+                        let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
+                        MediaObject::Image(image_data)
+                    }
+                };
+                // Get the rest of the media objects
+                let rest = match self.clone().meta.media {
+                    | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
+                    | Some(_) | None => vec![],
+                };
+                clone.meta.media = Some([vec![first_graphic], rest].concat());
+            };
+        }
+        clone.meta.keywords = Vocabulary::Keywords.resolve(Some(clone.meta.keywords));
+        clone.meta.technology = Vocabulary::Technology.resolve(Some(clone.meta.technology));
         clone.contact.telephone = match format_phone_number(&self.contact.telephone) {
             | Ok(value) => value,
             | Err(_) => {
@@ -459,11 +466,11 @@ impl ResearchActivity {
                 }
             }
         };
-        clone.meta.partners = match resolve_from_controlled_vocabulary("partners", clone.meta.partners) {
+        clone.meta.partners = match Vocabulary::Partners.resolve(clone.meta.partners) {
             | values if !values.is_empty() => Some(values),
             | _ => None,
         };
-        clone.meta.sponsors = match resolve_from_controlled_vocabulary("sponsors", clone.meta.sponsors) {
+        clone.meta.sponsors = match Vocabulary::Sponsors.resolve(clone.meta.sponsors) {
             | values if !values.is_empty() => Some(values),
             | _ => None,
         };
@@ -573,12 +580,10 @@ impl ResearchActivityMetadata {
         }
     }
 }
-#[cfg(feature = "std")]
 pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
     let data = Constant::csv(&name);
     resolve_from_list_of_lists(value, data, name)
 }
-#[cfg(feature = "std")]
 pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I, name: String) -> Option<String> {
     fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
         let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
@@ -636,7 +641,6 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
     print_resolution(output.clone(), value, name);
     output
 }
-#[cfg(feature = "std")]
 pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
     let organization = &Organization::load()[0];
     let mut items = vec![organization.clone()];
