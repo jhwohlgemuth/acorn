@@ -59,6 +59,54 @@ pub trait FromPath {
     where
         P: Into<PathBuf>;
 }
+/// Struct for parsing GitLab API merge request diff responses
+///
+/// Used by [`files_from_gitlab_merge_request`]
+///
+/// ### Example Response JSON
+/// ```json
+/// [
+///     {
+///         "old_path": "README",
+///         "new_path": "README",
+///         "a_mode": "100644",
+///         "b_mode": "100644",
+///         "diff": "@@ -1 +1 @@\ -Title\ +README",
+///         "collapsed": false,
+///         "too_large": false,
+///         "new_file": false,
+///         "renamed_file": false,
+///         "deleted_file": false,
+///         "generated_file": false
+///     },
+///     {
+///         "old_path": "VERSION",
+///         "new_path": "VERSION",
+///         "a_mode": "100644",
+///         "b_mode": "100644",
+///         "diff": "@@\ -1.9.7\ +1.9.8",
+///         "collapsed": false,
+///         "too_large": false,
+///         "new_file": false,
+///         "renamed_file": false,
+///         "deleted_file": false,
+///         "generated_file": false
+///     }
+/// ]
+/// ```
+///
+/// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
+#[derive(Debug, Deserialize)]
+pub struct GitlabMergeRequestDiffResponse {
+    new_path: String,
+    // diff: String,
+    // old_path: String,
+    // too_large: Option<bool>,
+    // new_file: bool,
+    // renamed_file: bool,
+    // deleted_file: bool,
+    // generated_file: bool,
+}
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
 impl FromCommand for SemanticVersion {
@@ -124,54 +172,6 @@ impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
     fn to_absolute_strings(&self) -> Vec<String> {
         self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_string()).collect()
     }
-}
-/// Struct for parsing GitLab API merge request diff responses
-///
-/// Used by [`files_from_gitlab_merge_request`]
-///
-/// ### Example Response JSON
-/// ```json
-/// [
-///     {
-///         "old_path": "README",
-///         "new_path": "README",
-///         "a_mode": "100644",
-///         "b_mode": "100644",
-///         "diff": "@@ -1 +1 @@\ -Title\ +README",
-///         "collapsed": false,
-///         "too_large": false,
-///         "new_file": false,
-///         "renamed_file": false,
-///         "deleted_file": false,
-///         "generated_file": false
-///     },
-///     {
-///         "old_path": "VERSION",
-///         "new_path": "VERSION",
-///         "a_mode": "100644",
-///         "b_mode": "100644",
-///         "diff": "@@\ -1.9.7\ +1.9.8",
-///         "collapsed": false,
-///         "too_large": false,
-///         "new_file": false,
-///         "renamed_file": false,
-///         "deleted_file": false,
-///         "generated_file": false
-///     }
-/// ]
-/// ```
-///
-/// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
-#[derive(Debug, Deserialize)]
-pub struct GitlabMergeRequestDiffResponse {
-    new_path: String,
-    // diff: String,
-    // old_path: String,
-    // too_large: Option<bool>,
-    // new_file: bool,
-    // renamed_file: bool,
-    // deleted_file: bool,
-    // generated_file: bool,
 }
 impl ToAbsoluteString for PathBuf {
     fn to_absolute_string(&self) -> String {

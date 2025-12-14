@@ -493,11 +493,22 @@ where
     }
 }
 impl License {
+    fn from_technology(value: &str) -> Option<License> {
+        let data = Constant::csv("technology");
+        let result = data
+            .into_iter()
+            .map(|row| row.into_iter().take(5).collect::<Vec<String>>())
+            .find(|pair| pair[0] == value);
+        match result {
+            | Some(pair) => Some(License::from(pair[4].clone())),
+            | None => None,
+        }
+    }
     fn is_open_source(&self) -> bool {
         let data = Constant::csv("technology");
         let result = data
             .into_iter()
-            .map(|row| row.into_iter().skip(4).collect::<Vec<String>>())
+            .map(|row| row.into_iter().skip(4).take(2).collect::<Vec<String>>())
             .find(|pair| pair[0] == self.to_string());
         match result {
             | Some(value) => value[1] == "true",
