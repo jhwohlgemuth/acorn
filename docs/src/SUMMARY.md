@@ -11,7 +11,7 @@
     - [📈 Maturity](./concepts/aspect/maturity.md)
     - [💾 Data](./concepts/aspect/data.md)
     - [🖥️ (Hardware) Resources](./concepts/aspect/resources.md)
-    - [⚡ Agency](./concepts/aspect/agency.md)
+    - [🦾 Agency](./concepts/aspect/agency.md)
     - [🎯 Task classification](./concepts/aspect/task-classification.md)
   - [🪣 Buckets](./concepts/buckets.md)
 - [🐚 Command Line Reference](./cli-reference/README.md)

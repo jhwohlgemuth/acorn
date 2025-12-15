@@ -57,7 +57,7 @@ Maturity uses an augmented version of technology readiness levels (TRL) and incl
 - Other
 </details>
 <details>
-  <summary>⚡ <a href="./agency.md">Agency</a></summary>
+  <summary>🦾 <a href="./agency.md">Agency</a></summary>
 
 - Type 0
 - Type 1A
@@ -78,8 +78,8 @@ The ASPECT framework can be applied in various scenarios
 - [AI-driven Gravity Mapping](https://research.ornl.gov/gravity/)
     - 💼 ***Source*** (Level 1)
     - 🤝 ***Machine-assisted*** (Level 1)
-    - 🖥️ ***Developed*** (<span title="Technology Readiness Level">TRL</span> 5)
+    - 📈 ***Developed*** (<span title="Technology Readiness Level">TRL</span> 5)
     - 💾 Trained on ***Real***, ***Unavailable***, ***Silver*** quality, ***Textual*** modality data
     - 🖥️ ***GPU***
-    - ⚡ ***Type 2***
+    - 🦾 ***Type 2***
     - 🎯 ***Perceive***, ***Reason***
