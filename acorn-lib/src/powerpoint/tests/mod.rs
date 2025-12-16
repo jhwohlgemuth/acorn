@@ -139,13 +139,14 @@ fn test_read_xml_rel() {
 #[test]
 fn test_replace_placeholder_with_string() {
     let content = "{{ title }}";
-    let result = replace_placeholder_with_string(content, "title", "test");
+    // let result = replace_placeholder_with_string(content, "title", "test");
+    let result = content.replace_placeholder_with_string("title", "test");
     assert_eq!(result, "test");
     let content = "{{title}}";
-    let result = replace_placeholder_with_string(content, "title", "test");
+    let result = content.replace_placeholder_with_string("title", "test");
     assert_eq!(result, "test");
     let content = "{{title}} {{ title }}";
-    let result = replace_placeholder_with_string(content, "title", "test");
+    let result = content.replace_placeholder_with_string("title", "test");
     assert_eq!(result, "test test");
 }
 #[test]
@@ -154,7 +155,7 @@ fn test_replace_placeholder_with_bullets() {
     match read_file(path) {
         | Ok(content) => {
             let values = to_string(vec!["FOO", "BAR", "BAZ"]);
-            let result = replace_placeholder_with_bullets(&content, "achievement", values);
+            let result = content.replace_placeholder_with_bullets("achievement", values);
             assert!(result.contains("FOO"));
             assert!(result.contains("BAR"));
             assert!(result.contains("BAZ"));

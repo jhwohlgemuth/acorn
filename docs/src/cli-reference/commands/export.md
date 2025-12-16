@@ -39,5 +39,28 @@ acorn export path/to/index.json \
 
 The reference template allows you to specify which and where certain values are used using placeholder text in the format `{{ PLACEHOLDER_NAME }}`. During export, ACORN will replace these placeholders with the corresponding data from the associated research activity data. You can find an example PowerPoint reference template used for testing in the [ACORN GitLab repository](https://code.ornl.gov/research-enablement/acorn/-/blob/main/tests/fixtures/data/highlight/reference.pptx?ref_type=heads).
 
-> [!NOTE]
-> The available placeholder names are `title`, `subtitle`, `first`, `last`, `email`, `partners`, `programs`, `managers`, `citation`, `caption`, `notes`, `achievement`, `impact`, and `technical`.
+### Available Placeholders
+
+The following placeholders can be used in your PowerPoint reference template:
+
+#### String values
+- `caption` - First image caption
+- `challenge` - Challenge description
+- `citation` - DOI citation
+- `email` - Contact email
+- `first` - Contact first name
+- `focus` - Research focus area
+- `last` - Contact last name
+- `managers` - Manager names (joined with `"and"`)
+- `mission`
+- `notes` - Presentation notes (intended to be added PowerPoint speaker notes)
+- `partners` - Partner names (joined with `", "`)
+- `programs` - Program names (joined with `"and"`)
+- `subtitle`
+- `title`
+
+#### Lists (bullet points)
+- `achievement`
+- `areas` - Research areas
+- `impact`
+- `technical` - Technical approach

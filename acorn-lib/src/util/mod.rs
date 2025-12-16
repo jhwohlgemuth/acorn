@@ -42,6 +42,14 @@ pub trait LinkedData {
     /// Add linked data (e.g., JSON-LD) context
     fn with_context(&self) -> Self;
 }
+/// Add enhanced string interpolation functionality
+pub trait StringInterpolation<T>
+where
+    T: AsRef<str> + ToString,
+{
+    /// Replace placeholder instances with a given value (basic interpolation based on handlebars template syntax)
+    fn replace_placeholder_with_string(&self, placeholder: &str, value: &str) -> String;
+}
 /// Trait for augmenting path value functionality with absolute path string conversion
 pub trait ToAbsoluteString {
     /// Return a string representation of the absolute path
@@ -625,6 +633,20 @@ impl SemanticVersion {
 impl Default for SemanticVersion {
     fn default() -> Self {
         SemanticVersion::init().build()
+    }
+}
+impl<T: AsRef<str>> StringInterpolation<T> for T
+where
+    T: ToString,
+{
+    fn replace_placeholder_with_string(&self, placeholder: &str, value: &str) -> String {
+        match Regex::new(&format!(r"{{{{\s*{placeholder}\s*}}}}")) {
+            | Ok(re) => re.replace_all(self.as_ref(), value).to_string(),
+            | Err(err) => {
+                error!("=> {} Regex replacement - {err}", Label::fail());
+                self.to_string()
+            }
+        }
     }
 }
 impl<P: AsRef<str>> ToMarkdown for Vec<P> {

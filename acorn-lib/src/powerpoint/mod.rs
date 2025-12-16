@@ -6,8 +6,8 @@
 use crate::io::{files_all, read_file, write_file};
 use crate::prelude::{io, File, PathBuf, Read, Write};
 use crate::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
-use crate::schema::{ContactPoint, Notes, Other, Sections};
-use crate::util::{Label, ToAbsoluteString};
+use crate::schema::{ContactPoint, Notes, Other, Research, Sections};
+use crate::util::{Label, StringInterpolation, ToAbsoluteString};
 use core::error::Error;
 use fancy_regex::Regex;
 use quick_xml::events::Event;
@@ -19,6 +19,80 @@ use zip::ZipWriter;
 pub mod ooxml;
 use ooxml::{Relationships, TextParagraph, TextParagraphProperties, TextRun, TextString};
 
+/// Add enhanced string interpolation functionality
+pub trait PowerpointInterpolation<T>
+where
+    T: AsRef<str> + ToString,
+{
+    /// Replace placeholder instances with a PowerPoint bullet list
+    fn replace_placeholder_with_bullets<I: IntoIterator<Item = String>>(&self, placeholder: &str, values: I) -> String;
+}
+impl<T: AsRef<str>> PowerpointInterpolation<T> for T
+where
+    T: ToString,
+{
+    fn replace_placeholder_with_bullets<I: IntoIterator<Item = String>>(&self, placeholder: &str, values: I) -> String {
+        let paragraphs = match Regex::new(r#"<a:p>(?:(?!<a:p>|</a:p>)[\s\S])*</a:p>"#) {
+            | Ok(re) => re
+                .find_iter(self.as_ref())
+                .flat_map(|m| m.ok())
+                .map(|m| m.as_str().to_string())
+                .collect::<Vec<String>>(),
+            | Err(_) => unreachable!(),
+        };
+        let selected = match paragraphs
+            .into_iter()
+            .find(|x| match Regex::new(&format!(r"{{{{\s*{placeholder}\s*}}}}")) {
+                | Ok(re) => re.is_match(x).unwrap_or_default(),
+                | Err(_) => false,
+            }) {
+            | Some(value) => value,
+            | None => "".to_string(),
+        };
+        match parse_ooxml_paragraph(&selected) {
+            | Ok(paragraph) => {
+                let TextParagraph {
+                    text_paragraph_properties,
+                    text_run,
+                    end_paragraph_run_properties,
+                    ..
+                } = paragraph.clone();
+                let bullet_properties = match text_paragraph_properties.first() {
+                    | Some(value) => value,
+                    | None => &TextParagraphProperties::init().build(),
+                };
+                let text_properties = match text_run.first() {
+                    | Some(first) => match first.text_run_properties.first() {
+                        | Some(value) => value,
+                        | None => todo!(),
+                    },
+                    | None => todo!(),
+                };
+                let content: Vec<String> = values
+                    .into_iter()
+                    .map(|value| {
+                        let run = TextRun::init()
+                            .text_run_properties(vec![text_properties.clone()])
+                            .text(TextString { value })
+                            .build();
+                        let custom = TextParagraph::init()
+                            .text_paragraph_properties(vec![bullet_properties.clone()])
+                            .text_run(vec![run])
+                            .maybe_end_paragraph_run_properties(end_paragraph_run_properties.clone())
+                            .build();
+                        prettify_xml(&quick_xml::se::to_string(&custom).unwrap())
+                    })
+                    .collect();
+                let formatted = content.join("");
+                self.as_ref().replace(&selected, &formatted)
+            }
+            | Err(why) => {
+                debug!(selected, "=> {} Parse OOXML Paragraph - {why}", Label::fail());
+                self.to_string()
+            }
+        }
+    }
+}
 /// Creates zip archive from directory
 pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -85,7 +159,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
 /// Interpolate research activity data into PowerPoint template
 pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
     let updated = match read_file(path.clone()) {
-        | Ok(mut content) => {
+        | Ok(content) => {
             let ResearchActivity {
                 contact,
                 meta,
@@ -100,8 +174,12 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 achievement,
                 impact,
                 approach,
+                mission,
+                challenge,
+                research,
                 ..
             } = sections;
+            let Research { focus, areas } = research;
             let ContactPoint {
                 given_name: first,
                 family_name: last,
@@ -139,22 +217,37 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 },
                 | None => vec![],
             };
-            content = replace_placeholder_with_string(&content, "title", &title);
-            content = replace_placeholder_with_string(&content, "subtitle", &subtitle.unwrap_or_else(|| "".to_string()));
-            content = replace_placeholder_with_string(&content, "first", &first);
-            content = replace_placeholder_with_string(&content, "last", &last);
-            content = replace_placeholder_with_string(&content, "email", &email);
-            content = replace_placeholder_with_string(&content, "partners", &partners.unwrap().join(", "));
-            content = replace_placeholder_with_string(&content, "programs", &programs.join(" and "));
-            content = replace_placeholder_with_string(&content, "managers", &managers.join(" and "));
+            #[derive(Clone)]
+            enum Replacement {
+                String(&'static str, String),
+                Bullets(&'static str, Vec<String>),
+            }
             // TODO: Use CiteAs API to get in Chicago format
-            content = replace_placeholder_with_string(&content, "citation", &doi.unwrap()[0]);
-            content = replace_placeholder_with_string(&content, "caption", &caption);
-            content = replace_placeholder_with_string(&content, "notes", &presentation_notes);
-            content = replace_placeholder_with_bullets(&content, "achievement", achievement.unwrap_or_else(Vec::new));
-            content = replace_placeholder_with_bullets(&content, "impact", impact);
-            content = replace_placeholder_with_bullets(&content, "technical", approach);
-            Some(content)
+            let replacements = vec![
+                Replacement::String("caption", caption),
+                Replacement::String("challenge", challenge),
+                Replacement::String("citation", doi.unwrap_or_else(|| vec!["".to_string()])[0].clone()),
+                Replacement::String("email", email),
+                Replacement::String("first", first),
+                Replacement::String("focus", focus),
+                Replacement::String("last", last),
+                Replacement::String("managers", managers.join(" and ")),
+                Replacement::String("mission", mission),
+                Replacement::String("notes", presentation_notes),
+                Replacement::String("partners", partners.unwrap().join(", ")),
+                Replacement::String("programs", programs.join(" and ")),
+                Replacement::String("subtitle", subtitle.unwrap_or_else(|| "".to_string())),
+                Replacement::String("title", title),
+                Replacement::Bullets("achievement", achievement.unwrap_or_else(Vec::new)),
+                Replacement::Bullets("areas", areas),
+                Replacement::Bullets("impact", impact),
+                Replacement::Bullets("technical", approach),
+            ];
+            let result = replacements.iter().fold(content, |acc, replacement| match replacement {
+                | Replacement::String(name, value) => acc.replace_placeholder_with_string(name, value),
+                | Replacement::Bullets(name, values) => acc.replace_placeholder_with_bullets(name, values.clone()),
+            });
+            Some(result)
         }
         | Err(why) => {
             error!("=> {} Cannot read file for interpolation - {why}", Label::fail());
@@ -216,78 +309,5 @@ pub fn read_xml_rel(path: PathBuf) -> Option<Relationships> {
         }
     }
 }
-/// Replace placeholder with bullet values in PowerPoint template
-pub(crate) fn replace_placeholder_with_bullets<I: IntoIterator<Item = String>>(xml: &str, placeholder: &str, values: I) -> String {
-    let paragraphs = match Regex::new(r#"<a:p>(?:(?!<a:p>|</a:p>)[\s\S])*</a:p>"#) {
-        | Ok(re) => re
-            .find_iter(xml)
-            .flat_map(|m| m.ok())
-            .map(|m| m.as_str().to_string())
-            .collect::<Vec<String>>(),
-        | Err(_) => unreachable!(),
-    };
-    let selected = match paragraphs
-        .into_iter()
-        .find(|x| match Regex::new(&format!(r"{{{{\s*{placeholder}\s*}}}}")) {
-            | Ok(re) => re.is_match(x).unwrap_or_default(),
-            | Err(_) => false,
-        }) {
-        | Some(value) => value,
-        | None => "".to_string(),
-    };
-    match parse_ooxml_paragraph(&selected) {
-        | Ok(paragraph) => {
-            let TextParagraph {
-                text_paragraph_properties,
-                text_run,
-                end_paragraph_run_properties,
-                ..
-            } = paragraph.clone();
-            let bullet_properties = match text_paragraph_properties.first() {
-                | Some(value) => value,
-                | None => &TextParagraphProperties::init().build(),
-            };
-            let text_properties = match text_run.first() {
-                | Some(first) => match first.text_run_properties.first() {
-                    | Some(value) => value,
-                    | None => todo!(),
-                },
-                | None => todo!(),
-            };
-            let content: Vec<String> = values
-                .into_iter()
-                .map(|value| {
-                    let run = TextRun::init()
-                        .text_run_properties(vec![text_properties.clone()])
-                        .text(TextString { value })
-                        .build();
-                    let custom = TextParagraph::init()
-                        .text_paragraph_properties(vec![bullet_properties.clone()])
-                        .text_run(vec![run])
-                        .maybe_end_paragraph_run_properties(end_paragraph_run_properties.clone())
-                        .build();
-                    prettify_xml(&quick_xml::se::to_string(&custom).unwrap())
-                })
-                .collect();
-            let formatted = content.join("");
-            xml.replace(&selected, &formatted)
-        }
-        | Err(why) => {
-            debug!(selected, "=> {} Parse OOXML Paragraph - {why}", Label::fail());
-            xml.to_string()
-        }
-    }
-}
-/// Replace placeholder with string value in PowerPoint template
-pub(crate) fn replace_placeholder_with_string(content: &str, placeholder: &str, value: &str) -> String {
-    match Regex::new(&format!(r"{{{{\s*{placeholder}\s*}}}}")) {
-        | Ok(re) => re.replace_all(content, value).to_string(),
-        | Err(err) => {
-            error!("=> {} Regex replacement - {err}", Label::fail());
-            content.to_string()
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests;
