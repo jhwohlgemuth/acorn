@@ -21,20 +21,19 @@ graph LR
 ## Example Usage
 ```sh
 # Export research activity data to PDF fact sheet
-acorn export path/to/index.json --format pdf
+acorn export /path/to/index.json --format pdf
 
-# Create PowerPoint presentations from all research activity data in a directory
-acorn export path/to/project/ --format powerpoint --target highlight
+# Create (single slide) PowerPoint presentations from all research activity data in a directory
+acorn export /path/to/project/ --format powerpoint
 ```
 
 ## PowerPoint Reference Template
 You can customize the PowerPoint export by providing a reference template using the `--reference` option. This allows you to define specific styles, layouts, and branding for your presentations.
 
 ```sh
-acorn export path/to/index.json \
+acorn export /path/to/index.json \
     --format powerpoint \
-    --target highlight \
-    --reference path/to/reference.pptx
+    --reference /path/to/reference.pptx
 ```
 
 The reference template allows you to specify which and where certain values are used using placeholder text in the format `{{ PLACEHOLDER_NAME }}`. During export, ACORN will replace these placeholders with the corresponding data from the associated research activity data. You can find an example PowerPoint reference template used for testing in the [ACORN GitLab repository](https://code.ornl.gov/research-enablement/acorn/-/blob/main/tests/fixtures/data/highlight/reference.pptx?ref_type=heads).
