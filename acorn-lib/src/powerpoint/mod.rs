@@ -5,6 +5,7 @@
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::io::{files_all, read_file, write_file};
 use crate::prelude::{io, File, PathBuf, Read, Write};
+use crate::schema::research_activity::aspect::AspectFramework;
 use crate::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
 use crate::schema::{ContactPoint, Notes, Other, Research, Sections};
 use crate::util::{Label, StringInterpolation, ToAbsoluteString};
@@ -167,9 +168,14 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 title,
                 subtitle,
                 sections,
+                aspect,
                 ..
             } = data.clone();
             let ResearchActivityMetadata { doi, partners, .. } = meta.clone();
+            let AspectFramework { portability, .. } = match aspect {
+                | Some(value) => value,
+                | None => AspectFramework::default(),
+            };
             let Sections {
                 achievement,
                 impact,
@@ -235,6 +241,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 Replacement::String("mission", mission),
                 Replacement::String("notes", presentation_notes),
                 Replacement::String("partners", partners.unwrap().join(", ")),
+                Replacement::String("portability", portability.unwrap_or_default().to_string()),
                 Replacement::String("programs", programs.join(" and ")),
                 Replacement::String("subtitle", subtitle.unwrap_or_else(|| "".to_string())),
                 Replacement::String("title", title),

@@ -110,9 +110,10 @@ pub enum HumanMachineTeamingLevel {
     MachineOnly = 5,
 }
 /// Specific type or form of data that a system can process and learn from
-#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Display, Deserialize, Serialize, JsonSchema)]
 pub enum Modality {
     /// Textual data that includes text and tabular data
+    #[default]
     #[display("text")]
     Text,
     /// Audio data such as MPEG
@@ -138,11 +139,12 @@ pub enum Model {
 ///
 /// The levels of portability are intended to be interpreted as nested capabilities.
 /// That is, if a technology has "Installer" (level 3) portability, it also meets the requirements of levels 1 and 2.
-#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Display, Deserialize, Serialize, JsonSchema)]
 #[repr(u8)]
 #[serde(deny_unknown_fields)]
 pub enum SoftwarePortability {
     /// Extensive preparation is required and/or technology can only function on severely limited number of platforms/architectures
+    #[default]
     Limited = 0,
     /// Running source code and/or compiling from source are only options
     Source = 1,
