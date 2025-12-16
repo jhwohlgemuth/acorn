@@ -65,6 +65,7 @@ test:
 
 test-ci: clean lint
 	@cargo test --lib --bins --tests
+	@cargo test --lib --bins --tests --no-default-features
 
 version: 
 	@echo $(VERSION)

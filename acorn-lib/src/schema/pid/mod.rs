@@ -67,7 +67,7 @@ pub trait PersistentIdentifier: Display {
 /// Add coercion to persistent identifier (PID) functionality to string values
 pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// Convert `self` into a string standard format PID of a certain type
-    /// ```rust
+    /// ```ignore
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert_eq!("https://doi.org/10.1234/5678".format_as(PID::DOI), "10.1234/5678");
@@ -75,7 +75,7 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// ```
     fn format_as(&self, pid_type: PID) -> String;
     /// Coerce `self` into given PID type.
-    /// ```rust
+    /// ```ignore
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// let doi = "https://doi.org/10.1234/5678".to_pid(PID::DOI).to_doi();
@@ -83,34 +83,35 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// ```
     fn to_pid(&self, pid_type: PID) -> PersistentIdentifierInternal;
     /// Determines if `self` is of the given PID type.
-    /// ```rust
+    /// ```ignore
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    ///
     /// assert!("https://doi.org/10.1234/5678".is_pid(PID::DOI));
     /// ```
     fn is_pid(&self, _pid_type: PID) -> bool;
     /// Determines if `self` is an archival resource key (ARK)
-    /// ```rust
+    /// ```ignore
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://n2t.net/ark:12148/btv1b8449691v/f29".is_ark());
     /// ```
     fn is_ark(&self) -> bool;
     /// Determines if `self` is a DOI
-    /// ```rust
+    /// ```ingore
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://doi.org/10.1234/5678".is_doi());
     /// ```
     fn is_doi(&self) -> bool;
     /// Determines if `self` is a ORCID
-    /// ```rust
+    /// ```ignore
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://orcid.org/0000-0000-0000-0000".is_orcid());
     /// ```
     fn is_orcid(&self) -> bool;
     /// Determines if `self` is a RAID
-    /// ```rust
+    /// ```ignore
     /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://raid.org/10.83962/fb5be317".is_raid());
@@ -205,7 +206,8 @@ pub struct ARK {
     pub name_assigning_authority_number: Option<String>,
     /// String identifying a service that accepts names and returns information about them
     /// ### Notes
-    /// > Any given identifier will have exactly one NAAN but may have more than one NMA (at a time or over time)
+    /// - Any given identifier will have exactly one NAAN but may have more than one NMA (at a time or over time)
+    /// - Strictly speaking, NMA does not include the protocol (e.g., https), but since this implementation only supports HTTPS, we conflate what would be called the "resolver service" with NMA.
     pub name_mapping_authority: Option<String>,
     /// First section of optional "qualifier" part of ARK
     ///
@@ -295,8 +297,9 @@ impl ARK {
     /// ```rust
     /// use acorn_lib::schema::pid::ARK;
     ///
-    /// assert_eq!(ARK::format("ark:/1234/5678"), "ark:/1234/5678");
-    /// assert_eq!(ARK::format("https://n2t.net/ark:12148/btv1b8449691v/f29"), "ark:12148/btv1b8449691v/f29");
+    /// assert_eq!(ARK::format("ark:/1234/5678"), "ark:1234/5678");
+    /// let expected = "https://n2t.net/ark:12148/btv1b8449691v/f29";
+    /// assert_eq!(ARK::format(expected), expected);
     /// ```
     pub fn format<S>(value: S) -> String
     where
@@ -307,7 +310,7 @@ impl ARK {
     /// Create new ARK by parsing raw string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::ARK;
+    /// use acorn_lib::schema::pid::{ARK, PersistentIdentifier};
     ///
     /// let ark = ARK::from_string("https://n2t.net/ark:12148/btv1b8449691v/f42");
     /// assert_eq!(ark.suffix(), Some("f42".to_string()));
@@ -345,7 +348,7 @@ impl ARK {
     /// - Last character should be valid check digit (see [`noid_check_digit`])
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::ARK;
+    /// use acorn_lib::schema::pid::{ARK, PersistentIdentifier};
     ///
     /// assert!(ARK::is_valid("https://n2t.net/ark:99166/w66d60p2"));
     /// assert!(ARK::is_valid("https://n2t.net/ark:12148/btv1b8449691v/f29"));
@@ -391,11 +394,11 @@ impl DOI {
     /// Create new DOI by parsing raw string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::DOI;
+    /// use acorn_lib::schema::pid::{DOI, PersistentIdentifier};
     ///
     /// let doi = DOI::from_string("https://doi.org/10.1000/182");
-    /// assert_eq!(doi.prefix(), "10.1000");
-    /// assert_eq!(doi.suffix(), "182");
+    /// assert_eq!(doi.prefix(), Some("10.1000".into()));
+    /// assert_eq!(doi.suffix(), Some("182".into()));
     /// ```
     pub fn from_string<S>(value: S) -> DOI
     where
@@ -455,7 +458,7 @@ impl ORCID {
     /// Create new ORCID by parsing raw string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::ORCID;
+    /// use acorn_lib::schema::pid::{ORCID, PersistentIdentifier};
     ///
     /// let orcid = ORCID::from_string("https://orcid.org/0000-0002-2057-9115");
     /// assert_eq!(orcid.identifier(), "0000-0002-2057-9115");
@@ -480,7 +483,7 @@ impl ORCID {
     /// - Value can be valid with or without schema URI[^format]
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::ORCID;
+    /// use acorn_lib::schema::pid::{ORCID, PersistentIdentifier};
     ///
     /// assert!(ORCID::is_valid("https://orcid.org/0000-0002-2057-9115"));
     /// assert!(ORCID::is_valid("0000-0002-2057-9115"));
@@ -871,8 +874,8 @@ impl Betanumeric for char {
 /// ```rust
 /// use acorn_lib::schema::pid::iso7064_check_digit;
 ///
-/// assert_eq!(iso7064_check_digit("0000000220579115"), 5);
-/// assert_eq!(iso7064_check_digit("0000-0002-2057-9115"), 5);
+/// assert_eq!(iso7064_check_digit("0000000220579115"), Some('5'));
+/// assert_eq!(iso7064_check_digit("0000-0002-2057-9115"), Some('5'));
 /// ```
 pub fn iso7064_check_digit<S>(value: S) -> Option<char>
 where

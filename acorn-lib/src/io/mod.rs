@@ -528,7 +528,7 @@ pub fn filter_git_command_result(value: String, extensions: Option<Vec<&str>>) -
 /// Return file paths in a vector that don't match the ignore pattern
 /// ### Example
 /// ```rust
-/// use acorn_lib::util::filter_ignored;
+/// use acorn_lib::io::filter_ignored;
 /// use std::path::PathBuf;
 ///
 /// let paths = vec![PathBuf::from("/path/to/foo.txt"), PathBuf::from("/path/to/bar.txt")];

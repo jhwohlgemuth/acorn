@@ -130,7 +130,7 @@ impl Location {
     /// use acorn_lib::Location;
     ///
     /// let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string());
-    /// assert_eq!(location.hash(), "code_ornl_gov_buckets_nssd");
+    /// assert_eq!(location.hash(), "code_ornl_gov_research-enablement_buckets_nssd");
     /// ```
     pub fn hash(&self) -> String {
         let uri = self.uri().unwrap();
