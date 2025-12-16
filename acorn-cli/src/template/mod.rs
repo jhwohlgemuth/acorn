@@ -1,4 +1,3 @@
-use crate::cli::arguments::{Size, Target};
 use acorn_lib::schema::research_activity::ResearchActivity;
 use acorn_lib::schema::{ContactPoint, Research, Sections};
 use acorn_lib::util::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
@@ -13,7 +12,7 @@ use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;
 
 pub trait Convert {
-    fn to_html(&self, target: Option<Target>, size: Option<Size>) -> VirtualNode;
+    fn to_html(&self) -> VirtualNode;
 }
 /// Target artifact branding available when exporting research activity data using acorn
 ///
@@ -52,12 +51,9 @@ struct Font;
 struct Style;
 struct HtmlFooter {
     pub label: TargetLabel,
-    pub target: Target,
 }
 struct HtmlHead<'a> {
-    pub size: Size,
     pub stylesheet: &'a str,
-    pub target: Target,
 }
 impl DataUri {
     fn from_bytes(data: &[u8], mime: MimeType) -> String {
@@ -115,52 +111,25 @@ impl TargetLabel {
 }
 impl View for HtmlFooter {
     fn render(&self) -> VirtualNode {
-        match self.target {
-            | Target::FactSheet => {
-                let path = format!("fact-sheet/{}/footer.jpg", self.label.folder());
-                let style = format!("background-image: url({});", DataUri::from_asset(&path));
-                html! {
-                    <footer style={ style }>
-                        <div class="wrapper">
-                            <div id="disclaimer">{ DISCLAIMER }</div>
-                            <div class="logo-wrapper">
-                                <div><img src={ DataUri::from_asset("logo_ornl_white.svg") } id="logo-ornl"/></div>
-                                <div><img src={ DataUri::from_asset("logo_doe_white.png") } id="logo-doe"/></div>
-                                <div id="organization">{ &self.label.to_string() }</div>
-                            </div>
-                        </div>
-                    </footer>
-                }
-            }
-            | Target::Highlight => html! {
-                <footer>
-                    <div class="wrapper">
-                        <div class="logo-wrapper">
-                            <div><img src={ DataUri::from_asset("logo_doe_ocolor.png") } id="logo-doe"/></div>
-                            <div><img src={ DataUri::from_asset("logo_ornl_color.svg") } id="logo-ornl"/></div>
-                        </div>
+        let path = format!("fact-sheet/{}/footer.jpg", self.label.folder());
+        let style = format!("background-image: url({});", DataUri::from_asset(&path));
+        html! {
+            <footer style={ style }>
+                <div class="wrapper">
+                    <div id="disclaimer">{ DISCLAIMER }</div>
+                    <div class="logo-wrapper">
+                        <div><img src={ DataUri::from_asset("logo_ornl_white.svg") } id="logo-ornl"/></div>
+                        <div><img src={ DataUri::from_asset("logo_doe_white.png") } id="logo-doe"/></div>
+                        <div id="organization">{ &self.label.to_string() }</div>
                     </div>
-                </footer>
-            },
-            | Target::Poster => html! {
-                <footer></footer>
-            },
+                </div>
+            </footer>
         }
     }
 }
 impl View for HtmlHead<'_> {
     fn render(&self) -> VirtualNode {
-        let page_css = match self.target {
-            | Target::FactSheet => "letter portrait",
-            | Target::Highlight => {
-                let size = match self.size {
-                    | Size::Standard => "10in 7.5in",
-                    | Size::Widescreen => "13.33in 7.5in",
-                };
-                &format!("\n@page {{ margin: 0; size: {size}; }}\n")
-            }
-            | Target::Poster => "",
-        };
+        let page_css = "letter portrait";
         let styles = Style::to_string(self.stylesheet.to_string());
         let style = html! {
             <style>
@@ -180,7 +149,7 @@ impl View for HtmlHead<'_> {
     }
 }
 impl Convert for ResearchActivity {
-    fn to_html(&self, target: Option<Target>, size: Option<Size>) -> VirtualNode {
+    fn to_html(&self) -> VirtualNode {
         let ResearchActivity {
             meta,
             title,
@@ -202,15 +171,10 @@ impl Convert for ResearchActivity {
             | Some(affiliation) => TargetLabel::from_organization(affiliation),
             | None => TargetLabel::default(),
         };
-        let target = target.unwrap_or_default();
-        let head = HtmlHead {
-            size: size.unwrap(),
-            stylesheet: "project.css",
-            target,
-        };
-        let footer = HtmlFooter { label, target };
+        let head = HtmlHead { stylesheet: "project.css" };
+        let footer = HtmlFooter { label };
         let folder = label.folder();
-        let path = format!("{target}/{folder}/header.jpg");
+        let path = format!("{folder}/header.jpg");
         let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
         let graphic = meta.clone().first_image_content_url();
         let caption = meta.clone().first_image_caption();

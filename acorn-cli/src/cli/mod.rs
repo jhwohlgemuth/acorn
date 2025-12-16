@@ -9,7 +9,7 @@ use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
 
 pub mod arguments;
-use arguments::{CheckCategory, Diagnostic, FileFormat, ReadabilityTypeArgument, Size, Target};
+use arguments::{CheckCategory, Diagnostic, FileFormat, ReadabilityTypeArgument};
 
 const PRIMARY_COLOR: u8 = 135;
 const STYLES: Styles = Styles::styled()
@@ -36,10 +36,6 @@ pub struct CommandLineOptions {
     ///
     /// e.g. reference.pptx for exporting RAD to PowerPoint
     pub reference: Option<PathBuf>,
-    /// Artifact aspect ratio size
-    pub size: Option<Size>,
-    /// Artifact target type
-    pub target: Option<Target>,
     /// Flag used to indicate if a single error should cause the process to exit
     #[builder(default)]
     pub exit_on_first_error: bool,
@@ -307,14 +303,6 @@ pub enum Commands {
         /// Only applies to `--format powerpoint`
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
         reference: Option<PathBuf>,
-        /// Value to use when creating export artifacts that require an aspect ratio
-        ///
-        /// Only applies to `--target highlight`
-        #[arg(default_value_t, short, long, value_name = "SIZE", help_heading = "OPTIONS")]
-        size: Size,
-        /// Export target type
-        #[arg(default_value_t, short, long, value_name = "TARGET", help_heading = "OPTIONS")]
-        target: Target,
         #[command(flatten)]
         verbose: Verbosity,
     },

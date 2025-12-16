@@ -150,11 +150,9 @@ fn main() -> Void {
             commit,
             format,
             reference,
-            size,
-            target,
             merge_request,
             ..
-        }) => commands::export::run(output, path, branch, commit, format, reference, size, target, merge_request, &offline),
+        }) => commands::export::run(output, path, branch, commit, format, reference, merge_request, &offline),
         | Some(Commands::Format {
             path,
             branch,

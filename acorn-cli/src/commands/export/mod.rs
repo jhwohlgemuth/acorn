@@ -1,4 +1,4 @@
-use crate::cli::arguments::{FileFormat, Size, Target};
+use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
 use crate::template::Convert;
 use acorn_lib::io::{async_runtime, extract_zip, to_absolute_string};
@@ -15,7 +15,7 @@ use std::process::exit;
 use tracing::{debug, error, info};
 
 pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
-    let CommandLineOptions { output, size, target, .. } = options;
+    let CommandLineOptions { output, .. } = options;
     let path = match options.path {
         | Some(value) => value,
         | None => unimplemented!(),
@@ -27,7 +27,7 @@ pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
             exit(exitcode::UNAVAILABLE);
         }
     };
-    let content = data.to_html(target, size).to_string();
+    let content = data.to_html().to_string();
     // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
     let index = absolute(path.parent().unwrap().join("index.html")).unwrap();
     if File::create(&index).is_ok() {
@@ -143,8 +143,6 @@ pub fn run(
     commit: &Option<String>,
     format: &FileFormat,
     reference: &Option<PathBuf>,
-    size: &Size,
-    target: &Target,
     merge_request: &bool,
     offline: &bool,
 ) -> Result<(), Report> {
@@ -158,8 +156,8 @@ pub fn run(
         .merge_request(*merge_request)
         .build();
     let paths = paths_from_options(path, &Some(options));
-    match target {
-        | Target::FactSheet => {
+    match format {
+        | FileFormat::Pdf => {
             async_runtime().block_on(async {
                 let playwright = Playwright::initialize().await.unwrap();
                 playwright.install_chromium().unwrap(); // Install browsers
@@ -171,12 +169,7 @@ pub fn run(
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 for path in &paths {
                     progress.set_message(format!("Generating PDF for {}", path.display()));
-                    let pdf_options = CommandLineOptions::init()
-                        .path(path.clone())
-                        .maybe_output(output.clone())
-                        .size(size.clone())
-                        .target(*target)
-                        .build();
+                    let pdf_options = CommandLineOptions::init().path(path.clone()).maybe_output(output.clone()).build();
                     create_pdf(&page, pdf_options).await;
                     progress.inc(1);
                 }
@@ -186,61 +179,27 @@ pub fn run(
             });
             Ok(())
         }
-        | Target::Poster => todo!("Create poster from research activity data"),
-        | Target::Highlight => {
-            match format {
-                | FileFormat::Pdf => {
-                    async_runtime().block_on(async {
-                        let playwright = Playwright::initialize().await.unwrap();
-                        playwright.install_chromium().unwrap(); // Install browsers
-                        let chromium = playwright.chromium();
-                        let browser = chromium.launcher().headless(true).launch().await.unwrap();
-                        let context = browser.context_builder().build().await.unwrap();
-                        let page = context.new_page().await.unwrap();
-                        let progress = ProgressBar::new(paths.len() as u64);
-                        progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                        for path in &paths {
-                            progress.set_message(format!("Generating PDF for {}", path.display()));
-                            let pdf_options = CommandLineOptions::init()
-                                .path(path.clone())
-                                .maybe_output(output.clone())
-                                .size(size.clone())
-                                .target(*target)
-                                .build();
-                            create_pdf(&page, pdf_options).await;
-                            progress.inc(1);
-                        }
-                        progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                        info!("=> {} Exported {} highlight PDF{}", Label::pass(), paths.len(), suffix(paths.len()));
-                        let _close = page.close(Some(false)).await;
-                    });
-                    Ok(())
-                }
-                | FileFormat::Powerpoint => {
-                    let progress = ProgressBar::new(paths.len() as u64);
-                    progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                    for path in &paths {
-                        progress.set_message(format!("Generating PowerPoint for {}", path.display()));
-                        let powerpoint_options = CommandLineOptions::init()
-                            .path(path.clone())
-                            .maybe_output(output.clone())
-                            .maybe_reference(reference.clone())
-                            .size(size.clone())
-                            .target(*target)
-                            .build();
-                        create_powerpoint(powerpoint_options);
-                        progress.inc(1);
-                    }
-                    progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                    info!(
-                        "=> {} Exported {} highlight PowerPoint file{}",
-                        Label::pass(),
-                        paths.len(),
-                        suffix(paths.len())
-                    );
-                    Ok(())
-                }
+        | FileFormat::Powerpoint => {
+            let progress = ProgressBar::new(paths.len() as u64);
+            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+            for path in &paths {
+                progress.set_message(format!("Generating PowerPoint for {}", path.display()));
+                let powerpoint_options = CommandLineOptions::init()
+                    .path(path.clone())
+                    .maybe_output(output.clone())
+                    .maybe_reference(reference.clone())
+                    .build();
+                create_powerpoint(powerpoint_options);
+                progress.inc(1);
             }
+            progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+            info!(
+                "=> {} Exported {} highlight PowerPoint file{}",
+                Label::pass(),
+                paths.len(),
+                suffix(paths.len())
+            );
+            Ok(())
         }
     }
 }
