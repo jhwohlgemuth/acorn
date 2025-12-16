@@ -386,7 +386,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     }
     fn pattern(path: PathBuf, extension: &str) -> String {
         let ext = &extension.to_lowercase();
-        let result = format!("{}/**/*.{}", to_absolute_string(path), ext);
+        let result = format!("{}/**/*.{}", path.to_absolute_string(), ext);
         debug!("=> {} {result}", Label::using());
         result
     }
@@ -402,7 +402,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
                 .flat_map(|x| paths_to_vec(x.unwrap()))
                 .unique()
                 .collect::<Vec<PathBuf>>(),
-            | None => match glob(&format!("{}/**/*", to_absolute_string(path))) {
+            | None => match glob(&format!("{}/**/*", path.to_absolute_string())) {
                 | Ok(paths) => paths_to_vec(paths),
                 | Err(why) => {
                     error!("=> {} Get all files (Glob) - {why}", Label::fail());
@@ -413,7 +413,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     } else {
         if extensions.is_some() {
             warn!(
-                path = to_absolute_string(path.clone()),
+                path = path.clone().to_absolute_string(),
                 "=> {} Extension passed with single file to files_all() - please make sure this is desired",
                 Label::using()
             );
@@ -703,7 +703,7 @@ where
         | Err(why) => {
             debug!("=> {} Resolve absolute path - {why}", Label::fail());
             match path.into().parent() {
-                | Some(value) if !to_absolute_string(value.to_path_buf()).is_empty() => value.to_path_buf(),
+                | Some(value) if !value.to_path_buf().to_absolute_string().is_empty() => value.to_path_buf(),
                 | Some(_) | None => {
                     warn!("=> {} Parent path was empty or could not be resolved", Label::fail());
                     default

@@ -1,12 +1,12 @@
 use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
 use crate::template::Convert;
-use acorn_lib::io::{async_runtime, extract_zip, to_absolute_string};
+use acorn_lib::io::{async_runtime, extract_zip};
 use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
 use acorn_lib::powerpoint::{archive, interpolate_values, read_xml_rel};
 use acorn_lib::prelude::{absolute, copy, create_dir_all, remove_file, File, PathBuf};
 use acorn_lib::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
-use acorn_lib::util::{suffix, Label};
+use acorn_lib::util::{suffix, Label, ToAbsoluteString};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;
@@ -23,7 +23,7 @@ pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
     let data = match ResearchActivity::read(path.clone()) {
         | Some(value) => value.format(Some(path.clone())),
         | None => {
-            error!(path = to_absolute_string(path), "=> {} Read data for PDF export", Label::fail());
+            error!(path = path.to_absolute_string(), "=> {} Read data for PDF export", Label::fail());
             exit(exitcode::UNAVAILABLE);
         }
     };
@@ -70,7 +70,7 @@ fn create_powerpoint(options: CommandLineOptions) {
         | Some(value) => value.format(Some(input_path.clone())),
         | None => {
             error!(
-                path = to_absolute_string(input_path),
+                path = input_path.to_absolute_string(),
                 "=> {} Read data for PowerPoint export",
                 Label::fail()
             );
@@ -93,7 +93,7 @@ fn create_powerpoint(options: CommandLineOptions) {
                 path
             }
             | Err(err) => {
-                let path = to_absolute_string(value.clone());
+                let path = value.clone().to_absolute_string();
                 error!(path, "=> {} Create directory - {err}", Label::fail());
                 exit(exitcode::IOERR);
             }
@@ -112,13 +112,13 @@ fn create_powerpoint(options: CommandLineOptions) {
                     }
                 },
                 | None => {
-                    error!(path = to_absolute_string(xml_rels_path), "=> {} Find image relationship", Label::fail());
+                    error!(path = xml_rels_path.to_absolute_string(), "=> {} Find image relationship", Label::fail());
                     exit(exitcode::DATAERR);
                 }
             },
             | None => {
                 error!(
-                    path = to_absolute_string(xml_rels_path),
+                    path = xml_rels_path.to_absolute_string(),
                     "=> {} Read PowerPoint slide relationships",
                     Label::fail()
                 );

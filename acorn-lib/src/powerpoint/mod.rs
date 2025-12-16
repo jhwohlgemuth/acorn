@@ -3,11 +3,11 @@
 //! Here you'll find functions for working with [`OOXML`] and creating PowerPoint files.
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
-use crate::io::{files_all, read_file, to_absolute_string, write_file};
+use crate::io::{files_all, read_file, write_file};
 use crate::prelude::{io, File, PathBuf, Read, Write};
 use crate::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
 use crate::schema::{ContactPoint, Notes, Other, Sections};
-use crate::util::Label;
+use crate::util::{Label, ToAbsoluteString};
 use core::error::Error;
 use fancy_regex::Regex;
 use quick_xml::events::Event;
@@ -29,7 +29,11 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
     let zip_file = match File::create(&zip_file_path) {
         | Ok(zip_file) => Some(ZipWriter::new(zip_file)),
         | Err(why) => {
-            error!(file = to_absolute_string(path.clone()), "=> {} Create zip archive - {why}", Label::fail());
+            error!(
+                file = path.clone().to_absolute_string(),
+                "=> {} Create zip archive - {why}",
+                Label::fail()
+            );
             None
         }
     };
@@ -41,7 +45,11 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
                     | Ok(relative) => file_path.strip_prefix(relative).unwrap_or_else(|_| &file_path),
                     | Err(_) => &file_path,
                 };
-                debug!(file = to_absolute_string(name.to_path_buf()), "=> {} Add file to archive", Label::using());
+                debug!(
+                    file = name.to_path_buf().to_absolute_string(),
+                    "=> {} Add file to archive",
+                    Label::using()
+                );
                 match zip.start_file_from_path(name, options) {
                     | Ok(_) => {
                         let mut buffer = Vec::new();
@@ -49,7 +57,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
                             | Ok(_) => match zip.write_all(&buffer) {
                                 | Ok(_) => {}
                                 | Err(why) => {
-                                    error!(file = to_absolute_string(file_path), "=> {} Write zip archive - {why}", Label::fail())
+                                    error!(file = file_path.to_absolute_string(), "=> {} Write zip archive - {why}", Label::fail())
                                 }
                             },
                             | Err(why) => {
@@ -58,7 +66,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
                         }
                     }
                     | Err(why) => {
-                        error!(file = to_absolute_string(file_path), "=> {} Start zip archive - {why}", Label::fail());
+                        error!(file = file_path.to_absolute_string(), "=> {} Start zip archive - {why}", Label::fail());
                     }
                 }
             }
@@ -66,7 +74,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, B
         match zip.finish() {
             | Ok(_) => Ok(zip_file_path),
             | Err(why) => {
-                error!(file = to_absolute_string(path), "=> {} Finish zip archive - {why}", Label::fail());
+                error!(file = path.to_absolute_string(), "=> {} Finish zip archive - {why}", Label::fail());
                 Err(why.into())
             }
         }

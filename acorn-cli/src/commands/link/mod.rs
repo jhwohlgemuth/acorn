@@ -1,8 +1,8 @@
 use crate::cli::{paths_from_options, CommandLineOptions};
-use acorn_lib::io::{to_absolute_string, FromPath};
+use acorn_lib::io::FromPath;
 use acorn_lib::prelude::{File, PathBuf, Write};
 use acorn_lib::schema::research_activity::ResearchActivity;
-use acorn_lib::util::{print_changes, Label, LinkedData, MimeType};
+use acorn_lib::util::{print_changes, Label, LinkedData, MimeType, ToAbsoluteString};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
@@ -41,13 +41,13 @@ pub fn run(
                 | _ => unimplemented!("Unsupported file type"),
             };
             if dry_run {
-                println!("{} Link {}", Label::dry_run(), to_absolute_string(path.clone()).yellow());
+                println!("{} Link {}", Label::dry_run(), path.clone().to_absolute_string().yellow());
             }
             if dry_run || verbose.log_level().unwrap() > Level::Error {
                 print_changes(&old_content, &new_content);
             }
             if !dry_run {
-                let filepath = to_absolute_string(path.clone().with_extension("jsonld"));
+                let filepath = path.clone().with_extension("jsonld").to_absolute_string();
                 let mut file = match File::create(&filepath) {
                     | Ok(file) => file,
                     | Err(why) => {
