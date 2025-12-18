@@ -3,11 +3,17 @@
 //!
 //! See <https://citeas.org/api> for more information
 use crate::io::network_get_request;
+use crate::schema::pid::DOI;
 use crate::util::Label;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::{debug, error};
 
+/// Trait for objects that can be converted to citations (e.g., `DOI`)
+pub trait ToCitations {
+    /// Convert object to `Citations`
+    fn to_citations(&self) -> Citations;
+}
 /// Author object
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Author {
@@ -209,5 +215,11 @@ impl Citations {
                 }
             }
         }
+    }
+}
+impl DOI {
+    /// Convert a `DOI` to a `Citations`
+    pub fn to_citations(self) -> Citations {
+        Citations::from_doi(&self.to_string())
     }
 }

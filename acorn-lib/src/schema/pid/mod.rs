@@ -8,7 +8,7 @@
 //! - Access the sub parts of a persistent identifier
 //!
 //! [RAiDs]: https://www.raid.org/
-use crate::util::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT};
+use crate::util::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT};
 use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::Builder;
 use core::fmt::Display;
@@ -377,6 +377,11 @@ impl ARK {
     }
 }
 impl DOI {
+    /// Find all DOI values present in a string
+    pub fn find_all(value: &str) -> Vec<DOI> {
+        let re = &RE_DOI;
+        re.find_iter(value).map(|m| DOI::from_string(m.unwrap().as_str())).collect()
+    }
     /// Convenience method for easily parsing and formatting a DOI from a string value
     /// ### Example
     /// ```rust
@@ -405,7 +410,8 @@ impl DOI {
         S: AsRef<str>,
     {
         let groups = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
-        let lookup = regex_capture_lookup(RE_DOI_TEXT, value.as_ref(), groups.to_vec());
+        let pattern = format!("^{RE_DOI_TEXT}$");
+        let lookup = regex_capture_lookup(pattern.as_ref(), value.as_ref(), groups.to_vec());
         DOI::init()
             .maybe_schema_uri(lookup.get("schema_uri").cloned())
             .maybe_directory_indicator(lookup.get("directory_indicator").cloned())
@@ -722,9 +728,15 @@ impl PersistentIdentifier for DOI {
     }
     /// Get DOI suffix
     fn suffix(&self) -> Option<String> {
+        fn postprocess(mut value: String) -> String {
+            if value.ends_with(".") {
+                value.pop();
+            }
+            value
+        }
         let result = self.suffix.as_ref().cloned().unwrap_or_default();
         if !result.is_empty() {
-            Some(result)
+            Some(postprocess(result))
         } else {
             None
         }

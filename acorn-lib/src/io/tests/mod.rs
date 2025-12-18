@@ -1,4 +1,5 @@
 use crate::io::{citeas, files_all, filter_git_command_result, filter_ignored, image_paths};
+use crate::schema::pid::DOI;
 use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
@@ -11,6 +12,12 @@ fn test_citeas() {
         assert_eq!(documentation_url, "https://citeas.org/api");
     }
     if let Some(citeas::Citation { text, .. }) = citeas::Citations::from_doi("10.11578/dc.20250604.1").match_style("apa") {
+        println!("CiteAs Test Response Received");
+        let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
+        assert_eq!(text, expected);
+    };
+    let doi = DOI::from_string("10.11578/dc.20250604.1");
+    if let Some(citeas::Citation { text, .. }) = doi.to_citations().match_style("apa") {
         println!("CiteAs Test Response Received");
         let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
         assert_eq!(text, expected);

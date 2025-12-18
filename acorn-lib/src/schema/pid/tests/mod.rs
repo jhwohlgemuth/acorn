@@ -59,34 +59,39 @@ fn test_betanumeric() {
     assert_eq!('z'.to_betanumeric_ordinal(), Some(28));
 }
 #[test]
-fn test_orcid() {
-    let valid = "https://orcid.org/0000-0002-2057-9115";
-    assert!(valid.is_pid(PID::ORCID));
-    assert_eq!(valid.to_pid(PID::ORCID).to_orcid().to_string(), "https://orcid.org/0000-0002-2057-9115");
-    assert!(valid.is_orcid());
-    assert!(valid.format_as(PID::ORCID).is_orcid());
-    assert_eq!(valid.format_as(PID::ORCID), valid);
-    assert_eq!("0000-0002-2057-9115".format_as(PID::ORCID), valid);
-    assert_eq!("0000000220579115".format_as(PID::ORCID), valid);
-}
-#[test]
-fn test_orcid_struct() {
-    let valid = "https://orcid.org/0000-0002-2057-9115";
-    assert!(ORCID::is_valid(valid));
-    assert!(!ORCID::is_valid("Invalid ORCID value"));
-    let pid = ORCID::from_string(valid);
-    assert_eq!(pid.format(), valid);
-    assert_eq!(pid.to_string(), valid);
-    assert_eq!(ORCID::from_string("0000-0002-2057-9115").to_string(), valid);
-    assert_eq!(ORCID::from_string("invalid ORCID value").to_string(), "");
-}
-#[test]
 fn test_doi() {
     let valid = "https://doi.org/10.11578/dc.20250604.1";
     assert_eq!(valid.to_pid(PID::DOI).to_doi().to_string(), "10.11578/dc.20250604.1");
     assert!(valid.is_pid(PID::DOI));
     assert!(valid.is_doi());
     assert_eq!(valid.format_as(PID::DOI), "10.11578/dc.20250604.1");
+    let text = format!("I made a thing with doi {valid}.");
+    let results = DOI::find_all(&text);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].to_string(), "10.11578/dc.20250604.1");
+    let text = format!("The DOI for ACORN is: {valid}.");
+    let results = DOI::find_all(&text);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].to_string(), "10.11578/dc.20250604.1");
+    let text = format!("I made a thing with dois {valid}, {valid} and {valid}. Please check it out.");
+    let results = DOI::find_all(&text);
+    assert_eq!(results.len(), 3);
+    assert_eq!(results[0].to_string(), "10.11578/dc.20250604.1");
+    assert_eq!(results[1].to_string(), "10.11578/dc.20250604.1");
+    assert_eq!(results[2].to_string(), "10.11578/dc.20250604.1");
+    let text = format!(
+        r#"I made a thing with dois
+    - {valid},
+    - https://doi.org/10.11578/dc.20250604.1
+    - {valid} (words about something)
+    
+    Please check it out!"#
+    );
+    let results = DOI::find_all(&text);
+    assert_eq!(results.len(), 3);
+    assert_eq!(results[0].to_string(), "10.11578/dc.20250604.1");
+    assert_eq!(results[1].to_string(), "10.11578/dc.20250604.1");
+    assert_eq!(results[2].to_string(), "10.11578/dc.20250604.1");
 }
 #[test]
 fn test_doi_struct() {
@@ -129,6 +134,28 @@ fn test_noid_check_digit() {
     let value = "13030/xf93gt2";
     let expected = Some('q');
     assert_eq!(noid_check_digit(value), expected);
+}
+#[test]
+fn test_orcid() {
+    let valid = "https://orcid.org/0000-0002-2057-9115";
+    assert!(valid.is_pid(PID::ORCID));
+    assert_eq!(valid.to_pid(PID::ORCID).to_orcid().to_string(), "https://orcid.org/0000-0002-2057-9115");
+    assert!(valid.is_orcid());
+    assert!(valid.format_as(PID::ORCID).is_orcid());
+    assert_eq!(valid.format_as(PID::ORCID), valid);
+    assert_eq!("0000-0002-2057-9115".format_as(PID::ORCID), valid);
+    assert_eq!("0000000220579115".format_as(PID::ORCID), valid);
+}
+#[test]
+fn test_orcid_struct() {
+    let valid = "https://orcid.org/0000-0002-2057-9115";
+    assert!(ORCID::is_valid(valid));
+    assert!(!ORCID::is_valid("Invalid ORCID value"));
+    let pid = ORCID::from_string(valid);
+    assert_eq!(pid.format(), valid);
+    assert_eq!(pid.to_string(), valid);
+    assert_eq!(ORCID::from_string("0000-0002-2057-9115").to_string(), valid);
+    assert_eq!(ORCID::from_string("invalid ORCID value").to_string(), "");
 }
 #[test]
 fn test_raid() {

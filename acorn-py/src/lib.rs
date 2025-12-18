@@ -1,4 +1,5 @@
 use acorn_lib::schema::{self, ContactPoint};
+use acorn_lib::schema::pid::{DOI, PersistentIdentifier};
 use acorn_lib::schema::research_activity::ResearchActivity;
 use pyo3::prelude::*;
 use acorn_lib::prelude::PathBuf;
@@ -7,10 +8,14 @@ use acorn_lib::prelude::PathBuf;
 #[pymodule]
 fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     let python = module.py();
+    // Add classes to schema module
     let schema = PyModule::new(python, "schema")?;
     schema.add_class::<PyResearchActivity>()?;
+    // Add classes to schema.pid module
+    let pid = PyModule::new(python, "pid")?;
+    pid.add_class::<PyDOI>()?;
+    // Add functions to schema.validate module
     let validate = PyModule::new(python, "validate")?;
-    // Add functions from schema.validate module
     validate.add_function(wrap_pyfunction!(format_ark, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_orcid, &validate)?)?;
@@ -26,6 +31,7 @@ fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     let sys = python.import("sys")?;
     let modules = sys.getattr("modules")?;
     modules.set_item("acorn.schema", schema)?;
+    modules.set_item("acorn.schema.pid", pid)?;
     modules.set_item("acorn.schema.validate", validate)?;
     Ok(())
 }
@@ -39,6 +45,14 @@ struct PyContactPoint {
     telephone: String,
     url: String,
     organization: String,
+}
+#[pyclass(name = "DOI")]
+#[derive(Clone)]
+struct PyDOI {
+    identifier: String,
+    schema_uri: String,
+    prefix: String,
+    suffix: String,
 }
 #[pyclass(name = "Metadata")]
 #[derive(Clone)]
@@ -92,6 +106,39 @@ impl PyContactPoint {
     #[getter]
     fn organization(&self) -> String {
         self.organization.clone()
+    }
+}
+#[pymethods]
+impl PyDOI {
+    #[staticmethod]
+    fn find_all(value: String) -> Vec<PyDOI> {
+        DOI::find_all(&value).iter().map(|d| PyDOI::from_string(d.clone().to_string())).collect()
+    }
+    #[staticmethod]
+    fn from_string(value: String) -> PyDOI {
+        let pid = DOI::from_string(&value);
+        PyDOI {
+            identifier: pid.identifier(),
+            prefix: pid.prefix().unwrap_or_default(),
+            suffix: pid.suffix().unwrap_or_default(),
+            schema_uri: pid.schema_uri(),
+        }
+    }
+    #[getter]
+    fn identifier(&self) -> String {
+        self.identifier.clone()
+    }
+    #[getter]
+    fn prefix(&self) -> String {
+        self.prefix.clone()
+    }
+    #[getter]
+    fn schema_uri(&self) -> String {
+        self.schema_uri.clone()
+    }
+    #[getter]
+    fn suffix(&self) -> String {
+        self.suffix.clone()
     }
 }
 #[pymethods]

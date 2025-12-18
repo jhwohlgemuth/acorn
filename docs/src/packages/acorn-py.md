@@ -15,3 +15,40 @@ ACORN seeks to meet scientists where they are in all aspects. This includes the 
   assert is_orcid("https://orcid.org/0000-0002-2057-9115")
   assert is_ror("01qz5mb56")
   ```
+
+## API Consistency
+The `acorn-py` API strives to adhere to the Rust API as closely as possible. If you know `acorn-lib`, you know `acorn-py`.
+
+### Validate DOIs
+🦀 Rust
+```rust
+use acorn_lib::schema::validate::DOI;
+
+assert!("10.11578/dc.20250604.1".is_doi());
+```
+🐍 Python
+```python
+from acorn.schema.validate import is_doi
+
+assert is_doi("10.11578/dc.20250604.1")
+```
+
+### Find all DOI values in a string
+🦀 Rust
+```rust
+use acorn_lib::schema::pid::DOI;
+
+let pid = "https://doi.org/10.11578/dc.20250604.1";
+let text = format!("The DOI for ACORN is: {pid}");
+let values = DOI::find_all(&text);
+assert_eq!(values[0].identifier(), "10.11578/dc.20250604.1");
+```
+🐍 Python
+```python
+from acorn.schema.pid import DOI
+
+pid = "https://doi.org/10.11578/dc.20250604.1"
+text = f"The DOI for ACORN is: {pid}"
+values = DOI.find_all(text)
+assert values[0].identifier == "10.11578/dc.20250604.1"
+```
