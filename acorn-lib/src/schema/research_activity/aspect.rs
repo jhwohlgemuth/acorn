@@ -83,7 +83,7 @@ pub enum Agency {
     Type2 = 3,
 }
 /// Adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes
-/// ## Notes
+/// ### Notes
 /// - In general, represents the integration of human interaction with machine intelligence capabilities (see ISO 22989)
 /// - Originally derived from [Society of Automotive Engineers](https://www.sae.org/) (SAE) [Standard J3016](https://www.sae.org/standards/content/j3016_202104)
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
@@ -153,11 +153,11 @@ pub enum SoftwarePortability {
     /// Involves steps that cannot be immediately automated (e.g., GUI installer, manual configuration, installer that cannot be downloaded automatically)
     Installer = 3,
     /// Available via TUI package manager (e.g., npm, brew, scoop)
-    /// ## Note
+    /// ### Note
     /// > This level is basically level 3 technology published to public package repositories and available via one or more package managers.
     AutomatedInstaller = 4,
     /// Software can be used within WASM runtime and web browser VM
-    /// ## Note
+    /// ### Note
     /// > Since every operating system comes with a web browser, his level represents the current apex of portability.
     WebAssembly = 5,
 }
@@ -165,17 +165,17 @@ pub enum SoftwarePortability {
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 pub enum TaskType {
     /// Reduce entropy of environment input and/or identify patterns in environment
-    /// ## Examples
+    /// ### Examples
     /// > object detection and optical character recognition (OCR)
-    /// ## Note
+    /// ### Note
     /// > Research activity data with associated technology the implements the `Perceive` task type can only be present in Type-1A and Type-2 agency aspects, but are not necessary to be present.
     #[display("perceive")]
     #[serde(alias = "perception")]
     Perceive,
     /// Apply internal model to external environment
-    /// ## Examples
+    /// ### Examples
     /// > robot actuator control, code generation, and image optimization
-    /// ## Note
+    /// ### Note
     /// > Research activity data with associated technology the implements the `Project` task type can only be present in Type-1B and Type-2 agency aspects, but are not necessary to be present.
     #[display("project")]
     #[serde(alias = "projection")]
@@ -183,7 +183,7 @@ pub enum TaskType {
     /// Inference, pattern recognition, etc.
     /// ## Examples
     /// > image classification, most NLP tasks, and schema validation
-    /// ## Note
+    /// ### Note
     /// > Research activity data with associated technology the implements the `Reason` task type can be present in any agency aspect, but are not necessary to be present.
     #[display("reason")]
     #[serde(alias = "infer", alias = "inference")]

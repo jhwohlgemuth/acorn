@@ -1,10 +1,13 @@
 use crate::prelude::PathBuf;
+use crate::schema::pid::patent::*;
 use crate::schema::pid::{
     iso7064_check_digit, noid_check_digit, raid, Betanumeric, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI, ORCID, PID, RAID,
 };
 use crate::schema::Validate;
 
 const FIXTURES: &str = "../tests/fixtures";
+const VALID_PATENT_APPLICATIONS: [&str; 1] = ["US 2018/0123456 A2"];
+const VALID_GRANTED_PATENTS: [&str; 2] = ["US1234567B2", "US 7,654,321 B1"];
 
 #[test]
 fn test_ark() {
@@ -130,6 +133,38 @@ fn test_iso7064_check_digit() {
     assert_eq!(iso7064_check_digit(value), expected);
 }
 #[test]
+fn test_kindcode() {
+    // Test individual kind codes
+    let json_a1 = r#""A1""#;
+    let kind: KindCode = serde_json::from_str(json_a1).expect("Failed to deserialize A1");
+    assert_eq!(kind, KindCode::A1);
+    let json_b2 = r#""B2""#;
+    let kind: KindCode = serde_json::from_str(json_b2).expect("Failed to deserialize B2");
+    assert_eq!(kind, KindCode::B2);
+    let json_e1 = r#""E1""#;
+    let kind: KindCode = serde_json::from_str(json_e1).expect("Failed to deserialize E1");
+    assert_eq!(kind, KindCode::E1);
+    // E, S, and H are normalized to two-character variants
+    let json_e1 = r#""H""#;
+    let kind: KindCode = serde_json::from_str(json_e1).expect("Failed to deserialize H");
+    assert_eq!(kind, KindCode::H1);
+    let json_unknown = r#""Unknown""#;
+    let kind: KindCode = serde_json::from_str(json_unknown).expect("Failed to deserialize Unknown");
+    assert_eq!(kind, KindCode::Unknown);
+    let kind = KindCode::A1;
+    let json = serde_json::to_string(&kind).expect("Failed to serialize A1");
+    assert_eq!(json, r#""A1""#);
+    let kind = KindCode::B2;
+    let json = serde_json::to_string(&kind).expect("Failed to serialize B2");
+    assert_eq!(json, r#""B2""#);
+    let kinds = vec![KindCode::A1, KindCode::B2, KindCode::E1, KindCode::S1, KindCode::Unknown];
+    for original in kinds {
+        let json = serde_json::to_string(&original).expect("Failed to serialize");
+        let deserialized: KindCode = serde_json::from_str(&json).expect("Failed to deserialize");
+        assert_eq!(original, deserialized);
+    }
+}
+#[test]
 fn test_noid_check_digit() {
     let value = "13030/xf93gt2";
     let expected = Some('q');
@@ -156,6 +191,13 @@ fn test_orcid_struct() {
     assert_eq!(pid.to_string(), valid);
     assert_eq!(ORCID::from_string("0000-0002-2057-9115").to_string(), valid);
     assert_eq!(ORCID::from_string("invalid ORCID value").to_string(), "");
+}
+#[test]
+fn test_patent() {
+    let patent = Patent::parse(VALID_GRANTED_PATENTS[0]);
+    if let Some(value) = patent {
+        assert_eq!(value.to_string(), "US 1234567 B2");
+    }
 }
 #[test]
 fn test_raid() {

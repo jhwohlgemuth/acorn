@@ -469,7 +469,7 @@ where
     T: ToString,
 {
     /// Convert SPDX standard indentifier to associated `License` value
-    /// ## Notes
+    /// ### Notes
     /// - Custom license identifiers (i.e., start with `LicenseRef-`) are mapped to `License::Proprietary`
     /// - `"Public Domain"`, which is not a valid SPDX identifier is mapped to `License::PublicDomain`
     /// - `"Unknown"`, which is not a valid SPDX identifier is mapped to `License::Unknown`

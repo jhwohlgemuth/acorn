@@ -13,6 +13,7 @@ use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::Builder;
 use core::fmt::Display;
 
+pub mod patent;
 pub mod raid;
 
 const BETANUMERIC_DIGITS: &str = "0123456789bcdfghjkmnpqrstvwxz";
@@ -130,6 +131,9 @@ pub struct PersistentIdentifierInternal {
 /// PIDs are globally unique identifiers, resolvable on the Web, and associated with a set of additional descriptive metadata (ex. [`raid::Metadata`])
 #[derive(Clone, Debug, Default)]
 pub enum PID {
+    /// Unknown PID
+    #[default]
+    Unknown,
     /// Archival Resource Key (ARK)
     ///
     /// Widely used persistent identifier, supported by the California Digital Library \[21\], in collaboration with DuraSpace. ARKs work similarly to DOIs, but are more permissive in design.[^ark]
@@ -144,6 +148,8 @@ pub enum PID {
     ///
     /// See [`ORCID`]
     ORCID,
+    /// Patent Number
+    Patent,
     /// Persistent Identification of Instruments (PIDINST)
     /// ### Citation
     /// ```text
@@ -164,9 +170,6 @@ pub enum PID {
     ///
     /// See <https://www.ror.org/> for more information
     ROR,
-    /// Unknown PID
-    #[default]
-    Unknown,
 }
 /// Archival Resource Key (ARK)
 /// ### Notes
