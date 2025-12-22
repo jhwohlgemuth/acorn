@@ -140,7 +140,7 @@ pub const RE_ORCID_TEXT: &str =
     r#"^(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))$"#;
 /// Pattern text for USPTO patent identifiers
 pub const RE_PATENT_TEXT: &str =
-    r#"(?<country_code>US|CN|DE|EP|JP|KR)?(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>\d{1,8})(?<kind_code>[A-Z]\d?)"#;
+    r#"(?<country_code>US|CN|DE|EP|JP|KR)?\s*(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>[\d,]{1,11})\s*(?<kind_code>[A-Z]\d?)"#;
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]
 pub const RE_RAID_TEXT: &str =
     r#"^(?<schema_uri>https[:]\/\/raid\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#;
@@ -154,6 +154,8 @@ lazy_static! {
     ///
     /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
     pub static ref RE_DOI: Regex = Regex::new(RE_DOI_TEXT).unwrap();
+    /// Regex that should match a USPTO patent identifier (granted patent, application, or publication)
+    pub static ref RE_PATENT: Regex = Regex::new(RE_PATENT_TEXT).unwrap();
     /// Regex that should match an Open Researcher and Contributor ID (ORCiD) value
     ///
 /// See <https://orcid.org/> for more information

@@ -1,6 +1,6 @@
 //! ## Data model for patent data
 //!
-use crate::util::constants::RE_PATENT_TEXT;
+use crate::util::constants::{RE_PATENT, RE_PATENT_TEXT};
 use crate::util::regex_capture_lookup;
 use derive_more::Display;
 use schemars::JsonSchema;
@@ -117,10 +117,10 @@ pub enum Patent {
     Granted {
         /// Country code of patent authority
         country_code: Option<CountryCode>,
-        /// 1-7 character serial number
-        serial_number: String,
         /// Kind code
         kind_code: KindCode,
+        /// 1-7 character serial number
+        serial_number: String,
     },
     /// Patent-application document
     Application {
@@ -133,10 +133,10 @@ pub enum Patent {
     Publication {
         /// Country code of patent authority
         country_code: Option<CountryCode>,
-        /// 1-7 character serial number
-        serial_number: String,
         /// Kind code
         kind_code: KindCode,
+        /// 1-7 character serial number
+        serial_number: String,
         /// Publication year (e.g., "2025")
         year: Option<String>,
     },
@@ -221,6 +221,11 @@ impl core::fmt::Display for Patent {
     }
 }
 impl Patent {
+    /// Find all DOI values present in a string
+    pub fn find_all(value: &str) -> Vec<Self> {
+        let re = &RE_PATENT;
+        re.find_iter(value).flat_map(|m| Patent::parse(m.unwrap().as_str())).collect::<Vec<_>>()
+    }
     /// Parse a patent identifier into a `Patent` enumeration
     /// ### Note
     /// > Parsing is focused primarily of patents created after 02/01/2001

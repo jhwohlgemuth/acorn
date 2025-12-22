@@ -224,6 +224,27 @@ fn test_patent() {
     }
 }
 #[test]
+fn test_patent_find_all() {
+    let expected = "US 7654321 B1";
+    let text = "Patent number: US 7,654,321 B1".to_string();
+    let results = Patent::find_all(&text);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].to_string(), expected);
+    let text = "I patented a thing - US 7,654,321 B1.".to_string();
+    let results = Patent::find_all(&text);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].to_string(), expected);
+    let text = r#"I patented some things for money!
+    - US20250123456A2,
+    - US 7,654,321 B1,
+    - US 0123456 A2 (words about something)
+    
+    Please check them out!"#;
+    let results = Patent::find_all(text);
+    assert_eq!(results.len(), 3);
+    assert_eq!(results[1].to_string(), expected);
+}
+#[test]
 fn test_raid() {
     let valid = "https://raid.org/10.83962/fb5be317";
     let pid = RAID::from_string(valid);

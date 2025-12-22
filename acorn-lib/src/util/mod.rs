@@ -773,6 +773,9 @@ pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<Stri
     println!("=> {} \n{table}", title.green().bold());
 }
 /// Helper function to create a lookup dictionary for regex captures
+/// ### Note
+/// > This function is sensitive to "un-named" regex groups (e.g. the parentheses around `\d{4}` in `(?<year>(\d{4}))`).
+/// > For best functionality, avoid creating such groups by omitting unnecessary parentheses.
 /// ### Example
 /// ```rust
 /// use acorn_lib::util::regex_capture_lookup;

@@ -318,7 +318,7 @@ impl ARK {
     /// let ark = ARK::from_string("https://n2t.net/ark:12148/btv1b8449691v/f42");
     /// assert_eq!(ark.suffix(), Some("f42".to_string()));
     /// ```
-    pub fn from_string<S>(value: S) -> ARK
+    pub fn from_string<S>(value: S) -> Self
     where
         S: AsRef<str>,
     {
@@ -381,7 +381,7 @@ impl ARK {
 }
 impl DOI {
     /// Find all DOI values present in a string
-    pub fn find_all(value: &str) -> Vec<DOI> {
+    pub fn find_all(value: &str) -> Vec<Self> {
         let re = &RE_DOI;
         re.find_iter(value).map(|m| DOI::from_string(m.unwrap().as_str())).collect()
     }
@@ -408,7 +408,7 @@ impl DOI {
     /// assert_eq!(doi.prefix(), Some("10.1000".into()));
     /// assert_eq!(doi.suffix(), Some("182".into()));
     /// ```
-    pub fn from_string<S>(value: S) -> DOI
+    pub fn from_string<S>(value: S) -> Self
     where
         S: AsRef<str>,
     {
@@ -472,7 +472,7 @@ impl ORCID {
     /// let orcid = ORCID::from_string("https://orcid.org/0000-0002-2057-9115");
     /// assert_eq!(orcid.identifier(), "0000-0002-2057-9115");
     /// ```
-    pub fn from_string<S>(value: S) -> ORCID
+    pub fn from_string<S>(value: S) -> Self
     where
         S: AsRef<str>,
     {
@@ -533,7 +533,7 @@ impl RAID {
     /// Create new RAiD by parsing a raw string value
     /// ### Note
     /// > RAiD identifiers are DOI identifiers. See this [blog post by DataCite](https://datacite.org/blog/datacite-ardc-announce-partnership-to-deliver-the-raid-service/) for details.
-    pub fn from_string<S>(value: S) -> RAID
+    pub fn from_string<S>(value: S) -> Self
     where
         S: AsRef<str>,
     {
