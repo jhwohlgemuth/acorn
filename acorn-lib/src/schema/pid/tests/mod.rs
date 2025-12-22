@@ -6,8 +6,6 @@ use crate::schema::pid::{
 use crate::schema::Validate;
 
 const FIXTURES: &str = "../tests/fixtures";
-const VALID_PATENT_APPLICATIONS: [&str; 1] = ["US 2018/0123456 A2"];
-const VALID_GRANTED_PATENTS: [&str; 2] = ["US1234567B2", "US 7,654,321 B1"];
 
 #[test]
 fn test_ark() {
@@ -194,9 +192,35 @@ fn test_orcid_struct() {
 }
 #[test]
 fn test_patent() {
-    let patent = Patent::parse(VALID_GRANTED_PATENTS[0]);
+    // Granted patents
+    let patent = Patent::parse("US1234567B2");
     if let Some(value) = patent {
         assert_eq!(value.to_string(), "US 1234567 B2");
+    }
+    let patent = Patent::parse("US 7,654,321 B1");
+    if let Some(value) = patent {
+        assert_eq!(value.to_string(), "US 7654321 B1");
+    }
+    // Patent publications
+    let patent = Patent::parse("US20250123456A2");
+    if let Some(value) = patent {
+        assert_eq!(value.to_string(), "US 2025/0123456 A2");
+    }
+    let patent = Patent::parse("US2025/0123456A2");
+    if let Some(value) = patent {
+        assert_eq!(value.to_string(), "US 2025/0123456 A2");
+    }
+    let patent = Patent::parse("US 2018/0123456 A2");
+    if let Some(value) = patent {
+        assert_eq!(value.to_string(), "US 2018/0123456 A2");
+    }
+    let patent = Patent::parse("2025/0123456A2");
+    if let Some(value) = patent {
+        assert_eq!(value.to_string(), "US 2025/0123456 A2");
+    }
+    let patent = Patent::parse("0123456A2");
+    if let Some(value) = patent {
+        assert_eq!(value.to_string(), "US 0123456 A2");
     }
 }
 #[test]

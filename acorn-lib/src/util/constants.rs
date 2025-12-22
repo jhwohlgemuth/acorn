@@ -135,9 +135,12 @@ pub const RE_ARK_TEXT: &str = r#"^(?<nma>(?<schema_uri>https\:\/\/).+)?\/?(?<lab
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]
 pub const RE_DOI_TEXT: &str =
     r#"(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
-/// Patter text for ORCiD regular expression defined by [`RE_ORCID`]
+/// Pattern text for ORCiD regular expression defined by [`RE_ORCID`]
 pub const RE_ORCID_TEXT: &str =
     r#"^(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))$"#;
+/// Pattern text for USPTO patent identifiers
+pub const RE_PATENT_TEXT: &str =
+    r#"(?<country_code>US|CN|DE|EP|JP|KR)?(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>\d{1,8})(?<kind_code>[A-Z]\d?)"#;
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]
 pub const RE_RAID_TEXT: &str =
     r#"^(?<schema_uri>https[:]\/\/raid\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#;

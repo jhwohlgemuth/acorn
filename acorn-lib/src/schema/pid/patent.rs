@@ -1,5 +1,6 @@
 //! ## Data model for patent data
 //!
+use crate::util::constants::RE_PATENT_TEXT;
 use crate::util::regex_capture_lookup;
 use derive_more::Display;
 use schemars::JsonSchema;
@@ -114,6 +115,8 @@ pub enum KindCode {
 pub enum Patent {
     /// Granted patent document
     Granted {
+        /// Country code of patent authority
+        country_code: Option<CountryCode>,
         /// 1-7 character serial number
         serial_number: String,
         /// Kind code
@@ -128,6 +131,8 @@ pub enum Patent {
     },
     /// Patent publication
     Publication {
+        /// Country code of patent authority
+        country_code: Option<CountryCode>,
         /// 1-7 character serial number
         serial_number: String,
         /// Kind code
@@ -185,25 +190,31 @@ impl From<String> for KindCode {
 impl core::fmt::Display for Patent {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            | Patent::Granted { serial_number, kind_code } => {
-                write!(f, "US {serial_number} {kind_code}")
+            | Patent::Granted {
+                country_code,
+                serial_number,
+                kind_code,
+            } => {
+                write!(f, "{} {serial_number} {kind_code}", country_code.clone().unwrap_or_default())
             }
             | Patent::Application { serial_number, year } => {
                 if let Some(year) = year {
-                    write!(f, "US {year}/{serial_number}")
+                    write!(f, "{year}/{serial_number}")
                 } else {
-                    write!(f, "US {serial_number}")
+                    write!(f, "{serial_number}")
                 }
             }
             | Patent::Publication {
+                country_code,
                 serial_number,
                 kind_code,
                 year,
             } => {
+                let country = country_code.clone().unwrap_or_default();
                 if let Some(year) = year {
-                    write!(f, "US {year}/{serial_number} {kind_code}")
+                    write!(f, "{country} {year}/{serial_number} {kind_code}")
                 } else {
-                    write!(f, "US {serial_number} {kind_code}")
+                    write!(f, "{country} {serial_number} {kind_code}")
                 }
             }
         }
@@ -220,17 +231,20 @@ impl Patent {
         let s: String = value.clone().into().chars().take(2).collect::<String>();
         match CountryCode::from(s) {
             | CountryCode::US => {
-                fn sanitize<S>(value: S) -> String
+                fn preprocess<S>(value: S) -> String
                 where
                     S: Into<String>,
                 {
-                    value.into().replace(" ", "").replace(",", "")
+                    value.into().replace(" ", "").replace(",", "").replace("-", "").to_uppercase()
                 }
-                let pattern = r"^(?<year>\d{4}(?=/))?(?<serial_number>\d{1,8})(?<kind_code>[A-Z]\d?)$";
-                let s: String = sanitize(value).chars().skip(2).collect::<String>();
-                dbg!(s.clone());
-                let groups = ["year", "serial_number", "kind_code"];
-                let lookup = regex_capture_lookup(pattern, &s, groups.to_vec());
+                let pattern = format!("^{RE_PATENT_TEXT}$");
+                let s: String = preprocess(value);
+                let groups = ["country_code", "year", "serial_number", "kind_code"]
+                    .into_iter()
+                    .map(String::from)
+                    .collect::<Vec<_>>();
+                let lookup = regex_capture_lookup(pattern, s, groups);
+                let country_code = lookup.get("country_code").cloned().map(CountryCode::from);
                 let serial_number = lookup["serial_number"].clone();
                 let kind_code = KindCode::from(lookup["kind_code"].clone());
                 match kind_code {
@@ -242,10 +256,15 @@ impl Patent {
                     | KindCode::E1
                     | KindCode::P2
                     | KindCode::P3
-                    | KindCode::S1 => Some(Patent::Granted { serial_number, kind_code }),
+                    | KindCode::S1 => Some(Patent::Granted {
+                        country_code,
+                        serial_number,
+                        kind_code,
+                    }),
                     | KindCode::A1 | KindCode::A2 | KindCode::A9 | KindCode::P1 | KindCode::P4 | KindCode::P9 => {
                         let year = lookup.get("year").cloned();
                         Some(Patent::Publication {
+                            country_code,
                             serial_number,
                             kind_code,
                             year,
