@@ -16,6 +16,38 @@ ACORN seeks to meet scientists where they are in all aspects. This includes the 
   assert is_ror("01qz5mb56")
   ```
 
+## Working with scientific artifact identifiers
+The `acorn-py` package provides tools to work with common scientific artifact identifiers such as [DOI](https://www.doi.org/)s, [ARK](https://arks.org/)s, [ORCID](https://orcid.org/)s, and [ROR](https://ror.org/)s and other indirectly related identifiers such as patent numbers and books (e.g., [ISBN](https://www.isbn.org/)s). You can validate these identifiers, work with their components, and even extract them from text!
+
+> [!TIP]
+> See the [acorn-lib documentation](https://docs.rs/acorn-lib/latest/acorn_lib/schema/pid/index.html) for more details on persistent identifiers and how to work with them in your code.
+
+### Example
+Find all patent numbers in a string
+🐍 Python
+```python
+from acorn.schema.pid import Patent
+
+text = "The patent number for my work is US1234567B1."
+values = Patent.find_all(text)
+patent = values[0]
+
+assert str(patent) == "US 1234567 B1"
+assert patent.country_code == "US"
+assert patent.serial_number == "1234567"
+assert patent.kind_code == "B1"
+```
+🦀 Rust
+```rust
+use acorn_lib::schema::pid::Patent;
+
+let text = "The patent number for my work is US1234567B1.";
+let values = Patent::find_all(&text);
+let patent = values[0];
+
+assert_eq!(patent.to_string(), "US 1234567 B1");
+```
+
 ## API Consistency
 The `acorn-py` API strives to adhere to the Rust API as closely as possible. If you know `acorn-lib`, you know `acorn-py`.
 

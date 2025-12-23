@@ -7,6 +7,7 @@ from acorn.schema.validate import (
     is_doi,
     is_ip6,
     is_orcid,
+    is_patent_identifier,
     is_ror,
 )
 from pytest import raises
@@ -79,6 +80,13 @@ def test_is_orcid():
     assert is_orcid("https://orcid.org/0009-0005-5568-6526")
     assert not is_orcid("1234-5678-9101-1121")
     assert not is_orcid("abc-0000-0000-0000")
+
+
+def test_is_patent_identifier():
+    assert is_patent_identifier("US 9,374,321 B2")
+    assert is_patent_identifier("9374321A1")
+    assert not is_patent_identifier("US ABC123 B2")
+    assert not is_patent_identifier("US 2025/0123456 ZZ")
 
 
 def test_is_ror():

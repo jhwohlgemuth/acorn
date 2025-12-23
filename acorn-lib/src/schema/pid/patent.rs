@@ -105,7 +105,7 @@ pub enum KindCode {
     #[display("H1")]
     #[serde(rename = "H1", alias = "H")]
     H1,
-    /// Unknown or un-supported kind code
+    /// Unknown, missing, or otherwise un-supported kind code
     #[display("Unknown")]
     #[serde(rename = "Unknown")]
     Unknown,
@@ -187,6 +187,32 @@ impl From<String> for KindCode {
         KindCode::from(s.as_str())
     }
 }
+impl KindCode {
+    /// Return true if a kind code is a granted patent, false otherwise (e.g., application, publication)
+    pub fn is_granted(&self) -> bool {
+        match self {
+            | KindCode::B1
+            | KindCode::B2
+            | KindCode::C1
+            | KindCode::C2
+            | KindCode::C3
+            | KindCode::E1
+            | KindCode::P2
+            | KindCode::P3
+            | KindCode::S1 => true,
+            | _ => false,
+        }
+    }
+}
+impl Default for Patent {
+    fn default() -> Self {
+        Patent::Granted {
+            country_code: Some(CountryCode::US),
+            kind_code: KindCode::Unknown,
+            serial_number: String::new(),
+        }
+    }
+}
 impl core::fmt::Display for Patent {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -220,11 +246,39 @@ impl core::fmt::Display for Patent {
         }
     }
 }
+impl From<&str> for Patent {
+    fn from(s: &str) -> Self {
+        Patent::parse(s).unwrap_or_default()
+    }
+}
+impl From<String> for Patent {
+    fn from(s: String) -> Self {
+        Patent::from(s.as_str())
+    }
+}
 impl Patent {
-    /// Find all DOI values present in a string
+    /// Find all patent identifier values present in a string
     pub fn find_all(value: &str) -> Vec<Self> {
         let re = &RE_PATENT;
         re.find_iter(value).flat_map(|m| Patent::parse(m.unwrap().as_str())).collect::<Vec<_>>()
+    }
+    /// Check if a string is a valid patent identifier
+    pub fn is_valid<S>(value: S) -> bool
+    where
+        S: AsRef<str>,
+    {
+        match Patent::parse(value.as_ref()) {
+            | Some(result) => match result {
+                | Patent::Granted {
+                    serial_number, kind_code, ..
+                } => !serial_number.is_empty() && kind_code != KindCode::Unknown,
+                | Patent::Application { serial_number, .. } => !serial_number.is_empty(),
+                | Patent::Publication {
+                    serial_number, kind_code, ..
+                } => !serial_number.is_empty() && kind_code != KindCode::Unknown,
+            },
+            | None => false,
+        }
     }
     /// Parse a patent identifier into a `Patent` enumeration
     /// ### Note
@@ -250,8 +304,11 @@ impl Patent {
                     .collect::<Vec<_>>();
                 let lookup = regex_capture_lookup(pattern, s, groups);
                 let country_code = lookup.get("country_code").cloned().map(CountryCode::from);
-                let serial_number = lookup["serial_number"].clone();
-                let kind_code = KindCode::from(lookup["kind_code"].clone());
+                let serial_number = lookup.get("serial_number").cloned().unwrap_or_default();
+                let kind_code = match lookup.get("kind_code").cloned() {
+                    | Some(value) => KindCode::from(value),
+                    | None => KindCode::Unknown,
+                };
                 match kind_code {
                     | KindCode::B1
                     | KindCode::B2

@@ -16,6 +16,8 @@ use core::fmt::Display;
 pub mod patent;
 pub mod raid;
 
+pub use patent::Patent;
+
 const BETANUMERIC_DIGITS: &str = "0123456789bcdfghjkmnpqrstvwxz";
 
 /// Add utility functions for working with beta numeric values

@@ -1,11 +1,25 @@
 use crate::prelude::PathBuf;
-use crate::schema::pid::patent::*;
+use crate::schema::pid::patent::KindCode;
 use crate::schema::pid::{
-    iso7064_check_digit, noid_check_digit, raid, Betanumeric, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI, ORCID, PID, RAID,
+    iso7064_check_digit, noid_check_digit, raid, Betanumeric, Patent, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI, ORCID, PID, RAID,
 };
 use crate::schema::Validate;
 
 const FIXTURES: &str = "../tests/fixtures";
+const VALID_PATENT_IDENTIFIERS: [&str; 5] = [
+    "US1234567B2",
+    "US 1234567 B2",
+    "US20250123456A2",
+    "US2025/0123456A2",
+    "US 2025/0123456 A2",
+];
+const INVALID_PATENT_IDENTIFIERS: [&str; 5] = [
+    "1234567",            // No country or kind code
+    "US1234567",          // No kind code
+    "US ABC123 B2",       // non-numeric serial number
+    "US 2025/0123456 ZZ", // invalid kind code
+    "Totally just not correct",
+];
 
 #[test]
 fn test_ark() {
@@ -132,6 +146,8 @@ fn test_iso7064_check_digit() {
 }
 #[test]
 fn test_kindcode() {
+    assert!(KindCode::B1.is_granted());
+    assert!(!KindCode::A1.is_granted());
     // Test individual kind codes
     let json_a1 = r#""A1""#;
     let kind: KindCode = serde_json::from_str(json_a1).expect("Failed to deserialize A1");
@@ -192,6 +208,12 @@ fn test_orcid_struct() {
 }
 #[test]
 fn test_patent() {
+    for value in VALID_PATENT_IDENTIFIERS {
+        assert!(Patent::is_valid(value), "=> [REASON] \"{value}\" is NOT a valid patent identifier");
+    }
+    for value in INVALID_PATENT_IDENTIFIERS {
+        assert!(!Patent::is_valid(value), "=> [REASON] \"{value}\" IS a valid patent identifier");
+    }
     // Granted patents
     let patent = Patent::parse("US1234567B2");
     if let Some(value) = patent {

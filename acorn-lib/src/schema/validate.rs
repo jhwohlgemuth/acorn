@@ -2,7 +2,7 @@
 //!
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 //!
-use crate::schema::pid::PersistentIdentifierConvert;
+use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::util::constants::{
     MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA, RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6,
     RE_ISO_8601_DATE, RE_ISO_8601_YEAR, RE_PHONE, RE_RAID, RE_ROR, RE_UNIX_EPOCH,
@@ -135,6 +135,14 @@ pub fn is_orcid(value: &str) -> Result<(), ValidationError> {
     match value.is_orcid() {
         | true => Ok(()),
         | _ => Err(ValidationError::new("orcid").with_message(MESSAGE.into())),
+    }
+}
+/// Check if value is a valid [`crate::schema::pid::Patent`]
+pub fn is_patent_identifier(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid patent identifier";
+    match Patent::is_valid(value) {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new("patent").with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid phone number

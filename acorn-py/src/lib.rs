@@ -1,5 +1,6 @@
 use acorn_lib::schema::{self, ContactPoint};
-use acorn_lib::schema::pid::{DOI, PersistentIdentifier};
+use acorn_lib::schema::pid::{DOI, Patent, PersistentIdentifier};
+use acorn_lib::schema::pid::patent::{CountryCode, KindCode};
 use acorn_lib::schema::research_activity::ResearchActivity;
 use pyo3::prelude::*;
 use acorn_lib::prelude::PathBuf;
@@ -14,6 +15,7 @@ fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Add classes to schema.pid module
     let pid = PyModule::new(python, "pid")?;
     pid.add_class::<PyDOI>()?;
+    pid.add_class::<PyPatent>()?;
     // Add functions to schema.validate module
     let validate = PyModule::new(python, "validate")?;
     validate.add_function(wrap_pyfunction!(format_ark, &validate)?)?;
@@ -24,6 +26,7 @@ fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     validate.add_function(wrap_pyfunction!(is_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ip6, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_orcid, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(is_patent_identifier, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_raid, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ror, &validate)?)?;
     // Configure submodules
@@ -58,6 +61,14 @@ struct PyDOI {
 #[derive(Clone)]
 struct PyMetadata {
     identifier: String,
+}
+#[pyclass(name = "Patent")]
+#[derive(Clone)]
+struct PyPatent {
+    country_code: Option<String>,
+    kind_code: String,
+    serial_number: String,
+    year: Option<String>,
 }
 #[pyclass(name = "ResearchActivity")]
 struct PyResearchActivity {
@@ -146,6 +157,84 @@ impl PyMetadata {
     #[getter]
     fn identifier(&self) -> String {
         self.identifier.clone()
+    }
+}
+#[pymethods]
+impl PyPatent {
+    #[staticmethod]
+    fn find_all(value: String) -> Vec<PyPatent> {
+        Patent::find_all(&value)
+            .iter()
+            .map(|p| PyPatent::from_string(p.clone().to_string()))
+            .collect()
+    }
+    #[staticmethod]
+    fn from_string(value: String) -> PyPatent {
+        let pid = Patent::parse(&value);
+        match pid {
+            | Some(value) => match value {
+                | Patent::Granted { country_code, kind_code, serial_number } => {
+                    PyPatent {
+                        country_code: country_code.clone().map(|x| x.to_string()),
+                        kind_code: kind_code.to_string(),
+                        year: None,
+                        serial_number,
+                    }
+                },
+                | Patent::Application { serial_number, year } => {
+                    PyPatent {
+                        country_code: None,
+                        kind_code: "".to_string(),
+                        serial_number,
+                        year,
+                    }
+                },
+                | Patent::Publication {
+                    country_code,
+                    kind_code,
+                    serial_number,
+                    year,
+                } => {
+                    PyPatent {
+                        country_code: country_code.clone().map(|x| x.to_string()),
+                        kind_code: kind_code.to_string(),
+                        serial_number,
+                        year,
+                    }
+                },
+            }
+            | None => PyPatent {
+                country_code: None,
+                kind_code: "".to_string(),
+                serial_number: String::new(),
+                year: None,
+            },
+        }
+    }
+    #[getter]
+    fn country_code(&self) -> Option<String> {
+        self.country_code.clone()
+    }
+    #[getter]
+    fn kind_code(&self) -> String {
+        self.kind_code.clone()
+    }
+    #[getter]
+    fn serial_number(&self) -> String {
+        self.serial_number.clone()
+    }
+    #[getter]
+    fn year(&self) -> Option<String> {
+        self.year.clone()
+    }
+    fn is_granted(&self) -> bool {
+        let code = self.kind_code();
+        KindCode::from(code).is_granted()
+    }
+    fn __str__(&self) -> String {
+        let code = self.country_code().unwrap_or_else(|| CountryCode::default().to_string());
+        format!("{} {} {}", code, self.serial_number(), self.kind_code())
+
     }
 }
 #[pymethods]
@@ -336,6 +425,13 @@ fn is_ip6(value: &str) -> bool {
 #[pyfunction]
 fn is_orcid(value: &str) -> bool {
     match schema::validate::is_orcid(value) {
+        | Ok(_) => true,
+        | Err(_) => false,
+    }
+}
+#[pyfunction]
+fn is_patent_identifier(value: &str) -> bool {
+    match schema::validate::is_patent_identifier(value) {
         | Ok(_) => true,
         | Err(_) => false,
     }
