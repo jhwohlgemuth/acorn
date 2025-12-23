@@ -24,6 +24,7 @@ The `acorn-py` package provides tools to work with common scientific artifact id
 
 ### Example
 Find all patent numbers in a string
+
 🐍 Python
 ```python
 from acorn.schema.pid import Patent
