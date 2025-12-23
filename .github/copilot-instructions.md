@@ -141,5 +141,6 @@ cargo install cargo-nextest cargo-tarpaulin cargo-audit cargo-auditable
 
 - **Architecture**: [ARCHITECTURE.md](../ARCHITECTURE.md)
 - **Contributing**: [CONTRIBUTING.md](../CONTRIBUTING.md)
+- **WARP Guide**: [WARP.md](../WARP.md) (deployment and release processes)
 - **Book**: https://acorn.ornl.gov (built from `docs/src/` with mdBook)
 - **API Docs**: `make doc` generates via `cargo doc --no-deps`

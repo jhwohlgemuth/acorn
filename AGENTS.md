@@ -331,4 +331,5 @@ pub fn process() { }
 - Include examples for complex public APIs
 - Update README.md if adding new user-facing features
 - Update ARCHITECTURE.md for structural changes
+- Update WARP.md if changes affect deployment or release workflows
 - Update this file if new patterns emerge
