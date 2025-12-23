@@ -1,6 +1,6 @@
 use crate::config::ApplicationConfiguration;
-use acorn_lib::prelude::PathBuf;
-use acorn_lib::util::{suffix, Label};
+use acorn::prelude::PathBuf;
+use acorn::util::{suffix, Label};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
 use std::process::exit;

@@ -1,7 +1,7 @@
-use acorn_lib::schema::research_activity::ResearchActivity;
-use acorn_lib::schema::{ContactPoint, Research, Sections};
-use acorn_lib::util::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
-use acorn_lib::util::{Label, MimeType};
+use acorn::schema::research_activity::ResearchActivity;
+use acorn::schema::{ContactPoint, Research, Sections};
+use acorn::util::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
+use acorn::util::{Label, MimeType};
 use data_encoding::BASE64;
 use derive_more::Display;
 use fast_qr::convert::image::{ImageBuilder, ImageError};

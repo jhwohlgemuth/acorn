@@ -71,7 +71,7 @@ pub trait PersistentIdentifier: Display {
 pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// Convert `self` into a string standard format PID of a certain type
     /// ```ignore
-    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    /// use acorn::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert_eq!("https://doi.org/10.1234/5678".format_as(PID::DOI), "10.1234/5678");
     /// assert_eq!("0000-0002-2057-9115".format_as(PID::ORCID), "https://orcid.org/0000-0002-2057-9115");
@@ -79,7 +79,7 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     fn format_as(&self, pid_type: PID) -> String;
     /// Coerce `self` into given PID type.
     /// ```ignore
-    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    /// use acorn::schema::pid::{PID, PersistentIdentifier};
     ///
     /// let doi = "https://doi.org/10.1234/5678".to_pid(PID::DOI).to_doi();
     /// assert_eq!(doi.suffix(), "5678");
@@ -87,35 +87,35 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     fn to_pid(&self, pid_type: PID) -> PersistentIdentifierInternal;
     /// Determines if `self` is of the given PID type.
     /// ```ignore
-    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    /// use acorn::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://doi.org/10.1234/5678".is_pid(PID::DOI));
     /// ```
     fn is_pid(&self, _pid_type: PID) -> bool;
     /// Determines if `self` is an archival resource key (ARK)
     /// ```ignore
-    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    /// use acorn::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://n2t.net/ark:12148/btv1b8449691v/f29".is_ark());
     /// ```
     fn is_ark(&self) -> bool;
     /// Determines if `self` is a DOI
     /// ```ingore
-    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    /// use acorn::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://doi.org/10.1234/5678".is_doi());
     /// ```
     fn is_doi(&self) -> bool;
     /// Determines if `self` is a ORCID
     /// ```ignore
-    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    /// use acorn::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://orcid.org/0000-0000-0000-0000".is_orcid());
     /// ```
     fn is_orcid(&self) -> bool;
     /// Determines if `self` is a RAID
     /// ```ignore
-    /// use acorn_lib::schema::pid::{PID, PersistentIdentifier};
+    /// use acorn::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://raid.org/10.83962/fb5be317".is_raid());
     fn is_raid(&self) -> bool;
@@ -300,7 +300,7 @@ impl ARK {
     /// Convenience method for easily parsing and formatting an ARK from a string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::ARK;
+    /// use acorn::schema::pid::ARK;
     ///
     /// assert_eq!(ARK::format("ark:/1234/5678"), "ark:1234/5678");
     /// let expected = "https://n2t.net/ark:12148/btv1b8449691v/f29";
@@ -315,7 +315,7 @@ impl ARK {
     /// Create new ARK by parsing raw string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::{ARK, PersistentIdentifier};
+    /// use acorn::schema::pid::{ARK, PersistentIdentifier};
     ///
     /// let ark = ARK::from_string("https://n2t.net/ark:12148/btv1b8449691v/f42");
     /// assert_eq!(ark.suffix(), Some("f42".to_string()));
@@ -353,7 +353,7 @@ impl ARK {
     /// - Last character should be valid check digit (see [`noid_check_digit`])
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::{ARK, PersistentIdentifier};
+    /// use acorn::schema::pid::{ARK, PersistentIdentifier};
     ///
     /// assert!(ARK::is_valid("https://n2t.net/ark:99166/w66d60p2"));
     /// assert!(ARK::is_valid("https://n2t.net/ark:12148/btv1b8449691v/f29"));
@@ -390,7 +390,7 @@ impl DOI {
     /// Convenience method for easily parsing and formatting a DOI from a string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::DOI;
+    /// use acorn::schema::pid::DOI;
     ///
     /// assert_eq!(DOI::format("https://doi.org/10.1000/182"), "10.1000/182");
     /// assert_eq!(DOI::format("10.1000/182"), "10.1000/182");
@@ -404,7 +404,7 @@ impl DOI {
     /// Create new DOI by parsing raw string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::{DOI, PersistentIdentifier};
+    /// use acorn::schema::pid::{DOI, PersistentIdentifier};
     ///
     /// let doi = DOI::from_string("https://doi.org/10.1000/182");
     /// assert_eq!(doi.prefix(), Some("10.1000".into()));
@@ -431,7 +431,7 @@ impl DOI {
     /// - `10.5555/` is not a valid DOI prefix
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::DOI;
+    /// use acorn::schema::pid::DOI;
     ///
     /// assert!(DOI::is_valid("https://doi.org/10.1000/182"));
     /// assert!(DOI::is_valid("10.1000/182"));
@@ -455,7 +455,7 @@ impl ORCID {
     /// Convenience method for easily parsing and formatting a ORCID from a string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::ORCID;
+    /// use acorn::schema::pid::ORCID;
     ///
     /// assert_eq!(ORCID::format("https://orcid.org/0000-0002-2057-9115"), "https://orcid.org/0000-0002-2057-9115");
     /// assert_eq!(ORCID::format("0000-0002-2057-9115"), "https://orcid.org/0000-0002-2057-9115");
@@ -469,7 +469,7 @@ impl ORCID {
     /// Create new ORCID by parsing raw string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::{ORCID, PersistentIdentifier};
+    /// use acorn::schema::pid::{ORCID, PersistentIdentifier};
     ///
     /// let orcid = ORCID::from_string("https://orcid.org/0000-0002-2057-9115");
     /// assert_eq!(orcid.identifier(), "0000-0002-2057-9115");
@@ -494,7 +494,7 @@ impl ORCID {
     /// - Value can be valid with or without schema URI[^format]
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::{ORCID, PersistentIdentifier};
+    /// use acorn::schema::pid::{ORCID, PersistentIdentifier};
     ///
     /// assert!(ORCID::is_valid("https://orcid.org/0000-0002-2057-9115"));
     /// assert!(ORCID::is_valid("0000-0002-2057-9115"));
@@ -522,7 +522,7 @@ impl RAID {
     /// Convenience method for easily parsing and formatting a `RAID` from a string value
     /// ### Example
     /// ```rust
-    /// use acorn_lib::schema::pid::RAID;
+    /// use acorn::schema::pid::RAID;
     ///
     /// assert_eq!(RAID::format("https://raid.org/10.83962/fb5be317"), "10.83962/fb5be317");
     /// ```
@@ -889,7 +889,7 @@ impl Betanumeric for char {
 ///
 /// ### Example
 /// ```rust
-/// use acorn_lib::schema::pid::iso7064_check_digit;
+/// use acorn::schema::pid::iso7064_check_digit;
 ///
 /// assert_eq!(iso7064_check_digit("0000000220579115"), Some('5'));
 /// assert_eq!(iso7064_check_digit("0000-0002-2057-9115"), Some('5'));

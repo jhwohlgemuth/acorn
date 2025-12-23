@@ -127,7 +127,7 @@ impl Location {
     /// > Useful for standardizing file path handling across local and remote contexts
     /// ### Example
     /// ```rust
-    /// use acorn_lib::Location;
+    /// use acorn::Location;
     ///
     /// let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string());
     /// assert_eq!(location.hash(), "code_ornl_gov_research-enablement_buckets_nssd");
@@ -154,7 +154,7 @@ impl Location {
     /// Get associated location value scheme (e.g., https, file, etc.)
     /// ### Example
     /// ```rust
-    /// use acorn_lib::{Location, Scheme};
+    /// use acorn::{Location, Scheme};
     ///
     /// let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string());
     /// assert_eq!(location.scheme(), Scheme::HTTPS);

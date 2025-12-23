@@ -310,7 +310,7 @@ pub fn singular_form(word: &str) -> String {
 /// Count the number of syllables in a given text
 /// ### Example
 /// ```rust
-/// use acorn_lib::analyzer::readability::syllable_count;
+/// use acorn::analyzer::readability::syllable_count;
 ///
 /// let sentence = "The quick brown fox jumps over the lazy dog.";
 /// assert_eq!(syllable_count(sentence), 11);

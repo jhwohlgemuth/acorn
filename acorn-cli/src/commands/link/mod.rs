@@ -1,8 +1,8 @@
 use crate::cli::{paths_from_options, CommandLineOptions};
-use acorn_lib::io::FromPath;
-use acorn_lib::prelude::{File, PathBuf, Write};
-use acorn_lib::schema::research_activity::ResearchActivity;
-use acorn_lib::util::{print_changes, Label, LinkedData, MimeType, ToAbsoluteString};
+use acorn::io::FromPath;
+use acorn::prelude::{File, PathBuf, Write};
+use acorn::schema::research_activity::ResearchActivity;
+use acorn::util::{print_changes, Label, LinkedData, MimeType, ToAbsoluteString};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;

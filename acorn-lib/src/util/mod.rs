@@ -5,7 +5,7 @@
 //! ## Example Uses
 //! ### Work with semantic versions
 //! ```ignore
-//! use acorn_lib::util::SemanticVersion;
+//! use acorn::util::SemanticVersion;
 //!
 //! let version = SemanticVersion::from_string("1.2.3");
 //! assert_eq!(version.minor, 2);
@@ -69,7 +69,7 @@ pub trait ToStrings {
     /// Adding a `to_strings` method to the `Vec<PathBuf>` types seems like a good idea.
     /// ### Example
     /// ```ignore
-    /// use acorn_lib::util::ToStrings;
+    /// use acorn::util::ToStrings;
     ///
     /// let paths = vec![PathBuf::from("foo"), PathBuf::from("bar"), PathBuf::from("baz")];
     /// assert!(paths.to_strings().contains(&"foo".to_string()));
@@ -271,7 +271,7 @@ pub struct Label {}
 /// see <https://semver.org/>
 ///
 /// ```rust
-/// use acorn_lib::util::SemanticVersion;
+/// use acorn::util::SemanticVersion;
 ///
 /// let version = SemanticVersion::from_string("1.2.3");
 /// assert_eq!(version.major, 1);
@@ -574,7 +574,7 @@ impl MimeType {
     /// Returns the file type as a string
     /// ### Example
     /// ```rust
-    /// use acorn_lib::util::MimeType;
+    /// use acorn::util::MimeType;
     ///
     /// let mime = MimeType::Cff;
     /// assert_eq!(mime.file_type(), "cff");
@@ -604,7 +604,7 @@ impl SemanticVersion {
     ///
     /// ### Example
     /// ```rust
-    /// use acorn_lib::util::SemanticVersion;
+    /// use acorn::util::SemanticVersion;
     ///
     /// let version = SemanticVersion::from_string("1.2.3");
     /// assert_eq!(version.minor, 2);
@@ -672,7 +672,7 @@ where
 ///
 /// ### Example
 /// ```rust
-/// use acorn_lib::util::file_extension;
+/// use acorn::util::file_extension;
 ///
 /// let extension = file_extension("test.cff");
 /// assert_eq!(extension, Some("cff".to_string()));
@@ -699,7 +699,7 @@ where
 /// Return fisrt key/value pair with key that matches pattern
 /// ### Example
 /// ```rust
-/// use acorn_lib::util::find_first;
+/// use acorn::util::find_first;
 ///
 /// let values = vec![("foo".to_string(), "bar".to_string()), ("baz".to_string(), "qux".to_string())];
 /// let pattern = "ba";
@@ -778,7 +778,7 @@ pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<Stri
 /// > For best functionality, avoid creating such groups by omitting unnecessary parentheses.
 /// ### Example
 /// ```rust
-/// use acorn_lib::util::regex_capture_lookup;
+/// use acorn::util::regex_capture_lookup;
 /// let lookup = regex_capture_lookup(
 ///     r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})",
 ///     "2023-06-30",
@@ -813,7 +813,7 @@ where
 /// Converts the given string to snake case.
 /// ### Example
 /// ```rust
-/// use acorn_lib::util::snake_case;
+/// use acorn::util::snake_case;
 ///
 /// let snake = snake_case("CamelCase");
 /// assert_eq!(snake, "camel_case");
@@ -827,7 +827,7 @@ where
 /// Returns "s" if the given value is not 1, otherwise returns an empty string.
 /// ### Example
 /// ```
-/// use acorn_lib::util::suffix;
+/// use acorn::util::suffix;
 ///
 /// assert_eq!(suffix(1), "");
 /// assert_eq!(suffix(2), "s");

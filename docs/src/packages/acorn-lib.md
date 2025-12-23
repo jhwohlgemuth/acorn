@@ -14,7 +14,7 @@ The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `ac
   ```  
 - Use `acorn-lib` functions in your Rust code
   ```rust
-  use acorn_lib::schema::validate::{is_ark, is_doi, is_orcid, is_ror};
+  use acorn::schema::validate::{is_ark, is_doi, is_orcid, is_ror};
 
   assert!(is_ark("ark:/1234/w5678"));
   assert!(is_doi("10.11578/dc.20250604.1"));

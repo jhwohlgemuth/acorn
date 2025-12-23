@@ -1,12 +1,12 @@
 use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
 use crate::template::Convert;
-use acorn_lib::io::{async_runtime, extract_zip};
-use acorn_lib::powerpoint::ooxml::{Relationship, Relationships};
-use acorn_lib::powerpoint::{archive, interpolate_values, read_xml_rel};
-use acorn_lib::prelude::{absolute, copy, create_dir_all, remove_file, File, PathBuf};
-use acorn_lib::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
-use acorn_lib::util::{suffix, Label, ToAbsoluteString};
+use acorn::io::{async_runtime, extract_zip};
+use acorn::powerpoint::ooxml::{Relationship, Relationships};
+use acorn::powerpoint::{archive, interpolate_values, read_xml_rel};
+use acorn::prelude::{absolute, copy, create_dir_all, remove_file, File, PathBuf};
+use acorn::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
+use acorn::util::{suffix, Label, ToAbsoluteString};
 use color_eyre::eyre::{Report, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use playwright::api::Page;

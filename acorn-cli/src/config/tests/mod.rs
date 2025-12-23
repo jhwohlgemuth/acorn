@@ -1,6 +1,6 @@
 use crate::config::*;
-use acorn_lib::prelude::PathBuf;
-use acorn_lib::{Location, Scheme};
+use acorn::prelude::PathBuf;
+use acorn::{Location, Scheme};
 
 const FIXTURES: &str = "../tests/fixtures";
 

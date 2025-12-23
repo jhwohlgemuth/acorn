@@ -17,6 +17,9 @@ keywords.workspace = true
 license.workspace = true
 version.workspace = true
 
+[lib]
+name = "acorn"
+
 [badges]
 maintenance = { status = "actively-developed" }
 

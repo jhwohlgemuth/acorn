@@ -4,10 +4,10 @@
 //!
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
-use acorn_lib::io::{files_all, parent, read_file, FromPath};
-use acorn_lib::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
-use acorn_lib::util::{suffix, Label, MimeType, ToAbsoluteString};
-use acorn_lib::Repository;
+use acorn::io::{files_all, parent, read_file, FromPath};
+use acorn::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
+use acorn::util::{suffix, Label, MimeType, ToAbsoluteString};
+use acorn::Repository;
 use color_eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;

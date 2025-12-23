@@ -40,7 +40,7 @@ assert patent.kind_code == "B1"
 ```
 🦀 Rust
 ```rust
-use acorn_lib::schema::pid::Patent;
+use acorn::schema::pid::Patent;
 
 let text = "The patent number for my work is US1234567B1.";
 let values = Patent::find_all(&text);
@@ -55,7 +55,7 @@ The `acorn-py` API strives to adhere to the Rust API as closely as possible. If 
 ### Validate DOIs
 🦀 Rust
 ```rust
-use acorn_lib::schema::validate::DOI;
+use acorn::schema::validate::DOI;
 
 assert!("10.11578/dc.20250604.1".is_doi());
 ```
@@ -69,7 +69,7 @@ assert is_doi("10.11578/dc.20250604.1")
 ### Find all DOI values in a string
 🦀 Rust
 ```rust
-use acorn_lib::schema::pid::DOI;
+use acorn::schema::pid::DOI;
 
 let pid = "https://doi.org/10.11578/dc.20250604.1";
 let text = format!("The DOI for ACORN is: {pid}");

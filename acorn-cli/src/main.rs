@@ -21,9 +21,9 @@
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn_lib::schema::pid::raid::Metadata;
-use acorn_lib::schema::research_activity::ResearchActivity;
-use acorn_lib::util::Label;
+use acorn::schema::pid::raid::Metadata;
+use acorn::schema::research_activity::ResearchActivity;
+use acorn::util::Label;
 use clap::{crate_version, Parser};
 use color_eyre::eyre;
 use dotenvy::dotenv;

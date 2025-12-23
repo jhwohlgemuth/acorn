@@ -1,6 +1,6 @@
 use crate::cli::arguments::Diagnostic;
 use crate::commands::doctor::{run, should_run};
-use acorn_lib::doctor::{MemoryInformation, NetworkInformation, SystemInformation, TableFormatPrint};
+use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, TableFormatPrint};
 use color_eyre::eyre::Result;
 
 const OFFLINE: bool = false;

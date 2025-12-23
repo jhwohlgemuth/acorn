@@ -6,7 +6,7 @@
 //!
 //! ### Perform file read and write operations
 //! ```ignore
-//! use acorn_lib::util::{checksum, read_file, write_file};
+//! use acorn::util::{checksum, read_file, write_file};
 //! use std::path::PathBuf;
 //!
 //! // Verify file integrity
@@ -117,7 +117,7 @@ impl FromCommand for SemanticVersion {
     ///
     /// ### Example
     /// ```ignore
-    /// use acorn_lib::schema::validate::SemanticVersion;
+    /// use acorn::schema::validate::SemanticVersion;
     ///
     /// let version = SemanticVersion::from_command("cargo").to_string();
     /// assert_eq!(version, "1.90.0");
@@ -150,7 +150,7 @@ impl FromPath for MimeType {
     /// Uses [`MimeType::from_string`].
     ///
     /// ```ignore
-    /// use acorn_lib::util::MimeType;
+    /// use acorn::util::MimeType;
     /// use std::path::PathBuf;
     ///
     /// let mime = MimeType::from_path(PathBuf::from("test.cff"));
@@ -332,7 +332,7 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBu
 ///
 /// ### Example
 /// ```ignore
-/// use acorn_lib::util::checksum;
+/// use acorn::util::checksum;
 ///
 /// let checksum = checksum("path/to/file");
 /// assert!(checksum.is_some());
@@ -528,7 +528,7 @@ pub fn filter_git_command_result(value: String, extensions: Option<Vec<&str>>) -
 /// Return file paths in a vector that don't match the ignore pattern
 /// ### Example
 /// ```rust
-/// use acorn_lib::io::filter_ignored;
+/// use acorn::io::filter_ignored;
 /// use std::path::PathBuf;
 ///
 /// let paths = vec![PathBuf::from("/path/to/foo.txt"), PathBuf::from("/path/to/bar.txt")];

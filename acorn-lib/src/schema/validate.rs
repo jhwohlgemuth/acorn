@@ -18,7 +18,7 @@ use validator::ValidationError;
 ///
 /// ### Example
 /// ```rust
-/// use acorn_lib::schema::validate::format_phone_number;
+/// use acorn::schema::validate::format_phone_number;
 ///
 /// assert_eq!(format_phone_number("(123) 456-7890"), Ok("123.456.7890".to_string()));
 /// ```
