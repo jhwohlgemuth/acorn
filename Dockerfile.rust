@@ -12,11 +12,13 @@ ARG DEBIAN_FRONTEND=noninteractive
 #
 RUN apt-get update && apt-get install --no-install-recommends --yes \
         libssl-dev \
-        pkg-config \
+        mingw-w64 \
         musl-tools \
+        pkg-config \
     && rustup component add clippy \
     && rustup component add rustfmt \
     && rustup target add x86_64-unknown-linux-musl \
+    && rustup target add x86_64-pc-windows-gnu \
     && apt-get clean \
     && rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/* \
     && rm -rf /usr/share/man/?? \

@@ -31,8 +31,8 @@ build: clean
 
 build-win: clean
 	@pwsh -Command New-Item -ItemType Directory -Path ".\bin" -Force
-	@cargo build --release --package acorn-cli --target $(WINDOWS_TARGET)
-	@pwsh -Command Move-Item -Path "target\$(WINDOWS_TARGET)\release\acorn.exe" -Destination ".\bin\acorn-v${VERSION}.exe"
+	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
+	@pwsh -Command Move-Item -Path "target\$(DEFAULT_WINDOWS_TARGET)\release\acorn.exe" -Destination ".\bin\acorn-v${VERSION}.exe"
 
 clean:
 	@cargo clean
@@ -132,7 +132,9 @@ bucket-image:
 	@docker tag bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:$(VERSION)
 	@docker tag bucket:$(VERSION) ghcr.io/jhwohlgemuth/bucket:latest
 
-bucket-push: bucket-push-docker bucket-push-ghcr
+bucket-push: bucket-push-savannah bucket-push-docker bucket-push-ghcr
+
+bucket-push-savannah:
 	@docker push $(REGISTRY)/bucket/runner:$(VERSION)
 	@docker push $(REGISTRY)/bucket/runner:latest
 
@@ -163,7 +165,7 @@ PLATFORM = linux/amd64
 VERSION = `awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 REGISTRY = savannah.ornl.gov/research-enablement
 DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml | tr . _`
-WINDOWS_TARGET = x86_64-pc-windows-gnu
+DEFAULT_WINDOWS_TARGET = x86_64-pc-windows-gnu
 DEV_DEPENDENCIES = \
 	cargo-audit \
 	cargo-auditable \

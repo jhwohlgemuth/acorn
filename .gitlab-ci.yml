@@ -29,8 +29,7 @@ prepare-environment:
     - echo "PKG_VERSION=$(awk -F ' = ' '$1 ~ /version/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml)" >> variables.env
     - echo "PKG_REGISTRY_URL=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic" >> variables.env
     - echo "DEFAULT_TARGET=$(awk -F ' = ' '$1 ~ /default-target/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml | tr . _)" >> variables.env
-    - echo $PKG_VERSION
-    - echo $DEFAULT_TARGET
+    - echo "DEFAULT_WINDOWS_TARGET=$(awk -F ' *= *' '$1=="WINDOWS_TARGET"{ sub(/\r$/,"",$2); print $2; exit }' Makefile)" >> variables.env
   artifacts:
     reports:
       dotenv: variables.env
@@ -82,6 +81,7 @@ build-release:
     - job: test
   script:
     - make build
+    - make build-win
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -113,12 +113,14 @@ publish-release:
         - Cargo.toml
   release:
     tag_name: "v${PKG_VERSION}"
-    description: "## ${BINARY_NAME} v${PKG_VERSION}\n> See [CHANGELOG](${CHANGELOG}) for details"
+    description: "## ${BINARY_NAME} v${PKG_VERSION}\n> See [CHANGELOG](${CHANGELOG}) and [documentation](https://acorn.ornl.gov) for details"
     ref: "${CI_COMMIT_SHA}"
     assets:
       links:
-        - name: "${BINARY_NAME} v${PKG_VERSION}"
+        - name: "${BINARY_NAME} v${PKG_VERSION} (Linux)"
           url: "${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/${BINARY_NAME}"
+        - name: "${BINARY_NAME} v${PKG_VERSION} (Windows)"
+          url: "${PKG_REGISTRY_URL}/${DEFAULT_WINDOWS_TARGET}/v${PKG_VERSION}/${BINARY_NAME}.exe"
 
 upload-binaries:
   stage: release
