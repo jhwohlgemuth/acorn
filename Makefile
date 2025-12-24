@@ -29,6 +29,11 @@ build: clean
 	@cargo build --release --package acorn-cli --target $(DEFAULT_TARGET)
 	@mv target/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
 
+build-win: clean
+	@pwsh -Command New-Item -ItemType Directory -Path ".\bin" -Force
+	@cargo build --release --package acorn-cli --target $(WINDOWS_TARGET)
+	@pwsh -Command Move-Item -Path "target\$(WINDOWS_TARGET)\release\acorn.exe" -Destination ".\bin\acorn-v${VERSION}.exe"
+
 clean:
 	@cargo clean
 
@@ -158,6 +163,7 @@ PLATFORM = linux/amd64
 VERSION = `awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 REGISTRY = savannah.ornl.gov/research-enablement
 DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml | tr . _`
+WINDOWS_TARGET = x86_64-pc-windows-gnu
 DEV_DEPENDENCIES = \
 	cargo-audit \
 	cargo-auditable \
