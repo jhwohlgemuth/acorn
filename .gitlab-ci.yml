@@ -29,7 +29,7 @@ prepare-environment:
     - echo "PKG_VERSION=$(awk -F ' = ' '$1 ~ /version/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml)" >> variables.env
     - echo "PKG_REGISTRY_URL=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic" >> variables.env
     - echo "DEFAULT_TARGET=$(awk -F ' = ' '$1 ~ /default-target/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml | tr . _)" >> variables.env
-    - echo "DEFAULT_WINDOWS_TARGET=$(awk -F ' *= *' '$1=="WINDOWS_TARGET"{ sub(/\r$/,"",$2); print $2; exit }' Makefile)" >> variables.env
+    - echo "DEFAULT_WINDOWS_TARGET=$(awk -F ' *= *' '$1=="DEFAULT_WINDOWS_TARGET"{ sub(/\r$/,"",$2); print $2; exit }' Makefile)" >> variables.env
   artifacts:
     reports:
       dotenv: variables.env
