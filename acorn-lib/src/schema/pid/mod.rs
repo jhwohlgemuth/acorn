@@ -106,6 +106,10 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// assert!("https://doi.org/10.1234/5678".is_doi());
     /// ```
     fn is_doi(&self) -> bool;
+    /// Determines if `self` is an ISBN
+    fn is_isbn(&self) -> bool {
+        false
+    }
     /// Determines if `self` is a ORCID
     /// ```ignore
     /// use acorn::schema::pid::{PID, PersistentIdentifier};
@@ -146,6 +150,10 @@ pub enum PID {
     ///
     /// See [`DOI`]
     DOI,
+    /// International Standard Book Number (ISBN)
+    ///
+    /// See [`ISBN`]
+    ISBN,
     /// Open Researcher and Contributor ID (ORCiD)
     ///
     /// See [`ORCID`]
@@ -254,6 +262,33 @@ pub struct DOI {
     /// - Can be an identifier generated from or based on another system used by the registrant
     /// - No length limit is set to the suffix by the DOI System
     pub suffix: Option<String>,
+}
+/// International Standard Book Number (ISBN)
+/// 
+/// A 13-digit identification number and system, widely used in the international book trade for over 35 years and assigned through a network of [international ISBN Registration Agencies](https://www.isbn-international.org/).
+/// ISBNs are used to identify each unique publication whether in the form of a physical book or related materials such as eBooks, software, mixed media etc.
+/// ### Notes
+/// - ISBNs are governed by the ISO 2108 standard.
+/// - ISNBs can be expressed as [`DOI`]s (see [DOI system and the ISBN system](https://www.doi.org/the-identifier/resources/factsheets/doi-system-and-the-isbn-system)).
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init)]
+pub struct ISBN {
+    /// Prefix element
+    /// 
+    /// ISBN (GS1) Bookland prefix = `978.` or `979.`
+    pub prefix_element: String,
+    /// Registration group element
+    /// 
+    /// 1-to-5-digit number that is valid within a single prefix element
+    pub group: String,
+    /// Publication prefix element
+    pub publisher: String,
+    /// ISBN Title enumerator
+    pub title: String,
+    /// Check digit
+    /// 
+    /// See [`isbn_check_digit`]
+    pub check_digit: Option<String>,
 }
 /// Open Researcher and Contributor ID (ORCiD)[^orcid]
 ///
@@ -882,6 +917,15 @@ impl Betanumeric for char {
     fn to_betanumeric_ordinal(&self) -> Option<usize> {
         BETANUMERIC_DIGITS.chars().position(|x| x.eq(self))
     }
+}
+/// ISBN check digit
+/// 
+/// The check digit is the last (13th) digit of the identifier
+/// 
+/// Each digit, from left to right, is alternately multiplied by 1 or 3, then those products are summed modulo 10
+pub fn isbn_check_digit<S>(_value: S) -> Option<char>
+where S: AsRef<str> {
+    None
 }
 /// Calculate check digit IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html)
 ///

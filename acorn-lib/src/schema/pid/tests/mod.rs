@@ -1,7 +1,7 @@
 use crate::prelude::PathBuf;
 use crate::schema::pid::patent::KindCode;
 use crate::schema::pid::{
-    iso7064_check_digit, noid_check_digit, raid, Betanumeric, Patent, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI, ORCID, PID, RAID,
+    ARK, Betanumeric, DOI, ORCID, PID, Patent, PersistentIdentifier, PersistentIdentifierConvert, RAID, isbn_check_digit, iso7064_check_digit, noid_check_digit, raid
 };
 use crate::schema::Validate;
 
@@ -122,6 +122,11 @@ fn test_doi_struct() {
     assert_eq!(DOI::format(valid), "10.1000/182");
     assert_eq!(DOI::format("10.1000/182"), "10.1000/182");
     assert_eq!(DOI::format("invalid DOI value"), "");
+}
+#[test]
+fn test_isbn() {
+    let valid = "978-0-306-40615-7";
+    assert!(isbn_check_digit(valid).is_none());
 }
 #[test]
 fn test_iso7064_check_digit() {
