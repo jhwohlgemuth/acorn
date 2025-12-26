@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
 RUN rustup target add x86_64-unknown-linux-musl \
     && cargo build --release --target x86_64-unknown-linux-musl
 
-FROM bitnami/minideb:bookworm
+FROM dhi.io/debian-base:bookworm
 COPY --from=build-env /app/target/x86_64-unknown-linux-musl/release/acorn /
 RUN apt-get update \
     && apt-get install --no-install-recommends --yes ca-certificates \
