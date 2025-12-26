@@ -1,6 +1,95 @@
 # CHANGELOG 🌱
 > Wisdom is knowledge of things that don't change, intelligence is the knowledge of things that do
 
+## Unreleased
+> ⚠️ If you want to use these changes, you will need to build from source. Consult [CONTRIBUTING.md](https://code.ornl.gov/research-enablement/acorn/-/blob/main/CONTRIBUTING.md) for details.
+
+### 🚧 In Progress
+
+- ISBN data modeling - ([9e2f243](https://code.ornl.gov/research-enablement/acorn/commit/9e2f2435dc4fd66788b50cc830d3f46c1af43dde))
+## [0.1.49](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.48..v0.1.49) - 2025-12-24
+
+### 🐛 Bug Fixes
+
+- *(ci)* Combine build tasks and actually upload windows release binary - ([c59f638](https://code.ornl.gov/research-enablement/acorn/commit/c59f638fff53509f5c41902b72e5640f274907e2))
+## [0.1.48](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.47..v0.1.48) - 2025-12-24
+
+### 🐛 Bug Fixes
+
+- *(ci)* Add powershell to rust image and fix variable in gitlab CI config - ([5e095a7](https://code.ornl.gov/research-enablement/acorn/commit/5e095a7d0ca7e8b655d5ebfd2bb6c64f3327774e))
+## [0.1.47](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.46..v0.1.47) - 2025-12-24
+
+### 🚀 Features
+
+- Rename acorn-lib library export to acorn - ([469d75f](https://code.ornl.gov/research-enablement/acorn/commit/469d75f9b7a8bcdfa5c2067738d11039e68bd17c))
+- Improve patent support in rust and python - ([eefab32](https://code.ornl.gov/research-enablement/acorn/commit/eefab322de76dfee3ecbbfa8b3917fc9a350933a))
+- Add find_all to Patent impl - ([081967c](https://code.ornl.gov/research-enablement/acorn/commit/081967c5ec2a563201471de4c9a527b16eb77d6c))
+- Improve patent regex parsing - ([e7cbb41](https://code.ornl.gov/research-enablement/acorn/commit/e7cbb4139d86a6fcc592bfd1d9de042911c5356b))
+- Create patent module - ([e12fe35](https://code.ornl.gov/research-enablement/acorn/commit/e12fe35e85e91e6ef73c75d8aefa131afd467c57))
+- Add DOI find_all to rust and python packages - ([a99b7b7](https://code.ornl.gov/research-enablement/acorn/commit/a99b7b7d75f1d74e5a749fe41d3455c83e5967d7))
+- Initial addition of ASPECT data to powerpoint interpolation - ([1bf33b2](https://code.ornl.gov/research-enablement/acorn/commit/1bf33b2bb1670bcd34eabd4e998864ea914b68b5))
+- Refine PowerPoint interpolation capability - ([7e87519](https://code.ornl.gov/research-enablement/acorn/commit/7e875193f4a701a496a22c9e15d810b0591073d6))
+- Standardize use of ToAbsoluteString trait - ([a1b2d0c](https://code.ornl.gov/research-enablement/acorn/commit/a1b2d0c79fdaae19b6368604287deef1cccb178e))
+- Remove export Size and Target options (gate on file format and change reference for highlights) - ([69600ee](https://code.ornl.gov/research-enablement/acorn/commit/69600ee1a9a8c720e0da44f010e36470d5c79bf2))
+- Rename efficacy to agency for understanding and meaning - ([c95e9a8](https://code.ornl.gov/research-enablement/acorn/commit/c95e9a8dc735c79db85961199294cdf7ba6f3830))
+- Refine RA format function - ([c973d77](https://code.ornl.gov/research-enablement/acorn/commit/c973d77ca6cadb4ff1edccbaeb4595ec379c4f16))
+- Remove FuzzyValue enum - ([349e004](https://code.ornl.gov/research-enablement/acorn/commit/349e0042b4340fb10cd8d36c91ccc093158c59ca))
+- Add from_technology method for License impl - ([2eb81fe](https://code.ornl.gov/research-enablement/acorn/commit/2eb81feac1ce50b9b7af4275b606db4bd9fe3f1f))
+- Add enhanced License handling capability; Make technology a valid CSV - ([e859fef](https://code.ornl.gov/research-enablement/acorn/commit/e859fef6cebef19b4a837255efd65305001f88ad))
+- First wasi build of acorn-lib with no errors or issues - ([9afa57d](https://code.ornl.gov/research-enablement/acorn/commit/9afa57ddb6ea28fdf91a29df110d3490c82ff0d8))
+- More progress toward no-default build - ([0150619](https://code.ornl.gov/research-enablement/acorn/commit/01506195117c565a8053fa0255e681c57e9ea445))
+
+### 🐛 Bug Fixes
+
+- *(docs)* Add carriage return before code example - ([48df3c9](https://code.ornl.gov/research-enablement/acorn/commit/48df3c9e81bc9931d5791adc52949f14e6e20d35))
+- *(tests)* Update doctests to pass and add no-default test to ci task - ([cd2e89e](https://code.ornl.gov/research-enablement/acorn/commit/cd2e89e01d6347f3a3dca838def4aab366d3e162))
+- Include default hasher feature for hashbrown; use hashbrown for std and no-std builds - ([b267a1b](https://code.ornl.gov/research-enablement/acorn/commit/b267a1b58490f7af53dd0054d61bdb5fb7d80337))
+
+### 📚 Documentation
+
+- Update overview image - ([28ae923](https://code.ornl.gov/research-enablement/acorn/commit/28ae92353bc6708b4960bd5ffb89b8fb70b6e772))
+- Update shell examples for export command in book - ([b79d91a](https://code.ornl.gov/research-enablement/acorn/commit/b79d91a27c7993760e798663d51706600539eae6))
+- Add more clarity to agency page - ([9072cb5](https://code.ornl.gov/research-enablement/acorn/commit/9072cb5078c74282d40efb86f427978202c28994))
+- Build out agency page - ([533a1f9](https://code.ornl.gov/research-enablement/acorn/commit/533a1f9a53da899d1b67ec8062bb299b99934f5d))
+- Add words to HMT page - ([96e1908](https://code.ornl.gov/research-enablement/acorn/commit/96e1908ca1eb6f81d96ecc433888ca9fcf6e68c2))
+- Refactor structure; improve aspect docs; various improvements - ([54edbf7](https://code.ornl.gov/research-enablement/acorn/commit/54edbf72a7e3eadb72002078cc57675486867219))
+
+### ⚙️ Miscellaneous Tasks
+
+- Add windows build to CI release jobs - ([0afd433](https://code.ornl.gov/research-enablement/acorn/commit/0afd433e6c556695a97728163dd5c77d43764374))
+- Initial prep for adding windows release - ([2e89cb8](https://code.ornl.gov/research-enablement/acorn/commit/2e89cb89757386cf6e5791aa98d93e2ab7ff800a))
+
+### 🤓 Developer Experience
+
+- Add windows build task - ([14d0009](https://code.ornl.gov/research-enablement/acorn/commit/14d000903b6fda0ab953b6270810152207d8479b))
+- Add reference to WARP file to agent files - ([43f1f4c](https://code.ornl.gov/research-enablement/acorn/commit/43f1f4ce3fa043738512dfac6a29a29f29c80565))
+- Add agent configuration files - ([f3795db](https://code.ornl.gov/research-enablement/acorn/commit/f3795dbf18c3d5e0c7ca8383622afc631a07c3d6))
+## [0.1.46](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.45..v0.1.46) - 2025-12-10
+
+### 🚀 Features
+
+- Remove PathBuf from util module (moved to io module) - ([0c2df3f](https://code.ornl.gov/research-enablement/acorn/commit/0c2df3f803963608516daed51416c03bf8fd17ec))
+- Add portability to aspect framework - ([6e1b5a2](https://code.ornl.gov/research-enablement/acorn/commit/6e1b5a23d80c58dddf97719a19b373e34d2aba00))
+- Move more functions that depend on PathBuf into io module - ([c894d40](https://code.ornl.gov/research-enablement/acorn/commit/c894d40472b69ec6257aa098b31157c8dc016c6a))
+- Add technologies from midnight blue - ([2dca698](https://code.ornl.gov/research-enablement/acorn/commit/2dca6984c3ecfcabb6eea530aeaf4987cd064a6c))
+
+### 🐛 Bug Fixes
+
+- *(ci)* Remove manual triggers from jobs - ([d79fc44](https://code.ornl.gov/research-enablement/acorn/commit/d79fc446bfbde3cce8ff0488ff1ec59a9187c1c1))
+- *(docs)* Add aspect portability to summary - ([151fb4e](https://code.ornl.gov/research-enablement/acorn/commit/151fb4e3e6b40f5e28479a17bf2b49b726d6c7d4))
+
+### 📚 Documentation
+
+- Add image and some links to motivation - ([40a149d](https://code.ornl.gov/research-enablement/acorn/commit/40a149dbb851dc780dc46d1adedcac4b0fc01a53))
+- Add motivation and build out aspect overview - ([f5078f5](https://code.ornl.gov/research-enablement/acorn/commit/f5078f5fd8ac79f7ec7da32024c6bde452f45ede))
+- Add maturity page to book - ([4f1c04a](https://code.ornl.gov/research-enablement/acorn/commit/4f1c04a75dc3a74dabf3ce19990a9861518b9ee7))
+- Add badges to book - ([cd06df0](https://code.ornl.gov/research-enablement/acorn/commit/cd06df06b270ef7d8733f54f8b5706ef4b9b485b))
+- Add custom 404 page for book - ([8115e8b](https://code.ornl.gov/research-enablement/acorn/commit/8115e8bb712782dbfae141c95c46303467dbf5db))
+- Improve readability of book and add more sections - ([58f7f9e](https://code.ornl.gov/research-enablement/acorn/commit/58f7f9ea1d0abf055790a7d512fea5c41124f3e5))
+- Update acorn banner with new font - ([f2a9c05](https://code.ornl.gov/research-enablement/acorn/commit/f2a9c058e84280099d041576b46e4e0ed3910817))
+- Add more words to book overview - ([019df6d](https://code.ornl.gov/research-enablement/acorn/commit/019df6d1441de8942d493c2fa77cba968d082a2b))
+- Initial addition of ASPECT to book - ([b43cc4a](https://code.ornl.gov/research-enablement/acorn/commit/b43cc4af412197727f2dd3da2189290e76f6b18c))
+- Update changelog - ([87b3109](https://code.ornl.gov/research-enablement/acorn/commit/87b31090833ec264b3f5e2ff0018e6b2bccd2088))
 ## [0.1.45](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.43..v0.1.45) - 2025-12-05
 
 ### 🚀 Features
