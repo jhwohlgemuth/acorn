@@ -6,7 +6,7 @@ LABEL author="Jason Wohlgemuth"
 #
 # %arguments
 #
-ARG ACORN_VERSION=0.1.42
+ARG ACORN_VERSION=0.1.50
 ARG DEBIAN_FRONTEND=noninteractive
 ARG DEFAULT_TARGET=x86_64-unknown-linux-musl
 ARG VALE_VERSION=3.13.0
