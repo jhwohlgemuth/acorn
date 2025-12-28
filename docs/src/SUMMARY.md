@@ -13,7 +13,6 @@
     - [🖥️ (Hardware) Resources](./concepts/aspect/resources.md)
     - [🦾 Agency](./concepts/aspect/agency.md)
     - [🎯 Task classification](./concepts/aspect/task-classification.md)
-  - [🪣 Buckets](./concepts/buckets.md)
 - [🐚 Command Line Reference](./cli-reference/README.md)
   - [Configuration](./cli-reference/configuration.md)
   - [Commands](./cli-reference/commands/README.md)

@@ -16,11 +16,13 @@
 > Accessible Content Optimization for Research Needs
 
 :seedling: ACORN provides and operationalizes an ontology for research activity data (RAD) and enables adding linked data context and transforming RAD into a knowledge graph that is amenable to automated reasoning and artifact generation (e.g. PDFs, PPTX, etc.)
+ 
+ 
 
 [[_TOC_]]
 
 ## So what, big deal, who cares?
-ACORN is a command line multi-tool that employs automated processes for informing and enforcing defined content schemas. With these content schemas, ACORN builds communication assets such as PDFs, presentation files, and web pages. It also lays the foundation for deep data insights about ORNL’s — and any institution’s — corpus of research. Built using the memory-safe Rust programming language, ACORN can be used on any Windows, Mac, or Linux machine
+<span title="Accessible Content Optimization for Research Needs">ACORN</span> is a command line multi-tool that employs automated processes for informing and enforcing defined content schemas. With these content schemas, ACORN builds communication assets such as PDFs, presentation files, and web pages. It also lays the foundation for deep data insights about ORNL’s — and any institution’s — corpus of research. Built using the memory-safe Rust programming language, ACORN can be used on any Windows, Mac, or Linux machine
 
 ## Installation
 See [the ACORN book](https://acorn.ornl.gov) for detailed installation instructions for the [CLI application](http://acorn.ornl.gov/getting-started.html), [🦀Rust crate](http://acorn.ornl.gov/packages/acorn-lib.html#installation), [🐍Python package](http://acorn.ornl.gov/packages/acorn-py.html#installation), and [WebAssembly package](http://acorn.ornl.gov/packages/acorn-web.html#installation).

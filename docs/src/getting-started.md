@@ -7,7 +7,7 @@
 
 ### Install with Scoop (Windows only)
 > [!WARNING]  
-> 🚧 [Under construction](github.com/ScoopInstaller/Extras/pull/16876)
+> 🚧 Under construction ([Pull Request](https://github.com/ScoopInstaller/Extras/pull/16876)/[Issue](https://github.com/ScoopInstaller/Extras/issues/16896))
 
 - Ensure you have [Scoop](https://scoop.sh/) installed.
 - Open your terminal and add the extras bucket to Scoop
