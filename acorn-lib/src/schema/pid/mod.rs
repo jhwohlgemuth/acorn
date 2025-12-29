@@ -264,7 +264,7 @@ pub struct DOI {
     pub suffix: Option<String>,
 }
 /// International Standard Book Number (ISBN)
-/// 
+///
 /// A 13-digit identification number and system, widely used in the international book trade for over 35 years and assigned through a network of [international ISBN Registration Agencies](https://www.isbn-international.org/).
 /// ISBNs are used to identify each unique publication whether in the form of a physical book or related materials such as eBooks, software, mixed media etc.
 /// ### Notes
@@ -274,11 +274,11 @@ pub struct DOI {
 #[builder(start_fn = init)]
 pub struct ISBN {
     /// Prefix element
-    /// 
+    ///
     /// ISBN (GS1) Bookland prefix = `978.` or `979.`
     pub prefix_element: String,
     /// Registration group element
-    /// 
+    ///
     /// 1-to-5-digit number that is valid within a single prefix element
     pub group: String,
     /// Publication prefix element
@@ -286,7 +286,7 @@ pub struct ISBN {
     /// ISBN Title enumerator
     pub title: String,
     /// Check digit
-    /// 
+    ///
     /// See [`isbn_check_digit`]
     pub check_digit: Option<String>,
 }
@@ -919,13 +919,25 @@ impl Betanumeric for char {
     }
 }
 /// ISBN check digit
-/// 
+///
 /// The check digit is the last (13th) digit of the identifier
-/// 
+///
 /// Each digit, from left to right, is alternately multiplied by 1 or 3, then those products are summed modulo 10
 pub fn isbn_check_digit<S>(_value: S) -> Option<char>
-where S: AsRef<str> {
-    None
+where
+    S: AsRef<str>,
+{
+    const MODULUS: u32 = 10;
+    let working = _value.as_ref().replace("-", "");
+    let sum = working.chars().take(12).enumerate().fold(0, |acc, (index, x)| {
+        let digit = x.to_digit(10).unwrap_or_default();
+        let multiplier = if index % 2 == 0 { 1 } else { 3 };
+        // dbg!(&digit, &multiplier);
+        acc + (digit * multiplier)
+    });
+    let remainder = sum % MODULUS;
+    let result = if remainder == 0 { 0 } else { MODULUS - remainder };
+    char::from_digit(result, 10)
 }
 /// Calculate check digit IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html)
 ///
