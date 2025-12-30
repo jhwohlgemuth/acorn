@@ -133,8 +133,10 @@ pub const MAX_ALLOWED_SMOG: f64 = 13.0;
 /// Pattern text for ARK regular expression defined by [`RE_ARK`]
 pub const RE_ARK_TEXT: &str = r#"^(?<nma>(?<schema_uri>https\:\/\/).+)?\/?(?<label>ark\:\/?)\/?(?<naan>\d{2,9})\/(?<assigned_name>[a-z0-9A-Z]+)?\/?(?<parts>[^.]+)?\.?(?<variants>[a-zA-Z0-9-.]+)?$"#;
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]
-pub const RE_DOI_TEXT: &str =
-    r#"(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
+pub const RE_DOI_TEXT: &str = r#"(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10)[.](?<prefix_element>97[89][.])?(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
+/// Pattern text for ISBN regular expression defined by [`RE_ISBN`]
+pub const RE_ISBN_TEXT: &str =
+    r#"(?<prefix_element>97[89])[ -]?(?<registration_group>\d{1,5})[ -]?(?<publisher>\d{1,7})[ -]?(?<title>\d{1,6})[ -]?(?<check_digit>\d)"#;
 /// Pattern text for ORCiD regular expression defined by [`RE_ORCID`]
 pub const RE_ORCID_TEXT: &str =
     r#"^(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))$"#;
@@ -154,6 +156,8 @@ lazy_static! {
     ///
     /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
     pub static ref RE_DOI: Regex = Regex::new(RE_DOI_TEXT).unwrap();
+    /// Regex that should match an International Standard Book Number (ISBN)
+    pub static ref RE_ISBN: Regex = Regex::new(RE_ISBN_TEXT).unwrap();
     /// Regex that should match a USPTO patent identifier (granted patent, application, or publication)
     pub static ref RE_PATENT: Regex = Regex::new(RE_PATENT_TEXT).unwrap();
     /// Regex that should match an Open Researcher and Contributor ID (ORCiD) value

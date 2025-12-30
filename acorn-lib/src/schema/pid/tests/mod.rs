@@ -2,7 +2,7 @@ use crate::prelude::PathBuf;
 use crate::schema::pid::patent::KindCode;
 use crate::schema::pid::{
     isbn_check_digit, iso7064_check_digit, noid_check_digit, raid, Betanumeric, Patent, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI,
-    ORCID, PID, RAID,
+    ISBN, ORCID, PID, RAID,
 };
 use crate::schema::Validate;
 
@@ -139,9 +139,18 @@ fn test_isbn() {
         "978-0-306-40624-9",
     ];
     VALID_ISBN.iter().enumerate().for_each(|(index, value)| {
+        assert!(ISBN::is_valid(value));
+        let pid = ISBN::from_string(value);
+        assert_eq!(pid.to_string(), *value);
         let expected = char::from_digit(index as u32, 10);
         assert_eq!(isbn_check_digit(value), expected, "{value} check digit is NOT {index}");
     });
+    // ISBN-A support
+    let isbn = ISBN::from_string("978-0-306-40627-0");
+    let doi = DOI::from(isbn);
+    assert_eq!(doi.to_string(), "10.978.0306/406270");
+    // let result: ISBN = doi.into();
+    // assert_eq!(result.to_string(), "978-0-306-40627-0");
 }
 #[test]
 fn test_iso7064_check_digit() {

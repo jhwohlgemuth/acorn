@@ -8,7 +8,9 @@
 //! - Access the sub parts of a persistent identifier
 //!
 //! [RAiDs]: https://www.raid.org/
-use crate::util::constants::{DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT};
+use crate::util::constants::{
+    DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT,
+};
 use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::Builder;
 use core::fmt::Display;
@@ -276,15 +278,15 @@ pub struct ISBN {
     /// Prefix element
     ///
     /// ISBN (GS1) Bookland prefix = `978.` or `979.`
-    pub prefix_element: String,
+    pub prefix_element: Option<String>,
     /// Registration group element
     ///
     /// 1-to-5-digit number that is valid within a single prefix element
-    pub group: String,
+    pub registration_group: Option<String>,
     /// Publication prefix element
-    pub publisher: String,
+    pub publisher: Option<String>,
     /// ISBN Title enumerator
-    pub title: String,
+    pub title: Option<String>,
     /// Check digit
     ///
     /// See [`isbn_check_digit`]
@@ -449,7 +451,7 @@ impl DOI {
     where
         S: AsRef<str>,
     {
-        let groups = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
+        let groups = ["schema_uri", "directory_indicator", "prefix_element", "registrant_code", "suffix"];
         let pattern = format!("^{RE_DOI_TEXT}$");
         let lookup = regex_capture_lookup(pattern.as_ref(), value.as_ref(), groups.to_vec());
         DOI::init()
@@ -484,6 +486,52 @@ impl DOI {
         };
         let suffix_is_valid = pid.suffix().is_some();
         prefix_is_valid && suffix_is_valid
+    }
+}
+impl ISBN {
+    /// Find all ISBN values present in a string
+    pub fn find_all(value: &str) -> Vec<Self> {
+        let re = &RE_ISBN;
+        re.find_iter(value).map(|m| ISBN::from_string(m.unwrap().as_str())).collect()
+    }
+    /// Create new ISBN by parsing raw string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::ISBN;
+    ///
+    ///
+    /// ```
+    pub fn from_string<S>(value: S) -> Self
+    where
+        S: AsRef<str>,
+    {
+        let groups = ["prefix_element", "registration_group", "publisher", "title", "check_digit"];
+        let pattern = format!("^{RE_ISBN_TEXT}$");
+        let lookup = regex_capture_lookup(pattern.as_ref(), value.as_ref(), groups.to_vec());
+        ISBN::init()
+            .maybe_prefix_element(lookup.get("prefix_element").cloned())
+            .maybe_registration_group(lookup.get("registration_group").cloned())
+            .maybe_publisher(lookup.get("publisher").cloned())
+            .maybe_title(lookup.get("title").cloned())
+            .maybe_check_digit(lookup.get("check_digit").cloned())
+            .build()
+    }
+    /// Check if value is a valid ISBN
+    /// ### Conditions
+    /// - Must be exactly 13 digits long (not including hyphens)
+    /// - Must have a valid check digit
+    pub fn is_valid<S>(value: S) -> bool
+    where
+        S: AsRef<str>,
+    {
+        let pid = ISBN::from_string(value.as_ref());
+        let last = value.as_ref().chars().last().unwrap_or_default();
+        let has_valid_check_digit = match pid.check_digit() {
+            | Some(x) => x.to_string().eq(&last.to_string()),
+            | _ => false,
+        };
+        let is_valid_length = value.as_ref().replace("-", "").len() == 13;
+        has_valid_check_digit && is_valid_length
     }
 }
 impl ORCID {
@@ -639,6 +687,13 @@ impl Display for DOI {
         write!(f, "{result}")
     }
 }
+impl Display for ISBN {
+    /// Format a ISBN into a standard format
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let result = self.identifier();
+        write!(f, "{result}")
+    }
+}
 impl Display for ORCID {
     /// Format a ORCiD into a standard format of `"{schema_uri}{identifier}"`
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -780,6 +835,84 @@ impl PersistentIdentifier for DOI {
         } else {
             None
         }
+    }
+}
+impl PersistentIdentifier for ISBN {
+    fn new() -> Self {
+        ISBN::init().build()
+    }
+    fn schema_uri(&self) -> String {
+        "".to_string()
+    }
+    fn identifier(&self) -> String {
+        let ISBN {
+            prefix_element,
+            registration_group,
+            publisher,
+            title,
+            check_digit,
+        } = self;
+        [prefix_element, registration_group, publisher, title, check_digit]
+            .into_iter()
+            .map(|x| x.clone().unwrap_or_default())
+            .collect::<Vec<String>>()
+            .join("-")
+    }
+    /// Used to convert to ISBN-A DOI compatible value
+    /// See <https://www.doi.org/the-identifier/resources/factsheets/doi-system-and-the-isbn-system>
+    fn prefix(&self) -> Option<String> {
+        let ISBN {
+            prefix_element,
+            registration_group,
+            publisher,
+            ..
+        } = self;
+        let result = format!(
+            "{}.{}{}",
+            prefix_element.clone().unwrap_or_default(),
+            registration_group.clone().unwrap_or_default(),
+            publisher.clone().unwrap_or_default()
+        );
+        Some(result)
+    }
+    /// Used to convert to ISBN-A DOI compatible value
+    /// See <https://www.doi.org/the-identifier/resources/factsheets/doi-system-and-the-isbn-system>
+    fn suffix(&self) -> Option<String> {
+        let ISBN { title, check_digit, .. } = self;
+        let result = [title, check_digit]
+            .into_iter()
+            .map(|x| x.clone().unwrap_or_default())
+            .collect::<Vec<String>>()
+            .join("");
+        Some(result)
+    }
+    fn check_digit(&self) -> Option<char> {
+        isbn_check_digit(self.identifier())
+    }
+}
+impl From<ISBN> for DOI {
+    fn from(isbn: ISBN) -> Self {
+        DOI::init()
+            .schema_uri("https://doi.org/".to_string())
+            .directory_indicator("10".to_string())
+            .maybe_registrant_code(isbn.prefix())
+            .maybe_suffix(isbn.suffix())
+            .build()
+    }
+}
+impl From<DOI> for ISBN {
+    fn from(doi: DOI) -> Self {
+        let prefix = doi.prefix().unwrap_or_default().replace(".", "-");
+        let suffix = match doi.suffix() {
+            | Some(value) => {
+                let check_digit = value.chars().last().unwrap_or_default().to_string();
+                let title = value[..value.len() - 1].to_string();
+                format!("{title}-{check_digit}")
+            }
+            | None => "".to_string(),
+        };
+        let result = format!("{}-{suffix}", prefix.trim_start_matches("10-"));
+        ISBN::from_string(result)
     }
 }
 impl PersistentIdentifier for ORCID {
