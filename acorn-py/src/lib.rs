@@ -1,13 +1,14 @@
-use acorn_lib::schema::{self, ContactPoint};
-use acorn_lib::schema::pid::{DOI, Patent, PersistentIdentifier};
-use acorn_lib::schema::pid::patent::{CountryCode, KindCode};
-use acorn_lib::schema::research_activity::ResearchActivity;
+use acorn::prelude::PathBuf;
+use acorn::schema::pid::patent::{CountryCode, KindCode};
+use acorn::schema::pid::{Patent, PersistentIdentifier, DOI, ISBN};
+use acorn::schema::research_activity::ResearchActivity;
+use acorn::schema::{self, ContactPoint};
 use pyo3::prelude::*;
-use acorn_lib::prelude::PathBuf;
 
 /// Python bindings for ACORN
 #[pymodule]
-fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
+#[pyo3(name = "acorn")]
+fn acorn_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     let python = module.py();
     // Add classes to schema module
     let schema = PyModule::new(python, "schema")?;
@@ -15,6 +16,7 @@ fn acorn(module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Add classes to schema.pid module
     let pid = PyModule::new(python, "pid")?;
     pid.add_class::<PyDOI>()?;
+    pid.add_class::<PyISBN>()?;
     pid.add_class::<PyPatent>()?;
     // Add functions to schema.validate module
     let validate = PyModule::new(python, "validate")?;
@@ -56,6 +58,15 @@ struct PyDOI {
     schema_uri: String,
     prefix: String,
     suffix: String,
+}
+#[pyclass(name = "ISBN")]
+#[derive(Clone)]
+struct PyISBN {
+    prefix_element: String,
+    registration_group: String,
+    publisher: String,
+    title: String,
+    check_digit: String,
 }
 #[pyclass(name = "Metadata")]
 #[derive(Clone)]
@@ -153,6 +164,68 @@ impl PyDOI {
     }
 }
 #[pymethods]
+impl PyISBN {
+    #[staticmethod]
+    fn find_all(value: String) -> Vec<PyISBN> {
+        ISBN::find_all(&value)
+            .iter()
+            .map(|p| PyISBN::from_string(p.clone().to_string()))
+            .collect()
+    }
+    #[staticmethod]
+    fn from_string(value: String) -> PyISBN {
+        let pid = ISBN::from_string(&value);
+        let ISBN {
+            prefix_element,
+            registration_group,
+            publisher,
+            title,
+            check_digit,
+        } = pid;
+        PyISBN {
+            prefix_element: prefix_element.unwrap_or_default(),
+            registration_group: registration_group.unwrap_or_default(),
+            publisher: publisher.unwrap_or_default(),
+            title: title.unwrap_or_default(),
+            check_digit: check_digit.unwrap_or_default(),
+        }
+    }
+    #[getter]
+    fn prefix_element(&self) -> String {
+        self.prefix_element.clone()
+    }
+    #[getter]
+    fn registration_group(&self) -> String {
+        self.registration_group.clone()
+    }
+    #[getter]
+    fn publisher(&self) -> String {
+        self.publisher.clone()
+    }
+    #[getter]
+    fn title(&self) -> String {
+        self.title.clone()
+    }
+    #[getter]
+    fn check_digit(&self) -> String {
+        self.check_digit.clone()
+    }
+    fn __str__(&self) -> String {
+        let Self {
+            prefix_element,
+            registration_group,
+            publisher,
+            title,
+            check_digit,
+        } = self;
+        [prefix_element, registration_group, publisher, title, check_digit]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join("-")
+    }
+}
+#[pymethods]
 impl PyMetadata {
     #[getter]
     fn identifier(&self) -> String {
@@ -173,36 +246,34 @@ impl PyPatent {
         let pid = Patent::parse(&value);
         match pid {
             | Some(value) => match value {
-                | Patent::Granted { country_code, kind_code, serial_number } => {
-                    PyPatent {
-                        country_code: country_code.clone().map(|x| x.to_string()),
-                        kind_code: kind_code.to_string(),
-                        year: None,
-                        serial_number,
-                    }
+                | Patent::Granted {
+                    country_code,
+                    kind_code,
+                    serial_number,
+                } => PyPatent {
+                    country_code: country_code.clone().map(|x| x.to_string()),
+                    kind_code: kind_code.to_string(),
+                    year: None,
+                    serial_number,
                 },
-                | Patent::Application { serial_number, year } => {
-                    PyPatent {
-                        country_code: None,
-                        kind_code: "".to_string(),
-                        serial_number,
-                        year,
-                    }
+                | Patent::Application { serial_number, year } => PyPatent {
+                    country_code: None,
+                    kind_code: "".to_string(),
+                    serial_number,
+                    year,
                 },
                 | Patent::Publication {
                     country_code,
                     kind_code,
                     serial_number,
                     year,
-                } => {
-                    PyPatent {
-                        country_code: country_code.clone().map(|x| x.to_string()),
-                        kind_code: kind_code.to_string(),
-                        serial_number,
-                        year,
-                    }
+                } => PyPatent {
+                    country_code: country_code.clone().map(|x| x.to_string()),
+                    kind_code: kind_code.to_string(),
+                    serial_number,
+                    year,
                 },
-            }
+            },
             | None => PyPatent {
                 country_code: None,
                 kind_code: "".to_string(),
@@ -234,7 +305,6 @@ impl PyPatent {
     fn __str__(&self) -> String {
         let code = self.country_code().unwrap_or_else(|| CountryCode::default().to_string());
         format!("{} {} {}", code, self.serial_number(), self.kind_code())
-
     }
 }
 #[pymethods]
@@ -363,7 +433,7 @@ fn format_phone_number(value: &str) -> PyResult<String> {
     }
 }
 /// Check if value is a valid ARK
-/// 
+///
 /// See <https://arks.org/> for more information on ARKs
 ///
 /// ### Example

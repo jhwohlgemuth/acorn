@@ -1,4 +1,4 @@
-from acorn.schema.pid import DOI, Patent
+from acorn.schema.pid import DOI, ISBN, Patent
 
 
 def test_doi():
@@ -13,6 +13,14 @@ def test_doi():
     assert values[0].identifier == "10.11578/dc.20250604.1"
     assert values[1].identifier == "10.11578/dc.20250604.1"
     assert values[2].identifier == "10.11578/dc.20250604.1"
+
+
+def test_isbn():
+    text = "ISBN: 978-0-306-40619-5. It's my first book."
+    values = ISBN.find_all(text)
+    expected_count = 1
+    assert len(values) == expected_count
+    assert str(values[0]) == "978-0-306-40619-5"
 
 
 def test_patent():

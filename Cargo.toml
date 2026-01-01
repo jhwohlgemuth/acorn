@@ -1,6 +1,5 @@
 [workspace]
-members = ["acorn-cli", "acorn-lib"]
-exclude = ["acorn-py"]
+members = ["acorn-cli", "acorn-lib", "acorn-py"]
 resolver = "2"
 
 [workspace.package]
