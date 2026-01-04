@@ -92,6 +92,16 @@ pub fn is_ip6(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("IP6").with_message(MESSAGE.into())),
     }
 }
+/// Check if value is a valid [`crate::schema::pid::ISBN`]
+/// ### Example
+/// > `978-3-16-148410-0`
+pub fn is_isbn(value: &str) -> Result<(), ValidationError> {
+    const MESSAGE: &str = "Please provide a valid ISBN";
+    match value.is_isbn() {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new("ISBN").with_message(MESSAGE.into())),
+    }
+}
 /// Check if value is a valid ISO 8601 date (e.g., YYYY-MM-DD)
 /// ### Example
 /// > `2025-06-04`
@@ -202,6 +212,16 @@ pub(crate) fn validate_attribute_areas(value: &[String]) -> Result<(), Validatio
     match is_valid {
         | true => Ok(()),
         | _ => Err(ValidationError::new("area").with_message(format!("Each area should be less than {MAX_LENGTH} characters").into())),
+    }
+}
+/// Custom validator function for [`ResearchActivity`] [patents](/acorn_lib/schema/struct.Metadata.html#structfield.patents)
+///
+/// [`ResearchActivity`]: ../struct.ResearchActivity.html
+pub(crate) fn validate_attribute_books(value: &[String]) -> Result<(), ValidationError> {
+    let is_valid = value.iter().all(|x| x.is_isbn());
+    match is_valid {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new("books").with_message("Every book should be a valid ISBN".to_string().into())),
     }
 }
 /// Custom validator function for [`ResearchActivity`] [capabilities](/acorn_lib/schema/struct.Sections.html#structfield.capabilities)

@@ -14,6 +14,8 @@ use crate::util::constants::{
 use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::Builder;
 use core::fmt::Display;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 pub mod patent;
 pub mod raid;
@@ -272,7 +274,7 @@ pub struct DOI {
 /// ### Notes
 /// - ISBNs are governed by the ISO 2108 standard.
 /// - ISNBs can be expressed as [`DOI`]s (see [DOI system and the ISBN system](https://www.doi.org/the-identifier/resources/factsheets/doi-system-and-the-isbn-system)).
-#[derive(Builder, Clone, Debug)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[builder(start_fn = init)]
 pub struct ISBN {
     /// Prefix element
@@ -1001,6 +1003,9 @@ where
     }
     fn is_doi(&self) -> bool {
         DOI::is_valid(self.as_ref())
+    }
+    fn is_isbn(&self) -> bool {
+        ISBN::is_valid(self.as_ref())
     }
     fn is_orcid(&self) -> bool {
         ORCID::is_valid(self.as_ref())

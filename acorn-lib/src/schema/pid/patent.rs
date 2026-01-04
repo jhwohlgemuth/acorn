@@ -37,7 +37,7 @@ pub enum CountryCode {
 /// - Codes follow WIPO ST.16 and USPTO practice (e.g., "US 7,654,321 B2")
 /// - Trademark-only codes (e.g., X3, X4, X5, X8) are not included
 /// - Some codes are legacy but still appear on older documents (e.g., H, H1)
-#[derive(Clone, Copy, Debug, Deserialize, Display, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Display, Eq, Hash, PartialEq, Serialize, JsonSchema)]
 pub enum KindCode {
     /// Utility patent application, first publication (pre‑grant)
     #[display("A1")]
@@ -111,7 +111,7 @@ pub enum KindCode {
     Unknown,
 }
 /// Patent and patent-application enumerations for USPTO documents
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub enum Patent {
     /// Granted patent document
     Granted {

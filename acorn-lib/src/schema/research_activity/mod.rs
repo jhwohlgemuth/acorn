@@ -6,7 +6,7 @@ use super::constants::{CODEMETA_CONTEXT, SCHEMA_ORG_CONTEXT};
 use super::pid::raid;
 #[cfg(feature = "std")]
 use super::validate::format_phone_number;
-use super::validate::{is_kebabcase, is_list_url, validate_attribute_doi, validate_attribute_ror_list};
+use super::validate::{is_kebabcase, is_list_url, validate_attribute_books, validate_attribute_doi, validate_attribute_ror_list};
 #[cfg(feature = "std")]
 use crate::io::{image_paths, parent, read_file, FromPath};
 #[cfg(feature = "std")]
@@ -154,6 +154,14 @@ pub struct ResearchActivityMetadata {
     #[validate(custom(function = "validate_attribute_doi"))]
     #[serde(default)]
     pub doi: Option<Vec<String>>,
+    /// ISBN(s) of books related to the associated research activity data
+    #[validate(custom(function = "validate_attribute_books"))]
+    #[serde(default)]
+    pub books: Option<Vec<String>>,
+    // TODO: Add validation for patents (requires more work because enum)
+    /// Patent(s) related to the associated research activity data
+    #[serde(default)]
+    pub patents: Option<Vec<String>>,
     /// URL(s) of internet location where associated publication(s) can be found
     #[validate(custom(function = "is_list_url"))]
     #[serde(default)]
