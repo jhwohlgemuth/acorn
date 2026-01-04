@@ -235,12 +235,24 @@ pub enum MimeType {
 /// Enumeration for hardware resources used by technology
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 pub enum Resource {
-    /// Central Processing Unit for "classical" computing
+    /// Central processing unit for "classical" computing
     CPU,
-    /// Graphics Processing Unit
+    /// Graphics processing unit
     GPU,
-    /// Tensor Processing Unit
+    /// Tensor processing unit
     TPU,
+    /// Application-specific integrated circuit
+    ///
+    /// A custom-designed chip built to perform one particular function or a narrow set of functions, rather than acting as a general-purpose processor like a CPU or GPU
+    ASIC,
+    /// Digital signal processor
+    ///
+    /// A specialized microprocessor optimized to perform fast mathematical operations on digital signals in real time
+    DSP,
+    /// Field-programmable gate array
+    ///
+    /// A reconfigurable integrated circuit that lets you implement custom digital hardware circuits after manufacturing, rather than having a fixed function like a CPU or ASIC
+    FPGA,
     /// Neuromorphic compute
     Neuromorphic,
     /// Quantum computing (e.g., NISQ, etc.)
