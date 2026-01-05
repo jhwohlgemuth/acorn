@@ -13,7 +13,7 @@ In the context of technology, AI/ML and automation are the same.
 ### Key Components
 *click arrow to expand or collapse*
 <details>
-  <summary>💼 <a href="./portability.md">Software Portability</a></summary>
+  <summary>💼 <a href="./portability.md">Portability</a></summary>
 
 - Limited
 - Source
@@ -23,7 +23,7 @@ In the context of technology, AI/ML and automation are the same.
 - WebAssembly
 </details>
 <details>
-  <summary>🤝 <a href="./human-machine-teaming.md">Human-machine teaming</a></summary>
+  <summary>🤝 <a href="./autonomy.md">Autonomy</a></summary>
 
 - Manual
 - Machine-assisted
@@ -36,6 +36,14 @@ In the context of technology, AI/ML and automation are the same.
   <summary>📈 <a href="./maturity.md">Maturity</a></summary>
 
 Maturity uses an augmented version of technology readiness levels (TRL) and includes levels 1 through 9
+</details>
+<details>
+  <summary>🦾 <a href="./motivity.md">Motivity</a></summary>
+
+- Type 0
+- Type 1A
+- Type 1B
+- Type 2
 </details>
 <details>
   <summary>💾 <a href="./data.md">Data</a></summary>
@@ -57,14 +65,6 @@ Maturity uses an augmented version of technology readiness levels (TRL) and incl
 - Other
 </details>
 <details>
-  <summary>🦾 <a href="./agency.md">Agency</a></summary>
-
-- Type 0
-- Type 1A
-- Type 1B
-- Type 2
-</details>
-<details>
   <summary>🎯 <a href="./task-classification.md">Task Classification</a></summary>
 
 - Percieve
@@ -79,7 +79,7 @@ The ASPECT framework can be applied in various scenarios
     - 💼 ***Source*** (Level 1)
     - 🤝 ***Machine-assisted*** (Level 1)
     - 📈 ***Developed*** (<span title="Technology Readiness Level">TRL</span> 5)
+    - 🦾 ***Type 2***
     - 💾 Trained on ***Real***, ***Unavailable***, ***Silver*** quality, ***Textual*** modality data
     - 🖥️ ***GPU***
-    - 🦾 ***Type 2***
     - 🎯 ***Perceive***, ***Reason***

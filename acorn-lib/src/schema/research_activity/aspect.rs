@@ -48,7 +48,7 @@ pub enum Data {
 }
 /// Framework for partitioning data by quality using metaphor of mined metals
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
-pub enum DataQuality {
+pub enum Quality {
     /// Raw and unprocessed
     Raw = 0,
     /// Ingested
@@ -60,11 +60,11 @@ pub enum DataQuality {
     /// AI-ready data that is adapted to a specific application and/or subjected to additional processing
     Platinum = 4,
 }
-/// Agency of a given technology that describes how it interacts with the environment
+/// Motivity of a given technology that describes how it interacts with the environment
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 #[repr(u8)]
 #[serde(deny_unknown_fields)]
-pub enum Agency {
+pub enum Motivity {
     /// No input or output. Basically any operation with no side effects
     /// ## Example
     /// > digital models
@@ -89,7 +89,7 @@ pub enum Agency {
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 #[repr(u8)]
 #[serde(deny_unknown_fields)]
-pub enum HumanMachineTeamingLevel {
+pub enum Autonomy {
     /// No machine autonomy - only human engagement
     #[display("Manual")]
     Manual = 0,
@@ -168,7 +168,7 @@ pub enum TaskType {
     /// ### Examples
     /// > object detection and optical character recognition (OCR)
     /// ### Note
-    /// > Research activity data with associated technology the implements the `Perceive` task type can only be present in Type-1A and Type-2 agency aspects, but are not necessary to be present.
+    /// > Research activity data with associated technology the implements the `Perceive` task type can only be present in Type-1A and Type-2 motivity aspects, but are not necessary to be present.
     #[display("perceive")]
     #[serde(alias = "perception")]
     Perceive,
@@ -176,7 +176,7 @@ pub enum TaskType {
     /// ### Examples
     /// > robot actuator control, code generation, and image optimization
     /// ### Note
-    /// > Research activity data with associated technology the implements the `Project` task type can only be present in Type-1B and Type-2 agency aspects, but are not necessary to be present.
+    /// > Research activity data with associated technology the implements the `Project` task type can only be present in Type-1B and Type-2 motivity aspects, but are not necessary to be present.
     #[display("project")]
     #[serde(alias = "projection")]
     Project,
@@ -184,7 +184,7 @@ pub enum TaskType {
     /// ## Examples
     /// > image classification, most NLP tasks, and schema validation
     /// ### Note
-    /// > Research activity data with associated technology the implements the `Reason` task type can be present in any agency aspect, but are not necessary to be present.
+    /// > Research activity data with associated technology the implements the `Reason` task type can be present in any motivity aspect, but are not necessary to be present.
     #[display("reason")]
     #[serde(alias = "infer", alias = "inference")]
     Reason,
@@ -204,10 +204,10 @@ pub struct AspectFramework {
     pub data: Option<Vec<Data>>,
     /// Software portability level
     pub portability: Option<SoftwarePortability>,
-    /// Type of agency (e.g., interactivity and impact on environment)
-    pub agency: Option<Agency>,
+    /// Type of motivity (e.g., interactivity and impact on environment)
+    pub motivity: Option<Motivity>,
     /// Human-machine teaming level
-    pub human_machine_teaming_level: Option<HumanMachineTeamingLevel>,
+    pub autonomy: Option<Autonomy>,
     /// Hardware/compute resource requirements
     #[builder(default = Vec::new())]
     pub resources: Vec<Resource>,
@@ -223,8 +223,8 @@ pub struct AspectFramework {
 pub struct AspectFrameworkContext {
     pub(crate) data: String,
     pub(crate) portability: String,
-    pub(crate) agency: String,
-    pub(crate) human_machine_teaming_level: String,
+    pub(crate) motivity: String,
+    pub(crate) autonomy: String,
     pub(crate) resources: String,
     pub(crate) maturity: String,
     pub(crate) task_type: String,
@@ -246,7 +246,7 @@ pub struct DataDescription {
     /// Modality of data
     pub modality: Option<Modality>,
     /// Quality of data
-    pub quality: Option<DataQuality>,
+    pub quality: Option<Quality>,
 }
 /// Linked data (e.g., JSON-LD) context for data description
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
@@ -286,8 +286,8 @@ impl Default for AspectFrameworkContext {
         AspectFrameworkContext::init()
             .data(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .portability(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .agency(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .human_machine_teaming_level(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .motivity(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .autonomy(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .resources(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .maturity(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .task_type(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))

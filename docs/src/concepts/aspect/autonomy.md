@@ -1,12 +1,13 @@
-# 🤝 Human-Machine Teaming
+# 🤝 Autonomy
 
-In the context of **ASPECT**, human-machine teaming describes the adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes. This attribute incorporates on prior work by the [Society of Automative Engineers' six levels of driving automation](https://www.sae.org/standards/j3016_202104-taxonomy-definitions-terms-related-driving-automation-systems-road-motor-vehicles) and expands on <span title="International Organization for Standardization">ISO</span> definitions to partition technology into distinct and employable categories.
+In the context of **ASPECT**, "autonomy" characterizes a technology's level of human-machine teaming and describes the adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes. This attribute incorporates on prior work by the [Society of Automative Engineers' six levels of driving automation](https://www.sae.org/standards/j3016_202104-taxonomy-definitions-terms-related-driving-automation-systems-road-motor-vehicles) and expands on <span title="International Organization for Standardization">ISO</span> definitions to partition technology into distinct and employable categories.
 
 > [!TIP]
 > ISO 22989[^ISO] defines human-machine teaming as "*integration of human interaction with machine intelligence capabilities*."
 
 ## Levels
 ### Manual (HMT 0)
+The execution of a simple script does not imply autonomy beyond manual operation. This level is characterized by the execution of a simple where the detereministic outcome is fully known and controlled by the human operator.
 ```pikchr
 scale = 0.7
 circle "Human" fill white
@@ -16,6 +17,7 @@ arrow thick thick from first circle.e to first diamond.w color 0x00662C
 ```
 
 ### Machine-assisted (HMT 1)
+In this level, the machine provides assistance to the human operator in executing a task. The human remains in full control of the task execution, with the machine offering support or suggestions as needed. This might include an iterative script that augments the input during each iteration based on prior outputs.
 ```pikchr
 scale = 0.7
 box "Machine" fill white width 75%
