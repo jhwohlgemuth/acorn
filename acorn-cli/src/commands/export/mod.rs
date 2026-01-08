@@ -63,7 +63,13 @@ pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
 fn create_powerpoint(options: CommandLineOptions) {
     let CommandLineOptions { combine, path, output, .. } = options;
     let paths = match path {
-        | Some(value) => if combine { vec![value] } else { vec![value] },
+        | Some(value) => {
+            if combine {
+                vec![value]
+            } else {
+                vec![value]
+            }
+        }
         | None => unimplemented!(),
     };
     for input_path in paths.clone() {
