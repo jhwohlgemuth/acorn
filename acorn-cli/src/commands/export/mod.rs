@@ -77,12 +77,16 @@ fn create_powerpoint(options: CommandLineOptions) {
             exit(exitcode::UNAVAILABLE);
         }
     };
+    let parent = input_path.parent().unwrap().canonicalize().unwrap();
     let reference_path = match options.reference {
-        | Some(value) => value,
-        | None => {
-            let root = input_path.parent().unwrap().to_path_buf().parent().unwrap().to_path_buf();
-            root.join("reference.pptx")
+        | Some(value) => {
+            if value.as_path().is_absolute() {
+                value
+            } else {
+                parent.join(value)
+            }
         }
+        | None => parent.join("reference.pptx"),
     };
     let output_path = match output {
         | Some(value) => match create_dir_all(value.clone()) {
@@ -125,7 +129,7 @@ fn create_powerpoint(options: CommandLineOptions) {
                 exit(exitcode::NOINPUT);
             }
         };
-        let from = input_path.parent().unwrap().join(data.clone().meta.first_image_content_url());
+        let from = parent.join(data.clone().meta.first_image_content_url());
         copy(from, image_path).unwrap();
         ["ppt/slides/slide1.xml", "ppt/notesSlides/notesSlide1.xml"]
             .into_iter()

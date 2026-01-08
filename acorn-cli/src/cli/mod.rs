@@ -300,7 +300,7 @@ pub enum Commands {
         output: Option<PathBuf>,
         /// Path to reference file to be used when exporting to PowerPoint
         ///
-        /// Only applies to `--format powerpoint`
+        /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
         reference: Option<PathBuf>,
         #[command(flatten)]

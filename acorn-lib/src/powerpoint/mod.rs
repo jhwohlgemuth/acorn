@@ -240,7 +240,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 Replacement::String("managers", managers.join(" and ")),
                 Replacement::String("mission", mission),
                 Replacement::String("notes", presentation_notes),
-                Replacement::String("partners", partners.unwrap().join(", ")),
+                Replacement::String("partners", partners.unwrap_or_default().join(", ")),
                 Replacement::String("portability", portability.unwrap_or_default().to_string()),
                 Replacement::String("programs", programs.join(" and ")),
                 Replacement::String("subtitle", subtitle.unwrap_or_else(|| "".to_string())),
