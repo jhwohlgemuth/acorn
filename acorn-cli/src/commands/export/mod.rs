@@ -61,82 +61,88 @@ pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
     let _remove = remove_file(index);
 }
 fn create_powerpoint(options: CommandLineOptions) {
-    let CommandLineOptions { path, output, .. } = options;
-    let input_path = match path {
-        | Some(value) => value,
+    let CommandLineOptions { combine, path, output, .. } = options;
+    let paths = match path {
+        | Some(value) => if combine { vec![value] } else { vec![value] },
         | None => unimplemented!(),
     };
-    let data = match ResearchActivity::read(input_path.clone()) {
-        | Some(value) => value.format(Some(input_path.clone())),
-        | None => {
-            error!(
-                path = input_path.to_absolute_string(),
-                "=> {} Read data for PowerPoint export",
-                Label::fail()
-            );
-            exit(exitcode::UNAVAILABLE);
-        }
-    };
-    let parent = input_path.parent().unwrap().canonicalize().unwrap();
-    let reference_path = match options.reference {
-        | Some(value) => {
-            if value.as_path().is_absolute() {
-                value
-            } else {
-                parent.join(value)
+    for input_path in paths.clone() {
+        let data = match ResearchActivity::read(input_path.clone()) {
+            | Some(value) => value.format(Some(input_path.clone())),
+            | None => {
+                error!(
+                    path = input_path.to_absolute_string(),
+                    "=> {} Read data for PowerPoint export",
+                    Label::fail()
+                );
+                exit(exitcode::UNAVAILABLE);
             }
-        }
-        | None => parent.join("reference.pptx"),
-    };
-    let output_path = match output {
-        | Some(value) => match create_dir_all(value.clone()) {
-            | Ok(_) => {
-                let ResearchActivityMetadata { identifier, .. } = data.meta.clone();
-                let path = format!("{}/{}.pptx", value.display(), identifier);
-                debug!(path, "=> {} Output", Label::using());
-                path
+        };
+        let parent = input_path.parent().unwrap().canonicalize().unwrap();
+        let output_path = match output {
+            | Some(ref value) => match create_dir_all(value.clone()) {
+                | Ok(_) => {
+                    let ResearchActivityMetadata { identifier, .. } = data.meta.clone();
+                    let path = format!("{}/{}.pptx", value.display(), identifier);
+                    debug!(path, "=> {} Output", Label::using());
+                    path
+                }
+                | Err(err) => {
+                    let path = value.clone().to_absolute_string();
+                    error!(path, "=> {} Create directory - {err}", Label::fail());
+                    exit(exitcode::IOERR);
+                }
+            },
+            | None => unreachable!(),
+        };
+        let reference_path = match options.reference {
+            | Some(ref value) => {
+                if value.as_path().is_absolute() {
+                    value
+                } else {
+                    &parent.join(value)
+                }
             }
-            | Err(err) => {
-                let path = value.clone().to_absolute_string();
-                error!(path, "=> {} Create directory - {err}", Label::fail());
-                exit(exitcode::IOERR);
-            }
-        },
-        | None => unreachable!(),
-    };
-    if let Ok(path) = extract_zip(reference_path, None) {
-        let xml_rels_path = path.join("ppt/slides/_rels/slide1.xml.rels");
-        let image_path = match read_xml_rel(xml_rels_path.clone()) {
-            | Some(Relationships { relationship }) => match relationship.clone().into_iter().find(|x| x.target.ends_with(".png")) {
-                | Some(Relationship { target, .. }) => match path.join("ppt/slides").join(target.clone()).canonicalize() {
-                    | Ok(value) => value,
-                    | Err(err) => {
-                        error!(target = target.clone(), "=> {} Find image - {err}", Label::fail());
-                        exit(exitcode::NOINPUT);
+            | None => &parent.join("reference.pptx"),
+        };
+        if let Ok(path) = extract_zip(reference_path.clone(), None) {
+            let xml_rels_path = path.join("ppt/slides/_rels/slide1.xml.rels");
+            let image_path = match read_xml_rel(xml_rels_path.clone()) {
+                | Some(Relationships { relationship }) => match relationship.clone().into_iter().find(|x| x.target.ends_with(".png")) {
+                    | Some(Relationship { target, .. }) => match path.join("ppt/slides").join(target.clone()).canonicalize() {
+                        | Ok(value) => value,
+                        | Err(err) => {
+                            error!(target = target.clone(), "=> {} Find image - {err}", Label::fail());
+                            exit(exitcode::NOINPUT);
+                        }
+                    },
+                    | None => {
+                        error!(path = xml_rels_path.to_absolute_string(), "=> {} Find image relationship", Label::fail());
+                        exit(exitcode::DATAERR);
                     }
                 },
                 | None => {
-                    error!(path = xml_rels_path.to_absolute_string(), "=> {} Find image relationship", Label::fail());
-                    exit(exitcode::DATAERR);
+                    error!(
+                        path = xml_rels_path.to_absolute_string(),
+                        "=> {} Read PowerPoint slide relationships",
+                        Label::fail()
+                    );
+                    exit(exitcode::NOINPUT);
                 }
-            },
-            | None => {
-                error!(
-                    path = xml_rels_path.to_absolute_string(),
-                    "=> {} Read PowerPoint slide relationships",
-                    Label::fail()
-                );
-                exit(exitcode::NOINPUT);
+            };
+            let from = parent.join(data.clone().meta.first_image_content_url());
+            copy(from, image_path).unwrap();
+            let slide_count = paths.len();
+            for index in 1..=slide_count {
+                // TODO: Check if page #index exists. If not, copy page #(index mod slide_count)
+                [format!("ppt/slides/slide{index}.xml"), format!("ppt/notesSlides/notesSlide{index}.xml")]
+                    .iter()
+                    .for_each(|fragment| {
+                        interpolate_values(path.clone().join(fragment), data.clone());
+                    });
             }
-        };
-        let from = parent.join(data.clone().meta.first_image_content_url());
-        copy(from, image_path).unwrap();
-        ["ppt/slides/slide1.xml", "ppt/notesSlides/notesSlide1.xml"]
-            .into_iter()
-            .for_each(|fragment| {
-                interpolate_values(path.clone().join(fragment), data.clone());
-            });
-        let _ = archive(path, Some(PathBuf::from(output_path)));
+            let _ = archive(path, Some(PathBuf::from(output_path.clone())));
+        }
     }
 }
 #[allow(clippy::too_many_arguments)]
@@ -147,6 +153,7 @@ pub fn run(
     commit: &Option<String>,
     format: &FileFormat,
     reference: &Option<PathBuf>,
+    combine: &bool,
     merge_request: &bool,
     offline: &bool,
 ) -> Result<(), Report> {
@@ -159,10 +166,10 @@ pub fn run(
         .maybe_commit(commit.clone())
         .merge_request(*merge_request)
         .build();
-    let paths = paths_from_options(path, &Some(options));
     match format {
         | FileFormat::Pdf => {
             async_runtime().block_on(async {
+                let paths = paths_from_options(path, &Some(options));
                 let playwright = Playwright::initialize().await.unwrap();
                 playwright.install_chromium().unwrap(); // Install browsers
                 let chromium = playwright.chromium();
@@ -184,25 +191,44 @@ pub fn run(
             Ok(())
         }
         | FileFormat::Powerpoint => {
-            let progress = ProgressBar::new(paths.len() as u64);
-            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-            for path in &paths {
-                progress.set_message(format!("Generating PowerPoint for {}", path.display()));
-                let powerpoint_options = CommandLineOptions::init()
-                    .path(path.clone())
+            if *combine {
+                let progress = ProgressBar::new(1);
+                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+                let options = CommandLineOptions::init()
+                    .combine(*combine)
+                    .maybe_path(path.clone())
                     .maybe_output(output.clone())
                     .maybe_reference(reference.clone())
                     .build();
-                create_powerpoint(powerpoint_options);
+                progress.set_message("Generating combined PowerPoint artifact");
+                create_powerpoint(options);
                 progress.inc(1);
+                progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+                info!("=> {} Exported combined highlight PowerPoint file", Label::pass());
+            } else {
+                let paths = paths_from_options(path, &Some(options));
+                let count = if *combine { 1 } else { paths.len() as u64 };
+                let progress = ProgressBar::new(count);
+                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+                for path in &paths {
+                    let options = CommandLineOptions::init()
+                        .combine(*combine)
+                        .path(path.clone())
+                        .maybe_output(output.clone())
+                        .maybe_reference(reference.clone())
+                        .build();
+                    progress.set_message(format!("Generating PowerPoint for {}", path.display()));
+                    create_powerpoint(options.clone());
+                    progress.inc(1);
+                }
+                progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+                info!(
+                    "=> {} Exported {} highlight PowerPoint file{}",
+                    Label::pass(),
+                    paths.len(),
+                    suffix(paths.len())
+                );
             }
-            progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-            info!(
-                "=> {} Exported {} highlight PowerPoint file{}",
-                Label::pass(),
-                paths.len(),
-                suffix(paths.len())
-            );
             Ok(())
         }
     }

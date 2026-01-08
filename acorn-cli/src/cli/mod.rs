@@ -36,6 +36,9 @@ pub struct CommandLineOptions {
     ///
     /// e.g. reference.pptx for exporting RAD to PowerPoint
     pub reference: Option<PathBuf>,
+    /// Flag used to indicate if generated artifacts should be combined into a single artifact
+    #[builder(default)]
+    pub combine: bool,
     /// Flag used to indicate if a single error should cause the process to exit
     #[builder(default)]
     pub exit_on_first_error: bool,
@@ -286,12 +289,24 @@ pub enum Commands {
         /// Export files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
         branch: Option<String>,
+        /// Combine all export artifacts into a single artifact
+        #[arg(long = "combine", value_name = "BOOL", help_heading = "FLAGS")]
+        combine: bool,
         /// Export files that were changed in a given Git commit
         #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
         commit: Option<String>,
         /// Export target file format
         #[arg(default_value_t, short, long, value_name = "FORMAT", help_heading = "OPTIONS")]
         format: FileFormat,
+        /// Regex pattern applied to absolute paths of files that determines whether they should be included in export process
+        ///
+        /// Only applies to `--path` values that point to a directory
+        ///
+        /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
+        ///
+        /// Example: --ignore "[/]valid.json$"
+        #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
+        ignore: Option<String>,
         /// Export files that were changed in a given merge request (Gitlab) or pull request (GitHub)
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,
