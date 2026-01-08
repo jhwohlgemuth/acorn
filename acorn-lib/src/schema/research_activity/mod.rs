@@ -2,7 +2,7 @@
 //!
 //! Module that defines the research activity schema
 //!
-use super::constants::{CODEMETA_CONTEXT, SCHEMA_ORG_CONTEXT};
+use super::constants::{CODEMETA_CONTEXT, DCAT_CONTEXT, SCHEMA_ORG_CONTEXT};
 use super::pid::raid;
 #[cfg(feature = "std")]
 use super::validate::format_phone_number;
@@ -269,7 +269,7 @@ impl Default for ResearchActivityContext {
             .title(format!("{SCHEMA_ORG_CONTEXT}/title"))
             .subtitle(format!("{SCHEMA_ORG_CONTEXT}/alternativeHeadline"))
             .sections(format!("{SCHEMA_ORG_CONTEXT}/CreativeWork"))
-            .contact(format!("{SCHEMA_ORG_CONTEXT}/person"))
+            .contact(format!("{DCAT_CONTEXT}/contactPoint"))
             .notes(format!("{SCHEMA_ORG_CONTEXT}/Text"))
             .build()
     }
@@ -293,7 +293,7 @@ impl Default for ResearchActivityMetadataContext {
             .additional_type(format!("{SCHEMA_ORG_CONTEXT}/additionalType"))
             .media(format!("{SCHEMA_ORG_CONTEXT}/MediaObject"))
             .websites(format!("{SCHEMA_ORG_CONTEXT}/WebSite"))
-            .keywords(format!("{CODEMETA_CONTEXT}/keywords"))
+            .keywords(format!("{DCAT_CONTEXT}/keyword"))
             .technology(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .sponsors(format!("{CODEMETA_CONTEXT}/sponsor"))
             .partners(format!("{SCHEMA_ORG_CONTEXT}/Text"))
