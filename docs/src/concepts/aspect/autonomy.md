@@ -1,13 +1,13 @@
 # 🤝 Autonomy
 
-In the context of **ASPECT**, "autonomy" characterizes a technology's level of human-machine teaming and describes the adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes. This attribute incorporates on prior work by the [Society of Automative Engineers' six levels of driving automation](https://www.sae.org/standards/j3016_202104-taxonomy-definitions-terms-related-driving-automation-systems-road-motor-vehicles) and expands on <span title="International Organization for Standardization">ISO</span> definitions to partition technology into distinct and employable categories.
+In the context of **ASPECT**, "autonomy" characterizes a technology's level of human-machine teaming and describes the adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes. This attribute builds on prior work by the [Society of Automotive Engineers' six levels of driving automation](https://www.sae.org/standards/j3016_202104-taxonomy-definitions-terms-related-driving-automation-systems-road-motor-vehicles) and expands on <span title="International Organization for Standardization">ISO</span> definitions to partition technology into distinct and employable categories.
 
 > [!TIP]
 > ISO 22989[^ISO] defines human-machine teaming as "*integration of human interaction with machine intelligence capabilities*."
 
 ## Levels
 ### Manual (HMT 0)
-The execution of a simple script does not imply autonomy beyond manual operation. This level is characterized by the execution of a simple where the detereministic outcome is fully known and controlled by the human operator.
+The execution of a simple script does not imply autonomy beyond manual operation. This level is characterized by the execution of a script where the deterministic outcome is fully known and controlled by the human operator.
 ```pikchr
 scale = 0.7
 circle "Human" fill white

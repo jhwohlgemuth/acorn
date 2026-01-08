@@ -31,7 +31,7 @@ circle "Self" fill white
 > [!NOTE]
 > *Example* Data shadow[^twin]
 
-Type 1A is argubly the most common form of technology, at least in the context of research. Although it is mildly ambiguous in interpration, the use of an interactive notebook (e.g., Jupyter) to visualize the distribution of some data read from a <span title="Comma Separated Values">CSV</span> file would be considered as Type 1A since the technology reads input from the environment (a CSV file) and presents an aspect of the data visually. Technically, the associated image is a created artifact stored with zeroes and ones, but for the purpose of classification via purpose of agency, we consider such ephemeral artifacts as insufficient to justify Types 1B or 2.
+Type 1A is arguably the most common form of technology, at least in the context of research. Although it is mildly ambiguous in interpretation, the use of an interactive notebook (e.g., Jupyter) to visualize the distribution of some data read from a <span title="Comma Separated Values">CSV</span> file would be considered as Type 1A since the technology reads input from the environment (a CSV file) and presents an aspect of the data visually. Technically, the associated image is a created artifact stored with zeroes and ones, but for the purpose of classification via purpose of agency, we consider such ephemeral artifacts as insufficient to justify Types 1B or 2.
 
 ```pikchr
 scale = 0.7

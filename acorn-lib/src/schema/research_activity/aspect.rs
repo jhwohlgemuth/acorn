@@ -259,7 +259,7 @@ pub struct DataDescriptionContext {
 }
 /// Describe a large language model (LLM)
 ///
-/// This struct strives to accomodate the wide myriad varieties of the LLMs in the wild.
+/// This struct strives to accommodate the wide myriad varieties of the LLMs in the wild.
 /// As such, version is a string instead of a `SemanticVersion` because versions are attached to LLMs inconsistently.
 #[derive(Builder, Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 #[builder(start_fn = init)]

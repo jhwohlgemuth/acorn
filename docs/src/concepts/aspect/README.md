@@ -67,7 +67,7 @@ Maturity uses an augmented version of technology readiness levels (TRL) and incl
 <details>
   <summary>🎯 <a href="./task-classification.md">Task Classification</a></summary>
 
-- Percieve
+- Perceive
 - Reason
 - Project
 </details>

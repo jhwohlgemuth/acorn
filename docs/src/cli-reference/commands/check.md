@@ -38,7 +38,7 @@ Bypass verifying the checksum of downloaded artifacts with `--skip-verify-checks
 ### Configure Readability
 Readability can be configured by passing options directly to the command line or via a `.env` file. Command line options override `.env` settings.
 - `--readability-metric <METRIC>` : Specify which readability metric to use
-- Set `READABILITY_METRIC` in your `.env` file to choose the readability metric. Default metric is [`fkgl`](https://acorn.ornl.gov/acorn_lib/analyzer/readability/enum.ReadabilityType.html#variant.FKGL) (Fleshch-Kincaid Grade Level).
+- Set `READABILITY_METRIC` in your `.env` file to choose the readability metric. Default metric is [`fkgl`](https://acorn.ornl.gov/acorn_lib/analyzer/readability/enum.ReadabilityType.html#variant.FKGL) (Flesch-Kincaid Grade Level).
 - Set `MAX_ALLOWED_FKGL` in your `.env` file to define the maximum acceptable FKGL score. Each metric has its own corresponding maximum score variable (e.g., `MAX_ALLOWED_ARI` for Automated Readability Index).
 
 #### Example `.env` file
