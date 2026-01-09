@@ -241,6 +241,10 @@ pub enum Resource {
     GPU,
     /// Tensor processing unit
     TPU,
+    /// Neural processing unit
+    ///
+    /// A specialized chip designed for the matrix multiplication calculations that most AI models rely on
+    NPU,
     /// Application-specific integrated circuit
     ///
     /// A custom-designed chip built to perform one particular function or a narrow set of functions, rather than acting as a general-purpose processor like a CPU or GPU
