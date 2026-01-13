@@ -30,7 +30,6 @@ derive_more = { version = "2.0.1", features = [
 ], default-features = false }
 dotenvy = { version = "0.15.0", default-features = false }
 glob = { version = "0.3.1", default-features = false }
-indicatif = { version = "0.18.2", default-features = false }
 lazy_static = { version = "1.5.0", default-features = false }
 owo-colors = { version = "4.2.3", features = ["alloc"], default-features = true }
 rayon = { version = "1.10.0", default-features = false }
