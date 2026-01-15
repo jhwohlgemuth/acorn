@@ -13,21 +13,28 @@ const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
 fn test_checksum() {
-    let calculated = file_checksum(PathBuf::from(FIXTURES).join("glob/a.txt")).unwrap();
+    let calculated = file_checksum(PathBuf::from(FIXTURES).join("glob/a.txt"), None).unwrap();
     if cfg!(target_os = "windows") {
         assert_eq!(calculated.len(), 64);
     } else {
         let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
         assert_eq!(calculated, expected);
     }
-    let calculated = file_checksum("../tests/fixtures/glob/a.txt").unwrap();
+    let calculated = file_checksum("../tests/fixtures/glob/a.txt", None).unwrap();
     if cfg!(target_os = "windows") {
         assert_eq!(calculated.len(), 64);
     } else {
         let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
         assert_eq!(calculated, expected);
     }
-    let result = file_checksum(PathBuf::from("/path/does/not/exist.txt"));
+    let calculated = file_checksum("../tests/fixtures/glob/a.txt", Some(&ring::digest::SHA512)).unwrap();
+    if cfg!(target_os = "windows") {
+        assert_eq!(calculated.len(), 128);
+    } else {
+        let expected = "Update the hash for Linux";
+        assert_eq!(calculated, expected);
+    }
+    let result = file_checksum(PathBuf::from("/path/does/not/exist.txt"), None);
     assert!(result.is_none());
 }
 #[test]

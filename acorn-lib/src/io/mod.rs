@@ -332,20 +332,22 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBu
 ///
 /// ### Example
 /// ```ignore
-/// use acorn::util::checksum;
+/// use ring::digest::SHA512;
+/// use acorn::io::file_checksum;
 ///
-/// let checksum = checksum("path/to/file");
+/// let checksum = file_checksum("path/to/file", Some(&SHA512));
 /// assert!(checksum.is_some());
 /// ```
-pub fn file_checksum<P>(path: P) -> Option<String>
+pub fn file_checksum<P>(path: P, algorithm: Option<&'static ring::digest::Algorithm>) -> Option<String>
 where
     P: Into<PathBuf>,
 {
     let value = path.into();
+    let digest_algorithm = algorithm.unwrap_or(&SHA256);
     match File::open(value.clone()) {
         | Ok(file) => {
             let mut buffer = [0; 1024];
-            let mut context = Context::new(&SHA256);
+            let mut context = Context::new(digest_algorithm);
             let mut reader = BufReader::new(file);
             loop {
                 let count = reader.read(&mut buffer).unwrap();

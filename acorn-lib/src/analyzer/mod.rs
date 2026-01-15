@@ -549,7 +549,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         | Ok(value) => value.get(&platform).unwrap().to_string(),
                         | Err(_) => "".to_string(),
                     };
-                    if let Some(calculated) = file_checksum(path.clone()) {
+                    if let Some(calculated) = file_checksum(path.clone(), None) {
                         if !dowloaded_checksum.eq(&calculated) {
                             error!(dowloaded_checksum, calculated, "=> {}", Label::invalid());
                             let _cleanup = remove_file(path.clone());
