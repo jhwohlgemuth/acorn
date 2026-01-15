@@ -13,7 +13,7 @@ use crate::util::constants::{
 };
 use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::Builder;
-use core::fmt::Display;
+use core::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -38,7 +38,7 @@ pub trait Betanumeric {
     fn to_betanumeric_ordinal(&self) -> Option<usize>;
 }
 /// Provides common functions for working with persistent identifiers (PID)
-pub trait PersistentIdentifier: Display {
+pub trait PersistentIdentifier: fmt::Display {
     /// Create a new PID
     fn new() -> Self;
     /// Get standardized form of schema URI for a PID
@@ -673,32 +673,32 @@ impl Default for RAID {
         Self::new()
     }
 }
-impl Display for ARK {
+impl fmt::Display for ARK {
     /// Format a ARK into a standard format of `"{NMA}{label}{NAAN}/{Assigned Name}/{Parts}{Variants}"`
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let nma = self.name_mapping_authority.clone().unwrap_or_default().trim_end_matches('/').to_string();
         let identifier = self.identifier();
         let result = [nma, identifier].into_iter().filter(|x| !x.is_empty()).collect::<Vec<String>>().join("/");
         write!(f, "{result}")
     }
 }
-impl Display for DOI {
+impl fmt::Display for DOI {
     /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let result = self.identifier();
         write!(f, "{result}")
     }
 }
-impl Display for ISBN {
+impl fmt::Display for ISBN {
     /// Format a ISBN into a standard format
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let result = self.identifier();
         write!(f, "{result}")
     }
 }
-impl Display for ORCID {
+impl fmt::Display for ORCID {
     /// Format a ORCiD into a standard format of `"{schema_uri}{identifier}"`
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let schema_uri = self.schema_uri();
         let identifier = self.identifier();
         let uri = if schema_uri.is_empty() { DEFAULT_ORCID_SCHEMA_URI } else { &schema_uri };
@@ -715,9 +715,9 @@ impl Display for ORCID {
         write!(f, "{result}")
     }
 }
-impl Display for RAID {
+impl fmt::Display for RAID {
     /// Format a RAID into a standard format of `"{prefix}/{suffix}"`
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let result = self.identifier();
         write!(f, "{result}")
     }

@@ -41,6 +41,7 @@ use tracing::{debug, error, info, warn};
 use which::which;
 use zip::ZipArchive;
 
+pub mod bagit;
 pub mod citeas;
 pub mod raid;
 

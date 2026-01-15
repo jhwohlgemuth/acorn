@@ -1,6 +1,6 @@
 use crate::io::{
-    command_exists, extract_zip, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request,
-    git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand, FromPath,
+    command_exists, extract_zip, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, git_branch_name,
+    git_default_branch_name, parent, read_file, to_absolute_string, FromCommand, FromPath,
 };
 use crate::prelude::{Path, PathBuf};
 use crate::util::*;
@@ -11,32 +11,6 @@ use temp_env;
 
 const FIXTURES: &str = "../tests/fixtures";
 
-#[test]
-fn test_checksum() {
-    let calculated = file_checksum(PathBuf::from(FIXTURES).join("glob/a.txt"), None).unwrap();
-    if cfg!(target_os = "windows") {
-        assert_eq!(calculated.len(), 64);
-    } else {
-        let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
-        assert_eq!(calculated, expected);
-    }
-    let calculated = file_checksum("../tests/fixtures/glob/a.txt", None).unwrap();
-    if cfg!(target_os = "windows") {
-        assert_eq!(calculated.len(), 64);
-    } else {
-        let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
-        assert_eq!(calculated, expected);
-    }
-    let calculated = file_checksum("../tests/fixtures/glob/a.txt", Some(&ring::digest::SHA512)).unwrap();
-    if cfg!(target_os = "windows") {
-        assert_eq!(calculated.len(), 128);
-    } else {
-        let expected = "Update the hash for Linux";
-        assert_eq!(calculated, expected);
-    }
-    let result = file_checksum(PathBuf::from("/path/does/not/exist.txt"), None);
-    assert!(result.is_none());
-}
 #[test]
 fn test_chunk_string() {
     assert_eq!("abcdefghi".chunk(3), vec!["abc", "def", "ghi"]);
@@ -196,6 +170,19 @@ fn test_regex_capture_lookup() {
 }
 #[test]
 fn test_semantic_version() {
+    let version = SemanticVersion::from_string("3");
+    assert_eq!(version.major, 3);
+    assert_eq!(version.minor, 0);
+    assert_eq!(version.patch, 0);
+    let version = SemanticVersion::from_string("2.1");
+    assert_eq!(version.major, 2);
+    assert_eq!(version.minor, 1);
+    assert_eq!(version.patch, 0);
+    // Redundant case to ensure BagIt version is supported
+    let version = SemanticVersion::from_string("1.0");
+    assert_eq!(version.major, 1);
+    assert_eq!(version.minor, 0);
+    assert_eq!(version.patch, 0);
     let version = SemanticVersion::from_string("1.2.3");
     assert_eq!(version.major, 1);
     assert_eq!(version.minor, 2);

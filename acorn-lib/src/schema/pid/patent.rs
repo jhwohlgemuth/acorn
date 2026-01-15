@@ -2,6 +2,7 @@
 //!
 use crate::util::constants::{RE_PATENT, RE_PATENT_TEXT};
 use crate::util::regex_capture_lookup;
+use core::fmt;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -213,8 +214,8 @@ impl Default for Patent {
         }
     }
 }
-impl core::fmt::Display for Patent {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for Patent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             | Patent::Granted {
                 country_code,

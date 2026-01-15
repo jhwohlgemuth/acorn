@@ -1,9 +1,11 @@
-use crate::io::{citeas, files_all, filter_git_command_result, filter_ignored, image_paths};
+use crate::io::{citeas, file_checksum, files_all, filter_git_command_result, filter_ignored, image_paths};
 use crate::schema::pid::DOI;
 use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
 
+#[test]
+fn test_bagit() {}
 #[test]
 fn test_citeas() {
     let status = citeas::status();
@@ -22,6 +24,33 @@ fn test_citeas() {
         let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
         assert_eq!(text, expected);
     };
+}
+#[test]
+fn test_checksum() {
+    let calculated = file_checksum(PathBuf::from(FIXTURES).join("glob/a.txt"), None).unwrap();
+    if cfg!(target_os = "windows") {
+        assert_eq!(calculated.len(), 64);
+    } else {
+        let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
+        assert_eq!(calculated, expected);
+    }
+    let calculated = file_checksum("../tests/fixtures/glob/a.txt", None).unwrap();
+    if cfg!(target_os = "windows") {
+        assert_eq!(calculated.len(), 64);
+    } else {
+        let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
+        assert_eq!(calculated, expected);
+    }
+    let calculated = file_checksum("../tests/fixtures/glob/a.txt", Some(&ring::digest::SHA512)).unwrap();
+    if cfg!(target_os = "windows") {
+        assert_eq!(calculated.len(), 128);
+    } else {
+        let expected =
+            "d0b8db2e3f9afbcc8baf4cb8189c2fd489abacf232b4d000c54e5eb2b9cc2470163fc3c3b9f2c4fd88d0f2ab52b4075bef9d3ecbda71ad12c5f20cb7934904b4";
+        assert_eq!(calculated, expected);
+    }
+    let result = file_checksum(PathBuf::from("/path/does/not/exist.txt"), None);
+    assert!(result.is_none());
 }
 #[test]
 fn test_filter_git_command_result() {

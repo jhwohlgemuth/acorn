@@ -629,7 +629,8 @@ impl SemanticVersion {
     where
         S: Into<String>,
     {
-        let value = match Regex::new(r"\d*[.]\d*[.]\d*") {
+        let pattern = r"(?<major>\d+)\.?(?<minor>\d+)?\.?(?<patch>\d+)?";
+        let value = match Regex::new(pattern) {
             | Ok(re) => match re.find(&value.into()) {
                 | Ok(value) => match value {
                     | Some(value) => value.as_str().to_string(),
@@ -640,15 +641,65 @@ impl SemanticVersion {
             | Err(_) => unreachable!(),
         };
         let mut parts = value.split('.');
-        let major = parts.next().unwrap().parse::<u32>().unwrap();
-        let minor = parts.next().unwrap().parse::<u32>().unwrap();
-        let patch = parts.next().unwrap().parse::<u32>().unwrap();
-        SemanticVersion { major, minor, patch }
+        // dbg!(&parts.clone().collect::<Vec<_>>());
+        println!("Value = {value}");
+        match parts.clone().collect::<Vec<_>>().len() {
+            | 3 => {
+                let major = parts.next().unwrap().parse::<u32>().unwrap();
+                let minor = parts.next().unwrap().parse::<u32>().unwrap();
+                let patch = parts.next().unwrap().parse::<u32>().unwrap();
+                SemanticVersion::init().major(major).minor(minor).patch(patch).build()
+            }
+            | 2 => {
+                let major = parts.next().unwrap().parse::<u32>().unwrap();
+                let minor = parts.next().unwrap().parse::<u32>().unwrap();
+                SemanticVersion::init().major(major).minor(minor).build()
+            }
+            | 1 => {
+                let major = parts.next().unwrap().parse::<u32>().unwrap();
+                SemanticVersion::init().major(major).build()
+            }
+            | _ => SemanticVersion::default(),
+        }
     }
 }
 impl Default for SemanticVersion {
     fn default() -> Self {
         SemanticVersion::init().build()
+    }
+}
+impl From<&str> for SemanticVersion {
+    fn from(value: &str) -> Self {
+        let pattern = r"(?<major>\d+)\.?(?<minor>\d+)?\.?(?<patch>\d+)?";
+        let result = match Regex::new(pattern) {
+            | Ok(re) => match re.find(value) {
+                | Ok(value) => match value {
+                    | Some(value) => value.as_str().to_string(),
+                    | None => unreachable!(),
+                },
+                | Err(_) => unreachable!(),
+            },
+            | Err(_) => unreachable!(),
+        };
+        let mut parts = result.split('.');
+        match parts.clone().collect::<Vec<_>>().len() {
+            | 3 => {
+                let major = parts.next().unwrap().parse::<u32>().unwrap();
+                let minor = parts.next().unwrap().parse::<u32>().unwrap();
+                let patch = parts.next().unwrap().parse::<u32>().unwrap();
+                SemanticVersion::init().major(major).minor(minor).patch(patch).build()
+            }
+            | 2 => {
+                let major = parts.next().unwrap().parse::<u32>().unwrap();
+                let minor = parts.next().unwrap().parse::<u32>().unwrap();
+                SemanticVersion::init().major(major).minor(minor).build()
+            }
+            | 1 => {
+                let major = parts.next().unwrap().parse::<u32>().unwrap();
+                SemanticVersion::init().major(major).build()
+            }
+            | _ => SemanticVersion::default(),
+        }
     }
 }
 impl<T: AsRef<str>> StringInterpolation<T> for T
