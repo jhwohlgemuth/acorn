@@ -138,7 +138,7 @@ fn create_powerpoint(options: CommandLineOptions) {
             };
             let from = parent.join(data.clone().meta.first_image_content_url());
             copy(from, image_path).unwrap();
-            for (index, path) in paths.iter().enumerate() {
+            for (index, _path) in paths.iter().enumerate() {
                 let slide_number = index + 1;
                 [
                     format!("ppt/slides/slide{slide_number}.xml"),

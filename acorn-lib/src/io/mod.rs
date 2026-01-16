@@ -134,7 +134,7 @@ impl FromCommand for SemanticVersion {
                 | Ok(value) => {
                     let first_line = value.lines().collect::<Vec<_>>().first().cloned();
                     match first_line {
-                        | Some(line) => Some(SemanticVersion::from_string(line)),
+                        | Some(line) => Some(SemanticVersion::from(line)),
                         | None => None,
                     }
                 }

@@ -538,7 +538,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         let platform = prelude::vale_release_filename();
         let release = match self.version {
             | Some(value) => value,
-            | None => SemanticVersion::from_string(VALE_VERSION),
+            | None => SemanticVersion::from(VALE_VERSION),
         };
         let url = format!("{VALE_RELEASES_URL}/download/v{release}/{}_{release}_{platform}", self.clone().command());
         info!(url, "=> {} Vale release v{release}", Label::using());
@@ -590,7 +590,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
     fn download_checksums(self) -> Result<HashMap<String, String>, String> {
         let release = match self.version {
             | Some(value) => value,
-            | None => SemanticVersion::from_string(VALE_VERSION),
+            | None => SemanticVersion::from(VALE_VERSION),
         };
         let url = format!(
             "{VALE_RELEASES_URL}/download/v{release}/{}_{release}_checksums.txt",
@@ -724,7 +724,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             self.binary = Some(path.clone());
             let offset = "vale version ".len();
             let version = cmd!(name.clone(), "--version").read().unwrap()[offset..].to_string();
-            self.version = Some(SemanticVersion::from_string(&version));
+            self.version = Some(SemanticVersion::from(version.as_ref()));
             debug!(
                 path = path.to_absolute_string(),
                 "=> {} System {} (v{}) command",
@@ -736,7 +736,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         self
     }
     fn with_version(mut self, value: String) -> Self {
-        self.version = Some(SemanticVersion::from_string(&value));
+        self.version = Some(SemanticVersion::from(value.as_ref()));
         self
     }
 }

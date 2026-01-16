@@ -615,60 +615,21 @@ impl MimeType {
         .to_string()
     }
 }
-impl SemanticVersion {
-    /// Parses a string into a `SemanticVersion` value
-    ///
-    /// ### Example
-    /// ```rust
-    /// use acorn::util::SemanticVersion;
-    ///
-    /// let version = SemanticVersion::from_string("1.2.3");
-    /// assert_eq!(version.minor, 2);
-    /// ```
-    pub fn from_string<S>(value: S) -> SemanticVersion
-    where
-        S: Into<String>,
-    {
-        let pattern = r"(?<major>\d+)\.?(?<minor>\d+)?\.?(?<patch>\d+)?";
-        let value = match Regex::new(pattern) {
-            | Ok(re) => match re.find(&value.into()) {
-                | Ok(value) => match value {
-                    | Some(value) => value.as_str().to_string(),
-                    | None => unreachable!(),
-                },
-                | Err(_) => unreachable!(),
-            },
-            | Err(_) => unreachable!(),
-        };
-        let mut parts = value.split('.');
-        // dbg!(&parts.clone().collect::<Vec<_>>());
-        println!("Value = {value}");
-        match parts.clone().collect::<Vec<_>>().len() {
-            | 3 => {
-                let major = parts.next().unwrap().parse::<u32>().unwrap();
-                let minor = parts.next().unwrap().parse::<u32>().unwrap();
-                let patch = parts.next().unwrap().parse::<u32>().unwrap();
-                SemanticVersion::init().major(major).minor(minor).patch(patch).build()
-            }
-            | 2 => {
-                let major = parts.next().unwrap().parse::<u32>().unwrap();
-                let minor = parts.next().unwrap().parse::<u32>().unwrap();
-                SemanticVersion::init().major(major).minor(minor).build()
-            }
-            | 1 => {
-                let major = parts.next().unwrap().parse::<u32>().unwrap();
-                SemanticVersion::init().major(major).build()
-            }
-            | _ => SemanticVersion::default(),
-        }
-    }
-}
 impl Default for SemanticVersion {
     fn default() -> Self {
         SemanticVersion::init().build()
     }
 }
 impl From<&str> for SemanticVersion {
+    /// Parses a string into a `SemanticVersion` value
+    ///
+    /// ### Example
+    /// ```rust
+    /// use acorn::util::SemanticVersion;
+    ///
+    /// let version = SemanticVersion::from("1.2.3");
+    /// assert_eq!(version.minor, 2);
+    /// ```
     fn from(value: &str) -> Self {
         let pattern = r"(?<major>\d+)\.?(?<minor>\d+)?\.?(?<patch>\d+)?";
         let result = match Regex::new(pattern) {

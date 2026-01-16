@@ -170,36 +170,36 @@ fn test_regex_capture_lookup() {
 }
 #[test]
 fn test_semantic_version() {
-    let version = SemanticVersion::from_string("3");
+    let version = SemanticVersion::from("3");
     assert_eq!(version.major, 3);
     assert_eq!(version.minor, 0);
     assert_eq!(version.patch, 0);
-    let version = SemanticVersion::from_string("2.1");
+    let version = SemanticVersion::from("2.1");
     assert_eq!(version.major, 2);
     assert_eq!(version.minor, 1);
     assert_eq!(version.patch, 0);
     // Redundant case to ensure BagIt version is supported
-    let version = SemanticVersion::from_string("1.0");
+    let version = SemanticVersion::from("1.0");
     assert_eq!(version.major, 1);
     assert_eq!(version.minor, 0);
     assert_eq!(version.patch, 0);
-    let version = SemanticVersion::from_string("1.2.3");
+    let version = SemanticVersion::from("1.2.3");
     assert_eq!(version.major, 1);
     assert_eq!(version.minor, 2);
     assert_eq!(version.patch, 3);
     assert_eq!(format!("{}", version), "1.2.3");
     // cargo
-    let version = SemanticVersion::from_string("cargo 1.88.0-nightly (d811228b1 2025-04-15)");
+    let version = SemanticVersion::from("cargo 1.88.0-nightly (d811228b1 2025-04-15)");
     assert_eq!(version.major, 1);
     assert_eq!(version.minor, 88);
     assert_eq!(version.patch, 0);
     // Git
-    let version = SemanticVersion::from_string("git version 2.39.5");
+    let version = SemanticVersion::from("git version 2.39.5");
     assert_eq!(version.major, 2);
     assert_eq!(version.minor, 39);
     assert_eq!(version.patch, 5);
     // Pandoc
-    let version = SemanticVersion::from_string(
+    let version = SemanticVersion::from(
         r#"
     pandoc 3.6.4
     Features: +server +lua
