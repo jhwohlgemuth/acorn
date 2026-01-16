@@ -1,7 +1,7 @@
 use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
 use crate::template::Convert;
-use acorn::io::{async_runtime, extract_zip};
+use acorn::io::{async_runtime, extract_zip, read_file, write_file};
 use acorn::powerpoint::ooxml::{Relationship, Relationships};
 use acorn::powerpoint::{archive, interpolate_values, read_xml_rel};
 use acorn::prelude::{absolute, copy, create_dir_all, remove_file, File, PathBuf};
@@ -61,11 +61,11 @@ pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
     let _remove = remove_file(index);
 }
 fn create_powerpoint(options: CommandLineOptions) {
-    let CommandLineOptions { combine, path, output, .. } = options;
+    let CommandLineOptions { combine, path, output, .. } = options.clone();
     let paths = match path {
         | Some(value) => {
             if combine {
-                vec![value]
+                paths_from_options(&Some(value), &Some(options.clone()))
             } else {
                 vec![value]
             }
@@ -111,11 +111,11 @@ fn create_powerpoint(options: CommandLineOptions) {
             }
             | None => &parent.join("reference.pptx"),
         };
-        if let Ok(path) = extract_zip(reference_path.clone(), None) {
-            let xml_rels_path = path.join("ppt/slides/_rels/slide1.xml.rels");
+        if let Ok(export_path) = extract_zip(reference_path.clone(), None) {
+            let xml_rels_path = export_path.join("ppt/slides/_rels/slide1.xml.rels");
             let image_path = match read_xml_rel(xml_rels_path.clone()) {
                 | Some(Relationships { relationship }) => match relationship.clone().into_iter().find(|x| x.target.ends_with(".png")) {
-                    | Some(Relationship { target, .. }) => match path.join("ppt/slides").join(target.clone()).canonicalize() {
+                    | Some(Relationship { target, .. }) => match export_path.join("ppt/slides").join(target.clone()).canonicalize() {
                         | Ok(value) => value,
                         | Err(err) => {
                             error!(target = target.clone(), "=> {} Find image - {err}", Label::fail());
@@ -138,16 +138,24 @@ fn create_powerpoint(options: CommandLineOptions) {
             };
             let from = parent.join(data.clone().meta.first_image_content_url());
             copy(from, image_path).unwrap();
-            let slide_count = paths.len();
-            for index in 1..=slide_count {
-                // TODO: Check if page #index exists. If not, copy page #(index mod slide_count)
-                [format!("ppt/slides/slide{index}.xml"), format!("ppt/notesSlides/notesSlide{index}.xml")]
-                    .iter()
-                    .for_each(|fragment| {
-                        interpolate_values(path.clone().join(fragment), data.clone());
-                    });
+            for (index, path) in paths.iter().enumerate() {
+                let slide_number = index + 1;
+                [
+                    format!("ppt/slides/slide{slide_number}.xml"),
+                    format!("ppt/notesSlides/notesSlide{slide_number}.xml"),
+                ]
+                .iter()
+                .for_each(|fragment| {
+                    let fragment_path = export_path.clone().join(fragment);
+                    if !fragment_path.exists() {
+                        let first_slide = export_path.clone().join("ppt/slides/slide1.xml");
+                        let content = read_file(first_slide).unwrap();
+                        let _ = write_file(fragment_path.clone(), content);
+                    }
+                    interpolate_values(fragment_path, data.clone());
+                });
             }
-            let _ = archive(path, Some(PathBuf::from(output_path.clone())));
+            let _ = archive(export_path, Some(PathBuf::from(output_path.clone())));
         }
     }
 }
