@@ -25,6 +25,8 @@ pub enum FileFormat {
     #[default]
     #[display("pdf")]
     Pdf,
+    #[display("bagit")]
+    Bag,
     #[display("pptx")]
     Powerpoint,
 }

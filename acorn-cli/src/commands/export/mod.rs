@@ -140,6 +140,9 @@ pub fn run(
         .merge_request(*merge_request)
         .build();
     match format {
+        | FileFormat::Bag => {
+            todo!("Implement BagIt export")
+        }
         | FileFormat::Pdf => {
             async_runtime().block_on(async {
                 let paths = paths_from_options(path, &Some(options));
@@ -165,40 +168,28 @@ pub fn run(
         }
         | FileFormat::Powerpoint => {
             let paths = paths_from_options(path, &Some(options.clone()));
+            let options = CommandLineOptions::init()
+                .maybe_path(path.clone())
+                .maybe_output(output.clone())
+                .maybe_reference(reference.clone())
+                .build();
+            let count = if *combine { 1 } else { paths.len() as u64 };
+            let progress = ProgressBar::new(count);
+            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
             if *combine {
-                let progress = ProgressBar::new(1);
-                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                let options = CommandLineOptions::init()
-                    .maybe_path(path.clone())
-                    .maybe_output(output.clone())
-                    .maybe_reference(reference.clone())
-                    .build();
                 progress.set_message("Generating combined PowerPoint artifact");
                 create_powerpoint(paths, Some(options));
                 progress.inc(1);
                 progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
                 info!("=> {} Exported combined highlight PowerPoint file", Label::pass());
             } else {
-                let count = if *combine { 1 } else { paths.len() as u64 };
-                let progress = ProgressBar::new(count);
-                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 for path in &paths {
-                    let options = CommandLineOptions::init()
-                        .path(path.clone())
-                        .maybe_output(output.clone())
-                        .maybe_reference(reference.clone())
-                        .build();
                     progress.set_message(format!("Generating PowerPoint for {}", path.display()));
-                    create_powerpoint(vec![path.to_path_buf()], Some(options));
+                    create_powerpoint(vec![path.to_path_buf()], Some(options.clone()));
                     progress.inc(1);
                 }
                 progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                info!(
-                    "=> {} Exported {} highlight PowerPoint file{}",
-                    Label::pass(),
-                    paths.len(),
-                    suffix(paths.len())
-                );
+                info!("=> {} Exported {count} highlight PowerPoint file{}", Label::pass(), suffix(count));
             }
             Ok(())
         }

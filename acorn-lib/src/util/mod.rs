@@ -854,14 +854,19 @@ where
 }
 /// Returns "s" if the given value is not 1, otherwise returns an empty string.
 /// ### Example
-/// ```
+/// ```rust
 /// use acorn::util::suffix;
 ///
-/// assert_eq!(suffix(1), "");
-/// assert_eq!(suffix(2), "s");
+/// assert_eq!(suffix(1_usize), "");
+/// assert_eq!(suffix(2_usize), "s");
+/// assert_eq!(suffix(1_u64), "");
+/// assert_eq!(suffix(5_u64), "s");
 /// ```
-pub fn suffix(value: usize) -> String {
-    (if value == 1 { "" } else { "s" }).to_string()
+pub fn suffix<T>(value: T) -> String
+where
+    T: PartialEq + From<u8>,
+{
+    (if value == T::from(1) { "" } else { "s" }).to_string()
 }
 /// Computes the differences between two strings line by line and returns a vector of changes.
 ///
