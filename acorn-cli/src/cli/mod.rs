@@ -36,9 +36,6 @@ pub struct CommandLineOptions {
     ///
     /// e.g. reference.pptx for exporting RAD to PowerPoint
     pub reference: Option<PathBuf>,
-    /// Flag used to indicate if generated artifacts should be combined into a single artifact
-    #[builder(default)]
-    pub combine: bool,
     /// Flag used to indicate if a single error should cause the process to exit
     #[builder(default)]
     pub exit_on_first_error: bool,

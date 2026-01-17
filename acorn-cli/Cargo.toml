@@ -39,6 +39,7 @@ color-eyre = { workspace = true }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
 dotenvy = { workspace = true }
+itertools = { workspace = true }
 owo-colors = { workspace = true }
 rayon = { workspace = true }
 rust-embed = { workspace = true }

@@ -20,6 +20,7 @@ dependencies = [
  "fast_qr",
  "indicatif",
  "is-terminal",
+ "itertools 0.14.0",
  "mockall",
  "owo-colors",
  "percy-dom",
