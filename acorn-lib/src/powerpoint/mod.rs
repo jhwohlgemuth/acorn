@@ -228,6 +228,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 String(&'static str, String),
                 Bullets(&'static str, Vec<String>),
             }
+            dbg!(&path, &title, &subtitle, &content);
             // TODO: Use CiteAs API to get in Chicago format
             let replacements = vec![
                 Replacement::String("caption", caption),
@@ -250,7 +251,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 Replacement::Bullets("impact", impact),
                 Replacement::Bullets("technical", approach),
             ];
-            let result = replacements.iter().fold(content, |acc, replacement| match replacement {
+            let result = replacements.iter().fold(content.clone(), |acc, replacement| match replacement {
                 | Replacement::String(name, value) => acc.replace_placeholder_with_string(name, value),
                 | Replacement::Bullets(name, values) => acc.replace_placeholder_with_bullets(name, values.clone()),
             });
@@ -265,7 +266,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
         match write_file(path.clone(), content) {
             | Ok(_) => {}
             | Err(why) => {
-                error!("=> {} Cannot write file for interpolation - {why}", Label::fail());
+                error!("=> {} Cannot write file after interpolation - {why}", Label::fail());
             }
         }
     }

@@ -199,10 +199,14 @@ pub struct Line {
 pub struct Relationships {
     /// List of relationships
     pub relationship: Vec<Relationship>,
+    /// XML Namespace
+    #[serde(rename = "@xmlns")]
+    pub namespace: String,
 }
 /// Relationships describe references from parts to other internal resources in the package or to external resources
 ///
 /// See <https://ooxml.info/docs/9/9.2/>
+#[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Relationship {

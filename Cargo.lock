@@ -17,6 +17,7 @@ dependencies = [
  "dotenvy",
  "duct",
  "exitcode",
+ "fancy-regex",
  "fast_qr",
  "indicatif",
  "is-terminal",
