@@ -228,7 +228,6 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 String(&'static str, String),
                 Bullets(&'static str, Vec<String>),
             }
-            dbg!(&path, &title, &subtitle, &content);
             // TODO: Use CiteAs API to get in Chicago format
             let replacements = vec![
                 Replacement::String("caption", caption),

@@ -158,34 +158,36 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
         let _ = write_file(presentation_xml_rels, format!("{new_slide_presentation_xml_rels}"));
     }
 }
-fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination: &Path) {
+fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination: &Path) -> std::io::Result<u64> {
+    let ResearchActivity { meta, .. } = data;
     let xml_rels_path = destination.join(format!("ppt/slides/_rels/slide{index}.xml.rels"));
-    let image_path = match read_xml_rel(xml_rels_path.clone()) {
-        | Some(Relationships { relationship, .. }) => match relationship.clone().into_iter().find(|x| x.target.ends_with(".png")) {
-            | Some(Relationship { target, .. }) => match destination.join("ppt/slides").join(target.clone()).canonicalize() {
-                | Ok(value) => value,
-                | Err(err) => {
-                    error!(target = target.clone(), "=> {} Find image - {err}", Label::fail());
-                    exit(exitcode::NOINPUT);
-                }
-            },
-            | None => {
-                error!(path = xml_rels_path.to_absolute_string(), "=> {} Find image relationship", Label::fail());
-                exit(exitcode::DATAERR);
-            }
-        },
+    let relationships = match read_xml_rel(xml_rels_path.clone()) {
+        | Some(Relationships { relationship, .. }) => relationship,
         | None => {
-            error!(
-                path = xml_rels_path.to_absolute_string(),
-                "=> {} Read PowerPoint slide relationships",
-                Label::fail()
-            );
+            let path = xml_rels_path.to_absolute_string();
+            error!(path, "=> {} Read PowerPoint slide relationships", Label::fail());
+            exit(exitcode::NOINPUT);
+        }
+    };
+    let target = match relationships.into_iter().find(|x| x.target.ends_with("png")) {
+        | Some(Relationship { target, .. }) => target,
+        | None => {
+            let path = xml_rels_path.to_absolute_string();
+            error!(path, "=> {} Find slide image relationship", Label::fail());
             exit(exitcode::NOINPUT);
         }
     };
     let parent = source.parent().unwrap().canonicalize().unwrap();
-    let from = parent.join(data.clone().meta.first_image_content_url());
-    copy(from, image_path).unwrap();
+    let image_url = meta.clone().first_image_content_url();
+    let from = parent.join(image_url.clone());
+    let name = meta.clone().identifier;
+    let extension = Path::new(&image_url).extension().unwrap().to_str().unwrap();
+    let to = destination.join(format!("ppt/media/{name}.{extension}"));
+    let re = Regex::new(&target).unwrap();
+    let content = read_file(xml_rels_path.clone()).unwrap();
+    let updated = re.replace(&content, format!("../media/{name}.{extension}")).to_string();
+    let _ = write_file(xml_rels_path, updated);
+    copy(from, to)
 }
 pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
     let CommandLineOptions { output, .. } = options;
@@ -282,15 +284,16 @@ fn create_powerpoint(paths: Vec<PathBuf>, options: Option<CommandLineOptions>) -
         .enumerate()
         .for_each(|(index, (data, index_path))| {
             let slide_number = index + 1;
-            [
+            let fragments = [
                 format!("ppt/slides/slide{slide_number}.xml"),
                 format!("ppt/notesSlides/notesSlide{slide_number}.xml"),
                 format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
-            ]
-            .iter()
-            .map(|fragment| reference_extract_path.join(fragment))
-            .for_each(|path| interpolate_values(path, data.clone()));
-            copy_image(slide_number, &data, &index_path, &reference_extract_path);
+            ];
+            fragments
+                .iter()
+                .map(|fragment| reference_extract_path.join(fragment))
+                .for_each(|path| interpolate_values(path, data.clone()));
+            let _ = copy_image(slide_number, &data, &index_path, &reference_extract_path);
         });
     let folder = if count == 1 {
         paths[0].clone().parent().unwrap().canonicalize().unwrap()
