@@ -4,9 +4,11 @@
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use bon::Builder;
+use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
+const XML_DECLARATION: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>";
 /// OOXML Text Capitalization Type
 ///
 /// See <https://datypic.com/sc/ooxml/t-a_ST_TextCapsType.html>
@@ -399,3 +401,18 @@ pub struct UnderlineFollowsText {}
 /// See <https://www.datypic.com/sc/ooxml/e-a_uLn-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UnderlineStroke {}
+impl Relationships {
+    /// Convert to XML string using quick_xml serialization
+    pub fn to_string(&self) -> Result<String, quick_xml::de::DeError> {
+        let xml = quick_xml::se::to_string(self).map_err(|e| quick_xml::de::DeError::Custom(e.to_string()))?;
+        Ok(format!("{}{}", XML_DECLARATION, xml))
+    }
+}
+impl fmt::Display for Relationships {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.to_string() {
+            | Ok(xml) => write!(f, "{}", xml),
+            | Err(e) => write!(f, "Error serializing Relationships: {}", e),
+        }
+    }
+}

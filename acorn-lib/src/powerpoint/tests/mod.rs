@@ -3,11 +3,13 @@ use crate::powerpoint::*;
 use crate::prelude::PathBuf;
 use crate::util::to_string;
 
-const FIXTURES: &str = "../tests/fixtures";
+fn fixtures_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("tests/fixtures")
+}
 
 #[test]
 fn test_archive() {
-    let path = PathBuf::from(FIXTURES).join("data");
+    let path = fixtures_dir().join("data");
     let output_file = archive(path.clone(), None).unwrap();
     assert_eq!(output_file.file_name().unwrap().to_str().unwrap(), "data.zip");
 }
@@ -128,7 +130,7 @@ fn test_parse() {
 }
 #[test]
 fn test_read_xml_rel() {
-    let path = PathBuf::from(FIXTURES).join("presentation.xml.rels");
+    let path = fixtures_dir().join("presentation.xml.rels");
     let result = read_xml_rel(path);
     assert!(result.is_some());
     if let Some(content) = result {
@@ -136,6 +138,8 @@ fn test_read_xml_rel() {
         assert_eq!(content.relationship[0].id, "rId8");
     }
 }
+#[test]
+fn test_print_xml_rel() {}
 #[test]
 fn test_replace_placeholder_with_string() {
     let content = "{{ title }}";
@@ -151,7 +155,7 @@ fn test_replace_placeholder_with_string() {
 }
 #[test]
 fn test_replace_placeholder_with_bullets() {
-    let path = PathBuf::from(FIXTURES).join("slide.xml");
+    let path = fixtures_dir().join("slide.xml");
     match read_file(path) {
         | Ok(content) => {
             let values = to_string(vec!["FOO", "BAR", "BAZ"]);
