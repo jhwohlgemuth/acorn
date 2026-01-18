@@ -4,7 +4,7 @@
 [<img alt="Size" src="https://img.shields.io/crates/size/acorn-lib?style=for-the-badge" height="20">](https://docs.rs/acorn-lib)
 [<img alt="Downloads" src="https://img.shields.io/crates/dr/acorn-lib?style=for-the-badge" height="20">](https://docs.rs/acorn-lib)
 
-The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `acorn-lib` library provides core functionalities for working with ACORN [schemas](../schema.md), validating persistent identifiers[^pid], and generating artifacts.
+The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `acorn-lib` library provides core functionalities for working with ACORN [schemas](../concepts/acorn.md), validating persistent identifiers[^pid], and generating artifacts.
 
 ## Installation
 - Add `acorn-lib` as a dependency in your `Cargo.toml`[^version]

@@ -56,7 +56,7 @@
 > ```
 
 ### Download pre-compiled binary
-- Download the latest release from the [ACORN GitHub Releases](https://code.ornl.gov/research-enablement/acorn/-/releases)
+- Download the latest release from the [ACORN GitLab Releases page](https://code.ornl.gov/research-enablement/acorn/-/releases)
     - 🪟 Windows
         - Open a PowerShell terminal and run:
             ```powershell
@@ -69,7 +69,7 @@
     - 🐧 Linux
         - Open a terminal and run:
             ```sh
-            curl -LO https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-unknown-linux-musl/v0.1.45/acorn
+            curl -LO https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-unknown-linux-musl/v0.1.50/acorn
             ```
         - Make the downloaded file executable:
             ```sh
