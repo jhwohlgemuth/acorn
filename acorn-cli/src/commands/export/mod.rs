@@ -9,7 +9,6 @@ use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{suffix, Label, ToAbsoluteString};
 use color_eyre::eyre::{Report, Result};
 use core::error::Error;
-use core::iter::once;
 use fancy_regex::Regex;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::izip;
@@ -96,7 +95,15 @@ pub fn run(
     }
 }
 fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
-    fn slide_paths(slide_number: usize, root: PathBuf) -> Vec<PathBuf> {
+    fn add_slide_element(xml: &str, revision_identifier: u32) -> String {
+        let pattern = r#"<p:sldIdLst>(?<first_slide><p:sldId id="(?<identifier>\d+)" r:id="rId(?<revision>\d+)"/>)(?<new_slides>.*)</p:sldIdLst>"#;
+        let re = Regex::new(pattern).unwrap();
+        let new_slide_element_identifier = 258;
+        let new_slide_element = format!(r#"<p:sldId id="{}" r:id="rId{revision_identifier}" />"#, new_slide_element_identifier);
+        re.replace(xml, format!(r#"<p:sldIdLst>$1$4{new_slide_element}</p:sldIdLst>"#))
+            .to_string()
+    }
+    fn slide_paths(slide_number: usize, root: &PathBuf) -> Vec<PathBuf> {
         [
             format!("ppt/slides/slide{slide_number}.xml"),
             format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
@@ -107,10 +114,10 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
         .map(|x| root.join(x))
         .collect::<Vec<PathBuf>>()
     }
-    let first_slide_paths = slide_paths(1, reference_extract_path.clone());
-    let new_slide_paths = slide_paths(slide_number, reference_extract_path.clone());
+    let root = reference_extract_path.clone();
+    let new_slide_paths = slide_paths(slide_number, &root);
     if !new_slide_paths.iter().all(|x| x.exists()) {
-        izip!(first_slide_paths, new_slide_paths).for_each(|(first_slide_path, new_slide_path)| {
+        izip!(slide_paths(1, &root), new_slide_paths).for_each(|(first_slide_path, new_slide_path)| {
             if let Ok(result) = read_file(first_slide_path) {
                 let content = result
                     .replace("slides/slide1", &format!("slides/slide{}", slide_number))
@@ -118,44 +125,25 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
                 let _ = write_file(new_slide_path, content);
             }
         });
-        let presentation_xml_rels = reference_extract_path.clone().join("ppt/_rels/presentation.xml.rels");
-        let presentation_relationships = match read_xml_rel(presentation_xml_rels.clone()) {
-            | Some(Relationships { relationship, .. }) => relationship,
-            | None => vec![],
+        // Add new slide relationship to presentation.xml.rels
+        let presentation_xml_rels_path = reference_extract_path.clone().join("ppt/_rels/presentation.xml.rels");
+        let presentation_xml_rels = match read_xml_rel(presentation_xml_rels_path.clone()) {
+            | Some(value) => value,
+            | None => Relationships::default(),
         };
-        let revision_identifiers = presentation_relationships
-            .clone()
-            .iter()
-            .map(|x| x.id.clone().trim_start_matches("rId").to_string().parse::<u32>().unwrap())
-            .collect::<Vec<u32>>();
-        let largest_identifier = *revision_identifiers.iter().max().unwrap();
+        let largest_identifier = presentation_xml_rels.largest_revision_identifier().unwrap();
         let new_slide_revision_identifier = largest_identifier + 1;
-        let new_slide_relationship = Relationship {
-            id: format!("rId{}", new_slide_revision_identifier),
-            target: format!("slides/slide{}.xml", slide_number),
-            target_mode: None,
-            r#relationship_type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide".to_string(),
-        };
-        let new_slide_presentation_xml_rels = Relationships {
-            namespace: "http://schemas.openxmlformats.org/package/2006/relationships".to_string(),
-            relationship: presentation_relationships
-                .clone()
-                .into_iter()
-                .chain(once(new_slide_relationship))
-                .collect::<Vec<_>>(),
-        };
+        let new_slide_relationship = Relationship::init()
+            .id(format!("rId{}", new_slide_revision_identifier))
+            .target(format!("slides/slide{}.xml", slide_number))
+            .build();
+        let updated_presentation_xml_rels = presentation_xml_rels.add_relationship(new_slide_relationship);
+        let _ = write_file(presentation_xml_rels_path, format!("{updated_presentation_xml_rels}"));
+        // Add new slide element to presentation.xml
         let presentation_xml_path = reference_extract_path.clone().join("ppt/presentation.xml");
         let presentation_xml = read_file(&presentation_xml_path).unwrap();
-        let pattern = r#"<p:sldIdLst>(?<first_slide><p:sldId id="(?<identifier>\d+)" r:id="rId(?<revision>\d+)"/>)(?<new_slides>.*)</p:sldIdLst>"#;
-        let re = Regex::new(pattern).unwrap();
-        let new_slide_element_identifier = 258;
-        let new_slide_element = format!(
-            r#"<p:sldId id="{}" r:id="rId{new_slide_revision_identifier}" />"#,
-            new_slide_element_identifier
-        );
-        let updated_presentation_xml = re.replace(&presentation_xml, format!(r#"<p:sldIdLst>$1$4{new_slide_element}</p:sldIdLst>"#));
-        let _ = write_file(&presentation_xml_path, format!("{updated_presentation_xml}"));
-        let _ = write_file(presentation_xml_rels, format!("{new_slide_presentation_xml_rels}"));
+        let updated_presentation_xml = add_slide_element(&presentation_xml, new_slide_revision_identifier);
+        let _ = write_file(&presentation_xml_path, updated_presentation_xml.to_string());
     }
 }
 fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination: &Path) -> std::io::Result<u64> {

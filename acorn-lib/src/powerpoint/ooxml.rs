@@ -5,10 +5,22 @@
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use bon::Builder;
 use core::fmt;
+use core::iter::once;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 const XML_DECLARATION: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>";
+/// Trait for working with OOXML data structures
+pub trait XmlRels {
+    /// Get the largest revision identifier
+    fn largest_revision_identifier(&self) -> Option<u32> {
+        None
+    }
+    /// Get all revision identifiers
+    fn revision_identifiers(&self) -> Vec<u32> {
+        vec![]
+    }
+}
 /// OOXML Text Capitalization Type
 ///
 /// See <https://datypic.com/sc/ooxml/t-a_ST_TextCapsType.html>
@@ -194,12 +206,15 @@ pub struct Line {
     line_fill: LineFill,
 }
 /// Struct for parsing OOXML relationships from .rel files
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
+#[builder(start_fn = init)]
 pub struct Relationships {
     /// List of relationships
+    #[builder(default = vec![])]
     pub relationship: Vec<Relationship>,
     /// XML Namespace
+    #[builder(default = "http://schemas.openxmlformats.org/package/2006/relationships".to_string())]
     #[serde(rename = "@xmlns")]
     pub namespace: String,
 }
@@ -207,13 +222,15 @@ pub struct Relationships {
 ///
 /// See <https://ooxml.info/docs/9/9.2/>
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
+#[builder(start_fn = init)]
 pub struct Relationship {
     /// Relationship identifier
     #[serde(rename = "@Id")]
     pub id: String,
     /// Relationship type
+    #[builder(default = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide".to_string())]
     #[serde(rename = "@Type")]
     pub relationship_type: String,
     /// Target resource identifier
@@ -406,10 +423,25 @@ pub struct UnderlineFollowsText {}
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UnderlineStroke {}
 impl Relationships {
+    /// Add a relationship
+    pub fn add_relationship(&self, value: Relationship) -> Relationships {
+        let Relationships { relationship, .. } = self;
+        let updated = relationship.clone().into_iter().chain(once(value)).collect::<Vec<_>>();
+        Relationships::init().relationship(updated).build()
+    }
+    /// Get largest revision identifier among relationships
+    pub fn largest_revision_identifier(&self) -> Option<u32> {
+        self.relationship.largest_revision_identifier()
+    }
     /// Convert to XML string using quick_xml serialization
     pub fn to_string(&self) -> Result<String, quick_xml::de::DeError> {
         let xml = quick_xml::se::to_string(self).map_err(|e| quick_xml::de::DeError::Custom(e.to_string()))?;
         Ok(format!("{}{}", XML_DECLARATION, xml))
+    }
+}
+impl Default for Relationships {
+    fn default() -> Self {
+        Self::init().build()
     }
 }
 impl fmt::Display for Relationships {
@@ -418,5 +450,16 @@ impl fmt::Display for Relationships {
             | Ok(xml) => write!(f, "{}", xml),
             | Err(e) => write!(f, "Error serializing Relationships: {}", e),
         }
+    }
+}
+impl XmlRels for Vec<Relationship> {
+    fn largest_revision_identifier(&self) -> Option<u32> {
+        self.revision_identifiers().iter().max().cloned()
+    }
+    fn revision_identifiers(&self) -> Vec<u32> {
+        self.clone()
+            .iter()
+            .map(|x| x.id.clone().trim_start_matches("rId").to_string().parse::<u32>().unwrap())
+            .collect::<Vec<u32>>()
     }
 }
