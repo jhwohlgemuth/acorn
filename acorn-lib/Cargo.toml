@@ -38,7 +38,6 @@ human-units = { version = "0.5.3", default-features = false }
 lychee-lib = { version = "0.21.0", default-features = false, optional = true }
 hashbrown = { version = "0.16.0", features = ["default-hasher"], default-features = false }
 is_executable = { version = "1.0.5", default-features = false }
-nanoid = { version = "0.4.0", default-features = false }
 nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-normalization"] , default-features = false }
 percy-dom = {version = "0.10.0", features = ["macro"], default-features = false }
 petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
@@ -66,6 +65,7 @@ fancy-regex = { workspace = true }
 glob = { workspace = true }
 itertools = { workspace = true }
 lazy_static = { workspace = true }
+nanoid = { workspace = true }
 owo-colors = { workspace = true }
 rayon = { workspace = true }
 rust-embed = { workspace = true }

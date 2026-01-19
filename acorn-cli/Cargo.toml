@@ -41,6 +41,7 @@ derive_more = { workspace = true }
 dotenvy = { workspace = true }
 fancy-regex = { workspace = true }
 itertools = { workspace = true }
+nanoid = { workspace = true }
 owo-colors = { workspace = true }
 rayon = { workspace = true }
 rust-embed = { workspace = true }

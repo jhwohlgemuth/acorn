@@ -12,9 +12,10 @@ use core::error::Error;
 use fancy_regex::Regex;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::izip;
+use nanoid::nanoid;
 use playwright::api::Page;
 use playwright::Playwright;
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use std::process::exit;
 use tracing::{debug, error, info};
 
@@ -99,7 +100,7 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
     fn add_slide_element(xml: &str, revision_identifier: u32) -> String {
         let pattern = r#"<p:sldIdLst>(?<first_slide><p:sldId id="(?<identifier>\d+)" r:id="rId(?<revision>\d+)"/>)(?<new_slides>.*)</p:sldIdLst>"#;
         let re = Regex::new(pattern).unwrap();
-        let new_slide_element_identifier = 258;
+        let new_slide_element_identifier: u32 = nanoid!(4, &['1', '2', '3', '4', '5', '6', '7', '8', '9']).parse().unwrap();
         let new_slide_element = format!(r#"<p:sldId id="{}" r:id="rId{revision_identifier}" />"#, new_slide_element_identifier);
         re.replace(xml, format!(r#"<p:sldIdLst>$1$4{new_slide_element}</p:sldIdLst>"#))
             .to_string()
@@ -266,7 +267,7 @@ fn create_powerpoint(paths: Vec<PathBuf>, options: Option<CommandLineOptions>) -
         }
     };
     research_activity_data
-        .par_iter()
+        .iter()
         .enumerate()
         .for_each(|(index, _)| add_slide(index + 1, reference_extract_path.clone()));
     izip!(research_activity_data, paths.clone())
