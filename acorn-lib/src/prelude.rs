@@ -13,6 +13,7 @@ mod std {
     #[cfg(unix)]
     pub use std::os::unix::fs::PermissionsExt;
     pub use std::path::{absolute, Path, PathBuf};
+    pub use std::process::exit;
 }
 /// Module that provides `no-std` support
 #[allow(unused_imports)]

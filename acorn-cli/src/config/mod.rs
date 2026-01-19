@@ -5,9 +5,9 @@
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
 use acorn::io::{files_all, network_get_request, parent, read_file, FromPath};
-use acorn::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
+use acorn::prelude::{self, create_dir_all, exit, io, Cursor, File, PathBuf};
 use acorn::util::{suffix, Label, MimeType, ToAbsoluteString};
-use acorn::Repository;
+use acorn::{Location, Repository, Scheme};
 use bon::Builder;
 use color_eyre::eyre;
 use core::fmt::Debug;
@@ -278,8 +278,7 @@ impl Bucket {
                 .collect::<Vec<String>>();
             let total_data: usize = count_json_files(paths.clone());
             let total_images: usize = count_image_files(paths.clone());
-            let name = self.name.unwrap_or_else(|| "Bucket".to_string());
-            let message = operations_complete_message(name, total_data, total_images);
+            let message = operations_complete_message(self.name, total_data, total_images);
             let progress = ProgressBar::new(paths.len() as u64);
             paths.par_iter().for_each(|path| {
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
@@ -321,8 +320,7 @@ impl Bucket {
             .collect::<Vec<String>>();
         let total_data: usize = count_json_files(paths.clone());
         let total_images: usize = count_image_files(paths.clone());
-        let name = self.name.unwrap_or_else(|| "Bucket".to_string());
-        let message = operations_complete_message(name, total_data, total_images);
+        let message = operations_complete_message(self.name, total_data, total_images);
         let progress = ProgressBar::new(paths.len() as u64);
         paths.par_iter().for_each(|path| {
             progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
@@ -426,6 +424,37 @@ impl Bucket {
         }
     }
 }
+impl From<&str> for Bucket {
+    fn from(value: &str) -> Self {
+        let location = Location::Simple(value.to_string());
+        match location.uri() {
+            | Some(uri) => {
+                let repository = match location.scheme() {
+                    | Scheme::File => Repository::Git { location },
+                    | _ => {
+                        let host = match uri.host() {
+                            | Some(value) => value.to_string().to_lowercase(),
+                            | None => {
+                                error!(value, "=> {} Parse URI - No host", Label::fail());
+                                exit(exitcode::DATAERR);
+                            }
+                        };
+                        if host.contains("github.com") {
+                            Repository::GitHub { location }
+                        } else {
+                            let id = None;
+                            Repository::GitLab { id, location }
+                        }
+                    }
+                };
+                Bucket::init().code_repository(repository).build()
+            }
+            | None => {
+                exit(exitcode::DATAERR);
+            }
+        }
+    }
+}
 impl ApplicationConfiguration {
     /// Read and parse application configuration file (JSON or YAML)
     pub fn read(path: PathBuf) -> Option<ApplicationConfiguration> {
@@ -512,7 +541,7 @@ fn count_json_files(paths: Vec<String>) -> usize {
 fn count_image_files(paths: Vec<String>) -> usize {
     paths.into_iter().filter(has_image_extension).count()
 }
-fn operations_complete_message(name: String, json_count: usize, image_count: usize) -> String {
+fn operations_complete_message(name: Option<String>, json_count: usize, image_count: usize) -> String {
     let total = json_count + image_count;
     let message = if json_count != image_count {
         let recommendation = if json_count > image_count {
@@ -531,8 +560,12 @@ fn operations_complete_message(name: String, json_count: usize, image_count: usi
     } else {
         "".to_string()
     };
+    let bucket_description = match name {
+        | Some(value) => format!("{} bucket", value.to_uppercase().cyan()),
+        | None => "<URL>".cyan().to_string(),
+    };
     format!(
-        "  {}Obtained {} file{} from {} bucket{}",
+        "  {}Obtained {} file{} from {bucket_description}{}",
         if total > 0 { Label::CHECKMARK } else { Label::CAUTION },
         if total > 0 {
             total.green().to_string()
@@ -540,7 +573,6 @@ fn operations_complete_message(name: String, json_count: usize, image_count: usi
             total.yellow().to_string()
         },
         suffix(total),
-        name.to_uppercase(),
         message,
     )
 }

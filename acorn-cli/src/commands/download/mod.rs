@@ -1,4 +1,4 @@
-use crate::config::ApplicationConfiguration;
+use crate::config::{ApplicationConfiguration, Bucket};
 use acorn::prelude::PathBuf;
 use acorn::util::{suffix, Label};
 use color_eyre::eyre::{Report, Result};
@@ -20,7 +20,7 @@ pub fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option<PathB
                             bucket.copy_files(path)
                         } else {
                             bucket.download_files(path)
-                        }
+                        };
                     }
                 });
                 println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
@@ -31,8 +31,16 @@ pub fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option<PathB
             }
         };
     } else if let Some(value) = url {
-        // TODO: Create bucket
-        // TODO: Download files
+        let mut total: usize = 0;
+        let bucket = Bucket::from(value.as_ref());
+        if let Some(path) = output.clone() {
+            total += if *offline || bucket.clone().code_repository.is_local() {
+                bucket.copy_files(path)
+            } else {
+                bucket.download_files(path)
+            };
+            println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
+        }
     }
     Ok(())
 }
