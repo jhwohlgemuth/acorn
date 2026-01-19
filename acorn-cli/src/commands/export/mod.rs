@@ -14,6 +14,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use itertools::izip;
 use playwright::api::Page;
 use playwright::Playwright;
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::process::exit;
 use tracing::{debug, error, info};
 
@@ -265,10 +266,12 @@ fn create_powerpoint(paths: Vec<PathBuf>, options: Option<CommandLineOptions>) -
         }
     };
     research_activity_data
-        .iter()
+        .par_iter()
         .enumerate()
         .for_each(|(index, _)| add_slide(index + 1, reference_extract_path.clone()));
     izip!(research_activity_data, paths.clone())
+        .collect::<Vec<_>>()
+        .into_par_iter()
         .enumerate()
         .for_each(|(index, (data, index_path))| {
             let slide_number = index + 1;

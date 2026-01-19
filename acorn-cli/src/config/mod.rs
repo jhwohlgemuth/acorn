@@ -4,10 +4,11 @@
 //!
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
-use acorn::io::{files_all, parent, read_file, FromPath};
+use acorn::io::{files_all, network_get_request, parent, read_file, FromPath};
 use acorn::prelude::{self, create_dir_all, io, Cursor, File, PathBuf};
 use acorn::util::{suffix, Label, MimeType, ToAbsoluteString};
 use acorn::Repository;
+use bon::Builder;
 use color_eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
@@ -22,7 +23,6 @@ use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace, warn};
 
 const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
-
 /// Struct for application configuration
 ///
 /// ### Example `buckets.json`
@@ -68,13 +68,15 @@ pub enum EntryType {
     Blob,
 }
 /// Struct for bucket data
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[builder(start_fn = init)]
 pub struct Bucket {
     /// Bucket name
     ///
     /// See <https://schema.org/name>
-    pub name: String,
+    pub name: Option<String>,
     /// Bucket description
     ///
     /// See <https://schema.org/description>
@@ -276,7 +278,8 @@ impl Bucket {
                 .collect::<Vec<String>>();
             let total_data: usize = count_json_files(paths.clone());
             let total_images: usize = count_image_files(paths.clone());
-            let message = operations_complete_message(self.name, total_data, total_images);
+            let name = self.name.unwrap_or_else(|| "Bucket".to_string());
+            let message = operations_complete_message(name, total_data, total_images);
             let progress = ProgressBar::new(paths.len() as u64);
             paths.par_iter().for_each(|path| {
                 progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
@@ -318,9 +321,9 @@ impl Bucket {
             .collect::<Vec<String>>();
         let total_data: usize = count_json_files(paths.clone());
         let total_images: usize = count_image_files(paths.clone());
-        let message = operations_complete_message(self.name, total_data, total_images);
+        let name = self.name.unwrap_or_else(|| "Bucket".to_string());
+        let message = operations_complete_message(name, total_data, total_images);
         let progress = ProgressBar::new(paths.len() as u64);
-        let client = Client::new();
         paths.par_iter().for_each(|path| {
             progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
             progress.set_message(format!("Downloading {path}"));
@@ -328,7 +331,7 @@ impl Bucket {
             create_dir_all(folder.clone()).unwrap();
             if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
                 if let Some(url) = self.code_repository.raw_url(path.to_string()) {
-                    match client.get(url).header(USER_AGENT, "rust-web-api-client").send() {
+                    match network_get_request(url).send() {
                         | Ok(response) => match response.bytes() {
                             | Ok(bytes) => {
                                 let mut content = Cursor::new(bytes);
@@ -380,8 +383,9 @@ impl Bucket {
                 | Ok(response) if response.status().is_success() => Bucket::parse_github_response(response),
                 | Ok(_) | Err(_) => {
                     let url = self.tree_url(directory, None);
+                    let name = self.name.unwrap_or_else(|| "Bucket".to_string());
                     debug!(url, "=> {}", Label::using());
-                    error!("=> {} Get file paths for {} bucket", Label::fail(), self.name.to_uppercase().red());
+                    error!("=> {} Get file paths for {} bucket", Label::fail(), name.to_uppercase().red());
                     vec![]
                 }
             },
@@ -396,8 +400,9 @@ impl Bucket {
                 }
                 | Ok(_) | Err(_) => {
                     let url = self.tree_url(directory, FIRST_PAGE);
+                    let name = self.name.unwrap_or_else(|| "Bucket".to_string());
                     debug!(url, "=> {}", Label::using());
-                    error!("=> {} Get file paths for {} bucket", Label::fail(), self.name.to_uppercase().red());
+                    error!("=> {} Get file paths for {} bucket", Label::fail(), name.to_uppercase().red());
                     vec![]
                 }
             },
