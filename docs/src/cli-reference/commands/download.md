@@ -6,6 +6,9 @@
 
 ## Example Usage
 ```sh
+# Download research activity data from a single bucket repository URL
+acorn download https://code.ornl.gov/research-enablement/buckets/nssd
+
 # Download research activity data from a list of buckets
 acorn download --config /path/to/.acorn.json
 
