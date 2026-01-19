@@ -168,7 +168,7 @@ pub enum Commands {
     )]
     Check {
         /// Path to check
-        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
         path: Option<PathBuf>,
         /// Check files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
@@ -245,6 +245,9 @@ pub enum Commands {
     },
     /// Download research activity data from buckets
     ///
+    ///     Download research activity data from a bucket repository URL
+    ///     $> acorn download https://github.com/user/repo
+    ///
     ///     Download research activity data from a list of buckets
     ///     $> acorn download --config /path/to/.acorn.json
     ///
@@ -253,8 +256,11 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Download {
-        /// Path to buckets configuration file
-        #[arg(default_value = "./.acorn.json", short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+        /// Bucket repository URL
+        #[arg(value_name = "URL", required = false, value_hint = ValueHint::Url, help_heading = "ARGS")]
+        url: Option<String>,
+        /// Path to configuration file (alternative to URL argument)
+        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, conflicts_with = "url", help_heading = "OPTIONS")]
         config: Option<PathBuf>,
         /// Path to output directory where the downloaded content should be saved
         #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
@@ -281,7 +287,7 @@ pub enum Commands {
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Export {
         /// Path of input files to be exported
-        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
         path: Option<PathBuf>,
         /// Export files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
@@ -333,7 +339,7 @@ pub enum Commands {
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Format {
         /// Path to look for files to format
-        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
         path: Option<PathBuf>,
         /// Format files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
@@ -365,7 +371,7 @@ pub enum Commands {
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Link {
         /// Path to look for files to process
-        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
         path: Option<PathBuf>,
         /// Process files that were changed in a given Git branch
         #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]

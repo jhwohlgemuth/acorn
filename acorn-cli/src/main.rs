@@ -142,7 +142,7 @@ fn main() -> Void {
             verbose,
         ),
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline),
-        | Some(Commands::Download { config, output, .. }) => commands::download::run(config, output, &offline),
+        | Some(Commands::Download { config, url, output, .. }) => commands::download::run(config, url, output, &offline),
         | Some(Commands::Export {
             output,
             path,

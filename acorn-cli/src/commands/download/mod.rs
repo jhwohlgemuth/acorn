@@ -6,20 +6,20 @@ use owo_colors::OwoColorize;
 use std::process::exit;
 use tracing::error;
 
-pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) -> Result<(), Report> {
+pub fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option<PathBuf>, offline: &bool) -> Result<(), Report> {
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
-    if let Some(path) = buckets {
+    if let Some(path) = config {
         match ApplicationConfiguration::read(path.clone()) {
             | Some(content) => {
                 let mut total: usize = 0;
                 content.buckets.into_iter().for_each(|bucket| {
-                    if let Some(path) = output {
+                    if let Some(path) = output.clone() {
                         total += if *offline || bucket.clone().code_repository.is_local() {
-                            bucket.copy_files(path.to_path_buf())
+                            bucket.copy_files(path)
                         } else {
-                            bucket.download_files(path.to_path_buf())
+                            bucket.download_files(path)
                         }
                     }
                 });
@@ -30,6 +30,9 @@ pub fn run(buckets: &Option<PathBuf>, output: &Option<PathBuf>, offline: &bool) 
                 exit(exitcode::DATAERR);
             }
         };
+    } else if let Some(value) = url {
+        // TODO: Create bucket
+        // TODO: Download files
     }
     Ok(())
 }
