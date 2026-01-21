@@ -1,5 +1,5 @@
 use crate::io::{
-    command_exists, extract_zip, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, git_branch_name,
+    command_exists, extract_zip, files_from_git_commit, files_from_gitlab_merge_request, git_branch_name,
     git_default_branch_name, parent, read_file, to_absolute_string, FromCommand, FromPath,
 };
 use crate::prelude::{Path, PathBuf};
@@ -38,22 +38,6 @@ fn test_file_extension() {
     assert_eq!(file_extension("./path/to/folder"), None);
     assert_eq!(file_extension("/path/to/.hidden/folder"), None);
     assert_eq!(file_extension("path/to/.hidden/folder"), None);
-}
-#[test]
-fn test_files_all() {
-    let extensions = Some(vec!["json"]);
-    let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions.clone());
-    assert_eq!(files.len(), 3);
-    let files = files_all(PathBuf::from(FIXTURES).join("glob"), Some(vec!["jpg"]));
-    assert_eq!(files.len(), 1);
-    assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
-}
-#[test]
-fn test_files_from_git() {
-    let files = files_from_git_branch("main", Some(vec!["json"]));
-    assert!(files.is_empty());
-    let files = files_from_git_commit("HEAD", Some(vec!["fake"]));
-    assert!(files.is_empty());
 }
 #[test]
 #[ignore]

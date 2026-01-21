@@ -1,11 +1,17 @@
-use crate::io::{citeas, file_checksum, files_all, filter_git_command_result, filter_ignored, image_paths};
+use crate::io::bagit::Bag;
+use crate::io::{
+    citeas, file_checksum, files_all, files_from_git_branch, files_from_git_commit, filter_git_command_result, filter_ignored, image_paths,
+};
 use crate::schema::pid::DOI;
 use std::path::PathBuf;
 
 const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
-fn test_bagit() {}
+fn test_bagit() {
+    let bag = Bag::init().base_directory(FIXTURES.to_string()).build().with_payload();
+    assert_eq!(bag.payload.len(), 27);
+}
 #[test]
 fn test_citeas() {
     let status = citeas::status();
@@ -51,6 +57,25 @@ fn test_checksum() {
     }
     let result = file_checksum(PathBuf::from("/path/does/not/exist.txt"), None);
     assert!(result.is_none());
+}
+#[test]
+fn test_files_all() {
+    let extensions = Some(vec!["json"]);
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), extensions.clone());
+    assert_eq!(files.len(), 3);
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), Some(vec!["jpg"]));
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
+    let files = files_all(PathBuf::from(FIXTURES).join("glob"), None);
+    assert_eq!(files.len(), 8);
+    assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.json");
+}
+#[test]
+fn test_files_from_git() {
+    let files = files_from_git_branch("main", Some(vec!["json"]));
+    assert!(files.is_empty());
+    let files = files_from_git_commit("HEAD", Some(vec!["fake"]));
+    assert!(files.is_empty());
 }
 #[test]
 fn test_filter_git_command_result() {
