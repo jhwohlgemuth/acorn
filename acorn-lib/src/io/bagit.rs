@@ -4,8 +4,8 @@
 //! This module provides utilities to create, verify, and work with BagIt packages containing research
 //! activity data, metadata, and supporting documentation.
 //!
-use crate::io::{file_checksum, files_all, ToAbsoluteString};
-use crate::prelude::{copy, create_dir_all, PathBuf};
+use crate::io::{archive, file_checksum, files_all, write_file, ToAbsoluteString};
+use crate::prelude::{copy, create_dir_all, Error, PathBuf};
 use crate::util::Label;
 use bon::Builder;
 use core::fmt;
@@ -18,7 +18,7 @@ const LINE_ENDING: &str = if cfg!(windows) { "\r\n" } else { "\n" };
 /// Trait for persisting BagIt data
 pub trait Save {
     /// Persist BagIt data to a given path
-    fn save<P>(&self, destination: P)
+    fn save<P>(&self, destination: P) -> Result<PathBuf, Error>
     where
         P: Into<PathBuf> + Clone;
 }
@@ -42,7 +42,6 @@ pub enum ChecksumAlgorithm {
     #[display("sha512")]
     SHA512,
 }
-
 /// Container structure for details of BagIt formatted data.
 ///
 /// A bag consists of a base directory containing payload files in a `data/` subdirectory,
@@ -77,29 +76,30 @@ pub struct Bag {
 ///
 /// See <https://datatracker.ietf.org/doc/html/draft-kunze-bagit> for details
 #[derive(Builder, Clone, Debug, Display, Serialize, Deserialize, JsonSchema)]
-#[display("Bag-Info: {date} {organization}")]
+#[display("Bag-Info")]
+#[builder(start_fn = init)]
 pub struct BagInfo {
     /// Organization transferring the content (Source-Organization)
-    pub organization: String,
+    pub organization: Option<String>,
     /// Mailing address of the source organization (Organization-Address)
-    pub organization_address: String,
+    pub organization_address: Option<String>,
     /// Person responsible for the content transfer (Contact-Name)
-    pub contact_name: String,
+    pub contact_name: Option<String>,
     /// International format telephone number of responsible person (Contact-Phone)
-    pub contact_phone: String,
+    pub contact_phone: Option<String>,
     /// Fully qualified email address of responsible person (Contact-Email)
-    pub contact_email: String,
+    pub contact_email: Option<String>,
     /// Brief explanation of contents and provenance (External-Description)
-    pub description: String,
+    pub description: Option<String>,
     /// Date (YYYY-MM-DD) that content was prepared for transfer (Bagging-Date)
-    pub date: String,
+    pub date: Option<String>,
     /// Sender-supplied identifier for the bag (External-Identifier)
-    pub identifier: String,
+    pub identifier: Option<String>,
     /// Size or approximate size of the bag with abbreviation (Bag-Size)
-    pub size: String,
+    pub size: Option<String>,
     /// Bag count as (N, T) tuple where N is ordinal position and T is total (Bag-Count)
     /// T is None if unknown ("?")
-    pub count: (u32, Option<u32>),
+    pub count: Option<(u32, Option<u32>)>,
 }
 impl Bag {
     /// Populate payload file listing from files present in self.base_directory "data" directory
@@ -131,22 +131,22 @@ impl Bag {
 }
 impl Save for Bag {
     /// Persist files in a given directory as a archived ("zipped") BagIt format package
-    // TODO: Return Result for incomplete bag save
-    fn save<P>(&self, destination: P)
+    fn save<P>(&self, destination: P) -> Result<PathBuf, Error>
     where
         P: Into<PathBuf> + Clone,
     {
-        let payload_directory = destination.clone().into().join("data");
+        let Bag { info, version, encoding, .. } = self;
+        let dest = destination.clone().into();
+        let payload_directory = dest.join("data");
         match create_dir_all(payload_directory.clone()) {
             | Ok(_) => {
-                // TODO: Create bagit.txt
-                // TODO: Create bag-info.txt
+                let base = PathBuf::from(self.base_directory.clone());
                 let bag = self.with_payload();
+                let checksum_algorithm: &'static ring::digest::Algorithm = self.checksum_algorithm.clone().into();
                 bag.payload.clone().into_iter().for_each(|x| {
-                    let base = PathBuf::from(self.base_directory.clone());
                     let payload = PathBuf::from(x);
                     let from = base.join(&payload);
-                    let to = destination.clone().into().join(&payload);
+                    let to = dest.join(&payload);
                     if let Some(parent) = to.parent() {
                         if let Err(why) = create_dir_all(parent) {
                             error!(
@@ -166,16 +166,16 @@ impl Save for Bag {
                         }
                     }
                 });
+                let bag_declaration_content = format!("BagIt-Version: {version}\nTag-File-Character-Encoding: {encoding}\n");
                 let payload_manifest_content = bag
                     .payload
                     .into_iter()
                     .fold(String::new(), |acc, x| {
                         let payload = PathBuf::from(x.clone());
-                        let to = destination.clone().into().join(&payload);
-                        // TODO: Use self.checksum_algorithm instead of None
-                        match file_checksum(to.clone(), None) {
+                        let to = dest.join(&payload);
+                        match file_checksum(to.clone(), Some(checksum_algorithm)) {
                             | Some(checksum) => {
-                                format!("{acc}{LINE_ENDING}{checksum} {x}")
+                                format!("{acc}{checksum} {x}{LINE_ENDING}")
                             }
                             | None => {
                                 warn!(payload = payload.to_absolute_string(), "=> {} Calculate checksum", Label::fail());
@@ -184,19 +184,89 @@ impl Save for Bag {
                         }
                     })
                     .replace("\\", "/");
-                dbg!(&payload_manifest_content);
-                // TODO: Create and populate manifest-sha256.txt file
-                // TODO: Populate bag-info.txt with BagIt fields
-                // TODO: Create bag-info.txt and populate with BagInfo fields
-                // TODO: Archive self.base_directory
+                write_file(dest.clone().join("bagit.txt"), bag_declaration_content)
+                    .map(|_| dest.clone())
+                    .and_then(|_| match info.clone() {
+                        | Some(bag_info) => bag_info.save(destination.clone()),
+                        | None => Ok(dest.clone()),
+                    })
+                    .and_then(|_| {
+                        let file_name = format!("manifest-{}.txt", self.checksum_algorithm);
+                        let file_path = dest.clone().join(&file_name);
+                        write_file(file_path, payload_manifest_content).map(|_| dest.clone())
+                    })
+                    .and_then(|_| archive(dest, None))
             }
-            | Err(why) => error!(directory = self.base_directory, "=> {} Create - {why}", Label::fail()),
+            | Err(why) => Err(why),
         }
     }
 }
 impl fmt::Display for Bag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Bag v{} ({}): {}", self.version, self.checksum_algorithm, self.base_directory)
+    }
+}
+impl BagInfo {
+    /// Enumerate BagIt reserved metadata elements as ordered key/value pairs
+    pub fn entries(&self) -> Vec<(String, String)> {
+        let BagInfo {
+            organization,
+            organization_address,
+            contact_name,
+            contact_phone,
+            contact_email,
+            description,
+            date,
+            identifier,
+            size,
+            count,
+        } = self;
+        let base = [
+            ("Source-Organization", organization),
+            ("Organization-Address", organization_address),
+            ("Contact-Name", contact_name),
+            ("Contact-Phone", contact_phone),
+            ("Contact-Email", contact_email),
+            ("External-Description", description),
+            ("Bagging-Date", date),
+            ("External-Identifier", identifier),
+            ("Bag-Size", size),
+        ]
+        .into_iter()
+        .filter_map(|(key, value)| value.as_ref().map(|v| (key.to_string(), v.clone())));
+        // Option as iterator: Some(item) -> one element, None -> empty.
+        let count = count.iter().map(|(index, total)| {
+            let total = total.map_or_else(|| "?".to_string(), |value| value.to_string());
+            ("Bag-Count".to_string(), format!("{index} of {total}"))
+        });
+        base.chain(count).collect()
+    }
+}
+impl Default for BagInfo {
+    fn default() -> Self {
+        BagInfo::init().build()
+    }
+}
+impl Save for BagInfo {
+    fn save<P>(&self, destination: P) -> Result<PathBuf, Error>
+    where
+        P: Into<PathBuf> + Clone,
+    {
+        let dest = destination.clone().into();
+        let content = self
+            .entries()
+            .into_iter()
+            .fold(String::new(), |acc, (key, value)| format!("{acc}{key}: {value}{LINE_ENDING}"));
+        write_file(dest.join("bag-info.txt"), content).map(|_| dest)
+    }
+}
+impl From<ChecksumAlgorithm> for &'static ring::digest::Algorithm {
+    fn from(value: ChecksumAlgorithm) -> Self {
+        match value {
+            | ChecksumAlgorithm::SHA256 => &ring::digest::SHA256,
+            | ChecksumAlgorithm::SHA512 => &ring::digest::SHA512,
+            | _ => unimplemented!(),
+        }
     }
 }
 impl From<&str> for ChecksumAlgorithm {

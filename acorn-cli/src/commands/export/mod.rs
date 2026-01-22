@@ -1,14 +1,13 @@
 use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
 use crate::template::Convert;
-use acorn::io::{async_runtime, extract_zip, read_file, write_file};
+use acorn::io::{archive, async_runtime, extract_zip, read_file, write_file};
 use acorn::powerpoint::ooxml::{Relationship, Relationships};
-use acorn::powerpoint::{archive, interpolate_values, read_xml_rel};
-use acorn::prelude::{absolute, copy, create_dir_all, remove_file, File, Path, PathBuf};
+use acorn::powerpoint::{interpolate_values, read_xml_rel};
+use acorn::prelude::{absolute, copy, create_dir_all, remove_file, Error, File, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{suffix, Label, ToAbsoluteString};
 use color_eyre::eyre::{Report, Result};
-use core::error::Error;
 use fancy_regex::Regex;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::izip;
@@ -225,7 +224,7 @@ pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
     };
     let _remove = remove_file(index);
 }
-fn create_powerpoint(paths: Vec<PathBuf>, options: Option<CommandLineOptions>) -> Result<PathBuf, Box<dyn Error>> {
+fn create_powerpoint(paths: Vec<PathBuf>, options: Option<CommandLineOptions>) -> Result<PathBuf, Error> {
     let CommandLineOptions { output, path, reference, .. } = options.clone().unwrap();
     let count = paths.clone().len();
     let research_activity_data = paths

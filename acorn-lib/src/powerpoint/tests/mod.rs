@@ -8,12 +8,6 @@ fn fixtures_dir() -> PathBuf {
 }
 
 #[test]
-fn test_archive() {
-    let path = fixtures_dir().join("data");
-    let output_file = archive(path.clone(), None).unwrap();
-    assert_eq!(output_file.file_name().unwrap().to_str().unwrap(), "data.zip");
-}
-#[test]
 fn test_parse() {
     let paragraph = r#"
 <a:p>

@@ -19,7 +19,7 @@
 //! write_file(PathBuf::from("/path/to/that/file"), contents);
 //! ```
 //!
-use crate::prelude::{canonicalize, create_dir_all, io, var, BufReader, Cursor, File, PathBuf, Read, Write};
+use crate::prelude::{canonicalize, create_dir_all, io, var, BufReader, Cursor, Error, File, PathBuf, Read, Write};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, Permissions, PermissionsExt};
 use crate::util::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
@@ -39,7 +39,8 @@ use serde::Deserialize;
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, warn};
 use which::which;
-use zip::ZipArchive;
+use zip::write::SimpleFileOptions;
+use zip::{ZipArchive, ZipWriter};
 
 pub mod bagit;
 pub mod citeas;
@@ -177,6 +178,69 @@ impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
 impl ToAbsoluteString for PathBuf {
     fn to_absolute_string(&self) -> String {
         to_absolute_string(self.clone())
+    }
+}
+/// Creates zip archive from directory
+pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Error> {
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let zip_file_path = match destination {
+        | Some(value) => value,
+        | None => path.with_extension("zip"),
+    };
+    let zip_file = match File::create(&zip_file_path) {
+        | Ok(zip_file) => Some(ZipWriter::new(zip_file)),
+        | Err(why) => {
+            error!(
+                file = path.clone().to_absolute_string(),
+                "=> {} Create zip archive - {why}",
+                Label::fail()
+            );
+            None
+        }
+    };
+    if let Some(mut zip) = zip_file {
+        let files = files_all(path.clone(), None).into_iter().filter(|x| x.is_file());
+        for file_path in files {
+            if let Ok(file) = File::open(file_path.clone()) {
+                let name = match path.canonicalize() {
+                    | Ok(relative) => file_path.strip_prefix(relative).unwrap_or_else(|_| &file_path),
+                    | Err(_) => &file_path,
+                };
+                debug!(
+                    file = name.to_path_buf().to_absolute_string(),
+                    "=> {} Add file to archive",
+                    Label::using()
+                );
+                match zip.start_file_from_path(name, options) {
+                    | Ok(_) => {
+                        let mut buffer = Vec::new();
+                        match io::copy(&mut file.take(u64::MAX), &mut buffer) {
+                            | Ok(_) => match zip.write_all(&buffer) {
+                                | Ok(_) => {}
+                                | Err(why) => {
+                                    error!(file = file_path.to_absolute_string(), "=> {} Write zip archive - {why}", Label::fail())
+                                }
+                            },
+                            | Err(why) => {
+                                error!("=> {} Copy buffer - {why}", Label::fail())
+                            }
+                        }
+                    }
+                    | Err(why) => {
+                        error!(file = file_path.to_absolute_string(), "=> {} Start zip archive - {why}", Label::fail());
+                    }
+                }
+            }
+        }
+        match zip.finish() {
+            | Ok(_) => Ok(zip_file_path),
+            | Err(why) => {
+                error!(file = path.to_absolute_string(), "=> {} Finish zip archive - {why}", Label::fail());
+                Err(why.into())
+            }
+        }
+    } else {
+        Err(io::Error::other("Unable to create zip archive"))
     }
 }
 /// Create a new [Tokio](https://tokio.rs/) runtime
