@@ -75,6 +75,7 @@ pub struct Bag {
 /// specification. These fields correspond to the reserved metadata element names from RFC 8493.
 ///
 /// See <https://datatracker.ietf.org/doc/html/draft-kunze-bagit> for details
+// TODO: Make repeatable fields vectors
 #[derive(Builder, Clone, Debug, Display, Serialize, Deserialize, JsonSchema)]
 #[display("Bag-Info")]
 #[builder(start_fn = init)]
@@ -105,8 +106,7 @@ impl Bag {
     /// Populate payload file listing from files present in self.base_directory "data" directory
     pub fn with_payload(&self) -> Self {
         let base_directory = PathBuf::from(self.base_directory.clone());
-        let payload_directory = base_directory.join("data");
-        let payload = files_all(payload_directory, None)
+        let payload = files_all(base_directory.clone(), None)
             .into_iter()
             .filter(|x| x.is_file())
             .flat_map(|x| x.strip_prefix(base_directory.to_absolute_string()).ok().map(|p| p.to_path_buf()))
@@ -146,7 +146,7 @@ impl Save for Bag {
                 bag.payload.clone().into_iter().for_each(|x| {
                     let payload = PathBuf::from(x);
                     let from = base.join(&payload);
-                    let to = dest.join(&payload);
+                    let to = dest.join("data").join(&payload);
                     if let Some(parent) = to.parent() {
                         if let Err(why) = create_dir_all(parent) {
                             error!(
@@ -172,10 +172,10 @@ impl Save for Bag {
                     .into_iter()
                     .fold(String::new(), |acc, x| {
                         let payload = PathBuf::from(x.clone());
-                        let to = dest.join(&payload);
+                        let to = dest.join("data").join(&payload);
                         match file_checksum(to.clone(), Some(checksum_algorithm)) {
                             | Some(checksum) => {
-                                format!("{acc}{checksum} {x}{LINE_ENDING}")
+                                format!("{acc}{checksum} data/{x}{LINE_ENDING}")
                             }
                             | None => {
                                 warn!(payload = payload.to_absolute_string(), "=> {} Calculate checksum", Label::fail());
@@ -195,7 +195,7 @@ impl Save for Bag {
                         let file_path = dest.clone().join(&file_name);
                         write_file(file_path, payload_manifest_content).map(|_| dest.clone())
                     })
-                    .and_then(|_| archive(dest, None))
+                    .and_then(|_| archive(dest.clone(), None))
             }
             | Err(why) => Err(why),
         }

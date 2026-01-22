@@ -18,6 +18,12 @@ fn test_chunk_string() {
     assert_eq!("abcdefghi".to_string().chunk(3), vec!["abc", "def", "ghi"]);
 }
 #[test]
+fn test_current_date() {
+    let date = current_date();
+    assert_eq!(date.len(), 10);
+    assert_eq!(date.split("-").count(), 3);
+}
+#[test]
 fn test_extract_zip() {
     let path = PathBuf::from(FIXTURES).join("data/highlight/reference.pptx");
     let result = extract_zip(path, None);
