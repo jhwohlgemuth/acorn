@@ -254,7 +254,7 @@ where
                 | Ok(content) => {
                     let mut output = File::create(destination.into().join(filename.clone())).unwrap();
                     let _ = io::copy(&mut Cursor::new(content.clone()), &mut output);
-                    debug!(filename = filename, "=> {} Downloaded", Label::output());
+                    debug!(filename, "=> {} Downloaded", Label::output());
                     Ok(())
                 }
                 | Err(_) => Err(format!("No content downloaded from {url}")),

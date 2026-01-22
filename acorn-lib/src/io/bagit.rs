@@ -4,22 +4,23 @@
 //! This module provides utilities to create, verify, and work with BagIt packages containing research
 //! activity data, metadata, and supporting documentation.
 //!
-use crate::io::{files_all, ToAbsoluteString};
-use crate::prelude::{create_dir_all, PathBuf};
+use crate::io::{file_checksum, files_all, ToAbsoluteString};
+use crate::prelude::{copy, create_dir_all, PathBuf};
 use crate::util::Label;
 use bon::Builder;
 use core::fmt;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::{error, warn};
 
+const LINE_ENDING: &str = if cfg!(windows) { "\r\n" } else { "\n" };
 /// Trait for persisting BagIt data
 pub trait Save {
     /// Persist BagIt data to a given path
     fn save<P>(&self, destination: P)
     where
-        P: Into<PathBuf>;
+        P: Into<PathBuf> + Clone;
 }
 /// Cryptographic hash algorithm used for BagIt checksum verification.
 ///
@@ -130,18 +131,62 @@ impl Bag {
 }
 impl Save for Bag {
     /// Persist files in a given directory as a archived ("zipped") BagIt format package
+    // TODO: Return Result for incomplete bag save
     fn save<P>(&self, destination: P)
     where
-        P: Into<PathBuf>,
+        P: Into<PathBuf> + Clone,
     {
-        let payload_directory = destination.into().join("data");
-        match create_dir_all(payload_directory) {
+        let payload_directory = destination.clone().into().join("data");
+        match create_dir_all(payload_directory.clone()) {
             | Ok(_) => {
-                // TODO: Copy payload files from self.base_directory to destination/data
+                // TODO: Create bagit.txt
+                // TODO: Create bag-info.txt
                 let bag = self.with_payload();
-                dbg!(&bag);
-                // TODO: Create manifest file and populate with payload file checksums
-                // TODO: Create bagit.txt and populate with BagIt fields
+                bag.payload.clone().into_iter().for_each(|x| {
+                    let base = PathBuf::from(self.base_directory.clone());
+                    let payload = PathBuf::from(x);
+                    let from = base.join(&payload);
+                    let to = destination.clone().into().join(&payload);
+                    if let Some(parent) = to.parent() {
+                        if let Err(why) = create_dir_all(parent) {
+                            error!(
+                                directory = parent.to_path_buf().to_absolute_string(),
+                                "=> {} Create - {why}",
+                                Label::fail()
+                            );
+                            return;
+                        }
+                        if let Err(why) = copy(from.clone(), to.clone()) {
+                            error!(
+                                from = from.to_absolute_string(),
+                                to = to.to_absolute_string(),
+                                "=> {} Copy - {why}",
+                                Label::fail()
+                            );
+                        }
+                    }
+                });
+                let payload_manifest_content = bag
+                    .payload
+                    .into_iter()
+                    .fold(String::new(), |acc, x| {
+                        let payload = PathBuf::from(x.clone());
+                        let to = destination.clone().into().join(&payload);
+                        // TODO: Use self.checksum_algorithm instead of None
+                        match file_checksum(to.clone(), None) {
+                            | Some(checksum) => {
+                                format!("{acc}{LINE_ENDING}{checksum} {x}")
+                            }
+                            | None => {
+                                warn!(payload = payload.to_absolute_string(), "=> {} Calculate checksum", Label::fail());
+                                acc
+                            }
+                        }
+                    })
+                    .replace("\\", "/");
+                dbg!(&payload_manifest_content);
+                // TODO: Create and populate manifest-sha256.txt file
+                // TODO: Populate bag-info.txt with BagIt fields
                 // TODO: Create bag-info.txt and populate with BagInfo fields
                 // TODO: Archive self.base_directory
             }

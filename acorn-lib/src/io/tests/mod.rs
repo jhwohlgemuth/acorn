@@ -1,4 +1,4 @@
-use crate::io::bagit::Bag;
+use crate::io::bagit::{Bag, Save};
 use crate::io::{
     citeas, file_checksum, files_all, files_from_git_branch, files_from_git_commit, filter_git_command_result, filter_ignored, image_paths,
 };
@@ -11,6 +11,7 @@ const FIXTURES: &str = "../tests/fixtures";
 fn test_bagit() {
     let bag = Bag::init().base_directory(FIXTURES.to_string()).build().with_payload();
     assert_eq!(bag.payload.len(), 27);
+    bag.save("../export/foo");
 }
 #[test]
 fn test_citeas() {
