@@ -2,12 +2,12 @@ use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
 use crate::template::Convert;
 use acorn::io::bagit::{Bag, BagInfo, Save};
-use acorn::io::{archive, async_runtime, extract_zip, read_file, write_file};
+use acorn::io::{archive, async_runtime, extract_zip, folder_size, read_file, write_file};
 use acorn::powerpoint::ooxml::{Relationship, Relationships};
 use acorn::powerpoint::{interpolate_values, read_xml_rel};
-use acorn::prelude::{absolute, copy, create_dir_all, remove_file, Error, File, Path, PathBuf};
+use acorn::prelude::{absolute, copy, create_dir_all, remove_dir_all, remove_file, Error, File, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{current_date, suffix, Label, ToAbsoluteString};
+use acorn::util::{current_date, format_bytes, suffix, Label, ToAbsoluteString};
 use color_eyre::eyre::{Report, Result};
 use fancy_regex::Regex;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -44,13 +44,17 @@ pub fn run(
         | FileFormat::Bag => {
             let base = path.clone().unwrap().display().to_string();
             let date = current_date();
-            let info = BagInfo::init().date(date).build();
+            let size = format_bytes(folder_size(base.clone()));
+            let info = BagInfo::init().date(date).size(size).build();
+            debug!("=> {} {:#?}", Label::using(), info);
             let bag = Bag::init().base_directory(base).info(info).build();
-            match bag.save(output.clone().unwrap()) {
+            let destination = output.clone().unwrap();
+            let save: Result<(), Report> = match bag.save(destination.clone()) {
                 | Ok(_) => Ok(()),
                 | Err(why) => Err(why.into()),
-            }
-            // TODO: Remove output directory created for archive
+            };
+            save.and_then(|_| Bag::verify(destination.clone()).map_err(|why| why.into()))
+                .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
         }
         | FileFormat::Pdf => {
             async_runtime().block_on(async {

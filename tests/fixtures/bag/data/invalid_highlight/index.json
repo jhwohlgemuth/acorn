@@ -1,0 +1,73 @@
+{
+    "meta": {
+        "id": "invalid-highlight",
+        "doi": [
+            "Not a valid DOI"
+        ],
+        "archive": false,
+        "draft": false,
+        "websites": [
+            {
+                "title": "Project Repository",
+                "url": "https://code.ornl.gov/research-enablement/acorn"
+            }
+        ],
+        "graphics": [
+            {
+                "caption": "This is an image caption."
+            }
+        ],
+        "keywords": [],
+        "sponsors": [
+            "ORNL"
+        ],
+        "technology": [
+            "Geospatial Data Abstraction Lib"
+        ]
+    },
+    "title": "Invalid Highlight",
+    "subtitle": "This is a subtitle",
+    "sections": {
+        "mission": "Placeholder",
+        "challenge": "Placeholder",
+        "research": {
+            "focus": "Placeholder",
+            "areas": [
+                "foo",
+                "bar",
+                "baz"
+            ]
+        },
+        "achievement": [
+            "Put your achievement here.",
+            "Can have ",
+            "Up to",
+            "Four",
+            "Bullets"
+        ],
+        "impact": [
+            "This is an impact statement.",
+            "This is another impact",
+            "This is yet another impact"
+        ],
+        "approach": [
+            "Technical",
+            "Approach",
+            "Can have ",
+            "Up to",
+            "Six",
+            "Strings",
+            "Please"
+        ]
+    },
+    "contact": {
+        "title": "Primary Investigator",
+        "first": "Mitthraw",
+        "last": "Nuruodo",
+        "email": "thrawn@empire.gov",
+        "phone": "555.123.4567",
+        "profile": "https://example.com/thrawn",
+        "organization": "Naval Operations"
+    },
+    "notes": "Words that don't fit into other fields"
+}

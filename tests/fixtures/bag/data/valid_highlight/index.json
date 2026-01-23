@@ -1,0 +1,62 @@
+{
+    "meta": {
+        "id": "valid-highlight",
+        "doi": [
+            "10.1000/182"
+        ],
+        "archive": false,
+        "draft": false,
+        "websites": [
+            {
+                "title": "Project Repository",
+                "url": "https://code.ornl.gov/research-enablement/acorn"
+            }
+        ],
+        "media": [],
+        "keywords": [],
+        "sponsors": [
+            "ORNL"
+        ],
+        "technology": [
+            "Geospatial Data Abstraction Lib"
+        ]
+    },
+    "title": "Valid Highlight",
+    "subtitle": "This is a subtitle",
+    "sections": {
+        "mission": "Placeholder",
+        "challenge": "Placeholder",
+        "research": {
+            "focus": "Placeholder",
+            "areas": [
+                "foo",
+                "bar"
+            ]
+        },
+        "achievement": [
+            "This is an achievement",
+            "This is another achievement",
+            "This is yet another achievement"
+        ],
+        "impact": [
+            "This is an impact",
+            "This is another impact",
+            "This is yet another impact"
+        ],
+        "approach": [
+            "Here is a technical approach",
+            "Here is more technical approach",
+            "Even more technical approaches"
+        ]
+    },
+    "contact": {
+        "title": "Primary Investigator",
+        "first": "Mitthraw",
+        "last": "Nuruodo",
+        "email": "thrawn@empire.gov",
+        "phone": "555.123.4567",
+        "profile": "https://example.com/thrawn",
+        "organization": "Naval Operations"
+    },
+    "notes": "Words that don't fit into other fields"
+}

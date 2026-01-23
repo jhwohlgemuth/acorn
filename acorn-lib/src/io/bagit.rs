@@ -4,7 +4,7 @@
 //! This module provides utilities to create, verify, and work with BagIt packages containing research
 //! activity data, metadata, and supporting documentation.
 //!
-use crate::io::{archive, file_checksum, files_all, write_file, ToAbsoluteString};
+use crate::io::{archive, file_checksum, files_all, read_file, write_file, ToAbsoluteString};
 use crate::prelude::{copy, create_dir_all, Error, PathBuf};
 use crate::util::Label;
 use bon::Builder;
@@ -103,6 +103,65 @@ pub struct BagInfo {
     pub count: Option<(u32, Option<u32>)>,
 }
 impl Bag {
+    /// Verify the completeness and correctness of a bag
+    /// ### Checks
+    /// - `bagit.txt` exists
+    /// - `manifest-<algorithm>.txt` exists
+    /// - `data/` exists
+    /// - Checksum values in manifest file matches checksum values of files in `data/`
+    pub fn verify<P>(path: P) -> Result<(), Error>
+    where
+        P: Into<PathBuf>,
+    {
+        let base_directory = path.into();
+        let files = files_all(base_directory.clone(), None)
+            .into_iter()
+            .filter(|x| x.is_file())
+            .collect::<Vec<_>>();
+        match files
+            .iter()
+            .flat_map(|x| x.file_name())
+            .flat_map(|x| x.to_str())
+            .find(|x| x.starts_with("manifest"))
+        {
+            | Some(name) => {
+                let algorithm = name["manifest.".len()..].split(".").collect::<Vec<_>>()[0].to_lowercase();
+                let manifest = format!("manifest-{}.txt", algorithm.clone());
+                let checksum_algorithm: &'static ring::digest::Algorithm = ChecksumAlgorithm::from(algorithm).into();
+                let required = ["bagit.txt", &manifest, "data/"]
+                    .iter()
+                    .map(|x| base_directory.join(x))
+                    .collect::<Vec<_>>();
+                if required.iter().all(|x| x.exists()) {
+                    let manifest_path = base_directory.join(manifest);
+                    let content = read_file(manifest_path.clone()).unwrap_or_default();
+                    let pairs = content
+                        .lines()
+                        .map(|line| line.split_whitespace().collect::<Vec<_>>())
+                        .collect::<Vec<_>>();
+                    let compare_checksums = pairs
+                        .iter()
+                        .map(|x| {
+                            let checksum = x[0];
+                            let payload_path = base_directory.join(x[1]);
+                            let calculated = file_checksum(payload_path, Some(checksum_algorithm)).unwrap_or_default();
+                            calculated.eq(checksum)
+                        })
+                        .collect::<Vec<_>>();
+                    match compare_checksums.iter().enumerate().find(|(_, result)| !*result) {
+                        | Some((index, _)) => {
+                            let message = format!("Checksum mismatch in payload file = {}", pairs[index][1]);
+                            Err(Error::new(std::io::ErrorKind::InvalidData, message))
+                        }
+                        | None => Ok(()),
+                    }
+                } else {
+                    Err(Error::new(std::io::ErrorKind::NotFound, "Missing required file(s) and/or folder(s)"))
+                }
+            }
+            | None => Err(Error::new(std::io::ErrorKind::NotFound, "No manifest file found")),
+        }
+    }
     /// Populate payload file listing from files present in self.base_directory "data" directory
     pub fn with_payload(&self) -> Self {
         let base_directory = PathBuf::from(self.base_directory.clone());

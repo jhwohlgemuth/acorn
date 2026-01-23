@@ -23,6 +23,7 @@ use comfy_table::presets::UTF8_FULL;
 use comfy_table::{ContentArrangement, Table};
 use console::Emoji;
 use convert_case::{Case, Casing};
+use core::iter::successors;
 use derive_more::Display;
 use fancy_regex::Regex;
 use nanoid::nanoid;
@@ -757,6 +758,24 @@ pub fn find_first(values: Vec<(String, String)>, pattern: &str) -> Option<(Strin
     match results {
         | Some(value) => Some(value),
         | None => None,
+    }
+}
+/// Formats a number of bytes into a human-readable string with appropriate units (B, KB, MB, GB, TB)
+pub fn format_bytes(bytes: u64) -> String {
+    let units = ["B", "KB", "MB", "GB", "TB"];
+    let (size, index) = successors(Some((bytes as f64, 0usize)), |(size, index)| {
+        if *size >= 1024.0 && *index < units.len() - 1 {
+            Some((size / 1024.0, index + 1))
+        } else {
+            None
+        }
+    })
+    .last()
+    .unwrap_or((bytes as f64, 0));
+    if index == 0 {
+        format!("{} {}", size as u64, units[index])
+    } else {
+        format!("{:.2} {}", size, units[index])
     }
 }
 /// Generates a random GUID using a custom alphabet.

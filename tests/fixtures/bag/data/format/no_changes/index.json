@@ -1,0 +1,59 @@
+{
+    "meta": {
+        "identifier": "export-ready-project",
+        "archive": false,
+        "draft": true,
+        "websites": [
+            {
+                "description": "Project Repository",
+                "url": "https://code.ornl.gov/research-enablement"
+            }
+        ],
+        "graphics": [
+            {
+                "caption": "This is a caption.",
+                "href": "00.png"
+            }
+        ],
+        "keywords": [
+            "automation",
+            "cyber"
+        ],
+        "technology": [
+            "rust"
+        ],
+        "sponsors": [
+            "Department of Homeland Security",
+            "Environmental Protection Agency",
+            "Oak Ridge National Laboratory"
+        ]
+    },
+    "title": "Export Ready Project",
+    "subtitle": "When you need validity choose this project",
+    "sections": {
+        "mission": "ORNL does lots of big science with big impact.",
+        "challenge": "Doing big science with big impact is not easy.",
+        "approach": ["ORNL finds big problems and does big science with big impact."],
+        "impact": [
+            "Big science",
+            "Big impact"
+        ],
+        "research": {
+            "focus": "Solving big problems",
+            "areas": [
+                "Big science",
+                "Big impact"
+            ]
+        }
+    },
+    "contact": {
+        "jobTitle": "Primary Investigator",
+        "givenName": "Audson",
+        "familyName": "Cargohlmuth",
+        "email": "wohlgemuthjh@ornl.gov",
+        "telephone": "865.576.7658",
+        "url": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+        "organization": "Geospatial Science and Human Security Division",
+        "affiliation": "National Security Sciences Directorate"
+    }
+}

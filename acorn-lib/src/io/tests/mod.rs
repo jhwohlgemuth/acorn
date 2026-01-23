@@ -22,7 +22,7 @@ fn test_bagit() {
         .contact_name("Jason Wohlgemuth".to_string())
         .build();
     let bag = Bag::init()
-        .base_directory(fixtures_dir().display().to_string())
+        .base_directory(fixtures_dir().join("data").display().to_string())
         .info(info)
         .build()
         .with_payload();
@@ -34,6 +34,12 @@ fn test_bagit() {
         }
         | Err(why) => panic!("Failed to save bag: {why}"),
     }
+}
+#[test]
+fn test_bagit_verify() {
+    let path = fixtures_dir().join("bag");
+    let result = Bag::verify(path);
+    assert!(result.is_ok());
 }
 #[test]
 fn test_citeas() {

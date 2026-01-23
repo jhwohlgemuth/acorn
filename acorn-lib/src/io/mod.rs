@@ -620,6 +620,15 @@ pub fn filter_ignored(paths: Vec<PathBuf>, ignore: Option<String>) -> Vec<PathBu
         | None => paths,
     }
 }
+/// Returns the size of a folder in bytes
+pub fn folder_size<P: Into<PathBuf>>(path: P) -> u64 {
+    files_all(path.into(), None)
+        .into_iter()
+        .filter_map(|p| p.metadata().ok())
+        .filter(|m| m.is_file())
+        .map(|m| m.len())
+        .sum()
+}
 /// Returns the current Git branch name if the `git` command is available and executed successfully.
 ///
 /// This function executes the `git symbolic-ref --short HEAD` command to retrieve the name of

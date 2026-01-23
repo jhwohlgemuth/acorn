@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "identifier": "hecate",
+    "doi": [
+      "10.1109/SCW63240.2024.00117"
+    ],
+    "archive": false,
+    "draft": true,
+    "graphics": [
+      {
+        "caption": "Architecture of AI-embedded source routing engine, including PolKa collaboration",
+        "href": "00.png"
+      }
+    ],
+    "keywords": [
+      "artificial-intelligence",
+      "automation",
+      "engineering",
+      "machine-learning"
+    ],
+    "technology": [],
+    "sponsors": [
+      "Advanced Scientific Computing Research"
+    ],
+    "partners": [
+      "Federal Institute of Espírito Santo"
+    ]
+  },
+  "title": "HECATE: Path to Truly Self-Driving Networks",
+  "subtitle": "Machine learning to optimize network flows in real time",
+  "sections": {
+    "mission": "Placeholder",
+    "challenge": "Placeholder",
+    "achievement": [
+      "Researchers presented a new method for improving network traffic management for software-defined networking tools, Hecate and PolKA.",
+      "By analyzing real-time traffic data, Hecate calculates the best paths for data while PolKA directs the traffic.",
+      "Researchers demonstrated practical solutions for efficient, self-managing networks and control flows in real time."
+    ],
+    "impact": [
+      "Development of a truly self-driving network, which can make optimized decisions for science traffic on the network.",
+      "Researchers reduced latency, increased throughput, and tackled complex user demands for the necessary flow quality of experience.",
+      "Results show the latency to switch paths is minimal for real-time decision processing, previously never demonstrated in real infrastructure."
+    ],
+    "approach": [
+      "Researchers proposed a novel framework that integrates PolKA with Hecate AI/ML optimization tool.",
+      "Novel machine learning library API",
+      "Dynamic switching and routing among multiple flow paths for autonomous, optimized routing decisions."
+    ],
+    "research": {
+      "focus": "Placeholder",
+      "areas": [
+        "foo",
+        "bar"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Primary Investigator",
+    "givenName": "Mariam",
+    "familyName": "Kiran",
+    "email": "kiranm@ornl.gov",
+    "telephone": "510.341.2910",
+    "url": "https://www.ornl.gov/staff-profile/mariam-kiran",
+    "organization": "Computing and Computational Sciences Directorate",
+    "affiliation": "Computing and Computational Sciences Directorate"
+  },
+  "notes": {
+    "managers": [
+      "Kalyan Perumalla",
+      "Hal Finkel"
+    ],
+    "programs": [
+      "Early Career Research Program"
+    ],
+    "presentation": "TALKING POINTS:  ORNL researchers developed a new approach to enhance network traffic management using their tools Hecate and PolKA, which analyze real-time data to find optimal data paths and manage traffic for more efficient and self-regulating networks. These findings lay the groundwork for creating fully self-driving networks that can make real-time, optimized decisions for scientific data traffic, significantly reducing delays and improving performance, which has not been achieved in existing infrastructures before.  Researchers have proposed a new framework that combines the PolKA source routing tool with the Hecate AI/ML optimization tool, introducing new machine learning features and dynamic switching to enable initial autonomous routing decisions for improved network efficiency."
+  }
+}
