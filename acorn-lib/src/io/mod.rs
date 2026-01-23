@@ -37,7 +37,7 @@ use reqwest::header::USER_AGENT;
 use ring::digest::{Context, SHA256};
 use serde::Deserialize;
 use tokio::runtime::{Builder, Runtime};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, warn, trace};
 use which::which;
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
@@ -206,7 +206,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, E
                     | Ok(relative) => file_path.strip_prefix(relative).unwrap_or_else(|_| &file_path),
                     | Err(_) => &file_path,
                 };
-                debug!(
+                trace!(
                     file = name.to_path_buf().to_absolute_string(),
                     "=> {} Add file to archive",
                     Label::using()
