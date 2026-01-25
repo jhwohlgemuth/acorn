@@ -24,6 +24,7 @@ name = "acorn"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
+ariadne = { version = "0.6.0", features = ["auto-color"], default-features = false }
 aho-corasick = { version = "1.1.4", default-features = false }
 bat = { version = "0.26.0", features = ["regex-onig"], default-features = false, optional = true }
 bon = { version = "3.8.1", default-features = false }

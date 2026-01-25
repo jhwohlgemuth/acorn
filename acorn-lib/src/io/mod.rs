@@ -37,7 +37,7 @@ use reqwest::header::USER_AGENT;
 use ring::digest::{Context, SHA256};
 use serde::Deserialize;
 use tokio::runtime::{Builder, Runtime};
-use tracing::{debug, error, info, warn, trace};
+use tracing::{debug, error, info, trace, warn};
 use which::which;
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};

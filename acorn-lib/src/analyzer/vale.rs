@@ -4,6 +4,7 @@
 //!
 use crate::prelude::PathBuf;
 use crate::util::{Label, SemanticVersion};
+use ariadne::{Color, ReportKind};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use derive_more::Display;
@@ -135,6 +136,24 @@ impl ValeOutputItemSeverity {
             | ValeOutputItemSeverity::Warning => self.to_string().yellow().to_string(),
             | ValeOutputItemSeverity::Error => self.to_string().red().to_string(),
             | ValeOutputItemSeverity::Suggestion => self.to_string().blue().to_string(),
+        }
+    }
+}
+impl From<&ValeOutputItemSeverity> for Color {
+    fn from(value: &ValeOutputItemSeverity) -> Self {
+        match value {
+            | ValeOutputItemSeverity::Warning => Color::Yellow,
+            | ValeOutputItemSeverity::Error => Color::Red,
+            | ValeOutputItemSeverity::Suggestion => Color::Blue,
+        }
+    }
+}
+impl From<&ValeOutputItemSeverity> for ReportKind<'_> {
+    fn from(value: &ValeOutputItemSeverity) -> Self {
+        match value {
+            | ValeOutputItemSeverity::Warning => ReportKind::Warning,
+            | ValeOutputItemSeverity::Error => ReportKind::Error,
+            | ValeOutputItemSeverity::Suggestion => ReportKind::Custom("Suggestion", Color::Blue),
         }
     }
 }

@@ -2,6 +2,8 @@
 //!
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
+use core::ops::RangeInclusive;
+
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 #[cfg(feature = "std")]
 use crate::io::async_runtime;
@@ -16,6 +18,7 @@ use crate::util::constants::{
 };
 use crate::util::{suffix, Constant, Label, SemanticVersion, ToAbsoluteString, ToMarkdown};
 use crate::{Location, Repository};
+use ariadne::{Config, Report, Source};
 use bat::PrettyPrinter;
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -328,15 +331,36 @@ impl Check {
                             let location = format!("Line {}, Character {}", line, span[0]);
                             println!("  {:<24} {:<21} {} {}", location, severity.colored(), message, check.dimmed());
                         }
-                        let highlight = values.clone().into_iter().map(|item| item.line as usize).collect::<Vec<_>>();
-                        if let Some(content) = &context {
+                        let title = self.uri.unwrap_or("index.json".to_string());
+                        if let Some(text) = &context {
                             println!();
-                            pretty_print(content, ProgrammingLanguage::Markdown, highlight);
-                            println!("\n");
+                            values.iter().enumerate().for_each(|(index, item)| {
+                                let ValeOutputItem {
+                                    check,
+                                    line,
+                                    message,
+                                    severity,
+                                    span,
+                                    ..
+                                } = item;
+                                let source = Source::from(text.clone());
+                                let _ = Report::build(severity.into(), (&title, 1..=1))
+                                    .with_code(index)
+                                    .with_config(Config::default().with_compact(true))
+                                    .with_message(check)
+                                    .with_label(
+                                        ariadne::Label::new((&title, hightlighted_span(source.clone(), span, *line)))
+                                            .with_message(message.italic())
+                                            .with_color(severity.into()),
+                                    )
+                                    .finish()
+                                    .print((&title, source));
+                            });
+                            println!();
                         }
                     }
                     | None | Some(_) => {
-                        let message = format!("=> {} {} has {}", Label::pass(), message.underline(), "no prose issues".green(),);
+                        let message = format!("=> {} {} has {}", Label::pass(), message.underline(), "no prose issues".green());
                         info!("{}", message);
                     }
                 }
@@ -508,7 +532,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 };
                 match result {
                     | Ok(output) => {
-                        let parsed = ValeOutput::parse(&output, path);
+                        let parsed = ValeOutput::parse(&output, path.clone());
                         if parsed.is_empty() {
                             Check::init().category(CheckCategory::Prose).success(true).message(id).build()
                         } else {
@@ -518,6 +542,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                                 .message(id)
                                 .errors(ErrorKind::Vale(parsed))
                                 .context(content)
+                                .uri(path.file_name().unwrap().to_str().unwrap().to_string())
                                 .build()
                         }
                     }
@@ -855,6 +880,13 @@ impl Validation for ResearchActivity {
         }
         found.into_iter().flatten().flatten().collect::<Vec<_>>()
     }
+}
+fn hightlighted_span(source: Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
+    let selected = (line_number as usize) - 1;
+    let begin = source.lines().take(selected).fold((span[0] - 1) as usize, |acc, line| acc + line.len());
+    let character_count = (span[1] as usize) - (span[0] as usize);
+    let end = begin + character_count;
+    begin..=end
 }
 /// Convert Lychee response to [`Check`]
 pub fn convert_lychee_response(value: Response) -> Check {

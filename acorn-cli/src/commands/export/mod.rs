@@ -9,6 +9,7 @@ use acorn::prelude::{absolute, copy, create_dir_all, remove_dir_all, remove_file
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{current_date, format_bytes, suffix, Label, ToAbsoluteString};
 use color_eyre::eyre::{Report, Result};
+use core::iter::once;
 use fancy_regex::Regex;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::izip;
@@ -98,7 +99,7 @@ pub fn run(
             } else {
                 for path in &paths {
                     progress.set_message(format!("Generating PowerPoint for {}", path.display()));
-                    let _ = create_powerpoint(vec![path.to_path_buf()], Some(options.clone()));
+                    let _ = create_powerpoint(once(path.to_path_buf()), Some(options.clone()));
                     progress.inc(1);
                 }
                 progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
@@ -117,7 +118,7 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
         re.replace(xml, format!(r#"<p:sldIdLst>$1$4{new_slide_element}</p:sldIdLst>"#))
             .to_string()
     }
-    fn slide_paths(slide_number: usize, root: &PathBuf) -> Vec<PathBuf> {
+    fn slide_paths(slide_number: usize, root: &Path) -> Vec<PathBuf> {
         [
             format!("ppt/slides/slide{slide_number}.xml"),
             format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
@@ -237,8 +238,9 @@ pub async fn create_pdf(page: &Page, options: CommandLineOptions) {
     };
     let _remove = remove_file(index);
 }
-fn create_powerpoint(paths: Vec<PathBuf>, options: Option<CommandLineOptions>) -> Result<PathBuf, Error> {
+fn create_powerpoint(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandLineOptions>) -> Result<PathBuf, Error> {
     let CommandLineOptions { output, path, reference, .. } = options.clone().unwrap();
+    let paths: Vec<PathBuf> = paths.into_iter().collect();
     let count = paths.clone().len();
     let research_activity_data = paths
         .clone()
