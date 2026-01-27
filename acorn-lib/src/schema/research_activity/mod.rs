@@ -13,10 +13,7 @@ use crate::io::{image_paths, parent, read_file, FromPath};
 use crate::prelude::PathBuf;
 #[cfg(feature = "std")]
 use crate::schema::Organization;
-use crate::schema::{
-    ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Sections, Status, TechnologyReadinessLevel,
-    Website,
-};
+use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Sections, Status, Website};
 #[cfg(feature = "std")]
 use crate::util::constants::DEFAULT_AFFILIATION;
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};

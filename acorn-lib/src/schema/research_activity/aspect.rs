@@ -14,8 +14,9 @@
 //!
 //! In the context of technology, AI/ML and automation are the same.
 //!
-use super::super::constants::{CODEMETA_CONTEXT, SCHEMA_ORG_CONTEXT};
-use super::TechnologyReadinessLevel;
+use crate::schema::constants::{CODEMETA_CONTEXT, SCHEMA_ORG_CONTEXT};
+use crate::schema::prompt::Model;
+use crate::schema::TechnologyReadinessLevel;
 use crate::util::{License, LinkedData, Resource};
 use bon::Builder;
 use derive_more::Display;
@@ -128,12 +129,6 @@ pub enum Modality {
     /// Graph data or generally data with relational structure
     #[display("graph")]
     Graph,
-}
-/// Opaque data artifact that is consumed by a given technology
-#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
-pub enum Model {
-    /// Large language model useful for natural language processing, generative AI, etc.
-    LLM(LargeLanguageModel),
 }
 /// Describe the portability of a given software project (e.g., how easily it can be used on multiple platforms/architectures)
 ///
@@ -257,25 +252,6 @@ pub struct DataDescriptionContext {
     pub(crate) modality: String,
     pub(crate) quality: String,
 }
-/// Describe a large language model (LLM)
-///
-/// This struct strives to accommodate the wide myriad varieties of the LLMs in the wild.
-/// As such, version is a string instead of a `SemanticVersion` because versions are attached to LLMs inconsistently.
-#[derive(Builder, Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
-#[builder(start_fn = init)]
-pub struct LargeLanguageModel {
-    /// Model family that generally describes model architecture (e.g., llama, gemma, qwen, etc.)
-    pub family: String,
-    /// String value to override full model string descriptor in cases of ambiguity and in consistency
-    pub name: Option<String>,
-    /// Value that describes niche application of a given model family (e.g., "coder" in "qwen-coder")
-    pub variant: Option<String>,
-    /// Version of model
-    pub version: Option<String>,
-    /// Number of parameters (in billions) (e.g., 14 for "14B")
-    pub parameters: Option<i64>,
-}
-
 impl Default for AspectFramework {
     fn default() -> Self {
         AspectFramework::init().build()
