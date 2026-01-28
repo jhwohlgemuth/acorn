@@ -1,6 +1,8 @@
-# Guide for AI Agents Working on ACORN
+# AGENTS.md
 
-This document provides guidance for AI coding agents to work effectively on the ACORN project.
+This file provides guidance to agents (including WARP) when working with code in this repository.
+
+ACORN (Accessible Content Optimization for Research Needs) is a Rust-based CLI tool and library for maintaining and validating research activity data (RAD).
 
 ## Quick Start Decision Tree
 
@@ -19,45 +21,71 @@ When assigned a task:
 3. **Does it involve CLI output?**
    - YES → Use `Label::*()` methods from `acorn-lib/src/util/mod.rs` for consistent coloring
    - Use `owo_colors` for additional styling
-   - Test with `-vvvv` verbose flag
+   - Test with `-vvv` or `-vvvv` verbose flags
 
 4. **Does it require external data or network?**
    - YES → Respect `offline` flag (passed through most command functions)
    - Use `acorn-lib/src/io/` utilities for file/network operations
    - Check `tests/fixtures/` for test data
 
-## Before Making Changes
+## Development Commands
 
-### Always Do First
+### Essential Commands
 ```bash
-make lint    # Format and check lints
-make test    # Run all tests with cargo-nextest
+# Format and lint code
+make lint
+
+# Run all tests (uses cargo-nextest)
+make test
+
+# Build release binaries
+make build
+
+# Clean build artifacts
+make clean
+
+# Generate documentation
+make doc
+
+# Run tests with coverage
+make coverage
+
+# Security audit
+make audit
 ```
 
-### Understand the Scope
-- Search existing code: Does similar functionality exist? (use `grep_search`)
-- Check tests: What test coverage exists for the module you're changing?
-- Validate assumptions: Read at least 20-30 lines of context around your change
+### Running From Source
+ACORN's full API is available without installation:
+```bash
+# Instead of: acorn check /path/to/folder
+cargo run -- check /path/to/folder
+
+# Instead of: acorn export --format pdf path/to/file.json
+cargo run -- export --format pdf path/to/file.json
+```
 
 ## Common Tasks
 
 ### Adding a Schema Field
 1. Edit struct in `acorn-lib/src/schema/research_activity/mod.rs` (or relevant schema file)
-2. Add validation attributes:
+2. Add validation attributes using `validator` crate:
    ```rust
    #[validate(length(min = 1, max = 100))]
    #[serde(deserialize_with = "string_trim")]
    pub new_field: String,
    ```
-3. Add test case in `#[cfg(test)]` module
-4. Update any related command that processes the field
+3. If field is nested, add `#[validate(nested)]`
+4. Add test case in `#[cfg(test)]` module
+5. Update any related command that processes the field
+6. Update JSON schema if needed (schemas are auto-generated via `schemars`)
 
 ### Adding a CLI Command
 1. Create `acorn-cli/src/commands/{command_name}/mod.rs`
-2. Add `pub fn run(...)` that takes parsed arguments
-3. Return `color_eyre::eyre::Result<(), eyre::Report>`
-4. Add command case in `acorn-cli/src/main.rs`
-5. Add argument struct in `acorn-cli/src/cli/mod.rs` (or arguments.rs)
+2. Add `pub fn run(...)` that takes parsed arguments and returns `color_eyre::eyre::Result<(), eyre::Report>`
+3. Export module in `acorn-cli/src/commands/mod.rs`
+4. Add command variant to `Commands` enum in `acorn-cli/src/cli/mod.rs`
+5. Add match arm in `acorn-cli/src/main.rs` to call your run function
+6. Use `#[derive(Parser)]` from `clap` for argument parsing
 
 ### Adding Analysis/Checking Logic
 1. Add module in `acorn-lib/src/analyzer/`
@@ -100,13 +128,23 @@ mod tests {
 
 ### Running Tests
 ```bash
-# All tests
+# All tests (preferred)
+make test
+# OR
 cargo nextest run --run-ignored all
 
 # Specific test module
-cargo nextest run analyzer --
+cargo nextest run --package acorn-lib analyzer
+
+# Specific test function
+cargo nextest run --package acorn-cli commands::check::tests::test_check_command
+
+# Run tests with cargo (for CI)
+make test-ci
 
 # With coverage report
+make coverage
+# OR
 cargo tarpaulin --out lcov --line --skip-clean --no-dead-code --engine llvm
 ```
 
@@ -116,29 +154,40 @@ Located in `tests/fixtures/`:
 - `raid/`: RAiD metadata test data
 - `glob/`: Pattern matching test files
 
-## Code Review Checklist (for agents completing work)
+## Code Review Checklist
 
 Before submitting changes, verify:
 
-- [ ] No `unsafe` keyword appears (workspace forbids it)
-- [ ] All public items have doc comments (`///`)
+- [ ] No `unsafe` keyword appears (workspace forbids it with `unsafe_code = "forbid"`)
+- [ ] All public items have doc comments (`///`) - workspace denies `missing-docs`
 - [ ] No new warnings from `cargo clippy --no-deps`
 - [ ] Code formatted: `cargo fmt` run successfully
-- [ ] All tests pass: `cargo nextest run --run-ignored all`
-- [ ] No intra-doc link errors (workspace forbids broken-intra-doc-links)
-- [ ] Serde: Used `#[serde(deny_unknown_fields)]` for new structs
-- [ ] Validation: Added appropriate `#[validate(...)]` attributes
-- [ ] CLI output: Uses `Label::*()` for consistent styling
-- [ ] No new lints: `cargo clippy --workspace --no-deps --all-targets`
+- [ ] All tests pass: `make test` or `cargo nextest run --run-ignored all`
+- [ ] No intra-doc link errors (workspace forbids `broken-intra-doc-links`)
+- [ ] Serde: Used `#[serde(deny_unknown_fields)]` for new public structs where appropriate
+- [ ] Validation: Added appropriate `#[validate(...)]` attributes from `validator` crate
+- [ ] CLI output: Uses `Label::*()` from `acorn::util` for consistent styling
+- [ ] No new clippy warnings: `cargo clippy --workspace --no-deps --all-targets`
+- [ ] Coverage not decreased: `make coverage` (if applicable)
 
-## Handling Dependencies & Features
+## Project Structure
+
+### Workspace Crates
+The project uses Cargo workspaces with three main crates:
+- **acorn-cli**: CLI application with commands (check, export, format, link, download, doctor)
+- **acorn-lib**: Core library with schemas, validation, analysis, and utilities
+- **acorn-py**: Python bindings (PyO3)
+
+### Current Version
+Version: **0.1.50** (see Cargo.toml workspace.package.version)
 
 ### Feature Flags
-The crate uses feature flags for optional functionality:
-- `std`: Standard library support (default in CLI, optional in lib)
-- `analyzer`: Text analysis and readability metrics
+The library uses feature flags for optional functionality:
+- `default = ["analyzer", "std"]`
+- `std`: Standard library support (includes reqwest, lychee-lib, tokio, which, duct)
+- `analyzer`: Text analysis and readability metrics (includes bat)
 - `doctor`: System diagnostics
-- `powerpoint`: PowerPoint export functionality
+- `powerpoint`: PowerPoint import/export functionality
 
 When adding code that uses `std`:
 ```rust
@@ -157,9 +206,10 @@ use crate::analyzer::readability;
 - Run `make audit` to check for security vulnerabilities
 - Update `deny.toml` if adding new dependencies with license concerns
 
-## Parallel Processing
+## Key Technologies
 
-ACORN uses rayon for parallel iteration over files/batches:
+### Parallel Processing
+ACORN uses `rayon` for parallel iteration over files/batches:
 
 ```rust
 use rayon::prelude::*;
@@ -170,16 +220,30 @@ let results: Vec<_> = items
     .collect();
 ```
 
-The `--threads` CLI argument (default: num CPU cores) controls the thread pool size.
+The `--threads` CLI argument controls the thread pool size (initialized in main.rs):
+```rust
+rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
+```
+
+### Builder Pattern
+ACORN uses the `bon` crate for type-safe builder patterns:
+```rust
+use bon::Builder;
+
+#[derive(Builder)]
+pub struct MyStruct {
+    field: String,
+}
+```
 
 ## Error Handling Pattern
 
 Always use `color-eyre` for rich error reporting:
 
 ```rust
-use color_eyre::eyre::{self, eyre};
+use color_eyre::eyre::{self, eyre, Result, WrapErr};
 
-fn my_function() -> eyre::Result<String> {
+fn my_function() -> Result<String> {
     let file = std::fs::read_to_string("path")
         .wrap_err("Failed to read configuration file")?;
     
@@ -191,12 +255,16 @@ fn my_function() -> eyre::Result<String> {
 }
 ```
 
-## Logging
+Note: Command functions return `Void` (aliased as `eyre::Result<(), eyre::Report>`) in main.rs.
+
+## Logging and Output
 
 Use `tracing` for structured logging:
 
 ```rust
 use tracing::{debug, info, warn, error, instrument};
+use acorn::util::Label;
+use owo_colors::OwoColorize;
 
 #[instrument(skip(large_data))]
 fn process_data(data: Vec<u8>, verbose: &Verbosity) -> eyre::Result<()> {
@@ -211,7 +279,23 @@ fn process_data(data: Vec<u8>, verbose: &Verbosity) -> eyre::Result<()> {
 }
 ```
 
-Verbosity levels controlled by: `-v` (debug), `-vv` (trace), or `ACORN_LOG_LEVEL` env var.
+### Verbosity Configuration
+- `-v`: info level
+- `-vv`: debug level  
+- `-vvv` or `-vvvv`: trace level
+- Environment variable: `ACORN_LOG_LEVEL` (set in .env file)
+
+### CLI Output Styling
+Always use `Label::*()` methods for consistent output:
+- `Label::pass()` - ✓ green checkmark
+- `Label::fail()` - ✗ red X
+- `Label::run()` - ⚙ indicator
+- `Label::using()` - arrow indicator
+
+Combine with `owo_colors` for additional styling:
+```rust
+info!("{} Processing {}", Label::run(), "file.json".cyan());
+```
 
 ## When to Ask for Clarification
 
@@ -222,6 +306,34 @@ Stop and ask the user if:
 3. **Performance trade-offs**: "Caching this would use more memory—acceptable?"
 4. **Breaking changes**: "This change modifies the schema structure—is backward compatibility needed?"
 5. **Missing test data**: "No test fixture exists for this scenario—should I create one?"
+
+## Important Implementation Details
+
+### Schema System
+- Main schemas are in `acorn-lib/src/schema/`:
+  - `ResearchActivity` - Primary RAD schema
+  - `pid::raid::Metadata` - RAiD metadata schema
+- Schemas use `schemars` for JSON Schema generation
+- Validation via `validator` crate with derive macros
+- Serde trimming utilities: `string_trim`, `vec_string_trim`, `option_string_trim` from `serde_trim`
+
+### CLI Architecture  
+- Commands defined in `acorn-cli/src/commands/`
+- Current commands: check, doctor, download, export, format, link, schema
+- All commands accessed through main.rs match expression
+- Arguments parsed via `clap` with `#[derive(Parser)]`
+
+### Analysis Features
+- Analyzer module in `acorn-lib/src/analyzer/`
+- Vale integration for prose analysis (vale.rs)
+- Readability metrics (readability/ submodule)
+- Website checking via `lychee-lib` (when std feature enabled)
+
+### Export/PowerPoint
+- Template generation in `acorn-cli/src/template/`
+- PowerPoint manipulation in `acorn-lib/src/powerpoint/`
+- Supports PDF and PPTX output formats
+- Uses `rust-embed` for embedded assets (fonts, images)
 
 ## Common Pitfalls to Avoid
 
@@ -316,20 +428,57 @@ pub fn process() { }
 
 ## File Organization Reference
 
-- New CLI commands → `acorn-cli/src/commands/{command}/mod.rs`
-- Schema additions → `acorn-lib/src/schema/research_activity/mod.rs`
-- Validation logic → `acorn-lib/src/schema/validate.rs`
-- Analysis features → `acorn-lib/src/analyzer/{feature}/mod.rs`
-- Utilities & helpers → `acorn-lib/src/util/mod.rs`
-- I/O operations → `acorn-lib/src/io/mod.rs`
-- Tests → `#[cfg(test)]` modules in respective files
-- Test fixtures → `tests/fixtures/`
+### CLI Structure (acorn-cli/)
+- Commands: `src/commands/{command}/mod.rs`
+- CLI definitions: `src/cli/mod.rs` and `src/cli/arguments.rs`  
+- Main entry: `src/main.rs`
+- Templates: `src/template/mod.rs`
+- Config: `src/config/mod.rs`
+- I/O utilities: `src/io/mod.rs`
+
+### Library Structure (acorn-lib/)
+- Schemas: `src/schema/` (research_activity, pid, graph, validate, prompt)
+- Analysis: `src/analyzer/` (mod.rs, vale.rs, readability/)
+- Utilities: `src/util/` (mod.rs, constants.rs)
+- I/O: `src/io/` (mod.rs, bagit.rs, raid.rs, citeas.rs)
+- PowerPoint: `src/powerpoint/`
+- Doctor: `src/doctor/mod.rs`
+- Library exports: `src/lib.rs`, `src/prelude.rs`
+
+### Testing
+- Unit tests: `#[cfg(test)]` modules in respective files
+- Test fixtures: `tests/fixtures/`
+- Dev dependencies: `mockall`, `pretty_assertions`, `similar-asserts`
 
 ## Documentation Standards
 
-- All public modules, functions, types need `///` doc comments
-- Include examples for complex public APIs
+- All public modules, functions, types need `///` doc comments (enforced by `missing-docs = "deny"`)
+- Include examples in doc comments for complex public APIs
+- Use proper rustdoc syntax with sections like `# Examples`, `# Errors`, `# Panics`
+- No broken intra-doc links (enforced by `broken-intra-doc-links = "forbid"`)
 - Update README.md if adding new user-facing features
 - Update ARCHITECTURE.md for structural changes
-- Update WARP.md if changes affect deployment or release workflows
-- Update this file if new patterns emerge
+- Update this file (AGENTS.md) if new patterns emerge
+
+### Generating Documentation
+```bash
+make doc
+# OR
+cargo doc --no-deps --all-features --open
+```
+
+### Book Documentation
+ACORN uses mdbook for comprehensive documentation:
+```bash
+make book        # Build the book
+make book-write  # Serve and auto-rebuild on changes
+```
+
+## Repository Information
+
+- **Repository**: https://code.ornl.gov/research-enablement/acorn
+- **Documentation**: https://acorn.ornl.gov
+- **License**: MIT
+- **Version**: 0.1.50
+- **Rust Edition**: 2021
+- **Release Profile**: Optimized for size (`opt-level = "s"`) with LTO enabled
