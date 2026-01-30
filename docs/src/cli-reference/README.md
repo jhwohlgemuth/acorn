@@ -22,19 +22,19 @@ COMMANDS:
   doctor    Diagnose and correct system requirements for using acorn
   download  Download research activity data from buckets
   export    Export research activity data to a specific target
-  format    Formats research activity data in place (inherently includes some elements of `acorn check`)
+  format    Format research activity data in place (inherently includes some elements of `acorn check`)
   link      Add linked data context to research activity data
-  schema    Print research activity data (RAD) or research activity identifier (RAiD) metadata JSON schema to stdout
+  schema    Print research activity data or research activity identifier metadata JSON schema to stdout
   help      Print this message or the help of the given subcommand(s)
 
 FLAGS:
   -X, --offline
-          Prevent communication with the internet - intended for disconnected local environments
+          Prevent communication with the internet - intended for disconnected, local environments
 
           Note: Use of --offline may require extra configuration options for certain commands
 
   -t, --threads <N>
-          Limit number of threads used by rayon for parallel processing
+          Limit number of threads used by Rayon for parallel processing
 
           See Rayon documentation for more information
 
@@ -47,7 +47,7 @@ FLAGS:
           Decrease logging verbosity
 
   -V, --version
-          Prints version information
+          Print version information
 
   -h, --help
           Print help (see a summary with '-h')

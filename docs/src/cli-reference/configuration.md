@@ -1,7 +1,7 @@
 # Configuration
 
-## Flat-file
-ACORN can be configured using JSON or YAML format files. These configuration files allow users to specify various options and settings for the ACORN CLI tool, including input and output directories, logging levels, and other parameters.
+## Flat file
+ACORN can be configured using JSON or YAML format flat files. These configuration files allow users to specify options and settings for the ACORN CLI tool, including input and output directories and logging levels.
 
 ### Example
 `.acorn.json` file
@@ -37,7 +37,7 @@ ACORN can be configured using JSON or YAML format files. These configuration fil
 }
 ```
 > [!TIP]
-> `.acorn.json` is the default configuration file name that ACORN looks for in the current working directory. You can also specify a different configuration file using the `--config <FILE>` flag when running ACORN commands.
+> `.acorn.json` is the default configuration file name the ACORN tool looks for in the current working directory. You can also specify a different configuration file using the `--config <FILE>` flag when running ACORN commands.
 
 ## .env file and Environment Variables
 The ACORN CLI tool can also be configured using `.env` files and/or environment variables.

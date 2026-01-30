@@ -1,3 +1,3 @@
 # 💼 Software Portability
 
-Software portability refers to the ease with which software applications or components can be transferred and adapted to operate in different computing environments, platforms, or systems with minimal modification. This ASPECT attribute is crucial for ensuring that software can function effectively across diverse hardware configurations, operating systems, and cloud environments.
+Software portability refers to how easily a software's applications or components can be transferred and adapted to operate in different computing environments, platforms, or systems with minimal modification. This ASPECT attribute is crucial to ensure software can function effectively across diverse hardware configurations, operating systems, and cloud environments.

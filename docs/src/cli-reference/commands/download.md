@@ -1,8 +1,8 @@
 # 📥 Download
-> Obtain files from an ACORN bucket to your local filesystem
+> Obtain files from an ACORN bucket to use in your local file system
 
 - See the [configuration](../configuration.md) documentation for details on configuring ACORN commands.
-- By default, `download` will save files to `./content` in the current working directory unless an output path is specified via the `--output` flag.
+- By default, `download` will save files to `./content` in the working directory unless an output path is specified via the `--output` flag.
 
 ## Example Usage
 ```sh
