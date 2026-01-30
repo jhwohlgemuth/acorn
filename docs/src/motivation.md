@@ -7,10 +7,10 @@
 
 Built with memory-safe [Rust](https://rust-lang.org), **ACORN** is a portable solution that uses statically typed and dynamically validated data structures. Schemas include unique identifiers[^pid] to support open science principles and practices.
 
-**ACORN** can help inform researchers, sponsors, and partners, as well as train machines on existing research projects — and identify where gaps in our research exist. 
+**ACORN** can help inform researchers, sponsors, and partners, as well as train machines on existing research projects. It can also identify where gaps in a body of research exist. 
 
 ## 🆕 How is it novel?
-**ACORN** focuses on research at the *project* level. While there are other systems that track research projects tangentially — through people, publications, or organizations — there is no system that we know of that employs projects as the primitive source of information. We believe codifying research activity data at the project level is the key to unlocking deep insights about an organization's resources, funding, partnerships, and accomplishments. This network of linked data surpasses what may be already present but siloed in current search tools. 
+**ACORN** focuses on research at the *project* level. While there are other systems that track research projects tangentially — through people, publications, or organizations — there is no system we know of that employs projects as the primitive source of information. We believe codifying research activity data at the project level is the key to unlocking deep insights about an organization's resources, funding, partnerships, and accomplishments. This network of linked data surpasses what may be already present but siloed in current search tools. 
 
 <div align="center">
     <img src="./_assets/project_focus.png" height="300" />
@@ -27,10 +27,10 @@ With existing tools, we can see
 ## ⚠️ What are the risks?
 There are very few risks to ACORN. They would simply include anything that could preclude continued development of ACORN like lack of funding or human resources to support further development of the project. They also include any security risks inherent in projects at locations that host potentially sensitive data.
 
-Even if it completely fails[^fail], our "escalator turns to stairs" and will never truly fail. It is open-source[^oss], designed to be local and decentralized, and built on existing systems, with information stored in flat files so it will never be lost or unshareable.
+Even if it completely fails[^fail], our "escalator" turns to stairs and remains useful. It is open source[^oss], designed to be local and decentralized, and built on existing systems, with information stored in flat files so it will never be lost or unshareable.
 
 > [!TIP]
-> Research activity data curated and controlled by ACORN and its associated schemas and processes will ***never*** be without value.
+> Research activity data curated and controlled by ACORN and its associated schemas and processes will ***always*** hold value.
 
 ## 🎁 Why should I use ACORN?
 You should use ACORN if you want your project to be part of the research conversation. We initially developed ACORN for researchers, to help capture and communicate their projects more effectively. ACORN helps cut down on administrative burden, allowing the <span title="Primary Investigator">PI</span> or a project designee to submit descriptive metadata to a form and receive automatically generated fact sheets in PDF, web, or PowerPoint form. This form, kept as a JSON file in a designated repository[^bucket], becomes the single source of truth for information on each project. We continue to develop the metadata schema and talk with research groups to benefit organization processes.

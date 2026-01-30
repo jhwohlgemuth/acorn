@@ -48,7 +48,7 @@ acorn format path/to/project/index.json --dry-run
 ## Features
 - 🛠️ **Auto-fixing**: Automatically fix common inconsistencies in RAD structure and prose
 - 🎨 **Consistent Formatting**: Ensure consistent JSON formatting across all data files
-- 🩹 **Resolve Values**: Resolve certain values against controlled vocabularies to ensure meaning is conveyed correctly 
+- 🩹 **Resolve Values**: Resolve certain values against controlled vocabularies to ensure correct meaning 
 - 🖼️ **Resolve missing images**: Find first image in associated RAD folders and add to metadata if missing
 
 ## Resolved Values
