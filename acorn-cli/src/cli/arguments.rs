@@ -19,7 +19,7 @@ pub enum Diagnostic {
     Gpu,
     Software,
 }
-/// Target export file formats available when exporting research activity data using acorn
+/// Target export file formats available when exporting research activity data
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum FileFormat {
     #[default]
@@ -27,8 +27,14 @@ pub enum FileFormat {
     Pdf,
     #[display("bagit")]
     Bag,
+    #[display("json")]
+    Json,
+    #[display("md")]
+    Markdown,
     #[display("pptx")]
     Powerpoint,
+    #[display("yaml")]
+    Yaml,
 }
 /// Readability Type
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
