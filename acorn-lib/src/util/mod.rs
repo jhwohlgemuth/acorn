@@ -16,6 +16,7 @@
 //! ```
 //!
 use crate::prelude::HashMap;
+use crate::{fail, skip};
 use bon::Builder;
 use chrono::Utc;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
@@ -35,9 +36,9 @@ use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
 };
-use tracing::{debug, error};
 
 pub mod constants;
+pub mod macros;
 
 /// Trait for augmenting data with linked data context
 pub trait LinkedData {
@@ -320,7 +321,7 @@ impl Constant {
         match Constant::get(file_name) {
             | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
             | None => {
-                error!(file_name, "=> {} Import Constant asset", Label::fail());
+                fail!("Import Constant asset");
                 panic!("Unable to import {file_name}")
             }
         }
@@ -673,7 +674,7 @@ where
         match Regex::new(&format!(r"{{{{\s*{placeholder}\s*}}}}")) {
             | Ok(re) => re.replace_all(self.as_ref(), value).to_string(),
             | Err(err) => {
-                error!("=> {} Regex replacement - {err}", Label::fail());
+                fail!("Regex replacement - {}", err);
                 self.to_string()
             }
         }
@@ -793,7 +794,6 @@ pub fn generate_guid() -> String {
         'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 't', 'w', 'x', 'y', 'z', '3', '4', '6', '7', '8', '9',
     ];
     let id = nanoid!(10, &alphabet);
-    debug!(id, "=> {}", Label::using());
     id
 }
 /// Prints a diff of changes between two strings.
@@ -806,7 +806,7 @@ pub fn print_changes(old: &str, new: &str) {
     let changes = text_diff_changes(old, new);
     let has_no_changes = changes.clone().into_iter().all(|(tag, _)| tag == Equal);
     if has_no_changes {
-        debug!("=> {}No format changes", Label::skip());
+        skip!("No format changes");
     } else {
         for change in changes {
             print!("{}", change.1);

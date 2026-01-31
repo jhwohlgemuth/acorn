@@ -179,6 +179,8 @@ fn main() -> Void {
             | Some(SchemaCommands::Raid {}) => print_raid_schema(),
         },
         | None => {
+            let name = "JASON";
+            acorn::fail!("FOOBAR {} RABOOF", name);
             if let Some(value) = read_stdin() {
                 println!("stdin: {value}");
                 info!(value, "=> {} Input from stdin", Label::using());

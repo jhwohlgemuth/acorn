@@ -5,11 +5,12 @@ use acorn::analyzer::{summary, Analysis, Check, Validation};
 use acorn::prelude::PathBuf;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{print_values_as_table, Label};
+use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 use dotenvy::dotenv;
 use std::process::exit;
-use tracing::{debug, error, warn};
+use tracing::debug;
 
 const READABILITY_METRIC: &str = "READABILITY_METRIC";
 
@@ -49,7 +50,7 @@ pub fn run(
     let CommandLineOptions { exit_on_first_error, .. } = options;
     let paths = paths_from_options(path, &Some(options));
     let schema_issues = if skip.contains(&CheckCategory::Schema) {
-        warn!("=> {} Schema validation", Label::skip());
+        skip!("Schema validation");
         vec![]
     } else {
         let is_offline = *offline || *disable_website_checks;
@@ -60,7 +61,7 @@ pub fn run(
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             if level.is_some() {
-                error!("=> {} Found {} schema validation errors", Label::fail(), issues);
+                fail!("ACORN found {} schema validation errors", issues);
                 results.iter().for_each(|issue| issue.clone().print());
             }
             exit(exitcode::DATAERR);
@@ -68,14 +69,14 @@ pub fn run(
         results
     };
     let prose_issues = if skip.contains(&CheckCategory::Prose) {
-        warn!("=> {} Prose analysis", Label::skip());
+        skip!("Prose analysis");
         vec![]
     } else {
         let results = ResearchActivity::prose_analysis(paths.clone(), *offline, *skip_verify_checksum);
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             if level.is_some() {
-                error!("=> {} Found {} prose issues", Label::fail(), issues);
+                fail!("ACORN found {} prose issues", issues);
                 results.iter().for_each(|issue| issue.clone().print());
             }
             exit(exitcode::DATAERR);
@@ -83,7 +84,7 @@ pub fn run(
         results
     };
     let readability_issues = if skip.contains(&CheckCategory::Readability) {
-        warn!("=> {} Readability analysis", Label::skip());
+        skip!("Readability analysis");
         vec![]
     } else {
         let metric_value_from_cli = ReadabilityType::from_string(&readability_metric.to_string());
@@ -101,7 +102,7 @@ pub fn run(
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             if level.is_some() {
-                error!("=> {} Found {} readability issues", Label::fail(), issues);
+                fail!("ACORN found {} readability issues", issues);
                 results.iter().for_each(|issue| issue.clone().print());
             }
             exit(exitcode::DATAERR);
@@ -109,7 +110,7 @@ pub fn run(
         results
     };
     let conventions_issues = if skip.contains(&CheckCategory::Conventions) {
-        warn!("=> {} Conventions adherence", Label::skip());
+        skip!("Conventions validation");
         vec![]
     } else {
         vec![]

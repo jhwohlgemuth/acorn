@@ -2,8 +2,6 @@
 //!
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
-use core::ops::RangeInclusive;
-
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 #[cfg(feature = "std")]
 use crate::io::async_runtime;
@@ -12,6 +10,7 @@ use crate::prelude;
 use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{ImageObject, MediaObject, ProgrammingLanguage, VideoObject, Website};
+use crate::skip;
 use crate::util::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
     VALE_RELEASES_URL, VALE_VERSION,
@@ -23,6 +22,7 @@ use bat::PrettyPrinter;
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
+use core::ops::RangeInclusive;
 use derive_more::Display;
 use duct::cmd;
 use flate2::read::GzDecoder;
@@ -33,7 +33,7 @@ use polars::frame::row::Row;
 use polars::prelude::{AnyValue, DataFrame, PolarsResult};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tar::Archive;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, trace};
 use validator::Validate;
 use validator::ValidationErrorsKind;
 use which::which;
@@ -583,7 +583,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         }
                     };
                 } else {
-                    warn!("=> {} Checksum verification", Label::skip());
+                    skip!("Checksum verification");
                 }
                 let destination = match config.clone() {
                     | Some(value) => value.path.parent().unwrap().to_path_buf(),
@@ -691,7 +691,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         let config_path = self.config.unwrap().path;
         let result = if is_offline {
-            println!("=> {} Not running vale sync in offline mode", Label::skip());
+            skip!("Vale sync");
             cmd!("").run()
         } else {
             cmd!(path.clone(), "--config", config_path.clone(), "sync").run()
