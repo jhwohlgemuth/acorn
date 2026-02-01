@@ -1,4 +1,5 @@
 use crate::cli::{paths_from_options, CommandLineOptions};
+use acorn::fail;
 use acorn::io::FromPath;
 use acorn::prelude::{File, PathBuf, Write};
 use acorn::schema::research_activity::ResearchActivity;
@@ -8,7 +9,7 @@ use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::process::exit;
-use tracing::{error, info};
+use tracing::info;
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(
@@ -59,27 +60,26 @@ pub fn run(
                 }
             }
             if !dry_run {
-                let filepath = path.clone().to_absolute_string();
                 let mut file = match File::create(path) {
                     | Ok(file) => file,
                     | Err(why) => {
-                        error!(file = filepath, "=> {} Create - {}", Label::fail(), why);
+                        fail!("Create - {}", why);
                         exit(exitcode::UNAVAILABLE);
                     }
                 };
                 match file.write_all(new_content.as_bytes()) {
                     | Ok(_) => {
-                        info!(file = filepath, "=> {} Formatted", Label::pass());
+                        info!("=> {} Formatted", Label::pass());
                     }
                     | Err(why) => {
-                        error!(file = filepath, "=> {} Write - {}", Label::fail(), why);
+                        fail!("Write - {}", why);
                         exit(exitcode::UNAVAILABLE);
                     }
                 }
             }
         }
         | None => {
-            error!("=> {} Read research activity data", Label::fail());
+            fail!("Read research activity data");
             exit(exitcode::DATAERR);
         }
     });

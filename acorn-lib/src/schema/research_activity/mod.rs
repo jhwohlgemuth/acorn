@@ -7,10 +7,11 @@ use super::pid::raid;
 #[cfg(feature = "std")]
 use super::validate::format_phone_number;
 use super::validate::{is_kebabcase, is_list_url, validate_attribute_books, validate_attribute_doi, validate_attribute_ror_list};
+use crate::fail;
 #[cfg(feature = "std")]
 use crate::io::{image_paths, parent, read_file, FromPath};
 #[cfg(feature = "std")]
-use crate::prelude::PathBuf;
+use crate::prelude::{File, PathBuf, Write};
 #[cfg(feature = "std")]
 use crate::schema::Organization;
 use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Sections, Status, Website};
@@ -41,12 +42,36 @@ use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
-use tracing::{debug, error, trace};
+use tracing::{debug, error, info, trace};
 use validator::Validate;
 
 pub mod aspect;
 use aspect::AspectFramework;
 
+/// Trait for read/write operations on Research Activity data
+pub trait InputOutput {
+    /// Read research activity data from specified file path
+    fn read<P>(_path: P) -> Option<ResearchActivity>
+    where
+        P: Into<PathBuf>,
+    {
+        None
+    }
+    /// Read research activity data from specified JSON file path
+    // fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity>;
+    /// Read research activity data from specified YAML file path
+    // fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity>;
+    /// Write research activity data to specified path
+    // fn write(&self, path: PathBuf) -> Result<PathBuf, String>;
+    /// Write research activity data as JSON to specified path
+    fn write_json<P>(&self, path: P) -> Result<PathBuf, String>
+    where
+        P: Into<PathBuf> + Clone;
+    /// Write research activity data as YAML to specified path
+    fn write_yaml<P>(&self, path: P) -> Result<PathBuf, String>
+    where
+        P: Into<PathBuf> + Clone;
+}
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
 #[skip_serializing_none]
@@ -340,6 +365,67 @@ impl ToMarkdown for ResearchActivity {
         }
     }
 }
+#[cfg(feature = "std")]
+impl InputOutput for ResearchActivity {
+    fn write_json<P>(&self, path: P) -> Result<PathBuf, String>
+    where
+        P: Into<PathBuf>,
+    {
+        let extension = "json";
+        let output = path.into().clone();
+        let content = serde_json::to_string_pretty(&self).unwrap();
+        let file = match File::create(output.clone().with_extension(extension)) {
+            | Ok(file) => Some(file),
+            | Err(why) => {
+                fail!("Create research activity data {} file - {}", extension.to_uppercase(), why);
+                None
+            }
+        };
+        if let Some(mut value) = file {
+            match value.write_all(content.as_bytes()) {
+                | Ok(_) => {
+                    info!("=> {} Formatted", Label::pass());
+                    Ok(output.with_extension(extension))
+                }
+                | Err(why) => {
+                    fail!("Write research activity data {} file - {}", extension.to_uppercase(), why);
+                    Err(why.to_string())
+                }
+            }
+        } else {
+            Err("File not created".to_string())
+        }
+    }
+    fn write_yaml<P>(&self, path: P) -> Result<PathBuf, String>
+    where
+        P: Into<PathBuf>,
+    {
+        let extension = "yaml";
+        let output = path.into().clone();
+        let content = serde_yml::to_string(&self).unwrap();
+        let file = match File::create(output.clone().with_extension(extension)) {
+            | Ok(file) => Some(file),
+            | Err(why) => {
+                fail!("Create research activity data {} file - {}", extension.to_uppercase(), why);
+                None
+            }
+        };
+        if let Some(mut value) = file {
+            match value.write_all(content.as_bytes()) {
+                | Ok(_) => {
+                    info!("=> {} Formatted", Label::pass());
+                    Ok(output.with_extension(extension))
+                }
+                | Err(why) => {
+                    fail!("Write research activity data {} file - {}", extension.to_uppercase(), why);
+                    Err(why.to_string())
+                }
+            }
+        } else {
+            Err("File not created".to_string())
+        }
+    }
+}
 impl ResearchActivity {
     /// Creates a new `ResearchActivity`
     pub fn new() -> Self {
@@ -483,13 +569,17 @@ impl ResearchActivity {
     }
     /// Read and parse research activity data (JSON or YAML)
     #[cfg(feature = "std")]
-    pub fn read(path: PathBuf) -> Option<ResearchActivity> {
-        let content = match MimeType::from_path(path.clone()) {
-            | MimeType::Json => match ResearchActivity::read_json(path.clone()) {
+    pub fn read<P>(path: P) -> Option<ResearchActivity>
+    where
+        P: Into<PathBuf>,
+    {
+        let source = path.into().clone();
+        let content = match MimeType::from_path(source.clone()) {
+            | MimeType::Json => match ResearchActivity::read_json(source.clone()) {
                 | Ok(value) => Some(value),
                 | Err(_) => None,
             },
-            | MimeType::Yaml => match ResearchActivity::read_yaml(path.clone()) {
+            | MimeType::Yaml => match ResearchActivity::read_yaml(source.clone()) {
                 | Ok(value) => Some(value),
                 | Err(_) => None,
             },
@@ -501,12 +591,12 @@ impl ResearchActivity {
         };
         match content {
             | Some(data) => {
-                debug!(path = path.to_str().unwrap(), "=> {}", label);
+                debug!(path = source.to_str().unwrap(), "=> {}", label);
                 debug!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
                 Some(data)
             }
             | None => {
-                error!(path = path.to_str().unwrap(), "=> {}", label);
+                error!(path = source.to_str().unwrap(), "=> {}", label);
                 None
             }
         }

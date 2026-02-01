@@ -164,7 +164,7 @@ impl Analysis for ResearchActivity {
         let runtime = async_runtime();
         paths
             .par_iter()
-            .map(|path| match ResearchActivity::read(path.into()) {
+            .map(|path| match ResearchActivity::read(path) {
                 | Some(data) => {
                     let issues = runtime.block_on(async {
                         let mut _issues = vec![];
@@ -200,7 +200,7 @@ impl Analysis for ResearchActivity {
         let vale = Vale::resolve(config, is_offline, skip_verify_checksum);
         match vale.clone().sync(is_offline) {
             | Ok(_) => {
-                let results = paths.iter().map(|path| match ResearchActivity::read(path.into()) {
+                let results = paths.iter().map(|path| match ResearchActivity::read(path) {
                     | Some(data) => vale.clone().run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into())),
                     | None => {
                         error!("=> {} Read research activity data", Label::fail());
@@ -222,7 +222,7 @@ impl Analysis for ResearchActivity {
         let rtype = readability_type.into();
         paths
             .par_iter()
-            .map(|path| match ResearchActivity::read(path.into()) {
+            .map(|path| match ResearchActivity::read(path) {
                 | Some(data) => {
                     let index = rtype.calculate(&data.to_markdown());
                     let maximum = match rtype.maximum_allowed_from_env() {
@@ -836,7 +836,7 @@ impl Validation for ResearchActivity {
     fn check(paths: Vec<PathBuf>) -> Vec<Check> {
         paths
             .par_iter()
-            .map(|path| match ResearchActivity::read(path.into()) {
+            .map(|path| match ResearchActivity::read(path) {
                 | Some(data) => data
                     .clone()
                     .validation_issues()

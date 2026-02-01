@@ -23,17 +23,17 @@ pub enum Diagnostic {
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum FileFormat {
     #[default]
-    #[display("pdf")]
+    #[display("PDF")]
     Pdf,
-    #[display("bagit")]
+    #[display("BagIt")]
     Bag,
-    #[display("json")]
+    #[display("JSON")]
     Json,
-    #[display("md")]
+    #[display("MD")]
     Markdown,
-    #[display("pptx")]
+    #[display("PPTX")]
     Powerpoint,
-    #[display("yaml")]
+    #[display("YAML")]
     Yaml,
 }
 /// Readability Type
