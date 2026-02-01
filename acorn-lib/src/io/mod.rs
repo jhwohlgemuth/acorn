@@ -19,6 +19,7 @@
 //! write_file(PathBuf::from("/path/to/that/file"), contents);
 //! ```
 //!
+use crate::fail;
 use crate::prelude::{canonicalize, create_dir_all, io, var, BufReader, Cursor, Error, File, PathBuf, Read, Write};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, Permissions, PermissionsExt};
@@ -883,10 +884,13 @@ where
     P: Into<PathBuf>,
 {
     match File::create(path.into().clone()) {
-        | Ok(mut file) => {
-            file.write_all(content.as_bytes()).unwrap();
-            file.flush()
-        }
+        | Ok(mut file) => match file.write_all(content.as_bytes()) {
+            | Ok(_) => file.flush(),
+            | Err(why) => {
+                fail!("Write file - {}", why);
+                Err(why)
+            }
+        },
         | Err(why) => {
             error!("=> {} Cannot create file - {why}", Label::fail());
             Err(why)

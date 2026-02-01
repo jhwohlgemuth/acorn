@@ -37,6 +37,7 @@ pub fn run(
         .maybe_commit(commit.clone())
         .merge_request(*merge_request)
         .build();
+    let extension = format.to_string();
     match format {
         | FileFormat::Bag => {
             let base = path.clone().unwrap().display().to_string();
@@ -52,6 +53,38 @@ pub fn run(
             };
             save.and_then(|_| Bag::verify(destination.clone()).map_err(|why| why.into()))
                 .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
+        }
+        | FileFormat::Json => {
+            let from_options = paths_from_options(path, &Some(options.clone()));
+            let (skipped, paths): (Vec<_>, Vec<_>) = from_options
+                .iter()
+                .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
+            skipped.iter().for_each(|path| {
+                skip!("{} is already in {} format", path.display(), extension);
+            });
+            let count = paths.len() as u64;
+            let progress = ProgressBar::new(count);
+            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+            for path in &paths {
+                progress.set_message(format!("Generating {} for {}", extension.clone(), path.display()));
+                let output = path.with_extension(extension.clone());
+                match ResearchActivity::read(path) {
+                    | Some(data) => match data.write(output) {
+                        | Ok(_) => {}
+                        | Err(_) => {
+                            exit(exitcode::UNAVAILABLE);
+                        }
+                    },
+                    | None => {
+                        fail!("Read research activity data");
+                        exit(exitcode::DATAERR);
+                    }
+                };
+                progress.inc(1);
+            }
+            progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+            info!("=> {} Exported {count} {} file{}", Label::pass(), extension, suffix(count));
+            Ok(())
         }
         | FileFormat::Pdf => {
             async_runtime().block_on(async {
@@ -74,6 +107,38 @@ pub fn run(
                 info!("=> {} Exported {} PDF{}", Label::pass(), paths.len(), suffix(paths.len()));
                 let _close = page.close(Some(false)).await;
             });
+            Ok(())
+        }
+        | FileFormat::Markdown => {
+            let from_options = paths_from_options(path, &Some(options.clone()));
+            let (skipped, paths): (Vec<_>, Vec<_>) = from_options
+                .iter()
+                .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
+            skipped.iter().for_each(|path| {
+                skip!("{} is already in {} format", path.display(), extension);
+            });
+            let count = paths.len() as u64;
+            let progress = ProgressBar::new(count);
+            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+            for path in &paths {
+                progress.set_message(format!("Generating {} for {}", extension.clone(), path.display()));
+                let output = path.with_extension(extension.clone());
+                match ResearchActivity::read(path) {
+                    | Some(data) => match data.write(output) {
+                        | Ok(_) => {}
+                        | Err(_) => {
+                            exit(exitcode::UNAVAILABLE);
+                        }
+                    },
+                    | None => {
+                        fail!("Read research activity data");
+                        exit(exitcode::DATAERR);
+                    }
+                };
+                progress.inc(1);
+            }
+            progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+            info!("=> {} Exported {count} {} file{}", Label::pass(), extension, suffix(count));
             Ok(())
         }
         | FileFormat::Powerpoint => {
@@ -103,52 +168,22 @@ pub fn run(
             }
             Ok(())
         }
-        | FileFormat::Json => {
-            let from_options = paths_from_options(path, &Some(options.clone()));
-            let extension = format.to_string();
-            let (skipped, paths): (Vec<_>, Vec<_>) = from_options.iter().partition(|path| MimeType::from_path(path) == MimeType::Json);
-            let count = paths.len() as u64;
-            let progress = ProgressBar::new(count);
-            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-            skipped.iter().for_each(|path| {
-                skip!("{} is already in {} format", path.display(), extension);
-            });
-            for path in &paths {
-                progress.set_message(format!("Generating {} for {}", extension, path.display()));
-                match ResearchActivity::read(path) {
-                    // TODO: Create ResearchActivity::write function that accepts format as argument
-                    | Some(data) => match data.write_json(path) {
-                        | Ok(_) => {}
-                        | Err(_) => {
-                            exit(exitcode::UNAVAILABLE);
-                        }
-                    },
-                    | None => {
-                        fail!("Read research activity data");
-                        exit(exitcode::DATAERR);
-                    }
-                };
-                progress.inc(1);
-            }
-            progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-            info!("=> {} Exported {count} {} file{}", Label::pass(), extension, suffix(count));
-            Ok(())
-        }
         | FileFormat::Yaml => {
             let from_options = paths_from_options(path, &Some(options.clone()));
-            let extension = format.to_string();
-            let (skipped, paths): (Vec<_>, Vec<_>) = from_options.iter().partition(|path| MimeType::from_path(path) == MimeType::Yaml);
-            let count = paths.len() as u64;
-            let progress = ProgressBar::new(count);
-            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+            let (skipped, paths): (Vec<_>, Vec<_>) = from_options
+                .iter()
+                .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
             skipped.iter().for_each(|path| {
                 skip!("{} is already in {} format", path.display(), extension);
             });
+            let count = paths.len() as u64;
+            let progress = ProgressBar::new(count);
+            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
             for path in &paths {
-                progress.set_message(format!("Generating {} for {}", extension, path.display()));
+                progress.set_message(format!("Generating {} for {}", extension.clone(), path.display()));
+                let output = path.with_extension(extension.clone());
                 match ResearchActivity::read(path) {
-                    // TODO: Create ResearchActivity::write function that accepts format as argument
-                    | Some(data) => match data.write_yaml(path) {
+                    | Some(data) => match data.write(output) {
                         | Ok(_) => {}
                         | Err(_) => {
                             exit(exitcode::UNAVAILABLE);
@@ -165,6 +200,5 @@ pub fn run(
             info!("=> {} Exported {count} {} file{}", Label::pass(), extension, suffix(count));
             Ok(())
         }
-        | _ => unimplemented!(),
     }
 }

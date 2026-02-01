@@ -7,11 +7,10 @@ use super::pid::raid;
 #[cfg(feature = "std")]
 use super::validate::format_phone_number;
 use super::validate::{is_kebabcase, is_list_url, validate_attribute_books, validate_attribute_doi, validate_attribute_ror_list};
-use crate::fail;
 #[cfg(feature = "std")]
-use crate::io::{image_paths, parent, read_file, FromPath};
+use crate::io::{image_paths, parent, read_file, write_file, FromPath};
 #[cfg(feature = "std")]
-use crate::prelude::{File, PathBuf, Write};
+use crate::prelude::{io::Error, PathBuf};
 #[cfg(feature = "std")]
 use crate::schema::Organization;
 use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Sections, Status, Website};
@@ -20,7 +19,7 @@ use crate::util::constants::DEFAULT_AFFILIATION;
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
 #[cfg(feature = "std")]
 use crate::util::{Constant, Label};
-use crate::util::{LinkedData, ToMarkdown};
+use crate::util::{LinkedData, StringInterpolation, ToMarkdown};
 #[cfg(feature = "std")]
 use crate::util::{MimeType, ToAbsoluteString};
 use bon::Builder;
@@ -42,13 +41,14 @@ use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, trace};
 use validator::Validate;
 
 pub mod aspect;
 use aspect::AspectFramework;
 
 /// Trait for read/write operations on Research Activity data
+#[cfg(feature = "std")]
 pub trait InputOutput {
     /// Read research activity data from specified file path
     fn read<P>(_path: P) -> Option<ResearchActivity>
@@ -62,13 +62,19 @@ pub trait InputOutput {
     /// Read research activity data from specified YAML file path
     // fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity>;
     /// Write research activity data to specified path
-    // fn write(&self, path: PathBuf) -> Result<PathBuf, String>;
+    fn write<P>(&self, path: P) -> Result<(), Error>
+    where
+        P: Into<PathBuf> + Clone;
     /// Write research activity data as JSON to specified path
-    fn write_json<P>(&self, path: P) -> Result<PathBuf, String>
+    fn write_json<P>(&self, path: P) -> Result<(), Error>
+    where
+        P: Into<PathBuf> + Clone;
+    /// Write research activity data as Markdown (MD) to specified path
+    fn write_markdown<P>(&self, path: P) -> Result<(), Error>
     where
         P: Into<PathBuf> + Clone;
     /// Write research activity data as YAML to specified path
-    fn write_yaml<P>(&self, path: P) -> Result<PathBuf, String>
+    fn write_yaml<P>(&self, path: P) -> Result<(), Error>
     where
         P: Into<PathBuf> + Clone;
 }
@@ -346,15 +352,65 @@ impl LinkedData for ResearchActivityMetadata {
         clone
     }
 }
+impl ToMarkdown for ResearchActivityMetadata {
+    fn to_markdown(&self) -> String {
+        // TODO: Implement to_markdown for RAiD metadata
+        let Self {
+            classification,
+            doi,
+            ror,
+            keywords,
+            technology,
+            sponsors,
+            partners,
+            related,
+            ..
+        } = self;
+        let indent = 2;
+        format!(
+            r#"---
+classification: {}
+doi:
+{}
+ror:
+{}
+keywords:
+{}
+technology:
+{}
+sponsors:
+{}
+partners:
+{}
+related:
+{}
+---"#,
+            classification.clone().unwrap_or_default(),
+            doi.clone().unwrap_or_else(std::vec::Vec::new).to_markdown().with_indent(indent),
+            ror.clone().unwrap_or_else(std::vec::Vec::new).to_markdown().with_indent(indent),
+            keywords.to_markdown().with_indent(indent),
+            technology.to_markdown().with_indent(indent),
+            sponsors.clone().unwrap_or_default().to_markdown().with_indent(indent),
+            partners.clone().unwrap_or_default().to_markdown().with_indent(indent),
+            related.clone().unwrap_or_default().to_markdown().with_indent(indent)
+        )
+    }
+}
 impl ToMarkdown for ResearchActivity {
     fn to_markdown(&self) -> String {
         let Self {
-            title, subtitle, sections, ..
+            meta,
+            title,
+            subtitle,
+            sections,
+            ..
         } = self;
+        let frontmatter = meta.to_markdown();
         let sections = sections.to_markdown();
         match &subtitle {
             | Some(subtitle) => format!(
-                r#"# {title}
+                r#"{frontmatter}
+# {title}
 > {subtitle}
 {sections}"#
             ),
@@ -367,63 +423,44 @@ impl ToMarkdown for ResearchActivity {
 }
 #[cfg(feature = "std")]
 impl InputOutput for ResearchActivity {
-    fn write_json<P>(&self, path: P) -> Result<PathBuf, String>
+    fn write<P>(&self, path: P) -> Result<(), Error>
     where
         P: Into<PathBuf>,
     {
-        let extension = "json";
-        let output = path.into().clone();
-        let content = serde_json::to_string_pretty(&self).unwrap();
-        let file = match File::create(output.clone().with_extension(extension)) {
-            | Ok(file) => Some(file),
-            | Err(why) => {
-                fail!("Create research activity data {} file - {}", extension.to_uppercase(), why);
-                None
+        let output = path.into();
+        let mime = MimeType::from_path(output.clone());
+        match mime {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Markdown => self.write_markdown(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => {
+                unimplemented!("Unsupported research activity data file extension for writing")
             }
-        };
-        if let Some(mut value) = file {
-            match value.write_all(content.as_bytes()) {
-                | Ok(_) => {
-                    info!("=> {} Formatted", Label::pass());
-                    Ok(output.with_extension(extension))
-                }
-                | Err(why) => {
-                    fail!("Write research activity data {} file - {}", extension.to_uppercase(), why);
-                    Err(why.to_string())
-                }
-            }
-        } else {
-            Err("File not created".to_string())
         }
     }
-    fn write_yaml<P>(&self, path: P) -> Result<PathBuf, String>
+    fn write_json<P>(&self, path: P) -> Result<(), Error>
     where
         P: Into<PathBuf>,
     {
-        let extension = "yaml";
-        let output = path.into().clone();
+        let output = path.into().with_extension("json");
+        let content = serde_json::to_string_pretty(&self).unwrap();
+        write_file(output, content)
+    }
+    fn write_markdown<P>(&self, path: P) -> Result<(), Error>
+    where
+        P: Into<PathBuf>,
+    {
+        let output = path.into().with_extension("md");
+        let content = self.to_markdown();
+        write_file(output, content)
+    }
+    fn write_yaml<P>(&self, path: P) -> Result<(), Error>
+    where
+        P: Into<PathBuf>,
+    {
+        let output = path.into().with_extension("yaml");
         let content = serde_yml::to_string(&self).unwrap();
-        let file = match File::create(output.clone().with_extension(extension)) {
-            | Ok(file) => Some(file),
-            | Err(why) => {
-                fail!("Create research activity data {} file - {}", extension.to_uppercase(), why);
-                None
-            }
-        };
-        if let Some(mut value) = file {
-            match value.write_all(content.as_bytes()) {
-                | Ok(_) => {
-                    info!("=> {} Formatted", Label::pass());
-                    Ok(output.with_extension(extension))
-                }
-                | Err(why) => {
-                    fail!("Write research activity data {} file - {}", extension.to_uppercase(), why);
-                    Err(why.to_string())
-                }
-            }
-        } else {
-            Err("File not created".to_string())
-        }
+        write_file(output, content)
     }
 }
 impl ResearchActivity {

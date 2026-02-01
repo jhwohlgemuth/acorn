@@ -40,6 +40,13 @@ use similar::{
 pub mod constants;
 pub mod macros;
 
+/// Cross-platform line separator (CRLF on Windows, LF on Unix)
+#[cfg(target_os = "windows")]
+const LINE_SEPARATOR: &str = "\r\n";
+/// Cross-platform line separator (CRLF on Windows, LF on Unix)
+#[cfg(not(target_os = "windows"))]
+const LINE_SEPARATOR: &str = "\n";
+
 /// Trait for augmenting data with linked data context
 pub trait LinkedData {
     /// Add linked data (e.g., JSON-LD) context
@@ -52,6 +59,8 @@ where
 {
     /// Replace placeholder instances with a given value (basic interpolation based on handlebars template syntax)
     fn replace_placeholder_with_string(&self, placeholder: &str, value: &str) -> String;
+    /// Prepend indentation of a given number of spaces to each line of a text
+    fn with_indent(&self, spaces: usize) -> String;
 }
 /// Trait for augmenting path value functionality with absolute path string conversion
 pub trait ToAbsoluteString {
@@ -207,9 +216,17 @@ pub enum MimeType {
     /// OpenType Font (OTF)
     #[display("font/otf")]
     Otf,
+    /// Portable Document Format (PDF)
+    #[display("application/pdf")]
+    Pdf,
     /// Portable Network Graphic (PNG)
     #[display("image/png")]
     Png,
+    /// PowerPoint Presentation (modern format)
+    ///
+    /// See <https://en.wikipedia.org/wiki/Office_Open_XML>
+    #[display("application/vnd.openxmlformats-officedocument.presentationml.presentation")]
+    Powerpoint,
     /// Rust Source Code (RS)
     #[display("text/rust")]
     Rust,
@@ -231,6 +248,11 @@ pub enum MimeType {
     /// See <https://yaml.org/>
     #[display("application/yaml")]
     Yaml,
+    /// ZIP Archive
+    ///
+    /// See <https://en.wikipedia.org/wiki/ZIP_(file_format)>
+    #[display("application/zip")]
+    Zip,
     /// Unknown MIME type
     #[display("application/unknown")]
     Unknown,
@@ -561,12 +583,15 @@ where
     /// | jsonld | application/ld+json |
     /// | md | text/markdown |
     /// | otf | font/otf |
+    /// | pdf | application/pdf |
     /// | png | image/png |
+    /// | pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |
     /// | rs | text/rust |
     /// | svg | image/svg+xml |
     /// | toml | application/toml |
     /// | txt | text/plain |
     /// | yaml | application/yaml |
+    /// | zip | application/zip |
     fn from(value: T) -> Self {
         let name = value.to_string().to_lowercase();
         match file_extension(name) {
@@ -578,6 +603,7 @@ where
                 | "md" | "markdown" => MimeType::Markdown,
                 | "otf" => MimeType::Otf,
                 | "png" => MimeType::Png,
+                | "pptx" | "ppt" => MimeType::Powerpoint,
                 | "rs" => MimeType::Rust,
                 | "svg" => MimeType::Svg,
                 | "toml" => MimeType::Toml,
@@ -607,12 +633,15 @@ impl MimeType {
             | MimeType::LdJson => "jsonld",
             | MimeType::Markdown => "md",
             | MimeType::Otf => "otf",
+            | MimeType::Pdf => "pdf",
             | MimeType::Png => "png",
+            | MimeType::Powerpoint => "pptx",
             | MimeType::Rust => "rs",
             | MimeType::Svg => "svg",
             | MimeType::Text => "txt",
             | MimeType::Toml => "toml",
             | MimeType::Yaml => "yaml",
+            | MimeType::Zip => "zip",
             | _ => "unknown-file-type",
         }
         .to_string()
@@ -679,10 +708,20 @@ where
             }
         }
     }
+    fn with_indent(&self, spaces: usize) -> String {
+        self.to_string()
+            .lines()
+            .map(|line| " ".repeat(spaces) + line.trim_start())
+            .collect::<Vec<_>>()
+            .join(LINE_SEPARATOR)
+    }
 }
 impl<P: AsRef<str>> ToMarkdown for Vec<P> {
     fn to_markdown(&self) -> String {
-        self.iter().map(|x| format!("- {}", x.as_ref())).collect::<Vec<String>>().join("\n")
+        self.iter()
+            .map(|x| format!("- {}", x.as_ref()))
+            .collect::<Vec<String>>()
+            .join(LINE_SEPARATOR)
     }
 }
 impl<T: AsRef<str>> ToStringChunks<T> for T

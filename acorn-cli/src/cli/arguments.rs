@@ -1,3 +1,4 @@
+use acorn::util::MimeType;
 use clap::ValueEnum;
 use derive_more::Display;
 /// Categories available when analyzing ("checking") research activity data
@@ -88,4 +89,17 @@ pub enum Target {
     /// Poster sized presentation format intended for large printing and presentation
     #[display("poster")]
     Poster,
+}
+
+impl From<FileFormat> for MimeType {
+    fn from(format: FileFormat) -> Self {
+        match format {
+            | FileFormat::Pdf => MimeType::Pdf,
+            | FileFormat::Bag => MimeType::Zip,
+            | FileFormat::Json => MimeType::Json,
+            | FileFormat::Markdown => MimeType::Markdown,
+            | FileFormat::Powerpoint => MimeType::Powerpoint,
+            | FileFormat::Yaml => MimeType::Yaml,
+        }
+    }
 }
