@@ -90,7 +90,6 @@ pub enum Target {
     #[display("poster")]
     Poster,
 }
-
 impl From<FileFormat> for MimeType {
     fn from(format: FileFormat) -> Self {
         match format {

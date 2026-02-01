@@ -58,9 +58,9 @@ pub trait InputOutput {
         None
     }
     /// Read research activity data from specified JSON file path
-    // fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity>;
+    fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity>;
     /// Read research activity data from specified YAML file path
-    // fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity>;
+    fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity>;
     /// Write research activity data to specified path
     fn write<P>(&self, path: P) -> Result<(), Error>
     where
@@ -423,6 +423,76 @@ impl ToMarkdown for ResearchActivity {
 }
 #[cfg(feature = "std")]
 impl InputOutput for ResearchActivity {
+    fn read<P>(path: P) -> Option<ResearchActivity>
+    where
+        P: Into<PathBuf>,
+    {
+        let source = path.into().clone();
+        let content = match MimeType::from_path(source.clone()) {
+            | MimeType::Json => match ResearchActivity::read_json(source.clone()) {
+                | Ok(value) => Some(value),
+                | Err(_) => None,
+            },
+            | MimeType::Yaml => match ResearchActivity::read_yaml(source.clone()) {
+                | Ok(value) => Some(value),
+                | Err(_) => None,
+            },
+            | _ => unimplemented!("Unsupported research activity data file extension"),
+        };
+        let label = match content {
+            | Some(_) => Label::using(),
+            | _ => Label::invalid(),
+        };
+        match content {
+            | Some(data) => {
+                debug!(path = source.to_str().unwrap(), "=> {}", label);
+                debug!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
+                Some(data)
+            }
+            | None => {
+                error!(path = source.to_str().unwrap(), "=> {}", label);
+                None
+            }
+        }
+    }
+    fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) if !value.is_empty() => value,
+            | Ok(_) | Err(_) => {
+                error!(path = path.to_str().unwrap(), "=> {} RAD content is not valid", Label::fail());
+                "{}".to_owned()
+            }
+        };
+        let data: serde_json::Result<ResearchActivity> = serde_json::from_str(&content);
+        let label = match data {
+            | Ok(_) => Label::using(),
+            | Err(_) => Label::invalid(),
+        };
+        match &data {
+            | Ok(_) => (),
+            | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
+        }
+        data
+    }
+    fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) => value,
+            | Err(_) => {
+                error!(path = path.to_str().unwrap(), "=> {} RAD content is not valid", Label::fail());
+                "".to_owned()
+            }
+        };
+        let data: serde_yml::Result<ResearchActivity> = serde_yml::from_str(&content);
+        let label = match data {
+            | Ok(_) => Label::output(),
+            | Err(_) => Label::fail(),
+        };
+        match &data {
+            | Ok(_) => (),
+            | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
+        }
+        data
+    }
     fn write<P>(&self, path: P) -> Result<(), Error>
     where
         P: Into<PathBuf>,
@@ -603,82 +673,6 @@ impl ResearchActivity {
             | _ => None,
         };
         clone
-    }
-    /// Read and parse research activity data (JSON or YAML)
-    #[cfg(feature = "std")]
-    pub fn read<P>(path: P) -> Option<ResearchActivity>
-    where
-        P: Into<PathBuf>,
-    {
-        let source = path.into().clone();
-        let content = match MimeType::from_path(source.clone()) {
-            | MimeType::Json => match ResearchActivity::read_json(source.clone()) {
-                | Ok(value) => Some(value),
-                | Err(_) => None,
-            },
-            | MimeType::Yaml => match ResearchActivity::read_yaml(source.clone()) {
-                | Ok(value) => Some(value),
-                | Err(_) => None,
-            },
-            | _ => unimplemented!("Unsupported research activity data file extension"),
-        };
-        let label = match content {
-            | Some(_) => Label::using(),
-            | _ => Label::invalid(),
-        };
-        match content {
-            | Some(data) => {
-                debug!(path = source.to_str().unwrap(), "=> {}", label);
-                debug!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
-                Some(data)
-            }
-            | None => {
-                error!(path = source.to_str().unwrap(), "=> {}", label);
-                None
-            }
-        }
-    }
-    /// Read research activity data using Serde and [`ResearchActivity`] struct
-    #[cfg(feature = "std")]
-    fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) if !value.is_empty() => value,
-            | Ok(_) | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} RAD content is not valid", Label::fail());
-                "{}".to_owned()
-            }
-        };
-        let data: serde_json::Result<ResearchActivity> = serde_json::from_str(&content);
-        let label = match data {
-            | Ok(_) => Label::using(),
-            | Err(_) => Label::invalid(),
-        };
-        match &data {
-            | Ok(_) => (),
-            | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
-        }
-        data
-    }
-    /// Read research activity data (e.g., `buckets.yaml`) using Serde and [`ResearchActivity`] struct
-    #[cfg(feature = "std")]
-    fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) => value,
-            | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} RAD content is not valid", Label::fail());
-                "".to_owned()
-            }
-        };
-        let data: serde_yml::Result<ResearchActivity> = serde_yml::from_str(&content);
-        let label = match data {
-            | Ok(_) => Label::output(),
-            | Err(_) => Label::fail(),
-        };
-        match &data {
-            | Ok(_) => (),
-            | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
-        }
-        data
     }
 }
 impl ResearchActivityMetadata {

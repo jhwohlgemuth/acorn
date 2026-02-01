@@ -7,7 +7,7 @@ use acorn::io::{archive, extract_zip, read_file, write_file};
 use acorn::powerpoint::ooxml::{Relationship, Relationships};
 use acorn::powerpoint::{interpolate_values, read_xml_rel};
 use acorn::prelude::{copy, create_dir_all, Error, Path, PathBuf};
-use acorn::schema::research_activity::ResearchActivity;
+use acorn::schema::research_activity::{InputOutput, ResearchActivity};
 use acorn::util::{Label, ToAbsoluteString};
 use color_eyre::eyre::Result;
 use fancy_regex::Regex;
