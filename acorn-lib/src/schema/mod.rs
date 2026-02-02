@@ -789,6 +789,26 @@ impl OrganizationType {
         }
     }
 }
+impl ToMarkdown for ContactPoint {
+    fn to_markdown(&self) -> String {
+        let ContactPoint {
+            given_name,
+            family_name,
+            job_title: role,
+            email,
+            telephone,
+            ..
+        } = self;
+        format!(
+            r#"## Contact
+- Role: {role}
+- Name: {given_name} {family_name}
+- Email: [{email}](mailto:{email})
+- Telephone: {telephone}
+"#
+        )
+    }
+}
 impl ToMarkdown for Research {
     fn to_markdown(&self) -> String {
         let Research { focus, areas } = self;
@@ -797,8 +817,7 @@ impl ToMarkdown for Research {
 ## Focus
 {focus}
 
-## Areas
-{}"#,
+## Areas{}"#,
             areas.to_markdown(),
         )
     }
@@ -821,11 +840,9 @@ impl ToMarkdown for Sections {
 ## Challenge
 {}
 
-## Approach
-{}
+## Approach{}
 
-## Impact
-{}
+## Impact{}
 {}"#,
             mission,
             challenge,
@@ -833,6 +850,12 @@ impl ToMarkdown for Sections {
             impact.to_markdown(),
             research.to_markdown(),
         )
+    }
+}
+impl ToMarkdown for Website {
+    fn to_markdown(&self) -> String {
+        let Website { description, url } = self;
+        format!("[{}]({})", description, url)
     }
 }
 impl View for ContactPoint {

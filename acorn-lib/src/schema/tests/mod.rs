@@ -348,7 +348,16 @@ fn test_read() {
 }
 #[test]
 fn test_research_activity_default() {
-    let expected = r#"# Research Activity Title
+    let expected = r#"---
+classification: UNCLASSIFIED
+identifier: some-research-project
+archive: false
+draft: true
+status: active
+keywords: []
+technology: []
+---
+# Research Activity Title
 
 ## Mission
 Purpose of the research
@@ -366,9 +375,17 @@ Reason for the research
 Focus of the research
 
 ## Areas
-- Areas of research"#;
+- Areas of research
+
+## Contact
+- Role: Researcher
+- Name: First Last
+- Email: [first_last@example.com](mailto:first_last@example.com)
+- Telephone: 123-456-7890
+"#;
     let data = ResearchActivity::default();
-    assert_eq!(data.to_markdown(), expected);
+    let actual = data.to_markdown().replace("\r\n", "\n");
+    assert_eq!(actual, expected);
 }
 #[test]
 fn test_research_activity_format() {

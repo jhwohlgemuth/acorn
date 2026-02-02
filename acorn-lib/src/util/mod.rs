@@ -718,10 +718,22 @@ where
 }
 impl<P: AsRef<str>> ToMarkdown for Vec<P> {
     fn to_markdown(&self) -> String {
-        self.iter()
-            .map(|x| format!("- {}", x.as_ref()))
-            .collect::<Vec<String>>()
-            .join(LINE_SEPARATOR)
+        if self.is_empty() {
+            "[]".to_string()
+        } else {
+            self.iter()
+                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
+                .collect::<Vec<String>>()
+                .join("")
+        }
+    }
+}
+impl<P: AsRef<str> + ToMarkdown> ToMarkdown for Option<Vec<P>> {
+    fn to_markdown(&self) -> String {
+        match &self {
+            | Some(values) => format!("{LINE_SEPARATOR}{}", values.to_markdown()),
+            | None => "[]".to_string(),
+        }
     }
 }
 impl<T: AsRef<str>> ToStringChunks<T> for T

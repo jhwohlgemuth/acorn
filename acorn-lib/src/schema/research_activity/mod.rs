@@ -47,6 +47,12 @@ use validator::Validate;
 pub mod aspect;
 use aspect::AspectFramework;
 
+/// Cross-platform line separator (CRLF on Windows, LF on Unix)
+#[cfg(target_os = "windows")]
+const LINE_SEPARATOR: &str = "\r\n";
+/// Cross-platform line separator (CRLF on Windows, LF on Unix)
+#[cfg(not(target_os = "windows"))]
+const LINE_SEPARATOR: &str = "\n";
 /// Trait for read/write operations on Research Activity data
 #[cfg(feature = "std")]
 pub trait InputOutput {
@@ -59,6 +65,7 @@ pub trait InputOutput {
     }
     /// Read research activity data from specified JSON file path
     fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity>;
+    // TODO: read_markdown
     /// Read research activity data from specified YAML file path
     fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity>;
     /// Write research activity data to specified path
@@ -77,6 +84,17 @@ pub trait InputOutput {
     fn write_yaml<P>(&self, path: P) -> Result<(), Error>
     where
         P: Into<PathBuf> + Clone;
+}
+#[derive(Debug, Display)]
+enum Vocabulary {
+    #[display("keywords")]
+    Keywords,
+    #[display("partners")]
+    Partners,
+    #[display("sponsors")]
+    Sponsors,
+    #[display("technology")]
+    Technology,
 }
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
@@ -354,49 +372,65 @@ impl LinkedData for ResearchActivityMetadata {
 }
 impl ToMarkdown for ResearchActivityMetadata {
     fn to_markdown(&self) -> String {
-        // TODO: Implement to_markdown for RAiD metadata
+        fn to_markdown(value: &Option<Vec<String>>, key: &str) -> String {
+            match &value {
+                | Some(values) => format!("{LINE_SEPARATOR}{}: {}", key, values.to_markdown().with_indent(2)),
+                | None => "".to_string(),
+            }
+        }
         let Self {
-            classification,
+            archive,
+            draft,
+            identifier,
+            status,
             doi,
             ror,
+            books,
+            patents,
             keywords,
             technology,
             sponsors,
             partners,
             related,
+            // TODO: Implement to_markdown for RAiD metadata
+            // TODO: Implement to_markdown for media
             ..
         } = self;
         let indent = 2;
+        let classification = self.clone().classification.unwrap_or_default();
+        let websites = self
+            .clone()
+            .websites
+            .unwrap_or_default()
+            .iter()
+            .map(|x| x.to_markdown())
+            .collect::<Vec<_>>();
+        let websites_option = if websites.is_empty() { None } else { Some(websites.clone()) };
         format!(
             r#"---
-classification: {}
-doi:
-{}
-ror:
-{}
-keywords:
-{}
-technology:
-{}
-sponsors:
-{}
-partners:
-{}
-related:
-{}
+classification: {classification}
+identifier: {identifier}
+archive: {archive}
+draft: {draft}
+status: {status}{}{}{}{}
+keywords: {}
+technology: {}{}{}{}{}
 ---"#,
-            classification.clone().unwrap_or_default(),
-            doi.clone().unwrap_or_else(std::vec::Vec::new).to_markdown().with_indent(indent),
-            ror.clone().unwrap_or_else(std::vec::Vec::new).to_markdown().with_indent(indent),
-            keywords.to_markdown().with_indent(indent),
-            technology.to_markdown().with_indent(indent),
-            sponsors.clone().unwrap_or_default().to_markdown().with_indent(indent),
-            partners.clone().unwrap_or_default().to_markdown().with_indent(indent),
-            related.clone().unwrap_or_default().to_markdown().with_indent(indent)
+            to_markdown(doi, "doi"),
+            to_markdown(ror, "ror"),
+            to_markdown(books, "books"),
+            to_markdown(patents, "patents"),
+            keywords.to_markdown().with_indent(if keywords.is_empty() { 0 } else { indent }),
+            technology.to_markdown().with_indent(if technology.is_empty() { 0 } else { indent }),
+            to_markdown(sponsors, "sponsors"),
+            to_markdown(partners, "partners"),
+            to_markdown(related, "related"),
+            to_markdown(&websites_option, "websites"),
         )
     }
 }
 impl ToMarkdown for ResearchActivity {
+    // TODO: Implement to_markdown for ASPECT
     fn to_markdown(&self) -> String {
         let Self {
             meta,
@@ -407,16 +441,22 @@ impl ToMarkdown for ResearchActivity {
         } = self;
         let frontmatter = meta.to_markdown();
         let sections = sections.to_markdown();
+        let contact = self.contact.to_markdown();
         match &subtitle {
             | Some(subtitle) => format!(
                 r#"{frontmatter}
 # {title}
 > {subtitle}
-{sections}"#
+{sections}
+
+{contact}"#
             ),
             | None => format!(
-                r#"# {title}
-{sections}"#
+                r#"{frontmatter}
+# {title}
+{sections}
+
+{contact}"#
             ),
         }
     }
@@ -570,31 +610,6 @@ impl ResearchActivity {
     /// - Formats telephone number
     // TODO: Isolate formatting that can be done without filesystem access
     pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
-        #[derive(Debug, Display)]
-        enum Vocabulary {
-            #[display("keywords")]
-            Keywords,
-            #[display("partners")]
-            Partners,
-            #[display("sponsors")]
-            Sponsors,
-            #[display("technology")]
-            Technology,
-        }
-        impl Vocabulary {
-            /// Resolve values to intended values according to associated controlled vocabulary
-            fn resolve(self, values: Option<Vec<String>>) -> Vec<String> {
-                match values {
-                    | Some(items) => {
-                        let mut data: Vec<_> = items.into_iter().flat_map(|x| resolve_from_csv_asset(self.to_string(), x)).collect();
-                        data.sort();
-                        data.dedup();
-                        data
-                    }
-                    | None => vec![],
-                }
-            }
-        }
         let mut clone = self.clone().copy();
         #[cfg(feature = "std")]
         {
@@ -703,6 +718,20 @@ impl ResearchActivityMetadata {
                 | _ => DEFAULT_GRAPHIC_CAPTION.to_string(),
             },
             | Some(_) | None => DEFAULT_GRAPHIC_CAPTION.to_string(),
+        }
+    }
+}
+impl Vocabulary {
+    /// Resolve values to intended values according to associated controlled vocabulary
+    fn resolve(self, values: Option<Vec<String>>) -> Vec<String> {
+        match values {
+            | Some(items) => {
+                let mut data: Vec<_> = items.into_iter().flat_map(|x| resolve_from_csv_asset(self.to_string(), x)).collect();
+                data.sort();
+                data.dedup();
+                data
+            }
+            | None => vec![],
         }
     }
 }
