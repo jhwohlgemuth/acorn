@@ -23,36 +23,39 @@ acorn-lib = { version = "0.1.30", path = "../acorn-lib", features = ["doctor", "
 bon = "3.3.2"
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
 clap-verbosity-flag = "3.0.2"
-duct = { version = "1.1.0", default-features = false }
-exitcode = { version = "1.1.2", default-features = false }
-fast_qr = { version = "0.13.0", features = ["image"] }
-indicatif = { version = "0.18.2", default-features = false }
-is-terminal = "0.4.16"
-percy-dom = "0.10.0"
-playwright = "0.0.20"
-reqwest = { version = "0.12.24", features = ["blocking", "rustls-tls", "json"], default-features = false }
-serde_with = { version = "3.15.1", default-features = false }
-tokio = { version = "1.48.0", default-features = false, features = ["rt"] }
-urlencoding = { version = "2.1.3", default-features = false}
-which = { version = "8.0.0", features = ["real-sys"], default-features = false }
 color-eyre = { workspace = true }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
+duct = { version = "1.1.0", default-features = false }
 dotenvy = { workspace = true }
+exitcode = { version = "1.1.2", default-features = false }
 fancy-regex = { workspace = true }
+fast_qr = { version = "0.13.0", features = ["image"] }
+indicatif = { version = "0.18.2", default-features = false }
+is-terminal = "0.4.16"
 itertools = { workspace = true }
+keyring = { version = "3.0.5", default-features = true }
 nanoid = { workspace = true }
 owo-colors = { workspace = true }
+percy-dom = "0.10.0"
+playwright = "0.0.20"
 rayon = { workspace = true }
+reqwest = { version = "0.12.24", features = ["blocking", "rustls-tls", "json"], default-features = false }
 rust-embed = { workspace = true }
+secrecy = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_with = { version = "3.15.1", default-features = false }
 serde_yml = { workspace = true }
+tera = { workspace = true }
+tokio = { version = "1.48.0", default-features = false, features = ["rt"] }
 tracing = { workspace = true }
 tracing-indicatif.workspace = true
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
 uriparse = { workspace = true }
+urlencoding = { version = "2.1.3", default-features = false}
+which = { version = "8.0.0", features = ["real-sys"], default-features = false }
 
 [dev-dependencies]
 assert_cmd = "2.0.16"

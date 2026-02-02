@@ -43,6 +43,7 @@ use which::which;
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
+pub mod api;
 pub mod bagit;
 pub mod citeas;
 pub mod raid;
