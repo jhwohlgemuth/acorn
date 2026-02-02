@@ -19,7 +19,7 @@ use crate::util::constants::DEFAULT_AFFILIATION;
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
 #[cfg(feature = "std")]
 use crate::util::{Constant, Label};
-use crate::util::{LinkedData, StringInterpolation, ToMarkdown};
+use crate::util::{LinkedData, ToMarkdown};
 #[cfg(feature = "std")]
 use crate::util::{MimeType, ToAbsoluteString};
 use bon::Builder;
@@ -47,12 +47,6 @@ use validator::Validate;
 pub mod aspect;
 use aspect::AspectFramework;
 
-/// Cross-platform line separator (CRLF on Windows, LF on Unix)
-#[cfg(target_os = "windows")]
-const LINE_SEPARATOR: &str = "\r\n";
-/// Cross-platform line separator (CRLF on Windows, LF on Unix)
-#[cfg(not(target_os = "windows"))]
-const LINE_SEPARATOR: &str = "\n";
 /// Trait for read/write operations on Research Activity data
 #[cfg(feature = "std")]
 pub trait InputOutput {
@@ -370,97 +364,6 @@ impl LinkedData for ResearchActivityMetadata {
         clone
     }
 }
-impl ToMarkdown for ResearchActivityMetadata {
-    fn to_markdown(&self) -> String {
-        fn to_markdown(value: &Option<Vec<String>>, key: &str) -> String {
-            match &value {
-                | Some(values) => format!("{LINE_SEPARATOR}{}: {}", key, values.to_markdown().with_indent(2)),
-                | None => "".to_string(),
-            }
-        }
-        let Self {
-            archive,
-            draft,
-            identifier,
-            status,
-            doi,
-            ror,
-            books,
-            patents,
-            keywords,
-            technology,
-            sponsors,
-            partners,
-            related,
-            // TODO: Implement to_markdown for RAiD metadata
-            // TODO: Implement to_markdown for media
-            ..
-        } = self;
-        let indent = 2;
-        let classification = self.clone().classification.unwrap_or_default();
-        let websites = self
-            .clone()
-            .websites
-            .unwrap_or_default()
-            .iter()
-            .map(|x| x.to_markdown())
-            .collect::<Vec<_>>();
-        let websites_option = if websites.is_empty() { None } else { Some(websites.clone()) };
-        format!(
-            r#"---
-classification: {classification}
-identifier: {identifier}
-archive: {archive}
-draft: {draft}
-status: {status}{}{}{}{}
-keywords: {}
-technology: {}{}{}{}{}
----"#,
-            to_markdown(doi, "doi"),
-            to_markdown(ror, "ror"),
-            to_markdown(books, "books"),
-            to_markdown(patents, "patents"),
-            keywords.to_markdown().with_indent(if keywords.is_empty() { 0 } else { indent }),
-            technology.to_markdown().with_indent(if technology.is_empty() { 0 } else { indent }),
-            to_markdown(sponsors, "sponsors"),
-            to_markdown(partners, "partners"),
-            to_markdown(related, "related"),
-            to_markdown(&websites_option, "websites"),
-        )
-    }
-}
-impl ToMarkdown for ResearchActivity {
-    // TODO: Implement to_markdown for ASPECT
-    fn to_markdown(&self) -> String {
-        let Self {
-            meta,
-            title,
-            subtitle,
-            sections,
-            ..
-        } = self;
-        let frontmatter = meta.to_markdown();
-        let sections = sections.to_markdown();
-        let contact = self.contact.to_markdown();
-        match &subtitle {
-            | Some(subtitle) => format!(
-                r#"{frontmatter}
-# {title}
-> {subtitle}
-{sections}
-
-{contact}"#
-            ),
-            | None => format!(
-                r#"{frontmatter}
-# {title}
-{sections}
-
-{contact}"#
-            ),
-        }
-    }
-}
 #[cfg(feature = "std")]
 impl InputOutput for ResearchActivity {
     fn read<P>(path: P) -> Option<ResearchActivity>
@@ -688,6 +591,43 @@ impl ResearchActivity {
             | _ => None,
         };
         clone
+    }
+}
+impl ToMarkdown for ResearchActivity {
+    // TODO: Implement to_markdown for ASPECT
+    fn to_markdown(&self) -> String {
+        let Self {
+            meta,
+            title,
+            subtitle,
+            sections,
+            ..
+        } = self;
+        let classification = meta.clone().classification.unwrap_or_default();
+        let frontmatter = serde_yml::to_string(&meta).unwrap();
+        let sections = sections.to_markdown();
+        let contact = self.contact.to_markdown();
+        match &subtitle {
+            | Some(subtitle) => format!(
+                r#"---
+classification: {classification}
+{frontmatter}---
+# {title}
+> {subtitle}
+{sections}
+
+{contact}"#
+            ),
+            | None => format!(
+                r#"---
+classification: {classification}
+{frontmatter}---
+# {title}
+{sections}
+
+{contact}"#
+            ),
+        }
     }
 }
 impl ResearchActivityMetadata {

@@ -350,10 +350,10 @@ fn test_read() {
 fn test_research_activity_default() {
     let expected = r#"---
 classification: UNCLASSIFIED
-identifier: some-research-project
 archive: false
 draft: true
 status: active
+identifier: some-research-project
 keywords: []
 technology: []
 ---
