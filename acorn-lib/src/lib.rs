@@ -37,7 +37,7 @@ pub mod util;
 pub enum Location {
     /// Just the URI string (assumes remote location)
     Simple(String),
-    /// Local file path
+    /// Location defined by URI and scheme - intended for use with remote or local locations
     #[display("{uri}")]
     Detailed {
         /// URI Scheme
@@ -49,26 +49,6 @@ pub enum Location {
         /// Full URI value
         uri: String,
     },
-}
-/// Struct for release data from GitLab or GitHub
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Release {
-    /// Name of release
-    pub name: String,
-    /// Tag name of release
-    /// ### Example
-    /// > `v1.0.0`
-    pub tag_name: String,
-    /// Prose description of release
-    #[serde(alias = "body")]
-    pub description: String,
-    /// Date of release creation
-    pub created_at: String,
-    /// Date of release publication
-    #[serde(alias = "published_at")]
-    pub released_at: String,
-    /// Release response message
-    pub message: Option<String>,
 }
 /// Git hosting repository data
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
@@ -116,11 +96,34 @@ pub enum Scheme {
     /// Secure HTTP
     #[display("https")]
     HTTPS,
+    /// Insecure HTTP included primarily for contexts necessitating its use (ex., local development)
+    #[display("http")]
+    HTTP,
     /// Local file or folder
     #[display("file")]
     File,
     /// Unsupported scheme (e.g., insecure, not implemented, etc.)
     Unsupported,
+}
+/// Struct for release data from GitLab or GitHub
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Release {
+    /// Name of release
+    pub name: String,
+    /// Tag name of release
+    /// ### Example
+    /// > `v1.0.0`
+    pub tag_name: String,
+    /// Prose description of release
+    #[serde(alias = "body")]
+    pub description: String,
+    /// Date of release creation
+    pub created_at: String,
+    /// Date of release publication
+    #[serde(alias = "published_at")]
+    pub released_at: String,
+    /// Release response message
+    pub message: Option<String>,
 }
 impl Location {
     /// Get associated location hash
@@ -166,6 +169,7 @@ impl Location {
             | Location::Simple(value) => match URI::try_from(value.as_str()) {
                 | Ok(uri) => match uri.scheme() {
                     | uriparse::Scheme::HTTPS => Scheme::HTTPS,
+                    | uriparse::Scheme::HTTP => Scheme::HTTP,
                     | uriparse::Scheme::File => Scheme::File,
                     | _ => Scheme::Unsupported,
                 },
@@ -178,8 +182,12 @@ impl Location {
     #[cfg(feature = "std")]
     pub async fn exists(self) -> bool {
         let uri = self.uri();
-        match self.scheme() {
-            | Scheme::HTTPS => match uri {
+        let scheme = self.scheme();
+        if scheme == Scheme::HTTP {
+            warn!("=> {} HTTP is supported but only advised in local development scenarios", Label::skip());
+        }
+        match scheme {
+            | Scheme::HTTPS | Scheme::HTTP => match uri {
                 | Some(uri) => match link_check(Some(uri.into())).await {
                     | Check { success, .. } if success => true,
                     | _ => false,
@@ -194,9 +202,10 @@ impl Location {
         }
     }
     /// Extract and return URI from a location value
-    pub fn uri(&self) -> Option<URI<'_>> {
-        fn parse_uri(value: &str) -> Option<URI<'_>> {
-            match URI::try_from(value) {
+    pub fn uri(&self) -> Option<URI<'static>> {
+        fn parse_uri(value: String) -> Option<URI<'static>> {
+            let leaked: &'static str = Box::leak(value.into_boxed_str());
+            match URI::try_from(leaked) {
                 | Ok(value) => Some(value),
                 | Err(why) => {
                     warn!("=> {} Parse URI - {why}", Label::fail());
@@ -205,8 +214,24 @@ impl Location {
             }
         }
         match self {
-            | Location::Simple(value) => parse_uri(value),
-            | Location::Detailed { uri, .. } => parse_uri(uri),
+            | Location::Simple(value) => parse_uri(value.clone()),
+            | Location::Detailed { scheme, uri } => match URI::try_from(uri.as_str()) {
+                | Ok(parsed) => {
+                    let authority = parsed.authority().map(|auth| auth.to_string());
+                    let path = parsed.path().to_string();
+                    let query = parsed.query().map(|q| format!("?{q}")).unwrap_or_default();
+                    let fragment = parsed.fragment().map(|f| format!("#{f}")).unwrap_or_default();
+                    let rebuilt = match authority {
+                        | Some(auth) if !auth.is_empty() => format!("{scheme}://{auth}{path}{query}{fragment}"),
+                        | _ => format!("{scheme}:{path}{query}{fragment}"),
+                    };
+                    parse_uri(rebuilt)
+                }
+                | Err(_) => {
+                    let rebuilt = format!("{scheme}://{uri}");
+                    parse_uri(rebuilt)
+                }
+            },
         }
     }
 }

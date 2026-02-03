@@ -65,9 +65,9 @@ async fn test_location_exists() {
     // non-existent local path
     let location = Location::Simple("file:./does-not-exist".into());
     assert!(!location.exists().await);
-    // unsupported scheme (HTTP)
+    // HTTP is supported but only advised in local development scenarios
     let location = Location::Simple("http://google.com".into());
-    assert!(!location.exists().await);
+    assert!(location.exists().await);
     // failed remote uri
     let location = Location::Detailed {
         scheme: Scheme::HTTPS,

@@ -427,7 +427,7 @@ impl InputOutput for ResearchActivity {
                 "{}".to_owned()
             }
         };
-        let (frontmatter, body) = frontmatter_and_body(&content);
+        let (frontmatter, _body) = frontmatter_and_body(&content);
         let meta: ResearchActivityMetadata = match frontmatter {
             | Some(value) => match serde_yml::from_str(&value) {
                 | Ok(data) => data,

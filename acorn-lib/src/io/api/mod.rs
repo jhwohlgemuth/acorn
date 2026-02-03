@@ -3,8 +3,10 @@
 //! Interact with RESTful APIs, handling requests and responses, authentication, and data serialization.
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
 use crate::prelude::HashMap;
+use crate::{Location, Repository};
 use bon::Builder;
 use serde::{Deserialize, Serialize};
+use uriparse::URI;
 
 /// Authentication schemes supported for API requests
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -41,7 +43,9 @@ pub struct Endpoint {
     #[builder(default = String::new())]
     pub name: String,
     /// The domain of the API endpoint
-    pub domain: String,
+    pub domain: Option<String>,
+    /// The port of the API endpoint
+    pub port: Option<u16>,
     /// A lookup table mapping path names to their corresponding URL templates
     #[builder(default = HashMap::new())]
     pub lookup: HashMap<String, String>,
@@ -53,7 +57,31 @@ impl Default for Endpoint {
         Endpoint::init().domain("https://example.com".to_string()).build()
     }
 }
-impl Endpoint {}
-// TODO: Implement From<Repository> for Endpoint
-// TODO: Implement From<URI> for Endpoint
+impl<'a> From<URI<'a>> for Endpoint {
+    fn from(value: URI<'a>) -> Self {
+        let domain: Option<String> = value.host().map(|h| format!("{}://{}", value.scheme(), h));
+        let port: Option<u16> = value.authority().and_then(|auth| auth.port());
+        Endpoint::init().maybe_domain(domain).maybe_port(port).build()
+    }
+}
+impl From<Location> for Endpoint {
+    fn from(value: Location) -> Self {
+        match value.uri() {
+            | Some(uri) => {
+                let endpoint: Endpoint = uri.into();
+                endpoint
+            }
+            | None => Endpoint::default(),
+        }
+    }
+}
+impl From<Repository> for Endpoint {
+    fn from(value: Repository) -> Self {
+        value.location().into()
+    }
+}
 // TODO: Define lookup maps for ORCiD, Vale, GitLab, GitHub, and Citeas APIs
+impl Endpoint {}
+
+#[cfg(test)]
+mod tests;
