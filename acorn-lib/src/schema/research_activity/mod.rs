@@ -2,24 +2,25 @@
 //!
 //! Module that defines the research activity schema
 //!
-use super::constants::{CODEMETA_CONTEXT, DCAT_CONTEXT, SCHEMA_ORG_CONTEXT};
-use super::pid::raid;
-#[cfg(feature = "std")]
-use super::validate::format_phone_number;
-use super::validate::{is_kebabcase, is_list_url, validate_attribute_books, validate_attribute_doi, validate_attribute_ror_list};
+use crate::fail;
 #[cfg(feature = "std")]
 use crate::io::{image_paths, parent, read_file, write_file, FromPath};
 #[cfg(feature = "std")]
 use crate::prelude::{io::Error, PathBuf};
+use crate::schema::constants::{CODEMETA_CONTEXT, DCAT_CONTEXT, SCHEMA_ORG_CONTEXT};
+use crate::schema::pid::raid;
+#[cfg(feature = "std")]
+use crate::schema::validate::format_phone_number;
+use crate::schema::validate::{is_kebabcase, is_list_url, validate_attribute_books, validate_attribute_doi, validate_attribute_ror_list};
 #[cfg(feature = "std")]
 use crate::schema::Organization;
 use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Sections, Status, Website};
 #[cfg(feature = "std")]
 use crate::util::constants::DEFAULT_AFFILIATION;
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
+use crate::util::{frontmatter_and_body, LinkedData, ToMarkdown};
 #[cfg(feature = "std")]
 use crate::util::{Constant, Label};
-use crate::util::{LinkedData, ToMarkdown};
 #[cfg(feature = "std")]
 use crate::util::{MimeType, ToAbsoluteString};
 use bon::Builder;
@@ -59,7 +60,8 @@ pub trait InputOutput {
     }
     /// Read research activity data from specified JSON file path
     fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity>;
-    // TODO: read_markdown
+    /// Read research activity data as Markdown from specified path
+    fn read_markdown(path: PathBuf) -> Option<ResearchActivity>;
     /// Read research activity data from specified YAML file path
     fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity>;
     /// Write research activity data to specified path
@@ -416,6 +418,29 @@ impl InputOutput for ResearchActivity {
             | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
         }
         data
+    }
+    fn read_markdown(path: PathBuf) -> Option<ResearchActivity> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) => value,
+            | Err(_) => {
+                error!(path = path.to_str().unwrap(), "=> {} RAD content is not valid", Label::fail());
+                "{}".to_owned()
+            }
+        };
+        let (frontmatter, body) = frontmatter_and_body(&content);
+        let meta: ResearchActivityMetadata = match frontmatter {
+            | Some(value) => match serde_yml::from_str(&value) {
+                | Ok(data) => data,
+                | Err(why) => {
+                    fail!("Parse RAD frontmatter - {}", why.red());
+                    ResearchActivityMetadata::default()
+                }
+            },
+            | None => ResearchActivityMetadata::default(),
+        };
+        dbg!(&meta);
+        // TODO: Parse body into title, subtitle, sections, and contact
+        None
     }
     fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity> {
         let content = match read_file(path.clone()) {

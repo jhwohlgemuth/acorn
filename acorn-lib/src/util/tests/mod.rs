@@ -92,6 +92,42 @@ fn test_find_first() {
     assert!(find_first(values.clone(), "does not exist").is_none());
 }
 #[test]
+fn test_frontmatter_and_body() {
+    let both = r#"---
+name: Jason
+type: person
+---
+body"#;
+    let (frontmatter, body) = frontmatter_and_body(both);
+    assert!(frontmatter.is_some());
+    assert_eq!(frontmatter.unwrap(), "name: Jason\ntype: person".to_string());
+    assert_eq!(body, "body".to_string());
+    let no_body = r#"---
+name: Jason
+type: person
+---"#;
+    let (frontmatter, body) = frontmatter_and_body(no_body);
+    assert!(frontmatter.is_some());
+    assert_eq!(frontmatter.unwrap(), "name: Jason\ntype: person".to_string());
+    assert!(body.is_empty());
+    let no_frontmatter = r#"
+body"#;
+    let (frontmatter, body) = frontmatter_and_body(no_frontmatter);
+    assert!(frontmatter.is_none());
+    assert_eq!(body, "body".to_string());
+    let empty_frontmatter = r#"---
+---
+body"#;
+    let (frontmatter, body) = frontmatter_and_body(empty_frontmatter);
+    assert!(frontmatter.is_none());
+    assert_eq!(body, "body".to_string());
+    let empty_frontmatter_no_body = r#"---
+---"#;
+    let (frontmatter, body) = frontmatter_and_body(empty_frontmatter_no_body);
+    assert!(frontmatter.is_none());
+    assert!(body.is_empty());
+}
+#[test]
 fn test_generate_guid() {
     let id = generate_guid();
     assert_eq!(id.len(), 10);

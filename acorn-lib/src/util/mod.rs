@@ -830,6 +830,35 @@ pub fn format_bytes(bytes: u64) -> String {
         format!("{:.2} {}", size, units[index])
     }
 }
+/// Parse frontmatter and body from content that contains YAML frontmatter (e.g., Markdown, dotprompt, etc.)
+/// ### Example
+/// Input
+/// ```markdown
+/// ---
+/// title: This is frontmatter
+/// ---
+/// This is the body
+/// ```
+/// Output
+/// ```yaml
+/// title: This is frontmatter
+/// ```
+/// ```markdown
+/// This is the body
+/// ```
+pub fn frontmatter_and_body<S>(value: S) -> (Option<String>, String)
+where
+    S: AsRef<str>,
+{
+    let content = value.as_ref();
+    let pattern = r"(?s)---\s*(?<frontmatter>.*?)\s*---\s*(?<body>.*)";
+    let groups = vec!["frontmatter", "body"];
+    let lookup = regex_capture_lookup(pattern, content, groups);
+    (
+        lookup.get("frontmatter").cloned().filter(|s| !s.is_empty()),
+        lookup.get("body").cloned().unwrap_or_else(|| content.trim().to_string()),
+    )
+}
 /// Generates a random GUID using a custom alphabet.
 ///
 /// The generated GUID is a 10-character string composed of a mix of uppercase
