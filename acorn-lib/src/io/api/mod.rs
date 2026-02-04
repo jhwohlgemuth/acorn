@@ -150,6 +150,18 @@ impl From<Repository> for Endpoint {
 }
 // TODO: Define lookup maps for ORCiD, ROR, Vale, GitLab, GitHub, and Citeas APIs
 impl Endpoint {}
+impl OrcidSearchField {
+    /// Validate certain types of ORCiD search field values
+    ///
+    /// Special validation is performed for `RorOrgId` and `Orcid` fields.
+    pub fn is_valid(&self, value: &str) -> bool {
+        match self {
+            | OrcidSearchField::RorOrgId => is_ror(value).is_ok(),
+            | OrcidSearchField::Orcid => is_orcid(value).is_ok(),
+            | _ => true,
+        }
+    }
+}
 impl fmt::Display for OrcidSearchField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
@@ -235,14 +247,8 @@ where
         .filter_map(|(k, v)| match OrcidSearchField::try_from(k.as_ref()) {
             | Ok(field) => {
                 let value = v.as_ref().trim();
-                let is_valid = match field {
-                    | OrcidSearchField::RorOrgId => is_ror(value).is_ok(),
-                    | OrcidSearchField::Orcid => is_orcid(value).is_ok(),
-                    | _ => true,
-                };
-                if is_valid {
-                    let encoded = encode(value);
-                    Some(format!("{field}:{encoded}"))
+                if field.is_valid(value) {
+                    Some(format!("{field}:{}", encode(value)))
                 } else {
                     warn!("=> {} Invalid value {value} for field {field}", Label::fail());
                     None
