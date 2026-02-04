@@ -23,6 +23,56 @@ pub enum AuthenticationScheme {
     /// Custom authentication scheme
     Custom(String),
 }
+/// ORCiD allowed search fields
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum OrcidSearchField {
+    /// Affiliation organization name
+    AffiliationOrgName,
+    /// Credit name
+    CreditName,
+    /// Email address
+    Email,
+    /// External ID reference
+    ExternalIdReference,
+    /// Family name
+    FamilyName,
+    /// Given names
+    GivenNames,
+    /// Keyword
+    Keyword,
+    /// ORCiD identifier
+    Orcid,
+    /// Other names
+    OtherNames,
+    /// ROR organization ID
+    RorOrgId,
+    /// Text field
+    Text,
+}
+/// ORCiD allowed output columns
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum OrcidOutputColumn {
+    /// Email address
+    Email,
+    /// Credit name
+    CreditName,
+    /// Current institution affiliation name
+    CurrentInstitutionAffiliationName,
+    /// Given and family names
+    GivenAndFamilyNames,
+    /// Given name
+    GivenName,
+    /// Family name
+    FamilyName,
+    /// ORCiD identifier
+    Orcid,
+    /// Other name
+    OtherName,
+    /// Past institution affiliation name
+    PastInstitutionAffiliationName,
+}
 /// Represents authentication credentials for accessing an API
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[builder(start_fn = init)]
@@ -80,8 +130,17 @@ impl From<Repository> for Endpoint {
         value.location().into()
     }
 }
-// TODO: Define lookup maps for ORCiD, Vale, GitLab, GitHub, and Citeas APIs
+// TODO: Define lookup maps for ORCiD, ROR, Vale, GitLab, GitHub, and Citeas APIs
 impl Endpoint {}
+
+/// Create an ORCiD API URL query string from a lookup table of key-value pairs and a list of desired output columns
+/// 
+/// Optional boosting of certain fields can be specified to prioritize their relevance in search results
+// TODO: Support OR statements for field values (e.g., affiliation-org-name:("University of Plymouth" OR "Plymouth University"))
+pub fn orcid_query<S>(_field_lookup: HashMap<S, S>, _output_columns: Vec<S>, _boost: Option<Vec<S>>) -> String where S: AsRef<str> {
+    // TODO: Filter fields based on allowed list and associated validators (e.g., is_ror, is_orcid, etc.)
+    String::new()
+}
 
 #[cfg(test)]
 mod tests;
