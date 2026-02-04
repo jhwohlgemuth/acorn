@@ -45,7 +45,6 @@ use zip::{ZipArchive, ZipWriter};
 
 pub mod api;
 pub mod bagit;
-pub mod citeas;
 pub mod raid;
 
 /// Add `from_command` trait to `SemanticVersion`

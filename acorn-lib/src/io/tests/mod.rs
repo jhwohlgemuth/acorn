@@ -1,6 +1,7 @@
+use crate::io::api::citeas;
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::{
-    archive, citeas, file_checksum, files_all, files_from_git_branch, files_from_git_commit, filter_git_command_result, filter_ignored, image_paths,
+    archive, file_checksum, files_all, files_from_git_branch, files_from_git_commit, filter_git_command_result, filter_ignored, image_paths,
 };
 use crate::schema::pid::DOI;
 use std::path::PathBuf;

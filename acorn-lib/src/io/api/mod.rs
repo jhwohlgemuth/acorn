@@ -13,6 +13,8 @@ use tracing::warn;
 use uriparse::URI;
 use urlencoding::encode;
 
+pub mod citeas;
+
 /// Authentication schemes supported for API requests
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub enum AuthenticationScheme {
@@ -221,7 +223,7 @@ impl TryFrom<&str> for OrcidOutputColumn {
 ///
 /// Optional boosting of certain fields can be specified to prioritize their relevance in search results
 // TODO: Support OR statements for field values (e.g., affiliation-org-name:("University of Plymouth" OR "Plymouth University"))
-pub fn orcid_query<S>(field_pairs: Vec<(S, S)>, output_columns: Vec<S>, _boost: Option<Vec<S>>) -> String
+pub fn orcid_query<S>(field_pairs: Vec<(S, S)>, output_columns: Vec<S>, boost: Option<Vec<S>>) -> String
 where
     S: AsRef<str>,
 {
@@ -255,16 +257,48 @@ where
         })
         .collect::<Vec<String>>()
         .join(",");
-    let query = if fields.is_empty() {
-        String::new()
-    } else {
-        format!("?q={fields}")
-    };
-    if columns.is_empty() {
-        query
+    let query = if fields.is_empty() { String::new() } else { format!("?q={fields}") };
+    let query_with_output_columns = if columns.is_empty() {
+        query.clone()
     } else {
         format!("{query}&fl={columns}")
-    }
+    };
+    let result = if query_with_output_columns.is_empty() {
+        query.clone()
+    } else {
+        match boost {
+            | Some(fields) => {
+                let valid_boost_fields = fields
+                    .into_iter()
+                    .filter_map(|value| match OrcidSearchField::try_from(value.as_ref()) {
+                        | Ok(field) => Some(field.to_string()),
+                        | Err(_) => None,
+                    })
+                    .collect::<Vec<String>>();
+                let count = valid_boost_fields.len();
+                let boosted = valid_boost_fields
+                    .into_iter()
+                    .filter_map(|value| match OrcidSearchField::try_from(value.as_ref()) {
+                        | Ok(field) => Some(field.to_string()),
+                        | Err(_) => None,
+                    })
+                    .enumerate()
+                    .filter_map(|(i, field)| {
+                        let value = count + 1 - i;
+                        if value > 0 {
+                            Some(format!("{field}^{value}.0"))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<String>>()
+                    .join("%20");
+                format!("{query_with_output_columns}&qf={boosted}")
+            }
+            | None => query_with_output_columns.clone(),
+        }
+    };
+    result
 }
 
 #[cfg(test)]

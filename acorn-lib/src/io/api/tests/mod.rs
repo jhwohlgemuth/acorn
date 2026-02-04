@@ -152,3 +152,16 @@ fn test_orcid_query_with_all_output_columns() {
     let expected = "?q=family-name:Wohlgemuth&fl=orcid,email,credit-name,given-name,family-name,given-and-family-names,other-name,current-institution-affiliation-name,past-institution-affiliation-name";
     assert_eq!(query, expected);
 }
+#[test]
+fn test_orcid_query_with_boosts() {
+    let pairs = vec![("given-names", "Audrey"), ("family-name", "Carson")];
+    let boost = Some(vec!["family-name"]);
+    let query = orcid_query(pairs, vec![], boost);
+    let expected = "?q=given-names:Audrey+AND+family-name:Carson&qf=family-name^2.0";
+    assert_eq!(query, expected);
+    let pairs = vec![("given-names", "Jason"), ("family-name", "Wohlgemuth")];
+    let boost = Some(vec!["given-names", "family-name", "not-a-valid-field"]);
+    let query = orcid_query(pairs, vec![], boost);
+    let expected = "?q=given-names:Jason+AND+family-name:Wohlgemuth&qf=given-names^3.0%20family-name^2.0";
+    assert_eq!(query, expected);
+}
