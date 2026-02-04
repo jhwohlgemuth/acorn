@@ -1,4 +1,5 @@
-use crate::io::api::{orcid_query, Endpoint};
+use crate::io::api::orcid::query as orcid_query;
+use crate::io::api::Endpoint;
 use crate::{Location, Repository, Scheme};
 
 #[test]
