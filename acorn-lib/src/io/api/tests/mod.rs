@@ -1,6 +1,12 @@
-use crate::io::api::orcid::query as orcid_query;
+use crate::io::api::orcid;
 use crate::io::api::Endpoint;
+use crate::io::read_file;
 use crate::{Location, Repository, Scheme};
+use std::path::PathBuf;
+
+fn fixtures_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("tests/fixtures")
+}
 
 #[test]
 fn test_endpoint_from_location() {
@@ -46,7 +52,7 @@ fn test_orcid_query() {
         ("affiliation-org-name", "Oak Ridge National Laboratory"),
         ("family-name", "Wohlgemuth"),
     ];
-    let query = orcid_query(pairs, vec![], None);
+    let query = orcid::search_query_string(pairs, vec![], None);
     let expected = "?q=given-names:Jason+AND+affiliation-org-name:Oak%20Ridge%20National%20Laboratory+AND+family-name:Wohlgemuth";
     assert_eq!(query, expected);
     // Query with invalid field name (should be skipped)
@@ -55,27 +61,27 @@ fn test_orcid_query() {
         ("given-names", "Trista"),
         ("family-name", "Smith"),
     ];
-    let query = orcid_query(pairs, vec![], None);
+    let query = orcid::search_query_string(pairs, vec![], None);
     let expected = "?q=given-names:Trista+AND+family-name:Smith";
     assert_eq!(query, expected);
     // Empty query
     let pairs: Vec<(&str, &str)> = vec![];
-    let query = orcid_query(pairs, vec![], None);
+    let query = orcid::search_query_string(pairs, vec![], None);
     let expected = "";
     assert_eq!(query, expected);
     // Query with invalid ORCiD (invalid checksum, should be skipped)
     let pairs = vec![("orcid", "0000-0002-1823-1234"), ("given-names", "Test")];
-    let query = orcid_query(pairs, vec![], None);
+    let query = orcid::search_query_string(pairs, vec![], None);
     let expected = "?q=given-names:Test";
     assert_eq!(query, expected);
     // Query with valid ORCiD
     let pairs = vec![("orcid", "0000-0002-1825-0097"), ("given-names", "Test")];
-    let query = orcid_query(pairs, vec![], None);
+    let query = orcid::search_query_string(pairs, vec![], None);
     let expected = "?q=orcid:0000-0002-1825-0097+AND+given-names:Test";
     assert_eq!(query, expected);
     // Query with invalid ROR (should be skipped)
     let pairs = vec![("ror-org-id", "03ebg0v16-"), ("affiliation-org-name", "Test University")];
-    let query = orcid_query(pairs, vec![], None);
+    let query = orcid::search_query_string(pairs, vec![], None);
     let expected = "?q=affiliation-org-name:Test%20University";
     assert_eq!(query, expected);
     // Query with valid ROR
@@ -83,19 +89,19 @@ fn test_orcid_query() {
         ("ror-org-id", "https://ror.org/01qz5mb56"),
         ("affiliation-org-name", "Oak Ridge National Laboratory"),
     ];
-    let query = orcid_query(pairs, vec![], None);
+    let query = orcid::search_query_string(pairs, vec![], None);
     let expected = "?q=ror-org-id:https%3A%2F%2Fror.org%2F01qz5mb56+AND+affiliation-org-name:Oak%20Ridge%20National%20Laboratory";
     assert_eq!(query, expected);
     // Query with valid output columns
     let pairs = vec![("given-names", "Alice"), ("family-name", "Smith")];
     let columns = vec!["orcid", "email", "credit-name"];
-    let query = orcid_query(pairs, columns, None);
+    let query = orcid::search_query_string(pairs, columns, None);
     let expected = "?q=given-names:Alice+AND+family-name:Smith&fl=orcid,email,credit-name";
     assert_eq!(query, expected);
     // Query with invalid output columns (should be filtered out)
     let pairs = vec![("given-names", "Bob")];
     let columns = vec!["orcid", "invalid-column", "email"];
-    let query = orcid_query(pairs, columns, None);
+    let query = orcid::search_query_string(pairs, columns, None);
     let expected = "?q=given-names:Bob&fl=orcid,email";
     assert_eq!(query, expected);
     // Query with mixed invalid fields and columns
@@ -105,7 +111,7 @@ fn test_orcid_query() {
         ("family-name", "Wohlgemuth"),
     ];
     let columns = vec!["orcid", "invalid-column", "credit-name", "bad-field"];
-    let query = orcid_query(pairs, columns, None);
+    let query = orcid::search_query_string(pairs, columns, None);
     let expected = "?q=given-names:Jason+AND+family-name:Wohlgemuth&fl=orcid,credit-name";
     assert_eq!(query, expected);
     // Query with all valid output columns
@@ -121,19 +127,78 @@ fn test_orcid_query() {
         "current-institution-affiliation-name",
         "past-institution-affiliation-name",
     ];
-    let query = orcid_query(pairs, columns, None);
+    let query = orcid::search_query_string(pairs, columns, None);
     let expected = "?q=family-name:Wohlgemuth&fl=orcid,email,credit-name,given-name,family-name,given-and-family-names,other-name,current-institution-affiliation-name,past-institution-affiliation-name";
     assert_eq!(query, expected);
     // Query with boost for single field
     let pairs = vec![("given-names", "Audrey"), ("family-name", "Carson")];
     let boost = Some(vec!["family-name"]);
-    let query = orcid_query(pairs, vec![], boost);
+    let query = orcid::search_query_string(pairs, vec![], boost);
     let expected = "?q=given-names:Audrey+AND+family-name:Carson&qf=family-name^2.0";
     assert_eq!(query, expected);
     // Query with boost for multiple fields (including invalid field which should be ignored)
     let pairs = vec![("given-names", "Jason"), ("family-name", "Wohlgemuth")];
     let boost = Some(vec!["given-names", "family-name", "not-a-valid-field"]);
-    let query = orcid_query(pairs, vec![], boost);
+    let query = orcid::search_query_string(pairs, vec![], boost);
     let expected = "?q=given-names:Jason+AND+family-name:Wohlgemuth&qf=given-names^3.0%20family-name^2.0";
     assert_eq!(query, expected);
+}
+#[test]
+fn test_orcid_response() {
+    // Load XML fixture file
+    let xml = read_file(fixtures_dir().join("response_orcid_wohlgemuth.xml")).expect("Failed to read XML fixture");
+    // Parse XML into OrcidSearchResponse
+    let response: orcid::SearchResponse = quick_xml::de::from_str(&xml).expect("Failed to deserialize XML");
+    // Verify basic response properties
+    let total = 68;
+    assert_eq!(response.num_found, total);
+    assert_eq!(response.namespace, "http://www.orcid.org/ns/expanded-search");
+    assert_eq!(response.results.len(), total);
+    // Verify first result (Pierre Wohlgemuth)
+    let first = &response.results[0];
+    assert_eq!(first.orcid_id, Some("0000-0001-6067-5067".to_string()));
+    assert_eq!(first.given_names, Some("Pierre".to_string()));
+    assert_eq!(first.family_names, Some("Wohlgemuth".to_string()));
+    assert_eq!(first.institution_names.len(), 2);
+    assert!(first.institution_names.contains(&"New York University".to_string()));
+    assert!(first.institution_names.contains(&"Université de Lorraine".to_string()));
+    assert!(first.emails.is_empty());
+    assert_eq!(first.credit_name, None);
+    // Verify second result (Katharina Wohlgemuth - minimal data)
+    let second = &response.results[1];
+    assert_eq!(second.orcid_id, Some("0000-0002-7238-5566".to_string()));
+    assert_eq!(second.given_names, Some("Katharina".to_string()));
+    assert_eq!(second.family_names, Some("Wohlgemuth".to_string()));
+    assert!(second.institution_names.is_empty());
+    assert!(second.emails.is_empty());
+    // Verify result with credit-name (Matthias Wohlgemuth)
+    let matthias = &response.results[7];
+    assert_eq!(matthias.orcid_id, Some("0000-0001-7018-2944".to_string()));
+    assert_eq!(matthias.given_names, Some("Matthias".to_string()));
+    assert_eq!(matthias.family_names, Some("Wohlgemuth".to_string()));
+    assert_eq!(matthias.credit_name, Some("Matthias Wohlgemuth".to_string()));
+    // Verify result with emails (Jorge Marcelo Wohlgemuth)
+    let jorge = &response.results[15];
+    assert_eq!(jorge.orcid_id, Some("0000-0002-0502-5982".to_string()));
+    assert_eq!(jorge.given_names, Some("Jorge Marcelo".to_string()));
+    assert_eq!(jorge.family_names, Some("Wohlgemuth".to_string()));
+    assert_eq!(jorge.emails.len(), 2);
+    assert!(jorge.emails.contains(&"jorge.202222692@unilasalle.edu.br".to_string()));
+    assert!(jorge.emails.contains(&"jorgemarcelow@gmail.com".to_string()));
+    // Verify result with other-name (Nicholas Wohlgemuth)
+    let nicholas = &response.results[31];
+    assert_eq!(nicholas.orcid_id, Some("0000-0002-6450-6452".to_string()));
+    assert_eq!(nicholas.given_names, Some("Nicholas".to_string()));
+    assert_eq!(nicholas.family_names, Some("Wohlgemuth".to_string()));
+    assert!(nicholas.other_name.contains(&"Nicholas J. Wohlgemuth".to_string()));
+    assert_eq!(nicholas.institution_names.len(), 6);
+    // Verify result with many institutions (Sven Wohlgemuth)
+    let sven = response
+        .results
+        .iter()
+        .find(|r| r.orcid_id.as_deref() == Some("0000-0001-5276-940X"))
+        .expect("Sven Wohlgemuth not found");
+    assert_eq!(sven.given_names, Some("Sven".to_string()));
+    assert_eq!(sven.credit_name, Some("Dr. Sven Wohlgemuth".to_string()));
+    assert!(sven.institution_names.len() >= 10);
 }

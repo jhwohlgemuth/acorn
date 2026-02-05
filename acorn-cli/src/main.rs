@@ -17,7 +17,7 @@
 //! ⠀ ⣿⣿⠿⠿⠿⠿⠿⠿⠟⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀~ Accessible Content Optimization for Research Needs ~⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 //!
 //!
-//! The ACORN command line interface (CLI) provides a set of commands for maintaining research activity data and leveraging ACORN schemas.
+//! The ACORN command line interface (CLI) is a metascience multi-tool made for cross-domain research.
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
@@ -164,6 +164,7 @@ fn main() -> Void {
             verbose,
             ..
         }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose, &offline),
+        | Some(Commands::Harvest { path, ignore, verbose, .. }) => commands::harvest::run(path, ignore, &offline, verbose),
         | Some(Commands::Link {
             path,
             branch,

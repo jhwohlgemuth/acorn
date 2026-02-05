@@ -1,0 +1,470 @@
+<expanded-search:expanded-search xmlns:expanded-search="http://www.orcid.org/ns/expanded-search"
+    num-found="68">
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-6067-5067</expanded-search:orcid-id>
+        <expanded-search:given-names>Pierre</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>New York University</expanded-search:institution-name>
+        <expanded-search:institution-name>Université de Lorraine</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-7238-5566</expanded-search:orcid-id>
+        <expanded-search:given-names>Katharina</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-0649-1985</expanded-search:orcid-id>
+        <expanded-search:given-names>Veit</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0003-3389-4269</expanded-search:orcid-id>
+        <expanded-search:given-names>Murilo</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-1344-6277</expanded-search:orcid-id>
+        <expanded-search:given-names>Jan</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-9959-6443</expanded-search:orcid-id>
+        <expanded-search:given-names>Norbert</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-3349-2908</expanded-search:orcid-id>
+        <expanded-search:given-names>Maria da Graça</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-7018-2944</expanded-search:orcid-id>
+        <expanded-search:given-names>Matthias</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:credit-name>Matthias Wohlgemuth</expanded-search:credit-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-9310-8421</expanded-search:orcid-id>
+        <expanded-search:given-names>Ulla Gerner</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-1276-5591</expanded-search:orcid-id>
+        <expanded-search:given-names>Mariëlle</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0003-4092-0664</expanded-search:orcid-id>
+        <expanded-search:given-names>Kai</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-8092-0397</expanded-search:orcid-id>
+        <expanded-search:given-names>Ainslea</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-5719-6540</expanded-search:orcid-id>
+        <expanded-search:given-names>Eric</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-0889-2125</expanded-search:orcid-id>
+        <expanded-search:given-names>Peter</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-5827-730X</expanded-search:orcid-id>
+        <expanded-search:given-names>Clare</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-0502-5982</expanded-search:orcid-id>
+        <expanded-search:given-names>Jorge Marcelo</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:email>jorge.202222692@unilasalle.edu.br</expanded-search:email>
+        <expanded-search:email>jorgemarcelow@gmail.com</expanded-search:email>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0007-5302-3934</expanded-search:orcid-id>
+        <expanded-search:given-names>Felix</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-8076-6000</expanded-search:orcid-id>
+        <expanded-search:given-names>Walter Alexander</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:credit-name>Walter A. Wohlgemuth</expanded-search:credit-name>
+        <expanded-search:institution-name>Martin Luther University Halle-Wittenberg</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-5453-4823</expanded-search:orcid-id>
+        <expanded-search:given-names>Florian</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Friedrich-Alexander-Universität Erlangen-Nürnberg (FAU)</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-3380-8589</expanded-search:orcid-id>
+        <expanded-search:given-names>Felipe</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Conselho Regional de Medicina do Estado de Santa Catarina</expanded-search:institution-name>
+        <expanded-search:institution-name>Hospital Governador Celso Ramos</expanded-search:institution-name>
+        <expanded-search:institution-name>Sociedade Brasileira de Cirurgia Plástica</expanded-search:institution-name>
+        <expanded-search:institution-name>Unimed Grande Florianópolis</expanded-search:institution-name>
+        <expanded-search:institution-name>Universidade Federal de Santa Catarina</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-8513-913X</expanded-search:orcid-id>
+        <expanded-search:given-names>Stefan</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-5795-812X</expanded-search:orcid-id>
+        <expanded-search:given-names>Lisa</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Universitätsklinikum Ulm</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-5630-6138</expanded-search:orcid-id>
+        <expanded-search:given-names>Felix</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-1360-2081</expanded-search:orcid-id>
+        <expanded-search:given-names>João Carlos</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Universidade Federal do Rio Grande do Sul</expanded-search:institution-name>
+        <expanded-search:institution-name>Universidade de Brasília</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0003-2353-3646</expanded-search:orcid-id>
+        <expanded-search:given-names>Chloe</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-7000-9049</expanded-search:orcid-id>
+        <expanded-search:given-names>Leah</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-1981-2709</expanded-search:orcid-id>
+        <expanded-search:given-names>Franziska</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-5315-6373</expanded-search:orcid-id>
+        <expanded-search:given-names>Daniel</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-7713-6895</expanded-search:orcid-id>
+        <expanded-search:given-names>Jan</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Max Planck Institute for Evolutionary Anthropology</expanded-search:institution-name>
+        <expanded-search:institution-name>Universitas Indonesia</expanded-search:institution-name>
+        <expanded-search:institution-name>Universität Bielefeld</expanded-search:institution-name>
+        <expanded-search:institution-name>Universität Leipzig</expanded-search:institution-name>
+        <expanded-search:institution-name>Westfalische Wilhelms-Universität Munster</expanded-search:institution-name>
+        <expanded-search:institution-name>Westfälische Wilhelms-Universität Münster</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0002-0362-5359</expanded-search:orcid-id>
+        <expanded-search:given-names>Marcus</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Forschungszentrum Jülich</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0006-2812-3936</expanded-search:orcid-id>
+        <expanded-search:given-names>Tasha Marie</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-6450-6452</expanded-search:orcid-id>
+        <expanded-search:given-names>Nicholas</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:other-name>Nicholas J. Wohlgemuth</expanded-search:other-name>
+        <expanded-search:institution-name>Johns Hopkins Bloomberg School of Public Health</expanded-search:institution-name>
+        <expanded-search:institution-name>Kansas Health Sciences Center</expanded-search:institution-name>
+        <expanded-search:institution-name>Nebraska Wesleyan University</expanded-search:institution-name>
+        <expanded-search:institution-name>Rhodes College</expanded-search:institution-name>
+        <expanded-search:institution-name>St. Jude Children's Research Hospital</expanded-search:institution-name>
+        <expanded-search:institution-name>University of Nebraska - Lincoln</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-8317-5479</expanded-search:orcid-id>
+        <expanded-search:given-names>Fabian</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0003-1968-9007</expanded-search:orcid-id>
+        <expanded-search:given-names>Lisa</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0009-8722-7323</expanded-search:orcid-id>
+        <expanded-search:given-names>Catherine Aurelia</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Kantonsspital Aarau</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0002-4213-1538</expanded-search:orcid-id>
+        <expanded-search:given-names>Laura</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>University of Bern</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0000-6573-2956</expanded-search:orcid-id>
+        <expanded-search:given-names>Dietrich</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-5276-940X</expanded-search:orcid-id>
+        <expanded-search:given-names>Sven</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:credit-name>Dr. Sven Wohlgemuth</expanded-search:credit-name>
+        <expanded-search:institution-name>Albert-Ludwig University Freiburg</expanded-search:institution-name>
+        <expanded-search:institution-name>Albert-Ludwigs-Universität Freiburg</expanded-search:institution-name>
+        <expanded-search:institution-name>Association for Computing Machinery</expanded-search:institution-name>
+        <expanded-search:institution-name>European Commission</expanded-search:institution-name>
+        <expanded-search:institution-name>Federal State of Baden-Wurttemberg</expanded-search:institution-name>
+        <expanded-search:institution-name>German Academic Exchange Service (DAAD) Alumni</expanded-search:institution-name>
+        <expanded-search:institution-name>German Society for Informatics</expanded-search:institution-name>
+        <expanded-search:institution-name>Hitachi, Ltd. Research &amp; Development Group</expanded-search:institution-name>
+        <expanded-search:institution-name>Hochschule Fresenius - University of Applied Sciences</expanded-search:institution-name>
+        <expanded-search:institution-name>IFIP Technical Committee 11: Security and Privacy
+            Protection in Information Processing Systems</expanded-search:institution-name>
+        <expanded-search:institution-name>Institute of Electrical and Electronics Engineers</expanded-search:institution-name>
+        <expanded-search:institution-name>International Academy, Research, and Industry Association
+            IARIA</expanded-search:institution-name>
+        <expanded-search:institution-name>International Medical Informatics Association WG4 Security
+            in Health Information Systems</expanded-search:institution-name>
+        <expanded-search:institution-name>National Institute of Informatics</expanded-search:institution-name>
+        <expanded-search:institution-name>Research Organization of Information and Systems</expanded-search:institution-name>
+        <expanded-search:institution-name>Secom (Japan)</expanded-search:institution-name>
+        <expanded-search:institution-name>Sirrix AG security technologies</expanded-search:institution-name>
+        <expanded-search:institution-name>TU Darmstact/CASED</expanded-search:institution-name>
+        <expanded-search:institution-name>The Institute of Electronics, Information and
+            Communication Engineers (IEICE)</expanded-search:institution-name>
+        <expanded-search:institution-name>University of Saarland, Saarbrucken</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-0650-7465</expanded-search:orcid-id>
+        <expanded-search:given-names>Jonas</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-1743-9533</expanded-search:orcid-id>
+        <expanded-search:given-names>Matthias</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Charité Universitätsmedizin Berlin</expanded-search:institution-name>
+        <expanded-search:institution-name>Deutsche Bunsen-Gesellschaft für physikalische Chemie eV</expanded-search:institution-name>
+        <expanded-search:institution-name>Freie Universität Berlin</expanded-search:institution-name>
+        <expanded-search:institution-name>Humboldt-Universität zu Berlin</expanded-search:institution-name>
+        <expanded-search:institution-name>Julius-Maximilians-Universität Würzburg</expanded-search:institution-name>
+        <expanded-search:institution-name>Stiftung Jugend forscht</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0003-4779-4154</expanded-search:orcid-id>
+        <expanded-search:given-names>Melville</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Haverford College</expanded-search:institution-name>
+        <expanded-search:institution-name>Johns Hopkins University</expanded-search:institution-name>
+        <expanded-search:institution-name>University of Arizona</expanded-search:institution-name>
+        <expanded-search:institution-name>University of California San Francisco Neuroscience</expanded-search:institution-name>
+        <expanded-search:institution-name>University of Maryland</expanded-search:institution-name>
+        <expanded-search:institution-name>University of St Andrews</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-7287-0935</expanded-search:orcid-id>
+        <expanded-search:given-names>Serene</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>University of Alberta</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-9188-5876</expanded-search:orcid-id>
+        <expanded-search:given-names>Vitória</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Universidade de Brasília</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0005-1831-9989</expanded-search:orcid-id>
+        <expanded-search:given-names>Carsten</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>TH Köln - University of Applied Sciences</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0008-6784-2807</expanded-search:orcid-id>
+        <expanded-search:given-names>Patrick</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-7280-5284</expanded-search:orcid-id>
+        <expanded-search:given-names>Michael</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:email>michael.wohlgemuth@tib.eu</expanded-search:email>
+        <expanded-search:institution-name>Sächsische Landesbibliothek Staats- und
+            Universitätsbibliothek Dresden</expanded-search:institution-name>
+        <expanded-search:institution-name>TIB Leibniz Information Centre for Science and Technology</expanded-search:institution-name>
+        <expanded-search:institution-name>Technische Universität Dresden</expanded-search:institution-name>
+        <expanded-search:institution-name>Universität Bielefeld</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-2101-364X</expanded-search:orcid-id>
+        <expanded-search:given-names>Maximilian</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:email>maximilian.wohlgemuth@rub.de</expanded-search:email>
+        <expanded-search:institution-name>Ruhr University Bochum</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-1841-2148</expanded-search:orcid-id>
+        <expanded-search:given-names>Ross</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>University of Kentucky</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0009-0364-2758</expanded-search:orcid-id>
+        <expanded-search:given-names>John</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:email>john.wohlgemuth@mountsinai.org</expanded-search:email>
+        <expanded-search:institution-name>Icahn School of Medicine at Mount Sinai</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-4623-0894</expanded-search:orcid-id>
+        <expanded-search:given-names>Thomas</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>ETH</expanded-search:institution-name>
+        <expanded-search:institution-name>Earth Resources Observation and Science Center</expanded-search:institution-name>
+        <expanded-search:institution-name>Oklahoma State University Stillwater</expanded-search:institution-name>
+        <expanded-search:institution-name>Swiss Federal Institute for Forest, Snow and Landscape
+            Research</expanded-search:institution-name>
+        <expanded-search:institution-name>Swiss Federal Institute for Forest, Snow and Landscape
+            Research WSL</expanded-search:institution-name>
+        <expanded-search:institution-name>Universität Bern</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-7914-4303</expanded-search:orcid-id>
+        <expanded-search:given-names>Kerstin</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Technische Universität Dortmund</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0008-5253-4270</expanded-search:orcid-id>
+        <expanded-search:given-names>Ethan</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Northeastern State University</expanded-search:institution-name>
+        <expanded-search:institution-name>University of Waterloo</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0003-0827-8579</expanded-search:orcid-id>
+        <expanded-search:given-names>Eyal</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-9121-7675</expanded-search:orcid-id>
+        <expanded-search:given-names>Ingo</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Max Planck Institute for Multidisciplinary Sciences</expanded-search:institution-name>
+        <expanded-search:institution-name>Max-Planck-Institut für Multidisziplinäre
+            Naturwissenschaften</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-2900-2777</expanded-search:orcid-id>
+        <expanded-search:given-names>Stephanie</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Heinrich-Heine-Universität Düsseldorf</expanded-search:institution-name>
+        <expanded-search:institution-name>University of Florida</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0006-1595-4933</expanded-search:orcid-id>
+        <expanded-search:given-names>Carolin</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>University of Bonn</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0000-6734-2791</expanded-search:orcid-id>
+        <expanded-search:given-names>Andrea</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>Dortmund University of Applied Sciences and Arts</expanded-search:institution-name>
+        <expanded-search:institution-name>Fraunhofer-Gesellschaft</expanded-search:institution-name>
+        <expanded-search:institution-name>Swisslog</expanded-search:institution-name>
+        <expanded-search:institution-name>Utrecht University</expanded-search:institution-name>
+        <expanded-search:institution-name>Vanderlande</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0000-3150-1746</expanded-search:orcid-id>
+        <expanded-search:given-names>Volker</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>HTW Berlin - University of Applied Sciences</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-6166-3228</expanded-search:orcid-id>
+        <expanded-search:given-names>Roland</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:email>roland.wohlgemuth@sk-biotechnologie.ch</expanded-search:email>
+        <expanded-search:email>roland.wohlgemuth.1@p.lodz.pl</expanded-search:email>
+        <expanded-search:email>roland.wohlgemuth@esabweb.org</expanded-search:email>
+        <expanded-search:institution-name>Lodz University of Technology</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-5115-4013</expanded-search:orcid-id>
+        <expanded-search:given-names>Kealey</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>University of Cincinnati</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-2057-9115</expanded-search:orcid-id>
+        <expanded-search:given-names>Jason</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:credit-name>Jason Wohlgemuth</expanded-search:credit-name>
+        <expanded-search:institution-name>Lyrasis</expanded-search:institution-name>
+        <expanded-search:institution-name>Oak Ridge National Laboratory</expanded-search:institution-name>
+        <expanded-search:institution-name>USSTRATCOM</expanded-search:institution-name>
+        <expanded-search:institution-name>University of Nebraska Omaha</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0001-5409-4936</expanded-search:orcid-id>
+        <expanded-search:given-names>Lena</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>
+        <expanded-search:institution-name>German Federal Environment Agency</expanded-search:institution-name>
+        <expanded-search:institution-name>Thünen-Institut</expanded-search:institution-name>
+        <expanded-search:institution-name>University of Basel</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-6943-8153</expanded-search:orcid-id>
+        <expanded-search:given-names>Bettina</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth-Fekonja</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0003-2263-3899</expanded-search:orcid-id>
+        <expanded-search:given-names>Cora C.</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth-Ueberwasser</expanded-search:family-names>
+        <expanded-search:institution-name>Deutsches Geoforschungszentrum Potsdam</expanded-search:institution-name>
+        <expanded-search:institution-name>Stockholm University</expanded-search:institution-name>
+        <expanded-search:institution-name>University of Johannesburg</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-9317-3415</expanded-search:orcid-id>
+        <expanded-search:given-names>Camila</expanded-search:given-names>
+        <expanded-search:family-names>Wohlgemuth Schaan</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0002-6594-4649</expanded-search:orcid-id>
+        <expanded-search:given-names>Felix</expanded-search:given-names>
+        <expanded-search:family-names>Groß-Wohlgemuth</expanded-search:family-names>
+        <expanded-search:other-name>Felix Wohlgemuth</expanded-search:other-name>
+        <expanded-search:other-name>Felix Gross-Wohlgemuth</expanded-search:other-name>
+        <expanded-search:email>gross-wohlgemuth@euro.centre.org</expanded-search:email>
+        <expanded-search:institution-name>Heidelberg University</expanded-search:institution-name>
+        <expanded-search:institution-name>Johannes Kepler University of Linz</expanded-search:institution-name>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0009-0009-5992-6055</expanded-search:orcid-id>
+        <expanded-search:given-names>Luciana</expanded-search:given-names>
+        <expanded-search:family-names>Raupp Rios Wohlgemuth</expanded-search:family-names>
+    </expanded-search:expanded-result>
+    <expanded-search:expanded-result>
+        <expanded-search:orcid-id>0000-0003-3628-3930</expanded-search:orcid-id>
+        <expanded-search:given-names>AUGUSTO</expanded-search:given-names>
+        <expanded-search:family-names>WOHLGEMUTH FLEURY VELOSO DA SILVEIRA</expanded-search:family-names>
+    </expanded-search:expanded-result>
+</expanded-search:expanded-search>

@@ -365,9 +365,31 @@ pub enum Commands {
         #[command(flatten)]
         verbose: Verbosity,
     },
+    /// Harvest (extract) research activity data from supported file formats
+    ///
+    ///     $> acorn harvest /path/to/data/
+    ///
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Harvest {
+        /// Path to look for files to process
+        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
+        path: Option<PathBuf>,
+        /// Regex pattern applied to absolute paths of files that determines whether they should be included in processing
+        ///
+        /// Only applies to path values that point to a directory
+        ///
+        /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
+        ///
+        /// Example: --ignore "[/]valid.json$"
+        #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
+        ignore: Option<String>,
+        #[command(flatten)]
+        verbose: Verbosity,
+    },
     /// Add linked data context to research activity data
     ///
     ///     $> acorn link /path/to/data/
+    ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Link {
         /// Path to look for files to process
