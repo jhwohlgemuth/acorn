@@ -7,11 +7,28 @@ use crate::{Location, Repository};
 use bon::Builder;
 use core::fmt;
 use serde::{Deserialize, Serialize};
+// use tera::{Context, Tera};
 use uriparse::URI;
 
 pub mod citeas;
 pub mod orcid;
 
+/// Trait for working with request-response cycle using HTTP methods like GET, POST, PUT, PATCH, and DELETE
+/// against resource URLs that return structured data
+pub trait RestfulInterface {
+    /// Build context for endpoint paths
+    fn build(&self) -> Result<Self, String>
+    where
+        Self: Sized;
+    /// Handle a response from an endpoint request
+    fn handle<R>(&self, response: R) -> Result<(), String>
+    where
+        R: Deserialize<'static>;
+    /// Send data to the endpoint and receive a response
+    fn send<R>(&self, data: Option<HashMap<String, String>>) -> Result<R, String>
+    where
+        R: Deserialize<'static>;
+}
 /// Authentication schemes supported for API requests
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub enum AuthenticationScheme {
@@ -55,6 +72,24 @@ pub struct Endpoint {
     pub lookup: HashMap<String, String>,
     /// Authentication credentials for accessing the API endpoint
     pub authentication: Option<Authentication>,
+    /// Path data for generating full URLs using templates
+    #[builder(default = HashMap::new())]
+    pub paths: HashMap<String, String>,
+}
+impl fmt::Display for AuthenticationScheme {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                | AuthenticationScheme::Bearer => "Bearer",
+                | AuthenticationScheme::Basic => "Basic",
+                | AuthenticationScheme::ApiKey => "ApiKey",
+                | AuthenticationScheme::OAuth2 => "OAuth2",
+                | AuthenticationScheme::Custom(scheme) => scheme,
+            }
+        )
+    }
 }
 impl Default for Endpoint {
     fn default() -> Self {
@@ -84,23 +119,25 @@ impl From<Repository> for Endpoint {
         value.location().into()
     }
 }
-// TODO: Define lookup maps for ORCiD, ROR, Vale, GitLab, GitHub, and Citeas APIs
-impl Endpoint {}
-impl fmt::Display for AuthenticationScheme {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                | AuthenticationScheme::Bearer => "Bearer",
-                | AuthenticationScheme::Basic => "Basic",
-                | AuthenticationScheme::ApiKey => "ApiKey",
-                | AuthenticationScheme::OAuth2 => "OAuth2",
-                | AuthenticationScheme::Custom(scheme) => scheme,
-            }
-        )
+impl RestfulInterface for Endpoint {
+    fn build(&self) -> Result<Self, String> {
+        Ok(self.clone())
+    }
+    fn handle<R>(&self, _response: R) -> Result<(), String>
+    where
+        R: Deserialize<'static>,
+    {
+        Ok(())
+    }
+    fn send<R>(&self, _data: Option<HashMap<String, String>>) -> Result<R, String>
+    where
+        R: Deserialize<'static>,
+    {
+        Err("Not implemented".to_string())
     }
 }
+// TODO: Define lookup maps for ORCiD, ROR, Vale, GitLab, GitHub, and Citeas APIs
+impl Endpoint {}
 
 #[cfg(test)]
 mod tests;

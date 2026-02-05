@@ -164,7 +164,7 @@ fn main() -> Void {
             verbose,
             ..
         }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose, &offline),
-        | Some(Commands::Harvest { path, ignore, verbose, .. }) => commands::harvest::run(path, ignore, &offline, verbose),
+        | Some(Commands::Gather { path, ignore, verbose, .. }) => commands::gather::run(path, ignore, &offline, verbose),
         | Some(Commands::Link {
             path,
             branch,

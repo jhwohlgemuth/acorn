@@ -365,12 +365,12 @@ pub enum Commands {
         #[command(flatten)]
         verbose: Verbosity,
     },
-    /// Harvest (extract) research activity data from supported file formats
+    /// Gather (extract) research activity data
     ///
-    ///     $> acorn harvest /path/to/data/
+    ///     $> acorn gather /path/to/data/
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
-    Harvest {
+    Gather {
         /// Path to look for files to process
         #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
         path: Option<PathBuf>,
