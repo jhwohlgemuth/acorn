@@ -246,13 +246,11 @@ impl TryFrom<&str> for OutputColumn {
         }
     }
 }
-
-/// Helper function for constructing ORCiD API query strings with field validation
-fn query_fields<T: Validate + fmt::Display + for<'a> TryFrom<&'a str>>(pairs: Vec<(String, String)>) -> String {
-    pairs
+fn query_from_pairs<T: Validate + fmt::Display + for<'a> TryFrom<&'a str>>(pairs: Vec<(&str, &str)>) -> Option<String> {
+    let values: Vec<String> = pairs
         .into_iter()
         .filter_map(|(k, v)| {
-            let key: &str = &k;
+            let key: &str = k;
             let value: &str = v.trim();
             match T::try_from(key) {
                 | Ok(field) => {
@@ -266,55 +264,64 @@ fn query_fields<T: Validate + fmt::Display + for<'a> TryFrom<&'a str>>(pairs: Ve
                 | Err(_) => None,
             }
         })
-        .collect::<Vec<String>>()
-        .join("+AND+")
+        .collect();
+    if values.is_empty() {
+        None
+    } else {
+        Some(values.join("+AND+"))
+    }
 }
-fn query_output<S: Into<String> + AsRef<str>, T: fmt::Display + for<'a> TryFrom<&'a str>>(columns: Vec<S>) -> String {
-    columns
+fn query_from_values<T: fmt::Display + for<'a> TryFrom<&'a str>>(fields: Vec<&str>) -> Option<String> {
+    let values: Vec<String> = fields
         .into_iter()
-        .filter_map(|value: S| {
-            let val = value.as_ref();
+        .filter_map(|value: &str| {
+            let val = value;
             match T::try_from(val) {
                 | Ok(column) => Some(column.to_string()),
                 | Err(_) => None,
             }
         })
-        .collect::<Vec<String>>()
-        .join(",")
+        .collect();
+    if values.is_empty() {
+        None
+    } else {
+        Some(values.join(","))
+    }
 }
-fn query_boost<S: Into<String> + AsRef<str>, T: fmt::Display + for<'a> TryFrom<&'a str>>(fields: Option<Vec<S>>) -> Option<String> {
-    fields
-        .map(|fields| {
-            let valid_fields: Vec<T> = fields.into_iter().filter_map(|value| T::try_from(value.as_ref()).ok()).collect();
-            let count = valid_fields.len();
+fn query_boost<T: fmt::Display + for<'a> TryFrom<&'a str>>(fields: Vec<&str>) -> Option<String> {
+    let valid_fields: Vec<T> = fields.into_iter().filter_map(|value| T::try_from(value).ok()).collect();
+    if valid_fields.is_empty() {
+        None
+    } else {
+        let count = valid_fields.len();
+        Some(
             valid_fields
                 .into_iter()
                 .enumerate()
                 .map(|(i, field)| format!("{field}^{}.0", count + 1 - i))
                 .collect::<Vec<String>>()
-                .join(ENCODED_SPACE)
-        })
-        .filter(|s| !s.is_empty())
+                .join(ENCODED_SPACE),
+        )
+    }
 }
 /// Create an ORCiD API URL query string from a lookup table of key-value pairs and a list of desired output columns
 ///
 /// Optional boosting of certain fields can be specified to prioritize their relevance in search results
 // TODO: Support OR statements for field values (e.g., affiliation-org-name:("University of Plymouth" OR "Plymouth University"))
-pub fn search_query_string<S: Into<String> + AsRef<str>>(field_pairs: Vec<(S, S)>, output_columns: Vec<S>, boost: Option<Vec<S>>) -> String {
-    let pairs: Vec<(String, String)> = field_pairs.into_iter().map(|(key, val)| (key.into(), val.into())).collect();
-    let fields: String = query_fields::<SearchField>(pairs);
-    let columns: String = query_output::<S, OutputColumn>(output_columns);
-    let boosted: Option<String> = query_boost::<S, SearchField>(boost);
-    if fields.is_empty() {
-        String::new()
-    } else {
+pub fn search_query(fields: Vec<(&str, &str)>, output_fields: Vec<&str>, boost_fields: Vec<&str>) -> String {
+    let fields: Option<String> = query_from_pairs::<SearchField>(fields);
+    let columns: Option<String> = query_from_values::<OutputColumn>(output_fields);
+    let boosted: Option<String> = query_boost::<SearchField>(boost_fields);
+    if let Some(fields) = fields {
         let mut parts: Vec<String> = vec![format!("?q={fields}")];
-        if !columns.is_empty() {
+        if let Some(columns) = columns {
             parts.push(format!("fl={columns}"));
         }
-        if let Some(boost_str) = boosted {
-            parts.push(format!("qf={boost_str}"));
+        if let Some(values) = boosted {
+            parts.push(format!("qf={values}"));
         }
         parts.join("&")
+    } else {
+        String::new()
     }
 }
