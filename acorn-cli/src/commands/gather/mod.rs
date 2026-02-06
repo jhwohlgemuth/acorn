@@ -16,10 +16,7 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
     println!("Query: {scheme}://{path}");
     let content = match network_get_request(format!("{scheme}://{path}")).send() {
         | Err(e) => return Err(Report::new(e)),
-        | Ok(response) => {
-            
-            response.text().unwrap_or_default()
-        }
+        | Ok(response) => response.text().unwrap_or_default(),
     };
     println!("Response: {:#?}", content);
     Ok(())

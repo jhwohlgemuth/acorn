@@ -14,6 +14,13 @@ pub mod orcid;
 
 type Resource = (String, HttpMethod, Vec<Param>);
 
+/// Trait to enable validation of field values
+pub trait Validate {
+    /// Verify associated field value is valid
+    fn is_valid(&self, _value: &str) -> bool {
+        true
+    }
+}
 /// Trait for working with request-response cycle using HTTP methods like GET, POST, PUT, PATCH, and DELETE
 /// against resource URLs that return structured data
 pub trait RestfulInterface {

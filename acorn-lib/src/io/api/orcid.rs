@@ -1,6 +1,7 @@
 //! Module for interacting with ORCiD API
 //!
 //! Provides types and functions for constructing ORCiD API queries with field validation and output column selection.
+use super::Validate;
 use crate::schema::validate::{is_orcid, is_ror};
 use crate::util::Label;
 use bon::Builder;
@@ -161,11 +162,11 @@ pub struct Status {
     #[serde(rename = "overallOk")]
     pub overall: bool,
 }
-impl SearchField {
+impl Validate for SearchField {
     /// Validate certain types of ORCiD search field values
     ///
     /// Special validation is performed for `RorOrgId` and `Orcid` fields.
-    pub fn is_valid(&self, value: &str) -> bool {
+    fn is_valid(&self, value: &str) -> bool {
         match self {
             | SearchField::RorOrgId => is_ror(value).is_ok(),
             | SearchField::Orcid => is_orcid(value).is_ok(),
@@ -245,44 +246,56 @@ impl TryFrom<&str> for OutputColumn {
         }
     }
 }
+
+/// Helper function for constructing ORCiD API query strings with field validation
+fn query_fields<T: Validate + fmt::Display + for<'a> TryFrom<&'a str>>(pairs: Vec<(String, String)>) -> String {
+    pairs
+        .into_iter()
+        .filter_map(|(k, v)| {
+            let key: &str = &k;
+            let value: &str = v.trim();
+            match T::try_from(key) {
+                | Ok(field) => {
+                    if field.is_valid(value) {
+                        Some(format!("{field}:{}", encode(value)))
+                    } else {
+                        warn!("=> {} Invalid value {value} for field {field}", Label::fail());
+                        None
+                    }
+                }
+                | Err(_) => None,
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("+AND+")
+}
+fn query_output<S: Into<String> + AsRef<str>, T: fmt::Display + for<'a> TryFrom<&'a str>>(columns: Vec<S>) -> String {
+    columns
+        .into_iter()
+        .filter_map(|value: S| {
+            let val = value.as_ref();
+            match T::try_from(val) {
+                | Ok(column) => Some(column.to_string()),
+                | Err(_) => None,
+            }
+        })
+        .collect::<Vec<String>>()
+        .join(",")
+}
 /// Create an ORCiD API URL query string from a lookup table of key-value pairs and a list of desired output columns
 ///
 /// Optional boosting of certain fields can be specified to prioritize their relevance in search results
 // TODO: Support OR statements for field values (e.g., affiliation-org-name:("University of Plymouth" OR "Plymouth University"))
-pub fn search_query_string<S>(field_pairs: Vec<(S, S)>, output_columns: Vec<S>, boost: Option<Vec<S>>) -> String
-where
-    S: AsRef<str>,
-{
-    let fields = field_pairs
-        .into_iter()
-        .filter_map(|(k, v)| match SearchField::try_from(k.as_ref()) {
-            | Ok(field) => {
-                let value = v.as_ref().trim();
-                if field.is_valid(value) {
-                    Some(format!("{field}:{}", encode(value)))
-                } else {
-                    warn!("=> {} Invalid value {value} for field {field}", Label::fail());
-                    None
-                }
-            }
-            | Err(_) => None,
-        })
-        .collect::<Vec<String>>()
-        .join("+AND+");
-    let columns = output_columns
-        .into_iter()
-        .filter_map(|value| match OutputColumn::try_from(value.as_ref()) {
-            | Ok(column) => Some(column.to_string()),
-            | Err(_) => None,
-        })
-        .collect::<Vec<String>>()
-        .join(",");
-    let boosted = boost
+pub fn search_query_string<S: Into<String> + AsRef<str>>(field_pairs: Vec<(S, S)>, output_columns: Vec<S>, boost: Option<Vec<S>>) -> String {
+    let pairs: Vec<(String, String)> = field_pairs.into_iter().map(|(key, val)| (key.into(), val.into())).collect();
+    let fields: String = query_fields::<SearchField>(pairs);
+    let columns: String = query_output::<S, OutputColumn>(output_columns);
+    let boosted: Option<String> = boost
         .map(|fields| {
-            let valid_fields = fields
+            let valid_fields: Vec<SearchField> = fields
                 .into_iter()
                 .filter_map(|value| SearchField::try_from(value.as_ref()).ok())
-                .collect::<Vec<_>>();
+                .collect();
             let count = valid_fields.len();
             valid_fields
                 .into_iter()
@@ -295,7 +308,7 @@ where
     if fields.is_empty() {
         String::new()
     } else {
-        let mut parts = vec![format!("?q={fields}")];
+        let mut parts: Vec<String> = vec![format!("?q={fields}")];
         if !columns.is_empty() {
             parts.push(format!("fl={columns}"));
         }
