@@ -285,10 +285,7 @@ fn query_output<S: Into<String> + AsRef<str>, T: fmt::Display + for<'a> TryFrom<
 fn query_boost<S: Into<String> + AsRef<str>, T: fmt::Display + for<'a> TryFrom<&'a str>>(fields: Option<Vec<S>>) -> Option<String> {
     fields
         .map(|fields| {
-            let valid_fields: Vec<T> = fields
-                .into_iter()
-                .filter_map(|value| T::try_from(value.as_ref()).ok())
-                .collect();
+            let valid_fields: Vec<T> = fields.into_iter().filter_map(|value| T::try_from(value.as_ref()).ok()).collect();
             let count = valid_fields.len();
             valid_fields
                 .into_iter()

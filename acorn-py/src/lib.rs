@@ -40,7 +40,7 @@ fn acorn_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     modules.set_item("acorn.schema.validate", validate)?;
     Ok(())
 }
-#[pyclass(name = "ContactPoint")]
+#[pyclass(name = "ContactPoint", from_py_object)]
 #[derive(Clone)]
 struct PyContactPoint {
     job_title: String,
@@ -51,7 +51,7 @@ struct PyContactPoint {
     url: String,
     organization: String,
 }
-#[pyclass(name = "DOI")]
+#[pyclass(name = "DOI", from_py_object)]
 #[derive(Clone)]
 struct PyDOI {
     identifier: String,
@@ -59,7 +59,7 @@ struct PyDOI {
     prefix: String,
     suffix: String,
 }
-#[pyclass(name = "ISBN")]
+#[pyclass(name = "ISBN", from_py_object)]
 #[derive(Clone)]
 struct PyISBN {
     prefix_element: String,
@@ -68,12 +68,12 @@ struct PyISBN {
     title: String,
     check_digit: String,
 }
-#[pyclass(name = "Metadata")]
+#[pyclass(name = "Metadata", from_py_object)]
 #[derive(Clone)]
 struct PyMetadata {
     identifier: String,
 }
-#[pyclass(name = "Patent")]
+#[pyclass(name = "Patent", from_py_object)]
 #[derive(Clone)]
 struct PyPatent {
     country_code: Option<String>,
@@ -81,7 +81,8 @@ struct PyPatent {
     serial_number: String,
     year: Option<String>,
 }
-#[pyclass(name = "ResearchActivity")]
+#[pyclass(name = "ResearchActivity", from_py_object)]
+#[derive(Clone)]
 struct PyResearchActivity {
     metadata: PyMetadata,
     title: String,
@@ -89,7 +90,7 @@ struct PyResearchActivity {
     sections: PySections,
     contact: PyContactPoint,
 }
-#[pyclass(name = "Sections")]
+#[pyclass(name = "Sections", from_py_object)]
 #[derive(Clone)]
 struct PySections {}
 #[pymethods]
