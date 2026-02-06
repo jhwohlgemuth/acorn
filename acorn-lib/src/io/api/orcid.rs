@@ -282,19 +282,12 @@ fn query_output<S: Into<String> + AsRef<str>, T: fmt::Display + for<'a> TryFrom<
         .collect::<Vec<String>>()
         .join(",")
 }
-/// Create an ORCiD API URL query string from a lookup table of key-value pairs and a list of desired output columns
-///
-/// Optional boosting of certain fields can be specified to prioritize their relevance in search results
-// TODO: Support OR statements for field values (e.g., affiliation-org-name:("University of Plymouth" OR "Plymouth University"))
-pub fn search_query_string<S: Into<String> + AsRef<str>>(field_pairs: Vec<(S, S)>, output_columns: Vec<S>, boost: Option<Vec<S>>) -> String {
-    let pairs: Vec<(String, String)> = field_pairs.into_iter().map(|(key, val)| (key.into(), val.into())).collect();
-    let fields: String = query_fields::<SearchField>(pairs);
-    let columns: String = query_output::<S, OutputColumn>(output_columns);
-    let boosted: Option<String> = boost
+fn query_boost<S: Into<String> + AsRef<str>, T: fmt::Display + for<'a> TryFrom<&'a str>>(fields: Option<Vec<S>>) -> Option<String> {
+    fields
         .map(|fields| {
-            let valid_fields: Vec<SearchField> = fields
+            let valid_fields: Vec<T> = fields
                 .into_iter()
-                .filter_map(|value| SearchField::try_from(value.as_ref()).ok())
+                .filter_map(|value| T::try_from(value.as_ref()).ok())
                 .collect();
             let count = valid_fields.len();
             valid_fields
@@ -304,7 +297,17 @@ pub fn search_query_string<S: Into<String> + AsRef<str>>(field_pairs: Vec<(S, S)
                 .collect::<Vec<String>>()
                 .join(ENCODED_SPACE)
         })
-        .filter(|s| !s.is_empty());
+        .filter(|s| !s.is_empty())
+}
+/// Create an ORCiD API URL query string from a lookup table of key-value pairs and a list of desired output columns
+///
+/// Optional boosting of certain fields can be specified to prioritize their relevance in search results
+// TODO: Support OR statements for field values (e.g., affiliation-org-name:("University of Plymouth" OR "Plymouth University"))
+pub fn search_query_string<S: Into<String> + AsRef<str>>(field_pairs: Vec<(S, S)>, output_columns: Vec<S>, boost: Option<Vec<S>>) -> String {
+    let pairs: Vec<(String, String)> = field_pairs.into_iter().map(|(key, val)| (key.into(), val.into())).collect();
+    let fields: String = query_fields::<SearchField>(pairs);
+    let columns: String = query_output::<S, OutputColumn>(output_columns);
+    let boosted: Option<String> = query_boost::<S, SearchField>(boost);
     if fields.is_empty() {
         String::new()
     } else {
