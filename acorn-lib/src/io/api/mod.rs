@@ -2,32 +2,34 @@
 //!
 //! Interact with RESTful APIs, handling requests and responses, authentication, and data serialization.
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
-use crate::prelude::HashMap;
-use crate::{Location, Repository};
+use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt;
 use serde::{Deserialize, Serialize};
-// use tera::{Context, Tera};
+use tera::Context;
 use uriparse::URI;
 
 pub mod citeas;
 pub mod orcid;
 
+type Resource = (String, HttpMethod, Vec<Param>);
+
 /// Trait for working with request-response cycle using HTTP methods like GET, POST, PUT, PATCH, and DELETE
 /// against resource URLs that return structured data
 pub trait RestfulInterface {
     /// Build context for endpoint paths
-    fn build(&self) -> Result<Self, String>
-    where
-        Self: Sized;
+    fn build(&self) -> Context {
+        Context::new()
+    }
     /// Handle a response from an endpoint request
     fn handle<R>(&self, response: R) -> Result<(), String>
     where
         R: Deserialize<'static>;
     /// Send data to the endpoint and receive a response
-    fn send<R>(&self, data: Option<HashMap<String, String>>) -> Result<R, String>
+    fn invoke<R, S>(&self, action: S, data: Option<Vec<(&str, &str)>>) -> Result<R, String>
     where
-        R: Deserialize<'static>;
+        R: Deserialize<'static>,
+        S: AsRef<str>;
 }
 /// Authentication schemes supported for API requests
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -43,6 +45,43 @@ pub enum AuthenticationScheme {
     OAuth2,
     /// Custom authentication scheme
     Custom(String),
+}
+/// HTTP methods supported for API requests
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub enum HttpMethod {
+    /// Retrieve data from a server without modifying it — safe and idempotent
+    #[default]
+    GET,
+    /// Submit data to create a new resource or process information — not idempotent
+    POST,
+    /// Replace all current representations of the target resource with the uploaded content — idempotent
+    PUT,
+    /// Apply partial modifications to a resource — not necessarily idempotent
+    PATCH,
+    /// Delete a specified resource — idempotent
+    DELETE,
+}
+/// Describes the location/type of a parameter for an API resource
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum ParamStyle {
+    /// URI query string parameter
+    Query,
+    /// HTTP header parameter
+    Header,
+    /// URI path template parameter (e.g., `/widgets/{widgetId}`)
+    Template,
+}
+/// Describes a parameter (path, query, header, etc.) for an API resource
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Param {
+    /// The type/location of the parameter
+    pub style: ParamStyle,
+    /// The name of the parameter
+    pub name: String,
+    /// The value of the parameter
+    pub value: String,
+    /// Whether the parameter is required
+    pub required: bool,
 }
 /// Represents authentication credentials for accessing an API
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
@@ -63,18 +102,23 @@ pub struct Endpoint {
     /// The name of the API endpoint (used mainly for logging and identification)
     #[builder(default = String::new())]
     pub name: String,
+    /// The scheme of the API endpoint
+    #[builder(default = Scheme::HTTPS)]
+    pub scheme: Scheme,
     /// The domain of the API endpoint
     pub domain: Option<String>,
     /// The port of the API endpoint
     pub port: Option<u16>,
-    /// A lookup table mapping path names to their corresponding URL templates
-    #[builder(default = HashMap::new())]
-    pub lookup: HashMap<String, String>,
     /// Authentication credentials for accessing the API endpoint
     pub authentication: Option<Authentication>,
-    /// Path data for generating full URLs using templates
-    #[builder(default = HashMap::new())]
-    pub paths: HashMap<String, String>,
+    /// Root path for the API endpoint
+    /// ### Example
+    /// "v3.0" for ORCiD API
+    #[builder(default = String::new())]
+    pub root: String,
+    /// Resource data for generating full paths for the API endpoint using templates
+    #[builder(default = vec![])]
+    pub resources: Vec<Resource>,
 }
 impl fmt::Display for AuthenticationScheme {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -120,8 +164,8 @@ impl From<Repository> for Endpoint {
     }
 }
 impl RestfulInterface for Endpoint {
-    fn build(&self) -> Result<Self, String> {
-        Ok(self.clone())
+    fn build(&self) -> Context {
+        Context::new()
     }
     fn handle<R>(&self, _response: R) -> Result<(), String>
     where
@@ -129,14 +173,23 @@ impl RestfulInterface for Endpoint {
     {
         Ok(())
     }
-    fn send<R>(&self, _data: Option<HashMap<String, String>>) -> Result<R, String>
+    /// Invoke an endpoint resource with data and receive a response
+    /// ### Example
+    /// ```ignore
+    /// let api = Endpoint::default();
+    /// let data = Vec::new();
+    /// let response = api.invoke::<orcid::SearchResponse>("search", Some(data));
+    /// ```
+    fn invoke<R, S>(&self, _action: S, _data: Option<Vec<(&str, &str)>>) -> Result<R, String>
     where
         R: Deserialize<'static>,
+        S: AsRef<str>,
     {
         Err("Not implemented".to_string())
     }
 }
 // TODO: Define lookup maps for ORCiD, ROR, Vale, GitLab, GitHub, and Citeas APIs
+// TODO: Import paths from WADL file
 impl Endpoint {}
 
 #[cfg(test)]
