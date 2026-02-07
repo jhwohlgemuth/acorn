@@ -1,14 +1,12 @@
 //! Module for interacting with ORCiD API
 //!
 //! Provides types and functions for constructing ORCiD API queries with field validation and output column selection.
-use super::Validate;
+use super::{parameter_boost, parameter_from_pairs, parameter_from_values, Validate};
 use crate::schema::validate::{is_orcid, is_ror};
-use crate::util::Label;
 use bon::Builder;
 use core::fmt;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
-use urlencoding::encode;
+use serde_with::skip_serializing_none;
 
 /// URL-encoded space character
 const ENCODED_SPACE: &str = "%20";
@@ -107,6 +105,7 @@ pub struct SearchResponse {
 ///     <expanded-search:institution-name>University of Nebraska Omaha</expanded-search:institution-name>
 /// </expanded-search:expanded-result>
 /// ```
+#[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct SearchResult {
@@ -114,26 +113,23 @@ pub struct SearchResult {
     #[serde(rename = "orcid-id")]
     pub orcid_id: Option<String>,
     /// Given names (first name(s))
-    #[serde(rename = "given-names", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "given-names")]
     pub given_names: Option<String>,
     /// Family name (last name or surname)
-    #[serde(rename = "family-names", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "family-names")]
     pub family_names: Option<String>,
     /// Credit name (preferred display name)
-    #[serde(rename = "credit-name", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "credit-name")]
     pub credit_name: Option<String>,
     /// Email addresses
-    #[builder(default)]
-    #[serde(rename = "email", default, skip_serializing_if = "Vec::is_empty")]
-    pub emails: Vec<String>,
+    #[serde(rename = "email")]
+    pub emails: Option<Vec<String>>,
     /// Institution names
-    #[builder(default)]
-    #[serde(rename = "institution-name", default, skip_serializing_if = "Vec::is_empty")]
-    pub institution_names: Vec<String>,
+    #[serde(rename = "institution-name")]
+    pub institution_names: Option<Vec<String>>,
     /// Other names
-    #[builder(default)]
-    #[serde(rename = "other-name", default, skip_serializing_if = "Vec::is_empty")]
-    pub other_name: Vec<String>,
+    #[serde(rename = "other-name")]
+    pub other_name: Option<Vec<String>>,
 }
 /// Describes status of the ORCiD API
 /// ### Caution
@@ -246,79 +242,22 @@ impl TryFrom<&str> for OutputColumn {
         }
     }
 }
-fn query_from_pairs<T: Validate + fmt::Display + for<'a> TryFrom<&'a str>>(pairs: Vec<(&str, &str)>) -> Option<String> {
-    let values: Vec<String> = pairs
-        .into_iter()
-        .filter_map(|(k, v)| {
-            let key: &str = k;
-            let value: &str = v.trim();
-            match T::try_from(key) {
-                | Ok(field) => {
-                    if field.is_valid(value) {
-                        Some(format!("{field}:{}", encode(value)))
-                    } else {
-                        warn!("=> {} Invalid value {value} for field {field}", Label::fail());
-                        None
-                    }
-                }
-                | Err(_) => None,
-            }
-        })
-        .collect();
-    if values.is_empty() {
-        None
-    } else {
-        Some(values.join("+AND+"))
-    }
-}
-fn query_from_values<T: fmt::Display + for<'a> TryFrom<&'a str>>(fields: Vec<&str>) -> Option<String> {
-    let values: Vec<String> = fields
-        .into_iter()
-        .filter_map(|value: &str| {
-            let val = value;
-            match T::try_from(val) {
-                | Ok(column) => Some(column.to_string()),
-                | Err(_) => None,
-            }
-        })
-        .collect();
-    if values.is_empty() {
-        None
-    } else {
-        Some(values.join(","))
-    }
-}
-fn query_boost<T: fmt::Display + for<'a> TryFrom<&'a str>>(fields: Vec<&str>) -> Option<String> {
-    let valid_fields: Vec<T> = fields.into_iter().filter_map(|value| T::try_from(value).ok()).collect();
-    if valid_fields.is_empty() {
-        None
-    } else {
-        let count = valid_fields.len();
-        Some(
-            valid_fields
-                .into_iter()
-                .enumerate()
-                .map(|(i, field)| format!("{field}^{}.0", count + 1 - i))
-                .collect::<Vec<String>>()
-                .join(ENCODED_SPACE),
-        )
-    }
-}
+
 /// Create an ORCiD API URL query string from a lookup table of key-value pairs and a list of desired output columns
 ///
 /// Optional boosting of certain fields can be specified to prioritize their relevance in search results
 // TODO: Support OR statements for field values (e.g., affiliation-org-name:("University of Plymouth" OR "Plymouth University"))
-pub fn search_query(fields: Vec<(&str, &str)>, output_fields: Vec<&str>, boost_fields: Vec<&str>) -> String {
-    let fields: Option<String> = query_from_pairs::<SearchField>(fields);
-    let columns: Option<String> = query_from_values::<OutputColumn>(output_fields);
-    let boosted: Option<String> = query_boost::<SearchField>(boost_fields);
+pub fn search_query_string(pairs: Vec<(&str, &str)>, output_fields: Vec<&str>, boost_fields: Vec<&str>) -> String {
+    let fields: Option<String> = parameter_from_pairs::<SearchField>("q", "+AND+", pairs);
+    let columns: Option<String> = parameter_from_values::<OutputColumn>("fl", ",", output_fields);
+    let boosted: Option<String> = parameter_boost::<SearchField>("qf", ENCODED_SPACE, boost_fields);
     if let Some(fields) = fields {
-        let mut parts: Vec<String> = vec![format!("?q={fields}")];
+        let mut parts: Vec<String> = vec![format!("?{fields}")];
         if let Some(columns) = columns {
-            parts.push(format!("fl={columns}"));
+            parts.push(columns.to_string());
         }
         if let Some(values) = boosted {
-            parts.push(format!("qf={values}"));
+            parts.push(values.to_string());
         }
         parts.join("&")
     } else {

@@ -195,8 +195,90 @@ impl RestfulInterface for Endpoint {
         Err("Not implemented".to_string())
     }
 }
+/// Create a query string from a lookup table of key-value pairs with field validation
+pub fn parameter_from_pairs<T: Validate + fmt::Display + for<'a> TryFrom<&'a str>>(
+    key: &str,
+    separator: &str,
+    pairs: Vec<(&str, &str)>,
+) -> Option<String> {
+    let values: Vec<String> = pairs
+        .into_iter()
+        .filter_map(|(k, v)| {
+            let key: &str = k;
+            let value: &str = v.trim();
+            match T::try_from(key) {
+                | Ok(field) => {
+                    if field.is_valid(value) {
+                        Some(format!("{}:{}", field, urlencoding::encode(value)))
+                    } else {
+                        #[cfg(feature = "std")]
+                        {
+                            use crate::util::Label;
+                            use tracing::warn;
+                            warn!("=> {} Invalid value {value} for field {field}", Label::fail());
+                        }
+                        None
+                    }
+                }
+                | Err(_) => None,
+            }
+        })
+        .collect();
+    if values.is_empty() {
+        None
+    } else {
+        Some(format!("{}={}", key, values.join(separator)))
+    }
+}
+/// Create a query string from a list of field values
+pub fn parameter_from_values<T: fmt::Display + for<'a> TryFrom<&'a str>>(key: &str, separator: &str, fields: Vec<&str>) -> Option<String> {
+    let values: Vec<String> = fields
+        .into_iter()
+        .filter_map(|value: &str| {
+            let val = value;
+            match T::try_from(val) {
+                | Ok(column) => Some(column.to_string()),
+                | Err(_) => None,
+            }
+        })
+        .collect();
+    if values.is_empty() {
+        None
+    } else {
+        Some(format!("{key}={}", values.join(separator)))
+    }
+}
+/// Create a boosted query string from a list of fields with weighted relevance
+pub fn parameter_boost<T: fmt::Display + for<'a> TryFrom<&'a str>>(key: &str, separator: &str, fields: Vec<&str>) -> Option<String> {
+    let valid_fields: Vec<T> = fields.into_iter().filter_map(|value| T::try_from(value).ok()).collect();
+    if valid_fields.is_empty() {
+        None
+    } else {
+        let count = valid_fields.len();
+        Some(format!(
+            "{}={}",
+            key,
+            valid_fields
+                .into_iter()
+                .enumerate()
+                .map(|(i, field)| format!("{}^{}.0", field, count + 1 - i))
+                .collect::<Vec<String>>()
+                .join(separator),
+        ))
+    }
+}
+/// Parse API response content into a structured data type using `quick_xml` for XML deserialization
+pub fn parse_response<'de, R>(content: &'de str) -> Result<R, String>
+where
+    R: serde::Deserialize<'de>,
+{
+    match quick_xml::de::from_str::<R>(content) {
+        | Ok(response) => Ok(response),
+        | Err(e) => Err(format!("Failed to parse ORCiD search response: {e}")),
+    }
+}
 // TODO: Define lookup maps for ORCiD, ROR, Vale, GitLab, GitHub, and Citeas APIs
-// TODO: Import paths from WADL file
+// TODO: Import paths from OpenAPI spec
 impl Endpoint {}
 
 #[cfg(test)]

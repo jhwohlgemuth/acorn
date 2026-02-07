@@ -1,4 +1,4 @@
-use acorn::io::api::orcid;
+use acorn::io::api::{self, orcid};
 use acorn::io::network_get_request;
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
@@ -11,13 +11,15 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
     let resource = "expanded-search";
 
     let data = vec![("given-names", "Jason"), ("family-name", "Wohlgemuth")];
-    let query = orcid::search_query(data, vec![], vec![]);
+    let query = orcid::search_query_string(data, vec![], vec![]);
     let path = [domain, root, resource, &query].join("/");
     println!("Query: {scheme}://{path}");
     let content = match network_get_request(format!("{scheme}://{path}")).send() {
         | Err(e) => return Err(Report::new(e)),
         | Ok(response) => response.text().unwrap_or_default(),
     };
-    println!("Response: {:#?}", content);
+    println!("Raw response: {content}");
+    let data = api::parse_response::<orcid::SearchResponse>(&content).unwrap_or_else(|e| panic!("Failed to parse ORCiD search response: {e}"));
+    println!("Parsed data: {:#?}", data);
     Ok(())
 }
