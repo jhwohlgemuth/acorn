@@ -16,6 +16,8 @@ pub const COLOR_TRANSPARENT: [u8; 4] = [255, 255, 255, 0];
 pub const COLOR_PRIMARY: [u8; 4] = [0, 121, 52, 255];
 /// URL-encoded space character
 pub const URL_ENCODED_SPACE: &str = "%20";
+/// URL-encoded caret character
+pub const URL_ENCODED_CARAT: &str = "%5E";
 /// URL for Vale releases
 pub const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
 /// Version of Vale to use with ACORN

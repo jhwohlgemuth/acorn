@@ -1,24 +1,24 @@
-use acorn::io::api::{self, orcid};
-use acorn::io::network_get_request;
+use acorn::io::api::{self, orcid, RestfulInterface};
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 
 pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
-    // let response = api.invoke::<orcid::SearchResponse>("search", Some(data));
+    let data = vec![
+        api::Param::of_type(api::ParamStyle::QueryPair)
+            .values(vec![
+                (Some("affiliation-org-name"), Some("Lyrasis")),
+                (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
+            ])
+            .with_key("q"),
+        api::Param::of_type(api::ParamStyle::FieldList)
+            .values(vec![(Some("family-name"), None)])
+            .with_key("fl"),
+    ];
     let orcid = api::Endpoint::init().domain("pub.orcid.org").root("v3.0").build();
-    let resource = "expanded-search";
-    let data = vec![("given-names", "Jason"), ("family-name", "Wohlgemuth")];
-    let query = orcid::query_string(data, vec![], vec![]);
-    let path = [&orcid.base(), resource, &query].join("/");
-    println!("Query: {path}");
-    let content = match network_get_request(path.to_string()).send() {
-        | Err(e) => return Err(Report::new(e)),
-        | Ok(response) => response.text().unwrap_or_default(),
-    };
-    println!("Raw response: {content}");
-    let data = api::parse::<orcid::SearchResponse>(&content).unwrap_or_else(|e| panic!("Failed to parse ORCiD search response: {e}"));
-    println!("Parsed data: {:#?}", data);
+    let response = orcid.invoke_sync::<orcid::SearchField, orcid::OutputColumn>("search", Some(data));
+    let text = orcid.handle::<orcid::SearchResponse>(response);
+    println!("Response: {text:#?}");
 
     Ok(())
 }

@@ -36,9 +36,12 @@ pub enum SearchField {
     /// Other names
     OtherNames,
     /// [ROR](https://ror.org) organization ID
+    /// ### Notes
+    /// - Must include ror.org domain
+    /// - Must be enclosed in double qoutes
     /// ### Examples
-    /// - <https://ror.org/01qz5mb56> (Oak Ridge National Laboratory)
-    /// - <https://ror.org/05p915b28> (Oak Ridge Leadership Computing Facility)
+    /// - "<https://ror.org/01qz5mb56>" (Oak Ridge National Laboratory)
+    /// - "<https://ror.org/05p915b28>" (Oak Ridge Leadership Computing Facility)
     RorOrgId,
     /// Text field that contains all of the other fields
     Text,
@@ -53,11 +56,9 @@ pub enum OutputColumn {
     CreditName,
     /// Current institution affiliation name
     CurrentInstitutionAffiliationName,
-    /// Given and family names
-    GivenAndFamilyNames,
-    /// Given name
-    GivenName,
-    /// Family name
+    /// Given names
+    GivenNames,
+    /// Family names
     FamilyName,
     /// [`ORCID`](crate::schema::pid::ORCID) identifier
     Orcid,
@@ -161,7 +162,7 @@ impl Validate for SearchField {
     /// Special validation is performed for `RorOrgId` and `Orcid` fields.
     fn is_valid(&self, value: &str) -> bool {
         match self {
-            | SearchField::RorOrgId => is_ror(value).is_ok(),
+            | SearchField::RorOrgId => is_ror(value.replace("\"", "").as_str()).is_ok(),
             | SearchField::Orcid => is_orcid(value).is_ok(),
             | _ => true,
         }
@@ -192,8 +193,7 @@ impl fmt::Display for OutputColumn {
             | OutputColumn::CurrentInstitutionAffiliationName => "current-institution-affiliation-name",
             | OutputColumn::Email => "email",
             | OutputColumn::FamilyName => "family-name",
-            | OutputColumn::GivenAndFamilyNames => "given-and-family-names",
-            | OutputColumn::GivenName => "given-name",
+            | OutputColumn::GivenNames => "given-names",
             | OutputColumn::Orcid => "orcid",
             | OutputColumn::OtherName => "other-name",
             | OutputColumn::PastInstitutionAffiliationName => "past-institution-affiliation-name",
@@ -230,8 +230,7 @@ impl TryFrom<&str> for OutputColumn {
             | "current-institution-affiliation-name" => Ok(OutputColumn::CurrentInstitutionAffiliationName),
             | "email" => Ok(OutputColumn::Email),
             | "family-name" => Ok(OutputColumn::FamilyName),
-            | "given-and-family-names" => Ok(OutputColumn::GivenAndFamilyNames),
-            | "given-name" => Ok(OutputColumn::GivenName),
+            | "given-names" => Ok(OutputColumn::GivenNames),
             | "orcid" => Ok(OutputColumn::Orcid),
             | "other-name" => Ok(OutputColumn::OtherName),
             | "past-institution-affiliation-name" => Ok(OutputColumn::PastInstitutionAffiliationName),
