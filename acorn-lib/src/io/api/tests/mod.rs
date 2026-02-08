@@ -1,5 +1,5 @@
-use crate::io::api::Endpoint;
 use crate::io::api::{self, orcid};
+use crate::io::api::{Endpoint, Param, ParamStyle};
 use crate::io::read_file;
 use crate::{Location, Repository, Scheme};
 use std::path::PathBuf;
@@ -52,7 +52,7 @@ fn test_orcid_query_string() {
         ("affiliation-org-name", "Oak Ridge National Laboratory"),
         ("family-name", "Wohlgemuth"),
     ];
-    let query = orcid::search_query_string(pairs, vec![], vec![]);
+    let query = orcid::query_string(pairs, vec![], vec![]);
     let expected = "?q=given-names:Jason+AND+affiliation-org-name:Oak%20Ridge%20National%20Laboratory+AND+family-name:Wohlgemuth";
     assert_eq!(query, expected);
     // Query with invalid field name (should be skipped)
@@ -61,27 +61,27 @@ fn test_orcid_query_string() {
         ("given-names", "Trista"),
         ("family-name", "Smith"),
     ];
-    let query = orcid::search_query_string(pairs, vec![], vec![]);
+    let query = orcid::query_string(pairs, vec![], vec![]);
     let expected = "?q=given-names:Trista+AND+family-name:Smith";
     assert_eq!(query, expected);
     // Empty query
     let pairs: Vec<(&str, &str)> = vec![];
-    let query = orcid::search_query_string(pairs, vec![], vec![]);
+    let query = orcid::query_string(pairs, vec![], vec![]);
     let expected = "";
     assert_eq!(query, expected);
     // Query with invalid ORCiD (invalid checksum, should be skipped)
     let pairs = vec![("orcid", "0000-0002-1823-1234"), ("given-names", "Test")];
-    let query = orcid::search_query_string(pairs, vec![], vec![]);
+    let query = orcid::query_string(pairs, vec![], vec![]);
     let expected = "?q=given-names:Test";
     assert_eq!(query, expected);
     // Query with valid ORCiD
     let pairs = vec![("orcid", "0000-0002-1825-0097"), ("given-names", "Test")];
-    let query = orcid::search_query_string(pairs, vec![], vec![]);
+    let query = orcid::query_string(pairs, vec![], vec![]);
     let expected = "?q=orcid:0000-0002-1825-0097+AND+given-names:Test";
     assert_eq!(query, expected);
     // Query with invalid ROR (should be skipped)
     let pairs = vec![("ror-org-id", "03ebg0v16-"), ("affiliation-org-name", "Test University")];
-    let query = orcid::search_query_string(pairs, vec![], vec![]);
+    let query = orcid::query_string(pairs, vec![], vec![]);
     let expected = "?q=affiliation-org-name:Test%20University";
     assert_eq!(query, expected);
     // Query with valid ROR
@@ -89,19 +89,19 @@ fn test_orcid_query_string() {
         ("ror-org-id", "https://ror.org/01qz5mb56"),
         ("affiliation-org-name", "Oak Ridge National Laboratory"),
     ];
-    let query = orcid::search_query_string(pairs, vec![], vec![]);
+    let query = orcid::query_string(pairs, vec![], vec![]);
     let expected = "?q=ror-org-id:https%3A%2F%2Fror.org%2F01qz5mb56+AND+affiliation-org-name:Oak%20Ridge%20National%20Laboratory";
     assert_eq!(query, expected);
     // Query with valid output columns
     let pairs = vec![("given-names", "Alice"), ("family-name", "Smith")];
     let columns = vec!["orcid", "email", "credit-name"];
-    let query = orcid::search_query_string(pairs, columns, vec![]);
+    let query = orcid::query_string(pairs, columns, vec![]);
     let expected = "?q=given-names:Alice+AND+family-name:Smith&fl=orcid,email,credit-name";
     assert_eq!(query, expected);
     // Query with invalid output columns (should be filtered out)
     let pairs = vec![("given-names", "Bob")];
     let columns = vec!["orcid", "invalid-column", "email"];
-    let query = orcid::search_query_string(pairs, columns, vec![]);
+    let query = orcid::query_string(pairs, columns, vec![]);
     let expected = "?q=given-names:Bob&fl=orcid,email";
     assert_eq!(query, expected);
     // Query with mixed invalid fields and columns
@@ -111,7 +111,7 @@ fn test_orcid_query_string() {
         ("family-name", "Wohlgemuth"),
     ];
     let columns = vec!["orcid", "invalid-column", "credit-name", "bad-field"];
-    let query = orcid::search_query_string(pairs, columns, vec![]);
+    let query = orcid::query_string(pairs, columns, vec![]);
     let expected = "?q=given-names:Jason+AND+family-name:Wohlgemuth&fl=orcid,credit-name";
     assert_eq!(query, expected);
     // Query with all valid output columns
@@ -127,19 +127,19 @@ fn test_orcid_query_string() {
         "current-institution-affiliation-name",
         "past-institution-affiliation-name",
     ];
-    let query = orcid::search_query_string(pairs, columns, vec![]);
+    let query = orcid::query_string(pairs, columns, vec![]);
     let expected = "?q=family-name:Wohlgemuth&fl=orcid,email,credit-name,given-name,family-name,given-and-family-names,other-name,current-institution-affiliation-name,past-institution-affiliation-name";
     assert_eq!(query, expected);
     // Query with boost for single field
     let pairs = vec![("given-names", "Audrey"), ("family-name", "Carson")];
     let boost = vec!["family-name"];
-    let query = orcid::search_query_string(pairs, vec![], boost);
+    let query = orcid::query_string(pairs, vec![], boost);
     let expected = "?q=given-names:Audrey+AND+family-name:Carson&qf=family-name^2.0";
     assert_eq!(query, expected);
     // Query with boost for multiple fields (including invalid field which should be ignored)
     let pairs = vec![("given-names", "Jason"), ("family-name", "Wohlgemuth")];
     let boost = vec!["given-names", "family-name", "not-a-valid-field"];
-    let query = orcid::search_query_string(pairs, vec![], boost);
+    let query = orcid::query_string(pairs, vec![], boost);
     let expected = "?q=given-names:Jason+AND+family-name:Wohlgemuth&qf=given-names^3.0%20family-name^2.0";
     assert_eq!(query, expected);
 }
@@ -148,7 +148,7 @@ fn test_orcid_response_handler() {
     // Load XML fixture file
     let xml = read_file(fixtures_dir().join("response_orcid_wohlgemuth.xml")).expect("Failed to read XML fixture");
     // Parse XML into OrcidSearchResponse
-    let response = api::parse_response::<orcid::SearchResponse>(&xml).expect("Failed to deserialize XML");
+    let response = api::parse::<orcid::SearchResponse>(&xml).expect("Failed to deserialize XML");
     // Verify basic response properties
     let total = 68;
     assert_eq!(response.num_found, total);
@@ -208,4 +208,130 @@ fn test_orcid_response_handler() {
     assert_eq!(sven.credit_name, Some("Dr. Sven Wohlgemuth".to_string()));
     let institutions = sven.institution_names.as_ref().expect("Institution names should exist");
     assert!(institutions.len() >= 10);
+}
+#[test]
+fn test_params() {
+    // Test QueryPair style
+    let param = Param::init()
+        .style(ParamStyle::QueryPair)
+        .name("q")
+        .values(vec![
+            (Some("given-names".to_string()), Some("Jason".to_string())),
+            (Some("family-name".to_string()), Some("Wohlgemuth".to_string())),
+        ])
+        .build();
+    let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
+    let expected = "q=given-names:Jason+AND+family-name:Wohlgemuth";
+    assert_eq!(rendered, expected);
+    // Test QueryField style (boosted fields)
+    let param = Param::init()
+        .style(ParamStyle::QueryField)
+        .name("qf")
+        .values(vec![(Some("given-names".to_string()), None), (Some("family-name".to_string()), None)])
+        .build();
+    let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
+    let expected = "qf=given-names^3.0%20family-name^2.0";
+    assert_eq!(rendered, expected);
+    // Test QueryField style with three fields
+    let param = Param::init()
+        .style(ParamStyle::QueryField)
+        .name("qf")
+        .values(vec![
+            (Some("given-names".to_string()), None),
+            (Some("family-name".to_string()), None),
+            (Some("affiliation-org-name".to_string()), None),
+        ])
+        .build();
+    let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
+    let expected = "qf=given-names^4.0%20family-name^3.0%20affiliation-org-name^2.0";
+    assert_eq!(rendered, expected);
+    // Test FieldList style (output columns)
+    let param = Param::init()
+        .style(ParamStyle::FieldList)
+        .name("fl")
+        .values(vec![
+            (Some("orcid".to_string()), None),
+            (Some("email".to_string()), None),
+            (Some("credit-name".to_string()), None),
+        ])
+        .build();
+    let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
+    let expected = "fl=orcid,email,credit-name";
+    assert_eq!(rendered, expected);
+    // Test FieldList style with invalid field (should be filtered)
+    let param = Param::init()
+        .style(ParamStyle::FieldList)
+        .name("fl")
+        .values(vec![
+            (Some("orcid".to_string()), None),
+            (Some("invalid-column".to_string()), None),
+            (Some("email".to_string()), None),
+        ])
+        .build();
+    let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
+    let expected = "fl=orcid,email";
+    assert_eq!(rendered, expected);
+    // Test QueryPair with invalid field names (should be filtered)
+    let param = Param::init()
+        .style(ParamStyle::QueryPair)
+        .name("q")
+        .values(vec![
+            (Some("invalid-field".to_string()), Some("value".to_string())),
+            (Some("given-names".to_string()), Some("Jason".to_string())),
+            (Some("another-invalid".to_string()), Some("data".to_string())),
+        ])
+        .build();
+    let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
+    let expected = "q=given-names:Jason";
+    assert_eq!(rendered, expected);
+    // Test QueryPair with invalid field values (invalid ORCiD should be filtered)
+    let param = Param::init()
+        .style(ParamStyle::QueryPair)
+        .name("q")
+        .values(vec![
+            (Some("orcid".to_string()), Some("0000-0002-1823-1234".to_string())),
+            (Some("given-names".to_string()), Some("Jason".to_string())),
+        ])
+        .build();
+    let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
+    let expected = "q=given-names:Jason";
+    assert_eq!(rendered, expected);
+    // Test QueryPair with valid ORCiD value (should be included)
+    let param = Param::init()
+        .style(ParamStyle::QueryPair)
+        .name("q")
+        .values(vec![
+            (Some("orcid".to_string()), Some("0000-0002-2057-9115".to_string())),
+            (Some("given-names".to_string()), Some("Jason".to_string())),
+        ])
+        .build();
+    let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
+    let expected = "q=orcid:0000-0002-2057-9115+AND+given-names:Jason";
+    assert_eq!(rendered, expected);
+    // Test QueryField with invalid field names (should be filtered)
+    let param = Param::init()
+        .style(ParamStyle::QueryField)
+        .name("qf")
+        .values(vec![
+            (Some("invalid-field".to_string()), None),
+            (Some("given-names".to_string()), None),
+            (Some("another-invalid".to_string()), None),
+            (Some("family-name".to_string()), None),
+        ])
+        .build();
+    let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
+    let expected = "qf=given-names^3.0%20family-name^2.0";
+    assert_eq!(rendered, expected);
+    // Test QueryField with only invalid field names (should return empty)
+    let param = Param::init()
+        .style(ParamStyle::QueryField)
+        .name("qf")
+        .values(vec![
+            (Some("invalid-field".to_string()), None),
+            (Some("another-invalid".to_string()), None),
+        ])
+        .build();
+    let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
+    let expected = "";
+    assert_eq!(rendered, expected);
 }

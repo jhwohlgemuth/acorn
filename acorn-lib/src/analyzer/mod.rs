@@ -139,7 +139,7 @@ pub enum ErrorKind {
 }
 /// Data structure for holding the result of a schema validation check
 #[derive(Builder, Clone, Debug, Display)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 #[display("{message}")]
 pub struct Check {
     /// Check category
@@ -897,37 +897,37 @@ pub fn convert_lychee_response(value: Response) -> Check {
             .category(CheckCategory::Link)
             .success(true)
             .status_code(code.to_string())
-            .message("has no HTTP errors".to_string())
+            .message("has no HTTP errors")
             .build(),
         | Status::Cached(status) => match status {
             | CacheStatus::Ok(code) => Check::init()
                 .category(CheckCategory::Link)
                 .success(true)
                 .status_code(code.to_string())
-                .message("has no HTTP errors".to_string())
+                .message("has no HTTP errors")
                 .build(),
             | CacheStatus::Error(Some(code)) => Check::init()
                 .category(CheckCategory::Link)
                 .success(false)
                 .status_code(code.to_string())
-                .message("has cached HTTP errors".to_string())
+                .message("has cached HTTP errors")
                 .build(),
             | CacheStatus::Unsupported => Check::init()
                 .category(CheckCategory::Link)
                 .success(false)
-                .message("unsupported cached response".to_string())
+                .message("unsupported cached response")
                 .build(),
             | _ => Check::init()
                 .category(CheckCategory::Link)
                 .success(true)
-                .message("ignored or otherwise successful (cached response)".to_string())
+                .message("ignored or otherwise successful (cached response)")
                 .build(),
         },
         | Status::Error(code) => Check::init()
             .category(CheckCategory::Link)
             .success(false)
             .status_code(code.to_string())
-            .message("has HTTP errors".to_string())
+            .message("has HTTP errors")
             .build(),
         | Status::Unsupported(why) => Check::init()
             .category(CheckCategory::Link)
@@ -938,17 +938,13 @@ pub fn convert_lychee_response(value: Response) -> Check {
             .category(CheckCategory::Link)
             .success(false)
             .status_code(code.to_string())
-            .message("unknown HTTP response".to_string())
+            .message("unknown HTTP response")
             .build(),
-        | Status::Timeout(_) => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .message("HTTP timeout".to_string())
-            .build(),
+        | Status::Timeout(_) => Check::init().category(CheckCategory::Link).success(false).message("HTTP timeout").build(),
         | _ => Check::init()
             .category(CheckCategory::Link)
             .success(true)
-            .message("ignored or otherwise successful".to_string())
+            .message("ignored or otherwise successful")
             .build(),
     }
 }
@@ -963,15 +959,11 @@ pub async fn link_check(uri: Option<String>) -> Check {
                     .category(CheckCategory::Link)
                     .success(false)
                     .uri(value)
-                    .message("unreachable".to_string())
+                    .message("unreachable")
                     .build(),
             }
         }
-        | None => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .message("missing URL".to_string())
-            .build(),
+        | None => Check::init().category(CheckCategory::Link).success(false).message("missing URL").build(),
     }
 }
 /// Convert vector of [`Check`] values to a Polars [DataFrame]

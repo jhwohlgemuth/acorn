@@ -346,7 +346,7 @@ pub struct ContactPoint {
 ///
 /// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ContactPointContext {
     /// Job title
@@ -627,7 +627,7 @@ impl Default for ContactPointContext {
             .job_title(format!("{SCHEMA_ORG_CONTEXT}/jobTitle"))
             .given_name(format!("{SCHEMA_ORG_CONTEXT}/givenName"))
             .family_name(format!("{SCHEMA_ORG_CONTEXT}/familyName"))
-            .identifier("https://orcid.org".to_string())
+            .identifier("https://orcid.org")
             .email(format!("{SCHEMA_ORG_CONTEXT}/email"))
             .telephone(format!("{SCHEMA_ORG_CONTEXT}/telephone"))
             .url(format!("{SCHEMA_ORG_CONTEXT}/url"))

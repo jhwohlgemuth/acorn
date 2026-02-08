@@ -245,7 +245,7 @@ pub struct ARK {
 ///
 /// [^doi]: `N. Juty, S. M. Wimalaratne, S. Soiland-Reyes, J. Kunze, C. A. Goble, and T. Clark, "Unique, Persistent, Resolvable: Identifiers as the Foundation of FAIR," Data Intellegence, vol. 2, no. 1-2, pp. 30-39, Jan. 2020, doi: 10.1162/dint_a_00025.`
 #[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 pub struct DOI {
     /// Schema URI (i.e., <https://doi.org/>)
     pub schema_uri: Option<String>,
@@ -275,7 +275,7 @@ pub struct DOI {
 /// - ISBNs are governed by the ISO 2108 standard.
 /// - ISNBs can be expressed as [`DOI`]s (see [DOI system and the ISBN system](https://www.doi.org/the-identifier/resources/factsheets/doi-system-and-the-isbn-system)).
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 pub struct ISBN {
     /// Prefix element
     ///
@@ -302,7 +302,7 @@ pub struct ISBN {
 ///
 /// [^orcid]: `L. L. Haak, M. Fenner, L. Paglione, E. Pentz, and H. Ratner, "ORCID: a system to uniquely identify researchers," Learned Publishing, vol. 25, no. 4, pp. 259-264, 2012, doi: 10.1087/20120404.`
 #[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 pub struct ORCID {
     /// Schema URI (i.e., <https://orcid.org/>)
     pub schema_uri: Option<String>,
@@ -322,7 +322,7 @@ pub struct ORCID {
 ///
 /// [^ardc]: [Australian Research Data Commons](https://ardc.edu.au/)
 #[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 pub struct RAID {
     /// Schema URI (e.g., <https://www.raid.org/>)
     pub schema_uri: Option<String>,
@@ -895,8 +895,8 @@ impl PersistentIdentifier for ISBN {
 impl From<ISBN> for DOI {
     fn from(isbn: ISBN) -> Self {
         DOI::init()
-            .schema_uri("https://doi.org/".to_string())
-            .directory_indicator("10".to_string())
+            .schema_uri("https://doi.org/")
+            .directory_indicator("10")
             .maybe_registrant_code(isbn.prefix())
             .maybe_suffix(isbn.suffix())
             .build()

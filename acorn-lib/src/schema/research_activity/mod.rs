@@ -263,7 +263,7 @@ pub struct ResearchActivityMetadata {
 ///
 /// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ResearchActivityMetadataContext {
     /// Classification level
@@ -329,9 +329,9 @@ impl Default for ResearchActivityMetadataContext {
             .draft(format!("{SCHEMA_ORG_CONTEXT}/Boolean"))
             .status(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
             .identifier(format!("{CODEMETA_CONTEXT}/identifier"))
-            .doi("https://doi.org".to_string())
-            .raid("https://raid.org".to_string())
-            .ror("https://ror.org".to_string())
+            .doi("https://doi.org")
+            .raid("https://raid.org")
+            .ror("https://ror.org")
             .additional_type(format!("{SCHEMA_ORG_CONTEXT}/additionalType"))
             .media(format!("{SCHEMA_ORG_CONTEXT}/MediaObject"))
             .websites(format!("{SCHEMA_ORG_CONTEXT}/WebSite"))

@@ -1,15 +1,12 @@
 //! Module for interacting with ORCiD API
 //!
 //! Provides types and functions for constructing ORCiD API queries with field validation and output column selection.
-use super::{parameter_boost, parameter_from_pairs, parameter_from_values, Validate};
+use crate::io::api::{self, Validate};
 use crate::schema::validate::{is_orcid, is_ror};
 use bon::Builder;
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-
-/// URL-encoded space character
-const ENCODED_SPACE: &str = "%20";
 
 /// ORCiD allowed search fields
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
@@ -242,25 +239,7 @@ impl TryFrom<&str> for OutputColumn {
         }
     }
 }
-
-/// Create an ORCiD API URL query string from a lookup table of key-value pairs and a list of desired output columns
-///
-/// Optional boosting of certain fields can be specified to prioritize their relevance in search results
-// TODO: Support OR statements for field values (e.g., affiliation-org-name:("University of Plymouth" OR "Plymouth University"))
-pub fn search_query_string(pairs: Vec<(&str, &str)>, output_fields: Vec<&str>, boost_fields: Vec<&str>) -> String {
-    let fields: Option<String> = parameter_from_pairs::<SearchField>("q", "+AND+", pairs);
-    let columns: Option<String> = parameter_from_values::<OutputColumn>("fl", ",", output_fields);
-    let boosted: Option<String> = parameter_boost::<SearchField>("qf", ENCODED_SPACE, boost_fields);
-    if let Some(fields) = fields {
-        let mut parts: Vec<String> = vec![format!("?{fields}")];
-        if let Some(columns) = columns {
-            parts.push(columns.to_string());
-        }
-        if let Some(values) = boosted {
-            parts.push(values.to_string());
-        }
-        parts.join("&")
-    } else {
-        String::new()
-    }
+/// Construct query string for ORCiD API search endpoint
+pub fn query_string(query_pairs: Vec<(&str, &str)>, field_list: Vec<&str>, query_fields: Vec<&str>) -> String {
+    api::query_string::<SearchField, OutputColumn>(query_pairs, field_list, query_fields)
 }
