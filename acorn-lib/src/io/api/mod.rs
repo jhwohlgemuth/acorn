@@ -9,7 +9,6 @@ use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt;
-use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
 use uriparse::URI;
@@ -179,6 +178,7 @@ pub struct Resource {
     /// Resource name (e.g., "search", "status")
     pub name: String,
     /// HTTP method to use when invoking this resource (e.g., GET, POST)
+    #[builder(with = |method: &str| HttpMethod::from(method))]
     pub method: HttpMethod,
     /// Template for the resource path (e.g., "/expanded-search/{{ query }}")
     pub template: String,
@@ -403,15 +403,18 @@ impl RestfulInterface for Endpoint {
                 };
                 match request.send() {
                     | Ok(response) => {
-                        // TODO: Improve content type detection and handling (e.g., support for more MIME types, handle missing or malformed content-type headers, etc.)
-                        let is_json = content_type(response.headers()).contains("json");
-                        let text = response.text().unwrap_or_default();
-                        let content = if is_json {
-                            ResponseContent::Json(text)
-                        } else {
-                            ResponseContent::Xml(text)
-                        };
-                        Ok(content)
+                        let is_json = detect_json(&response);
+                        match response.text() {
+                            | Ok(text) => {
+                                let content = if is_json {
+                                    ResponseContent::Json(text)
+                                } else {
+                                    ResponseContent::Xml(text)
+                                };
+                                Ok(content)
+                            }
+                            | Err(e) => Err(Error::other(e.to_string())),
+                        }
                     }
                     | Err(e) => Err(Error::other(e.to_string())),
                 }
@@ -450,12 +453,15 @@ impl Validate for EmptyField {
         true
     }
 }
-fn content_type(headers: &HeaderMap) -> String {
-    headers
+fn detect_json(response: &reqwest::blocking::Response) -> bool {
+    // TODO: Improve content type detection and handling (e.g., support for more MIME types, handle missing or malformed content-type headers, etc.)
+    let text = response
+        .headers()
         .get("content-type")
         .and_then(|ct| ct.to_str().ok())
         .unwrap_or_default()
-        .to_string()
+        .to_string();
+    text.to_lowercase().contains("json")
 }
 /// Create a query string from a lookup table of key-value pairs with field validation
 pub fn param_from_query_pairs<T: Validate + QueryField>(key: &str, separator: &str, pairs: Vec<(&str, &str)>) -> Option<String> {

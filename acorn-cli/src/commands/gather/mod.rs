@@ -4,6 +4,18 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 
 pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
+    let resources = vec![
+        api::Resource::init()
+            .name("search")
+            .method("get")
+            .template("{{ base }}/expanded-search/{{ query }}")
+            .build(),
+        api::Resource::init()
+            .name("status")
+            .method("get")
+            .template("{{ base }}/pubStatus")
+            .build(),
+    ];
     let data = vec![
         api::Param::of_type(api::ParamStyle::QueryPair)
             .values(vec![
@@ -14,19 +26,6 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
         api::Param::of_type(api::ParamStyle::FieldList)
             .values(vec![(Some("family-name"), None)])
             .with_key("fl"),
-    ];
-    // This will be a constant for ORCiD API endpoint
-    let resources = vec![
-        api::Resource::init()
-            .name("search")
-            .method(api::HttpMethod::Get)
-            .template("{{ base }}/expanded-search/{{ query }}")
-            .build(),
-        api::Resource::init()
-            .name("status")
-            .method(api::HttpMethod::Get)
-            .template("{{ base }}/pubStatus")
-            .build(),
     ];
     let orcid = api::Endpoint::at("pub.orcid.org").root("v3.0").resources(resources).build();
     let response = orcid.invoke_sync::<orcid::SearchField, orcid::OutputColumn>("search", Some(data));

@@ -748,6 +748,27 @@ where
             .collect::<Vec<_>>()
     }
 }
+/// Returns the current date in ISO8601 format (YYYY-MM-DD).
+/// ### Examples
+/// ```rust
+/// use acorn::util::current_date;
+///
+/// let date = current_date();
+/// // Returns something like "2026-01-22"
+/// assert_eq!(date.len(), 10);
+/// assert!(date.contains("-"));
+/// ```
+pub fn current_date() -> String {
+    Utc::now().format("%Y-%m-%d").to_string()
+}
+/// Use light-weight heuristics to detect whether or not a string is JSON format data
+pub fn detect_json(text: impl ToString) -> bool {
+    let pattern = r"(?s)^\s*(\{.*\}|\[.*\])\s*$";
+    match Regex::new(pattern) {
+        | Ok(re) => re.is_match(&text.to_string()).unwrap_or(false),
+        | Err(_) => false,
+    }
+}
 /// Returns the file extension of the given file name as a string.
 /// ### Note
 /// > The primary benefit of this function is to get file extension without using Path or PathBuf
@@ -777,19 +798,6 @@ where
     } else {
         None
     }
-}
-/// Returns the current date in ISO8601 format (YYYY-MM-DD).
-/// ### Examples
-/// ```rust
-/// use acorn::util::current_date;
-///
-/// let date = current_date();
-/// // Returns something like "2026-01-22"
-/// assert_eq!(date.len(), 10);
-/// assert!(date.contains("-"));
-/// ```
-pub fn current_date() -> String {
-    Utc::now().format("%Y-%m-%d").to_string()
 }
 /// Return fisrt key/value pair with key that matches pattern
 /// ### Example

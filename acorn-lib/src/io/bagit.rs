@@ -145,6 +145,7 @@ impl Bag {
                             let checksum = x[0];
                             let payload_path = base_directory.join(x[1]);
                             let calculated = file_checksum(payload_path, Some(checksum_algorithm)).unwrap_or_default();
+                            dbg!(&calculated, &checksum);
                             calculated.eq(checksum)
                         })
                         .collect::<Vec<_>>();

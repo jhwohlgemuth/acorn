@@ -24,6 +24,23 @@ fn test_current_date() {
     assert_eq!(date.split("-").count(), 3);
 }
 #[test]
+fn test_detect_json() {
+    let json = r#"{"key": "value"}"#;
+    assert!(detect_json(json));
+    let json = r#"[1, 2, 3]"#;
+    assert!(detect_json(json));
+    let not_json = r#"Just a string"#;
+    assert!(!detect_json(not_json));
+    let not_json = r#"{"key": "value""#; // Missing closing brace
+    assert!(!detect_json(not_json));
+    let xml = r#"<root><key>value</key></root>"#;
+    assert!(!detect_json(xml));
+    let text = "OK";
+    assert!(!detect_json(text));
+    let python = r#"{"key": "value"}"#;
+    assert!(detect_json(python));
+}
+#[test]
 fn test_extract_zip() {
     let path = PathBuf::from(FIXTURES).join("data/highlight/reference.pptx");
     let result = extract_zip(path, None);
