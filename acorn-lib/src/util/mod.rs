@@ -761,13 +761,9 @@ where
 pub fn current_date() -> String {
     Utc::now().format("%Y-%m-%d").to_string()
 }
-/// Use light-weight heuristics to detect whether or not a string is JSON format data
+/// Try to parse text as JSON and return `true` if successful, `false` otherwise
 pub fn detect_json(text: impl ToString) -> bool {
-    let pattern = r"(?s)^\s*(\{.*\}|\[.*\])\s*$";
-    match Regex::new(pattern) {
-        | Ok(re) => re.is_match(&text.to_string()).unwrap_or(false),
-        | Err(_) => false,
-    }
+    serde_json::from_str::<serde_json::Value>(&text.to_string()).is_ok()
 }
 /// Returns the file extension of the given file name as a string.
 /// ### Note

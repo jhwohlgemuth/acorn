@@ -25,20 +25,37 @@ fn test_current_date() {
 }
 #[test]
 fn test_detect_json() {
-    let json = r#"{"key": "value"}"#;
-    assert!(detect_json(json));
-    let json = r#"[1, 2, 3]"#;
-    assert!(detect_json(json));
-    let not_json = r#"Just a string"#;
-    assert!(!detect_json(not_json));
-    let not_json = r#"{"key": "value""#; // Missing closing brace
-    assert!(!detect_json(not_json));
-    let xml = r#"<root><key>value</key></root>"#;
-    assert!(!detect_json(xml));
-    let text = "OK";
-    assert!(!detect_json(text));
-    let python = r#"{"key": "value"}"#;
-    assert!(detect_json(python));
+    let valid = [
+        r#"{"key": "value"}"#,
+        r#"[1, 2, 3]"#,
+        "{}",
+        r#"  { "key" : "value" }  "#,
+        r#"{"nested": {"key": "value"}}"#,
+        r#"[{"id": 1}, {"id": 2}]"#,
+        "true",
+        "false",
+        "null",
+        "123",
+        "42.5",
+        r#""hello""#,
+        r#"{"key": "value with \"escaped\" quotes"}"#,
+        "{\"key\": \"value with all quotes escaped\"}",
+    ];
+    let invalid = [
+        r#"Just a string"#,
+        r#"{"key": "value""#, // Missing closing brace
+        r#"<root><key>value</key></root>"#,
+        "OK",
+        "undefined",
+        r#"{'key': 'value'}"#, // Single quotes not valid JSON
+        r#"{"key": value}"#,   // Unquoted value
+    ];
+    for x in valid.iter() {
+        assert!(detect_json(x), "=> [REASON] \"{x}\" is NOT detected as valid JSON");
+    }
+    for x in invalid.iter() {
+        assert!(!detect_json(x), "=> [REASON] \"{x}\" IS detected as valid JSON");
+    }
 }
 #[test]
 fn test_extract_zip() {
