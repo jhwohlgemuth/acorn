@@ -27,6 +27,7 @@ use crate::util::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
 use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, ToAbsoluteString, ToStrings};
+use core::time::Duration;
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
 use duct::cmd;
@@ -742,26 +743,34 @@ where
     debug!("=> {} {binary:#?}", Label::using());
     binary.is_executable()
 }
+/// Create a configured HTTP client with proxy support and appropriate timeouts
+fn create_http_client() -> reqwest::blocking::Client {
+    reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .unwrap_or_else(|_| reqwest::blocking::Client::new())
+}
 /// Utility method to employ best practices when using a Reqwest client to make HTTP GET requests.
 pub fn network_get_request<U>(url: U) -> reqwest::blocking::RequestBuilder
 where
     U: reqwest::IntoUrl,
 {
-    reqwest::blocking::Client::new().get(url).header(USER_AGENT, "rust-web-api-client")
+    create_http_client().get(url).header(USER_AGENT, "rust-web-api-client/0.1")
 }
 /// Utility method to employ best practices when using a Reqwest client to make HTTP POST requests.
 pub fn network_post_request<U>(url: U) -> reqwest::blocking::RequestBuilder
 where
     U: reqwest::IntoUrl,
 {
-    reqwest::blocking::Client::new().post(url).header(USER_AGENT, "rust-web-api-client")
+    create_http_client().post(url).header(USER_AGENT, "rust-web-api-client/0.1")
 }
 /// Utility method to employ best practices when using a Reqwest client to make HTTP PUT requests.
 pub fn network_put_request<U>(url: U) -> reqwest::blocking::RequestBuilder
 where
     U: reqwest::IntoUrl,
 {
-    reqwest::blocking::Client::new().put(url).header(USER_AGENT, "rust-web-api-client")
+    create_http_client().put(url).header(USER_AGENT, "rust-web-api-client/0.1")
 }
 /// Returns the absolute path of the parent directory for the given path.
 pub fn parent<P>(path: P) -> PathBuf

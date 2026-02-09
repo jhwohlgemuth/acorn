@@ -40,7 +40,7 @@ owo-colors = { workspace = true }
 percy-dom = "0.10.0"
 playwright = "0.0.20"
 rayon = { workspace = true }
-reqwest = { version = "0.12.24", features = ["blocking", "rustls-tls", "json"], default-features = false }
+reqwest = { version = "0.12.24", features = ["blocking", "native-tls", "json"], default-features = false }
 rust-embed = { workspace = true }
 secrecy = { workspace = true }
 serde = { workspace = true }

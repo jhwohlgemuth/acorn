@@ -393,7 +393,6 @@ impl RestfulInterface for Endpoint {
                 context.insert("base", &self.base());
                 context.insert("query", &query);
                 let path = tera.render_str(template, &context).unwrap_or_default();
-                println!("Invoking endpoint at path: {path}");
                 // TODO: Add header params to network request
                 let request = match method {
                     | HttpMethod::Get => network_get_request(path),

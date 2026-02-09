@@ -27,7 +27,7 @@ fn test_bagit() {
         .info(info)
         .build()
         .with_payload();
-    assert_eq!(bag.payload.len(), 27);
+    assert_eq!(bag.payload.len(), 28);
     assert_eq!(bag.clone().info.unwrap().entries().len(), 2);
     match bag.save("../export/bag") {
         | Ok(path) => {

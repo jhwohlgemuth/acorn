@@ -55,7 +55,7 @@ petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = 
 polars = { version = "0.51.0", features = ["lazy"], default-features = false }
 quick-xml = { version = "0.38.3", features = ["serialize"], default-features = false }
 rayon = { workspace = true }
-reqwest = { version = "0.12.24", features = ["blocking", "rustls-tls", "json"], default-features = false, optional = true }
+reqwest = { version = "0.12.24", features = ["blocking", "native-tls", "json"], default-features = false, optional = true }
 ring = { version = "0.17.14", default-features = false }
 rust-embed = { workspace = true }
 rust-ini = { version = "0.21.3", default-features = false }
