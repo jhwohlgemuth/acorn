@@ -13,24 +13,24 @@ fn test_endpoint_from_location() {
     let expected = "https://api.example.com";
     let location = Location::Simple(expected.to_string());
     let endpoint: Endpoint = location.into();
-    assert_eq!(endpoint.domain, Some(expected.to_string()));
+    assert_eq!(endpoint.domain, expected);
     let expected = "https://api.example.com";
     let location = Location::Simple(format!("{expected}:8080/v1/data"));
     let endpoint: Endpoint = location.into();
-    assert_eq!(endpoint.domain, Some(expected.to_string()));
+    assert_eq!(endpoint.domain, expected);
     assert_eq!(endpoint.port, Some(8080));
     let location = Location::Detailed {
         scheme: Scheme::HTTPS,
         uri: "http://api.example.com".to_string(),
     };
     let endpoint: Endpoint = location.into();
-    assert_eq!(endpoint.domain, Some(expected.to_string()));
+    assert_eq!(endpoint.domain, expected);
     let location = Location::Detailed {
         scheme: Scheme::HTTPS,
         uri: "http://api.example.com:8080".to_string(),
     };
     let endpoint: Endpoint = location.into();
-    assert_eq!(endpoint.domain, Some(expected.to_string()));
+    assert_eq!(endpoint.domain, expected);
     assert_eq!(endpoint.port, Some(8080));
 }
 #[test]
@@ -42,7 +42,7 @@ fn test_endpoint_from_repository() {
         location: Location::Simple(uri.clone()),
     };
     let endpoint: Endpoint = nssd.into();
-    assert_eq!(endpoint.domain, Some(expected.to_string()));
+    assert_eq!(endpoint.domain, expected);
 }
 #[test]
 fn test_orcid_query_string() {
@@ -207,6 +207,14 @@ fn test_orcid_response_handler() {
     assert_eq!(sven.credit_name, Some("Dr. Sven Wohlgemuth".to_string()));
     let institutions = sven.institution_names.as_ref().expect("Institution names should exist");
     assert!(institutions.len() >= 10);
+}
+#[test]
+fn test_orcid_status_response_handler() {
+    let json = r#"{"tomcatUp":true,"dbConnectionOk":true,"readOnlyDbConnectionOk":true,"overallOk":true}"#;
+    // Parse JSON into OrcidStatusResponse
+    let response: orcid::StatusResponse = serde_json::from_str(json).expect("Failed to deserialize JSON");
+    // Verify response properties
+    dbg!(&response);
 }
 #[test]
 fn test_params() {

@@ -15,9 +15,24 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
             .values(vec![(Some("family-name"), None)])
             .with_key("fl"),
     ];
-    let orcid = api::Endpoint::init().domain("pub.orcid.org").root("v3.0").build();
+    // This will be a constant for ORCiD API endpoint
+    let resources = vec![
+        api::Resource::init()
+            .name("search")
+            .method(api::HttpMethod::Get)
+            .template("{{ base }}/expanded-search/{{ query }}")
+            .build(),
+        api::Resource::init()
+            .name("status")
+            .method(api::HttpMethod::Get)
+            .template("{{ base }}/pubStatus")
+            .build(),
+    ];
+    let orcid = api::Endpoint::at("pub.orcid.org").root("v3.0").resources(resources).build();
     let response = orcid.invoke_sync::<orcid::SearchField, orcid::OutputColumn>("search", Some(data));
     let text = orcid.handle::<orcid::SearchResponse>(response);
+    // let response = orcid.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
+    // let text = orcid.handle::<orcid::StatusResponse>(response);
     println!("Response: {text:#?}");
 
     Ok(())

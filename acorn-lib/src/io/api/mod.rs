@@ -2,13 +2,16 @@
 //!
 //! Interact with RESTful APIs, handling requests and responses, authentication, and data serialization.
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
-use crate::io::network_get_request;
+use crate::io::{network_get_request, network_post_request, network_put_request};
+use crate::prelude::io::ErrorKind;
+use crate::prelude::Error;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt;
+use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
-use tera::Context;
+use tera::{Context, Tera};
 use uriparse::URI;
 
 pub mod citeas;
@@ -27,20 +30,24 @@ pub trait Validate {
 /// against resource URLs that return structured data
 pub trait RestfulInterface {
     /// Build context for endpoint paths
-    fn build(&self) -> Context {
+    fn context(&self) -> Context {
         Context::new()
     }
     /// Handle a response from an endpoint request
-    fn handle<R>(&self, response: Result<String, reqwest::Error>) -> Result<R, String>
+    fn handle<R>(&self, response: Result<ResponseContent, Error>) -> Result<R, String>
     where
         R: for<'de> Deserialize<'de>;
     /// Send data to the endpoint and receive a response
-    fn invoke_sync<Q, F>(&self, action: impl Into<String>, data: Option<Vec<Param>>) -> Result<String, reqwest::Error>
+    fn invoke_sync<Q, F>(&self, action: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
     where
         Q: Validate + QueryField,
         F: QueryField;
-    /// Parse response string content
-    fn parse<R>(&self, content: &str) -> Result<R, String>
+    /// Parse JSON response string content
+    fn parse_json<R>(&self, content: &str) -> Result<R, String>
+    where
+        R: for<'de> Deserialize<'de>;
+    /// Parse XML response string content
+    fn parse_xml<R>(&self, content: &str) -> Result<R, String>
     where
         R: for<'de> Deserialize<'de>;
 }
@@ -84,6 +91,18 @@ pub enum ParamStyle {
     QueryField,
     /// Specifies response fields (e.g., "given-names,family-name")
     FieldList,
+    /// Header parameter
+    Header,
+    /// Body parameter (data sent via POST or PUT request)
+    Body,
+}
+/// Wrapper enum for including response content MIME type with response body text
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum ResponseContent {
+    /// JSON response content
+    Json(String),
+    /// XML response content
+    Xml(String),
 }
 /// Represents authentication credentials for accessing an API
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
@@ -96,20 +115,25 @@ pub struct Authentication {
     #[builder(default)]
     pub scheme: AuthenticationScheme,
 }
+/// Empty struct used for cases where no query fields are needed
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct EmptyField;
 /// Represents an API endpoint with a lookup table for calling various paths
 /// ### Note
 /// Paths use handlebars templating syntax for dynamic URL construction, powered by [Tera](https://keats.github.io/tera/)
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
-#[builder(start_fn = init, on(String, into))]
+#[builder(start_fn = at, on(String, into))]
 pub struct Endpoint {
+    /// The domain of the API endpoint
+    #[builder(start_fn)]
+    pub domain: String,
     /// The name of the API endpoint (used mainly for logging and identification)
     #[builder(default = String::new())]
     pub name: String,
     /// The scheme of the API endpoint
     #[builder(default = Scheme::HTTPS)]
     pub scheme: Scheme,
-    /// The domain of the API endpoint
-    pub domain: Option<String>,
     /// The port of the API endpoint
     pub port: Option<u16>,
     /// Authentication credentials for accessing the API endpoint
@@ -121,7 +145,7 @@ pub struct Endpoint {
     pub root: String,
     /// Resource data for generating full paths for the API endpoint using templates
     #[builder(default = vec![])]
-    pub resources: Vec<(String, HttpMethod, Vec<Param>)>,
+    pub resources: Vec<Resource>,
 }
 /// Describes a parameter (path, query, header, etc.) for an API resource
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
@@ -167,7 +191,7 @@ impl Endpoint {
         format!(
             "{}://{}{}/{}",
             self.scheme,
-            self.domain.clone().unwrap_or_default(),
+            self.domain.clone(),
             self.port.map_or(String::new(), |p| format!(":{p}")),
             self.root,
         )
@@ -190,16 +214,34 @@ impl fmt::Display for AuthenticationScheme {
         )
     }
 }
+
+impl fmt::Display for EmptyField {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "")
+    }
+}
 impl Default for Endpoint {
     fn default() -> Self {
-        Endpoint::init().domain("https://example.com").build()
+        Endpoint::at("https://example.com").build()
+    }
+}
+impl From<&str> for HttpMethod {
+    fn from(value: &str) -> Self {
+        match value.to_uppercase().as_str() {
+            | "GET" => HttpMethod::Get,
+            | "POST" => HttpMethod::Post,
+            | "PUT" => HttpMethod::Put,
+            | "PATCH" => HttpMethod::Patch,
+            | "DELETE" => HttpMethod::Delete,
+            | _ => HttpMethod::Get,
+        }
     }
 }
 impl<'a> From<URI<'a>> for Endpoint {
     fn from(value: URI<'a>) -> Self {
-        let domain: Option<String> = value.host().map(|h| format!("{}://{}", value.scheme(), h));
+        let domain: String = value.host().map(|h| format!("{}://{}", value.scheme(), h)).unwrap_or_default();
         let port: Option<u16> = value.authority().and_then(|auth| auth.port());
-        Endpoint::init().maybe_domain(domain).maybe_port(port).build()
+        Endpoint::at(domain).maybe_port(port).build()
     }
 }
 impl From<Location> for Endpoint {
@@ -219,10 +261,23 @@ impl From<Repository> for Endpoint {
     }
 }
 impl Param {
+    /// Check if this parameter is a body parameter
+    pub fn is_body(&self) -> bool {
+        matches!(self.style, ParamStyle::Body)
+    }
+    /// Check if this parameter is a query parameter (either a query pair, boosted query field, or field list)
+    pub fn is_query(&self) -> bool {
+        matches!(self.style, ParamStyle::QueryPair | ParamStyle::QueryField | ParamStyle::FieldList)
+    }
+    /// Check if this parameter is a header parameter
+    pub fn is_header(&self) -> bool {
+        matches!(self.style, ParamStyle::Header)
+    }
     /// Convert a list of params to a query string
     pub fn to_query_string<Q: QueryField + Validate, F: QueryField>(params: Vec<Param>) -> String {
         let query = params
             .iter()
+            .filter(|param| param.is_query())
             .map(|param| param.to_string::<Q, F>())
             .filter(|s| !s.is_empty())
             .collect::<Vec<String>>()
@@ -295,22 +350,27 @@ impl Param {
                     .collect();
                 param_from_field_list::<F>(key, separator, fields)
             }
+            | _ => None,
         };
         rendered.unwrap_or_default()
     }
 }
 impl RestfulInterface for Endpoint {
-    fn build(&self) -> Context {
+    fn context(&self) -> Context {
+        // let Self { resources, .. } = self;
         let mut context = Context::new();
         context.insert("base", &self.base());
         context
     }
-    fn handle<R>(&self, response: Result<String, reqwest::Error>) -> Result<R, String>
+    fn handle<R>(&self, response: Result<ResponseContent, Error>) -> Result<R, String>
     where
         R: for<'de> Deserialize<'de>,
     {
         match response {
-            | Ok(text) => self.parse(&text),
+            | Ok(content) => match content {
+                | ResponseContent::Json(text) => self.parse_json(&text),
+                | ResponseContent::Xml(text) => self.parse_xml(&text),
+            },
             | Err(e) => Err(e.to_string()),
         }
     }
@@ -318,28 +378,58 @@ impl RestfulInterface for Endpoint {
     /// ### Example
     /// ```ignore
     /// ```
-    fn invoke_sync<Q, F>(&self, _name: impl Into<String>, data: Option<Vec<Param>>) -> Result<String, reqwest::Error>
+    fn invoke_sync<Q, F>(&self, name: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
     where
         Q: Validate + QueryField,
         F: QueryField,
     {
-        let Self { scheme, domain, root, .. } = self;
-        // TODO: Get resource from lookup table using name
-        let _resource = Resource::init()
-            .name("search")
-            .method(HttpMethod::Get)
-            .template("{{ base }}/expanded-search/{{ query }}")
-            .build();
+        let Self { resources, .. } = self;
         let query = data.map_or_else(String::new, |params| Param::to_query_string::<Q, F>(params));
-        let resource = "expanded-search";
-        let path = [domain.as_deref().unwrap_or(""), root.as_str(), resource, &query].join("/");
-        println!("Invoking endpoint at path: {path}");
-        match network_get_request(format!("{scheme}://{path}")).send() {
-            | Err(e) => Err(e),
-            | Ok(response) => response.text(),
+        let mut tera = Tera::default();
+        let mut context = Context::new();
+        let resource = resources.iter().find(|resource| resource.name == name.clone().into());
+        match resource {
+            | Some(Resource { method, template, .. }) => {
+                context.insert("base", &self.base());
+                context.insert("query", &query);
+                let path = tera.render_str(template, &context).unwrap_or_default();
+                println!("Invoking endpoint at path: {path}");
+                // TODO: Add header params to network request
+                let request = match method {
+                    | HttpMethod::Get => network_get_request(path),
+                    // TODO: Pass Body params for POST and PUT requests
+                    | HttpMethod::Post => network_post_request(path),
+                    | HttpMethod::Put => network_put_request(path),
+                    | _ => unimplemented!("Only GET, POST, and PUT methods are currently implemented"),
+                };
+                match request.send() {
+                    | Ok(response) => {
+                        // TODO: Improve content type detection and handling (e.g., support for more MIME types, handle missing or malformed content-type headers, etc.)
+                        let is_json = content_type(response.headers()).contains("json");
+                        let text = response.text().unwrap_or_default();
+                        let content = if is_json {
+                            ResponseContent::Json(text)
+                        } else {
+                            ResponseContent::Xml(text)
+                        };
+                        Ok(content)
+                    }
+                    | Err(e) => Err(Error::other(e.to_string())),
+                }
+            }
+            | None => Err(Error::new(ErrorKind::NotFound, "Resource not found")),
         }
     }
-    fn parse<R>(&self, content: &str) -> Result<R, String>
+    fn parse_json<R>(&self, content: &str) -> Result<R, String>
+    where
+        R: for<'de> Deserialize<'de>,
+    {
+        match serde_json::from_str::<R>(content) {
+            | Ok(response) => Ok(response),
+            | Err(e) => Err(e.to_string()),
+        }
+    }
+    fn parse_xml<R>(&self, content: &str) -> Result<R, String>
     where
         R: for<'de> Deserialize<'de>,
     {
@@ -348,6 +438,25 @@ impl RestfulInterface for Endpoint {
             | Err(e) => Err(e.to_string()),
         }
     }
+}
+impl TryFrom<&str> for EmptyField {
+    type Error = String;
+
+    fn try_from(_value: &str) -> Result<Self, Self::Error> {
+        Ok(EmptyField)
+    }
+}
+impl Validate for EmptyField {
+    fn is_valid(&self, _value: &str) -> bool {
+        true
+    }
+}
+fn content_type(headers: &HeaderMap) -> String {
+    headers
+        .get("content-type")
+        .and_then(|ct| ct.to_str().ok())
+        .unwrap_or_default()
+        .to_string()
 }
 /// Create a query string from a lookup table of key-value pairs with field validation
 pub fn param_from_query_pairs<T: Validate + QueryField>(key: &str, separator: &str, pairs: Vec<(&str, &str)>) -> Option<String> {

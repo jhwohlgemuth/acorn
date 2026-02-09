@@ -142,7 +142,7 @@ pub struct SearchResult {
 /// }
 /// ```
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Status {
+pub struct StatusResponse {
     /// Application server status
     #[serde(rename = "tomcatUp")]
     pub application: bool,
