@@ -40,12 +40,7 @@ use similar::{
 pub mod constants;
 pub mod macros;
 
-/// Cross-platform line separator (CRLF on Windows, LF on Unix)
-#[cfg(target_os = "windows")]
-const LINE_SEPARATOR: &str = "\r\n";
-/// Cross-platform line separator (CRLF on Windows, LF on Unix)
-#[cfg(not(target_os = "windows"))]
-const LINE_SEPARATOR: &str = "\n";
+use constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
 
 /// Trait for augmenting data with linked data context
 pub trait LinkedData {
@@ -747,6 +742,71 @@ where
             .map(|chunk| String::from_utf8(chunk.to_vec()).unwrap())
             .collect::<Vec<_>>()
     }
+}
+/// Returns a base32 encoded string using the [base 32 Crockford](https://www.crockford.com/base32.html) alphabet
+/// ### Note
+/// > Uses Crockford base32 alphabet (excludes I, L, O, U to avoid confusion)
+///
+/// ### Example
+/// ```rust
+/// use acorn::util::base32_crockford_encode;
+///
+/// let encoded = base32_crockford_encode(1234);
+/// assert_eq!(encoded, "16j");
+/// ```
+pub fn base32_crockford_encode(value: u128) -> String {
+    if value == 0 {
+        "0".to_string()
+    } else {
+        const MODULUS: u128 = CROCKFORD_BASE32_ALPHABET.len() as u128;
+        successors(Some(value), |&n| (n >= MODULUS).then_some(n / MODULUS))
+            .map(|n| CROCKFORD_BASE32_ALPHABET[(n % MODULUS) as usize] as char)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<String>()
+            .to_ascii_lowercase()
+    }
+}
+/// Decode a base32 Crockford string into a u128 value.
+///
+/// ### Note
+/// - Accepts lowercase/uppercase
+/// - Treats `O` as `0` and `I`/`L` as `1`
+/// - Ignores `-`, `_`, and whitespace separators
+///
+/// ### Example
+/// ```rust
+/// use acorn::util::base32_crockford_decode;
+///
+/// let decoded = base32_crockford_decode("16j").unwrap();
+/// assert_eq!(decoded, 1234);
+/// ```
+pub fn base32_crockford_decode(value: impl AsRef<str>) -> Option<u128> {
+    const MODULUS: u128 = CROCKFORD_BASE32_ALPHABET.len() as u128;
+    value
+        .as_ref()
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '-' && *c != '_')
+        .try_fold(0u128, |acc, c| {
+            let digit = crockford_digit(c)?;
+            match acc.checked_mul(MODULUS) {
+                | Some(value) => value.checked_add(digit),
+                | None => None,
+            }
+        })
+}
+fn crockford_digit(value: char) -> Option<u128> {
+    let upper = value.to_ascii_uppercase();
+    let normalized = if upper == 'O' {
+        '0'
+    } else if upper == 'I' || upper == 'L' {
+        '1'
+    } else {
+        upper
+    };
+    let byte = normalized as u8;
+    CROCKFORD_BASE32_ALPHABET.iter().position(|&b| b == byte).map(|index| index as u128)
 }
 /// Returns the current date in ISO8601 format (YYYY-MM-DD).
 /// ### Examples

@@ -12,6 +12,19 @@ use temp_env;
 const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
+fn test_base32_crockford() {
+    let value = 1234;
+    let expected = "16j";
+    assert_eq!(base32_crockford_encode(value), expected);
+    let value = 123456789012345;
+    let expected = "3g9230vqvs";
+    assert_eq!(base32_crockford_encode(value), expected);
+    // Round trip
+    let value = 1234;
+    let encoded = base32_crockford_encode(value);
+    assert_eq!(base32_crockford_decode(&encoded), Some(value));
+}
+#[test]
 fn test_chunk_string() {
     assert_eq!("abcdefghi".chunk(3), vec!["abc", "def", "ghi"]);
     assert_eq!("abcdefghi".chunk(2), vec!["ab", "cd", "ef", "gh", "i"]);

@@ -1,7 +1,7 @@
 use crate::prelude::PathBuf;
 use crate::schema::pid::patent::KindCode;
 use crate::schema::pid::{
-    isbn_check_digit, iso7064_check_digit, noid_check_digit, raid, Betanumeric, Patent, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI,
+    isbn_check_digit, noid_check_digit, orcid_check_digit, raid, Betanumeric, Patent, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI,
     ISBN, ORCID, PID, RAID,
 };
 use crate::schema::Validate;
@@ -163,27 +163,6 @@ fn test_isbn() {
     // assert_eq!(result.to_string(), "978-0-306-40627-0");
 }
 #[test]
-fn test_iso7064_check_digit() {
-    let value = "000000031415926";
-    let expected = Some('9');
-    assert_eq!(iso7064_check_digit(value), expected);
-    let value = "0000-0002-2057-911";
-    let expected = Some('5');
-    assert_eq!(iso7064_check_digit(value), expected);
-    let value = "0000-0002-2057-9115";
-    let expected = Some('5');
-    assert_eq!(iso7064_check_digit(value), expected);
-    let value = "0000-0002-1823-1234";
-    let expected = Some('2');
-    assert_eq!(iso7064_check_digit(value), expected);
-    let value = "0000-0001-9034-3389";
-    let expected = Some('9');
-    assert_eq!(iso7064_check_digit(value), expected);
-    let value = "0000-0002-2816-415X";
-    let expected = Some('X');
-    assert_eq!(iso7064_check_digit(value), expected);
-}
-#[test]
 fn test_kindcode() {
     assert!(KindCode::B1.is_granted());
     assert!(!KindCode::A1.is_granted());
@@ -233,6 +212,27 @@ fn test_orcid() {
     assert_eq!(valid.format_as(PID::ORCID), valid);
     assert_eq!("0000-0002-2057-9115".format_as(PID::ORCID), valid);
     assert_eq!("0000000220579115".format_as(PID::ORCID), valid);
+}
+#[test]
+fn test_orcid_check_digit() {
+    let value = "000000031415926";
+    let expected = Some('9');
+    assert_eq!(orcid_check_digit(value), expected);
+    let value = "0000-0002-2057-911";
+    let expected = Some('5');
+    assert_eq!(orcid_check_digit(value), expected);
+    let value = "0000-0002-2057-9115";
+    let expected = Some('5');
+    assert_eq!(orcid_check_digit(value), expected);
+    let value = "0000-0002-1823-1234";
+    let expected = Some('2');
+    assert_eq!(orcid_check_digit(value), expected);
+    let value = "0000-0001-9034-3389";
+    let expected = Some('9');
+    assert_eq!(orcid_check_digit(value), expected);
+    let value = "0000-0002-2816-415X";
+    let expected = Some('X');
+    assert_eq!(orcid_check_digit(value), expected);
 }
 #[test]
 fn test_orcid_struct() {
@@ -329,3 +329,9 @@ fn test_raid_read() {
     assert!(data.is_some());
     let _ = data.unwrap().validate();
 }
+// #[test]
+// fn test_ror_check_digit() {
+//     let value = "01qz5mb";
+//     let expected = Some('5');
+//     assert_eq!(ror_check_digit(value), expected);
+// }

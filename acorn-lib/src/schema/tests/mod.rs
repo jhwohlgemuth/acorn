@@ -70,9 +70,8 @@ const VALID_ORCID_VALUES: [&str; 14] = [
     "0000-0002-2816-415X",
 ];
 // Downloaded from https://zenodo.org/records/14728473
-const VALID_ROR_VALUES: [&str; 29] = [
+const VALID_ROR_VALUES: [&str; 28] = [
     "https://ror.org/01qz5mb56",
-    "ror.org/01qz5mb56",
     "01qz5mb56",
     "https://ror.org/04ttjf776",
     "https://ror.org/01rxfrp27",

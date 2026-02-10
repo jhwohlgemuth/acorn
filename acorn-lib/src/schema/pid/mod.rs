@@ -9,7 +9,7 @@
 //!
 //! [RAiDs]: https://www.raid.org/
 use crate::util::constants::{
-    DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT,
+    DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR_TEXT,
 };
 use crate::util::{regex_capture_lookup, ToStringChunks};
 use bon::Builder;
@@ -127,6 +127,12 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     ///
     /// assert!("https://raid.org/10.83962/fb5be317".is_raid());
     fn is_raid(&self) -> bool;
+    /// Determines if `self` is a ROR
+    /// ```ignore
+    /// use acorn::schema::pid::{PID, PersistentIdentifier};
+    ///
+    /// assert!("https://ror.org/01qz5mb56".is_ror());
+    fn is_ror(&self) -> bool;
 }
 /// Internal representation of a persistent identifier
 #[derive(Default)]
@@ -197,7 +203,7 @@ pub enum PID {
 ///
 /// See the [ARK specification](https://datatracker.ietf.org/doc/draft-kunze-ark/) and <https://wiki.lyrasis.org/display/ARKs/ARK+Identifiers+FAQ> for more information
 #[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 pub struct ARK {
     /// The part of the ARK string that your organization is responsible for making unique.
     ///
@@ -311,7 +317,7 @@ pub struct ORCID {
     pub identifier: Option<String>,
     /// The check digit is the last (16th) digit of the identifier
     /// ### Note
-    /// Check digit should be verified IAW by [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html) (see [`iso7064_check_digit`])
+    /// Check digit should be verified IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html) (see [`iso7064_check_digit`])
     pub check_digit: Option<String>,
 }
 /// Research Activity Identifier (RAiD)[^raid]
@@ -334,6 +340,23 @@ pub struct RAID {
     ///
     /// Metadata associated with identifier. See <https://metadata.raid.org> for more information.
     pub metadata: Option<raid::Metadata>,
+}
+/// Research Organization Registry (ROR)[^ror]
+///
+/// A global, community-led registry of open persistent identifiers for research and funding organizations
+///
+/// [^ror]: https://ror.org/
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init, on(String, into))]
+pub struct ROR {
+    /// Schema URI (e.g., <https://ror.org/>)
+    pub schema_uri: Option<String>,
+    /// ROR identifier value
+    pub identifier: Option<String>,
+    /// The last two integers are a zero-padded checksum, 01 -98
+    /// ### Note
+    /// Check digits should be verified IAW [ISO 7064](https://www.iso.org/standard/31531.html)
+    pub check_digit: Option<String>,
 }
 impl ARK {
     /// Convenience method for easily parsing and formatting an ARK from a string value
@@ -594,7 +617,7 @@ impl ORCID {
         let pid = ORCID::from_string(value.as_ref());
         let identifier = pid.identifier();
         let last = identifier.chars().last().unwrap_or_default();
-        match iso7064_check_digit(identifier.as_str()) {
+        match orcid_check_digit(identifier.as_str()) {
             | Some(check_digit) => match RE_ORCID.is_match(value.as_ref()) {
                 | Ok(true) if check_digit.eq(&last) && identifier.len() == 19 => true,
                 | _ => false,
@@ -653,6 +676,65 @@ impl RAID {
         prefix_is_valid && suffix_is_valid
     }
 }
+impl ROR {
+    /// Convenience method for easily parsing and formatting a ROR from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::ROR;
+    ///
+    /// assert_eq!(ROR::format("https://ror.org/01qz5mb56"), "https://ror.org/01qz5mb56");
+    /// assert_eq!(ROR::format("01qz5mb56"), "https://ror.org/01qz5mb56");
+    /// ```
+    pub fn format<S>(value: S) -> String
+    where
+        S: AsRef<str>,
+    {
+        ROR::from_string(value).to_string()
+    }
+    /// Create new ROR by parsing raw string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ROR, PersistentIdentifier};
+    ///
+    /// let ror = ROR::from_string("https://ror.org/01qz5mb56");
+    /// assert_eq!(ror.identifier(), "01qz5mb56");
+    /// ```
+    pub fn from_string<S>(value: S) -> Self
+    where
+        S: AsRef<str>,
+    {
+        let groups = ["schema_uri", "identifier", "check_digit"];
+        let lookup = regex_capture_lookup(RE_ROR_TEXT, value.as_ref(), groups.to_vec());
+        ROR::init()
+            .maybe_schema_uri(lookup.get("schema_uri").cloned())
+            .maybe_identifier(lookup.get("identifier").cloned())
+            .maybe_check_digit(lookup.get("check_digit").cloned())
+            .build()
+    }
+    /// Check if value is a valid ROR
+    /// ### Conditions
+    /// - Exactly 9 characters long
+    /// - Must have a valid check digits (last two characters are zero-padded checksum, 01-98) (see [`ror_check_digit`])
+    /// - [Base32 Crockford](https://www.crockford.com/base32.html) encoded (i.e., digits 0-9 and letters A-Z except for I, L, O, and U)
+    /// - Value can be valid with or without schema URI[^format]
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ROR, PersistentIdentifier};
+    ///
+    /// assert!(ROR::is_valid("https://ror.org/01qz5mb56"));
+    /// assert!(ROR::is_valid("01qz5mb56"));
+    /// ```
+    ///
+    /// [^format]: Use `ROR::format(value)` to ensure value is formatted correctly
+    pub fn is_valid<S>(value: S) -> bool
+    where
+        S: AsRef<str>,
+    {
+        let pid = ROR::from_string(value.as_ref());
+        let identifier = pid.identifier();
+        identifier.len() == 9
+    }
+}
 impl Default for ARK {
     fn default() -> Self {
         Self::new()
@@ -669,6 +751,11 @@ impl Default for ORCID {
     }
 }
 impl Default for RAID {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Default for ROR {
     fn default() -> Self {
         Self::new()
     }
@@ -720,6 +807,14 @@ impl fmt::Display for RAID {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let result = self.identifier();
         write!(f, "{result}")
+    }
+}
+impl fmt::Display for ROR {
+    /// Format a ROR into a standard format of `"{schema_uri}{identifier}"`
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let schema_uri = self.schema_uri();
+        let result = self.identifier();
+        write!(f, "{schema_uri}{result}")
     }
 }
 impl PersistentIdentifier for ARK {
@@ -939,7 +1034,7 @@ impl PersistentIdentifier for ORCID {
         Some(self.identifier())
     }
     fn check_digit(&self) -> Option<char> {
-        iso7064_check_digit(self.identifier())
+        orcid_check_digit(self.identifier())
     }
 }
 impl PersistentIdentifier for RAID {
@@ -966,6 +1061,31 @@ impl PersistentIdentifier for RAID {
             .join("/")
     }
 }
+impl PersistentIdentifier for ROR {
+    fn new() -> Self {
+        ROR::init().build()
+    }
+    fn schema_uri(&self) -> String {
+        let processed = self
+            .schema_uri
+            .as_ref()
+            .cloned()
+            .unwrap_or_default()
+            .trim_end_matches("/")
+            .replace(" ", "")
+            .to_string();
+        format!("{processed}/")
+    }
+    fn identifier(&self) -> String {
+        self.identifier.clone().unwrap_or_default()
+    }
+    fn suffix(&self) -> Option<String> {
+        self.identifier.clone()
+    }
+    fn check_digit(&self) -> Option<char> {
+        ror_check_digit(self.identifier())
+    }
+}
 impl<T: AsRef<str>> PersistentIdentifierConvert<T> for T
 where
     T: ToString,
@@ -976,6 +1096,7 @@ where
             | PID::DOI => DOI::format(self.as_ref()),
             | PID::ORCID => ORCID::format(self.as_ref()),
             | PID::RAID => RAID::format(self.as_ref()),
+            | PID::ROR => ROR::format(self.as_ref()),
             | _ => self.as_ref().to_string(),
         }
     }
@@ -986,6 +1107,7 @@ where
             | PID::DOI => PersistentIdentifierInternal { value, pid_type: PID::DOI },
             | PID::ORCID => PersistentIdentifierInternal { value, pid_type: PID::ORCID },
             | PID::RAID => PersistentIdentifierInternal { value, pid_type: PID::RAID },
+            | PID::ROR => PersistentIdentifierInternal { value, pid_type: PID::ROR },
             | _ => PersistentIdentifierInternal::default(),
         }
     }
@@ -995,6 +1117,7 @@ where
             | PID::DOI => self.is_doi(),
             | PID::ORCID => self.is_orcid(),
             | PID::RAID => self.is_raid(),
+            | PID::ROR => self.is_ror(),
             | _ => false,
         }
     }
@@ -1012,6 +1135,9 @@ where
     }
     fn is_raid(&self) -> bool {
         RAID::is_valid(self.as_ref())
+    }
+    fn is_ror(&self) -> bool {
+        ROR::is_valid(self.as_ref())
     }
 }
 impl PersistentIdentifierInternal {
@@ -1047,6 +1173,14 @@ impl PersistentIdentifierInternal {
             | _ => RAID::default(),
         }
     }
+    /// Convert a `PersistentIdentifierInternal` to a `ROR`
+    pub fn to_ror(&self) -> ROR {
+        let PersistentIdentifierInternal { value, pid_type } = self;
+        match pid_type {
+            | PID::ROR => ROR::from_string(value),
+            | _ => ROR::default(),
+        }
+    }
 }
 impl Betanumeric for char {
     fn is_betanumeric(&self) -> bool {
@@ -1077,36 +1211,6 @@ where
     let result = if remainder == 0 { 0 } else { MODULUS - remainder };
     char::from_digit(result, 10)
 }
-/// Calculate check digit IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html)
-///
-/// "MOD 11-2" means modulus = 11 and radix = 2
-///
-/// ### Example
-/// ```rust
-/// use acorn::schema::pid::iso7064_check_digit;
-///
-/// assert_eq!(iso7064_check_digit("0000000220579115"), Some('5'));
-/// assert_eq!(iso7064_check_digit("0000-0002-2057-9115"), Some('5'));
-/// ```
-pub fn iso7064_check_digit<S>(value: S) -> Option<char>
-where
-    S: AsRef<str>,
-{
-    const MODULUS: u32 = 11;
-    const RADIX: u32 = 2;
-    let working = value.as_ref().replace("-", "");
-    let sum = working.chars().take(15).fold(0, |acc, x| {
-        let digit = x.to_digit(10).unwrap_or_default();
-        (acc + digit) * RADIX
-    });
-    let remainder = sum % MODULUS;
-    let result = (MODULUS + 1 - remainder) % MODULUS;
-    if result == 10 {
-        Some('X')
-    } else {
-        char::from_digit(result, 10)
-    }
-}
 /// Calculate check xdigit ("extended digit") IAW [NOID check digit algorithm (NCDA)](https://metacpan.org/dist/Noid/view/noid#NOID-CHECK-DIGIT-ALGORITHM)
 /// ### Notes
 /// - Check digits are not expected to cover qualifiers
@@ -1133,6 +1237,65 @@ where
     });
     let remainder = sum % RADIX;
     to_betanumeric(remainder as u8)
+}
+/// Calculate check digit IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html)
+///
+/// "MOD 11-2" means modulus = 11 and radix = 2
+///
+/// ### Example
+/// ```rust
+/// use acorn::schema::pid::orcid_check_digit;
+///
+/// assert_eq!(orcid_check_digit("0000000220579115"), Some('5'));
+/// assert_eq!(orcid_check_digit("0000-0002-2057-9115"), Some('5'));
+/// ```
+pub fn orcid_check_digit<S>(value: S) -> Option<char>
+where
+    S: AsRef<str>,
+{
+    const MODULUS: u32 = 11;
+    const RADIX: u32 = 2;
+    let working = value.as_ref().replace("-", "").replace(" ", "");
+    let sum = working.chars().take(15).fold(0, |acc, x| {
+        let digit = x.to_digit(10).unwrap_or_default();
+        (acc + digit) * RADIX
+    });
+    let remainder = sum % MODULUS;
+    let result = (MODULUS + 1 - remainder) % MODULUS;
+    if result == 10 {
+        Some('X')
+    } else {
+        char::from_digit(result, 10)
+    }
+}
+/// Calculate check digit IAW [ISO 7064, MOD 97-10](https://www.iso.org/standard/31531.html)
+///
+/// "MOD 97-10" means modulus = 97 and radix = 10
+///
+/// ### Example
+/// ```rust
+/// use acorn::schema::pid::ror_check_digit;
+///
+/// assert_eq!(ror_check_digit("01qz5mb"), Some("56"));
+/// ```
+pub fn ror_check_digit<S>(value: S) -> Option<char>
+where
+    S: AsRef<str>,
+{
+    const MODULUS: u32 = 97;
+    const RADIX: u32 = 10;
+    let working = value.as_ref().replace("-", "").replace(" ", "");
+    let sum = working.chars().take(15).fold(0, |acc, x| {
+        let digit = x.to_digit(10).unwrap_or_default();
+        (acc + digit) * RADIX
+    });
+    let remainder = sum % MODULUS;
+    let result = (MODULUS + 1 - remainder) % MODULUS;
+    if result == 10 {
+        Some('X')
+    } else {
+        char::from_digit(result, 10)
+    }
 }
 fn to_betanumeric(value: u8) -> Option<char> {
     match BETANUMERIC_DIGITS.chars().enumerate().find(|(i, _)| *i == value as usize) {

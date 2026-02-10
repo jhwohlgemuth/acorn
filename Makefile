@@ -64,6 +64,9 @@ publish-book: book
 	@cd ./site && git add html && git commit -m "Publish ACORN Book" && git push
 
 test:
+	@cargo nextest run
+
+test-all:
 	@cargo nextest run --run-ignored all
 
 test-ci: clean lint

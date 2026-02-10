@@ -6,6 +6,14 @@ use lazy_static::lazy_static;
 
 /// ORNL disclaimer
 pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
+/// Crockford base32 alphabet (excludes I, L, O, U to avoid confusion)
+pub const CROCKFORD_BASE32_ALPHABET: &[u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+/// Cross-platform line separator (CRLF on Windows, LF on Unix)
+#[cfg(target_os = "windows")]
+pub const LINE_SEPARATOR: &str = "\r\n";
+/// Cross-platform line separator (CRLF on Windows, LF on Unix)
+#[cfg(not(target_os = "windows"))]
+pub const LINE_SEPARATOR: &str = "\n";
 /// Base URL for deploying ORNL data
 pub const BASE_URL: &str = "https://research.ornl.gov";
 /// RGB color for transparency
@@ -147,9 +155,11 @@ pub const RE_ORCID_TEXT: &str =
 /// Pattern text for USPTO patent identifiers
 pub const RE_PATENT_TEXT: &str =
     r#"(?<country_code>US|CN|DE|EP|JP|KR)?\s*(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>[\d,]{1,11})\s*(?<kind_code>[A-Z]\d?)"#;
-/// Pattern text for DOI regular expression defined by [`RE_DOI`]
+/// Pattern text for RAID regular expression defined by [`RE_RAID`]
 pub const RE_RAID_TEXT: &str =
     r#"^(?<schema_uri>https[:]\/\/raid\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#;
+/// Pattern text for ROR regular expression defined by [`RE_ROR`]
+pub const RE_ROR_TEXT: &str = r#"^(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2})$"#;
 
 lazy_static! {
     /// Regex that should match a Archival Resource Key (ARK)
@@ -171,11 +181,11 @@ lazy_static! {
     /// Regex that should match a Research Activity Identifier (RAiD)
     ///
     /// See <https://raid.org/> for more information
-    pub static ref RE_RAID: Regex = Regex::new(RE_DOI_TEXT).unwrap();
+    pub static ref RE_RAID: Regex = Regex::new(RE_RAID_TEXT).unwrap();
     /// Regex that should match a Research Organization Registry (ROR)
     ///
     /// See <https://www.ror.org/> for more information
-    pub static ref RE_ROR: Regex = Regex::new(r#"^(?<schema_uri>(https[:]\/\/ror\.org\/)|(ror[.]org\/))?0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2}$"#).unwrap();
+    pub static ref RE_ROR: Regex = Regex::new(RE_ROR_TEXT).unwrap();
     /// Regex that should match an image extension (e.g. .png, .jpg, .jpeg, .svg)
     pub static ref RE_IMAGE_EXTENSION: Regex = Regex::new(r#".*[.](png|PNG|jpg|JPG|jpeg|JPEG|svg|SVG|gif|GIF|webp|WEBP|tiff|TIFF)$"#).unwrap();
     /// Regex that should match an IP6 address
