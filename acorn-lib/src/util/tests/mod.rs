@@ -58,6 +58,38 @@ fn test_detect_json() {
     }
 }
 #[test]
+fn test_detect_xml() {
+    let valid = [
+        r#"<root></root>"#,
+        r#"<?xml version="1.0"?><root></root>"#,
+        r#"<root><child></child></root>"#,
+        r#"<root attr="value"></root>"#,
+        r#"<root><child>text</child></root>"#,
+        r#"<root><child attr="val">text</child></root>"#,
+        r#"<root><child1></child1><child2></child2></root>"#,
+        r#"  <root></root>  "#,
+        r#"<root><!-- comment --></root>"#,
+        r#"<root><![CDATA[data]]></root>"#,
+    ];
+    let invalid = [
+        r#"Just a string"#,
+        r#"<root></root"#,         // Missing closing >
+        r#"<root><child></root>"#, // Mismatched tags
+        r#"{"key": "value"}"#,
+        "OK",
+        r#"root></root>"#, // Missing opening <
+        "",
+        r#"<root"#,       // Incomplete tag
+        r#"root</root>"#, // Missing opening <
+    ];
+    for x in valid.iter() {
+        assert!(detect_xml(x), "=> [REASON] \"{x}\" is NOT detected as valid XML");
+    }
+    for x in invalid.iter() {
+        assert!(!detect_xml(x), "=> [REASON] \"{x}\" IS detected as valid XML");
+    }
+}
+#[test]
 fn test_extract_zip() {
     let path = PathBuf::from(FIXTURES).join("data/highlight/reference.pptx");
     let result = extract_zip(path, None);

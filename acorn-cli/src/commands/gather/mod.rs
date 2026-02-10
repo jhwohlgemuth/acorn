@@ -28,11 +28,14 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
             .with_key("fl"),
     ];
     let orcid = api::Endpoint::at("pub.orcid.org").root("v3.0").resources(resources).build();
+    // Search for ORCiDs
     let response = orcid.invoke_sync::<orcid::SearchField, orcid::OutputColumn>("search", Some(data));
     let text = orcid.handle::<orcid::SearchResponse>(response);
-    // let response = orcid.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
-    // let text = orcid.handle::<orcid::StatusResponse>(response);
     println!("Response: {text:#?}");
+    // Check the status of the API
+    let response = orcid.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
+    let text = orcid.handle::<orcid::StatusResponse>(response);
+    println!("Status: {text:#?}");
 
     Ok(())
 }

@@ -6,6 +6,7 @@ use crate::io::{network_get_request, network_post_request, network_put_request};
 use crate::prelude::io::ErrorKind;
 use crate::prelude::Error;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
+use crate::util::{detect_json, detect_xml};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt;
@@ -100,8 +101,16 @@ pub enum ParamStyle {
 pub enum ResponseContent {
     /// JSON response content
     Json(String),
+    /// Raw text response content
+    Raw(String),
     /// XML response content
     Xml(String),
+}
+/// Wrapper struct for raw text responses that cannot be parsed as JSON or XML
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TextResponse {
+    /// The raw text content from the response
+    pub content: String,
 }
 /// Represents authentication credentials for accessing an API
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
@@ -368,8 +377,14 @@ impl RestfulInterface for Endpoint {
     {
         match response {
             | Ok(content) => match content {
-                | ResponseContent::Json(text) => self.parse_json(&text),
-                | ResponseContent::Xml(text) => self.parse_xml(&text),
+                | ResponseContent::Json(content) => self.parse_json(&content),
+                | ResponseContent::Xml(content) => self.parse_xml(&content),
+                | ResponseContent::Raw(content) => {
+                    let raw = TextResponse { content };
+                    serde_json::to_string(&raw)
+                        .map_err(|e| e.to_string())
+                        .and_then(|json| self.parse_json(&json))
+                }
             },
             | Err(e) => Err(e.to_string()),
         }
@@ -402,20 +417,19 @@ impl RestfulInterface for Endpoint {
                     | _ => unimplemented!("Only GET, POST, and PUT methods are currently implemented"),
                 };
                 match request.send() {
-                    | Ok(response) => {
-                        let is_json = detect_json(&response);
-                        match response.text() {
-                            | Ok(text) => {
-                                let content = if is_json {
-                                    ResponseContent::Json(text)
-                                } else {
-                                    ResponseContent::Xml(text)
-                                };
-                                Ok(content)
-                            }
-                            | Err(e) => Err(Error::other(e.to_string())),
+                    | Ok(response) => match response.text() {
+                        | Ok(text) => {
+                            let content = if detect_json(&text) {
+                                ResponseContent::Json(text)
+                            } else if detect_xml(&text) {
+                                ResponseContent::Xml(text)
+                            } else {
+                                ResponseContent::Raw(text)
+                            };
+                            Ok(content)
                         }
-                    }
+                        | Err(e) => Err(Error::other(e.to_string())),
+                    },
                     | Err(e) => Err(Error::other(e.to_string())),
                 }
             }
@@ -452,16 +466,6 @@ impl Validate for EmptyField {
     fn is_valid(&self, _value: &str) -> bool {
         true
     }
-}
-fn detect_json(response: &reqwest::blocking::Response) -> bool {
-    // TODO: Improve content type detection and handling (e.g., support for more MIME types, handle missing or malformed content-type headers, etc.)
-    let text = response
-        .headers()
-        .get("content-type")
-        .and_then(|ct| ct.to_str().ok())
-        .unwrap_or_default()
-        .to_string();
-    text.to_lowercase().contains("json")
 }
 /// Create a query string from a lookup table of key-value pairs with field validation
 pub fn param_from_query_pairs<T: Validate + QueryField>(key: &str, separator: &str, pairs: Vec<(&str, &str)>) -> Option<String> {

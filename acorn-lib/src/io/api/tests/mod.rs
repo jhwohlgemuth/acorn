@@ -1,5 +1,4 @@
-use crate::io::api::{self, orcid};
-use crate::io::api::{Endpoint, Param, ParamStyle};
+use crate::io::api::{self, orcid, Endpoint, Param, ParamStyle, ResponseContent, RestfulInterface};
 use crate::io::read_file;
 use crate::{Location, Repository, Scheme};
 use std::path::PathBuf;
@@ -43,6 +42,45 @@ fn test_endpoint_from_repository() {
     };
     let endpoint: Endpoint = nssd.into();
     assert_eq!(endpoint.domain, expected);
+}
+#[test]
+fn test_endpoint_handle() {
+    let xml = Ok(ResponseContent::Xml("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<expanded-search:expanded-search num-found=\"2\" xmlns:expanded-search=\"http://www.orcid.org/ns/expanded-search\">\n    <expanded-search:expanded-result>\n        <expanded-search:family-names>Carson</expanded-search:family-names>\n    </expanded-search:expanded-result>\n    <expanded-search:expanded-result>\n        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>\n    </expanded-search:expanded-result>\n</expanded-search:expanded-search>\n".to_string()));
+    let endpoint = Endpoint::at("pub.orcid.org").root("v3.0").build();
+    let response = endpoint.handle::<orcid::SearchResponse>(xml).expect("Failed to parse XML");
+    assert_eq!(response.num_found, 2);
+    assert_eq!(response.namespace, "http://www.orcid.org/ns/expanded-search");
+    assert_eq!(response.results.len(), 2);
+    assert_eq!(response.results[0].family_names, Some("Carson".to_string()));
+    assert_eq!(response.results[1].family_names, Some("Wohlgemuth".to_string()));
+    let json = Ok(ResponseContent::Json(
+        "{\"tomcatUp\":true,\"dbConnectionOk\":true,\"readOnlyDbConnectionOk\":false,\"overallOk\":true}".to_string(),
+    ));
+    let status = endpoint.handle::<orcid::StatusResponse>(json).expect("Failed to parse JSON");
+    assert!(status.application);
+    assert!(status.database);
+    assert!(!status.database_readonly);
+    assert!(status.overall);
+    let raw = Ok(ResponseContent::Raw("OK".to_string()));
+    let response = endpoint.handle::<api::TextResponse>(raw).expect("Failed to parse raw text");
+    assert_eq!(response.content, "OK");
+}
+#[test]
+fn test_endpoint_parse() {
+    let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<expanded-search:expanded-search num-found=\"2\" xmlns:expanded-search=\"http://www.orcid.org/ns/expanded-search\">\n    <expanded-search:expanded-result>\n        <expanded-search:family-names>Carson</expanded-search:family-names>\n    </expanded-search:expanded-result>\n    <expanded-search:expanded-result>\n        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>\n    </expanded-search:expanded-result>\n</expanded-search:expanded-search>\n";
+    let endpoint = Endpoint::at("pub.orcid.org").root("v3.0").build();
+    let response = endpoint.parse_xml::<orcid::SearchResponse>(xml).expect("Failed to parse XML");
+    assert_eq!(response.num_found, 2);
+    assert_eq!(response.namespace, "http://www.orcid.org/ns/expanded-search");
+    assert_eq!(response.results.len(), 2);
+    assert_eq!(response.results[0].family_names, Some("Carson".to_string()));
+    assert_eq!(response.results[1].family_names, Some("Wohlgemuth".to_string()));
+    let json = "{\"tomcatUp\":true,\"dbConnectionOk\":true,\"readOnlyDbConnectionOk\":false,\"overallOk\":true}";
+    let status = endpoint.parse_json::<orcid::StatusResponse>(json).expect("Failed to parse JSON");
+    assert!(status.application);
+    assert!(status.database);
+    assert!(!status.database_readonly);
+    assert!(status.overall);
 }
 #[test]
 fn test_orcid_query_string() {

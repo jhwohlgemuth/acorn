@@ -765,6 +765,24 @@ pub fn current_date() -> String {
 pub fn detect_json(text: impl ToString) -> bool {
     serde_json::from_str::<serde_json::Value>(&text.to_string()).is_ok()
 }
+/// Try to parse text as XML and return `true` if successful, `false` otherwise
+pub fn detect_xml(text: impl ToString) -> bool {
+    let content = text.to_string();
+    let trimmed = content.trim();
+    if trimmed.starts_with('<') {
+        let mut reader = quick_xml::Reader::from_str(trimmed);
+        let mut buf = vec![];
+        loop {
+            match reader.read_event_into(&mut buf) {
+                | Ok(quick_xml::events::Event::Eof) => return true,
+                | Err(_) => return false,
+                | _ => buf.clear(),
+            }
+        }
+    } else {
+        false
+    }
+}
 /// Returns the file extension of the given file name as a string.
 /// ### Note
 /// > The primary benefit of this function is to get file extension without using Path or PathBuf
