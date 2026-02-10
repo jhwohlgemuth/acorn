@@ -9,9 +9,10 @@
 //!
 //! [RAiDs]: https://www.raid.org/
 use crate::util::constants::{
-    DEFAULT_ORCID_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR_TEXT,
+    DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT,
+    RE_ROR_TEXT,
 };
-use crate::util::{regex_capture_lookup, ToStringChunks};
+use crate::util::{base32_crockford_decode, regex_capture_lookup, ToStringChunks};
 use bon::Builder;
 use core::fmt;
 use schemars::JsonSchema;
@@ -63,7 +64,7 @@ pub trait PersistentIdentifier: fmt::Display {
     /// Not every PID type has a suffix, but generally every PID has a "second" part that can losely be considered a "suffix"
     fn suffix(&self) -> Option<String>;
     /// Get PID check digit (when applicable)
-    fn check_digit(&self) -> Option<char> {
+    fn check_digit(&self) -> Option<Vec<char>> {
         None
     }
     /// Convert `self` into a string with a standard format
@@ -552,7 +553,7 @@ impl ISBN {
         let pid = ISBN::from_string(value.as_ref());
         let last = value.as_ref().chars().last().unwrap_or_default();
         let has_valid_check_digit = match pid.check_digit() {
-            | Some(x) => x.to_string().eq(&last.to_string()),
+            | Some(chars) => chars.contains(&last),
             | _ => false,
         };
         let is_valid_length = value.as_ref().replace("-", "").len() == 13;
@@ -619,7 +620,7 @@ impl ORCID {
         let last = identifier.chars().last().unwrap_or_default();
         match orcid_check_digit(identifier.as_str()) {
             | Some(check_digit) => match RE_ORCID.is_match(value.as_ref()) {
-                | Ok(true) if check_digit.eq(&last) && identifier.len() == 19 => true,
+                | Ok(true) if check_digit.contains(&last) && identifier.len() == 19 => true,
                 | _ => false,
             },
             | _ => false,
@@ -814,7 +815,11 @@ impl fmt::Display for ROR {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let schema_uri = self.schema_uri();
         let result = self.identifier();
-        write!(f, "{schema_uri}{result}")
+        if result.is_empty() {
+            write!(f, "")
+        } else {
+            write!(f, "{schema_uri}{result}")
+        }
     }
 }
 impl PersistentIdentifier for ARK {
@@ -872,7 +877,7 @@ impl PersistentIdentifier for ARK {
             .join(".");
         Some(result)
     }
-    fn check_digit(&self) -> Option<char> {
+    fn check_digit(&self) -> Option<Vec<char>> {
         let Self {
             name_assigning_authority_number: naan,
             assigned_name: name,
@@ -983,7 +988,7 @@ impl PersistentIdentifier for ISBN {
             .join("");
         Some(result)
     }
-    fn check_digit(&self) -> Option<char> {
+    fn check_digit(&self) -> Option<Vec<char>> {
         isbn_check_digit(self.identifier())
     }
 }
@@ -1033,7 +1038,7 @@ impl PersistentIdentifier for ORCID {
     fn suffix(&self) -> Option<String> {
         Some(self.identifier())
     }
-    fn check_digit(&self) -> Option<char> {
+    fn check_digit(&self) -> Option<Vec<char>> {
         orcid_check_digit(self.identifier())
     }
 }
@@ -1070,7 +1075,7 @@ impl PersistentIdentifier for ROR {
             .schema_uri
             .as_ref()
             .cloned()
-            .unwrap_or_default()
+            .unwrap_or_else(|| DEFAULT_ROR_SCHEMA_URI.to_string())
             .trim_end_matches("/")
             .replace(" ", "")
             .to_string();
@@ -1082,8 +1087,8 @@ impl PersistentIdentifier for ROR {
     fn suffix(&self) -> Option<String> {
         self.identifier.clone()
     }
-    fn check_digit(&self) -> Option<char> {
-        ror_check_digit(self.identifier())
+    fn check_digit(&self) -> Option<Vec<char>> {
+        ror_check_digit(&self.identifier()[1..])
     }
 }
 impl<T: AsRef<str>> PersistentIdentifierConvert<T> for T
@@ -1195,7 +1200,7 @@ impl Betanumeric for char {
 /// The check digit is the last (13th) digit of the identifier
 ///
 /// Each digit, from left to right, is alternately multiplied by 1 or 3, then those products are summed modulo 10
-pub fn isbn_check_digit<S>(_value: S) -> Option<char>
+pub fn isbn_check_digit<S>(_value: S) -> Option<Vec<char>>
 where
     S: AsRef<str>,
 {
@@ -1209,7 +1214,7 @@ where
     });
     let remainder = sum % MODULUS;
     let result = if remainder == 0 { 0 } else { MODULUS - remainder };
-    char::from_digit(result, 10)
+    char::from_digit(result, 10).map(|c| vec![c])
 }
 /// Calculate check xdigit ("extended digit") IAW [NOID check digit algorithm (NCDA)](https://metacpan.org/dist/Noid/view/noid#NOID-CHECK-DIGIT-ALGORITHM)
 /// ### Notes
@@ -1222,7 +1227,7 @@ where
 /// ### References
 /// - <https://github.com/internetarchive/arklet>
 /// - <https://github.com/no-reply/pynoid>
-pub fn noid_check_digit<S>(value: S) -> Option<char>
+pub fn noid_check_digit<S>(value: S) -> Option<Vec<char>>
 where
     S: AsRef<str>,
 {
@@ -1236,7 +1241,7 @@ where
         acc + (position * ordinal)
     });
     let remainder = sum % RADIX;
-    to_betanumeric(remainder as u8)
+    to_betanumeric(remainder as u8).map(|c| vec![c])
 }
 /// Calculate check digit IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html)
 ///
@@ -1246,10 +1251,10 @@ where
 /// ```rust
 /// use acorn::schema::pid::orcid_check_digit;
 ///
-/// assert_eq!(orcid_check_digit("0000000220579115"), Some('5'));
-/// assert_eq!(orcid_check_digit("0000-0002-2057-9115"), Some('5'));
+/// assert_eq!(orcid_check_digit("0000000220579115"), Some(vec!['5']));
+/// assert_eq!(orcid_check_digit("0000-0002-2057-9115"), Some(vec!['5']));
 /// ```
-pub fn orcid_check_digit<S>(value: S) -> Option<char>
+pub fn orcid_check_digit<S>(value: S) -> Option<Vec<char>>
 where
     S: AsRef<str>,
 {
@@ -1263,9 +1268,9 @@ where
     let remainder = sum % MODULUS;
     let result = (MODULUS + 1 - remainder) % MODULUS;
     if result == 10 {
-        Some('X')
+        Some(vec!['X'])
     } else {
-        char::from_digit(result, 10)
+        char::from_digit(result, 10).map(|c| vec![c])
     }
 }
 /// Calculate check digit IAW [ISO 7064, MOD 97-10](https://www.iso.org/standard/31531.html)
@@ -1276,25 +1281,37 @@ where
 /// ```rust
 /// use acorn::schema::pid::ror_check_digit;
 ///
-/// assert_eq!(ror_check_digit("01qz5mb"), Some("56"));
+/// assert_eq!(ror_check_digit("1qz5mb"), Some(vec!['5', '6']));
 /// ```
-pub fn ror_check_digit<S>(value: S) -> Option<char>
+/// ### References
+/// - [ROR community Python implementation](https://github.com/ror-community/ror-api/blob/bd040a0d2558a478c06a89118a29eeb9b6142710/rorapi/management/commands/generaterorid.py)
+/// - [DataCite Ruby implementation](https://github.com/datacite/base32-url/blob/master/lib/base32/url.rb)
+pub fn ror_check_digit<S>(value: S) -> Option<Vec<char>>
 where
     S: AsRef<str>,
 {
-    const MODULUS: u32 = 97;
-    const RADIX: u32 = 10;
-    let working = value.as_ref().replace("-", "").replace(" ", "");
-    let sum = working.chars().take(15).fold(0, |acc, x| {
-        let digit = x.to_digit(10).unwrap_or_default();
-        (acc + digit) * RADIX
-    });
-    let remainder = sum % MODULUS;
-    let result = (MODULUS + 1 - remainder) % MODULUS;
-    if result == 10 {
-        Some('X')
-    } else {
-        char::from_digit(result, 10)
+    const MODULUS: u128 = 97;
+    let working = value
+        .as_ref()
+        .replace("-", "")
+        .replace(" ", "")
+        .chars()
+        .take(6)
+        .map(String::from)
+        .collect::<Vec<_>>()
+        .join("");
+    match base32_crockford_decode(working) {
+        | Some(value) => {
+            let remainder = (value * 100) % MODULUS;
+            let checksum = (MODULUS + 1 - remainder) % MODULUS;
+            let result = if checksum < 10 {
+                format!("0{}", checksum).chars().collect()
+            } else {
+                checksum.to_string().chars().collect()
+            };
+            Some(result)
+        }
+        | None => None,
     }
 }
 fn to_betanumeric(value: u8) -> Option<char> {

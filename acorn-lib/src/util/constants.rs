@@ -71,6 +71,8 @@ pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
 /// Default schema URI for ORCiD values
 pub const DEFAULT_ORCID_SCHEMA_URI: &str = "https://orcid.org";
+/// Default schema URI for ROR values
+pub const DEFAULT_ROR_SCHEMA_URI: &str = "https://ror.org/";
 /// Maxumum number of [`ResearchActivity`] [`approaches`]
 ///
 /// [`ResearchActivity`]: ../schema/struct.ResearchActivity.html

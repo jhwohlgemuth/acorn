@@ -1,8 +1,8 @@
 use crate::prelude::PathBuf;
 use crate::schema::pid::patent::KindCode;
 use crate::schema::pid::{
-    isbn_check_digit, noid_check_digit, orcid_check_digit, raid, Betanumeric, Patent, PersistentIdentifier, PersistentIdentifierConvert, ARK, DOI,
-    ISBN, ORCID, PID, RAID,
+    isbn_check_digit, noid_check_digit, orcid_check_digit, raid, ror_check_digit, Betanumeric, Patent, PersistentIdentifier,
+    PersistentIdentifierConvert, ARK, DOI, ISBN, ORCID, PID, RAID, ROR,
 };
 use crate::schema::Validate;
 
@@ -54,7 +54,7 @@ fn test_ark() {
     assert_eq!(pid.suffix(), Some("f29".to_string()));
     assert_eq!(pid.identifier(), "ark:12148/btv1b8449691v/f29");
     let pid = ARK::from_string("ark:13030/xf93gt2q");
-    assert_eq!(pid.check_digit(), Some('q'));
+    assert_eq!(pid.check_digit(), Some(vec!['q']));
 }
 #[test]
 fn test_ark_struct() {
@@ -152,7 +152,7 @@ fn test_isbn() {
         assert!(ISBN::is_valid(value));
         let pid = ISBN::from_string(value);
         assert_eq!(pid.to_string(), *value);
-        let expected = char::from_digit(index as u32, 10);
+        let expected = char::from_digit(index as u32, 10).map(|c| vec![c]);
         assert_eq!(isbn_check_digit(value), expected, "{value} check digit is NOT {index}");
     });
     // ISBN-A support
@@ -199,7 +199,7 @@ fn test_kindcode() {
 #[test]
 fn test_noid_check_digit() {
     let value = "13030/xf93gt2";
-    let expected = Some('q');
+    let expected = Some(vec!['q']);
     assert_eq!(noid_check_digit(value), expected);
 }
 #[test]
@@ -216,22 +216,22 @@ fn test_orcid() {
 #[test]
 fn test_orcid_check_digit() {
     let value = "000000031415926";
-    let expected = Some('9');
+    let expected = Some(vec!['9']);
     assert_eq!(orcid_check_digit(value), expected);
     let value = "0000-0002-2057-911";
-    let expected = Some('5');
+    let expected = Some(vec!['5']);
     assert_eq!(orcid_check_digit(value), expected);
     let value = "0000-0002-2057-9115";
-    let expected = Some('5');
+    let expected = Some(vec!['5']);
     assert_eq!(orcid_check_digit(value), expected);
     let value = "0000-0002-1823-1234";
-    let expected = Some('2');
+    let expected = Some(vec!['2']);
     assert_eq!(orcid_check_digit(value), expected);
     let value = "0000-0001-9034-3389";
-    let expected = Some('9');
+    let expected = Some(vec!['9']);
     assert_eq!(orcid_check_digit(value), expected);
     let value = "0000-0002-2816-415X";
-    let expected = Some('X');
+    let expected = Some(vec!['X']);
     assert_eq!(orcid_check_digit(value), expected);
 }
 #[test]
@@ -329,9 +329,49 @@ fn test_raid_read() {
     assert!(data.is_some());
     let _ = data.unwrap().validate();
 }
-// #[test]
-// fn test_ror_check_digit() {
-//     let value = "01qz5mb";
-//     let expected = Some('5');
-//     assert_eq!(ror_check_digit(value), expected);
-// }
+#[test]
+fn test_ror() {
+    let valid = "https://ror.org/01qz5mb56";
+    assert!(valid.is_pid(PID::ROR));
+    assert_eq!(valid.to_pid(PID::ROR).to_ror().to_string(), valid);
+    assert!(valid.is_ror());
+    assert!(valid.format_as(PID::ROR).is_ror());
+    assert_eq!(valid.format_as(PID::ROR), valid);
+    assert_eq!(valid.format_as(PID::ROR), valid);
+}
+#[test]
+fn test_ror_check_digit() {
+    let value = "1wass4";
+    let expected = Some(vec!['8', '0']);
+    assert_eq!(ror_check_digit(value), expected);
+    // ORNL ROR ID
+    let value = "1qz5mb";
+    let expected = Some(vec!['5', '6']);
+    assert_eq!(ror_check_digit(value), expected);
+    // Check digit is less than 10
+    let value = "2xn1ny";
+    let expected = Some(vec!['0', '6']);
+    assert_eq!(ror_check_digit(value), expected);
+    // Check digit is less than 10, ID starts with 0, and input is longer than 6 characters
+    let value = "0q6v6102";
+    let expected = Some(vec!['0', '2']);
+    assert_eq!(ror_check_digit(value), expected);
+}
+#[test]
+fn test_ror_struct() {
+    let suffix = "01qz5mb56";
+    let valid = format!("https://ror.org/{suffix}");
+    assert!(ROR::is_valid(&valid));
+    assert!(ROR::is_valid("01qz5mb56"));
+    assert!(!ROR::is_valid("invalid ROR URL"));
+    let pid = ROR::from_string(suffix);
+    assert_eq!(pid.check_digit(), Some(vec!['5', '6']));
+    let pid = ROR::from_string(&valid);
+    assert_eq!(pid.check_digit(), Some(vec!['5', '6']));
+    assert_eq!(pid.to_string(), valid);
+    assert_eq!(&ROR::from_string(suffix).to_string(), &valid);
+    assert_eq!(&ROR::format(&valid), &valid);
+    assert_eq!(ROR::format(suffix), valid);
+    assert_eq!(ROR::from_string("invalid ROR URL").to_string(), "");
+    assert_eq!(ROR::format("invalid ROR value"), "");
+}
