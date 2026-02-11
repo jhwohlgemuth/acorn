@@ -3,6 +3,7 @@ from acorn.schema.validate import (
     format_doi,
     format_orcid,
     format_phone_number,
+    format_ror,
     is_ark,
     is_doi,
     is_ip6,
@@ -50,6 +51,13 @@ def test_format_orcid():
     assert format_orcid("0009-0005-5568-6526") == "https://orcid.org/0009-0005-5568-6526"
 
 
+def test_format_ror():
+    assert format_ror("https://ror.org/01qz5mb56") == "https://ror.org/01qz5mb56"
+    assert format_ror("01qz5mb56") == "https://ror.org/01qz5mb56"
+    assert not format_ror("03ebg0v16-")
+    assert not format_ror("10.1000/182")
+
+
 def test_is_ark():
     assert is_ark("https://example.org/ark:12345/x6np1wh8k/c3/s5.v7.xsl")
     assert is_ark("ark:/1234/w5678")
@@ -93,5 +101,9 @@ def test_is_ror():
     # ORNL
     assert is_ror("01qz5mb56")
     assert is_ror("https://ror.org/01qz5mb56")
+    # Invalid identifier
     assert not is_ror("03ebg0v16-")
+    # Invalid check digits
+    assert not is_ror("https://ror.org/01qz5mb57")
+    # Not a ROR ID at all
     assert not is_ror("10.1000/182")

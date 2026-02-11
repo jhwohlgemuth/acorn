@@ -214,6 +214,37 @@ fn test_orcid() {
     assert_eq!("0000000220579115".format_as(PID::ORCID), valid);
 }
 #[test]
+fn test_orcid_find_all() {
+    let valid = "https://orcid.org/0000-0002-2057-9115";
+    let text = format!("I made a thing with a person with ORCiD {valid}.");
+    let results = ORCID::find_all(&text);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].to_string(), "https://orcid.org/0000-0002-2057-9115");
+    let text = format!("The ORCID for Jason is: {valid}.");
+    let results = ORCID::find_all(&text);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].to_string(), "https://orcid.org/0000-0002-2057-9115");
+    let text = format!("I worked with people with orcids {valid}, {valid} and {valid}. Please check them out.");
+    let results = ORCID::find_all(&text);
+    assert_eq!(results.len(), 3);
+    assert_eq!(results[0].to_string(), valid);
+    assert_eq!(results[1].to_string(), valid);
+    assert_eq!(results[2].to_string(), valid);
+    let text = format!(
+        r#"I know people with ORCiDs
+    - {valid},
+    - 0000000220579115
+    - {valid} (words about something)
+    
+    Please check them out!"#
+    );
+    let results = ORCID::find_all(&text);
+    assert_eq!(results.len(), 3);
+    assert_eq!(results[0].to_string(), valid);
+    assert_eq!(results[1].to_string(), valid);
+    assert_eq!(results[2].to_string(), valid);
+}
+#[test]
 fn test_orcid_check_digit() {
     let value = "000000031415926";
     let expected = Some(vec!['9']);
@@ -374,4 +405,6 @@ fn test_ror_struct() {
     assert_eq!(ROR::format(suffix), valid);
     assert_eq!(ROR::from_string("invalid ROR URL").to_string(), "");
     assert_eq!(ROR::format("invalid ROR value"), "");
+    let value = "03ebg0v16-";
+    assert!(!ROR::is_valid(value));
 }

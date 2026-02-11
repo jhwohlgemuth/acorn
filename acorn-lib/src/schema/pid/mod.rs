@@ -10,7 +10,7 @@
 //! [RAiDs]: https://www.raid.org/
 use crate::util::constants::{
     DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT,
-    RE_ROR_TEXT,
+    RE_ROR, RE_ROR_TEXT,
 };
 use crate::util::{base32_crockford_decode, regex_capture_lookup, ToStringChunks};
 use bon::Builder;
@@ -561,6 +561,11 @@ impl ISBN {
     }
 }
 impl ORCID {
+    /// Find all ORCiD values present in a string
+    pub fn find_all(value: &str) -> Vec<Self> {
+        let re = &RE_ORCID;
+        re.find_iter(value).map(|m| ORCID::from_string(m.unwrap().as_str())).collect()
+    }
     /// Convenience method for easily parsing and formatting a ORCID from a string value
     /// ### Example
     /// ```rust
@@ -588,7 +593,8 @@ impl ORCID {
         S: AsRef<str>,
     {
         let groups = ["schema_uri", "identifier", "check_digit"];
-        let lookup = regex_capture_lookup(RE_ORCID_TEXT, value.as_ref(), groups.to_vec());
+        let pattern = format!("^{RE_ORCID_TEXT}$");
+        let lookup = regex_capture_lookup(pattern.as_ref(), value.as_ref(), groups.to_vec());
         ORCID::init()
             .maybe_schema_uri(lookup.get("schema_uri").cloned())
             .maybe_identifier(lookup.get("identifier").cloned())
@@ -678,6 +684,11 @@ impl RAID {
     }
 }
 impl ROR {
+    /// Find all ROR values present in a string
+    pub fn find_all(value: &str) -> Vec<Self> {
+        let re = &RE_ROR;
+        re.find_iter(value).map(|m| ROR::from_string(m.unwrap().as_str())).collect()
+    }
     /// Convenience method for easily parsing and formatting a ROR from a string value
     /// ### Example
     /// ```rust
@@ -705,7 +716,8 @@ impl ROR {
         S: AsRef<str>,
     {
         let groups = ["schema_uri", "identifier", "check_digit"];
-        let lookup = regex_capture_lookup(RE_ROR_TEXT, value.as_ref(), groups.to_vec());
+        let pattern = format!("^{RE_ROR_TEXT}$");
+        let lookup = regex_capture_lookup(pattern.as_ref(), value.as_ref(), groups.to_vec());
         ROR::init()
             .maybe_schema_uri(lookup.get("schema_uri").cloned())
             .maybe_identifier(lookup.get("identifier").cloned())
@@ -733,7 +745,22 @@ impl ROR {
     {
         let pid = ROR::from_string(value.as_ref());
         let identifier = pid.identifier();
-        identifier.len() == 9
+        let last_two = identifier.chars().rev().take(2).collect::<String>().chars().rev().collect::<String>();
+        if identifier.is_empty() {
+            false
+        } else {
+            match ror_check_digit(&identifier[1..]) {
+                | Some(check_digit) => {
+                    if identifier.len() == 9 {
+                        let calculated_last_two = check_digit.iter().collect::<String>();
+                        calculated_last_two == last_two
+                    } else {
+                        false
+                    }
+                }
+                | _ => false,
+            }
+        }
     }
 }
 impl Default for ARK {

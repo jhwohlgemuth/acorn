@@ -153,7 +153,7 @@ pub const RE_ISBN_TEXT: &str =
     r#"(?<prefix_element>97[89])[ -]?(?<registration_group>\d{1,5})[ -]?(?<publisher>\d{1,7})[ -]?(?<title>\d{1,6})[ -]?(?<check_digit>\d)"#;
 /// Pattern text for ORCiD regular expression defined by [`RE_ORCID`]
 pub const RE_ORCID_TEXT: &str =
-    r#"^(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))$"#;
+    r#"(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))"#;
 /// Pattern text for USPTO patent identifiers
 pub const RE_PATENT_TEXT: &str =
     r#"(?<country_code>US|CN|DE|EP|JP|KR)?\s*(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>[\d,]{1,11})\s*(?<kind_code>[A-Z]\d?)"#;
@@ -161,7 +161,7 @@ pub const RE_PATENT_TEXT: &str =
 pub const RE_RAID_TEXT: &str =
     r#"^(?<schema_uri>https[:]\/\/raid\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#;
 /// Pattern text for ROR regular expression defined by [`RE_ROR`]
-pub const RE_ROR_TEXT: &str = r#"^(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2})$"#;
+pub const RE_ROR_TEXT: &str = r#"(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2})"#;
 
 lazy_static! {
     /// Regex that should match a Archival Resource Key (ARK)

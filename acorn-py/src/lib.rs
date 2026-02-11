@@ -1,6 +1,6 @@
 use acorn::prelude::PathBuf;
 use acorn::schema::pid::patent::{CountryCode, KindCode};
-use acorn::schema::pid::{Patent, PersistentIdentifier, DOI, ISBN};
+use acorn::schema::pid::{Patent, PersistentIdentifier, ARK, DOI, ISBN, ORCID, ROR};
 use acorn::schema::research_activity::{InputOutput, ResearchActivity};
 use acorn::schema::{self, ContactPoint};
 use pyo3::prelude::*;
@@ -18,12 +18,15 @@ fn acorn_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     pid.add_class::<PyDOI>()?;
     pid.add_class::<PyISBN>()?;
     pid.add_class::<PyPatent>()?;
+    pid.add_class::<PyORCID>()?;
+    pid.add_class::<PyROR>()?;
     // Add functions to schema.validate module
     let validate = PyModule::new(python, "validate")?;
     validate.add_function(wrap_pyfunction!(format_ark, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_orcid, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_phone_number, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(format_ror, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ark, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ip6, &validate)?)?;
@@ -73,6 +76,13 @@ struct PyISBN {
 struct PyMetadata {
     identifier: String,
 }
+#[pyclass(name = "ORCID", from_py_object)]
+#[derive(Clone)]
+struct PyORCID {
+    identifier: String,
+    schema_uri: String,
+    check_digit: String,
+}
 #[pyclass(name = "Patent", from_py_object)]
 #[derive(Clone)]
 struct PyPatent {
@@ -89,6 +99,13 @@ struct PyResearchActivity {
     subtitle: Option<String>,
     sections: PySections,
     contact: PyContactPoint,
+}
+#[pyclass(name = "ROR", from_py_object)]
+#[derive(Clone)]
+struct PyROR {
+    identifier: String,
+    schema_uri: String,
+    check_digit: String,
 }
 #[pyclass(name = "Sections", from_py_object)]
 #[derive(Clone)]
@@ -231,6 +248,42 @@ impl PyMetadata {
     #[getter]
     fn identifier(&self) -> String {
         self.identifier.clone()
+    }
+}
+#[pymethods]
+impl PyORCID {
+    #[staticmethod]
+    fn find_all(value: String) -> Vec<PyORCID> {
+        ORCID::find_all(&value)
+            .iter()
+            .map(|p| PyORCID::from_string(p.clone().to_string()))
+            .collect()
+    }
+    #[staticmethod]
+    fn from_string(value: String) -> PyORCID {
+        let pid = ORCID::from_string(&value);
+        let ORCID {
+            identifier,
+            schema_uri,
+            check_digit,
+        } = pid;
+        PyORCID {
+            identifier: identifier.unwrap_or_default(),
+            schema_uri: schema_uri.unwrap_or_default(),
+            check_digit: check_digit.unwrap_or_default(),
+        }
+    }
+    #[getter]
+    fn identifier(&self) -> String {
+        self.identifier.clone()
+    }
+    #[getter]
+    fn schema_uri(&self) -> String {
+        self.schema_uri.clone()
+    }
+    #[getter]
+    fn check_digit(&self) -> String {
+        self.check_digit.clone()
     }
 }
 #[pymethods]
@@ -384,6 +437,39 @@ impl PyResearchActivity {
         self.title.clone()
     }
 }
+#[pymethods]
+impl PyROR {
+    #[staticmethod]
+    fn find_all(value: String) -> Vec<PyROR> {
+        ROR::find_all(&value).iter().map(|d| PyROR::from_string(d.clone().to_string())).collect()
+    }
+    #[staticmethod]
+    fn from_string(value: String) -> PyROR {
+        let pid = ROR::from_string(&value);
+        let ROR {
+            identifier,
+            schema_uri,
+            check_digit,
+        } = pid;
+        PyROR {
+            identifier: identifier.unwrap_or_default(),
+            schema_uri: schema_uri.unwrap_or_default(),
+            check_digit: check_digit.unwrap_or_default(),
+        }
+    }
+    #[getter]
+    fn identifier(&self) -> String {
+        self.identifier.clone()
+    }
+    #[getter]
+    fn schema_uri(&self) -> String {
+        self.schema_uri.clone()
+    }
+    #[getter]
+    fn check_digit(&self) -> String {
+        self.check_digit.clone()
+    }
+}
 /// Convert a ARK into a standard format
 /// ### Example
 /// ```python
@@ -395,7 +481,7 @@ impl PyResearchActivity {
 /// ```
 #[pyfunction]
 fn format_ark(value: &str) -> String {
-    schema::pid::ARK::format(value)
+    ARK::format(value)
 }
 /// Convert a DOI into a standard format
 /// ### Example
@@ -406,7 +492,7 @@ fn format_ark(value: &str) -> String {
 /// ```
 #[pyfunction]
 fn format_doi(value: &str) -> String {
-    schema::pid::DOI::format(value)
+    DOI::format(value)
 }
 /// Convert an ORCiD into a standard format
 /// ### Example
@@ -417,7 +503,7 @@ fn format_doi(value: &str) -> String {
 /// ```
 #[pyfunction]
 fn format_orcid(value: &str) -> String {
-    schema::pid::ORCID::format(value)
+    ORCID::format(value)
 }
 /// Convert a phone number into a standard format
 /// ### Example
@@ -432,6 +518,17 @@ fn format_phone_number(value: &str) -> PyResult<String> {
         | Ok(value) => Ok(value),
         | Err(err) => Err(pyo3::exceptions::PyValueError::new_err(err.to_string())),
     }
+}
+/// Convert a ROR into a standard format
+/// ### Example
+/// ```python
+/// from acorn.schema.validate import format_ror
+///
+/// assert format_ror("https://ror.org/01qz5mb56") == "https://ror.org/01qz5mb56"
+/// ```
+#[pyfunction]
+fn format_ror(value: &str) -> String {
+    ROR::format(value)
 }
 /// Check if value is a valid ARK
 ///

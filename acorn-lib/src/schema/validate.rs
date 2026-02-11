@@ -5,7 +5,7 @@
 use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::util::constants::{
     MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA, RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6,
-    RE_ISO_8601_DATE, RE_ISO_8601_YEAR, RE_PHONE, RE_RAID, RE_ROR, RE_UNIX_EPOCH,
+    RE_ISO_8601_DATE, RE_ISO_8601_YEAR, RE_PHONE, RE_RAID, RE_UNIX_EPOCH,
 };
 use chrono::{DateTime, Datelike, Utc};
 use convert_case::{Case, Casing};
@@ -182,8 +182,8 @@ pub fn is_raid(value: &str) -> Result<(), ValidationError> {
 /// See <https://www.ror.org/> for more information
 pub fn is_ror(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid ROR";
-    match RE_ROR.is_match(value) {
-        | Ok(value) if value => Ok(()),
+    match value.is_ror() {
+        | true => Ok(()),
         | _ => Err(ValidationError::new("ror").with_message(MESSAGE.into())),
     }
 }
