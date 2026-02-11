@@ -137,6 +137,8 @@ pub struct Arguments {
     pub command: Option<Commands>,
     #[arg(short, long, action = ArgAction::Help, global = true, help = "Print help (see a summary with '-h')", help_heading = "FLAGS")]
     pub help: Option<bool>,
+    #[arg(long, hide = true)]
+    pub markdown_help: bool,
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]

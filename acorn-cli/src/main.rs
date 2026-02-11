@@ -69,6 +69,10 @@ fn print_raid_schema() -> Void {
 fn main() -> Void {
     color_eyre::install()?;
     let args = Arguments::parse();
+    if args.markdown_help {
+        clap_markdown::print_help_markdown::<Arguments>();
+        exit(exitcode::OK);
+    }
     if args.version {
         println!("{}", crate_version!());
         exit(exitcode::OK);
