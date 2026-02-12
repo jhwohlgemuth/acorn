@@ -136,7 +136,7 @@ pub const MAX_ALLOWED_FRES: f64 = 50.0;
 ///
 /// This value maps to 12th grade (high school senior) reading level
 pub const MAX_ALLOWED_GFI: f64 = 12.0;
-/// Lix Index (Lix) maximum allowed va
+/// Lix Index (Lix) maximum allowed value
 ///
 /// This value is somewhere in between "very easy" (20) and "very difficult" (60), skewed toward "very difficult"
 pub const MAX_ALLOWED_LIX: f64 = 50.0;
@@ -145,7 +145,7 @@ pub const MAX_ALLOWED_LIX: f64 = 50.0;
 /// This value maps to upper end of high school (12th grade) reading level
 pub const MAX_ALLOWED_SMOG: f64 = 13.0;
 /// Pattern text for ARK regular expression defined by [`RE_ARK`]
-pub const RE_ARK_TEXT: &str = r#"^(?<nma>(?<schema_uri>https\:\/\/).+)?\/?(?<label>ark\:\/?)\/?(?<naan>\d{2,9})\/(?<assigned_name>[a-z0-9A-Z]+)?\/?(?<parts>[^.]+)?\.?(?<variants>[a-zA-Z0-9-.]+)?$"#;
+pub const RE_ARK_TEXT: &str = r#"(?<nma>https\:\/\/[^\/]+\/)?(?<label>ark\:\/?)(?<naan>\d{2,9})\/(?<assigned_name>[a-z0-9A-Z]+)(?:\/(?<parts>[a-zA-Z0-9/_-]+))?(?:\.(?<variants>[a-zA-Z0-9._-]+))?"#;
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]
 pub const RE_DOI_TEXT: &str = r#"(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10)[.](?<prefix_element>97[89][.])?(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
 /// Pattern text for ISBN regular expression defined by [`RE_ISBN`]
@@ -159,7 +159,7 @@ pub const RE_PATENT_TEXT: &str =
     r#"(?<country_code>US|CN|DE|EP|JP|KR)?\s*(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>[\d,]{1,11})\s*(?<kind_code>[A-Z]\d?)"#;
 /// Pattern text for RAID regular expression defined by [`RE_RAID`]
 pub const RE_RAID_TEXT: &str =
-    r#"^(?<schema_uri>https[:]\/\/raid\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)$"#;
+    r#"(?<schema_uri>https[:]\/\/raid\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
 /// Pattern text for ROR regular expression defined by [`RE_ROR`]
 pub const RE_ROR_TEXT: &str = r#"(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2})"#;
 

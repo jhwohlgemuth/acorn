@@ -1,6 +1,6 @@
 use crate::io::api::{self, citeas, orcid, Endpoint, Param, ParamStyle, ResponseContent, RestfulInterface};
 use crate::io::read_file;
-use crate::schema::pid::DOI;
+use crate::schema::pid::{PersistentIdentifierParse, DOI};
 use crate::{Location, Repository, Scheme};
 use std::path::PathBuf;
 

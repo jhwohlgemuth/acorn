@@ -1011,13 +1011,13 @@ pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<Stri
 /// assert_eq!(lookup["month"], "06");
 /// assert_eq!(lookup["day"], "30");
 /// ```
-pub fn regex_capture_lookup<S>(pattern: S, value: S, groups: Vec<S>) -> HashMap<S, String>
+pub fn regex_capture_lookup<S>(pattern: S, text: S, groups: Vec<S>) -> HashMap<S, String>
 where
     S: Into<String> + AsRef<str> + Clone + core::cmp::Eq + core::hash::Hash,
 {
     let re = Regex::new(pattern.as_ref()).unwrap();
     let mut lookup = HashMap::new();
-    if let Some(capture_matches) = re.captures_iter(value.as_ref()).last() {
+    if let Some(capture_matches) = re.captures_iter(text.as_ref()).last() {
         match capture_matches {
             | Ok(captures) => {
                 captures.iter().skip(1).enumerate().for_each(|(index, data)| {

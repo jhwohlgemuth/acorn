@@ -2,7 +2,7 @@ use crate::prelude::PathBuf;
 use crate::schema::pid::patent::KindCode;
 use crate::schema::pid::{
     isbn_check_digit, noid_check_digit, orcid_check_digit, raid, ror_check_digit, Betanumeric, Patent, PersistentIdentifier,
-    PersistentIdentifierConvert, ARK, DOI, ISBN, ORCID, PID, RAID, ROR,
+    PersistentIdentifierConvert, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, PID, RAID, ROR,
 };
 use crate::schema::Validate;
 
@@ -49,12 +49,30 @@ fn test_ark() {
     assert_eq!(valid.to_pid(PID::ARK).to_ark().to_string(), valid);
     let pid = ARK::from_string(valid);
     assert_eq!(pid.schema_uri(), "https://n2t.net");
-    assert_eq!(pid.format(), valid);
+    assert_eq!(pid.to_string(), valid);
     assert_eq!(pid.prefix(), Some("ark:12148/btv1b8449691v".to_string()));
     assert_eq!(pid.suffix(), Some("f29".to_string()));
     assert_eq!(pid.identifier(), "ark:12148/btv1b8449691v/f29");
     let pid = ARK::from_string("ark:13030/xf93gt2q");
     assert_eq!(pid.check_digit(), Some(vec!['q']));
+}
+#[test]
+fn test_ark_find_all() {
+    let valid = "https://n2t.net/ark:12148/btv1b8449691v/f29";
+    let text = format!("{valid} is the ARK for the thing I mentioned.");
+    let results = ARK::find_all(&text);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].to_string(), valid);
+    let text = format!("The ARK for Grande Bible historiale complétée is: {valid}.");
+    let results = ARK::find_all(&text);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].to_string(), valid);
+    let text = format!("I found things with ARKs {valid}, {valid}, and {valid}. Please check them out.");
+    let results = ARK::find_all(&text);
+    assert_eq!(results.len(), 3);
+    assert_eq!(results[0].to_string(), valid);
+    assert_eq!(results[1].to_string(), valid);
+    assert_eq!(results[2].to_string(), valid);
 }
 #[test]
 fn test_ark_struct() {
@@ -271,7 +289,6 @@ fn test_orcid_struct() {
     assert!(ORCID::is_valid(valid));
     assert!(!ORCID::is_valid("Invalid ORCID value"));
     let pid = ORCID::from_string(valid);
-    assert_eq!(pid.format(), valid);
     assert_eq!(pid.to_string(), valid);
     assert_eq!(ORCID::from_string("0000-0002-2057-9115").to_string(), valid);
     assert_eq!(ORCID::from_string("invalid ORCID value").to_string(), "");
@@ -345,9 +362,10 @@ fn test_raid() {
     assert_eq!(valid.to_pid(PID::RAID).to_raid().to_string(), "10.83962/fb5be317");
     assert!(valid.is_pid(PID::RAID));
     assert!(RAID::is_valid(valid));
+    assert_eq!(pid.to_string(), "10.83962/fb5be317");
+    assert_eq!(valid.format_as(PID::RAID), "10.83962/fb5be317");
     assert_eq!(RAID::format("10.1000/182"), "10.1000/182");
     assert_eq!(RAID::format("https://raid.org/10.1000/182"), "10.1000/182");
-    assert_eq!(valid.format_as(PID::RAID), "10.83962/fb5be317");
 }
 #[test]
 fn test_raid_read() {
@@ -401,10 +419,11 @@ fn test_ror_struct() {
     assert_eq!(pid.check_digit(), Some(vec!['5', '6']));
     assert_eq!(pid.to_string(), valid);
     assert_eq!(&ROR::from_string(suffix).to_string(), &valid);
-    assert_eq!(&ROR::format(&valid), &valid);
-    assert_eq!(ROR::format(suffix), valid);
     assert_eq!(ROR::from_string("invalid ROR URL").to_string(), "");
-    assert_eq!(ROR::format("invalid ROR value"), "");
+    assert_eq!(ROR::from_string(valid.clone()).to_string(), valid.clone());
+    assert_eq!(ROR::from_string(suffix).to_string(), valid);
+    assert_eq!(ROR::from_string("invalid ROR value").to_string(), "");
+    assert_eq!(<ROR as PersistentIdentifierParse>::format("invalid ROR value"), "");
     let value = "03ebg0v16-";
     assert!(!ROR::is_valid(value));
 }

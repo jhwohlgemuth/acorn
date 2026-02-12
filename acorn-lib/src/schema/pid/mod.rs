@@ -9,8 +9,8 @@
 //!
 //! [RAiDs]: https://www.raid.org/
 use crate::util::constants::{
-    DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT,
-    RE_ROR, RE_ROR_TEXT,
+    DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI, RE_ARK, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT,
+    RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
 };
 use crate::util::{base32_crockford_decode, regex_capture_lookup, ToStringChunks};
 use bon::Builder;
@@ -66,10 +66,6 @@ pub trait PersistentIdentifier: fmt::Display {
     /// Get PID check digit (when applicable)
     fn check_digit(&self) -> Option<Vec<char>> {
         None
-    }
-    /// Convert `self` into a string with a standard format
-    fn format(&self) -> String {
-        self.to_string()
     }
 }
 /// Add coercion to persistent identifier (PID) functionality to string values
@@ -134,6 +130,21 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     ///
     /// assert!("https://ror.org/01qz5mb56".is_ror());
     fn is_ror(&self) -> bool;
+}
+/// Trait for working with persistent identifiers (PID) as and within string values
+pub trait PersistentIdentifierParse {
+    /// Find all PID values present in a string
+    fn find_all(value: impl ToString) -> Vec<Self>
+    where
+        Self: Sized;
+    /// Parse and format a PID according to its associated canonical format
+    fn format(value: impl ToString) -> String;
+    /// Instantiate a PID from a string
+    fn from_string(value: impl ToString) -> Self
+    where
+        Self: Sized;
+    /// Determine if a string is a valid PID
+    fn is_valid(value: impl ToString) -> bool;
 }
 /// Internal representation of a persistent identifier
 #[derive(Default)]
@@ -359,408 +370,12 @@ pub struct ROR {
     /// Check digits should be verified IAW [ISO 7064](https://www.iso.org/standard/31531.html)
     pub check_digit: Option<String>,
 }
-impl ARK {
-    /// Convenience method for easily parsing and formatting an ARK from a string value
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::ARK;
-    ///
-    /// assert_eq!(ARK::format("ark:/1234/5678"), "ark:1234/5678");
-    /// let expected = "https://n2t.net/ark:12148/btv1b8449691v/f29";
-    /// assert_eq!(ARK::format(expected), expected);
-    /// ```
-    pub fn format<S>(value: S) -> String
-    where
-        S: AsRef<str>,
-    {
-        ARK::from_string(value).to_string()
+impl Betanumeric for char {
+    fn is_betanumeric(&self) -> bool {
+        BETANUMERIC_DIGITS.contains(*self)
     }
-    /// Create new ARK by parsing raw string value
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::{ARK, PersistentIdentifier};
-    ///
-    /// let ark = ARK::from_string("https://n2t.net/ark:12148/btv1b8449691v/f42");
-    /// assert_eq!(ark.suffix(), Some("f42".to_string()));
-    /// ```
-    pub fn from_string<S>(value: S) -> Self
-    where
-        S: AsRef<str>,
-    {
-        let groups = ["nma", "schema_uri", "label", "naan", "assigned_name", "parts", "variants"];
-        let lookup = regex_capture_lookup(RE_ARK_TEXT, value.as_ref(), groups.to_vec());
-        let parts = match lookup.get("parts") {
-            | Some(value) => value.split('/').map(String::from).collect(),
-            | None => vec![],
-        };
-        let variants = match lookup.get("variants") {
-            | Some(value) => value.split('.').map(String::from).collect(),
-            | None => vec![],
-        };
-        ARK::init()
-            .maybe_assigned_name(lookup.get("assigned_name").cloned())
-            .maybe_label(lookup.get("label").cloned())
-            .maybe_name_assigning_authority_number(lookup.get("naan").cloned())
-            .maybe_name_mapping_authority(lookup.get("nma").cloned())
-            .parts(parts)
-            .variants(variants)
-            .build()
-    }
-    /// Check if value is a valid ARK
-    /// ### Conditions
-    /// - ARKs are preferred to be "actionable" with the inclusion of a NMA URL, but are not required to be so (NMA is optional)
-    /// - If ARK is to contain a URL, "https" is the only allowed scheme
-    /// - Should have only one instance of "ark:" label
-    /// - NAAN should be an integer
-    /// - [Assigned name](`ARK::assigned_name`) should start with a valid [shoulder](https://arks.org/about/shoulders/)
-    /// - Last character should be valid check digit (see [`noid_check_digit`])
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::{ARK, PersistentIdentifier};
-    ///
-    /// assert!(ARK::is_valid("https://n2t.net/ark:99166/w66d60p2"));
-    /// assert!(ARK::is_valid("https://n2t.net/ark:12148/btv1b8449691v/f29"));
-    /// ```
-    pub fn is_valid<S>(value: S) -> bool
-    where
-        S: AsRef<str>,
-    {
-        let pid = ARK::from_string(value);
-        // TODO: Test NAAN length? Test betanumeric?
-        let naan_is_integer = match pid.name_assigning_authority_number {
-            | Some(value) => match value.parse::<u32>() {
-                | Ok(_) => true,
-                | Err(_) => false,
-            },
-            | None => false,
-        };
-        let shoulder_starts_with_lowercase_letter = match pid.assigned_name {
-            | Some(value) => match value.chars().next() {
-                | Some(value) => value.is_ascii_lowercase() && !value.eq(&'l'),
-                | None => false,
-            },
-            | None => false,
-        };
-        naan_is_integer && shoulder_starts_with_lowercase_letter
-    }
-}
-impl DOI {
-    /// Find all DOI values present in a string
-    pub fn find_all(value: &str) -> Vec<Self> {
-        let re = &RE_DOI;
-        re.find_iter(value).map(|m| DOI::from_string(m.unwrap().as_str())).collect()
-    }
-    /// Convenience method for easily parsing and formatting a DOI from a string value
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::DOI;
-    ///
-    /// assert_eq!(DOI::format("https://doi.org/10.1000/182"), "10.1000/182");
-    /// assert_eq!(DOI::format("10.1000/182"), "10.1000/182");
-    /// ```
-    pub fn format<S>(value: S) -> String
-    where
-        S: AsRef<str>,
-    {
-        DOI::from_string(value).to_string()
-    }
-    /// Create new DOI by parsing raw string value
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::{DOI, PersistentIdentifier};
-    ///
-    /// let doi = DOI::from_string("https://doi.org/10.1000/182");
-    /// assert_eq!(doi.prefix(), Some("10.1000".into()));
-    /// assert_eq!(doi.suffix(), Some("182".into()));
-    /// ```
-    pub fn from_string<S>(value: S) -> Self
-    where
-        S: AsRef<str>,
-    {
-        let groups = ["schema_uri", "directory_indicator", "prefix_element", "registrant_code", "suffix"];
-        let pattern = format!("^{RE_DOI_TEXT}$");
-        let lookup = regex_capture_lookup(pattern.as_ref(), value.as_ref(), groups.to_vec());
-        DOI::init()
-            .maybe_schema_uri(lookup.get("schema_uri").cloned())
-            .maybe_directory_indicator(lookup.get("directory_indicator").cloned())
-            .maybe_registrant_code(lookup.get("registrant_code").cloned())
-            .maybe_suffix(lookup.get("suffix").cloned())
-            .build()
-    }
-    /// Check if value is a valid DOI
-    /// ### Conditions
-    /// - Must match DOI regular expression (see [`RE_DOI_TEXT`])
-    /// - Is valid with or without schema URI[^format]
-    /// - `10.5555/` is not a valid DOI prefix
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::DOI;
-    ///
-    /// assert!(DOI::is_valid("https://doi.org/10.1000/182"));
-    /// assert!(DOI::is_valid("10.1000/182"));
-    /// ```
-    ///
-    /// [^format]: Use `DOI::format(value)` to ensure value is formatted correctly
-    pub fn is_valid<S>(value: S) -> bool
-    where
-        S: AsRef<str>,
-    {
-        let pid = DOI::from_string(value.as_ref());
-        let prefix_is_valid = match pid.prefix() {
-            | Some(x) => is_numeric(&x.replace(".", "")) && !x.eq("10.5555"),
-            | _ => false,
-        };
-        let suffix_is_valid = pid.suffix().is_some();
-        prefix_is_valid && suffix_is_valid
-    }
-}
-impl ISBN {
-    /// Find all ISBN values present in a string
-    pub fn find_all(value: &str) -> Vec<Self> {
-        let re = &RE_ISBN;
-        re.find_iter(value).map(|m| ISBN::from_string(m.unwrap().as_str())).collect()
-    }
-    /// Create new ISBN by parsing raw string value
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::ISBN;
-    ///
-    ///
-    /// ```
-    pub fn from_string<S>(value: S) -> Self
-    where
-        S: AsRef<str>,
-    {
-        let groups = ["prefix_element", "registration_group", "publisher", "title", "check_digit"];
-        let pattern = format!("^{RE_ISBN_TEXT}$");
-        let lookup = regex_capture_lookup(pattern.as_ref(), value.as_ref(), groups.to_vec());
-        ISBN::init()
-            .maybe_prefix_element(lookup.get("prefix_element").cloned())
-            .maybe_registration_group(lookup.get("registration_group").cloned())
-            .maybe_publisher(lookup.get("publisher").cloned())
-            .maybe_title(lookup.get("title").cloned())
-            .maybe_check_digit(lookup.get("check_digit").cloned())
-            .build()
-    }
-    /// Check if value is a valid ISBN
-    /// ### Conditions
-    /// - Must be exactly 13 digits long (not including hyphens)
-    /// - Must have a valid check digit
-    pub fn is_valid<S>(value: S) -> bool
-    where
-        S: AsRef<str>,
-    {
-        let pid = ISBN::from_string(value.as_ref());
-        let last = value.as_ref().chars().last().unwrap_or_default();
-        let has_valid_check_digit = match pid.check_digit() {
-            | Some(chars) => chars.contains(&last),
-            | _ => false,
-        };
-        let is_valid_length = value.as_ref().replace("-", "").len() == 13;
-        has_valid_check_digit && is_valid_length
-    }
-}
-impl ORCID {
-    /// Find all ORCiD values present in a string
-    pub fn find_all(value: &str) -> Vec<Self> {
-        let re = &RE_ORCID;
-        re.find_iter(value).map(|m| ORCID::from_string(m.unwrap().as_str())).collect()
-    }
-    /// Convenience method for easily parsing and formatting a ORCID from a string value
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::ORCID;
-    ///
-    /// assert_eq!(ORCID::format("https://orcid.org/0000-0002-2057-9115"), "https://orcid.org/0000-0002-2057-9115");
-    /// assert_eq!(ORCID::format("0000-0002-2057-9115"), "https://orcid.org/0000-0002-2057-9115");
-    /// ```
-    pub fn format<S>(value: S) -> String
-    where
-        S: AsRef<str>,
-    {
-        ORCID::from_string(value).to_string()
-    }
-    /// Create new ORCID by parsing raw string value
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::{ORCID, PersistentIdentifier};
-    ///
-    /// let orcid = ORCID::from_string("https://orcid.org/0000-0002-2057-9115");
-    /// assert_eq!(orcid.identifier(), "0000-0002-2057-9115");
-    /// ```
-    pub fn from_string<S>(value: S) -> Self
-    where
-        S: AsRef<str>,
-    {
-        let groups = ["schema_uri", "identifier", "check_digit"];
-        let pattern = format!("^{RE_ORCID_TEXT}$");
-        let lookup = regex_capture_lookup(pattern.as_ref(), value.as_ref(), groups.to_vec());
-        ORCID::init()
-            .maybe_schema_uri(lookup.get("schema_uri").cloned())
-            .maybe_identifier(lookup.get("identifier").cloned())
-            .maybe_check_digit(lookup.get("check_digit").cloned())
-            .build()
-    }
-    /// Check if value is a valid ORCiD
-    /// ### Conditions
-    /// - ORCiD identifier must be 16 characters, 0 thru 9, or "X"
-    /// - Last character of identifier must be a valid ISO 7064 check digit (see [`iso7064_check_digit`])
-    /// - Value can be valid with or without hyphens in the ORCiD identifier[^format]
-    /// - Value can be valid with or without schema URI[^format]
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::{ORCID, PersistentIdentifier};
-    ///
-    /// assert!(ORCID::is_valid("https://orcid.org/0000-0002-2057-9115"));
-    /// assert!(ORCID::is_valid("0000-0002-2057-9115"));
-    /// assert!(ORCID::is_valid("0000000220579115"));
-    /// ```
-    ///
-    /// [^format]: Use `ORCID::format(value)` to ensure value is formatted correctly
-    pub fn is_valid<S>(value: S) -> bool
-    where
-        S: AsRef<str>,
-    {
-        let pid = ORCID::from_string(value.as_ref());
-        let identifier = pid.identifier();
-        let last = identifier.chars().last().unwrap_or_default();
-        match orcid_check_digit(identifier.as_str()) {
-            | Some(check_digit) => match RE_ORCID.is_match(value.as_ref()) {
-                | Ok(true) if check_digit.contains(&last) && identifier.len() == 19 => true,
-                | _ => false,
-            },
-            | _ => false,
-        }
-    }
-}
-impl RAID {
-    /// Convenience method for easily parsing and formatting a `RAID` from a string value
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::RAID;
-    ///
-    /// assert_eq!(RAID::format("https://raid.org/10.83962/fb5be317"), "10.83962/fb5be317");
-    /// ```
-    pub fn format<S>(value: S) -> String
-    where
-        S: AsRef<str>,
-    {
-        RAID::from_string(value).to_string()
-    }
-    /// Create new RAiD by parsing a raw string value
-    /// ### Note
-    /// > RAiD identifiers are DOI identifiers. See this [blog post by DataCite](https://datacite.org/blog/datacite-ardc-announce-partnership-to-deliver-the-raid-service/) for details.
-    pub fn from_string<S>(value: S) -> Self
-    where
-        S: AsRef<str>,
-    {
-        let groups = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
-        let lookup = regex_capture_lookup(RE_RAID_TEXT, value.as_ref(), groups.to_vec());
-        let directory_indicator = lookup.get("directory_indicator").cloned();
-        let registrant_code = lookup.get("registrant_code").cloned();
-        let prefix = [directory_indicator, registrant_code]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<String>>()
-            .join(".");
-        RAID::init()
-            .prefix(prefix)
-            .maybe_schema_uri(lookup.get("schema_uri").cloned())
-            .maybe_suffix(lookup.get("suffix").cloned())
-            .build()
-    }
-    /// Check if value is a valid RAID
-    pub fn is_valid<S>(_value: S) -> bool
-    where
-        S: AsRef<str>,
-    {
-        let pid = RAID::from_string(_value.as_ref());
-        let prefix_is_valid = match pid.prefix() {
-            | Some(x) => is_numeric(&x.replace(".", "")) && !x.eq("10.5555"),
-            | _ => false,
-        };
-        let suffix_is_valid = pid.suffix().is_some();
-        prefix_is_valid && suffix_is_valid
-    }
-}
-impl ROR {
-    /// Find all ROR values present in a string
-    pub fn find_all(value: &str) -> Vec<Self> {
-        let re = &RE_ROR;
-        re.find_iter(value).map(|m| ROR::from_string(m.unwrap().as_str())).collect()
-    }
-    /// Convenience method for easily parsing and formatting a ROR from a string value
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::ROR;
-    ///
-    /// assert_eq!(ROR::format("https://ror.org/01qz5mb56"), "https://ror.org/01qz5mb56");
-    /// assert_eq!(ROR::format("01qz5mb56"), "https://ror.org/01qz5mb56");
-    /// ```
-    pub fn format<S>(value: S) -> String
-    where
-        S: AsRef<str>,
-    {
-        ROR::from_string(value).to_string()
-    }
-    /// Create new ROR by parsing raw string value
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::{ROR, PersistentIdentifier};
-    ///
-    /// let ror = ROR::from_string("https://ror.org/01qz5mb56");
-    /// assert_eq!(ror.identifier(), "01qz5mb56");
-    /// ```
-    pub fn from_string<S>(value: S) -> Self
-    where
-        S: AsRef<str>,
-    {
-        let groups = ["schema_uri", "identifier", "check_digit"];
-        let pattern = format!("^{RE_ROR_TEXT}$");
-        let lookup = regex_capture_lookup(pattern.as_ref(), value.as_ref(), groups.to_vec());
-        ROR::init()
-            .maybe_schema_uri(lookup.get("schema_uri").cloned())
-            .maybe_identifier(lookup.get("identifier").cloned())
-            .maybe_check_digit(lookup.get("check_digit").cloned())
-            .build()
-    }
-    /// Check if value is a valid ROR
-    /// ### Conditions
-    /// - Exactly 9 characters long
-    /// - Must have a valid check digits (last two characters are zero-padded checksum, 01-98) (see [`ror_check_digit`])
-    /// - [Base32 Crockford](https://www.crockford.com/base32.html) encoded (i.e., digits 0-9 and letters A-Z except for I, L, O, and U)
-    /// - Value can be valid with or without schema URI[^format]
-    /// ### Example
-    /// ```rust
-    /// use acorn::schema::pid::{ROR, PersistentIdentifier};
-    ///
-    /// assert!(ROR::is_valid("https://ror.org/01qz5mb56"));
-    /// assert!(ROR::is_valid("01qz5mb56"));
-    /// ```
-    ///
-    /// [^format]: Use `ROR::format(value)` to ensure value is formatted correctly
-    pub fn is_valid<S>(value: S) -> bool
-    where
-        S: AsRef<str>,
-    {
-        let pid = ROR::from_string(value.as_ref());
-        let identifier = pid.identifier();
-        let last_two = identifier.chars().rev().take(2).collect::<String>().chars().rev().collect::<String>();
-        if identifier.is_empty() {
-            false
-        } else {
-            match ror_check_digit(&identifier[1..]) {
-                | Some(check_digit) => {
-                    if identifier.len() == 9 {
-                        let calculated_last_two = check_digit.iter().collect::<String>();
-                        calculated_last_two == last_two
-                    } else {
-                        false
-                    }
-                }
-                | _ => false,
-            }
-        }
+    fn to_betanumeric_ordinal(&self) -> Option<usize> {
+        BETANUMERIC_DIGITS.chars().position(|x| x.eq(self))
     }
 }
 impl Default for ARK {
@@ -1128,7 +743,7 @@ where
             | PID::DOI => DOI::format(self.as_ref()),
             | PID::ORCID => ORCID::format(self.as_ref()),
             | PID::RAID => RAID::format(self.as_ref()),
-            | PID::ROR => ROR::format(self.as_ref()),
+            | PID::ROR => <ROR as PersistentIdentifierParse>::format(self.as_ref()),
             | _ => self.as_ref().to_string(),
         }
     }
@@ -1214,12 +829,396 @@ impl PersistentIdentifierInternal {
         }
     }
 }
-impl Betanumeric for char {
-    fn is_betanumeric(&self) -> bool {
-        BETANUMERIC_DIGITS.contains(*self)
+impl PersistentIdentifierParse for ARK {
+    /// Find all [`ARK`] values present in a string
+    fn find_all(value: impl ToString) -> Vec<Self> {
+        let re = &RE_ARK;
+        re.find_iter(&value.to_string()).map(|m| ARK::from_string(m.unwrap().as_str())).collect()
     }
-    fn to_betanumeric_ordinal(&self) -> Option<usize> {
-        BETANUMERIC_DIGITS.chars().position(|x| x.eq(self))
+    /// Convenience method for easily parsing and formatting an [`ARK`] from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ARK, PersistentIdentifierParse};
+    ///
+    /// assert_eq!(ARK::format("ark:/1234/5678"), "ark:1234/5678");
+    /// let expected = "https://n2t.net/ark:12148/btv1b8449691v/f29";
+    /// assert_eq!(ARK::format(expected), expected);
+    /// ```
+    fn format(value: impl ToString) -> String {
+        ARK::from_string(value.to_string()).to_string()
+    }
+    /// Create new [`ARK`] by parsing raw string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ARK, PersistentIdentifier, PersistentIdentifierParse};
+    ///
+    /// let ark = ARK::from_string("https://n2t.net/ark:12148/btv1b8449691v/f42");
+    /// assert_eq!(ark.suffix(), Some("f42".to_string()));
+    /// ```
+    fn from_string(value: impl ToString) -> Self {
+        let groups = ["nma", "label", "naan", "assigned_name", "parts", "variants"];
+        let pattern = format!("^{RE_ARK_TEXT}$");
+        let text = value.to_string();
+        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        let parts = match lookup.get("parts") {
+            | Some(value) => value.split('/').map(String::from).collect(),
+            | None => vec![],
+        };
+        let variants = match lookup.get("variants") {
+            | Some(value) => value.split('.').map(String::from).collect(),
+            | None => vec![],
+        };
+        ARK::init()
+            .maybe_assigned_name(lookup.get("assigned_name").cloned())
+            .maybe_label(lookup.get("label").cloned())
+            .maybe_name_assigning_authority_number(lookup.get("naan").cloned())
+            .maybe_name_mapping_authority(lookup.get("nma").cloned())
+            .parts(parts)
+            .variants(variants)
+            .build()
+    }
+    /// Check if value is a valid [`ARK`]
+    /// ### Conditions
+    /// - ARKs are preferred to be "actionable" with the inclusion of a NMA URL, but are not required to be so (NMA is optional)
+    /// - If ARK is to contain a URL, "https" is the only allowed scheme
+    /// - Should have only one instance of "ark:" label
+    /// - NAAN should be an integer
+    /// - [Assigned name](`ARK::assigned_name`) should start with a valid [shoulder](https://arks.org/about/shoulders/)
+    /// - Last character should be valid check digit (see [`noid_check_digit`])
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ARK, PersistentIdentifierParse};
+    ///
+    /// assert!(ARK::is_valid("ark:99166/w66d60p2"));
+    /// assert!(ARK::is_valid("https://n2t.net/ark:12148/btv1b8449691v/f29"));
+    /// ```
+    fn is_valid(value: impl ToString) -> bool {
+        let pid = ARK::from_string(value);
+        // TODO: Test NAAN length? Test betanumeric?
+        let naan_is_integer = match pid.name_assigning_authority_number {
+            | Some(value) => match value.parse::<u32>() {
+                | Ok(_) => true,
+                | Err(_) => false,
+            },
+            | None => false,
+        };
+        let shoulder_starts_with_lowercase_letter = match pid.assigned_name {
+            | Some(value) => match value.chars().next() {
+                | Some(value) => value.is_ascii_lowercase() && !value.eq(&'l'),
+                | None => false,
+            },
+            | None => false,
+        };
+        naan_is_integer && shoulder_starts_with_lowercase_letter
+    }
+}
+impl PersistentIdentifierParse for DOI {
+    /// Find all [`DOI`] values present in a string
+    fn find_all(value: impl ToString) -> Vec<Self> {
+        let re = &RE_DOI;
+        re.find_iter(&value.to_string()).map(|m| DOI::from_string(m.unwrap().as_str())).collect()
+    }
+    /// Convenience method for easily parsing and formatting a [`DOI`] from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{DOI, PersistentIdentifierParse};
+    ///
+    /// assert_eq!(DOI::format("https://doi.org/10.1000/182"), "10.1000/182");
+    /// assert_eq!(DOI::format("10.1000/182"), "10.1000/182");
+    /// ```
+    fn format(value: impl ToString) -> String {
+        DOI::from_string(value).to_string()
+    }
+    /// Create new [`DOI`] by parsing raw string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
+    ///
+    /// let doi = DOI::from_string("https://doi.org/10.1000/182");
+    /// assert_eq!(doi.prefix(), Some("10.1000".into()));
+    /// assert_eq!(doi.suffix(), Some("182".into()));
+    /// ```
+    fn from_string(value: impl ToString) -> Self {
+        let groups = ["schema_uri", "directory_indicator", "prefix_element", "registrant_code", "suffix"];
+        let pattern = format!("^{RE_DOI_TEXT}$");
+        let text = value.to_string();
+        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        DOI::init()
+            .maybe_schema_uri(lookup.get("schema_uri").cloned())
+            .maybe_directory_indicator(lookup.get("directory_indicator").cloned())
+            .maybe_registrant_code(lookup.get("registrant_code").cloned())
+            .maybe_suffix(lookup.get("suffix").cloned())
+            .build()
+    }
+    /// Check if value is a valid [`DOI`]
+    /// ### Conditions
+    /// - Must match DOI regular expression (see [`RE_DOI_TEXT`])
+    /// - Is valid with or without schema URI[^format]
+    /// - `10.5555/` is not a valid DOI prefix
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{DOI, PersistentIdentifierParse};
+    ///
+    /// assert!(DOI::is_valid("https://doi.org/10.1000/182"));
+    /// assert!(DOI::is_valid("10.1000/182"));
+    /// assert!(!DOI::is_valid("10.5555/182"));
+    /// ```
+    ///
+    /// [^format]: Use `DOI::format(value)` to ensure value is formatted correctly
+    fn is_valid(value: impl ToString) -> bool {
+        let pid = DOI::from_string(value.to_string());
+        let prefix_is_valid = match pid.prefix() {
+            | Some(x) => is_numeric(&x.replace(".", "")) && !x.eq("10.5555"),
+            | _ => false,
+        };
+        let suffix_is_valid = pid.suffix().is_some();
+        prefix_is_valid && suffix_is_valid
+    }
+}
+impl PersistentIdentifierParse for ISBN {
+    /// Find all [`ISBN`] values present in a string
+    fn find_all(value: impl ToString) -> Vec<Self> {
+        let re = &RE_ISBN;
+        re.find_iter(&value.to_string()).map(|m| ISBN::from_string(m.unwrap().as_str())).collect()
+    }
+    /// Convenience method for easily parsing and formatting a [`ISBN`] from a string value
+    fn format(value: impl ToString) -> String {
+        ISBN::from_string(value).to_string()
+    }
+    /// Create new [`ISBN`] by parsing raw string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ISBN, PersistentIdentifierParse};
+    ///
+    /// let isbn = ISBN::from_string("978-0-306-40627-0");
+    /// assert_eq!(isbn.prefix_element, Some("978".to_string()));
+    /// ```
+    fn from_string(value: impl ToString) -> Self {
+        let groups = ["prefix_element", "registration_group", "publisher", "title", "check_digit"];
+        let pattern = format!("^{RE_ISBN_TEXT}$");
+        let text = value.to_string();
+        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        ISBN::init()
+            .maybe_prefix_element(lookup.get("prefix_element").cloned())
+            .maybe_registration_group(lookup.get("registration_group").cloned())
+            .maybe_publisher(lookup.get("publisher").cloned())
+            .maybe_title(lookup.get("title").cloned())
+            .maybe_check_digit(lookup.get("check_digit").cloned())
+            .build()
+    }
+    /// Check if value is a valid [`ISBN`]
+    /// ### Conditions
+    /// - Must be exactly 13 digits long (not including hyphens)
+    /// - Must have a valid check digit (see [`isbn_check_digit`])
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ISBN, PersistentIdentifierParse};
+    ///
+    /// let isbn = ISBN::from_string("978-0-306-40627-0");
+    /// assert!(ISBN::is_valid("978-0-306-40627-0"));
+    /// assert!(ISBN::is_valid("9780306406270"));
+    /// ```
+    fn is_valid(value: impl ToString) -> bool {
+        let pid = ISBN::from_string(value.to_string());
+        let last = value.to_string().chars().last().unwrap_or_default();
+        let has_valid_check_digit = match pid.check_digit() {
+            | Some(chars) => chars.contains(&last),
+            | _ => false,
+        };
+        let is_valid_length = value.to_string().replace("-", "").len() == 13;
+        has_valid_check_digit && is_valid_length
+    }
+}
+impl PersistentIdentifierParse for ORCID {
+    /// Find all [`ORCID`] values present in a string
+    fn find_all(value: impl ToString) -> Vec<Self> {
+        let re = &RE_ORCID;
+        re.find_iter(&value.to_string())
+            .map(|m| ORCID::from_string(m.unwrap().as_str()))
+            .collect()
+    }
+    /// Convenience method for easily parsing and formatting a [`ORCID`] from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ORCID, PersistentIdentifierParse};
+    ///
+    /// assert_eq!(ORCID::format("https://orcid.org/0000-0002-2057-9115"), "https://orcid.org/0000-0002-2057-9115");
+    /// assert_eq!(ORCID::format("0000-0002-2057-9115"), "https://orcid.org/0000-0002-2057-9115");
+    /// ```
+    fn format(value: impl ToString) -> String {
+        ORCID::from_string(value).to_string()
+    }
+    /// Create new [`ORCID`] by parsing raw string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ORCID, PersistentIdentifier, PersistentIdentifierParse};
+    ///
+    /// let orcid = ORCID::from_string("https://orcid.org/0000-0002-2057-9115");
+    /// assert_eq!(orcid.identifier(), "0000-0002-2057-9115");
+    /// ```
+    fn from_string(value: impl ToString) -> Self {
+        let groups = ["schema_uri", "identifier", "check_digit"];
+        let pattern = format!("^{RE_ORCID_TEXT}$");
+        let text = value.to_string();
+        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        ORCID::init()
+            .maybe_schema_uri(lookup.get("schema_uri").cloned())
+            .maybe_identifier(lookup.get("identifier").cloned())
+            .maybe_check_digit(lookup.get("check_digit").cloned())
+            .build()
+    }
+    /// Check if value is a valid [`ORCiD`]
+    /// ### Conditions
+    /// - ORCiD identifier must be 16 characters, 0 thru 9, or "X"
+    /// - Last character of identifier must be a valid ISO 7064 check digit (see [`orcid_check_digit`])
+    /// - Value can be valid with or without hyphens in the ORCiD identifier[^format]
+    /// - Value can be valid with or without schema URI[^format]
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ORCID, PersistentIdentifierParse};
+    ///
+    /// assert!(ORCID::is_valid("https://orcid.org/0000-0002-2057-9115"));
+    /// assert!(ORCID::is_valid("0000-0002-2057-9115"));
+    /// assert!(ORCID::is_valid("0000000220579115"));
+    /// ```
+    ///
+    /// [^format]: Use `ORCID::format(value)` to ensure value is formatted correctly
+    fn is_valid(value: impl ToString) -> bool {
+        let pid = ORCID::from_string(value.to_string());
+        let identifier = pid.identifier();
+        let last = identifier.chars().last().unwrap_or_default();
+        match orcid_check_digit(identifier.as_str()) {
+            | Some(check_digit) => {
+                if check_digit.contains(&last) {
+                    identifier.len() == 19
+                } else {
+                    false
+                }
+            }
+            | _ => false,
+        }
+    }
+}
+impl PersistentIdentifierParse for RAID {
+    /// Find all [`RAID`] values present in a string
+    fn find_all(value: impl ToString) -> Vec<Self> {
+        // TODO: RAiDs are DOIs, but they might have extra format to distinguish them as RAiDs?
+        let re = &RE_DOI;
+        re.find_iter(&value.to_string()).map(|m| RAID::from_string(m.unwrap().as_str())).collect()
+    }
+    /// Convenience method for easily parsing and formatting a [`RAID`] from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{RAID, PersistentIdentifierParse};
+    ///
+    /// assert_eq!(RAID::format("https://raid.org/10.83962/fb5be317"), "10.83962/fb5be317");
+    /// ```
+    fn format(value: impl ToString) -> String {
+        RAID::from_string(value).to_string()
+    }
+    /// Create new [`RAID`] by parsing a raw string value
+    /// ### Note
+    /// > RAiD identifiers are [`DOI`] identifiers. See this [blog post by DataCite](https://datacite.org/blog/datacite-ardc-announce-partnership-to-deliver-the-raid-service/) for details.
+    fn from_string(value: impl ToString) -> Self {
+        let groups = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
+        let pattern = format!("^{RE_RAID_TEXT}$");
+        let text = value.to_string();
+        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        let directory_indicator = lookup.get("directory_indicator").cloned();
+        let registrant_code = lookup.get("registrant_code").cloned();
+        let prefix = [directory_indicator, registrant_code]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<String>>()
+            .join(".");
+        RAID::init()
+            .prefix(prefix)
+            .maybe_schema_uri(lookup.get("schema_uri").cloned())
+            .maybe_suffix(lookup.get("suffix").cloned())
+            .build()
+    }
+    /// Check if value is a valid [`RAID`]
+    /// > See [`DOI::is_valid`] for conditions, as RAiD identifiers are [`DOI`]s
+    fn is_valid(value: impl ToString) -> bool {
+        let pid = RAID::from_string(value.to_string());
+        let prefix_is_valid = match pid.prefix() {
+            | Some(x) => is_numeric(&x.replace(".", "")) && !x.eq("10.5555"),
+            | _ => false,
+        };
+        let suffix_is_valid = pid.suffix().is_some();
+        prefix_is_valid && suffix_is_valid
+    }
+}
+impl PersistentIdentifierParse for ROR {
+    /// Find all [`ROR`] values present in a string
+    fn find_all(value: impl ToString) -> Vec<Self> {
+        let re = &RE_ROR;
+        re.find_iter(&value.to_string()).map(|m| ROR::from_string(m.unwrap().as_str())).collect()
+    }
+    /// Convenience method for easily parsing and formatting a [`ROR`] from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ROR, PersistentIdentifierParse};
+    ///
+    /// assert_eq!(ROR::format("https://ror.org/01qz5mb56"), "https://ror.org/01qz5mb56");
+    /// assert_eq!(ROR::format("01qz5mb56"), "https://ror.org/01qz5mb56");
+    /// ```
+    fn format(value: impl ToString) -> String {
+        ROR::from_string(value.to_string()).to_string()
+    }
+    /// Create new [`ROR`] by parsing raw string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ROR, PersistentIdentifier, PersistentIdentifierParse};
+    ///
+    /// let ror = ROR::from_string("https://ror.org/01qz5mb56");
+    /// assert_eq!(ror.identifier(), "01qz5mb56");
+    /// ```
+    fn from_string(value: impl ToString) -> Self {
+        let groups = ["schema_uri", "identifier", "check_digit"];
+        let pattern = format!("^{RE_ROR_TEXT}$");
+        let text = value.to_string();
+        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        ROR::init()
+            .maybe_schema_uri(lookup.get("schema_uri").cloned())
+            .maybe_identifier(lookup.get("identifier").cloned())
+            .maybe_check_digit(lookup.get("check_digit").cloned())
+            .build()
+    }
+    /// Check if value is a valid [`ROR`]
+    /// ### Conditions
+    /// - Exactly 9 characters long
+    /// - Must have a valid check digits (last two characters are zero-padded checksum, 01-98) (see [`ror_check_digit`])
+    /// - [Base32 Crockford](https://www.crockford.com/base32.html) encoded (i.e., digits 0-9 and letters A-Z except for I, L, O, and U)
+    /// - Value can be valid with or without schema URI[^format]
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{ROR, PersistentIdentifierParse};
+    ///
+    /// assert!(ROR::is_valid("https://ror.org/01qz5mb56"));
+    /// assert!(ROR::is_valid("01qz5mb56"));
+    /// ```
+    ///
+    /// [^format]: Use `ROR::format(value)` to ensure value is formatted correctly
+    fn is_valid(value: impl ToString) -> bool {
+        let pid = ROR::from_string(value.to_string());
+        let identifier = pid.identifier();
+        let last_two = identifier.chars().rev().take(2).collect::<String>().chars().rev().collect::<String>();
+        if identifier.is_empty() {
+            false
+        } else {
+            match ror_check_digit(&identifier[1..]) {
+                | Some(check_digit) => {
+                    if identifier.len() == 9 {
+                        let calculated_last_two = check_digit.iter().collect::<String>();
+                        calculated_last_two == last_two
+                    } else {
+                        false
+                    }
+                }
+                | _ => false,
+            }
+        }
     }
 }
 /// ISBN check digit
