@@ -33,6 +33,7 @@ pub fn run(
     merge_request: &bool,
     skip_verify_checksum: &bool,
     offline: &bool,
+    no_fail: &bool,
     readability_metric: &ReadabilityTypeArgument,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
@@ -128,7 +129,7 @@ pub fn run(
         })
         .filter(|Check { success, .. }| !success)
         .collect::<Vec<Check>>();
-    if count(all_issues.clone()) > 0 {
+    if count(all_issues.clone()) > 0 && !*no_fail {
         if level.is_some() {
             let headers = vec!["Issue Type", "Issue Count"];
             let rows = summary(all_issues);

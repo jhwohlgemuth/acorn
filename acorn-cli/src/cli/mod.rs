@@ -211,6 +211,13 @@ pub enum Commands {
         /// > CAUTION: Use at your own risk
         #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
         skip_verify_checksum: bool,
+        /// Prevent `acorn check` from exiting with a non-zero exit code when errors are found
+        /// 
+        /// Useful for certain scenarios such as debugging
+        /// 
+        /// > CAUTION: Use at your own risk
+        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+        no_fail: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },

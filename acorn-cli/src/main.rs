@@ -128,6 +128,7 @@ fn main() -> Void {
             exit_on_first_error,
             merge_request,
             skip_verify_checksum,
+            no_fail,
             readability_metric,
             verbose,
             ..
@@ -142,6 +143,7 @@ fn main() -> Void {
             merge_request,
             skip_verify_checksum,
             &offline,
+            &no_fail,
             readability_metric,
             verbose,
         ),
