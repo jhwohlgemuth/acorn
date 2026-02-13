@@ -143,7 +143,7 @@ fn main() -> Void {
             merge_request,
             skip_verify_checksum,
             &offline,
-            &no_fail,
+            no_fail,
             readability_metric,
             verbose,
         ),

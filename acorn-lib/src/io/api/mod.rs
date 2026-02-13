@@ -11,8 +11,10 @@ use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use tera::{Context, Tera};
 use uriparse::URI;
+use validator::Validate;
 
 pub mod citeas;
 pub mod orcid;
@@ -20,7 +22,7 @@ pub mod orcid;
 /// Helper trait combining common bounds for API query field types
 pub trait QueryField: fmt::Display + for<'a> TryFrom<&'a str> {}
 /// Trait to enable validation of field values
-pub trait Validate {
+pub trait ValueValidator {
     /// Verify associated field value is valid
     fn is_valid(&self, _value: &str) -> bool {
         true
@@ -40,7 +42,7 @@ pub trait RestfulInterface {
     /// Send data to the endpoint and receive a response
     fn invoke_sync<Q, F>(&self, action: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
     where
-        Q: Validate + QueryField,
+        Q: QueryField + ValueValidator,
         F: QueryField;
     /// Parse JSON response string content
     fn parse_json<R>(&self, content: &str) -> Result<R, String>
@@ -68,6 +70,7 @@ pub enum AuthenticationScheme {
 }
 /// HTTP methods supported for API requests
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum HttpMethod {
     /// Retrieve data from a server without modifying it — safe and idempotent
     #[default]
@@ -130,7 +133,8 @@ pub struct EmptyField;
 /// Represents an API endpoint with a lookup table for calling various paths
 /// ### Note
 /// Paths use handlebars templating syntax for dynamic URL construction, powered by [Tera](https://keats.github.io/tera/)
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize, Validate)]
 #[builder(start_fn = at, on(String, into))]
 pub struct Endpoint {
     /// The domain of the API endpoint
@@ -140,8 +144,8 @@ pub struct Endpoint {
     #[builder(default = String::new())]
     pub name: String,
     /// The scheme of the API endpoint
-    #[builder(default = Scheme::HTTPS)]
-    pub scheme: Scheme,
+    #[serde(default)]
+    pub scheme: Option<Scheme>,
     /// The port of the API endpoint
     pub port: Option<u16>,
     /// Authentication credentials for accessing the API endpoint
@@ -181,13 +185,14 @@ pub struct Param {
     pub required: bool,
 }
 /// Represents a resource for an API endpoint, which can be used to generate full paths for requests
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 pub struct Resource {
     /// Resource name (e.g., "search", "status")
     pub name: String,
     /// HTTP method to use when invoking this resource (e.g., GET, POST)
     #[builder(with = |method: &str| HttpMethod::from(method))]
+    #[serde(default)]
     pub method: HttpMethod,
     /// Template for the resource path (e.g., "/expanded-search/{{ query }}")
     pub template: String,
@@ -197,9 +202,10 @@ pub struct Resource {
 impl Endpoint {
     /// Get the base URL for the API endpoint, constructed from scheme, domain, and port if not provided
     pub fn base(&self) -> String {
+        let scheme = self.scheme.as_ref().map_or("https".to_string(), |s| s.to_string());
         format!(
             "{}://{}{}/{}",
-            self.scheme,
+            scheme,
             self.domain.clone(),
             self.port.map_or(String::new(), |p| format!(":{p}")),
             self.root,
@@ -283,7 +289,7 @@ impl Param {
         matches!(self.style, ParamStyle::Header)
     }
     /// Convert a list of params to a query string
-    pub fn to_query_string<Q: QueryField + Validate, F: QueryField>(params: Vec<Param>) -> String {
+    pub fn to_query_string<Q: QueryField + ValueValidator, F: QueryField>(params: Vec<Param>) -> String {
         let query = params
             .iter()
             .filter(|param| param.is_query())
@@ -326,7 +332,7 @@ impl Param {
     /// Render this parameter to a query string using the provided field types.
     /// - `Q` is used for query pairs and boosted query fields and must support validation (`Validate` trait).
     /// - `F` is used for field lists (e.g., output columns).
-    pub fn to_string<Q: Validate + QueryField, F: QueryField>(&self) -> String {
+    pub fn to_string<Q: QueryField + ValueValidator, F: QueryField>(&self) -> String {
         let key = self.name.as_str();
         let rendered: Option<String> = match self.style {
             | ParamStyle::QueryPair => {
@@ -395,7 +401,7 @@ impl RestfulInterface for Endpoint {
     /// ```
     fn invoke_sync<Q, F>(&self, name: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
     where
-        Q: Validate + QueryField,
+        Q: QueryField + ValueValidator,
         F: QueryField,
     {
         let Self { resources, .. } = self;
@@ -462,13 +468,13 @@ impl TryFrom<&str> for EmptyField {
         Ok(EmptyField)
     }
 }
-impl Validate for EmptyField {
+impl ValueValidator for EmptyField {
     fn is_valid(&self, _value: &str) -> bool {
         true
     }
 }
 /// Create a query string from a lookup table of key-value pairs with field validation
-pub fn param_from_query_pairs<T: Validate + QueryField>(key: &str, separator: &str, pairs: Vec<(&str, &str)>) -> Option<String> {
+pub fn param_from_query_pairs<T: QueryField + ValueValidator>(key: &str, separator: &str, pairs: Vec<(&str, &str)>) -> Option<String> {
     let values: Vec<String> = pairs
         .into_iter()
         .filter_map(|(k, v)| {
@@ -549,7 +555,7 @@ where
 /// - The list of fields with boosted relevance, joined with URL encoded space, prefixed with "&qf=".
 ///
 /// If the list of field-value pairs is empty, an empty string is returned.
-pub fn query_string<Q: QueryField + Validate, F: QueryField>(
+pub fn query_string<Q: QueryField + ValueValidator, F: QueryField>(
     query_pairs: Vec<(&str, &str)>,
     field_list: Vec<&str>,
     query_fields: Vec<&str>,

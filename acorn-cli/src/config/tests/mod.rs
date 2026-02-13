@@ -3,21 +3,31 @@ use acorn::prelude::PathBuf;
 use acorn::{Location, Scheme};
 
 const FIXTURES: &str = "../tests/fixtures";
+fn fixtures_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("tests").join("fixtures")
+}
 
 #[test]
 fn test_bucket_config_json() {
     let path = PathBuf::from(FIXTURES).join("buckets_with_github.json");
     let config = ApplicationConfiguration::read_json(path).unwrap();
-    assert_eq!(config.buckets.len(), 2);
+    assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 2);
     let path = PathBuf::from(FIXTURES).join("buckets.json");
     let config = ApplicationConfiguration::read_json(path).unwrap();
-    assert_eq!(config.buckets.len(), 3);
+    assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 3);
+}
+#[test]
+fn test_config_with_endpoints() {
+    let path = fixtures_dir().join("config").join("with_endpoints.json");
+    let config = ApplicationConfiguration::read_json(path);
+    let endpoints = config.unwrap().endpoints.unwrap();
+    assert_eq!(endpoints[0].resources.len(), 2);
 }
 #[test]
 fn test_bucket_config_yaml() {
     let path = PathBuf::from(FIXTURES).join("buckets.yaml");
     let config = ApplicationConfiguration::read_yaml(path).unwrap();
-    assert_eq!(config.buckets.len(), 3);
+    assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 3);
 }
 #[test]
 fn test_bucket() {

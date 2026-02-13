@@ -1,7 +1,7 @@
 //! Module for interacting with ORCiD API
 //!
 //! Provides types and functions for constructing ORCiD API queries with field validation and output column selection.
-use crate::io::api::{self, Validate};
+use crate::io::api::{self, ValueValidator};
 use crate::schema::validate::{is_orcid, is_ror};
 use bon::Builder;
 use core::fmt;
@@ -156,7 +156,7 @@ pub struct StatusResponse {
     #[serde(rename = "overallOk")]
     pub overall: bool,
 }
-impl Validate for SearchField {
+impl ValueValidator for SearchField {
     /// Validate certain types of ORCiD search field values
     ///
     /// Special validation is performed for `RorOrgId` and `Orcid` fields.

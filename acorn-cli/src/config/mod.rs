@@ -4,6 +4,7 @@
 //!
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
+use acorn::io::api::Endpoint;
 use acorn::io::{files_all, network_get_request, parent, read_file, FromPath};
 use acorn::prelude::{self, create_dir_all, exit, io, Cursor, File, PathBuf};
 use acorn::util::{suffix, Label, MimeType, ToAbsoluteString};
@@ -50,7 +51,9 @@ const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Stor
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ApplicationConfiguration {
     /// List of buckets
-    pub buckets: Vec<Bucket>,
+    pub buckets: Option<Vec<Bucket>>,
+    /// List of enpoint resources
+    pub endpoints: Option<Vec<Endpoint>>,
 }
 /// Type for GitLab tree entry
 #[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
@@ -456,6 +459,8 @@ impl From<&str> for Bucket {
     }
 }
 impl ApplicationConfiguration {
+    // TODO: Abstract parsing into separate function
+    // TODO: Make read return result
     /// Read and parse application configuration file (JSON or YAML)
     pub fn read(path: PathBuf) -> Option<ApplicationConfiguration> {
         let content = match MimeType::from_path(path.clone()) {
@@ -483,7 +488,7 @@ impl ApplicationConfiguration {
             | Ok(_) | Err(_) => {
                 error!(
                     path = path.to_str().unwrap(),
-                    "=> {} Bucket configuration content is not valid",
+                    "=> {} ACORN configuration content is not valid",
                     Label::fail()
                 );
                 "{}".to_owned()
@@ -494,7 +499,7 @@ impl ApplicationConfiguration {
             | Ok(_) => Label::using(),
             | Err(_) => Label::invalid(),
         };
-        trace!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
+        trace!("=> {} ACORN configuration = {:#?}", label, data.dimmed());
         data
     }
     /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
@@ -504,7 +509,7 @@ impl ApplicationConfiguration {
             | Err(_) => {
                 error!(
                     path = path.to_str().unwrap(),
-                    "=> {} Bucket configuration content is not valid",
+                    "=> {} ACORN configuration content is not valid",
                     Label::fail()
                 );
                 "".to_owned()

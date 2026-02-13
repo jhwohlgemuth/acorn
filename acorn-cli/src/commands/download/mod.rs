@@ -14,15 +14,17 @@ pub fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option<PathB
         match ApplicationConfiguration::read(path.clone()) {
             | Some(content) => {
                 let mut total: usize = 0;
-                content.buckets.into_iter().for_each(|bucket| {
-                    if let Some(path) = output.clone() {
-                        total += if *offline || bucket.clone().code_repository.is_local() {
-                            bucket.copy_files(path)
-                        } else {
-                            bucket.download_files(path)
-                        };
-                    }
-                });
+                if let Some(buckets) = content.buckets {
+                    buckets.into_iter().for_each(|bucket| {
+                        if let Some(path) = output.clone() {
+                            total += if *offline || bucket.clone().code_repository.is_local() {
+                                bucket.copy_files(path)
+                            } else {
+                                bucket.download_files(path)
+                            };
+                        }
+                    });
+                }
                 println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             }
             | None => {
