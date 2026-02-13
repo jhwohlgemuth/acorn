@@ -9,10 +9,10 @@ fn fixtures_dir() -> PathBuf {
 
 #[test]
 fn test_bucket_config_json() {
-    let path = PathBuf::from(FIXTURES).join("buckets_with_github.json");
+    let path = PathBuf::from(FIXTURES).join("config").join("with_github_buckets.json");
     let config = ApplicationConfiguration::read_json(path).unwrap();
     assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 2);
-    let path = PathBuf::from(FIXTURES).join("buckets.json");
+    let path = PathBuf::from(FIXTURES).join("config").join("with_remote_buckets.json");
     let config = ApplicationConfiguration::read_json(path).unwrap();
     assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 3);
 }
@@ -25,7 +25,7 @@ fn test_config_with_endpoints() {
 }
 #[test]
 fn test_bucket_config_yaml() {
-    let path = PathBuf::from(FIXTURES).join("buckets.yaml");
+    let path = PathBuf::from(FIXTURES).join("config").join("with_remote_buckets.yaml");
     let config = ApplicationConfiguration::read_yaml(path).unwrap();
     assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 3);
 }
