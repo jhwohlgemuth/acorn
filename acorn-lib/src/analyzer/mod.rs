@@ -5,11 +5,11 @@
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 #[cfg(feature = "std")]
 use crate::io::async_runtime;
+#[cfg(feature = "std")]
+use crate::io::InputOutput;
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, network_get_request, standard_project_folder};
 use crate::prelude;
 use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
-#[cfg(feature = "std")]
-use crate::schema::research_activity::InputOutput;
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{ImageObject, MediaObject, ProgrammingLanguage, VideoObject, Website};
 use crate::skip;

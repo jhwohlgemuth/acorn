@@ -63,6 +63,38 @@ pub trait FromPath {
     where
         P: Into<PathBuf>;
 }
+/// Trait for I/O operations such as read and write
+pub trait InputOutput {
+    /// Read research activity data from specified file path
+    fn read<P>(_path: P) -> Option<crate::schema::research_activity::ResearchActivity>
+    where
+        P: Into<PathBuf>,
+    {
+        None
+    }
+    /// Read research activity data from specified JSON file path
+    fn read_json(path: PathBuf) -> serde_json::Result<crate::schema::research_activity::ResearchActivity>;
+    /// Read research activity data as Markdown from specified path
+    fn read_markdown(path: PathBuf) -> Option<crate::schema::research_activity::ResearchActivity>;
+    /// Read research activity data from specified YAML file path
+    fn read_yaml(path: PathBuf) -> serde_yml::Result<crate::schema::research_activity::ResearchActivity>;
+    /// Write research activity data to specified path
+    fn write<P>(&self, path: P) -> Result<(), Error>
+    where
+        P: Into<PathBuf> + Clone;
+    /// Write research activity data as JSON to specified path
+    fn write_json<P>(&self, path: P) -> Result<(), Error>
+    where
+        P: Into<PathBuf> + Clone;
+    /// Write research activity data as Markdown (MD) to specified path
+    fn write_markdown<P>(&self, path: P) -> Result<(), Error>
+    where
+        P: Into<PathBuf> + Clone;
+    /// Write research activity data as YAML to specified path
+    fn write_yaml<P>(&self, path: P) -> Result<(), Error>
+    where
+        P: Into<PathBuf> + Clone;
+}
 /// Struct for parsing GitLab API merge request diff responses
 ///
 /// Used by [`files_from_gitlab_merge_request`]

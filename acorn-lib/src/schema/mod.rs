@@ -97,7 +97,7 @@ pub enum OrganizationType {
     #[display("agency")]
     Agency,
     /// Initiative that involves multiple DOE laboratories partnering together for a shared purpose and leverage "traditional" management
-    /// 
+    ///
     /// Generally, centers may be more focused on a specific problem (more than an institute, for example)
     #[display("center")]
     Center,
@@ -788,7 +788,11 @@ impl OrganizationType {
     /// Returns the order of an `OrganizationType` value
     pub fn order(self) -> u8 {
         match self {
-            | OrganizationType::Ffrdc | OrganizationType::Agency | OrganizationType::Consortium | OrganizationType::Institute | OrganizationType::Office => 4,
+            | OrganizationType::Ffrdc
+            | OrganizationType::Agency
+            | OrganizationType::Consortium
+            | OrganizationType::Institute
+            | OrganizationType::Office => 4,
             | OrganizationType::Directorate => 3,
             | OrganizationType::Division | OrganizationType::Center | OrganizationType::Program | OrganizationType::Facility => 2,
             | OrganizationType::Group => 1,

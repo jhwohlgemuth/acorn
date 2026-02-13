@@ -1,10 +1,9 @@
 use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::io::bagit::{Bag, BagInfo, Save};
-use acorn::io::FromPath;
-use acorn::io::{async_runtime, folder_size};
+use acorn::io::{async_runtime, folder_size, FromPath, InputOutput};
 use acorn::prelude::{exit, remove_dir_all, PathBuf};
-use acorn::schema::research_activity::{InputOutput, ResearchActivity};
+use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{current_date, format_bytes, suffix, Label, MimeType};
 use acorn::{fail, skip};
 use color_eyre::eyre::{Report, Result};

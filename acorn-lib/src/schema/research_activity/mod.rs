@@ -4,7 +4,7 @@
 //!
 use crate::fail;
 #[cfg(feature = "std")]
-use crate::io::{image_paths, parent, read_file, write_file, FromPath};
+use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::{io::Error, PathBuf};
 use crate::schema::constants::{CODEMETA_CONTEXT, DCAT_CONTEXT, SCHEMA_ORG_CONTEXT};
@@ -48,39 +48,6 @@ use validator::Validate;
 pub mod aspect;
 use aspect::AspectFramework;
 
-/// Trait for read/write operations on Research Activity data
-#[cfg(feature = "std")]
-pub trait InputOutput {
-    /// Read research activity data from specified file path
-    fn read<P>(_path: P) -> Option<ResearchActivity>
-    where
-        P: Into<PathBuf>,
-    {
-        None
-    }
-    /// Read research activity data from specified JSON file path
-    fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity>;
-    /// Read research activity data as Markdown from specified path
-    fn read_markdown(path: PathBuf) -> Option<ResearchActivity>;
-    /// Read research activity data from specified YAML file path
-    fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity>;
-    /// Write research activity data to specified path
-    fn write<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf> + Clone;
-    /// Write research activity data as JSON to specified path
-    fn write_json<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf> + Clone;
-    /// Write research activity data as Markdown (MD) to specified path
-    fn write_markdown<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf> + Clone;
-    /// Write research activity data as YAML to specified path
-    fn write_yaml<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf> + Clone;
-}
 #[derive(Debug, Display)]
 enum Vocabulary {
     #[display("keywords")]

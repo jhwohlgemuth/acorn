@@ -3,6 +3,28 @@ use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 
+const ORCID_RESOURCES: &str = r#"{
+    "endpoints": [
+        {
+            "name": "orcid",
+            "domain": "https://orcid.org",
+            "root": "v3.0",
+            "resources": [
+                {
+                    "name": "search",
+                    "method": "get",
+                    "template": "{{ base }}/expanded-search/{{ query }}"
+                },
+                {
+                    "name": "status",
+                    "method": "get",
+                    "template": "{{ base }}/pubStatus"
+                }
+            ]
+        }
+    ]
+}"#;
+
 pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
     let resources = vec![
         api::Resource::init()

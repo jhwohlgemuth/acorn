@@ -1,7 +1,8 @@
 use acorn::prelude::PathBuf;
 use acorn::schema::pid::patent::{CountryCode, KindCode};
 use acorn::schema::pid::{Patent, PersistentIdentifier, ARK, DOI, ISBN, ORCID, ROR};
-use acorn::schema::research_activity::{InputOutput, ResearchActivity};
+use acorn::io::InputOutput;
+use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::{self, ContactPoint};
 use pyo3::prelude::*;
 
