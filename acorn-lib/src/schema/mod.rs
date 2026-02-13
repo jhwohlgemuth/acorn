@@ -96,7 +96,9 @@ pub enum OrganizationType {
     /// Agency
     #[display("agency")]
     Agency,
-    /// Initiative that involves multiple DOE laboratories partnering together for a shared purpose
+    /// Initiative that involves multiple DOE laboratories partnering together for a shared purpose and leverage "traditional" management
+    /// 
+    /// Generally, centers may be more focused on a specific problem (more than an institute, for example)
     #[display("center")]
     Center,
     /// Laboratory, public, and private partners
@@ -119,6 +121,9 @@ pub enum OrganizationType {
     /// Low-level organizational unit that contains a small number of people that function as a team
     #[display("group")]
     Group,
+    /// Institutes tend to be virtual organizations, and are managed largely by goodwill between organization leaders
+    #[display("institute")]
+    Institute,
     /// Office
     #[display("office")]
     Office,
@@ -772,6 +777,7 @@ impl OrganizationType {
             | "division" => OrganizationType::Division,
             | "directorate" => OrganizationType::Directorate,
             | "group" => OrganizationType::Group,
+            | "institute" => OrganizationType::Institute,
             | "office" => OrganizationType::Office,
             | "program" => OrganizationType::Program,
             | "facility" => OrganizationType::Facility,
@@ -782,7 +788,7 @@ impl OrganizationType {
     /// Returns the order of an `OrganizationType` value
     pub fn order(self) -> u8 {
         match self {
-            | OrganizationType::Ffrdc | OrganizationType::Agency | OrganizationType::Consortium | OrganizationType::Office => 4,
+            | OrganizationType::Ffrdc | OrganizationType::Agency | OrganizationType::Consortium | OrganizationType::Institute | OrganizationType::Office => 4,
             | OrganizationType::Directorate => 3,
             | OrganizationType::Division | OrganizationType::Center | OrganizationType::Program | OrganizationType::Facility => 2,
             | OrganizationType::Group => 1,
