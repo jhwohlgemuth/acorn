@@ -21,8 +21,8 @@ pub async fn create(page: &Page, options: CommandLineOptions) {
     };
     let data = match ResearchActivity::read(path.clone()) {
         | Ok(value) => value.format(Some(path.clone())),
-        | Err(e) => {
-            error!(path = path.to_absolute_string(), "=> {} Read data for PDF export - {}", Label::fail(), e);
+        | Err(why) => {
+            error!(path = path.to_absolute_string(), "=> {} Read data for PDF export - {why}", Label::fail());
             exit(exitcode::UNAVAILABLE);
         }
     };

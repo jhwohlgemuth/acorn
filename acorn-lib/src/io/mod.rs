@@ -68,13 +68,13 @@ pub trait InputOutput: Sized {
     /// Read data from specified file path
     fn read(path: impl Into<PathBuf>) -> Result<Self, Error>;
     /// Read data from specified JSON file path
-    fn read_json(path: PathBuf) -> serde_json::Result<Self>;
+    fn read_json(path: PathBuf) -> Result<Self, Error>;
     /// Read data as Markdown from specified path
     fn read_markdown(_path: PathBuf) -> Option<Self> {
         None
     }
     /// Read data from specified YAML file path
-    fn read_yaml(path: PathBuf) -> serde_yml::Result<Self>;
+    fn read_yaml(path: PathBuf) -> Result<Self, Error>;
     /// Write data to specified path
     fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error>;
     /// Write data as JSON to specified path
@@ -873,7 +873,7 @@ pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> Pat
     };
     match create_dir_all(root.clone()) {
         | Ok(_) => {}
-        | Err(why) => error!(directory = root.clone().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
+        | Err(why) => error!(directory = root.clone().to_absolute_string(), "=> {} Create - {why}", Label::fail()),
     };
     root.join(generate_guid())
 }

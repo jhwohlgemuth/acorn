@@ -338,8 +338,8 @@ impl InputOutput for ResearchActivity {
     fn read(path: impl Into<PathBuf>) -> Result<ResearchActivity, Error> {
         let source = path.into().clone();
         let result = match MimeType::from_path(source.clone()) {
-            | MimeType::Json => ResearchActivity::read_json(source.clone()).map_err(|e| Error::other(format!("Failed to read JSON RAD: {}", e))),
-            | MimeType::Yaml => ResearchActivity::read_yaml(source.clone()).map_err(|e| Error::other(format!("Failed to read YAML RAD: {}", e))),
+            | MimeType::Json => ResearchActivity::read_json(source.clone()),
+            | MimeType::Yaml => ResearchActivity::read_yaml(source.clone()),
             | _ => Err(Error::other("Unsupported research activity data file extension")),
         };
         let label = match result {
@@ -357,7 +357,7 @@ impl InputOutput for ResearchActivity {
         }
         result
     }
-    fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity> {
+    fn read_json(path: PathBuf) -> Result<ResearchActivity, Error> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
@@ -365,7 +365,7 @@ impl InputOutput for ResearchActivity {
                 "{}".to_owned()
             }
         };
-        serde_json::from_str(&content)
+        serde_json::from_str(&content).map_err(|why| Error::other(format!("Failed to parse JSON RAD: {}", why)))
     }
     fn read_markdown(path: PathBuf) -> Option<ResearchActivity> {
         let content = match read_file(path.clone()) {
@@ -390,7 +390,7 @@ impl InputOutput for ResearchActivity {
         // TODO: Parse body into title, subtitle, sections, and contact
         None
     }
-    fn read_yaml(path: PathBuf) -> serde_yml::Result<ResearchActivity> {
+    fn read_yaml(path: PathBuf) -> Result<ResearchActivity, Error> {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,
             | Err(_) => {
@@ -398,7 +398,7 @@ impl InputOutput for ResearchActivity {
                 "".to_owned()
             }
         };
-        serde_yml::from_str(&content)
+        serde_yml::from_str(&content).map_err(|why| Error::other(format!("Failed to parse YAML RAD: {}", why)))
     }
     fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
         let output = path.into();

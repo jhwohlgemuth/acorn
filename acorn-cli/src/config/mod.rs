@@ -492,13 +492,13 @@ impl InputOutput for ApplicationConfiguration {
     fn read(path: impl Into<PathBuf>) -> Result<Self, Error> {
         let source = path.into();
         match MimeType::from_path(source.clone()) {
-            | MimeType::Json => Self::read_json(source.clone()).map_err(|e| Error::other(format!("Failed to read JSON config: {}", e))),
-            | MimeType::Yaml => Self::read_yaml(source.clone()).map_err(|e| Error::other(format!("Failed to read YAML config: {}", e))),
+            | MimeType::Json => Self::read_json(source.clone()),
+            | MimeType::Yaml => Self::read_yaml(source.clone()),
             | _ => Err(Error::other("Unsupported configuration file extension")),
         }
     }
     /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_json(path: PathBuf) -> serde_json::Result<Self> {
+    fn read_json(path: PathBuf) -> Result<Self, Error> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
@@ -506,10 +506,10 @@ impl InputOutput for ApplicationConfiguration {
                 "{}".to_owned()
             }
         };
-        Self::parse_json(content)
+        Self::parse_json(content).map_err(|why| Error::other(format!("Failed to parse JSON config: {why}")))
     }
     /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_yaml(path: PathBuf) -> serde_yml::Result<Self> {
+    fn read_yaml(path: PathBuf) -> Result<Self, Error> {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,
             | Err(_) => {
@@ -517,7 +517,7 @@ impl InputOutput for ApplicationConfiguration {
                 "".to_owned()
             }
         };
-        Self::parse_yaml(content)
+        Self::parse_yaml(content).map_err(|why| Error::other(format!("Failed to parse YAML config: {why}")))
     }
     /// Write configuration to specified path (detects JSON or YAML from extension)
     fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error> {

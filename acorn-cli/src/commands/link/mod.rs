@@ -51,7 +51,7 @@ pub fn run(
                 let mut file = match File::create(&filepath) {
                     | Ok(file) => file,
                     | Err(why) => {
-                        error!(file = filepath, "=> {} Create - {}", Label::fail(), why);
+                        error!(file = filepath, "=> {} Create - {why}", Label::fail());
                         exit(exitcode::UNAVAILABLE);
                     }
                 };
@@ -60,14 +60,14 @@ pub fn run(
                         info!(file = filepath, "=> {} Linked", Label::pass());
                     }
                     | Err(why) => {
-                        error!(file = filepath, "=> {} Write - {}", Label::fail(), why);
+                        error!(file = filepath, "=> {} Write - {why}", Label::fail());
                         exit(exitcode::UNAVAILABLE);
                     }
                 }
             }
         }
-        | Err(e) => {
-            error!("=> {} Read research activity data - {}", Label::fail(), e);
+        | Err(why) => {
+            error!("=> {} Read research activity data - {why}", Label::fail());
             exit(exitcode::DATAERR);
         }
     });

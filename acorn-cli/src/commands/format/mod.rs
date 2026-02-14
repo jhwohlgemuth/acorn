@@ -78,8 +78,8 @@ pub fn run(
                 }
             }
         }
-        | Err(e) => {
-            fail!("Read research activity data - {}", e);
+        | Err(why) => {
+            fail!("Read research activity data - {}", why);
             exit(exitcode::DATAERR);
         }
     });

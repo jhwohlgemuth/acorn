@@ -127,12 +127,11 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandL
         .iter()
         .map(|x| match ResearchActivity::read(x.clone()) {
             | Ok(value) => value.format(Some(x.clone())),
-            | Err(e) => {
+            | Err(why) => {
                 error!(
                     path = x.to_absolute_string(),
-                    "=> {} Read data for PowerPoint export - {}",
+                    "=> {} Read data for PowerPoint export - {why}",
                     Label::fail(),
-                    e
                 );
                 exit(exitcode::UNAVAILABLE);
             }

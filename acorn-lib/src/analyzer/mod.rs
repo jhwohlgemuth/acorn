@@ -189,8 +189,8 @@ impl Analysis for ResearchActivity {
                     });
                     issues
                 }
-                | Err(e) => {
-                    error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), e);
+                | Err(why) => {
+                    error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
                     vec![Check::init().category(CheckCategory::Schema).success(false).build()]
                 }
             })
@@ -204,8 +204,8 @@ impl Analysis for ResearchActivity {
             | Ok(_) => {
                 let results = paths.iter().map(|path| match ResearchActivity::read(path) {
                     | Ok(data) => vale.clone().run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into())),
-                    | Err(e) => {
-                        error!("=> {} Read research activity data - {}", Label::fail(), e);
+                    | Err(why) => {
+                        error!("=> {} Read research activity data - {why}", Label::fail());
                         Check::init().category(CheckCategory::Prose).success(false).build()
                     }
                 });
@@ -254,8 +254,8 @@ impl Analysis for ResearchActivity {
                             .build()
                     }
                 }
-                | Err(e) => {
-                    error!("=> {} Read research activity data - {}", Label::fail(), e);
+                | Err(why) => {
+                    error!("=> {} Read research activity data - {why}", Label::fail());
                     Check::init().category(CheckCategory::Readability).success(false).build()
                 }
             })
@@ -488,12 +488,12 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         let root = standard_project_folder("check", None);
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
-            | Err(why) => error!(path = root.clone().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
+            | Err(why) => error!(path = root.clone().to_absolute_string(), "=> {} Create - {why}", Label::fail()),
         }
         let path = root.join(&id);
         let mut file = match File::create(&path) {
             | Ok(file) => file,
-            | Err(why) => panic!("=> {} Create file {} - {}", Label::fail(), path.display(), why),
+            | Err(why) => panic!("=> {} Create file {} - {why}", Label::fail(), path.display()),
         };
         file.write_all(content.as_bytes())
             .expect("Unable to write to cache directory project file");
@@ -716,19 +716,19 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         let content = acronyms.chain(partners).chain(sponsors).chain(words).collect::<Vec<String>>().join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to accept.txt");
                     }
-                    | Err(why) => panic!("=> {} Create accept.txt - {}", Label::fail(), why),
+                    | Err(why) => panic!("=> {} Create accept.txt - {why}", Label::fail()),
                 }
                 match File::create(format!("{parent}/reject.txt")) {
                     | Ok(mut file) => {
                         let content = Constant::read_lines("reject.txt").join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to reject.txt");
                     }
-                    | Err(why) => panic!("=> {} Create reject.txt - {}", Label::fail(), why),
+                    | Err(why) => panic!("=> {} Create reject.txt - {why}", Label::fail()),
                 }
                 Ok(())
             }
             | Err(why) => {
-                error!(config = config_path.to_absolute_string(), "=> {} Vale sync - {}", Label::fail(), why);
+                error!(config = config_path.to_absolute_string(), "=> {} Vale sync - {why}", Label::fail());
                 Err(why)
             }
         }
@@ -845,8 +845,8 @@ impl Validation for ResearchActivity {
                     .into_iter()
                     .map(|issue| issue.with_uri(path.display().to_string()))
                     .collect(),
-                | Err(e) => {
-                    error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), e);
+                | Err(why) => {
+                    error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
                     vec![Check::init().category(CheckCategory::Schema).success(false).build()]
                 }
             })
