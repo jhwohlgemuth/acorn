@@ -7,7 +7,7 @@
 use acorn::io::api::Endpoint;
 use acorn::io::{files_all, network_get_request, parent, read_file, FromPath};
 use acorn::prelude::{self, create_dir_all, exit, io, Cursor, File, PathBuf};
-use acorn::util::{suffix, Label, MimeType, ToAbsoluteString};
+use acorn::util::{detect_json, suffix, Label, MimeType, ToAbsoluteString};
 use acorn::{Location, Repository, Scheme};
 use bon::Builder;
 use color_eyre::eyre;
@@ -459,69 +459,69 @@ impl From<&str> for Bucket {
     }
 }
 impl ApplicationConfiguration {
-    // TODO: Abstract parsing into separate function
-    // TODO: Make read return result
-    /// Read and parse application configuration file (JSON or YAML)
-    pub fn read(path: PathBuf) -> Option<ApplicationConfiguration> {
-        let content = match MimeType::from_path(path.clone()) {
-            | MimeType::Json => match ApplicationConfiguration::read_json(path.clone()) {
+    /// Parse ACORN configuration in JSON or YAML format
+    pub fn parse(content: impl AsRef<str>) -> Option<Self> {
+        let content = content.as_ref();
+        let data = if detect_json(content) {
+            match Self::parse_json(content) {
                 | Ok(value) => Some(value),
                 | Err(_) => None,
-            },
-            | MimeType::Yaml => match ApplicationConfiguration::read_yaml(path.clone()) {
-                | Ok(value) => Some(value),
-                | Err(_) => None,
-            },
-            | _ => unimplemented!("Unsupported configuration file extension"),
-        };
-        if let Some(content) = content {
-            Some(content)
+            }
         } else {
-            error!(path = path.to_str().unwrap(), "=> {} Import configuration", Label::fail());
+            match Self::parse_yaml(content) {
+                | Ok(value) => Some(value),
+                | Err(_) => None,
+            }
+        };
+        if let Some(data) = data {
+            debug!("=> {} Parse ACORN configuration = {:#?}", Label::using(), data.dimmed());
+            Some(data)
+        } else {
+            error!("=> {} Parse ACORN configuration", Label::fail());
             None
         }
     }
+    fn parse_json(content: impl AsRef<str>) -> Result<Self> {
+        serde_json::from_str(content.as_ref())
+    }
+    fn parse_yaml(content: impl AsRef<str>) -> serde_yml::Result<Self> {
+        serde_yml::from_str(content.as_ref())
+    }
+    /// Read and parse application configuration file (JSON or YAML)
+    pub fn read(path: PathBuf) -> Option<Self> {
+        match MimeType::from_path(path.clone()) {
+            | MimeType::Json => match Self::read_json(path.clone()) {
+                | Ok(config) => Some(config),
+                | Err(_) => None,
+            },
+            | MimeType::Yaml => match Self::read_yaml(path.clone()) {
+                | Ok(config) => Some(config),
+                | Err(_) => None,
+            },
+            | _ => unimplemented!("Unsupported configuration file extension"),
+        }
+    }
     /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_json(path: PathBuf) -> Result<ApplicationConfiguration> {
+    fn read_json(path: PathBuf) -> Result<Self> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
-                error!(
-                    path = path.to_str().unwrap(),
-                    "=> {} ACORN configuration content is not valid",
-                    Label::fail()
-                );
+                error!(path = path.to_str().unwrap(), "=> {} ACORN configuration JSON content", Label::fail());
                 "{}".to_owned()
             }
         };
-        let data: Result<ApplicationConfiguration> = serde_json::from_str(&content);
-        let label = match data {
-            | Ok(_) => Label::using(),
-            | Err(_) => Label::invalid(),
-        };
-        trace!("=> {} ACORN configuration = {:#?}", label, data.dimmed());
-        data
+        Self::parse_json(content)
     }
     /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_yaml(path: PathBuf) -> serde_yml::Result<ApplicationConfiguration> {
+    fn read_yaml(path: PathBuf) -> serde_yml::Result<Self> {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,
             | Err(_) => {
-                error!(
-                    path = path.to_str().unwrap(),
-                    "=> {} ACORN configuration content is not valid",
-                    Label::fail()
-                );
+                error!(path = path.to_str().unwrap(), "=> {} ACORN configuration YAML content", Label::fail());
                 "".to_owned()
             }
         };
-        let data: serde_yml::Result<ApplicationConfiguration> = serde_yml::from_str(&content);
-        let label = match data {
-            | Ok(_) => Label::output(),
-            | Err(_) => Label::fail(),
-        };
-        debug!("=> {} Bucket configuration = {:#?}", label, data.dimmed());
-        data
+        Self::parse_yaml(content)
     }
 }
 impl GithubTreeEntry {

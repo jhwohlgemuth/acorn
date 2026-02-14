@@ -1,9 +1,10 @@
+use crate::config::ApplicationConfiguration;
 use acorn::io::api::{self, orcid, RestfulInterface};
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 
-const ORCID_RESOURCES: &str = r#"{
+const RESOURCES: &str = r#"{
     "endpoints": [
         {
             "name": "orcid",
@@ -26,18 +27,10 @@ const ORCID_RESOURCES: &str = r#"{
 }"#;
 
 pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
-    let resources = vec![
-        api::Resource::init()
-            .name("search")
-            .method("get")
-            .template("{{ base }}/expanded-search/{{ query }}")
-            .build(),
-        api::Resource::init()
-            .name("status")
-            .method("get")
-            .template("{{ base }}/pubStatus")
-            .build(),
-    ];
+    let resources = match ApplicationConfiguration::parse(RESOURCES).unwrap().endpoints {
+        | Some(endpoints) => endpoints[0].resources.clone(),
+        | None => vec![],
+    };
     let data = vec![
         api::Param::of_type(api::ParamStyle::QueryPair)
             .values(vec![
