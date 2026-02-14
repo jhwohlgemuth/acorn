@@ -335,10 +335,7 @@ impl LinkedData for ResearchActivityMetadata {
 }
 #[cfg(feature = "std")]
 impl InputOutput for ResearchActivity {
-    fn read<P>(path: P) -> Option<ResearchActivity>
-    where
-        P: Into<PathBuf>,
-    {
+    fn read(path: impl Into<PathBuf>) -> Option<ResearchActivity> {
         let source = path.into().clone();
         let content = match MimeType::from_path(source.clone()) {
             | MimeType::Json => match ResearchActivity::read_json(source.clone()) {
@@ -428,10 +425,7 @@ impl InputOutput for ResearchActivity {
         }
         data
     }
-    fn write<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf>,
-    {
+    fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
         let output = path.into();
         let mime = MimeType::from_path(output.clone());
         match mime {
@@ -443,29 +437,22 @@ impl InputOutput for ResearchActivity {
             }
         }
     }
-    fn write_json<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf>,
-    {
+    fn write_json(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
         let output = path.into().with_extension("json");
-        let content = serde_json::to_string_pretty(&self).unwrap();
-        write_file(output, content)
+        serde_json::to_string_pretty(&self)
+            .map_err(|why| Error::other(why.to_string()))
+            .and_then(|content| write_file(output, content))
     }
-    fn write_markdown<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf>,
-    {
+    fn write_markdown(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
         let output = path.into().with_extension("md");
         let content = self.to_markdown();
         write_file(output, content)
     }
-    fn write_yaml<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf>,
-    {
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
         let output = path.into().with_extension("yaml");
-        let content = serde_yml::to_string(&self).unwrap();
-        write_file(output, content)
+        serde_yml::to_string(&self)
+            .map_err(|why| Error::other(why.to_string()))
+            .and_then(|content| write_file(output, content))
     }
 }
 impl ResearchActivity {

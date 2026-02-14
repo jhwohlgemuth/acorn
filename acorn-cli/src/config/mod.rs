@@ -5,8 +5,8 @@
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
 use acorn::io::api::Endpoint;
-use acorn::io::{files_all, network_get_request, parent, read_file, FromPath};
-use acorn::prelude::{self, create_dir_all, exit, io, Cursor, File, PathBuf};
+use acorn::io::{files_all, network_get_request, parent, read_file, write_file, FromPath, InputOutput};
+use acorn::prelude::{self, create_dir_all, exit, io, Cursor, Error, File, PathBuf};
 use acorn::util::{detect_json, suffix, Label, MimeType, ToAbsoluteString};
 use acorn::{Location, Repository, Scheme};
 use bon::Builder;
@@ -19,7 +19,6 @@ use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterato
 use reqwest::blocking::{Client, Response};
 use reqwest::header::{HeaderMap, USER_AGENT};
 use serde::{Deserialize, Serialize};
-use serde_json::Result;
 use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace, warn};
 
@@ -174,7 +173,7 @@ impl Bucket {
     /// Parse GitHub tree entries
     fn parse_github_response(response: Response) -> Vec<String> {
         let content = response.text().unwrap();
-        let data: Result<GithubTreeResponse> = serde_json::from_str(&content);
+        let data: serde_json::Result<GithubTreeResponse> = serde_json::from_str(&content);
         match data {
             | Ok(GithubTreeResponse { tree, .. }) => {
                 debug!("=> {} {} Tree entries", Label::found(), tree.len());
@@ -189,7 +188,7 @@ impl Bucket {
     /// Parse GitLab tree entries
     fn parse_gitlab_response(response: Response) -> Vec<String> {
         let content = response.text().unwrap();
-        let data: Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
+        let data: serde_json::Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
         debug!("=> {} {} Tree entries", Label::found(), data.as_ref().unwrap().len());
         match data {
             | Ok(entries) => entries.into_iter().filter(GitlabTreeEntry::is_blob).map(GitlabTreeEntry::path).collect(),
@@ -481,20 +480,23 @@ impl ApplicationConfiguration {
             None
         }
     }
-    fn parse_json(content: impl AsRef<str>) -> Result<Self> {
+    fn parse_json(content: impl AsRef<str>) -> serde_json::Result<Self> {
         serde_json::from_str(content.as_ref())
     }
     fn parse_yaml(content: impl AsRef<str>) -> serde_yml::Result<Self> {
         serde_yml::from_str(content.as_ref())
     }
+}
+impl InputOutput for ApplicationConfiguration {
     /// Read and parse application configuration file (JSON or YAML)
-    pub fn read(path: PathBuf) -> Option<Self> {
-        match MimeType::from_path(path.clone()) {
-            | MimeType::Json => match Self::read_json(path.clone()) {
+    fn read(path: impl Into<PathBuf>) -> Option<Self> {
+        let source = path.into();
+        match MimeType::from_path(source.clone()) {
+            | MimeType::Json => match Self::read_json(source.clone()) {
                 | Ok(config) => Some(config),
                 | Err(_) => None,
             },
-            | MimeType::Yaml => match Self::read_yaml(path.clone()) {
+            | MimeType::Yaml => match Self::read_yaml(source.clone()) {
                 | Ok(config) => Some(config),
                 | Err(_) => None,
             },
@@ -502,7 +504,7 @@ impl ApplicationConfiguration {
         }
     }
     /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_json(path: PathBuf) -> Result<Self> {
+    fn read_json(path: PathBuf) -> serde_json::Result<Self> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
@@ -522,6 +524,29 @@ impl ApplicationConfiguration {
             }
         };
         Self::parse_yaml(content)
+    }
+    /// Write configuration to specified path (detects JSON or YAML from extension)
+    fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+        let target = path.into();
+        match MimeType::from_path(&target) {
+            | MimeType::Json => self.write_json(&target),
+            | MimeType::Yaml => self.write_yaml(&target),
+            | _ => unimplemented!("Unsupported configuration file extension"),
+        }
+    }
+    /// Write configuration as JSON to specified path
+    fn write_json(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+        let target = path.into();
+        serde_json::to_string_pretty(&self)
+            .map_err(|why| Error::other(why.to_string()))
+            .and_then(|content| write_file(target.clone(), content))
+    }
+    /// Write configuration as YAML to specified path
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+        let target = path.into();
+        serde_yml::to_string(&self)
+            .map_err(|why| Error::other(why.to_string()))
+            .and_then(|content| write_file(target.clone(), content))
     }
 }
 impl GithubTreeEntry {

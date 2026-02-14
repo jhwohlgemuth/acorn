@@ -66,9 +66,7 @@ pub trait FromPath {
 /// Trait for I/O operations such as read and write
 pub trait InputOutput: Sized {
     /// Read data from specified file path
-    fn read<P>(_path: P) -> Option<Self>
-    where
-        P: Into<PathBuf>;
+    fn read(path: impl Into<PathBuf>) -> Option<Self>;
     /// Read data from specified JSON file path
     fn read_json(path: PathBuf) -> serde_json::Result<Self>;
     /// Read data as Markdown from specified path
@@ -78,24 +76,15 @@ pub trait InputOutput: Sized {
     /// Read data from specified YAML file path
     fn read_yaml(path: PathBuf) -> serde_yml::Result<Self>;
     /// Write data to specified path
-    fn write<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf> + Clone;
+    fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error>;
     /// Write data as JSON to specified path
-    fn write_json<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf> + Clone;
+    fn write_json(&self, path: impl Into<PathBuf>) -> Result<(), Error>;
     /// Write data as Markdown (MD) to specified path
-    fn write_markdown<P>(&self, _path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf> + Clone,
-    {
+    fn write_markdown(&self, _path: impl Into<PathBuf>) -> Result<(), Error> {
         Ok(())
     }
     /// Write data as YAML to specified path
-    fn write_yaml<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: Into<PathBuf> + Clone;
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> Result<(), Error>;
 }
 /// Struct for parsing GitLab API merge request diff responses
 ///
