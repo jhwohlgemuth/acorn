@@ -371,11 +371,11 @@ fn test_raid() {
 fn test_raid_read() {
     let path = PathBuf::from(FIXTURES).join("raid/response_01.json");
     let data = raid::Metadata::read(path);
-    assert!(data.is_some());
+    assert!(data.is_ok());
     let _ = data.unwrap().validate();
     let path = PathBuf::from(FIXTURES).join("raid/response_02.json");
     let data = raid::Metadata::read(path);
-    assert!(data.is_some());
+    assert!(data.is_ok());
     let _ = data.unwrap().validate();
 }
 #[test]

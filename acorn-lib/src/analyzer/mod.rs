@@ -167,7 +167,7 @@ impl Analysis for ResearchActivity {
         paths
             .par_iter()
             .map(|path| match ResearchActivity::read(path) {
-                | Some(data) => {
+                | Ok(data) => {
                     let issues = runtime.block_on(async {
                         let mut _issues = vec![];
                         if !is_offline {
@@ -189,8 +189,8 @@ impl Analysis for ResearchActivity {
                     });
                     issues
                 }
-                | None => {
-                    error!("=> {} Read research activity data at {}", Label::fail(), path.display());
+                | Err(e) => {
+                    error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), e);
                     vec![Check::init().category(CheckCategory::Schema).success(false).build()]
                 }
             })
@@ -203,9 +203,9 @@ impl Analysis for ResearchActivity {
         match vale.clone().sync(is_offline) {
             | Ok(_) => {
                 let results = paths.iter().map(|path| match ResearchActivity::read(path) {
-                    | Some(data) => vale.clone().run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into())),
-                    | None => {
-                        error!("=> {} Read research activity data", Label::fail());
+                    | Ok(data) => vale.clone().run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into())),
+                    | Err(e) => {
+                        error!("=> {} Read research activity data - {}", Label::fail(), e);
                         Check::init().category(CheckCategory::Prose).success(false).build()
                     }
                 });
@@ -225,7 +225,7 @@ impl Analysis for ResearchActivity {
         paths
             .par_iter()
             .map(|path| match ResearchActivity::read(path) {
-                | Some(data) => {
+                | Ok(data) => {
                     let index = rtype.calculate(&data.to_markdown());
                     let maximum = match rtype.maximum_allowed_from_env() {
                         | Some(value) => {
@@ -254,8 +254,8 @@ impl Analysis for ResearchActivity {
                             .build()
                     }
                 }
-                | None => {
-                    error!("=> {} Read research activity data", Label::fail());
+                | Err(e) => {
+                    error!("=> {} Read research activity data - {}", Label::fail(), e);
                     Check::init().category(CheckCategory::Readability).success(false).build()
                 }
             })
@@ -839,14 +839,14 @@ impl Validation for ResearchActivity {
         paths
             .par_iter()
             .map(|path| match ResearchActivity::read(path) {
-                | Some(data) => data
+                | Ok(data) => data
                     .clone()
                     .validation_issues()
                     .into_iter()
                     .map(|issue| issue.with_uri(path.display().to_string()))
                     .collect(),
-                | None => {
-                    error!("=> {} Read research activity data at {}", Label::fail(), path.display());
+                | Err(e) => {
+                    error!("=> {} Read research activity data at {} - {}", Label::fail(), path.display(), e);
                     vec![Check::init().category(CheckCategory::Schema).success(false).build()]
                 }
             })

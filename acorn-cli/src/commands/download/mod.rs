@@ -13,7 +13,7 @@ pub fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option<PathB
     }
     if let Some(path) = config {
         match ApplicationConfiguration::read(path.clone()) {
-            | Some(content) => {
+            | Ok(content) => {
                 let mut total: usize = 0;
                 if let Some(buckets) = content.buckets {
                     buckets.into_iter().for_each(|bucket| {
@@ -28,8 +28,8 @@ pub fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option<PathB
                 }
                 println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             }
-            | None => {
-                error!("=> {} Download data", Label::fail());
+            | Err(why) => {
+                error!("=> {} Download data - {why}", Label::fail());
                 exit(exitcode::DATAERR);
             }
         };

@@ -34,7 +34,7 @@ pub fn run(
         .build();
     let paths = paths_from_options(path, &Some(options));
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
-        | Some(data) => {
+        | Ok(data) => {
             let mime = MimeType::from_path(path);
             let old_content = match mime {
                 | MimeType::Json => serde_json::to_string_pretty(&data).unwrap(),
@@ -78,8 +78,8 @@ pub fn run(
                 }
             }
         }
-        | None => {
-            fail!("Read research activity data");
+        | Err(e) => {
+            fail!("Read research activity data - {}", e);
             exit(exitcode::DATAERR);
         }
     });

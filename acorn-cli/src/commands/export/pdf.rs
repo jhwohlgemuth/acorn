@@ -20,9 +20,9 @@ pub async fn create(page: &Page, options: CommandLineOptions) {
         | None => unimplemented!(),
     };
     let data = match ResearchActivity::read(path.clone()) {
-        | Some(value) => value.format(Some(path.clone())),
-        | None => {
-            error!(path = path.to_absolute_string(), "=> {} Read data for PDF export", Label::fail());
+        | Ok(value) => value.format(Some(path.clone())),
+        | Err(e) => {
+            error!(path = path.to_absolute_string(), "=> {} Read data for PDF export - {}", Label::fail(), e);
             exit(exitcode::UNAVAILABLE);
         }
     };

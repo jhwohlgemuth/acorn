@@ -66,7 +66,7 @@ pub trait FromPath {
 /// Trait for I/O operations such as read and write
 pub trait InputOutput: Sized {
     /// Read data from specified file path
-    fn read(path: impl Into<PathBuf>) -> Option<Self>;
+    fn read(path: impl Into<PathBuf>) -> Result<Self, Error>;
     /// Read data from specified JSON file path
     fn read_json(path: PathBuf) -> serde_json::Result<Self>;
     /// Read data as Markdown from specified path

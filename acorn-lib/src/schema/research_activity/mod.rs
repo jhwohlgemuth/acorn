@@ -335,34 +335,27 @@ impl LinkedData for ResearchActivityMetadata {
 }
 #[cfg(feature = "std")]
 impl InputOutput for ResearchActivity {
-    fn read(path: impl Into<PathBuf>) -> Option<ResearchActivity> {
+    fn read(path: impl Into<PathBuf>) -> Result<ResearchActivity, Error> {
         let source = path.into().clone();
-        let content = match MimeType::from_path(source.clone()) {
-            | MimeType::Json => match ResearchActivity::read_json(source.clone()) {
-                | Ok(value) => Some(value),
-                | Err(_) => None,
-            },
-            | MimeType::Yaml => match ResearchActivity::read_yaml(source.clone()) {
-                | Ok(value) => Some(value),
-                | Err(_) => None,
-            },
-            | _ => unimplemented!("Unsupported research activity data file extension"),
+        let result = match MimeType::from_path(source.clone()) {
+            | MimeType::Json => ResearchActivity::read_json(source.clone()).map_err(|e| Error::other(format!("Failed to read JSON RAD: {}", e))),
+            | MimeType::Yaml => ResearchActivity::read_yaml(source.clone()).map_err(|e| Error::other(format!("Failed to read YAML RAD: {}", e))),
+            | _ => Err(Error::other("Unsupported research activity data file extension")),
         };
-        let label = match content {
-            | Some(_) => Label::using(),
-            | _ => Label::invalid(),
+        let label = match result {
+            | Ok(_) => Label::using(),
+            | Err(_) => Label::invalid(),
         };
-        match content {
-            | Some(data) => {
+        match &result {
+            | Ok(data) => {
                 debug!(path = source.to_str().unwrap(), "=> {}", label);
                 debug!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
-                Some(data)
             }
-            | None => {
+            | Err(_) => {
                 error!(path = source.to_str().unwrap(), "=> {}", label);
-                None
             }
         }
+        result
     }
     fn read_json(path: PathBuf) -> serde_json::Result<ResearchActivity> {
         let content = match read_file(path.clone()) {
@@ -372,16 +365,7 @@ impl InputOutput for ResearchActivity {
                 "{}".to_owned()
             }
         };
-        let data: serde_json::Result<ResearchActivity> = serde_json::from_str(&content);
-        let label = match data {
-            | Ok(_) => Label::using(),
-            | Err(_) => Label::invalid(),
-        };
-        match &data {
-            | Ok(_) => (),
-            | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
-        }
-        data
+        serde_json::from_str(&content)
     }
     fn read_markdown(path: PathBuf) -> Option<ResearchActivity> {
         let content = match read_file(path.clone()) {
@@ -414,16 +398,7 @@ impl InputOutput for ResearchActivity {
                 "".to_owned()
             }
         };
-        let data: serde_yml::Result<ResearchActivity> = serde_yml::from_str(&content);
-        let label = match data {
-            | Ok(_) => Label::output(),
-            | Err(_) => Label::fail(),
-        };
-        match &data {
-            | Ok(_) => (),
-            | Err(why) => error!("=> {} Parse RAD content - {}", label, why.red()),
-        }
-        data
+        serde_yml::from_str(&content)
     }
     fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
         let output = path.into();

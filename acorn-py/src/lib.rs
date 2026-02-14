@@ -367,11 +367,12 @@ impl PyResearchActivity {
     #[staticmethod]
     fn read(path: PathBuf) -> PyResult<PyResearchActivity> {
         let data = match ResearchActivity::read(path.clone()) {
-            | Some(value) => value,
-            | None => {
+            | Ok(value) => value,
+            | Err(e) => {
                 return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Failed to read research activity data from {}",
-                    path.to_str().unwrap()
+                    "Failed to read research activity data from {}: {}",
+                    path.to_str().unwrap(),
+                    e
                 )))
             }
         };

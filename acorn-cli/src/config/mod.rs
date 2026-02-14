@@ -489,18 +489,12 @@ impl ApplicationConfiguration {
 }
 impl InputOutput for ApplicationConfiguration {
     /// Read and parse application configuration file (JSON or YAML)
-    fn read(path: impl Into<PathBuf>) -> Option<Self> {
+    fn read(path: impl Into<PathBuf>) -> Result<Self, Error> {
         let source = path.into();
         match MimeType::from_path(source.clone()) {
-            | MimeType::Json => match Self::read_json(source.clone()) {
-                | Ok(config) => Some(config),
-                | Err(_) => None,
-            },
-            | MimeType::Yaml => match Self::read_yaml(source.clone()) {
-                | Ok(config) => Some(config),
-                | Err(_) => None,
-            },
-            | _ => unimplemented!("Unsupported configuration file extension"),
+            | MimeType::Json => Self::read_json(source.clone()).map_err(|e| Error::other(format!("Failed to read JSON config: {}", e))),
+            | MimeType::Yaml => Self::read_yaml(source.clone()).map_err(|e| Error::other(format!("Failed to read YAML config: {}", e))),
+            | _ => Err(Error::other("Unsupported configuration file extension")),
         }
     }
     /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct

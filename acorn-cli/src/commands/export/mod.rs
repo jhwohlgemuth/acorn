@@ -68,14 +68,14 @@ pub fn run(
                 progress.set_message(format!("Generating {} for {}", extension.clone(), path.display()));
                 let output = path.with_extension(extension.clone());
                 match ResearchActivity::read(path) {
-                    | Some(data) => match data.write(output) {
+                    | Ok(data) => match data.write(output) {
                         | Ok(_) => {}
                         | Err(_) => {
                             exit(exitcode::UNAVAILABLE);
                         }
                     },
-                    | None => {
-                        fail!("Read research activity data");
+                    | Err(why) => {
+                        fail!("Read research activity data - {}", why);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -123,14 +123,14 @@ pub fn run(
                 progress.set_message(format!("Generating {} for {}", extension.clone(), path.display()));
                 let output = path.with_extension(extension.clone());
                 match ResearchActivity::read(path) {
-                    | Some(data) => match data.write(output) {
+                    | Ok(data) => match data.write(output) {
                         | Ok(_) => {}
                         | Err(_) => {
                             exit(exitcode::UNAVAILABLE);
                         }
                     },
-                    | None => {
-                        fail!("Read research activity data");
+                    | Err(why) => {
+                        fail!("Read research activity data - {}", why);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -182,14 +182,14 @@ pub fn run(
                 progress.set_message(format!("Generating {} for {}", extension.clone(), path.display()));
                 let output = path.with_extension(extension.clone());
                 match ResearchActivity::read(path) {
-                    | Some(data) => match data.write(output) {
+                    | Ok(data) => match data.write(output) {
                         | Ok(_) => {}
                         | Err(_) => {
                             exit(exitcode::UNAVAILABLE);
                         }
                     },
-                    | None => {
-                        fail!("Read research activity data");
+                    | Err(why) => {
+                        fail!("Read research activity data - {}", why);
                         exit(exitcode::DATAERR);
                     }
                 };

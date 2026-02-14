@@ -6,7 +6,7 @@
 #[cfg(feature = "std")]
 use crate::io::read_file;
 #[cfg(feature = "std")]
-use crate::prelude::PathBuf;
+use crate::prelude::{Error, PathBuf};
 use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror, is_unix_epoch};
 #[cfg(feature = "std")]
 use crate::util::Label;
@@ -985,20 +985,22 @@ impl Metadata {
     }
     /// Read RAiD metadata from a file
     #[cfg(feature = "std")]
-    pub fn read(path: PathBuf) -> Option<Metadata> {
+    pub fn read(path: PathBuf) -> Result<Metadata, Error> {
         match read_file(path) {
             | Ok(data) => match serde_json::from_str(&data) {
-                | Ok(value) => Some(value),
+                | Ok(value) => Ok(value),
                 | Err(why) => {
-                    println!("=> {} Parse RAiD metadata - {why}", Label::fail());
-                    error!("=> {} Parse RAiD metadata - {why}", Label::fail());
-                    None
+                    let msg = format!("Parse RAiD metadata - {why}");
+                    println!("=> {} {}", Label::fail(), msg);
+                    error!("=> {} {}", Label::fail(), msg);
+                    Err(Error::other(msg))
                 }
             },
             | Err(why) => {
-                println!("=> {} Read RAiD metadata file - {why}", Label::fail());
-                error!("=> {} Read RAiD metadata file - {why}", Label::fail());
-                None
+                let msg = format!("Read RAiD metadata file - {why}");
+                println!("=> {} {}", Label::fail(), msg);
+                error!("=> {} {}", Label::fail(), msg);
+                Err(Error::other(msg))
             }
         }
     }
