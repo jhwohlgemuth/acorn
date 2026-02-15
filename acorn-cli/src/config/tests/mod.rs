@@ -148,3 +148,9 @@ fn test_repository_github() {
     let release = repository.latest_release();
     assert!(release.is_some());
 }
+#[test]
+fn test_runners() {
+    let path = PathBuf::from(FIXTURES).join("config").join("with_runners.json");
+    let config = ApplicationConfiguration::read_json(path).unwrap();
+    insta::assert_snapshot!(format!("{:#?}", config.runners));
+}

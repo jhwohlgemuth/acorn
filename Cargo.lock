@@ -21,6 +21,7 @@ dependencies = [
  "fancy-regex",
  "fast_qr",
  "indicatif",
+ "insta",
  "is-terminal",
  "itertools 0.14.0",
  "keyring",

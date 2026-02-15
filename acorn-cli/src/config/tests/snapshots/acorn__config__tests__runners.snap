@@ -1,0 +1,38 @@
+---
+source: acorn-cli/src/config/tests/mod.rs
+expression: "format!(\"{:#?}\", config.runners)"
+---
+Some(
+    [
+        Runner {
+            name: "NSSD Runner",
+            runner_type: Project,
+            description: None,
+            code_repository: GitLab {
+                id: Some(
+                    1234,
+                ),
+                location: Detailed {
+                    scheme: HTTPS,
+                    uri: "https://code.ornl.gov/research-enablement/buckets/nssd",
+                },
+            },
+            gpu_enabled: false,
+        },
+        Runner {
+            name: "Bucket Runner",
+            runner_type: Project,
+            description: None,
+            code_repository: GitLab {
+                id: Some(
+                    5678,
+                ),
+                location: Detailed {
+                    scheme: HTTPS,
+                    uri: "https://code.ornl.gov/research-enablement/buckets",
+                },
+            },
+            gpu_enabled: true,
+        },
+    ],
+)

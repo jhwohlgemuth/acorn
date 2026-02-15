@@ -13,6 +13,7 @@ use acorn::util::{detect_json, suffix, Label, MimeType, ToAbsoluteString};
 use acorn::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt::Debug;
+use derive_more::Display;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
@@ -23,6 +24,24 @@ use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace, warn};
 
 const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
+/// Runner types for CI/CD pipelines
+///
+/// Mostly for GitLab as GitHub only has two types: hosted (by GitHub) and self-hosted
+#[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RunnerType {
+    /// Accessible to a specific group and its projects/subgroups
+    #[default]
+    #[display("group_type")]
+    Group,
+    /// Available to all projects and groups within an instance
+    /// > Also called "shared runners" in GitLab
+    #[display("instance_type")]
+    Instance,
+    /// Available to a specific project
+    #[display("project_type")]
+    Project,
+}
 /// Struct for application configuration
 ///
 /// ### Example `buckets.json`
@@ -53,6 +72,8 @@ pub struct ApplicationConfiguration {
     pub buckets: Option<Vec<Bucket>>,
     /// List of endpoints
     pub endpoints: Option<Vec<Endpoint>>,
+    /// List of runners
+    pub runners: Option<Vec<Runner>>,
 }
 /// Struct for bucket data
 #[skip_serializing_none]
@@ -73,6 +94,113 @@ pub struct Bucket {
     /// See <https://schema.org/codeRepository>
     #[serde(alias = "repository")]
     pub code_repository: Repository,
+}
+#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
+#[builder(start_fn = at, on(String, into))]
+#[serde(rename_all = "camelCase")]
+pub struct Runner {
+    /// Runner name
+    pub name: String,
+    /// Runner type (e.g., group, instance, project)
+    #[builder(with = |method: &str| RunnerType::from(method))]
+    #[builder(default)]
+    #[serde(rename = "type")]
+    pub runner_type: RunnerType,
+    /// Optional description of runner
+    pub description: Option<String>,
+    /// Code repository project/group where runner will be used
+    #[serde(alias = "repository")]
+    pub code_repository: Repository,
+    /// Does the runner need GPU capabilities?
+    #[builder(default)]
+    #[serde(default, alias = "gpu")]
+    pub gpu_enabled: bool,
+}
+impl ApplicationConfiguration {
+    /// Parse ACORN configuration in JSON or YAML format
+    pub fn parse(content: impl AsRef<str>) -> Option<Self> {
+        let content = content.as_ref();
+        let data = if detect_json(content) {
+            match Self::parse_json(content) {
+                | Ok(value) => Some(value),
+                | Err(_) => None,
+            }
+        } else {
+            match Self::parse_yaml(content) {
+                | Ok(value) => Some(value),
+                | Err(_) => None,
+            }
+        };
+        if let Some(data) = data {
+            debug!("=> {} Parse ACORN configuration = {:#?}", Label::using(), data.dimmed());
+            Some(data)
+        } else {
+            error!("=> {} Parse ACORN configuration", Label::fail());
+            None
+        }
+    }
+    fn parse_json(content: impl AsRef<str>) -> serde_json::Result<Self> {
+        serde_json::from_str(content.as_ref())
+    }
+    fn parse_yaml(content: impl AsRef<str>) -> serde_yml::Result<Self> {
+        serde_yml::from_str(content.as_ref())
+    }
+}
+impl InputOutput for ApplicationConfiguration {
+    /// Read and parse application configuration file (JSON or YAML)
+    fn read(path: impl Into<PathBuf>) -> Result<Self, Error> {
+        let source = path.into();
+        match MimeType::from_path(source.clone()) {
+            | MimeType::Json => Self::read_json(source.clone()),
+            | MimeType::Yaml => Self::read_yaml(source.clone()),
+            | _ => Err(Error::other("Unsupported configuration file extension")),
+        }
+    }
+    /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
+    fn read_json(path: PathBuf) -> Result<Self, Error> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) if !value.is_empty() => value,
+            | Ok(_) | Err(_) => {
+                error!(path = path.to_str().unwrap(), "=> {} ACORN configuration JSON content", Label::fail());
+                "{}".to_owned()
+            }
+        };
+        Self::parse_json(content).map_err(|why| Error::other(format!("Failed to parse JSON config: {why}")))
+    }
+    /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
+    fn read_yaml(path: PathBuf) -> Result<Self, Error> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) => value,
+            | Err(_) => {
+                error!(path = path.to_str().unwrap(), "=> {} ACORN configuration YAML content", Label::fail());
+                "".to_owned()
+            }
+        };
+        Self::parse_yaml(content).map_err(|why| Error::other(format!("Failed to parse YAML config: {why}")))
+    }
+    /// Write configuration to specified path (detects JSON or YAML from extension)
+    fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+        let target = path.into();
+        match MimeType::from_path(&target) {
+            | MimeType::Json => self.write_json(&target),
+            | MimeType::Yaml => self.write_yaml(&target),
+            | _ => unimplemented!("Unsupported configuration file extension"),
+        }
+    }
+    /// Write configuration as JSON to specified path
+    fn write_json(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+        let target = path.into();
+        serde_json::to_string_pretty(&self)
+            .map_err(|why| Error::other(why.to_string()))
+            .and_then(|content| write_file(target.clone(), content))
+    }
+    /// Write configuration as YAML to specified path
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+        let target = path.into();
+        serde_yml::to_string(&self)
+            .map_err(|why| Error::other(why.to_string()))
+            .and_then(|content| write_file(target.clone(), content))
+    }
 }
 impl Bucket {
     /// Parse GitHub tree entries
@@ -366,90 +494,14 @@ impl From<&str> for Bucket {
         }
     }
 }
-impl ApplicationConfiguration {
-    /// Parse ACORN configuration in JSON or YAML format
-    pub fn parse(content: impl AsRef<str>) -> Option<Self> {
-        let content = content.as_ref();
-        let data = if detect_json(content) {
-            match Self::parse_json(content) {
-                | Ok(value) => Some(value),
-                | Err(_) => None,
-            }
-        } else {
-            match Self::parse_yaml(content) {
-                | Ok(value) => Some(value),
-                | Err(_) => None,
-            }
-        };
-        if let Some(data) = data {
-            debug!("=> {} Parse ACORN configuration = {:#?}", Label::using(), data.dimmed());
-            Some(data)
-        } else {
-            error!("=> {} Parse ACORN configuration", Label::fail());
-            None
+impl From<&str> for RunnerType {
+    fn from(value: &str) -> Self {
+        match value.to_uppercase().as_str() {
+            | "GROUP" => RunnerType::Group,
+            | "INSTANCE" => RunnerType::Instance,
+            | "PROJECT" => RunnerType::Project,
+            | _ => RunnerType::Group,
         }
-    }
-    fn parse_json(content: impl AsRef<str>) -> serde_json::Result<Self> {
-        serde_json::from_str(content.as_ref())
-    }
-    fn parse_yaml(content: impl AsRef<str>) -> serde_yml::Result<Self> {
-        serde_yml::from_str(content.as_ref())
-    }
-}
-impl InputOutput for ApplicationConfiguration {
-    /// Read and parse application configuration file (JSON or YAML)
-    fn read(path: impl Into<PathBuf>) -> Result<Self, Error> {
-        let source = path.into();
-        match MimeType::from_path(source.clone()) {
-            | MimeType::Json => Self::read_json(source.clone()),
-            | MimeType::Yaml => Self::read_yaml(source.clone()),
-            | _ => Err(Error::other("Unsupported configuration file extension")),
-        }
-    }
-    /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_json(path: PathBuf) -> Result<Self, Error> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) if !value.is_empty() => value,
-            | Ok(_) | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} ACORN configuration JSON content", Label::fail());
-                "{}".to_owned()
-            }
-        };
-        Self::parse_json(content).map_err(|why| Error::other(format!("Failed to parse JSON config: {why}")))
-    }
-    /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_yaml(path: PathBuf) -> Result<Self, Error> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) => value,
-            | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} ACORN configuration YAML content", Label::fail());
-                "".to_owned()
-            }
-        };
-        Self::parse_yaml(content).map_err(|why| Error::other(format!("Failed to parse YAML config: {why}")))
-    }
-    /// Write configuration to specified path (detects JSON or YAML from extension)
-    fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
-        let target = path.into();
-        match MimeType::from_path(&target) {
-            | MimeType::Json => self.write_json(&target),
-            | MimeType::Yaml => self.write_yaml(&target),
-            | _ => unimplemented!("Unsupported configuration file extension"),
-        }
-    }
-    /// Write configuration as JSON to specified path
-    fn write_json(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
-        let target = path.into();
-        serde_json::to_string_pretty(&self)
-            .map_err(|why| Error::other(why.to_string()))
-            .and_then(|content| write_file(target.clone(), content))
-    }
-    /// Write configuration as YAML to specified path
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
-        let target = path.into();
-        serde_yml::to_string(&self)
-            .map_err(|why| Error::other(why.to_string()))
-            .and_then(|content| write_file(target.clone(), content))
     }
 }
 fn count_json_files(paths: Vec<String>) -> usize {

@@ -80,7 +80,7 @@ which = { version = "8.0.0", features = ["real-sys"], default-features = false, 
 zip = { version = "6.0.0", features = ["deflate"], default-features = false }
 
 [dev-dependencies]
-insta = { version = "1.42.0", features = ["json", "yaml"], default-features = false }
+insta = { workspace = true, features = ["json", "yaml"] }
 mockall = "0.13.1"
 pretty_assertions = "1.4.1"
 similar-asserts = "1.7.0"
