@@ -423,7 +423,6 @@ impl RestfulInterface for Endpoint {
             | None => (),
         }
         context.insert("base", &self.base());
-        dbg!(&context);
         context
     }
     fn handle<R>(&self, response: Result<ResponseContent, Error>) -> Result<R, String>

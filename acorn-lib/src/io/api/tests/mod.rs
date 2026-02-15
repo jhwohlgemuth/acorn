@@ -276,6 +276,32 @@ fn test_orcid_status_response_handler() {
     dbg!(&response);
 }
 #[test]
+fn test_endpoint_context() {
+    let params = vec![
+        api::Param::of_type(api::ParamStyle::QueryPair)
+            .values(vec![
+                (Some("affiliation-org-name"), Some("Lyrasis")),
+                (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
+            ])
+            .with_key("q"),
+        api::Param::of_type(api::ParamStyle::TemplateValue)
+            .values(vec![(Some("two"), None)])
+            .with_key("one"),
+        api::Param::of_type(api::ParamStyle::TemplateValue)
+            .values(vec![(None, Some("four"))])
+            .with_key("three"),
+    ];
+    let data = Some(params);
+    let endpoint = Endpoint::at("example.org").root("v3.0").resources(vec![]).build();
+    let context = endpoint.context::<orcid::SearchField, orcid::OutputColumn>(data);
+    assert_eq!(context.get("base").unwrap().as_str(), Some("https://example.org/v3.0"));
+    assert!(context.get("query").is_some());
+    assert_eq!(context.get("one").unwrap().as_str(), Some("two"));
+    assert_eq!(context.get("three").unwrap().as_str(), Some("four"));
+    let json = serde_json::to_string_pretty(&context.into_json()).unwrap();
+    insta::assert_snapshot!(json);
+}
+#[test]
 fn test_query_params() {
     // Test QueryPair style
     let param = Param::of_type(ParamStyle::QueryPair)

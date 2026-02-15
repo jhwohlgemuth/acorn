@@ -171,6 +171,7 @@ DEV_DEPENDENCIES = \
 	cargo-audit \
 	cargo-auditable \
 	cargo-deny \
+	cargo-insta \
 	cargo-nextest \
 	cargo-shear \
 	cargo-tarpaulin \
