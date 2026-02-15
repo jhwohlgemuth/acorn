@@ -1,4 +1,5 @@
 use crate::config::*;
+use acorn::io::api::TreeEntryType;
 use acorn::prelude::PathBuf;
 use acorn::{Location, Scheme};
 
@@ -54,7 +55,7 @@ fn test_gitlab_tree_entry() {
     let entry = GitlabTreeEntry {
         id: 1234.to_string(),
         name: "acorn".to_string(),
-        entry_type: EntryType::Tree,
+        entry_type: TreeEntryType::Tree,
         path: "acorn".to_string(),
         mode: "example".to_string(),
     };

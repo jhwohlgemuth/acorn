@@ -276,7 +276,7 @@ fn test_orcid_status_response_handler() {
     dbg!(&response);
 }
 #[test]
-fn test_params() {
+fn test_query_params() {
     // Test QueryPair style
     let param = Param::of_type(ParamStyle::QueryPair)
         .values(vec![(Some("given-names"), Some("Jason")), (Some("family-name"), Some("Wohlgemuth"))])

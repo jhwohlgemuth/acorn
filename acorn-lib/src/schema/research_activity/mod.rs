@@ -358,14 +358,8 @@ impl InputOutput for ResearchActivity {
         result
     }
     fn read_json(path: PathBuf) -> Result<ResearchActivity, Error> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) if !value.is_empty() => value,
-            | Ok(_) | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} RAD content is not valid", Label::fail());
-                "{}".to_owned()
-            }
-        };
-        serde_json::from_str(&content).map_err(|why| Error::other(format!("Failed to parse JSON RAD: {}", why)))
+        read_file(path.clone())
+            .and_then(|content| serde_json::from_str(&content).map_err(|why| Error::other(format!("Failed to parse JSON RAD: {}", why))))
     }
     fn read_markdown(path: PathBuf) -> Option<ResearchActivity> {
         let content = match read_file(path.clone()) {
@@ -391,14 +385,8 @@ impl InputOutput for ResearchActivity {
         None
     }
     fn read_yaml(path: PathBuf) -> Result<ResearchActivity, Error> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) => value,
-            | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} RAD content is not valid", Label::fail());
-                "".to_owned()
-            }
-        };
-        serde_yml::from_str(&content).map_err(|why| Error::other(format!("Failed to parse YAML RAD: {}", why)))
+        read_file(path.clone())
+            .and_then(|content| serde_yml::from_str(&content).map_err(|why| Error::other(format!("Failed to parse YAML RAD: {}", why))))
     }
     fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
         let output = path.into();

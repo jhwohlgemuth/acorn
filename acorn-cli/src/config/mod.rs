@@ -4,15 +4,15 @@
 //!
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
+use acorn::io::api::github::{GithubTreeEntry, GithubTreeResponse};
+use acorn::io::api::gitlab::{GitlabTreeEntry, GitlabTreeResponse};
 use acorn::io::api::Endpoint;
 use acorn::io::{files_all, network_get_request, parent, read_file, write_file, FromPath, InputOutput};
 use acorn::prelude::{self, create_dir_all, exit, io, Cursor, Error, File, PathBuf};
 use acorn::util::{detect_json, suffix, Label, MimeType, ToAbsoluteString};
 use acorn::{Location, Repository, Scheme};
 use bon::Builder;
-use color_eyre::eyre;
 use core::fmt::Debug;
-use derive_more::Display;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
@@ -51,23 +51,8 @@ const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Stor
 pub struct ApplicationConfiguration {
     /// List of buckets
     pub buckets: Option<Vec<Bucket>>,
-    /// List of enpoint resources
+    /// List of endpoints
     pub endpoints: Option<Vec<Endpoint>>,
-}
-/// Type for GitLab tree entry
-#[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
-#[serde(rename_all = "lowercase")]
-pub enum EntryType {
-    /// List of files and directories
-    ///
-    /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
-    #[display("tree")]
-    Tree,
-    /// Base64 enoded content
-    ///
-    /// See <https://docs.gitlab.com/api/repositories/#get-a-blob-from-repository>
-    #[display("blob")]
-    Blob,
 }
 /// Struct for bucket data
 #[skip_serializing_none]
@@ -89,86 +74,6 @@ pub struct Bucket {
     #[serde(alias = "repository")]
     pub code_repository: Repository,
 }
-/// Struct for [GitHub] tree entry
-///
-/// [GitHub]: https://docs.github.com/en/rest
-#[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GithubTreeEntry {
-    /// Path of tree entry
-    ///
-    /// The path inside the repository. Used to get content of subdirectories.
-    pub path: String,
-    /// Mode of tree entry
-    pub mode: String,
-    /// Type of tree entry
-    #[serde(rename = "type")]
-    pub entry_type: EntryType,
-    /// [SHA1] of entry
-    ///
-    /// [SHA1]: https://en.wikipedia.org/wiki/SHA-1
-    pub sha: String,
-    /// Size of associated data
-    /// ### Note
-    /// > Not included for "tree" type entries
-    pub size: Option<u64>,
-    /// URL of associated data API endpoint
-    ///
-    /// Basically, a combination of the API endpoint and the SHA
-    pub url: String,
-}
-/// Struct for [GitHub] tree API response
-///
-/// GitHub API endpoint for trees returns
-/// ```json
-/// {
-///   "sha": "...",
-///   "url": "<endpoint>/repos/<owner>/<repo>/git/trees/<sha>",
-///   "tree": [...],
-///   "truncated": false
-/// }
-/// ```
-/// where `"tree"` is a list of [GithubTreeEntry].
-///
-/// ### Example Endpoint
-/// > `https://api.github.com/repos/jhwohlgemuth/pwsh-prelude/git/trees/master?recursive=1`
-///
-/// See [documentation] for more information
-///
-/// [GitHub]: https://docs.github.com/en/rest
-/// [documentation]: https://docs.github.com/en/rest/git/trees?apiVersion=2022-11-28#get-a-tree
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GithubTreeResponse {
-    /// SHA1 of tree
-    pub sha: String,
-    /// URL of associated data API endpoint
-    pub url: String,
-    /// List of [GithubTreeEntry]
-    pub tree: Vec<GithubTreeEntry>,
-    /// Whether tree is truncated
-    pub truncated: bool,
-}
-/// Struct for GitLab tree entry
-///
-/// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GitlabTreeEntry {
-    /// Integer ID of GitLab project
-    ///
-    /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
-    pub id: String,
-    /// Name of tree entry
-    pub name: String,
-    /// Type of tree entry
-    #[serde(rename = "type")]
-    pub entry_type: EntryType,
-    /// Path of tree entry
-    ///
-    /// The path inside the repository. Used to get content of subdirectories.
-    pub path: String,
-    /// Mode of tree entry
-    pub mode: String,
-}
 impl Bucket {
     /// Parse GitHub tree entries
     fn parse_github_response(response: Response) -> Vec<String> {
@@ -188,7 +93,7 @@ impl Bucket {
     /// Parse GitLab tree entries
     fn parse_gitlab_response(response: Response) -> Vec<String> {
         let content = response.text().unwrap();
-        let data: serde_json::Result<Vec<GitlabTreeEntry>> = serde_json::from_str(&content);
+        let data: serde_json::Result<GitlabTreeResponse> = serde_json::from_str(&content);
         debug!("=> {} {} Tree entries", Label::found(), data.as_ref().unwrap().len());
         match data {
             | Ok(entries) => entries.into_iter().filter(GitlabTreeEntry::is_blob).map(GitlabTreeEntry::path).collect(),
@@ -218,10 +123,14 @@ impl Bucket {
             | Repository::Git { .. } => todo!("Add support for generic repositories"),
         }
     }
-    fn tree(&self, directory: &str, page: Option<u32>) -> eyre::Result<Response, reqwest::Error> {
+    fn tree(&self, directory: &str, page: Option<u32>) -> Result<Response, Error> {
         let url = self.tree_url(directory, page);
         let client = Client::new();
-        client.get(url.unwrap_or_default()).header(USER_AGENT, "rust-web-api-client").send()
+        client
+            .get(url.unwrap_or_default())
+            .header(USER_AGENT, "rust-web-api-client")
+            .send()
+            .map_err(|why| Error::other(format!("Failed to send HTTP request: {why}")))
     }
     fn tree_url(&self, directory: &str, page: Option<u32>) -> Option<String> {
         match &self.code_repository {
@@ -541,22 +450,6 @@ impl InputOutput for ApplicationConfiguration {
         serde_yml::to_string(&self)
             .map_err(|why| Error::other(why.to_string()))
             .and_then(|content| write_file(target.clone(), content))
-    }
-}
-impl GithubTreeEntry {
-    fn path(self) -> String {
-        self.path
-    }
-    fn is_blob(&self) -> bool {
-        self.entry_type.eq(&EntryType::Blob)
-    }
-}
-impl GitlabTreeEntry {
-    fn path(self) -> String {
-        self.path
-    }
-    fn is_blob(&self) -> bool {
-        self.entry_type.eq(&EntryType::Blob)
     }
 }
 fn count_json_files(paths: Vec<String>) -> usize {

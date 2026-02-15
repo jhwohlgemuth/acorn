@@ -22,6 +22,30 @@ const RESOURCES: &str = r#"{
                     "template": "{{ base }}/pubStatus"
                 }
             ]
+        },
+        {
+            "name": "github",
+            "domain": "https://api.github.com",
+            "root": "",
+            "resources": [
+                {
+                    "name": "tree",
+                    "method": "get",
+                    "template": "{{ base }}/{{ path }}/git/trees/{{ branch }}?recursive=1"
+                }
+            ]
+        },
+        {
+            "name": "gitlab",
+            "domain": "https://code.ornl.gov",
+            "root": "api/v4",
+            "resources": [
+                {
+                    "name": "tree",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ project_id }}//repository/tree/{{ query }}"
+                }
+            ]
         }
     ]
 }"#;
@@ -41,6 +65,12 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
         api::Param::of_type(api::ParamStyle::FieldList)
             .values(vec![(Some("family-name"), None)])
             .with_key("fl"),
+        api::Param::of_type(api::ParamStyle::TemplateValue)
+            .values(vec![(Some("two"), None)])
+            .with_key("one"),
+        api::Param::of_type(api::ParamStyle::TemplateValue)
+            .values(vec![(None, Some("four"))])
+            .with_key("three"),
     ];
     let orcid = api::Endpoint::at("pub.orcid.org").root("v3.0").resources(resources).build();
     // Search for ORCiDs

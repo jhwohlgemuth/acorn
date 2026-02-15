@@ -10,6 +10,7 @@ use crate::util::{detect_json, detect_xml};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt;
+use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tera::{Context, Tera};
@@ -17,6 +18,8 @@ use uriparse::URI;
 use validator::Validate;
 
 pub mod citeas;
+pub mod github;
+pub mod gitlab;
 pub mod orcid;
 
 /// Helper trait combining common bounds for API query field types
@@ -32,7 +35,11 @@ pub trait ValueValidator {
 /// against resource URLs that return structured data
 pub trait RestfulInterface {
     /// Build context for endpoint paths
-    fn context(&self) -> Context {
+    fn context<Q, F>(&self, _params: Option<Vec<Param>>) -> Context
+    where
+        Q: QueryField + ValueValidator,
+        F: QueryField,
+    {
         Context::new()
     }
     /// Handle a response from an endpoint request
@@ -98,6 +105,8 @@ pub enum ParamStyle {
     Header,
     /// Body parameter (data sent via POST or PUT request)
     Body,
+    /// Value to be substituted directly into the URL path template
+    TemplateValue,
 }
 /// Wrapper enum for including response content MIME type with response body text
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -109,11 +118,20 @@ pub enum ResponseContent {
     /// XML response content
     Xml(String),
 }
-/// Wrapper struct for raw text responses that cannot be parsed as JSON or XML
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct TextResponse {
-    /// The raw text content from the response
-    pub content: String,
+/// Type for Git(Hub/Lab) tree entry
+#[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
+#[serde(rename_all = "lowercase")]
+pub enum TreeEntryType {
+    /// List of files and directories
+    ///
+    /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
+    #[display("tree")]
+    Tree,
+    /// Base64 encoded content
+    ///
+    /// See <https://docs.gitlab.com/api/repositories/#get-a-blob-from-repository>
+    #[display("blob")]
+    Blob,
 }
 /// Represents authentication credentials for accessing an API
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
@@ -196,6 +214,12 @@ pub struct Resource {
     pub method: HttpMethod,
     /// Template for the resource path (e.g., "/expanded-search/{{ query }}")
     pub template: String,
+}
+/// Wrapper struct for raw text responses that cannot be parsed as JSON or XML
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TextResponse {
+    /// The raw text content from the response
+    pub content: String,
 }
 // TODO: Define lookup maps for ORCiD, ROR, Vale, GitLab, GitHub, and Citeas APIs
 // TODO: Import paths from OpenAPI spec
@@ -288,6 +312,10 @@ impl Param {
     pub fn is_header(&self) -> bool {
         matches!(self.style, ParamStyle::Header)
     }
+    /// Check if this parameter is a template value
+    pub fn is_template(&self) -> bool {
+        matches!(self.style, ParamStyle::TemplateValue)
+    }
     /// Convert a list of params to a query string
     pub fn to_query_string<Q: QueryField + ValueValidator, F: QueryField>(params: Vec<Param>) -> String {
         let query = params
@@ -371,10 +399,31 @@ impl Param {
     }
 }
 impl RestfulInterface for Endpoint {
-    fn context(&self) -> Context {
-        // let Self { resources, .. } = self;
+    fn context<Q, F>(&self, data: Option<Vec<Param>>) -> Context
+    where
+        Q: QueryField + ValueValidator,
+        F: QueryField,
+    {
         let mut context = Context::new();
+        match data {
+            | Some(params) => {
+                let (query_params, other_params): (Vec<Param>, Vec<Param>) = params.into_iter().partition(|param| param.is_query());
+                let query = Param::to_query_string::<Q, F>(query_params);
+                context.insert("query", &query);
+                other_params.into_iter().for_each(|param| {
+                    if param.is_template() {
+                        param.values.into_iter().filter_map(|(k, v)| k.or(v)).for_each(|value| {
+                            let key = param.name.clone();
+                            context.insert(&key, &value.clone());
+                        });
+                    }
+                });
+                // TODO: Add header/body params to request builder
+            }
+            | None => (),
+        }
         context.insert("base", &self.base());
+        dbg!(&context);
         context
     }
     fn handle<R>(&self, response: Result<ResponseContent, Error>) -> Result<R, String>
@@ -405,16 +454,13 @@ impl RestfulInterface for Endpoint {
         F: QueryField,
     {
         let Self { resources, .. } = self;
-        let query = data.map_or_else(String::new, |params| Param::to_query_string::<Q, F>(params));
         let mut tera = Tera::default();
-        let mut context = Context::new();
+        let context = self.context::<Q, F>(data.clone());
         let resource = resources.iter().find(|resource| resource.name == name.clone().into());
         match resource {
             | Some(Resource { method, template, .. }) => {
-                context.insert("base", &self.base());
-                context.insert("query", &query);
                 let path = tera.render_str(template, &context).unwrap_or_default();
-                // TODO: Add header params to network request
+                // TODO: Add header params to network requests
                 let request = match method {
                     | HttpMethod::Get => network_get_request(path),
                     // TODO: Pass Body params for POST and PUT requests
@@ -434,9 +480,9 @@ impl RestfulInterface for Endpoint {
                             };
                             Ok(content)
                         }
-                        | Err(e) => Err(Error::other(e.to_string())),
+                        | Err(why) => Err(Error::other(why.to_string())),
                     },
-                    | Err(e) => Err(Error::other(e.to_string())),
+                    | Err(why) => Err(Error::other(why.to_string())),
                 }
             }
             | None => Err(Error::new(ErrorKind::NotFound, "Resource not found")),
@@ -448,7 +494,7 @@ impl RestfulInterface for Endpoint {
     {
         match serde_json::from_str::<R>(content) {
             | Ok(response) => Ok(response),
-            | Err(e) => Err(e.to_string()),
+            | Err(why) => Err(why.to_string()),
         }
     }
     fn parse_xml<R>(&self, content: &str) -> Result<R, String>
@@ -457,7 +503,7 @@ impl RestfulInterface for Endpoint {
     {
         match quick_xml::de::from_str::<R>(content) {
             | Ok(response) => Ok(response),
-            | Err(e) => Err(e.to_string()),
+            | Err(why) => Err(why.to_string()),
         }
     }
 }
