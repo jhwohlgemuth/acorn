@@ -167,7 +167,6 @@ pub struct ResearchActivityMetadata {
     #[validate(custom(function = "validate_attribute_books"))]
     #[serde(default)]
     pub books: Option<Vec<String>>,
-    // TODO: Add validation for patents (requires more work because enum)
     /// Patent(s) related to the associated research activity data
     #[serde(default)]
     pub patents: Option<Vec<String>>,
