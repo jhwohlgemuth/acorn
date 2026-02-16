@@ -1,10 +1,10 @@
 use crate::config::ApplicationConfiguration;
-use acorn::io::api::{self, orcid, RestfulInterface};
+use acorn::io::api::{self, orcid, spdx, Endpoint, EndpointSearch, RestfulInterface};
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 
-const RESOURCES: &str = r#"{
+const ENDPOINTS: &str = r#"{
     "endpoints": [
         {
             "name": "orcid",
@@ -46,13 +46,39 @@ const RESOURCES: &str = r#"{
                     "template": "{{ base }}/projects/{{ project_id }}//repository/tree/{{ query }}"
                 }
             ]
+        },
+        {
+            "name": "spdx",
+            "domain": "https://spdx.org",
+            "root": "",
+            "resources": [
+                {
+                    "name": "licenses",
+                    "method": "get",
+                    "template": "{{ base }}/licenses/licenses.json"
+                }
+            ]
         }
     ]
 }"#;
 
 pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
-    let resources = match ApplicationConfiguration::parse(RESOURCES).unwrap().endpoints {
-        | Some(endpoints) => endpoints[0].resources.clone(),
+    let endpoints = match ApplicationConfiguration::parse(ENDPOINTS).unwrap().endpoints {
+        | Some(endpoints) => endpoints,
+        | None => vec![],
+    };
+    // Get SPDX license data
+    let resources = match endpoints.find_by_name("spdx") {
+        | Some(Endpoint { resources, .. }) => resources.clone(),
+        | None => vec![],
+    };
+    let spdx = api::Endpoint::at("spdx.org").resources(resources).build();
+    let response = spdx.invoke_sync::<api::EmptyField, api::EmptyField>("licenses", None);
+    let text = spdx.handle::<spdx::Licenses>(response);
+    println!("Licenses: {text:#?}");
+    // ORCiD API examples
+    let resources = match endpoints.find_by_name("orcid") {
+        | Some(Endpoint { resources, .. }) => resources.clone(),
         | None => vec![],
     };
     let data = vec![
@@ -72,7 +98,7 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
             .values(vec![(None, Some("four"))])
             .with_key("three"),
     ];
-    let orcid = api::Endpoint::at("pub.orcid.org").root("v3.0").resources(resources).build();
+    let orcid = api::Endpoint::at("pub.orcid.org").root("v3.0").resources(resources.clone()).build();
     // Search for ORCiDs
     let response = orcid.invoke_sync::<orcid::SearchField, orcid::OutputColumn>("search", Some(data));
     let text = orcid.handle::<orcid::SearchResponse>(response);
@@ -81,6 +107,5 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
     let response = orcid.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
     let text = orcid.handle::<orcid::StatusResponse>(response);
     println!("Status: {text:#?}");
-
     Ok(())
 }

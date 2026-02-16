@@ -95,6 +95,7 @@ where
     /// Chunk a string into substrings of a given size
     fn chunk(&self, size: usize) -> Vec<String>;
 }
+// TODO: Unify with io::api::spdx::License
 /// # License
 /// SPDX compliant license identifier
 ///
@@ -537,6 +538,7 @@ where
     }
 }
 impl License {
+    #[allow(dead_code)]
     fn from_technology(value: &str) -> Option<License> {
         let data = Constant::csv("technology");
         let result = data
@@ -548,6 +550,7 @@ impl License {
             | None => None,
         }
     }
+    #[allow(dead_code)]
     fn is_open_source(&self) -> bool {
         let data = Constant::csv("technology");
         let result = data

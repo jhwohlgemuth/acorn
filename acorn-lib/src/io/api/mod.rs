@@ -21,7 +21,13 @@ pub mod citeas;
 pub mod github;
 pub mod gitlab;
 pub mod orcid;
+pub mod spdx;
 
+/// Helper trait for working with list of endpoints
+pub trait EndpointSearch {
+    /// Filter list of endpoints by name and return the first match
+    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint>;
+}
 /// Helper trait combining common bounds for API query field types
 pub trait QueryField: fmt::Display + for<'a> TryFrom<&'a str> {}
 /// Trait to enable validation of field values
@@ -226,14 +232,17 @@ pub struct TextResponse {
 impl Endpoint {
     /// Get the base URL for the API endpoint, constructed from scheme, domain, and port if not provided
     pub fn base(&self) -> String {
+        let Self { domain, root, .. } = self;
         let scheme = self.scheme.as_ref().map_or("https".to_string(), |s| s.to_string());
-        format!(
-            "{}://{}{}/{}",
-            scheme,
-            self.domain.clone(),
-            self.port.map_or(String::new(), |p| format!(":{p}")),
-            self.root,
-        )
+        let port = self.port.map_or(String::new(), |p| format!(":{p}"));
+        let root = if root.is_empty() { String::new() } else { format!("/{root}") };
+        format!("{scheme}://{domain}{port}{root}")
+    }
+}
+impl EndpointSearch for Vec<Endpoint> {
+    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
+        let name = value.into();
+        self.iter().find(|endpoint| endpoint.name == name).cloned()
     }
 }
 /// Blanket implementation for all types that satisfy the bounds
@@ -459,6 +468,7 @@ impl RestfulInterface for Endpoint {
         match resource {
             | Some(Resource { method, template, .. }) => {
                 let path = tera.render_str(template, &context).unwrap_or_default();
+                println!("Invoking with path: {path}");
                 // TODO: Add header params to network requests
                 let request = match method {
                     | HttpMethod::Get => network_get_request(path),
@@ -470,6 +480,7 @@ impl RestfulInterface for Endpoint {
                 match request.send() {
                     | Ok(response) => match response.text() {
                         | Ok(text) => {
+                            println!("Raw response text: {text}");
                             let content = if detect_json(&text) {
                                 ResponseContent::Json(text)
                             } else if detect_xml(&text) {
