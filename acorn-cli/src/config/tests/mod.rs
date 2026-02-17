@@ -3,17 +3,87 @@ use acorn::io::api::TreeEntryType;
 use acorn::prelude::PathBuf;
 use acorn::{Location, Scheme};
 
-const FIXTURES: &str = "../tests/fixtures";
+const ENDPOINTS: &str = r#"{
+    "endpoints": [
+        {
+            "name": "orcid",
+            "domain": "https://orcid.org",
+            "root": "v3.0",
+            "resources": [
+                {
+                    "name": "search",
+                    "method": "get",
+                    "template": "{{ base }}/expanded-search/{{ query }}"
+                },
+                {
+                    "name": "status",
+                    "method": "get",
+                    "template": "{{ base }}/pubStatus"
+                }
+            ]
+        },
+        {
+            "name": "ror",
+            "domain": "https://api.ror.org",
+            "resources": [
+                {
+                    "name": "status",
+                    "method": "get",
+                    "template": "{{ base }}/heartbeat"
+                }
+            ]
+        },
+        {
+            "name": "github",
+            "domain": "https://api.github.com",
+            "resources": [
+                {
+                    "name": "tree",
+                    "method": "get",
+                    "template": "{{ base }}/{{ path }}/git/trees/{{ branch }}?recursive=1"
+                }
+            ]
+        },
+        {
+            "name": "gitlab",
+            "domain": "https://code.ornl.gov",
+            "root": "api/v4",
+            "resources": [
+                {
+                    "name": "tree",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ project_id }}//repository/tree/{{ query }}"
+                }
+            ]
+        },
+        {
+            "name": "spdx",
+            "domain": "https://spdx.org",
+            "resources": [
+                {
+                    "name": "licenses",
+                    "method": "get",
+                    "template": "{{ base }}/licenses/licenses.json"
+                }
+            ]
+        }
+    ]
+}"#;
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("tests").join("fixtures")
 }
 
 #[test]
+fn test_builtin_endpoints() {
+    let config = ApplicationConfiguration::parse(ENDPOINTS).unwrap();
+    insta::assert_snapshot!(format!("{:#?}", config.endpoints));
+}
+#[test]
 fn test_bucket_config_json() {
-    let path = PathBuf::from(FIXTURES).join("config").join("with_github_buckets.json");
+    let path = fixtures_dir().join("config").join("with_github_buckets.json");
     let config = ApplicationConfiguration::read_json(path).unwrap();
     assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 2);
-    let path = PathBuf::from(FIXTURES).join("config").join("with_remote_buckets.json");
+    let path = fixtures_dir().join("config").join("with_remote_buckets.json");
     let config = ApplicationConfiguration::read_json(path).unwrap();
     assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 3);
 }
@@ -26,7 +96,7 @@ fn test_config_with_endpoints() {
 }
 #[test]
 fn test_bucket_config_yaml() {
-    let path = PathBuf::from(FIXTURES).join("config").join("with_remote_buckets.yaml");
+    let path = fixtures_dir().join("config").join("with_remote_buckets.yaml");
     let config = ApplicationConfiguration::read_yaml(path).unwrap();
     assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 3);
 }
@@ -150,7 +220,7 @@ fn test_repository_github() {
 }
 #[test]
 fn test_runners() {
-    let path = PathBuf::from(FIXTURES).join("config").join("with_runners.json");
+    let path = fixtures_dir().join("config").join("with_runners.json");
     let config = ApplicationConfiguration::read_json(path).unwrap();
     insta::assert_snapshot!(format!("{:#?}", config.runners));
 }

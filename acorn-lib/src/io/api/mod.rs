@@ -177,8 +177,7 @@ pub struct Endpoint {
     /// Root path for the API endpoint
     /// ### Example
     /// "v3.0" for ORCiD API
-    #[builder(default = String::new())]
-    pub root: String,
+    pub root: Option<String>,
     /// Resource data for generating full paths for the API endpoint using templates
     #[builder(default = vec![])]
     pub resources: Vec<Resource>,
@@ -234,8 +233,8 @@ impl Endpoint {
     pub fn base(&self) -> String {
         let Self { domain, root, .. } = self;
         let scheme = self.scheme.as_ref().map_or("https".to_string(), |s| s.to_string());
-        let port = self.port.map_or(String::new(), |p| format!(":{p}"));
-        let root = if root.is_empty() { String::new() } else { format!("/{root}") };
+        let port = self.port.map_or(String::new(), |port| format!(":{port}"));
+        let root = root.as_ref().map_or(String::new(), |root| format!("/{root}"));
         format!("{scheme}://{domain}{port}{root}")
     }
 }

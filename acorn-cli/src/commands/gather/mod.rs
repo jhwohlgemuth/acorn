@@ -24,6 +24,18 @@ const ENDPOINTS: &str = r#"{
             ]
         },
         {
+            "name": "ror",
+            "domain": "https://api.ror.org",
+            "root": "",
+            "resources": [
+                {
+                    "name": "status",
+                    "method": "get",
+                    "template": "{{ base }}/heartbeat"
+                }
+            ]
+        },
+        {
             "name": "github",
             "domain": "https://api.github.com",
             "root": "",
@@ -107,5 +119,12 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
     let response = orcid.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
     let text = orcid.handle::<orcid::StatusResponse>(response);
     println!("Status: {text:#?}");
+    // ROR API example
+    // let resources = match endpoints.find_by_name("ror") {
+    //     | Some(Endpoint { resources, .. }) => resources.clone(),
+    //     | None => vec![],
+    // };
+    // let response = orcid.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
+    // let text = orcid.handle::<orcid::StatusResponse>(response);
     Ok(())
 }
