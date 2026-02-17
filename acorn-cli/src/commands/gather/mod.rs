@@ -118,13 +118,15 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
     // Check the status of the API
     let response = orcid.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
     let text = orcid.handle::<orcid::StatusResponse>(response);
-    println!("Status: {text:#?}");
+    println!("ORCiD Status: {text:#?}");
     // ROR API example
-    // let resources = match endpoints.find_by_name("ror") {
-    //     | Some(Endpoint { resources, .. }) => resources.clone(),
-    //     | None => vec![],
-    // };
-    // let response = orcid.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
-    // let text = orcid.handle::<orcid::StatusResponse>(response);
+    let resources = match endpoints.find_by_name("ror") {
+        | Some(Endpoint { resources, .. }) => resources.clone(),
+        | None => vec![],
+    };
+    let ror = api::Endpoint::at("api.ror.org").resources(resources.clone()).build();
+    let response = ror.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
+    let text = ror.handle::<api::TextResponse>(response);
+    println!("ROR Status: {text:#?}");
     Ok(())
 }

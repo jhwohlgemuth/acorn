@@ -21,6 +21,7 @@ pub mod citeas;
 pub mod github;
 pub mod gitlab;
 pub mod orcid;
+pub mod ror;
 pub mod spdx;
 
 /// Helper trait for working with list of endpoints
@@ -467,7 +468,6 @@ impl RestfulInterface for Endpoint {
         match resource {
             | Some(Resource { method, template, .. }) => {
                 let path = tera.render_str(template, &context).unwrap_or_default();
-                println!("Invoking with path: {path}");
                 // TODO: Add header params to network requests
                 let request = match method {
                     | HttpMethod::Get => network_get_request(path),
@@ -479,7 +479,6 @@ impl RestfulInterface for Endpoint {
                 match request.send() {
                     | Ok(response) => match response.text() {
                         | Ok(text) => {
-                            println!("Raw response text: {text}");
                             let content = if detect_json(&text) {
                                 ResponseContent::Json(text)
                             } else if detect_xml(&text) {
