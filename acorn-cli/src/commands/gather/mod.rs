@@ -1,5 +1,5 @@
 use crate::config::ApplicationConfiguration;
-use acorn::io::api::{self, spdx, EndpointSearch, RestfulInterface};
+use acorn::io::api::{self, EndpointSearch, Param, RestfulInterface};
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
@@ -88,61 +88,59 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
         | None => vec![],
     };
     // Get SPDX license data
-    // let text = match endpoints.find_by_name("spdx") {
-    //     | Some(endpoint) => {
-    //         let response = endpoint.invoke_sync::<api::EmptyField, api::EmptyField>("licenses", None);
-    //         endpoint.handle::<spdx::Licenses>(response)
-    //     }
-    //     | None => Err("No SPDX endpoint found".into()),
-    // };
-    // println!("Licenses: {text:#?}");
-    // // ORCiD API examples
-    // let orcid = endpoints.find_by_name("orcid");
-    // let text = match &orcid {
-    //     | Some(endpoint) => {
-    //         let data = vec![
-    //             api::Param::of_type(api::ParamStyle::QueryPair)
-    //                 .values(vec![
-    //                     (Some("affiliation-org-name"), Some("Lyrasis")),
-    //                     (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
-    //                 ])
-    //                 .with_key("q"),
-    //             api::Param::of_type(api::ParamStyle::FieldList)
-    //                 .values(vec![(Some("family-name"), None)])
-    //                 .with_key("fl"),
-    //         ];
-    //         let response = endpoint.invoke_sync::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data));
-    //         endpoint.handle::<api::orcid::SearchResponse>(response)
-    //     }
-    //     | None => Err("No ORCiD endpoint found".into()),
-    // };
-    // println!("ORCiD Search Response: {text:#?}");
-    // let text = match &orcid {
-    //     | Some(endpoint) => {
-    //         let response = endpoint.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
-    //         endpoint.handle::<api::orcid::StatusResponse>(response)
-    //     }
-    //     | None => Err("No ORCiD endpoint found".into()),
-    // };
-    // println!("ORCiD Status: {text:#?}");
-    // // ROR API examples
-    let ror = endpoints.find_by_name("ror");
-    // let text = match &ror {
-    //     | Some(endpoint) => {
-    //         let response = endpoint.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
-    //         endpoint.handle::<api::TextResponse>(response)
-    //     }
-    //     | None => Err("No ROR endpoint found".into()),
-    // };
-    // println!("ROR Status: {text:#?}");
-    let text = match &ror {
+    let text = match endpoints.find_by_name("spdx") {
+        | Some(endpoint) => {
+            let response = endpoint.invoke_sync("licenses", None);
+            endpoint.handle::<api::spdx::Licenses>(response)
+        }
+        | None => Err("No SPDX endpoint found".into()),
+    };
+    println!("Licenses: {text:#?}");
+    // ORCiD API examples
+    let orcid = endpoints.find_by_name("orcid");
+    let text = match &orcid {
         | Some(endpoint) => {
             let data = vec![
-                api::Param::of_type(api::ParamStyle::TemplateValue)
-                    .values(vec![(Some("01qz5mb56"), None)])
-                    .with_key("identifier"),
+                Param::of_type(api::ParamStyle::QueryPair)
+                    .values(vec![
+                        (Some("affiliation-org-name"), Some("Lyrasis")),
+                        (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
+                    ])
+                    .with_key("q"),
+                Param::of_type(api::ParamStyle::FieldList)
+                    .values(vec![(Some("family-name"), None)])
+                    .with_key("fl"),
             ];
-            let response = endpoint.invoke_sync::<api::EmptyField, api::EmptyField>("record", Some(data));
+            let response = endpoint.invoke_sync_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data));
+            endpoint.handle::<api::orcid::SearchResponse>(response)
+        }
+        | None => Err("No ORCiD endpoint found".into()),
+    };
+    println!("ORCiD Search Response: {text:#?}");
+    let text = match &orcid {
+        | Some(endpoint) => {
+            let response = endpoint.invoke_sync("status", None);
+            endpoint.handle::<api::orcid::StatusResponse>(response)
+        }
+        | None => Err("No ORCiD endpoint found".into()),
+    };
+    println!("ORCiD Status: {text:#?}");
+    // ROR API examples
+    let ror = endpoints.find_by_name("ror");
+    let text = match &ror {
+        | Some(endpoint) => {
+            let response = endpoint.invoke_sync("status", None);
+            endpoint.handle::<api::TextResponse>(response)
+        }
+        | None => Err("No ROR endpoint found".into()),
+    };
+    println!("ROR Status: {text:#?}");
+    let text = match &ror {
+        | Some(endpoint) => {
+            let data = vec![Param::of_type(api::ParamStyle::TemplateValue)
+                .values(vec![(Some("01qz5mb56"), None)])
+                .with_key("identifier")];
+            let response = endpoint.invoke_sync("record", Some(data));
             endpoint.handle::<api::ror::SingleRecord>(response)
         }
         | None => Err("No ROR endpoint found".into()),

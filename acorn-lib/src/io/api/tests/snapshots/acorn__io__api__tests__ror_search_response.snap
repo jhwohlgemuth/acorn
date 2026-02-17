@@ -6,7 +6,7 @@ SearchResponse {
     number_of_results: 1,
     time_taken: 4,
     items: [
-        SearchResult {
+        SingleRecord {
             identifier: "https://ror.org/05p915b28",
             domains: [],
             established: Some(
@@ -17,7 +17,9 @@ SearchResponse {
                     all: [
                         "Q7073703",
                     ],
-                    preferred: "Q7073703",
+                    preferred: Some(
+                        "Q7073703",
+                    ),
                     external_identifier_type: Wikidata,
                 },
             ],

@@ -102,9 +102,7 @@ pub enum SchemaVersion {
 /// ROR allowed search fields
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum SearchField {
-
-}
+pub enum SearchField {}
 /// ROR item status
 ///
 /// See `https://ror.readme.io/docs/ror-data-structure#status` for more information

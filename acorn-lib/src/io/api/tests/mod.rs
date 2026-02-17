@@ -82,7 +82,7 @@ fn test_endpoint_context() {
     ];
     let data = Some(params);
     let endpoint = Endpoint::at("example.org").root("v3.0").resources(vec![]).build();
-    let context = endpoint.context::<orcid::SearchField, orcid::OutputColumn>(data);
+    let context = endpoint.context_with::<orcid::SearchField, orcid::OutputColumn>(data);
     assert_eq!(context.get("base").unwrap().as_str(), Some("https://example.org/v3.0"));
     assert!(context.get("query").is_some());
     assert_eq!(context.get("one").unwrap().as_str(), Some("two"));

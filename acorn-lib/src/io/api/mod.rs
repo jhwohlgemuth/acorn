@@ -31,22 +31,16 @@ pub trait EndpointSearch {
 }
 /// Helper trait combining common bounds for API query field types
 pub trait QueryField: fmt::Display + for<'a> TryFrom<&'a str> {}
-/// Trait to enable validation of field values
-pub trait ValueValidator {
-    /// Verify associated field value is valid
-    fn is_valid(&self, _value: &str) -> bool {
-        true
-    }
-}
 /// Trait for working with request-response cycle using HTTP methods like GET, POST, PUT, PATCH, and DELETE
 /// against resource URLs that return structured data
 pub trait RestfulInterface {
+    /// Query field type used for request building
+    type Query: QueryField + ValueValidator;
+    /// Field list type used for response selection
+    type Field: QueryField;
+
     /// Build context for endpoint paths
-    fn context<Q, F>(&self, _params: Option<Vec<Param>>) -> Context
-    where
-        Q: QueryField + ValueValidator,
-        F: QueryField,
-    {
+    fn context(&self, _params: Option<Vec<Param>>) -> Context {
         Context::new()
     }
     /// Handle a response from an endpoint request
@@ -54,7 +48,9 @@ pub trait RestfulInterface {
     where
         R: for<'de> Deserialize<'de>;
     /// Send data to the endpoint and receive a response
-    fn invoke_sync<Q, F>(&self, action: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
+    fn invoke_sync(&self, action: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>;
+    /// Send data to the endpoint and receive a response using explicit query/field types
+    fn invoke_sync_with<Q, F>(&self, action: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
     where
         Q: QueryField + ValueValidator,
         F: QueryField;
@@ -66,6 +62,13 @@ pub trait RestfulInterface {
     fn parse_xml<R>(&self, content: &str) -> Result<R, String>
     where
         R: for<'de> Deserialize<'de>;
+}
+/// Trait to enable validation of field values
+pub trait ValueValidator {
+    /// Verify associated field value is valid
+    fn is_valid(&self, _value: &str) -> bool {
+        true
+    }
 }
 /// Authentication schemes supported for API requests
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -238,6 +241,35 @@ impl Endpoint {
         let root = root.as_ref().map_or(String::new(), |root| format!("/{root}"));
         format!("{scheme}://{domain}{port}{root}")
     }
+
+    /// Build context for endpoint paths using explicit query/field types.
+    pub fn context_with<Q, F>(&self, data: Option<Vec<Param>>) -> Context
+    where
+        Q: QueryField + ValueValidator,
+        F: QueryField,
+    {
+        let mut context = Context::new();
+        match data {
+            | Some(params) => {
+                let (query_params, other_params): (Vec<Param>, Vec<Param>) = params.into_iter().partition(|param| param.is_query());
+                let query = Param::to_query_string::<Q, F>(query_params);
+                context.insert("query", &query);
+                other_params.into_iter().for_each(|param| {
+                    if param.is_template() {
+                        param.values.into_iter().filter_map(|(k, v)| k.or(v)).for_each(|value| {
+                            let key = param.name.clone();
+                            context.insert(&key, &value.clone());
+                        });
+                    }
+                });
+                // TODO: Add header/body params to request builder
+                dbg!(&context);
+            }
+            | None => (),
+        }
+        context.insert("base", &self.base());
+        context
+    }
 }
 impl EndpointSearch for Vec<Endpoint> {
     fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
@@ -408,32 +440,11 @@ impl Param {
     }
 }
 impl RestfulInterface for Endpoint {
-    fn context<Q, F>(&self, data: Option<Vec<Param>>) -> Context
-    where
-        Q: QueryField + ValueValidator,
-        F: QueryField,
-    {
-        let mut context = Context::new();
-        match data {
-            | Some(params) => {
-                let (query_params, other_params): (Vec<Param>, Vec<Param>) = params.into_iter().partition(|param| param.is_query());
-                let query = Param::to_query_string::<Q, F>(query_params);
-                context.insert("query", &query);
-                other_params.into_iter().for_each(|param| {
-                    if param.is_template() {
-                        param.values.into_iter().filter_map(|(k, v)| k.or(v)).for_each(|value| {
-                            let key = param.name.clone();
-                            context.insert(&key, &value.clone());
-                        });
-                    }
-                });
-                // TODO: Add header/body params to request builder
-                dbg!(&context);
-            }
-            | None => (),
-        }
-        context.insert("base", &self.base());
-        context
+    type Query = EmptyField;
+    type Field = EmptyField;
+
+    fn context(&self, data: Option<Vec<Param>>) -> Context {
+        self.context_with::<Self::Query, Self::Field>(data)
     }
     fn handle<R>(&self, response: Result<ResponseContent, Error>) -> Result<R, String>
     where
@@ -453,18 +464,54 @@ impl RestfulInterface for Endpoint {
             | Err(e) => Err(e.to_string()),
         }
     }
-    /// Invoke an endpoint resource with data and receive a response
+    /// Invoke an endpoint resource with data and receive a response using [`EmptyField`] as the default query and field types.
     /// ### Example
     /// ```ignore
+    /// let ror = endpoints.find_by_name("ror");
+    /// let text = match &ror {
+    ///     | Some(endpoint) => {
+    ///         let response = endpoint.invoke_sync("status", None);
+    ///         endpoint.handle::<api::TextResponse>(response)
+    ///     }
+    ///     | None => Err("No ROR endpoint found".into()),
+    /// };
+    /// println!("ROR Status: {text:#?}");
     /// ```
-    fn invoke_sync<Q, F>(&self, name: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
+    fn invoke_sync(&self, name: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error> {
+        self.invoke_sync_with::<Self::Query, Self::Field>(name, data)
+    }
+    /// Invoke an endpoint resource with data and receive a response using explicit query and field types.
+    /// ### Example
+    /// ```ignore
+    /// let orcid = endpoints.find_by_name("orcid");
+    /// let text = match &orcid {
+    ///     | Some(endpoint) => {
+    ///         let data = vec![
+    ///             api::Param::of_type(api::ParamStyle::QueryPair)
+    ///                 .values(vec![
+    ///                     (Some("affiliation-org-name"), Some("Lyrasis")),
+    ///                     (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
+    ///                 ])
+    ///                 .with_key("q"),
+    ///             api::Param::of_type(api::ParamStyle::FieldList)
+    ///                 .values(vec![(Some("family-name"), None)])
+    ///                 .with_key("fl"),
+    ///         ];
+    ///         let response = endpoint.invoke_sync_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data));
+    ///         endpoint.handle::<api::orcid::SearchResponse>(response)
+    ///     }
+    ///     | None => Err("No ORCiD endpoint found".into()),
+    /// };
+    /// println!("ORCiD Search Response: {text:#?}");
+    /// ```
+    fn invoke_sync_with<Q, F>(&self, name: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
     where
         Q: QueryField + ValueValidator,
         F: QueryField,
     {
         let Self { resources, .. } = self;
         let mut tera = Tera::default();
-        let context = self.context::<Q, F>(data.clone());
+        let context = self.context_with::<Q, F>(data.clone());
         let resource = resources.iter().find(|resource| resource.name == name.clone().into());
         match resource {
             | Some(Resource { method, template, .. }) => {
