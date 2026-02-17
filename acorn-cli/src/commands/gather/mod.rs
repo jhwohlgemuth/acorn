@@ -1,5 +1,5 @@
 use crate::config::ApplicationConfiguration;
-use acorn::io::api::{self, orcid, spdx, Endpoint, EndpointSearch, RestfulInterface};
+use acorn::io::api::{self, spdx, EndpointSearch, RestfulInterface};
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
@@ -7,8 +7,31 @@ use color_eyre::eyre::{Report, Result};
 const ENDPOINTS: &str = r#"{
     "endpoints": [
         {
+            "name": "github",
+            "domain": "api.github.com",
+            "resources": [
+                {
+                    "name": "tree",
+                    "method": "get",
+                    "template": "{{ base }}/{{ path }}/git/trees/{{ branch }}?recursive=1"
+                }
+            ]
+        },
+        {
+            "name": "gitlab",
+            "domain": "code.ornl.gov",
+            "root": "api/v4",
+            "resources": [
+                {
+                    "name": "tree",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ project_id }}//repository/tree/{{ query }}"
+                }
+            ]
+        },
+        {
             "name": "orcid",
-            "domain": "https://orcid.org",
+            "domain": "pub.orcid.org",
             "root": "v3.0",
             "resources": [
                 {
@@ -25,9 +48,19 @@ const ENDPOINTS: &str = r#"{
         },
         {
             "name": "ror",
-            "domain": "https://api.ror.org",
-            "root": "",
+            "domain": "api.ror.org",
+            "root": "v2",
             "resources": [
+                {
+                    "name": "record",
+                    "method": "get",
+                    "template": "{{ base }}/organizations/{{ identifier }}"
+                },
+                {
+                    "name": "search",
+                    "method": "get",
+                    "template": "{{ base }}/organizations/{{ query }}"
+                },
                 {
                     "name": "status",
                     "method": "get",
@@ -36,33 +69,8 @@ const ENDPOINTS: &str = r#"{
             ]
         },
         {
-            "name": "github",
-            "domain": "https://api.github.com",
-            "root": "",
-            "resources": [
-                {
-                    "name": "tree",
-                    "method": "get",
-                    "template": "{{ base }}/{{ path }}/git/trees/{{ branch }}?recursive=1"
-                }
-            ]
-        },
-        {
-            "name": "gitlab",
-            "domain": "https://code.ornl.gov",
-            "root": "api/v4",
-            "resources": [
-                {
-                    "name": "tree",
-                    "method": "get",
-                    "template": "{{ base }}/projects/{{ project_id }}//repository/tree/{{ query }}"
-                }
-            ]
-        },
-        {
             "name": "spdx",
-            "domain": "https://spdx.org",
-            "root": "",
+            "domain": "spdx.org",
             "resources": [
                 {
                     "name": "licenses",
@@ -80,53 +88,65 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
         | None => vec![],
     };
     // Get SPDX license data
-    let resources = match endpoints.find_by_name("spdx") {
-        | Some(Endpoint { resources, .. }) => resources.clone(),
-        | None => vec![],
+    // let text = match endpoints.find_by_name("spdx") {
+    //     | Some(endpoint) => {
+    //         let response = endpoint.invoke_sync::<api::EmptyField, api::EmptyField>("licenses", None);
+    //         endpoint.handle::<spdx::Licenses>(response)
+    //     }
+    //     | None => Err("No SPDX endpoint found".into()),
+    // };
+    // println!("Licenses: {text:#?}");
+    // // ORCiD API examples
+    // let orcid = endpoints.find_by_name("orcid");
+    // let text = match &orcid {
+    //     | Some(endpoint) => {
+    //         let data = vec![
+    //             api::Param::of_type(api::ParamStyle::QueryPair)
+    //                 .values(vec![
+    //                     (Some("affiliation-org-name"), Some("Lyrasis")),
+    //                     (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
+    //                 ])
+    //                 .with_key("q"),
+    //             api::Param::of_type(api::ParamStyle::FieldList)
+    //                 .values(vec![(Some("family-name"), None)])
+    //                 .with_key("fl"),
+    //         ];
+    //         let response = endpoint.invoke_sync::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data));
+    //         endpoint.handle::<api::orcid::SearchResponse>(response)
+    //     }
+    //     | None => Err("No ORCiD endpoint found".into()),
+    // };
+    // println!("ORCiD Search Response: {text:#?}");
+    // let text = match &orcid {
+    //     | Some(endpoint) => {
+    //         let response = endpoint.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
+    //         endpoint.handle::<api::orcid::StatusResponse>(response)
+    //     }
+    //     | None => Err("No ORCiD endpoint found".into()),
+    // };
+    // println!("ORCiD Status: {text:#?}");
+    // // ROR API examples
+    let ror = endpoints.find_by_name("ror");
+    // let text = match &ror {
+    //     | Some(endpoint) => {
+    //         let response = endpoint.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
+    //         endpoint.handle::<api::TextResponse>(response)
+    //     }
+    //     | None => Err("No ROR endpoint found".into()),
+    // };
+    // println!("ROR Status: {text:#?}");
+    let text = match &ror {
+        | Some(endpoint) => {
+            let data = vec![
+                api::Param::of_type(api::ParamStyle::TemplateValue)
+                    .values(vec![(Some("01qz5mb56"), None)])
+                    .with_key("identifier"),
+            ];
+            let response = endpoint.invoke_sync::<api::EmptyField, api::EmptyField>("record", Some(data));
+            endpoint.handle::<api::ror::SingleRecord>(response)
+        }
+        | None => Err("No ROR endpoint found".into()),
     };
-    let spdx = api::Endpoint::at("spdx.org").resources(resources).build();
-    let response = spdx.invoke_sync::<api::EmptyField, api::EmptyField>("licenses", None);
-    let text = spdx.handle::<spdx::Licenses>(response);
-    println!("Licenses: {text:#?}");
-    // ORCiD API examples
-    let resources = match endpoints.find_by_name("orcid") {
-        | Some(Endpoint { resources, .. }) => resources.clone(),
-        | None => vec![],
-    };
-    let data = vec![
-        api::Param::of_type(api::ParamStyle::QueryPair)
-            .values(vec![
-                (Some("affiliation-org-name"), Some("Lyrasis")),
-                (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
-            ])
-            .with_key("q"),
-        api::Param::of_type(api::ParamStyle::FieldList)
-            .values(vec![(Some("family-name"), None)])
-            .with_key("fl"),
-        api::Param::of_type(api::ParamStyle::TemplateValue)
-            .values(vec![(Some("two"), None)])
-            .with_key("one"),
-        api::Param::of_type(api::ParamStyle::TemplateValue)
-            .values(vec![(None, Some("four"))])
-            .with_key("three"),
-    ];
-    let orcid = api::Endpoint::at("pub.orcid.org").root("v3.0").resources(resources.clone()).build();
-    // Search for ORCiDs
-    let response = orcid.invoke_sync::<orcid::SearchField, orcid::OutputColumn>("search", Some(data));
-    let text = orcid.handle::<orcid::SearchResponse>(response);
-    println!("Response: {text:#?}");
-    // Check the status of the API
-    let response = orcid.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
-    let text = orcid.handle::<orcid::StatusResponse>(response);
-    println!("ORCiD Status: {text:#?}");
-    // ROR API example
-    let resources = match endpoints.find_by_name("ror") {
-        | Some(Endpoint { resources, .. }) => resources.clone(),
-        | None => vec![],
-    };
-    let ror = api::Endpoint::at("api.ror.org").resources(resources.clone()).build();
-    let response = ror.invoke_sync::<api::EmptyField, api::EmptyField>("status", None);
-    let text = ror.handle::<api::TextResponse>(response);
-    println!("ROR Status: {text:#?}");
+    println!("ROR Record: {text:#?}");
     Ok(())
 }

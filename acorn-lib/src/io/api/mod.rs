@@ -428,6 +428,7 @@ impl RestfulInterface for Endpoint {
                     }
                 });
                 // TODO: Add header/body params to request builder
+                dbg!(&context);
             }
             | None => (),
         }
@@ -467,7 +468,9 @@ impl RestfulInterface for Endpoint {
         let resource = resources.iter().find(|resource| resource.name == name.clone().into());
         match resource {
             | Some(Resource { method, template, .. }) => {
+                dbg!(&template);
                 let path = tera.render_str(template, &context).unwrap_or_default();
+                dbg!(&path);
                 // TODO: Add header params to network requests
                 let request = match method {
                     | HttpMethod::Get => network_get_request(path),

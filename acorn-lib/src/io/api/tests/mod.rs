@@ -1,4 +1,4 @@
-use crate::io::api::{self, citeas, orcid, Endpoint, Param, ParamStyle, ResponseContent, RestfulInterface};
+use crate::io::api::{self, citeas, orcid, ror, Endpoint, Param, ParamStyle, ResponseContent, RestfulInterface};
 use crate::io::read_file;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
 use crate::{Location, Repository, Scheme};
@@ -294,12 +294,10 @@ fn test_orcid_response_handler() {
     assert!(institutions.len() >= 10);
 }
 #[test]
-fn test_orcid_status_response_handler() {
-    let json = r#"{"tomcatUp":true,"dbConnectionOk":true,"readOnlyDbConnectionOk":true,"overallOk":true}"#;
-    // Parse JSON into OrcidStatusResponse
+fn test_orcid_status_response() {
+    let json = r#"{"tomcatUp":true,"dbConnectionOk":true,"readOnlyDbConnectionOk":false,"overallOk":true}"#;
     let response: orcid::StatusResponse = serde_json::from_str(json).expect("Failed to deserialize JSON");
-    // Verify response properties
-    dbg!(&response);
+    insta::assert_snapshot!(format!("{:#?}", response));
 }
 #[test]
 fn test_query_params() {
@@ -403,4 +401,10 @@ fn test_params_to_query_string() {
     let query = api::Param::to_query_string::<orcid::SearchField, orcid::OutputColumn>(params);
     let expected = "";
     assert_eq!(query, expected);
+}
+#[test]
+fn test_ror_search_response() {
+    let json = read_file(fixtures_dir().join("response_ror_ornl.json")).expect("Failed to read JSON fixture");
+    let response: ror::SearchResponse = serde_json::from_str(&json).expect("Failed to deserialize JSON");
+    insta::assert_snapshot!(format!("{:#?}", response));
 }

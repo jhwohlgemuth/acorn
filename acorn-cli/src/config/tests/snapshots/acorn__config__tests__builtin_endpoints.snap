@@ -5,7 +5,7 @@ expression: "format!(\"{:#?}\", config.endpoints)"
 Some(
     [
         Endpoint {
-            domain: "https://orcid.org",
+            domain: "pub.orcid.org",
             name: "orcid",
             scheme: None,
             port: None,
@@ -27,7 +27,7 @@ Some(
             ],
         },
         Endpoint {
-            domain: "https://api.ror.org",
+            domain: "api.ror.org",
             name: "ror",
             scheme: None,
             port: None,
@@ -42,7 +42,7 @@ Some(
             ],
         },
         Endpoint {
-            domain: "https://api.github.com",
+            domain: "api.github.com",
             name: "github",
             scheme: None,
             port: None,
@@ -57,7 +57,7 @@ Some(
             ],
         },
         Endpoint {
-            domain: "https://code.ornl.gov",
+            domain: "code.ornl.gov",
             name: "gitlab",
             scheme: None,
             port: None,
@@ -74,7 +74,7 @@ Some(
             ],
         },
         Endpoint {
-            domain: "https://spdx.org",
+            domain: "spdx.org",
             name: "spdx",
             scheme: None,
             port: None,

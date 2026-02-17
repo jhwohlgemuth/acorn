@@ -7,7 +7,7 @@ const ENDPOINTS: &str = r#"{
     "endpoints": [
         {
             "name": "orcid",
-            "domain": "https://orcid.org",
+            "domain": "pub.orcid.org",
             "root": "v3.0",
             "resources": [
                 {
@@ -24,7 +24,7 @@ const ENDPOINTS: &str = r#"{
         },
         {
             "name": "ror",
-            "domain": "https://api.ror.org",
+            "domain": "api.ror.org",
             "resources": [
                 {
                     "name": "status",
@@ -35,7 +35,7 @@ const ENDPOINTS: &str = r#"{
         },
         {
             "name": "github",
-            "domain": "https://api.github.com",
+            "domain": "api.github.com",
             "resources": [
                 {
                     "name": "tree",
@@ -46,7 +46,7 @@ const ENDPOINTS: &str = r#"{
         },
         {
             "name": "gitlab",
-            "domain": "https://code.ornl.gov",
+            "domain": "code.ornl.gov",
             "root": "api/v4",
             "resources": [
                 {
@@ -58,7 +58,7 @@ const ENDPOINTS: &str = r#"{
         },
         {
             "name": "spdx",
-            "domain": "https://spdx.org",
+            "domain": "spdx.org",
             "resources": [
                 {
                     "name": "licenses",
