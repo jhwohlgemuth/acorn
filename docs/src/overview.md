@@ -32,7 +32,7 @@
 </div>
 <br/>
 
-🌱 ACORN[^acronym] provides and operationalizes an ontology for research activity data (RAD) and enables adding linked data context and transforming RAD into a knowledge graph that is amenable to automated reasoning and artifact generation (e.g. PDFs, PPTX, etc.)
+🌱 ACORN[^acronym] is a research assistant and metascience multi-tool that provides and operationalizes an ontology for research activity data (RAD). ACORN enables adding linked data context and transforming RAD into a knowledge graph that is amenable to automated reasoning and artifact generation (e.g. PDFs, PPTX, etc.)
 
 ACORN is a command line multi-tool that employs automated processes for informing and enforcing defined content schemas. With these content schemas, ACORN builds communication assets such as PDFs, presentation files, and web pages. It also lays the foundation for deep data insights about ORNL's — and any institution's — corpus of research. Built using the memory-safe Rust programming language, ACORN can be used on any Windows, Mac, or Linux machine
 
