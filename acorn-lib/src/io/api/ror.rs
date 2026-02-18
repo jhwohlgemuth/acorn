@@ -97,53 +97,57 @@ pub enum LinkType {
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OrganizationNameType {
-    /// The primary name for the organization
+    /// Name of the organization displayed most prominently on records in ROR's web search
     #[default]
     RorDisplay,
-    /// An acronym for the organization
+    /// One or more official acronyms or initialisms for the organization, typically consisting of the first letters of the words in the organization name
     Acronym,
     /// An alternative name for the organization
     Alias,
-    /// A label for the organization
+    /// Displays equivalent forms of the organization name in one or more languages
     Label,
 }
 /// ROR organization type
+///
+/// See `https://ror.readme.io/docs/ror-data-structure#types` for more information
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OrganizationType {
-    /// A facility organization
+    /// A specialized facility where research takes place, such as a laboratory or telescope or dedicated research area
     #[default]
     Facility,
-    /// An archive organization
+    /// An organization involved in stewarding research and cultural heritage materials. Includes libraries, museums, and zoos
     Archive,
-    /// A company organization
+    /// A private for-profit corporate entity involved in conducting or sponsoring research
     Company,
-    /// An educational organization
+    /// A university or similar institution involved in providing education and educating/employing researchers
     Education,
-    /// A funding organization
+    /// An organization that awards research funds or provides in-kind support
     Funder,
     /// A governmental organization
     Government,
-    /// A healthcare organization
+    /// A medical care facility such as hospital or medical clinic
     Healthcare,
-    /// Non-profit organization
+    /// A non-profit and non-governmental organization involved in conducting or funding research
     Nonprofit,
     /// An organization that does not fit into other categories
     Other,
 }
 /// Type of relationship between an organization and another organization
+///
+/// See `https://ror.readme.io/docs/ror-data-structure#relationships` for more information
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RelationshipType {
-    /// Child organization
+    /// Indicate a relationship where the parent exercises control (supervisory, administrative, or financial) over the child
     Child,
-    /// Parent organization
+    /// The child is a component of the parent entity, like a research center within a university
     Parent,
-    /// Related organization
+    /// Denotes less defined connections, such as resource sharing or participation without direct control
     Related,
-    /// Successor organization
+    /// Indicates that an organization continues the work of a predecessor organization that has ceased operations
     Successor,
-    /// Predecessor organization
+    /// Track organizational continuity and are used when an entity ceases operations or to redirect from erroneous records to correct ones
     Predecessor,
 }
 /// ROR schema version
@@ -159,10 +163,6 @@ pub enum SchemaVersion {
     #[serde(rename = "2.1")]
     V2_1,
 }
-/// ROR allowed search fields
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum SearchField {}
 /// ROR item status
 ///
 /// See `https://ror.readme.io/docs/ror-data-structure#status` for more information
@@ -255,6 +255,8 @@ pub struct LocationField {
     /// GeoNames identifier for the city or most granular administrative region that the organization is located in
     /// ### Note
     /// > For most records, this ID represents a city, but for organizations not located in a city, the value in this field is ID of the most granular administrative region for the location available in [GeoNames](https://www.geonames.org/)
+    ///
+    /// See [`crate::io::api::geonames`] for additional GeoNames API functionality.
     #[serde(rename = "geonames_id")]
     pub identifier: u64,
     /// Container for details derived from the GeoNames record for the GeoNames ID specified in `geonames_id`
@@ -381,6 +383,8 @@ pub struct SingleRecord {
     /// Links associated with the organization, such as the organization's website or Wikipedia page
     pub links: Vec<LinkField>,
     /// Associated locations for the organization
+    ///
+    /// Location data comes from [GeoNames](https://www.geonames.org/) (see also [`crate::io::api::geonames`])
     pub locations: Vec<LocationField>,
     /// Names associated with the organization
     pub names: Vec<NameField>,
