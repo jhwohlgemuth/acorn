@@ -155,9 +155,9 @@ pub struct Authentication {
     pub scheme: AuthenticationScheme,
 }
 /// Empty struct used for cases where no query fields are needed
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub struct EmptyField;
+pub struct EmptyField(String);
 /// Represents an API endpoint with a lookup table for calling various paths
 /// ### Note
 /// Paths use handlebars templating syntax for dynamic URL construction, powered by [Tera](https://keats.github.io/tera/)
@@ -294,10 +294,9 @@ impl fmt::Display for AuthenticationScheme {
         )
     }
 }
-
 impl fmt::Display for EmptyField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "")
+        write!(f, "{}", self.0)
     }
 }
 impl Default for Endpoint {
@@ -568,8 +567,8 @@ impl RestfulInterface for Endpoint {
 impl TryFrom<&str> for EmptyField {
     type Error = String;
 
-    fn try_from(_value: &str) -> Result<Self, Self::Error> {
-        Ok(EmptyField)
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(EmptyField(value.to_string()))
     }
 }
 impl ValueValidator for EmptyField {

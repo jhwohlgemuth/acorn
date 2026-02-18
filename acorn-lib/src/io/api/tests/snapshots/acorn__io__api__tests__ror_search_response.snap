@@ -115,4 +115,34 @@ SearchResponse {
             ],
         },
     ],
+    meta: SearchMetadata {
+        types: [
+            MetadataItem {
+                identifier: "foo",
+                title: "bar",
+                count: 42,
+            },
+        ],
+        countries: [
+            MetadataItem {
+                identifier: "foo",
+                title: "bar",
+                count: 42,
+            },
+        ],
+        continents: [
+            MetadataItem {
+                identifier: "foo",
+                title: "bar",
+                count: 42,
+            },
+        ],
+        statuses: [
+            MetadataItem {
+                identifier: "foo",
+                title: "bar",
+                count: 42,
+            },
+        ],
+    },
 }

@@ -1,6 +1,64 @@
 //! Module for interacting with ROR API
 //!
-//! Provides types and functions for constructing ROR API queries with field validation and output column selection.
+//! Provides types and functions for constructing ROR API queries with field validation and output column selection
+//!
+//! ## Example Uses
+//!
+//! ### Get API status
+//! ```ignore
+//! use acorn_lib::io::api::{self, EndpointSearch, Param, ParamStyle};
+//!
+//! let ror = endpoints.find_by_name("ror");
+//! let text = match &ror {
+//!     | Some(endpoint) => {
+//!         let response = endpoint.invoke_sync("status", None);
+//!         endpoint.handle::<api::TextResponse>(response)
+//!     }
+//!     | None => Err("No ROR endpoint found".into()),
+//! };
+//! println!("ROR Status: {text:#?}");
+//! ```
+//!
+//! ### Get single ROR record by ID
+//! ```ignore
+//! use acorn_lib::io::api::{ror, EndpointSearch, Param, ParamStyle};
+//!
+//! let ror = endpoints.find_by_name("ror");
+//! let text = match &ror {
+//!     | Some(endpoint) => {
+//!         let data = vec![Param::of_type(ParamStyle::TemplateValue)
+//!             .values(vec![(Some("01qz5mb56"), None)])
+//!             .with_key("identifier")];
+//!         let response = endpoint.invoke_sync("record", Some(data));
+//!         endpoint.handle::<ror::SingleRecord>(response)
+//!     }
+//!     | None => Err("No ROR endpoint found".into()),
+//! };
+//! println!("ROR Record: {text:#?}");
+//! ```
+//!
+//! ### Search and filter ROR records
+//! ```ignore
+//! use acorn_lib::io::api::{ror, EndpointSearch, Param, ParamStyle};
+//!
+//! let ror = endpoints.find_by_name("ror");
+//! let text = match &ror {
+//!     | Some(endpoint) => {
+//!         let data = vec![
+//!             Param::of_type(ParamStyle::FieldList)
+//!                 .values(vec![(Some("Oak Ridge"), None)])
+//!                 .with_key("query"),
+//!             Param::of_type(ParamStyle::QueryPair)
+//!                 .values(vec![(Some("status"), Some("inactive"))])
+//!                 .with_key("filter"),
+//!         ];
+//!         let response = endpoint.invoke_sync("search", Some(data));
+//!         endpoint.handle::<ror::SearchResponse>(response)
+//!     }
+//!     | None => Err("No ROR endpoint found".into()),
+//! };
+//! println!("ROR Search Results: {text:#?}");
+//! ```
 // use crate::io::api::{self, ValueValidator};
 use bon::Builder;
 use schemars::JsonSchema;
@@ -68,6 +126,8 @@ pub enum OrganizationType {
     Government,
     /// A healthcare organization
     Healthcare,
+    /// Non-profit organization
+    Nonprofit,
     /// An organization that does not fit into other categories
     Other,
 }
@@ -201,6 +261,17 @@ pub struct LocationField {
     #[serde(rename = "geonames_details")]
     pub details: LocationDetailsField,
 }
+/// Individual metadata item containing aggregation information
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+pub struct MetadataItem {
+    /// Identifier for the metadata item
+    #[serde(rename = "id")]
+    pub identifier: String,
+    /// Display title for the metadata item
+    pub title: String,
+    /// Count of organizations matching this metadata value in the search results
+    pub count: usize,
+}
 /// Container for name information
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 pub struct NameField {
@@ -226,6 +297,56 @@ pub struct RelationshipField {
     #[serde(rename = "id")]
     pub identifier: String,
 }
+/// Metadata for a search query to the ROR API
+/// ### Example
+/// ```json
+/// {
+///     "types": [
+///         {
+///             "id": "facility",
+///             "title": "facility",
+///             "count": 1
+///         },
+///         {
+///             "id": "government",
+///             "title": "government",
+///             "count": 1
+///         }
+///     ],
+///     "countries": [
+///         {
+///             "id": "us",
+///             "title": "United States",
+///             "count": 1
+///         }
+///     ],
+///     "continents": [
+///         {
+///             "id": "na",
+///             "title": "North America",
+///             "count": 1
+///         }
+///     ],
+///     "statuses": [
+///         {
+///             "id": "inactive",
+///             "title": "inactive",
+///             "count": 1
+///         }
+///     ]
+/// }
+/// ```
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+pub struct SearchMetadata {
+    /// Listing and count of organization types contained within search results
+    pub types: Vec<MetadataItem>,
+    /// Listing and count of countries contained within search results
+    pub countries: Vec<MetadataItem>,
+    /// Listing and count of continents contained within search results
+    pub continents: Vec<MetadataItem>,
+    /// Listing and count of organization statuses contained within search results
+    pub statuses: Vec<MetadataItem>,
+}
 /// ROR API search response
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 pub struct SearchResponse {
@@ -236,6 +357,8 @@ pub struct SearchResponse {
     /// List of search result items
     #[builder(default)]
     pub items: Vec<SingleRecord>,
+    /// Metadata about the search results
+    pub meta: SearchMetadata,
 }
 /// ROR API search result item
 ///

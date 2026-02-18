@@ -108,5 +108,27 @@
                 "facility"
             ]
         }
-    ]
+    ],
+    "meta": {
+        "types": [{
+            "id": "foo",
+            "title": "bar",
+            "count": 42
+        }],
+        "countries": [{
+            "id": "foo",
+            "title": "bar",
+            "count": 42
+        }],
+        "continents": [{
+            "id": "foo",
+            "title": "bar",
+            "count": 42
+        }],
+        "statuses": [{
+            "id": "foo",
+            "title": "bar",
+            "count": 42
+        }]
+    }
 }

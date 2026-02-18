@@ -1,5 +1,5 @@
 use crate::config::ApplicationConfiguration;
-use acorn::io::api::{self, EndpointSearch, Param, RestfulInterface};
+use acorn::io::api::{self, Endpoint, EndpointSearch, Param, RestfulInterface};
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
@@ -87,15 +87,13 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
         | Some(endpoints) => endpoints,
         | None => vec![],
     };
-    // Get SPDX license data
-    let text = match endpoints.find_by_name("spdx") {
-        | Some(endpoint) => {
-            let response = endpoint.invoke_sync("licenses", None);
-            endpoint.handle::<api::spdx::Licenses>(response)
-        }
-        | None => Err("No SPDX endpoint found".into()),
-    };
-    println!("Licenses: {text:#?}");
+    // spdx_example(endpoints.clone());
+    // orcid_example(endpoints.clone());
+    ror_example(endpoints.clone());
+    Ok(())
+}
+#[allow(dead_code)]
+fn orcid_example(endpoints: Vec<Endpoint>) {
     // ORCiD API examples
     let orcid = endpoints.find_by_name("orcid");
     let text = match &orcid {
@@ -125,6 +123,9 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
         | None => Err("No ORCiD endpoint found".into()),
     };
     println!("ORCiD Status: {text:#?}");
+}
+#[allow(dead_code)]
+fn ror_example(endpoints: Vec<Endpoint>) {
     // ROR API examples
     let ror = endpoints.find_by_name("ror");
     let text = match &ror {
@@ -146,5 +147,32 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
         | None => Err("No ROR endpoint found".into()),
     };
     println!("ROR Record: {text:#?}");
-    Ok(())
+    let text = match &ror {
+        | Some(endpoint) => {
+            let data = vec![
+                Param::of_type(api::ParamStyle::FieldList)
+                    .values(vec![(Some("Oak Ridge"), None)])
+                    .with_key("query"),
+                Param::of_type(api::ParamStyle::QueryPair)
+                    .values(vec![(Some("status"), Some("inactive"))])
+                    .with_key("filter"),
+            ];
+            let response = endpoint.invoke_sync("search", Some(data));
+            endpoint.handle::<api::ror::SearchResponse>(response)
+        }
+        | None => Err("No ROR endpoint found".into()),
+    };
+    println!("ROR Search Results: {text:#?}");
+}
+#[allow(dead_code)]
+fn spdx_example(endpoints: Vec<Endpoint>) {
+    // Get SPDX license data
+    let text = match endpoints.find_by_name("spdx") {
+        | Some(endpoint) => {
+            let response = endpoint.invoke_sync("licenses", None);
+            endpoint.handle::<api::spdx::Licenses>(response)
+        }
+        | None => Err("No SPDX endpoint found".into()),
+    };
+    println!("Licenses: {text:#?}");
 }

@@ -1,6 +1,49 @@
 //! Module for interacting with ORCiD API
 //!
-//! Provides types and functions for constructing ORCiD API queries with field validation and output column selection.
+//! Provides types and functions for constructing ORCiD API queries with field validation and output column selection
+//!
+//! ## Example Uses
+//!
+//! ### Get API status
+//! ```ignore
+//! use acorn_lib::io::api::{orcid, EndpointSearch};
+//!
+//! let orcid = endpoints.find_by_name("orcid");
+//! let text = match &orcid {
+//!     | Some(endpoint) => {
+//!         let response = endpoint.invoke_sync("status", None);
+//!         endpoint.handle::<orcid::StatusResponse>(response)
+//!     }
+//!     | None => Err("No ORCiD endpoint found".into()),
+//! };
+//! println!("ORCiD Status: {text:#?}");
+//! ```
+//!
+//! ### Search the ORCiD API
+//! ```ignore
+//! use acorn_lib::io::api::{orcid, EndpointSearch, Param, ParamStyle};
+//!
+//! let orcid = endpoints.find_by_name("orcid");
+//! let text = match &orcid {
+//!     | Some(endpoint) => {
+//!         let data = vec![
+//!             Param::of_type(ParamStyle::QueryPair)
+//!                 .values(vec![
+//!                     (Some("affiliation-org-name"), Some("Lyrasis")),
+//!                     (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
+//!                 ])
+//!                 .with_key("q"),
+//!             Param::of_type(ParamStyle::FieldList)
+//!                 .values(vec![(Some("family-name"), None)])
+//!                 .with_key("fl"),
+//!         ];
+//!         let response = endpoint.invoke_sync_with::<orcid::SearchField, orcid::OutputColumn>("search", Some(data));
+//!         endpoint.handle::<orcid::SearchResponse>(response)
+//!     }
+//!     | None => Err("No ORCiD endpoint found".into()),
+//! };
+//! println!("ORCiD Search Response: {text:#?}");
+//! ```
 use crate::io::api::{self, ValueValidator};
 use crate::schema::validate::{is_orcid, is_ror};
 use bon::Builder;
