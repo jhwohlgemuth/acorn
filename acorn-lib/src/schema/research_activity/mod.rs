@@ -8,7 +8,6 @@ use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutpu
 #[cfg(feature = "std")]
 use crate::prelude::{io::Error, PathBuf};
 use crate::schema::constants::{CODEMETA_CONTEXT, DCAT_CONTEXT, SCHEMA_ORG_CONTEXT};
-use crate::schema::pid::raid;
 #[cfg(feature = "std")]
 use crate::schema::validate::format_phone_number;
 use crate::schema::validate::{is_kebabcase, is_list_url, validate_attribute_books, validate_attribute_doi, validate_attribute_ror_list};
@@ -175,9 +174,8 @@ pub struct ResearchActivityMetadata {
     #[serde(default)]
     pub publications: Option<Vec<String>>,
     /// Research Activity Identifier (RAiD)
-    #[validate(nested)]
     #[serde(default)]
-    pub raid: Option<raid::Metadata>,
+    pub raid: Option<Vec<String>>,
     /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information

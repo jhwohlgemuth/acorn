@@ -164,6 +164,7 @@ impl Bag {
     }
     /// Populate payload file listing from files present in self.base_directory "data" directory
     pub fn with_payload(&self) -> Self {
+        // TODO: Filter based on .gitignore content
         let base_directory = PathBuf::from(self.base_directory.clone());
         let payload = files_all(base_directory.clone(), None)
             .into_iter()

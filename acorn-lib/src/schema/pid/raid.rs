@@ -7,10 +7,12 @@
 use crate::io::read_file;
 #[cfg(feature = "std")]
 use crate::prelude::{Error, PathBuf};
+use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror, is_unix_epoch};
+use crate::util::constants::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 #[cfg(feature = "std")]
 use crate::util::Label;
-use crate::util::License;
+use crate::util::{current_date, License};
 use bon::Builder;
 use derive_more::Display;
 use schemars::{schema_for, JsonSchema};
@@ -1002,6 +1004,122 @@ impl Metadata {
                 error!("=> {} {}", Label::fail(), msg);
                 Err(Error::other(msg))
             }
+        }
+    }
+}
+
+impl From<ResearchActivity> for Metadata {
+    fn from(activity: ResearchActivity) -> Self {
+        let default_start_date = current_date();
+        let default_end_year = default_start_date.chars().take(4).collect::<String>();
+        let raid_id = activity
+            .meta
+            .raid
+            .as_ref()
+            .map(|raid| raid.first().unwrap().clone())
+            .unwrap_or_else(|| unimplemented!("RAiD is required to create RAiD metadata"));
+        let ror_id = activity
+            .meta
+            .ror
+            .as_ref()
+            .and_then(|rors| rors.first())
+            .cloned()
+            .unwrap_or_else(|| unimplemented!("Organization ROR is required to create RAiD metadata"));
+        let contributor_id = activity
+            .contact
+            .identifier
+            .clone()
+            .filter(|id| is_orcid(id).is_ok())
+            .unwrap_or_else(|| unimplemented!("Contributor ID is not an ORCID"));
+        let date = Date {
+            start_date: default_start_date.clone(),
+            end_date: None,
+        };
+        let contributor_position = ContributorPosition {
+            id: PositionType::PrincipalInvestigator,
+            schema_uri: None,
+            date: date.clone(),
+        };
+        let contributor = Contributor {
+            id: contributor_id,
+            schema_uri: Some(DEFAULT_ORCID_SCHEMA_URI.to_string()),
+            status: "active".to_string(),
+            status_message: None,
+            position: vec![contributor_position],
+            leader: true,
+            contact: true,
+            email: Some(activity.contact.email.clone()),
+            role: None,
+            uuid: None,
+        };
+        let org_role = OrganizationRole {
+            id: OrganizationRoleType::LeadResearchOrganization,
+            schema_uri: None,
+            date: date.clone(),
+        };
+        let organization = Organization {
+            id: ror_id.clone(),
+            schema_uri: Some(DEFAULT_ROR_SCHEMA_URI.to_string()),
+            role: vec![org_role],
+        };
+        let title = Title {
+            text: activity.title.clone(),
+            title_type: TitleIdentifier {
+                id: TitleType::Primary,
+                schema_uri: None,
+            },
+            language: None,
+            start_date: default_start_date.clone(),
+            end_date: default_end_year.clone(),
+        };
+        let description = Description {
+            text: activity.sections.mission.clone(),
+            description_type: DescriptionIdentifier {
+                id: DescriptionType::Primary,
+                schema_uri: None,
+            },
+            language: None,
+        };
+        let identifier = MetadataIdentifier {
+            id: raid_id,
+            schema_uri: Some("https://raid.org/".to_string()),
+            owner: Owner {
+                id: ror_id.clone(),
+                schema_uri: Some(DEFAULT_ROR_SCHEMA_URI.to_string()),
+                service_point: 0,
+            },
+            raid_agency_url: "https://raid.org/".to_string(),
+            registration_agency: RegistrationAgency {
+                id: ror_id,
+                schema_uri: Some(DEFAULT_ROR_SCHEMA_URI.to_string()),
+            },
+            license: License::CreativeCommons,
+            version: 1,
+        };
+        let access = Access {
+            access_type: AccessIdentifier {
+                id: AccessType::OpenAccess,
+                schema_uri: None,
+            },
+            embargo_expiry: None,
+            statement: None,
+        };
+        Metadata {
+            metadata: None,
+            identifier,
+            date: None,
+            title: Some(vec![title]),
+            description: Some(vec![description]),
+            contributor: vec![contributor],
+            organization: vec![organization],
+            related_object: None,
+            alternate_identifier: None,
+            alternate_url: None,
+            related_raid: None,
+            access,
+            traditional_knowledge_label: None,
+            spatial_coverage: None,
+            subject: None,
         }
     }
 }
