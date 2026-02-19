@@ -46,10 +46,15 @@ pub trait RestfulInterface {
     /// Field list type used for response selection
     type Field: QueryField;
 
-    /// Build context for endpoint paths
-    fn context(&self, _params: Option<Vec<Param>>) -> Context {
-        Context::new()
+    /// Build context for endpoint paths using the associated query and field types
+    fn context(&self, params: Option<Vec<Param>>) -> Context {
+        self.context_with::<Self::Query, Self::Field>(params)
     }
+    /// Build context for endpoint paths using explicit query and field types
+    fn context_with<Q, F>(&self, data: Option<Vec<Param>>) -> Context
+    where
+        Q: QueryField + ValueValidator,
+        F: QueryField;
     /// Handle a response from an endpoint request
     fn handle<R>(&self, response: Result<ResponseContent, Error>) -> Result<R, String>
     where
@@ -248,35 +253,6 @@ impl Endpoint {
         let root = root.as_ref().map_or(String::new(), |root| format!("/{root}"));
         format!("{scheme}://{domain}{port}{root}")
     }
-
-    /// Build context for endpoint paths using explicit query/field types.
-    pub fn context_with<Q, F>(&self, data: Option<Vec<Param>>) -> Context
-    where
-        Q: QueryField + ValueValidator,
-        F: QueryField,
-    {
-        let mut context = Context::new();
-        match data {
-            | Some(params) => {
-                let (query_params, other_params): (Vec<Param>, Vec<Param>) = params.into_iter().partition(|param| param.is_query());
-                let query = Param::to_query_string::<Q, F>(query_params);
-                context.insert("query", &query);
-                other_params.into_iter().for_each(|param| {
-                    if param.is_template() {
-                        param.values.into_iter().filter_map(|(k, v)| k.or(v)).for_each(|value| {
-                            let key = param.name.clone();
-                            context.insert(&key, &value.clone());
-                        });
-                    }
-                });
-                // TODO: Add header/body params to request builder
-                dbg!(&context);
-            }
-            | None => (),
-        }
-        context.insert("base", &self.base());
-        context
-    }
 }
 impl EndpointSearch for Vec<Endpoint> {
     fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
@@ -470,8 +446,32 @@ impl RestfulInterface for Endpoint {
     type Query = EmptyField;
     type Field = EmptyField;
 
-    fn context(&self, data: Option<Vec<Param>>) -> Context {
-        self.context_with::<Self::Query, Self::Field>(data)
+    fn context_with<Q, F>(&self, data: Option<Vec<Param>>) -> Context
+    where
+        Q: QueryField + ValueValidator,
+        F: QueryField,
+    {
+        let mut context = Context::new();
+        match data {
+            | Some(params) => {
+                let (query_params, other_params): (Vec<Param>, Vec<Param>) = params.into_iter().partition(|param| param.is_query());
+                let query = Param::to_query_string::<Q, F>(query_params);
+                context.insert("query", &query);
+                other_params.into_iter().for_each(|param| {
+                    if param.is_template() {
+                        param.values.into_iter().filter_map(|(k, v)| k.or(v)).for_each(|value| {
+                            let key = param.name.clone();
+                            context.insert(&key, &value.clone());
+                        });
+                    }
+                });
+                // TODO: Add header/body params to request builder
+                dbg!(&context);
+            }
+            | None => (),
+        }
+        context.insert("base", &self.base());
+        context
     }
     fn handle<R>(&self, response: Result<ResponseContent, Error>) -> Result<R, String>
     where
