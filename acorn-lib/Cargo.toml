@@ -32,7 +32,7 @@ chrono = { version = "0.4.42", features = ["clock", "serde"], default-features =
 color-eyre = { workspace = true }
 comfy-table = { version = "7.2.1", default-features = false }
 console = { version = "0.16.1", features = ["ansi-parsing"], default-features = false }
-convert_case = { version = "0.8.0", default-features = false }
+convert_case = { version = "0.11.0", default-features = false }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
 directories = { version = "6.0.0", default-features = false }
@@ -46,16 +46,16 @@ human-units = { version = "0.5.3", default-features = false }
 is_executable = { version = "1.0.5", default-features = false }
 itertools = { workspace = true }
 lazy_static = { workspace = true }
-lychee-lib = { version = "0.21.0", default-features = false, optional = true }
+lychee-lib = { version = "0.23.0", default-features = false, optional = true }
 nanoid = { workspace = true }
 nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-normalization"] , default-features = false }
 owo-colors = { workspace = true }
 percy-dom = {version = "0.10.0", features = ["macro"], default-features = false }
 petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
 polars = { version = "0.51.0", features = ["lazy"], default-features = false }
-quick-xml = { version = "0.38.3", features = ["serialize"], default-features = false }
+quick-xml = { version = "0.39.1", features = ["serialize"], default-features = false }
 rayon = { workspace = true }
-reqwest = { version = "0.12.24", features = ["blocking", "native-tls", "json"], default-features = false, optional = true }
+reqwest = { version = "0.13.2", features = ["blocking", "native-tls", "json"], default-features = false, optional = true }
 ring = { version = "0.17.14", default-features = false }
 rust-embed = { workspace = true }
 rust-ini = { version = "0.21.3", default-features = false }
@@ -68,7 +68,7 @@ serde_trim = { version = "1.1.0", default-features = false }
 serde_with = { version = "3.15.1", features = ["macros"], default-features = false }
 serde_yml = { workspace = true }
 similar = { version = "2.7.0", features = ["text"], default-features = false}
-sysinfo = { version = "0.37.2", features = ["network", "system"], default-features = false}
+sysinfo = { version = "0.38.2", features = ["network", "system"], default-features = false}
 tar = { version = "0.4.44", default-features = false }
 tera = { workspace = true }
 tokio = { version = "1.48.0", default-features = false, features = ["rt"], optional = true }
@@ -81,7 +81,7 @@ zip = { version = "6.0.0", features = ["deflate"], default-features = false }
 
 [dev-dependencies]
 insta = { workspace = true, features = ["json", "yaml"] }
-mockall = "0.13.1"
+mockall = "0.14.0"
 pretty_assertions = "1.4.1"
 similar-asserts = "1.7.0"
 temp-env = "0.3.6"
@@ -102,7 +102,3 @@ unsafe_code = "forbid"
 std_instead_of_core = "warn"
 std_instead_of_alloc = "warn"
 alloc_instead_of_core = "warn"
-
-[profile.dev.package]
-insta.opt-level = 3
-similar.opt-level = 3

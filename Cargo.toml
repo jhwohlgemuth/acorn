@@ -23,13 +23,13 @@ broken-intra-doc-links = "forbid"
 
 [workspace.dependencies]
 color-eyre = { version = "0.6.5", default-features = false }
-data-encoding = { version = "2.9.0", features = ["alloc"], default-features = false }
-derive_more = { version = "2.0.1", features = [
+data-encoding = { version = "2.10.0", features = ["alloc"], default-features = false }
+derive_more = { version = "2.1.1", features = [
   "display",
   "from_str",
 ], default-features = false }
 dotenvy = { version = "0.15.0", default-features = false }
-fancy-regex = { version = "0.16.2", default-features = false }
+fancy-regex = { version = "0.17.0", default-features = false }
 glob = { version = "0.3.1", default-features = false }
 insta = { version = "1.42.0", default-features = false }
 itertools = { version = "0.14.0", default-features = false }
@@ -37,10 +37,10 @@ lazy_static = { version = "1.5.0", default-features = false }
 nanoid = { version = "0.4.0", default-features = false }
 owo-colors = { version = "4.2.3", features = ["alloc"], default-features = true }
 rayon = { version = "1.10.0", default-features = false }
-rust-embed = { version = "8.7.1", default-features = false }
+rust-embed = { version = "8.11.0", default-features = false }
 secrecy = { version = "0.8.0", features = ["alloc"], default-features = false }
 serde = { version = "1.0.225", features = ["derive"], default-features = false }
-serde_json = { version = "1.0.140", default-features = false }
+serde_json = { version = "1.0.149", default-features = false }
 serde_repr = { version = "0.1", default-features = false }
 serde_yml = { version = "0.0.12", default-features = false }
 tera = { version = "1.20.0", default-features = false }
@@ -48,7 +48,7 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-indicatif = { version = "0.3.13", default-features = false }
 tracing-log = { version = "0.2.0", default-features = false }
 # Pinned to ensure colored ANSI output
-tracing-subscriber = { version = "=0.3.19", features = [
+tracing-subscriber = { version = "=0.3.22", features = [
   "ansi",
   "env-filter",
 ], default-features = false }
@@ -66,3 +66,7 @@ overflow-checks = true
 panic = "abort"
 strip = true
 lto = true
+
+[profile.dev.package]
+insta.opt-level = 3
+similar.opt-level = 3
