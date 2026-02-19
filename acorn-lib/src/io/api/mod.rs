@@ -211,14 +211,14 @@ pub struct Param {
     /// Value(s) of the parameter
     #[builder(
         default = vec![],
-        with = |pairs: Vec<(Option<&str>, Option<&str>)>| {
-            pairs
+        with = |vecs: Vec<Vec<Option<&str>>>| {
+            vecs
                 .into_iter()
-                .map(|(k, v)| (k.map(str::to_string), v.map(str::to_string)))
+                .map(|vec| vec.into_iter().map(|opt| opt.map(str::to_string)).collect())
                 .collect()
         }
     )]
-    pub values: Vec<(Option<String>, Option<String>)>,
+    pub values: Vec<Vec<Option<String>>>,
     /// Whether or not the parameter is required
     #[builder(default = false)]
     pub required: bool,
@@ -364,19 +364,19 @@ impl Param {
     /// ```
     pub fn from_query_pair(key: &str, pairs: Vec<(&str, &str)>) -> Self {
         Param::of_type(ParamStyle::QueryPair)
-            .values(pairs.into_iter().map(|(k, v)| (Some(k), Some(v))).collect())
+            .values(pairs.into_iter().map(|(k, v)| vec![Some(k), Some(v)]).collect())
             .with_key(key)
     }
     /// Create a field list parameter with a list of field names
     pub fn from_field_list(key: &str, fields: Vec<&str>) -> Self {
         Param::of_type(ParamStyle::FieldList)
-            .values(fields.into_iter().map(|f| (Some(f), None)).collect())
+            .values(fields.into_iter().map(|f| vec![Some(f)]).collect())
             .with_key(key)
     }
     /// Create a boosted query field parameter with a list of field names
     pub fn from_query_field(key: &str, fields: Vec<&str>) -> Self {
         Param::of_type(ParamStyle::QueryField)
-            .values(fields.into_iter().map(|f| (Some(f), None)).collect())
+            .values(fields.into_iter().map(|f| vec![Some(f)]).collect())
             .with_key(key)
     }
 
@@ -391,29 +391,23 @@ impl Param {
                 let pairs: Vec<(&str, &str)> = self
                     .values
                     .iter()
-                    .filter_map(|(key, value)| match (key.as_deref(), value.as_deref()) {
-                        | (Some(k), Some(v)) => Some((k, v)),
-                        | _ => None,
-                    })
+                    .filter_map(
+                        |vec| match (vec.first().and_then(|o| o.as_deref()), vec.get(1).and_then(|o| o.as_deref())) {
+                            | (Some(k), Some(v)) => Some((k, v)),
+                            | _ => None,
+                        },
+                    )
                     .collect();
                 param_from_query_pairs::<Q>(key, separator, pairs)
             }
             | ParamStyle::QueryField => {
                 let separator = URL_ENCODED_SPACE;
-                let fields: Vec<&str> = self
-                    .values
-                    .iter()
-                    .filter_map(|(key, value)| key.as_deref().or(value.as_deref()))
-                    .collect();
+                let fields: Vec<&str> = self.values.iter().filter_map(|vec| vec.first().and_then(|o| o.as_deref())).collect();
                 param_from_query_fields::<Q>(key, separator, fields)
             }
             | ParamStyle::FieldList => {
                 let separator = ",";
-                let fields: Vec<&str> = self
-                    .values
-                    .iter()
-                    .filter_map(|(key, value)| key.as_deref().or(value.as_deref()))
-                    .collect();
+                let fields: Vec<&str> = self.values.iter().filter_map(|vec| vec.first().and_then(|o| o.as_deref())).collect();
                 param_from_field_list::<F>(key, separator, fields)
             }
             | _ => None,
@@ -430,13 +424,15 @@ impl IntoHeaders for Vec<Param> {
                 | Ok(header_name) => header_name,
                 | Err(_) => return,
             };
-            values.into_iter().for_each(|(_, value)| {
-                if let Some(raw) = value {
-                    if let Ok(mut header_value) = HeaderValue::from_str(&raw) {
-                        header_value.set_sensitive(true);
-                        headers.append(name.clone(), header_value);
+            values.into_iter().for_each(|vec| {
+                vec.into_iter().for_each(|opt_value| {
+                    if let Some(raw) = opt_value {
+                        if let Ok(mut header_value) = HeaderValue::from_str(&raw) {
+                            header_value.set_sensitive(true);
+                            headers.append(name.clone(), header_value);
+                        }
                     }
-                }
+                });
             });
         });
         headers
@@ -459,9 +455,11 @@ impl RestfulInterface for Endpoint {
                 context.insert("query", &query);
                 other_params.into_iter().for_each(|param| {
                     if param.is_template() {
-                        param.values.into_iter().filter_map(|(k, v)| k.or(v)).for_each(|value| {
-                            let key = param.name.clone();
-                            context.insert(&key, &value.clone());
+                        param.values.into_iter().for_each(|vec| {
+                            vec.into_iter().flatten().for_each(|value| {
+                                let key = param.name.clone();
+                                context.insert(&key, &value.clone());
+                            });
                         });
                     }
                 });
@@ -516,12 +514,12 @@ impl RestfulInterface for Endpoint {
     ///         let data = vec![
     ///             api::Param::of_type(api::ParamStyle::QueryPair)
     ///                 .values(vec![
-    ///                     (Some("affiliation-org-name"), Some("Lyrasis")),
-    ///                     (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
+    ///                     vec![Some("affiliation-org-name"), Some("Lyrasis")],
+    ///                     vec![Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")],
     ///                 ])
     ///                 .with_key("q"),
     ///             api::Param::of_type(api::ParamStyle::FieldList)
-    ///                 .values(vec![(Some("family-name"), None)])
+    ///                 .values(vec![vec![Some("family-name")]])
     ///                 .with_key("fl"),
     ///         ];
     ///         let response = endpoint.invoke_sync_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data));

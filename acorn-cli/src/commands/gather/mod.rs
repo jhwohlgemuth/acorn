@@ -87,8 +87,8 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
         | Some(endpoints) => endpoints,
         | None => vec![],
     };
-    // spdx_example(endpoints.clone());
-    // orcid_example(endpoints.clone());
+    spdx_example(endpoints.clone());
+    orcid_example(endpoints.clone());
     ror_example(endpoints.clone());
     Ok(())
 }
@@ -101,12 +101,12 @@ fn orcid_example(endpoints: Vec<Endpoint>) {
             let data = vec![
                 Param::of_type(api::ParamStyle::QueryPair)
                     .values(vec![
-                        (Some("affiliation-org-name"), Some("Lyrasis")),
-                        (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
+                        vec![Some("affiliation-org-name"), Some("Lyrasis")],
+                        vec![Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")],
                     ])
                     .with_key("q"),
                 Param::of_type(api::ParamStyle::FieldList)
-                    .values(vec![(Some("family-name"), None)])
+                    .values(vec![vec![Some("family-name")]])
                     .with_key("fl"),
             ];
             let response = endpoint.invoke_sync_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data));
@@ -139,7 +139,7 @@ fn ror_example(endpoints: Vec<Endpoint>) {
     let text = match &ror {
         | Some(endpoint) => {
             let data = vec![Param::of_type(api::ParamStyle::TemplateValue)
-                .values(vec![(Some("01qz5mb56"), None)])
+                .values(vec![vec![Some("01qz5mb56")]])
                 .with_key("identifier")];
             let response = endpoint.invoke_sync("record", Some(data));
             endpoint.handle::<api::ror::SingleRecord>(response)
@@ -151,10 +151,10 @@ fn ror_example(endpoints: Vec<Endpoint>) {
         | Some(endpoint) => {
             let data = vec![
                 Param::of_type(api::ParamStyle::FieldList)
-                    .values(vec![(Some("Oak Ridge"), None)])
+                    .values(vec![vec![Some("Oak Ridge")]])
                     .with_key("query"),
                 Param::of_type(api::ParamStyle::QueryPair)
-                    .values(vec![(Some("status"), Some("inactive"))])
+                    .values(vec![vec![Some("status"), Some("inactive")]])
                     .with_key("filter"),
             ];
             let response = endpoint.invoke_sync("search", Some(data));

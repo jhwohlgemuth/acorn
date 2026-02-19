@@ -27,7 +27,7 @@
 //! let text = match &ror {
 //!     | Some(endpoint) => {
 //!         let data = vec![Param::of_type(ParamStyle::TemplateValue)
-//!             .values(vec![(Some("01qz5mb56"), None)])
+//!             .values(vec![vec![Some("01qz5mb56")]])
 //!             .with_key("identifier")];
 //!         let response = endpoint.invoke_sync("record", Some(data));
 //!         endpoint.handle::<ror::SingleRecord>(response)
@@ -46,10 +46,10 @@
 //!     | Some(endpoint) => {
 //!         let data = vec![
 //!             Param::of_type(ParamStyle::FieldList)
-//!                 .values(vec![(Some("Oak Ridge"), None)])
+//!                 .values(vec![vec![Some("Oak Ridge")]])
 //!                 .with_key("query"),
 //!             Param::of_type(ParamStyle::QueryPair)
-//!                 .values(vec![(Some("status"), Some("inactive"))])
+//!                 .values(vec![vec![Some("status"), Some("inactive")]])
 //!                 .with_key("filter"),
 //!         ];
 //!         let response = endpoint.invoke_sync("search", Some(data));

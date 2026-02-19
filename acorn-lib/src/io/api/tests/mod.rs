@@ -69,15 +69,15 @@ fn test_endpoint_context() {
     let params = vec![
         api::Param::of_type(api::ParamStyle::QueryPair)
             .values(vec![
-                (Some("affiliation-org-name"), Some("Lyrasis")),
-                (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
+                vec![Some("affiliation-org-name"), Some("Lyrasis")],
+                vec![Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")],
             ])
             .with_key("q"),
         api::Param::of_type(api::ParamStyle::TemplateValue)
-            .values(vec![(Some("two"), None)])
+            .values(vec![vec![Some("two")]])
             .with_key("one"),
         api::Param::of_type(api::ParamStyle::TemplateValue)
-            .values(vec![(None, Some("four"))])
+            .values(vec![vec![Some("four")]])
             .with_key("three"),
     ];
     let data = Some(params);
@@ -317,10 +317,10 @@ fn test_orcid_status_response() {
 fn test_query_params_empty_field() {
     let params = vec![
         Param::of_type(api::ParamStyle::FieldList)
-            .values(vec![(Some("Oak Ridge"), None)])
+            .values(vec![vec![Some("Oak Ridge")]])
             .with_key("query"),
         Param::of_type(api::ParamStyle::QueryPair)
-            .values(vec![(Some("status"), Some("inactive"))])
+            .values(vec![vec![Some("status"), Some("inactive")]])
             .with_key("filter"),
     ];
     let query = Param::to_query_string::<api::EmptyField, api::EmptyField>(params);
@@ -330,14 +330,22 @@ fn test_query_params_empty_field() {
 fn test_query_params_field_list() {
     // Test FieldList style (output columns)
     let param = Param::of_type(ParamStyle::FieldList)
-        .values(vec![(Some("orcid"), None), (Some("email"), None), (Some("credit-name"), None)])
+        .values(vec![
+            vec![Some("orcid"), None],
+            vec![Some("email"), None],
+            vec![Some("credit-name"), None],
+        ])
         .with_key("fl");
     let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
     let expected = "fl=orcid,email,credit-name";
     assert_eq!(rendered, expected);
     // Test FieldList style with invalid field (should be filtered)
     let param = Param::of_type(ParamStyle::FieldList)
-        .values(vec![(Some("orcid"), None), (Some("invalid-column"), None), (Some("email"), None)])
+        .values(vec![
+            vec![Some("orcid"), None],
+            vec![Some("invalid-column"), None],
+            vec![Some("email"), None],
+        ])
         .with_key("fl");
     let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
     let expected = "fl=orcid,email";
@@ -347,7 +355,7 @@ fn test_query_params_field_list() {
 fn test_params_query_field() {
     // Test QueryField style (boosted fields)
     let param = Param::of_type(ParamStyle::QueryField)
-        .values(vec![(Some("given-names"), None), (Some("family-name"), None)])
+        .values(vec![vec![Some("given-names"), None], vec![Some("family-name"), None]])
         .with_key("qf");
     let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
     let expected = "qf=given-names%5E3.0%20family-name%5E2.0";
@@ -355,9 +363,9 @@ fn test_params_query_field() {
     // Test QueryField style with three fields
     let param = Param::of_type(ParamStyle::QueryField)
         .values(vec![
-            (Some("given-names"), None),
-            (Some("family-name"), None),
-            (Some("affiliation-org-name"), None),
+            vec![Some("given-names"), None],
+            vec![Some("family-name"), None],
+            vec![Some("affiliation-org-name"), None],
         ])
         .with_key("qf");
     let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
@@ -366,10 +374,10 @@ fn test_params_query_field() {
     // Test QueryField with invalid field names (should be filtered)
     let param = Param::of_type(ParamStyle::QueryField)
         .values(vec![
-            (Some("invalid-field"), None),
-            (Some("given-names"), None),
-            (Some("another-invalid"), None),
-            (Some("family-name"), None),
+            vec![Some("invalid-field"), None],
+            vec![Some("given-names"), None],
+            vec![Some("another-invalid"), None],
+            vec![Some("family-name"), None],
         ])
         .with_key("qf");
     let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
@@ -377,7 +385,7 @@ fn test_params_query_field() {
     assert_eq!(rendered, expected);
     // Test QueryField with only invalid field names (should return empty)
     let param = Param::of_type(ParamStyle::QueryField)
-        .values(vec![(Some("invalid-field"), None), (Some("another-invalid"), None)])
+        .values(vec![vec![Some("invalid-field"), None], vec![Some("another-invalid"), None]])
         .with_key("qf");
     let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
     let expected = "";
@@ -387,7 +395,10 @@ fn test_params_query_field() {
 fn test_params_query_pair() {
     // Test QueryPair style
     let param = Param::of_type(ParamStyle::QueryPair)
-        .values(vec![(Some("given-names"), Some("Jason")), (Some("family-name"), Some("Wohlgemuth"))])
+        .values(vec![
+            vec![Some("given-names"), Some("Jason")],
+            vec![Some("family-name"), Some("Wohlgemuth")],
+        ])
         .with_key("q");
     let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
     let expected = "q=given-names:Jason+AND+family-name:Wohlgemuth";
@@ -395,9 +406,9 @@ fn test_params_query_pair() {
     // Test QueryPair with invalid field names (should be filtered)
     let param = Param::of_type(ParamStyle::QueryPair)
         .values(vec![
-            (Some("invalid-field"), Some("value")),
-            (Some("given-names"), Some("Jason")),
-            (Some("another-invalid"), Some("data")),
+            vec![Some("invalid-field"), Some("value")],
+            vec![Some("given-names"), Some("Jason")],
+            vec![Some("another-invalid"), Some("data")],
         ])
         .with_key("q");
     let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
@@ -405,14 +416,20 @@ fn test_params_query_pair() {
     assert_eq!(rendered, expected);
     // Test QueryPair with invalid field values (invalid ORCiD should be filtered)
     let param = Param::of_type(ParamStyle::QueryPair)
-        .values(vec![(Some("orcid"), Some("0000-0002-1823-1234")), (Some("given-names"), Some("Jason"))])
+        .values(vec![
+            vec![Some("orcid"), Some("0000-0002-1823-1234")],
+            vec![Some("given-names"), Some("Jason")],
+        ])
         .with_key("q");
     let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
     let expected = "q=given-names:Jason";
     assert_eq!(rendered, expected);
     // Test QueryPair with valid ORCiD value (should be included)
     let param = Param::of_type(ParamStyle::QueryPair)
-        .values(vec![(Some("orcid"), Some("0000-0002-2057-9115")), (Some("given-names"), Some("Jason"))])
+        .values(vec![
+            vec![Some("orcid"), Some("0000-0002-2057-9115")],
+            vec![Some("given-names"), Some("Jason")],
+        ])
         .with_key("q");
     let rendered = param.to_string::<orcid::SearchField, orcid::OutputColumn>();
     let expected = "q=orcid:0000-0002-2057-9115+AND+given-names:Jason";
