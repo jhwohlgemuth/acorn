@@ -11,6 +11,7 @@ use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt;
 use derive_more::Display;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tera::{Context, Tera};
@@ -28,6 +29,11 @@ pub mod spdx;
 pub trait EndpointSearch {
     /// Filter list of endpoints by name and return the first match
     fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint>;
+}
+/// Helper trait for converting parameter collections into HTTP headers
+pub trait IntoHeaders {
+    /// Convert this value into a `reqwest::HeaderMap`, using only header-style parameters.
+    fn into_headers(self) -> HeaderMap;
 }
 /// Helper trait combining common bounds for API query field types
 pub trait QueryField: fmt::Display + for<'a> TryFrom<&'a str> {}
@@ -438,6 +444,27 @@ impl Param {
         rendered.unwrap_or_default()
     }
 }
+impl IntoHeaders for Vec<Param> {
+    fn into_headers(self) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        self.into_iter().filter(|param| param.is_header()).for_each(|param| {
+            let Param { name, values, .. } = param;
+            let name: HeaderName = match name.parse() {
+                | Ok(header_name) => header_name,
+                | Err(_) => return,
+            };
+            values.into_iter().for_each(|(_, value)| {
+                if let Some(raw) = value {
+                    if let Ok(mut header_value) = HeaderValue::from_str(&raw) {
+                        header_value.set_sensitive(true);
+                        headers.append(name.clone(), header_value);
+                    }
+                }
+            });
+        });
+        headers
+    }
+}
 impl RestfulInterface for Endpoint {
     type Query = EmptyField;
     type Field = EmptyField;
@@ -514,10 +541,7 @@ impl RestfulInterface for Endpoint {
         let resource = resources.iter().find(|resource| resource.name == name.clone().into());
         match resource {
             | Some(Resource { method, template, .. }) => {
-                dbg!(&template);
                 let path = tera.render_str(template, &context).unwrap_or_default();
-                dbg!(&path);
-                // TODO: Add header params to network requests
                 let request = match method {
                     | HttpMethod::Get => network_get_request(path),
                     // TODO: Pass Body params for POST and PUT requests
@@ -525,7 +549,8 @@ impl RestfulInterface for Endpoint {
                     | HttpMethod::Put => network_put_request(path),
                     | _ => unimplemented!("Only GET, POST, and PUT methods are currently implemented"),
                 };
-                match request.send() {
+                let headers = data.unwrap_or_default().into_headers();
+                match request.headers(headers).send() {
                     | Ok(response) => match response.text() {
                         | Ok(text) => {
                             let content = if detect_json(&text) {
