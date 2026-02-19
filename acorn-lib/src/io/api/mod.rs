@@ -19,6 +19,7 @@ use uriparse::URI;
 use validator::Validate;
 
 pub mod citeas;
+pub mod geonames;
 pub mod github;
 pub mod gitlab;
 pub mod orcid;

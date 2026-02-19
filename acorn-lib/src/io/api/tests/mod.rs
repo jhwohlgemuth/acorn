@@ -1,4 +1,4 @@
-use crate::io::api::{self, citeas, orcid, ror, Endpoint, Param, ParamStyle, ResponseContent, RestfulInterface};
+use crate::io::api::{self, citeas, geonames, orcid, ror, Endpoint, Param, ParamStyle, ResponseContent, RestfulInterface};
 use crate::io::read_file;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
 use crate::{Location, Repository, Scheme};
@@ -128,6 +128,20 @@ fn test_endpoint_parse() {
     assert!(status.database);
     assert!(!status.database_readonly);
     assert!(status.overall);
+}
+#[test]
+fn test_geonames() {
+    let tsv = read_file(fixtures_dir().join("geonames.tsv")).expect("Failed to read TSV fixture");
+    let rows = geonames::parse_tsv(&tsv);
+    assert!(!rows.is_empty(), "Expected at least one GeoNames row");
+    // Find United States (US) row
+    let us = rows.iter().find(|row| row.iso == "US").expect("US row not found in GeoNames data");
+    let geonames::Row {
+        country, tld, population, ..
+    } = us;
+    assert_eq!(country, "United States");
+    assert_eq!(tld, ".us");
+    assert!(population.unwrap_or(0) > 0);
 }
 #[test]
 fn test_orcid_query_string() {
