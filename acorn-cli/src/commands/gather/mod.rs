@@ -7,6 +7,17 @@ use color_eyre::eyre::{Report, Result};
 const ENDPOINTS: &str = r#"{
     "endpoints": [
         {
+            "name": "geonames",
+            "domain": "download.geonames.org",
+            "resources": [
+                {
+                    "name": "countries",
+                    "method": "get",
+                    "template": "{{ base }}/export/dump/countryInfo.txt"
+                }
+            ]
+        },
+        {
             "name": "github",
             "domain": "api.github.com",
             "resources": [
@@ -81,15 +92,24 @@ const ENDPOINTS: &str = r#"{
         }
     ]
 }"#;
-
 pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
     let endpoints = match ApplicationConfiguration::parse(ENDPOINTS).unwrap().endpoints {
         | Some(endpoints) => endpoints,
         | None => vec![],
     };
-    spdx_example(endpoints.clone());
-    orcid_example(endpoints.clone());
-    ror_example(endpoints.clone());
+    let text = match endpoints.find_by_name("geonames") {
+        | Some(endpoint) => {
+            let response = endpoint.invoke_sync("countries", None);
+            endpoint
+                .handle::<api::TextResponse>(response)
+                .map(|text| api::geonames::parse_tsv(&text.to_string()))
+        }
+        | None => Err("No GeoNames endpoint found".into()),
+    };
+    println!("Countries: {text:#?}");
+    // spdx_example(endpoints.clone());
+    // orcid_example(endpoints.clone());
+    // ror_example(endpoints.clone());
     Ok(())
 }
 #[allow(dead_code)]

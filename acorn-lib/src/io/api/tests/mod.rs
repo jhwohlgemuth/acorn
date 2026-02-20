@@ -1,4 +1,5 @@
-use crate::io::api::{self, citeas, geonames, orcid, ror, Endpoint, Param, ParamStyle, ResponseContent, RestfulInterface};
+use crate::io::api::geonames::{self, CountrySearch};
+use crate::io::api::{self, citeas, orcid, ror, Endpoint, Param, ParamStyle, ResponseContent, RestfulInterface};
 use crate::io::read_file;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
 use crate::{Location, Repository, Scheme};
@@ -132,16 +133,24 @@ fn test_endpoint_parse() {
 #[test]
 fn test_geonames() {
     let tsv = read_file(fixtures_dir().join("geonames.tsv")).expect("Failed to read TSV fixture");
-    let rows = geonames::parse_tsv(&tsv);
-    assert!(!rows.is_empty(), "Expected at least one GeoNames row");
-    // Find United States (US) row
-    let us = rows.iter().find(|row| row.iso == "US").expect("US row not found in GeoNames data");
-    let geonames::Row {
-        country, tld, population, ..
+    let countries = geonames::parse_tsv(&tsv);
+    assert!(!countries.is_empty(), "Expected at least one GeoNames row");
+    let us = countries.find_by_iso("US").expect("US row not found in GeoNames data");
+    let geonames::Country {
+        name,
+        top_level_domain,
+        population,
+        ..
     } = us;
-    assert_eq!(country, "United States");
-    assert_eq!(tld, ".us");
+    assert_eq!(name, "United States");
+    assert_eq!(top_level_domain, ".us");
     assert!(population.unwrap_or(0) > 0);
+    assert_eq!(countries.find_by_name("Germany").unwrap().iso, "DE");
+    assert_eq!(countries.find_by_name("germany").unwrap().iso, "DE");
+    assert!(countries.contains("FR"), "Expected to find France in GeoNames data");
+    assert!(countries.contains("fr"), "Expected to find France in GeoNames data");
+    assert!(countries.contains("FRA"), "Expected to find France in GeoNames data");
+    assert!(!countries.contains("XYZ"), "Expected not to find XYZ in GeoNames data");
 }
 #[test]
 fn test_orcid_query_string() {

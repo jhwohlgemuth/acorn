@@ -282,6 +282,11 @@ impl fmt::Display for EmptyField {
         write!(f, "{}", self.0)
     }
 }
+impl fmt::Display for TextResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.content)
+    }
+}
 impl Default for Endpoint {
     fn default() -> Self {
         Endpoint::at("https://example.com").build()
