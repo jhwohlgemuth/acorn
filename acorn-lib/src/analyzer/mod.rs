@@ -3,11 +3,9 @@
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
+use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder};
 #[cfg(feature = "std")]
-use crate::io::async_runtime;
-#[cfg(feature = "std")]
-use crate::io::InputOutput;
-use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, network_get_request, standard_project_folder};
+use crate::io::{get, InputOutput};
 use crate::prelude;
 use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
 use crate::schema::research_activity::ResearchActivity;
@@ -20,6 +18,7 @@ use crate::util::constants::{
 use crate::util::{suffix, Constant, Label, SemanticVersion, ToAbsoluteString, ToMarkdown};
 use crate::{Location, Repository};
 use ariadne::{Config, Report, Source};
+use async_trait::async_trait;
 use bat::PrettyPrinter;
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -28,6 +27,7 @@ use core::ops::RangeInclusive;
 use derive_more::Display;
 use duct::cmd;
 use flate2::read::GzDecoder;
+use futures::future::join_all;
 use ini::Ini;
 use lychee_lib::{CacheStatus, Response, Status};
 use polars::datatypes::PlSmallStr;
@@ -35,6 +35,7 @@ use polars::frame::row::Row;
 use polars::prelude::{AnyValue, DataFrame, PolarsResult};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tar::Archive;
+use tokio;
 use tracing::{debug, error, info, trace};
 use validator::Validate;
 use validator::ValidationErrorsKind;
@@ -47,15 +48,16 @@ use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
 /// Trait for adding analysis capabilities
+#[async_trait]
 pub trait Analysis {
     /// Perform analysis of prose
-    fn prose_analysis(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check>;
+    async fn prose_analysis(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check>;
     /// Calculate readability using a given metric
     fn readability_analysis<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
     where
         R: Into<ReadabilityType>;
     /// Check if URLs links are valid and readable
-    fn url_analysis(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check>;
+    async fn check_websites(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check>;
 }
 /// Trait for converting to a ([Polars]) row
 ///
@@ -65,17 +67,18 @@ pub trait IntoRow<'a> {
     fn to_row<T>(self) -> Row<'a>;
 }
 /// Trait for static analyzers (e.g. Vale)
+#[async_trait]
 pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Get command name (e.g. "vale")
     fn command(self) -> String;
     /// Download binary
-    fn download(self, config: Option<Config>, skip_verify_checksum: bool) -> Self;
+    async fn download(self, config: Option<Config>, skip_verify_checksum: bool) -> Self;
     /// Download checksum values
-    fn download_checksums(self) -> Result<HashMap<String, String>, String>;
+    async fn download_checksums(self) -> Result<HashMap<String, String>, String>;
     /// Extract binary
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
     /// Resolve analyzer
-    fn resolve(_config: Config, _is_offline: bool, _skip_verify_checksum: bool) -> Self;
+    async fn resolve(_config: Config, _is_offline: bool, _skip_verify_checksum: bool) -> Self;
     /// Run analyzer on content
     fn run(&self, id: String, content: String, output: Option<String>) -> Check;
     /// Perform sync operation (only applies to Vale)
@@ -92,13 +95,14 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     fn with_version(self, value: String) -> Self;
 }
 /// Trait for static analyzer configuration (e.g. .vale.ini)
+#[async_trait]
 pub trait StaticAnalyzerConfig {
     /// Get default configuration
     fn default() -> Self;
     /// Convert to INI
-    fn ini(self) -> Ini;
+    async fn ini(self) -> Ini;
     /// Save configuration
-    fn save(self) -> Self;
+    async fn save(self) -> Self;
     /// Set parent path of configuration
     fn with_path(self, path: PathBuf) -> Self;
 }
@@ -159,57 +163,62 @@ pub struct Check {
     #[builder(default = "".to_string())]
     pub message: String,
 }
+#[async_trait]
 impl Analysis for ResearchActivity {
     /// Checks links associated with research activity
     #[cfg(feature = "std")]
-    fn url_analysis(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
-        let runtime = async_runtime();
-        paths
-            .par_iter()
-            .map(|path| match ResearchActivity::read(path) {
+    async fn check_websites(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
+        let futures = paths.into_iter().map(|path| async move {
+            match ResearchActivity::read(&path) {
                 | Ok(data) => {
-                    let issues = runtime.block_on(async {
-                        let mut _issues = vec![];
-                        if !is_offline {
-                            let dois = match data.clone().meta.doi {
-                                | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
-                                | None => vec![],
-                            };
-                            let websites = match data.clone().meta.websites {
-                                | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
-                                | None => vec![],
-                            };
-                            let links = dois.into_iter().chain(websites);
-                            for url in links {
-                                let result = link_check(Some(url)).await;
-                                _issues.push(result);
-                            }
-                        }
-                        _issues
-                    });
+                    let mut issues = vec![];
+                    if !is_offline {
+                        let dois = match data.clone().meta.doi {
+                            | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
+                            | None => vec![],
+                        };
+                        let websites = match data.clone().meta.websites {
+                            | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
+                            | None => vec![],
+                        };
+                        let links: Vec<String> = dois.into_iter().chain(websites).collect();
+                        let link_futures = links.into_iter().map(|url| link_check(Some(url)));
+                        issues = join_all(link_futures).await;
+                    }
                     issues
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
                     vec![Check::init().category(CheckCategory::Schema).success(false).build()]
                 }
-            })
-            .flatten()
-            .collect()
+            }
+        });
+        join_all(futures).await.into_iter().flatten().collect()
     }
-    fn prose_analysis(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
-        let config = ValeConfig::default().save();
-        let vale = Vale::resolve(config, is_offline, skip_verify_checksum);
-        match vale.clone().sync(is_offline) {
+    async fn prose_analysis(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
+        // Create and save Vale config asynchronously
+        let config = ValeConfig::default().save().await;
+        let vale = Vale::resolve(config, is_offline, skip_verify_checksum).await;
+        let vale_clone = vale.clone();
+        match tokio::task::spawn_blocking(move || vale_clone.sync(is_offline)).await.unwrap() {
             | Ok(_) => {
-                let results = paths.iter().map(|path| match ResearchActivity::read(path) {
-                    | Ok(data) => vale.clone().run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into())),
-                    | Err(why) => {
-                        error!("=> {} Read research activity data - {why}", Label::fail());
-                        Check::init().category(CheckCategory::Prose).success(false).build()
-                    }
-                });
-                results.collect()
+                let mut results = Vec::new();
+                for path in paths {
+                    let vale_clone = vale.clone();
+                    let path_clone = path.clone();
+                    let result = tokio::task::spawn_blocking(move || match ResearchActivity::read(&path_clone) {
+                        | Ok(data) => vale_clone.run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into())),
+                        | Err(why) => {
+                            error!("=> {} Read research activity data - {why}", Label::fail());
+                            Check::init().category(CheckCategory::Prose).success(false).build()
+                        }
+                    })
+                    .await
+                    .unwrap();
+
+                    results.push(result);
+                }
+                results
             }
             | Err(why) => {
                 error!("=> {} Vale sync - {why}", Label::fail());
@@ -448,6 +457,7 @@ impl<'a> IntoRow<'a> for Check {
         Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
     }
 }
+#[async_trait]
 impl StaticAnalyzer<ValeConfig> for Vale {
     fn command(self) -> String {
         "vale".to_string()
@@ -457,7 +467,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
     /// - Will use system `vale` command if available
     /// - Will use local `vale` binary if available (will expect local binary if offline)
     /// - Will download `vale` binary if not available by other means
-    fn resolve(config: ValeConfig, is_offline: bool, skip_verify_checksum: bool) -> Vale {
+    async fn resolve(config: ValeConfig, is_offline: bool, skip_verify_checksum: bool) -> Vale {
         fn any_exist<S>(paths: Vec<S>) -> bool
         where
             S: Into<PathBuf>,
@@ -468,7 +478,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         let name = "vale";
         let init = Vale::init().build();
         let vale = if command_exists(name) {
-            init.with_config(config).with_system_command()
+            let init_with_config = init.with_config(config);
+            tokio::task::spawn_blocking(move || init_with_config.with_system_command()).await.unwrap()
         } else if is_offline || any_exist(vec![format!("{root}{name}"), format!("{root}{name}.exe")]) {
             info!("=> {} Local {} binary", Label::using(), name.green().bold());
             #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
@@ -480,7 +491,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 init.with_config(config).with_binary(format!("{root}{name}.exe"))
             }
         } else {
-            init.download(Some(config), skip_verify_checksum)
+            init.download(Some(config), skip_verify_checksum).await
         };
         vale
     }
@@ -561,7 +572,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         }
     }
-    fn download(self, config: Option<ValeConfig>, skip_verify_checksum: bool) -> Vale {
+    async fn download(self, config: Option<ValeConfig>, skip_verify_checksum: bool) -> Vale {
         let platform = prelude::vale_release_filename();
         let release = match self.version {
             | Some(value) => value,
@@ -569,10 +580,10 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         let url = format!("{VALE_RELEASES_URL}/download/v{release}/{}_{release}_{platform}", self.clone().command());
         info!(url, "=> {} Vale release v{release}", Label::using());
-        let binary = match download_binary(&url, ".") {
+        let binary = match download_binary(&url, ".").await {
             | Ok(path) => {
                 if !skip_verify_checksum {
-                    let dowloaded_checksum = match self.clone().download_checksums() {
+                    let dowloaded_checksum = match self.clone().download_checksums().await {
                         | Ok(value) => value.get(&platform).unwrap().to_string(),
                         | Err(_) => "".to_string(),
                     };
@@ -614,7 +625,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         }
     }
-    fn download_checksums(self) -> Result<HashMap<String, String>, String> {
+    async fn download_checksums(self) -> Result<HashMap<String, String>, String> {
         let release = match self.version {
             | Some(value) => value,
             | None => SemanticVersion::from(VALE_VERSION),
@@ -623,8 +634,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             "{VALE_RELEASES_URL}/download/v{release}/{}_{release}_checksums.txt",
             self.clone().command()
         );
-        let response = network_get_request(url).send().unwrap();
-        let content = response.text().unwrap();
+        let response = get(url).send().await.unwrap();
+        let content = response.text().await.unwrap();
         let checksums = content.lines().clone().fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
             let mut values = line.split("  ").collect::<Vec<&str>>();
             let key = values.pop().unwrap()["vale_#.#.#_".len()..].to_string();
@@ -767,6 +778,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         self
     }
 }
+#[async_trait]
 impl StaticAnalyzerConfig for ValeConfig {
     fn default() -> Self {
         fn to_string(values: Vec<&str>) -> Vec<String> {
@@ -780,7 +792,7 @@ impl StaticAnalyzerConfig for ValeConfig {
         trace!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
         config
     }
-    fn ini(self) -> Ini {
+    async fn ini(self) -> Ini {
         let ValeConfig {
             packages,
             vocabularies,
@@ -792,7 +804,7 @@ impl StaticAnalyzerConfig for ValeConfig {
             id: None,
             location: Location::Simple("https://code.ornl.gov/research-enablement/vale-package".to_string()),
         };
-        let package_url = match package_repository.latest_release() {
+        let package_url = match package_repository.latest_release().await {
             | Some(release) => {
                 let tag = release.tag_name;
                 format!("https://code.ornl.gov/research-enablement/vale-package/-/archive/{tag}/vale-package-{tag}.zip")
@@ -811,14 +823,14 @@ impl StaticAnalyzerConfig for ValeConfig {
         });
         conf
     }
-    fn save(self) -> ValeConfig {
+    async fn save(self) -> ValeConfig {
         let path = self.clone().path;
         let parent = path.parent().unwrap().to_path_buf();
         match create_dir_all(parent.clone()) {
             | Ok(_) => {}
             | Err(why) => error!(directory = parent.to_absolute_string(), "=> {} Create - {why}", Label::fail()),
         }
-        match self.clone().ini().write_to_file(path.clone()) {
+        match self.clone().ini().await.write_to_file(path.clone()) {
             | Ok(_) => {
                 debug!(path = path.to_absolute_string(), "=> {} Saved configuration", Label::using());
             }

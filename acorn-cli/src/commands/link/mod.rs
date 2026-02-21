@@ -10,7 +10,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::process::exit;
 use tracing::{error, info};
 
-pub fn run(
+pub async fn run(
     path: &Option<PathBuf>,
     branch: &Option<String>,
     commit: &Option<String>,

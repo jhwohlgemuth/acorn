@@ -22,6 +22,7 @@ unsafe_code = "forbid"
 broken-intra-doc-links = "forbid"
 
 [workspace.dependencies]
+async-trait = { version = "0.1.86", default-features = false }
 color-eyre = { version = "0.6.5", default-features = false }
 data-encoding = { version = "2.10.0", features = ["alloc"], default-features = false }
 derive_more = { version = "2.1.1", features = [
@@ -30,6 +31,7 @@ derive_more = { version = "2.1.1", features = [
 ], default-features = false }
 dotenvy = { version = "0.15.0", default-features = false }
 fancy-regex = { version = "0.17.0", default-features = false }
+futures = { version = "0.3", features = ["alloc"], default-features = false }
 glob = { version = "0.3.1", default-features = false }
 insta = { version = "1.42.0", default-features = false }
 itertools = { version = "0.14.0", default-features = false }
@@ -48,7 +50,7 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-indicatif = { version = "0.3.13", default-features = false }
 tracing-log = { version = "0.2.0", default-features = false }
 # Pinned to ensure colored ANSI output
-tracing-subscriber = { version = "=0.3.22", features = [
+tracing-subscriber = { version = "=0.3.19", features = [
   "ansi",
   "env-filter",
 ], default-features = false }

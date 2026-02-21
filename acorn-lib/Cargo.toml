@@ -26,6 +26,7 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 aho-corasick = { version = "1.1.4", default-features = false }
 ariadne = { version = "0.6.0", features = ["auto-color"], default-features = false }
+async-trait = { workspace = true }
 bat = { version = "0.26.0", features = ["regex-onig"], default-features = false, optional = true }
 bon = { version = "3.8.1", default-features = false }
 chrono = { version = "0.4.42", features = ["clock", "serde"], default-features = false }
@@ -40,6 +41,7 @@ dotenvy = { workspace = true }
 duct = { version = "1.1.0", default-features = false, optional = true }
 fancy-regex = { workspace = true }
 flate2 = { version = "1.1.5", default-features = false }
+futures = { workspace = true }
 glob = { workspace = true }
 hashbrown = { version = "0.16.0", features = ["default-hasher", "serde"], default-features = false }
 human-units = { version = "0.5.3", default-features = false }

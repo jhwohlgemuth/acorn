@@ -7,7 +7,7 @@
 #[cfg(feature = "std")]
 use crate::analyzer::{link_check, Check};
 #[cfg(feature = "std")]
-use crate::io::network_get_request;
+use crate::io::get;
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
 use crate::util::Label;
@@ -243,8 +243,8 @@ impl Repository {
     }
     /// Get metadata for latest release of a Gitlab or GitHub repository
     #[cfg(feature = "std")]
-    pub fn latest_release(self) -> Option<Release> {
-        match self.releases() {
+    pub async fn latest_release(self) -> Option<Release> {
+        match self.releases().await {
             | releases if releases.is_empty() => None,
             | releases => {
                 let release = releases[0].clone();
@@ -285,7 +285,7 @@ impl Repository {
         }
     }
     #[cfg(feature = "std")]
-    fn releases(self) -> Vec<Release> {
+    async fn releases(self) -> Vec<Release> {
         let maybe_url = match &self {
             | Repository::Git { .. } => None,
             | Repository::GitHub { location } => match location.uri() {
@@ -316,9 +316,9 @@ impl Repository {
         };
         if let Some(url) = maybe_url {
             debug!(url, "=> {}", Label::using());
-            match network_get_request(url).send() {
+            match get(url).send().await {
                 | Ok(response) => {
-                    let text = response.text();
+                    let text = response.text().await;
                     match text {
                         | Ok(text) => {
                             if text.contains("API rate limit exceeded") {

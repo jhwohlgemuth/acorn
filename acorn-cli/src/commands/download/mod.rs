@@ -7,7 +7,7 @@ use owo_colors::OwoColorize;
 use std::process::exit;
 use tracing::error;
 
-pub fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option<PathBuf>, offline: &bool) -> Result<(), Report> {
+pub async fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option<PathBuf>, offline: &bool) -> Result<(), Report> {
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }

@@ -12,7 +12,7 @@ use std::process::exit;
 use tracing::info;
 
 #[allow(clippy::too_many_arguments)]
-pub fn run(
+pub async fn run(
     path: &Option<PathBuf>,
     branch: &Option<String>,
     commit: &Option<String>,

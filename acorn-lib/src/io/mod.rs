@@ -332,35 +332,28 @@ where
 ///
 /// # Notes
 /// - Uses [`async_runtime`] for asynchronous operations.
-pub fn download_binary<S, P>(url: S, destination: P) -> Result<PathBuf, String>
+pub async fn download_binary<S, P>(url: S, destination: P) -> Result<PathBuf, String>
 where
     S: Into<String> + Clone + core::marker::Copy,
     P: Into<PathBuf> + Clone,
 {
-    async fn download<P>(url: String, destination: P) -> Result<(), String>
-    where
-        P: Into<PathBuf>,
-    {
-        let client = reqwest::Client::new();
-        let response = client.get(url.clone()).header(USER_AGENT, ACORN_USER_AGENT).send();
-        let filename = PathBuf::from(url.clone()).file_name().unwrap().to_str().unwrap().to_string();
-        match response.await {
-            | Ok(data) => match data.bytes().await {
-                | Ok(content) => {
-                    let mut output = File::create(destination.into().join(filename.clone())).unwrap();
-                    let _ = io::copy(&mut Cursor::new(content.clone()), &mut output);
-                    debug!(filename, "=> {} Downloaded", Label::output());
-                    Ok(())
-                }
-                | Err(_) => Err(format!("No content downloaded from {url}")),
-            },
-            | Err(_) => Err(format!("Failed to download {url}")),
-        }
+    let url_string: String = url.into();
+    let dest: PathBuf = destination.clone().into();
+    let client = reqwest::Client::new();
+    let response = client.get(url_string.clone()).header(USER_AGENT, ACORN_USER_AGENT).send();
+    let filename = PathBuf::from(url_string.clone()).file_name().unwrap().to_str().unwrap().to_string();
+    match response.await {
+        | Ok(data) => match data.bytes().await {
+            | Ok(content) => {
+                let mut output = File::create(dest.clone().join(filename.clone())).unwrap();
+                let _ = io::copy(&mut Cursor::new(content.clone()), &mut output);
+                debug!(filename, "=> {} Downloaded", Label::output());
+                Ok(dest.join(filename))
+            }
+            | Err(_) => Err(format!("No content downloaded from {url_string}")),
+        },
+        | Err(_) => Err(format!("Failed to download {url_string}")),
     }
-    let runtime = async_runtime();
-    let _ = runtime.block_on(download(url.into(), destination.clone()));
-    let filename = PathBuf::from(url.into()).file_name().unwrap().to_str().unwrap().to_string();
-    Ok(destination.into().join(filename))
 }
 /// Extract zip archive
 /// ### Note
@@ -584,7 +577,7 @@ pub fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<Pat
     let merge_request_iid = var("CI_MERGE_REQUEST_IID").unwrap_or_default();
     let path = format!("/projects/{project_id}/merge_requests/{merge_request_iid}/diffs");
     let url = format!("{root}{path}");
-    match network_get_request(url).send() {
+    match sync_get(url).send() {
         | Ok(response) => {
             let content: serde_json::Result<Vec<GitlabMergeRequestDiffResponse>> = serde_json::from_str(&response.text().unwrap());
             match content {
@@ -772,6 +765,14 @@ where
     debug!("=> {} {binary:#?}", Label::using());
     binary.is_executable()
 }
+/// Create a configured async HTTP client with proxy support and appropriate timeouts
+fn create_http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
 /// Create a configured HTTP client with proxy support and appropriate timeouts
 fn create_sync_http_client() -> reqwest::blocking::Client {
     reqwest::blocking::Client::builder()
@@ -780,22 +781,43 @@ fn create_sync_http_client() -> reqwest::blocking::Client {
         .build()
         .unwrap_or_else(|_| reqwest::blocking::Client::new())
 }
+/// Utility method to employ best practices when using a Reqwest client to make async HTTP GET requests.
+pub fn get<U>(url: U) -> reqwest::RequestBuilder
+where
+    U: reqwest::IntoUrl,
+{
+    create_http_client().get(url).header(USER_AGENT, ACORN_USER_AGENT)
+}
+/// Utility method to employ best practices when using a Reqwest client to make async HTTP POST requests.
+pub fn post<U>(url: U) -> reqwest::RequestBuilder
+where
+    U: reqwest::IntoUrl,
+{
+    create_http_client().post(url).header(USER_AGENT, ACORN_USER_AGENT)
+}
+/// Utility method to employ best practices when using a Reqwest client to make async HTTP PUT requests.
+pub fn put<U>(url: U) -> reqwest::RequestBuilder
+where
+    U: reqwest::IntoUrl,
+{
+    create_http_client().put(url).header(USER_AGENT, ACORN_USER_AGENT)
+}
 /// Utility method to employ best practices when using a Reqwest client to make HTTP GET requests.
-pub fn network_get_request<U>(url: U) -> reqwest::blocking::RequestBuilder
+pub fn sync_get<U>(url: U) -> reqwest::blocking::RequestBuilder
 where
     U: reqwest::IntoUrl,
 {
     create_sync_http_client().get(url).header(USER_AGENT, ACORN_USER_AGENT)
 }
 /// Utility method to employ best practices when using a Reqwest client to make HTTP POST requests.
-pub fn network_post_request<U>(url: U) -> reqwest::blocking::RequestBuilder
+pub fn sync_post<U>(url: U) -> reqwest::blocking::RequestBuilder
 where
     U: reqwest::IntoUrl,
 {
     create_sync_http_client().post(url).header(USER_AGENT, ACORN_USER_AGENT)
 }
 /// Utility method to employ best practices when using a Reqwest client to make HTTP PUT requests.
-pub fn network_put_request<U>(url: U) -> reqwest::blocking::RequestBuilder
+pub fn sync_put<U>(url: U) -> reqwest::blocking::RequestBuilder
 where
     U: reqwest::IntoUrl,
 {

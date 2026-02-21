@@ -2,7 +2,7 @@
 //! > CiteAs is a way to get the correct citation for diverse research products including, software, datasets, preprints, and traditional articles. By making it easier to cite software and other "alternative" scholarly products, we aim to help the creators of such products get full credit for their work.
 //!
 //! See <https://citeas.org/api> for more information
-use crate::io::network_get_request;
+use crate::io::sync_get;
 use crate::schema::pid::DOI;
 use crate::util::Label;
 use serde::{Deserialize, Serialize};
@@ -150,7 +150,7 @@ pub struct Provenance {
 pub fn status() -> Option<Status> {
     let url = "https://api.citeas.org?email=research@ornl.gov";
     debug!(url, "=> {}", Label::using());
-    match network_get_request(url).send() {
+    match sync_get(url).send() {
         | Ok(response) => {
             let content: serde_json::Result<Status> = serde_json::from_str(&response.text().unwrap_or_default());
             match content {
@@ -174,7 +174,7 @@ impl Citations {
     /// Use CiteAs API to get citation data from DOI value
     pub fn from_doi(value: &str) -> Citations {
         let url = format!("https://api.citeas.org/product/{value}?email=research@ornl.gov");
-        match network_get_request(url).send() {
+        match sync_get(url).send() {
             | Ok(response) => {
                 let content: serde_json::Result<Citations> = serde_json::from_str(&response.text().unwrap());
                 match content {

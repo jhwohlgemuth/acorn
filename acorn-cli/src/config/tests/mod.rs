@@ -199,23 +199,23 @@ fn test_location_uri() {
     }
 }
 #[ignore]
-#[test]
-fn test_repository_gitlab() {
+#[tokio::test]
+async fn test_repository_gitlab() {
     let repository = Repository::GitLab {
         // id: "research-enablement%2Fvale-package",
         id: Some(18243_u64),
         location: Location::Simple("https://code.ornl.gov/research-enablement/vale-package".to_string()),
     };
-    let release = repository.latest_release();
+    let release = repository.latest_release().await;
     assert!(release.is_some());
 }
 #[ignore]
-#[test]
-fn test_repository_github() {
+#[tokio::test]
+async fn test_repository_github() {
     let repository = Repository::GitHub {
         location: Location::Simple("https://github.com/jhwohlgemuth/voxelcss".to_string()),
     };
-    let release = repository.latest_release();
+    let release = repository.latest_release().await;
     assert!(release.is_some());
 }
 #[test]

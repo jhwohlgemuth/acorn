@@ -22,7 +22,7 @@ fn count(issues: Vec<Check>) -> usize {
         .sum()
 }
 #[allow(clippy::too_many_arguments)]
-pub fn run(
+pub async fn run(
     path: &Option<PathBuf>,
     branch: &Option<String>,
     commit: &Option<String>,
@@ -55,9 +55,10 @@ pub fn run(
         vec![]
     } else {
         let is_offline = *offline || *disable_website_checks;
+        let website_checks = ResearchActivity::check_websites(paths.clone(), is_offline).await;
         let results = ResearchActivity::check(paths.clone())
             .into_iter()
-            .chain(ResearchActivity::url_analysis(paths.clone(), is_offline))
+            .chain(website_checks)
             .collect::<Vec<_>>();
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
@@ -73,7 +74,7 @@ pub fn run(
         skip!("Prose analysis");
         vec![]
     } else {
-        let results = ResearchActivity::prose_analysis(paths.clone(), *offline, *skip_verify_checksum);
+        let results = ResearchActivity::prose_analysis(paths.clone(), *offline, *skip_verify_checksum).await;
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             if level.is_some() {

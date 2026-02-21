@@ -7,7 +7,7 @@
 use acorn::io::api::github::{GithubTreeEntry, GithubTreeResponse};
 use acorn::io::api::gitlab::{GitlabTreeEntry, GitlabTreeResponse};
 use acorn::io::api::Endpoint;
-use acorn::io::{files_all, network_get_request, parent, read_file, write_file, FromPath, InputOutput};
+use acorn::io::{files_all, parent, read_file, sync_get, write_file, FromPath, InputOutput};
 use acorn::prelude::{self, create_dir_all, exit, io, Cursor, Error, File, PathBuf};
 use acorn::util::{detect_json, suffix, Label, MimeType, ToAbsoluteString};
 use acorn::{Location, Repository, Scheme};
@@ -368,7 +368,7 @@ impl Bucket {
             create_dir_all(folder.clone()).unwrap();
             if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
                 if let Some(url) = self.code_repository.raw_url(path.to_string()) {
-                    match network_get_request(url).send() {
+                    match sync_get(url).send() {
                         | Ok(response) => match response.bytes() {
                             | Ok(bytes) => {
                                 let mut content = Cursor::new(bytes);

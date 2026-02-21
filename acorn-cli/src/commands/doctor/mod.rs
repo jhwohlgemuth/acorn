@@ -8,7 +8,7 @@ fn should_run(checks: &[Diagnostic], diagnostic: Diagnostic) -> bool {
     [diagnostic, Diagnostic::All].iter().any(|&x| checks.contains(&x))
 }
 #[allow(clippy::too_many_arguments)]
-pub fn run(fix: &bool, interactive: &bool, check: &[Diagnostic], offline: &bool) -> Result<(), Report> {
+pub async fn run(fix: &bool, interactive: &bool, check: &[Diagnostic], offline: &bool) -> Result<(), Report> {
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
         unimplemented!("Offline mode is not implemented yet");

@@ -29,8 +29,8 @@ use color_eyre::eyre;
 use dotenvy::dotenv;
 use owo_colors::OwoColorize;
 use std::process::exit;
+use tracing::info;
 use tracing::instrument;
-use tracing::{info, warn};
 use tracing_indicatif::IndicatifLayer;
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
@@ -66,7 +66,8 @@ fn print_raid_schema() -> Void {
     exit(exitcode::OK);
 }
 #[instrument]
-fn main() -> Void {
+#[tokio::main]
+async fn main() -> Void {
     color_eyre::install()?;
     let args = Arguments::parse();
     if args.markdown_help {
@@ -132,23 +133,26 @@ fn main() -> Void {
             readability_metric,
             verbose,
             ..
-        }) => commands::check::run(
-            path,
-            branch,
-            commit,
-            ignore,
-            skip,
-            disable_website_checks,
-            exit_on_first_error,
-            merge_request,
-            skip_verify_checksum,
-            &offline,
-            no_fail,
-            readability_metric,
-            verbose,
-        ),
-        | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline),
-        | Some(Commands::Download { config, url, output, .. }) => commands::download::run(config, url, output, &offline),
+        }) => {
+            commands::check::run(
+                path,
+                branch,
+                commit,
+                ignore,
+                skip,
+                disable_website_checks,
+                exit_on_first_error,
+                merge_request,
+                skip_verify_checksum,
+                &offline,
+                no_fail,
+                readability_metric,
+                verbose,
+            )
+            .await
+        }
+        | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline).await,
+        | Some(Commands::Download { config, url, output, .. }) => commands::download::run(config, url, output, &offline).await,
         | Some(Commands::Export {
             output,
             path,
@@ -159,7 +163,7 @@ fn main() -> Void {
             combine,
             merge_request,
             ..
-        }) => commands::export::run(output, path, branch, commit, format, reference, combine, merge_request, &offline),
+        }) => commands::export::run(output, path, branch, commit, format, reference, combine, merge_request, &offline).await,
         | Some(Commands::Format {
             path,
             branch,
@@ -169,8 +173,8 @@ fn main() -> Void {
             merge_request,
             verbose,
             ..
-        }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose, &offline),
-        | Some(Commands::Gather { path, ignore, verbose, .. }) => commands::gather::run(path, ignore, &offline, verbose),
+        }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose, &offline).await,
+        | Some(Commands::Gather { path, ignore, verbose, .. }) => commands::gather::run(path, ignore, &offline, verbose).await,
         | Some(Commands::Link {
             path,
             branch,
@@ -180,7 +184,7 @@ fn main() -> Void {
             merge_request,
             verbose,
             ..
-        }) => commands::link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose),
+        }) => commands::link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await,
         | Some(Commands::Schema { command, .. }) => match command {
             | Some(SchemaCommands::Rad {}) | None => print_rad_schema(),
             | Some(SchemaCommands::Raid {}) => print_raid_schema(),

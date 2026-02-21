@@ -1,7 +1,7 @@
 use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::io::bagit::{Bag, BagInfo, Save};
-use acorn::io::{async_runtime, folder_size, FromPath, InputOutput};
+use acorn::io::{folder_size, FromPath, InputOutput};
 use acorn::prelude::{exit, remove_dir_all, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{current_date, format_bytes, suffix, Label, MimeType};
@@ -16,7 +16,7 @@ mod pdf;
 mod powerpoint;
 
 #[allow(clippy::too_many_arguments)]
-pub fn run(
+pub async fn run(
     output: &Option<PathBuf>,
     path: &Option<PathBuf>,
     branch: &Option<String>,
@@ -86,26 +86,24 @@ pub fn run(
             Ok(())
         }
         | FileFormat::Pdf => {
-            async_runtime().block_on(async {
-                let paths = paths_from_options(path, &Some(options));
-                let playwright = Playwright::initialize().await.unwrap();
-                playwright.install_chromium().unwrap(); // Install browsers
-                let chromium = playwright.chromium();
-                let browser = chromium.launcher().headless(true).launch().await.unwrap();
-                let context = browser.context_builder().build().await.unwrap();
-                let page = context.new_page().await.unwrap();
-                let progress = ProgressBar::new(paths.len() as u64);
-                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                for path in &paths {
-                    progress.set_message(format!("Generating PDF for {}", path.display()));
-                    let pdf_options = CommandLineOptions::init().path(path.clone()).maybe_output(output.clone()).build();
-                    pdf::create(&page, pdf_options).await;
-                    progress.inc(1);
-                }
-                progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                info!("=> {} Exported {} PDF{}", Label::pass(), paths.len(), suffix(paths.len()));
-                let _close = page.close(Some(false)).await;
-            });
+            let paths = paths_from_options(path, &Some(options));
+            let playwright = Playwright::initialize().await.unwrap();
+            playwright.install_chromium().unwrap(); // Install browsers
+            let chromium = playwright.chromium();
+            let browser = chromium.launcher().headless(true).launch().await.unwrap();
+            let context = browser.context_builder().build().await.unwrap();
+            let page = context.new_page().await.unwrap();
+            let progress = ProgressBar::new(paths.len() as u64);
+            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+            for path in &paths {
+                progress.set_message(format!("Generating PDF for {}", path.display()));
+                let pdf_options = CommandLineOptions::init().path(path.clone()).maybe_output(output.clone()).build();
+                pdf::create(&page, pdf_options).await;
+                progress.inc(1);
+            }
+            progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+            info!("=> {} Exported {} PDF{}", Label::pass(), paths.len(), suffix(paths.len()));
+            let _close = page.close(Some(false)).await;
             Ok(())
         }
         | FileFormat::Markdown => {

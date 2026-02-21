@@ -92,14 +92,14 @@ const ENDPOINTS: &str = r#"{
         }
     ]
 }"#;
-pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
+pub async fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
     let endpoints = match ApplicationConfiguration::parse(ENDPOINTS).unwrap().endpoints {
         | Some(endpoints) => endpoints,
         | None => vec![],
     };
     let text = match endpoints.find_by_name("geonames") {
         | Some(endpoint) => {
-            let response = endpoint.invoke_sync("countries", None);
+            let response = endpoint.invoke("countries", None).await;
             endpoint
                 .handle::<api::TextResponse>(response)
                 .map(|text| api::geonames::parse_tsv(&text.to_string()))
@@ -107,13 +107,13 @@ pub fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _
         | None => Err("No GeoNames endpoint found".into()),
     };
     println!("Countries: {text:#?}");
-    // spdx_example(endpoints.clone());
-    // orcid_example(endpoints.clone());
-    // ror_example(endpoints.clone());
+    spdx_example(endpoints.clone()).await;
+    orcid_example(endpoints.clone()).await;
+    ror_example(endpoints.clone()).await;
     Ok(())
 }
 #[allow(dead_code)]
-fn orcid_example(endpoints: Vec<Endpoint>) {
+async fn orcid_example(endpoints: Vec<Endpoint>) {
     // ORCiD API examples
     let orcid = endpoints.find_by_name("orcid");
     let text = match &orcid {
@@ -129,7 +129,9 @@ fn orcid_example(endpoints: Vec<Endpoint>) {
                     .values(vec![vec![Some("family-name")]])
                     .with_key("fl"),
             ];
-            let response = endpoint.invoke_sync_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data));
+            let response = endpoint
+                .invoke_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data))
+                .await;
             endpoint.handle::<api::orcid::SearchResponse>(response)
         }
         | None => Err("No ORCiD endpoint found".into()),
@@ -137,7 +139,7 @@ fn orcid_example(endpoints: Vec<Endpoint>) {
     println!("ORCiD Search Response: {text:#?}");
     let text = match &orcid {
         | Some(endpoint) => {
-            let response = endpoint.invoke_sync("status", None);
+            let response = endpoint.invoke("status", None).await;
             endpoint.handle::<api::orcid::StatusResponse>(response)
         }
         | None => Err("No ORCiD endpoint found".into()),
@@ -145,12 +147,12 @@ fn orcid_example(endpoints: Vec<Endpoint>) {
     println!("ORCiD Status: {text:#?}");
 }
 #[allow(dead_code)]
-fn ror_example(endpoints: Vec<Endpoint>) {
+async fn ror_example(endpoints: Vec<Endpoint>) {
     // ROR API examples
     let ror = endpoints.find_by_name("ror");
     let text = match &ror {
         | Some(endpoint) => {
-            let response = endpoint.invoke_sync("status", None);
+            let response = endpoint.invoke("status", None).await;
             endpoint.handle::<api::TextResponse>(response)
         }
         | None => Err("No ROR endpoint found".into()),
@@ -161,7 +163,7 @@ fn ror_example(endpoints: Vec<Endpoint>) {
             let data = vec![Param::of_type(api::ParamStyle::TemplateValue)
                 .values(vec![vec![Some("01qz5mb56")]])
                 .with_key("identifier")];
-            let response = endpoint.invoke_sync("record", Some(data));
+            let response = endpoint.invoke("record", Some(data)).await;
             endpoint.handle::<api::ror::SingleRecord>(response)
         }
         | None => Err("No ROR endpoint found".into()),
@@ -177,7 +179,7 @@ fn ror_example(endpoints: Vec<Endpoint>) {
                     .values(vec![vec![Some("status"), Some("inactive")]])
                     .with_key("filter"),
             ];
-            let response = endpoint.invoke_sync("search", Some(data));
+            let response = endpoint.invoke("search", Some(data)).await;
             endpoint.handle::<api::ror::SearchResponse>(response)
         }
         | None => Err("No ROR endpoint found".into()),
@@ -185,11 +187,11 @@ fn ror_example(endpoints: Vec<Endpoint>) {
     println!("ROR Search Results: {text:#?}");
 }
 #[allow(dead_code)]
-fn spdx_example(endpoints: Vec<Endpoint>) {
+async fn spdx_example(endpoints: Vec<Endpoint>) {
     // Get SPDX license data
     let text = match endpoints.find_by_name("spdx") {
         | Some(endpoint) => {
-            let response = endpoint.invoke_sync("licenses", None);
+            let response = endpoint.invoke("licenses", None).await;
             endpoint.handle::<api::spdx::Licenses>(response)
         }
         | None => Err("No SPDX endpoint found".into()),
