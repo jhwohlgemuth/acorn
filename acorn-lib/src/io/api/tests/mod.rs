@@ -1,5 +1,5 @@
 use crate::io::api::geonames::{self, CountrySearch};
-use crate::io::api::{self, citeas, orcid, ror, Endpoint, Param, ParamStyle, ResponseContent, RestfulInterface};
+use crate::io::api::{self, citeas, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, ResponseContent};
 use crate::io::read_file;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
 use crate::{Location, Repository, Scheme};

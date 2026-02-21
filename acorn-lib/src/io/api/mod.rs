@@ -42,7 +42,7 @@ pub trait QueryField: fmt::Display + for<'a> TryFrom<&'a str> {}
 /// Trait for working with request-response cycle using HTTP methods like GET, POST, PUT, PATCH, and DELETE
 /// against resource URLs that return structured data
 #[async_trait]
-pub trait RestfulInterface {
+pub trait RemoteResource {
     /// Query field type used for request building
     type Query: QueryField + ValueValidator;
     /// Field list type used for response selection
@@ -446,7 +446,7 @@ impl IntoHeaders for Vec<Param> {
     }
 }
 #[async_trait]
-impl RestfulInterface for Endpoint {
+impl RemoteResource for Endpoint {
     type Query = EmptyField;
     type Field = EmptyField;
 

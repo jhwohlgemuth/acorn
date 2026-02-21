@@ -1,5 +1,5 @@
 use crate::config::ApplicationConfiguration;
-use acorn::io::api::{self, Endpoint, EndpointSearch, Param, RestfulInterface};
+use acorn::io::api::{self, Endpoint, EndpointSearch, Param, RemoteResource};
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};

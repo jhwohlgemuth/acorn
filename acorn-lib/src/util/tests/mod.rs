@@ -1,6 +1,5 @@
 use crate::io::{
-    command_exists, extract_zip, git_branch_name, git_default_branch_name, parent, read_file,
-    to_absolute_string, FromCommand, FromPath,
+    command_exists, extract_zip, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand, FromPath,
 };
 use crate::prelude::{Path, PathBuf};
 use crate::util::*;
