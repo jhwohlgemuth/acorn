@@ -4,13 +4,13 @@
 //!
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
-use acorn::io::api::github::{GithubTreeEntry, GithubTreeResponse};
-use acorn::io::api::gitlab::{GitlabTreeEntry, GitlabTreeResponse};
-use acorn::io::api::Endpoint;
-use acorn::io::{files_all, get, parent, read_file, write_file, FromPath, InputOutput};
-use acorn::prelude::{self, create_dir_all, exit, io, Cursor, Error, File, PathBuf};
-use acorn::util::{detect_json, suffix, Label, MimeType, ToAbsoluteString};
-use acorn::{Location, Repository, Scheme};
+use crate::io::api::github::{GithubTreeEntry, GithubTreeResponse};
+use crate::io::api::gitlab::{GitlabTreeEntry, GitlabTreeResponse};
+use crate::io::api::Endpoint;
+use crate::io::{files_all, get, parent, read_file, write_file, FromPath, InputOutput};
+use crate::prelude::{self, create_dir_all, exit, io, Cursor, Error, File, PathBuf};
+use crate::util::{detect_json, suffix, Label, MimeType, ToAbsoluteString};
+use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt::Debug;
 use derive_more::Display;
@@ -99,6 +99,7 @@ pub struct Bucket {
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[builder(start_fn = at, on(String, into))]
 #[serde(rename_all = "camelCase")]
+/// CI/CD runner configuration entry
 pub struct Runner {
     /// Runner name
     pub name: String,
@@ -235,7 +236,7 @@ impl Bucket {
         }
     }
     /// Get hosting domain from bucket struct
-    fn domain(&self) -> String {
+    pub(crate) fn domain(&self) -> String {
         match &self.code_repository {
             | Repository::GitHub { location } => match location.uri() {
                 | Some(uri) => match uri.scheme() {
@@ -284,7 +285,7 @@ impl Bucket {
                 if let Some(id) = &self.code_repository.id() {
                     let per_page = 100;
                     let url = format!(
-                        "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path={}",
+                        "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path= {}",
                         self.domain(),
                         id,
                         per_page,
@@ -546,6 +547,3 @@ fn operations_complete_message(name: Option<String>, json_count: usize, image_co
 fn has_image_extension(path: &String) -> bool {
     path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg")
 }
-
-#[cfg(test)]
-mod tests;

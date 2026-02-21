@@ -2,16 +2,18 @@
 //!
 //! Interact with RESTful APIs, handling requests and responses, authentication, and data serialization.
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
+use crate::io::config::ApplicationConfiguration;
 use crate::io::{get, post, put};
 use crate::prelude::io::ErrorKind;
 use crate::prelude::Error;
-use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
+use crate::util::constants::{ENDPOINTS_TEXT, URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::util::{detect_json, detect_xml};
 use crate::{Location, Repository, Scheme};
 use async_trait::async_trait;
 use bon::Builder;
 use core::fmt;
 use derive_more::Display;
+use lazy_static::lazy_static;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -24,8 +26,14 @@ pub mod geonames;
 pub mod github;
 pub mod gitlab;
 pub mod orcid;
+pub mod raid;
 pub mod ror;
 pub mod spdx;
+
+lazy_static! {
+    /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
+    pub static ref ENDPOINTS: Vec<Endpoint> = ApplicationConfiguration::parse(ENDPOINTS_TEXT).unwrap().endpoints.unwrap_or_default();
+}
 
 /// Helper trait for working with list of endpoints
 pub trait EndpointSearch {

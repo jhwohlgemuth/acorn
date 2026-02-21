@@ -1,5 +1,6 @@
+use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::geonames::{self, CountrySearch};
-use crate::io::api::{self, citeas, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, ResponseContent};
+use crate::io::api::{self, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, ResponseContent};
 use crate::io::read_file;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
 use crate::{Location, Repository, Scheme};
@@ -13,19 +14,18 @@ fn fixtures_dir() -> PathBuf {
 #[ignore = "Requires internet connection and citeas.org to be up"]
 async fn test_citeas() {
     let status = citeas::status().await;
-    assert!(status.is_some());
-    if let Some(citeas::Status { documentation_url, .. }) = status {
+    assert!(status.is_ok());
+    if let Ok(citeas::StatusResponse { documentation_url, .. }) = status {
         assert_eq!(documentation_url, "https://citeas.org/api");
     }
-    if let Some(citeas::Citation { text, .. }) = citeas::Citations::from_doi("10.11578/dc.20250604.1").await.match_style("apa") {
+    let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
+    if let Some(citeas::Citation { text, .. }) = citeas::Citations::from_doi("10.11578/dc.20250604.1").await.unwrap().match_style("apa") {
         println!("CiteAs Test Response Received");
-        let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
         assert_eq!(text, expected);
     };
     let doi = DOI::from_string("10.11578/dc.20250604.1");
-    if let Some(citeas::Citation { text, .. }) = doi.to_citations().await.match_style("apa") {
+    if let Some(citeas::Citation { text, .. }) = doi.to_citations().await.unwrap().match_style("apa") {
         println!("CiteAs Test Response Received");
-        let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
         assert_eq!(text, expected);
     };
 }

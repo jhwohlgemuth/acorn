@@ -46,7 +46,7 @@ use zip::{ZipArchive, ZipWriter};
 
 pub mod api;
 pub mod bagit;
-pub mod raid;
+pub mod config;
 
 /// See recommendation at <https://support.datacite.org/docs/api#api-versions>
 #[cfg(feature = "std")]

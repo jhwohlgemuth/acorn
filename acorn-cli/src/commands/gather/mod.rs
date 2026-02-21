@@ -1,103 +1,10 @@
-use crate::config::ApplicationConfiguration;
-use acorn::io::api::{self, Endpoint, EndpointSearch, Param, RemoteResource};
+use acorn::io::api::{self, Endpoint, EndpointSearch, Param, RemoteResource, ENDPOINTS};
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 
-const ENDPOINTS: &str = r#"{
-    "endpoints": [
-        {
-            "name": "geonames",
-            "domain": "download.geonames.org",
-            "resources": [
-                {
-                    "name": "countries",
-                    "method": "get",
-                    "template": "{{ base }}/export/dump/countryInfo.txt"
-                }
-            ]
-        },
-        {
-            "name": "github",
-            "domain": "api.github.com",
-            "resources": [
-                {
-                    "name": "tree",
-                    "method": "get",
-                    "template": "{{ base }}/{{ path }}/git/trees/{{ branch }}?recursive=1"
-                }
-            ]
-        },
-        {
-            "name": "gitlab",
-            "domain": "code.ornl.gov",
-            "root": "api/v4",
-            "resources": [
-                {
-                    "name": "tree",
-                    "method": "get",
-                    "template": "{{ base }}/projects/{{ project_id }}//repository/tree/{{ query }}"
-                }
-            ]
-        },
-        {
-            "name": "orcid",
-            "domain": "pub.orcid.org",
-            "root": "v3.0",
-            "resources": [
-                {
-                    "name": "search",
-                    "method": "get",
-                    "template": "{{ base }}/expanded-search/{{ query }}"
-                },
-                {
-                    "name": "status",
-                    "method": "get",
-                    "template": "{{ base }}/pubStatus"
-                }
-            ]
-        },
-        {
-            "name": "ror",
-            "domain": "api.ror.org",
-            "root": "v2",
-            "resources": [
-                {
-                    "name": "record",
-                    "method": "get",
-                    "template": "{{ base }}/organizations/{{ identifier }}"
-                },
-                {
-                    "name": "search",
-                    "method": "get",
-                    "template": "{{ base }}/organizations/{{ query }}"
-                },
-                {
-                    "name": "status",
-                    "method": "get",
-                    "template": "{{ base }}/heartbeat"
-                }
-            ]
-        },
-        {
-            "name": "spdx",
-            "domain": "spdx.org",
-            "resources": [
-                {
-                    "name": "licenses",
-                    "method": "get",
-                    "template": "{{ base }}/licenses/licenses.json"
-                }
-            ]
-        }
-    ]
-}"#;
 pub async fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
-    let endpoints = match ApplicationConfiguration::parse(ENDPOINTS).unwrap().endpoints {
-        | Some(endpoints) => endpoints,
-        | None => vec![],
-    };
-    let text = match endpoints.find_by_name("geonames") {
+    let text = match ENDPOINTS.find_by_name("geonames") {
         | Some(endpoint) => {
             let response = endpoint.invoke("countries", None).await;
             endpoint
@@ -107,13 +14,13 @@ pub async fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &b
         | None => Err("No GeoNames endpoint found".into()),
     };
     println!("Countries: {text:#?}");
-    spdx_example(endpoints.clone()).await;
-    orcid_example(endpoints.clone()).await;
-    ror_example(endpoints.clone()).await;
+    spdx_example(&ENDPOINTS).await;
+    orcid_example(&ENDPOINTS).await;
+    ror_example(&ENDPOINTS).await;
     Ok(())
 }
 #[allow(dead_code)]
-async fn orcid_example(endpoints: Vec<Endpoint>) {
+async fn orcid_example(endpoints: &Vec<Endpoint>) {
     // ORCiD API examples
     let orcid = endpoints.find_by_name("orcid");
     let text = match &orcid {
@@ -147,7 +54,7 @@ async fn orcid_example(endpoints: Vec<Endpoint>) {
     println!("ORCiD Status: {text:#?}");
 }
 #[allow(dead_code)]
-async fn ror_example(endpoints: Vec<Endpoint>) {
+async fn ror_example(endpoints: &Vec<Endpoint>) {
     // ROR API examples
     let ror = endpoints.find_by_name("ror");
     let text = match &ror {
@@ -187,7 +94,7 @@ async fn ror_example(endpoints: Vec<Endpoint>) {
     println!("ROR Search Results: {text:#?}");
 }
 #[allow(dead_code)]
-async fn spdx_example(endpoints: Vec<Endpoint>) {
+async fn spdx_example(endpoints: &Vec<Endpoint>) {
     // Get SPDX license data
     let text = match endpoints.find_by_name("spdx") {
         | Some(endpoint) => {

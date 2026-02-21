@@ -162,6 +162,111 @@ pub const RE_RAID_TEXT: &str =
     r#"(?<schema_uri>https[:]\/\/raid\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
 /// Pattern text for ROR regular expression defined by [`RE_ROR`]
 pub const RE_ROR_TEXT: &str = r#"(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2})"#;
+/// JSON string for API endpoints used during the endeavor of scientific research, communication, and collaboration
+pub const ENDPOINTS_TEXT: &str = r#"{
+    "endpoints": [
+        {
+            "name": "citeas",
+            "domain": "api.citeas.org",
+            "resources": [
+                {
+                    "name": "record",
+                    "method": "get",
+                    "template": "{{ base }}/product/{{ doi }}?email=research@ornl.gov"
+                },
+                {
+                    "name": "status",
+                    "method": "get",
+                    "template": "{{ base }}/?email=research@ornl.gov"
+                }
+            ]
+        },
+        {
+            "name": "geonames",
+            "domain": "download.geonames.org",
+            "resources": [
+                {
+                    "name": "countries",
+                    "method": "get",
+                    "template": "{{ base }}/export/dump/countryInfo.txt"
+                }
+            ]
+        },
+        {
+            "name": "github",
+            "domain": "api.github.com",
+            "resources": [
+                {
+                    "name": "tree",
+                    "method": "get",
+                    "template": "{{ base }}/{{ path }}/git/trees/{{ branch }}?recursive=1"
+                }
+            ]
+        },
+        {
+            "name": "gitlab",
+            "domain": "code.ornl.gov",
+            "root": "api/v4",
+            "resources": [
+                {
+                    "name": "tree",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ project_id }}//repository/tree/{{ query }}"
+                }
+            ]
+        },
+        {
+            "name": "orcid",
+            "domain": "pub.orcid.org",
+            "root": "v3.0",
+            "resources": [
+                {
+                    "name": "search",
+                    "method": "get",
+                    "template": "{{ base }}/expanded-search/{{ query }}"
+                },
+                {
+                    "name": "status",
+                    "method": "get",
+                    "template": "{{ base }}/pubStatus"
+                }
+            ]
+        },
+        {
+            "name": "ror",
+            "domain": "api.ror.org",
+            "root": "v2",
+            "resources": [
+                {
+                    "name": "record",
+                    "method": "get",
+                    "template": "{{ base }}/organizations/{{ identifier }}"
+                },
+                {
+                    "name": "search",
+                    "method": "get",
+                    "template": "{{ base }}/organizations/{{ query }}"
+                },
+                {
+                    "name": "status",
+                    "method": "get",
+                    "template": "{{ base }}/heartbeat"
+                }
+            ]
+        },
+        {
+            "name": "spdx",
+            "domain": "spdx.org",
+            "resources": [
+                {
+                    "name": "licenses",
+                    "method": "get",
+                    "template": "{{ base }}/licenses/licenses.json"
+                }
+            ]
+        }
+    ]
+}"#;
 
 lazy_static! {
     /// Regex that should match a Archival Resource Key (ARK)

@@ -1,5 +1,6 @@
 ---
-source: acorn-cli/src/config/tests/mod.rs
+source: acorn-lib/src/io/tests/mod.rs
+assertion_line: 220
 expression: "format!(\"{:#?}\", config.runners)"
 ---
 Some(

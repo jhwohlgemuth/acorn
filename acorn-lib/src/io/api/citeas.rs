@@ -2,17 +2,17 @@
 //! > CiteAs is a way to get the correct citation for diverse research products including, software, datasets, preprints, and traditional articles. By making it easier to cite software and other "alternative" scholarly products, we aim to help the creators of such products get full credit for their work.
 //!
 //! See <https://citeas.org/api> for more information
-use crate::io::get;
+use crate::io::api::{Endpoint, Param, ParamStyle, RemoteResource, Resource};
 use crate::schema::pid::DOI;
-use crate::util::Label;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use tracing::{debug, error};
 
-/// Trait for objects that can be converted to citations (e.g., `DOI`)
+/// Trait for things that can be converted to citations (e.g., `DOI`)
+#[async_trait]
 pub trait ToCitations {
-    /// Convert object to `Citations`
-    fn to_citations(&self) -> Citations;
+    /// Convert to `Citations`
+    async fn to_citations(&self) -> Result<Citations, String>;
 }
 /// Author object
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -21,22 +21,6 @@ pub struct Author {
     pub given: String,
     /// Last name
     pub family: String,
-}
-/// Describes status of the CiteAs API
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Status {
-    /// Where you can find documentation for this version
-    /// ### Example
-    /// > "<https://citeas.org/api>"
-    pub documentation_url: String,
-    /// Relevant messages
-    /// ### Example
-    /// > "Don't panic"
-    pub msg: String,
-    /// API version
-    /// ### Example
-    /// > "0.1"
-    pub version: String,
 }
 /// Main response object for the CiteAs API, returning citations for a given input
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -146,65 +130,39 @@ pub struct Provenance {
     /// Resource keyword
     pub key_word: Option<String>,
 }
+/// Describes status of the CiteAs API
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct StatusResponse {
+    /// Where you can find documentation for this version
+    /// ### Example
+    /// > "<https://citeas.org/api>"
+    pub documentation_url: String,
+    /// Relevant messages
+    /// ### Example
+    /// > "Don't panic"
+    pub msg: String,
+    /// API version
+    /// ### Example
+    /// > "0.1"
+    pub version: String,
+}
 /// Get status of CiteAs API
-pub async fn status() -> Option<Status> {
-    let url = "https://api.citeas.org?email=research@ornl.gov";
-    debug!(url, "=> {}", Label::using());
-    match get(url).send().await {
-        | Ok(response) => {
-            let content: serde_json::Result<Status> = match response.text().await {
-                | Ok(text) => serde_json::from_str(&text),
-                | Err(why) => {
-                    error!("=> {} Parse API status response - {why}", Label::fail());
-                    Err(serde_json::Error::io(std::io::Error::other("Failed to read response text")))
-                }
-            };
-            match content {
-                | Ok(status) => {
-                    debug!("=> {} Status", Label::using());
-                    Some(status)
-                }
-                | Err(why) => {
-                    error!("=> {} Parse API status response - {why}", Label::fail());
-                    None
-                }
-            }
-        }
-        | Err(why) => {
-            error!("{} Get API status - {why}", Label::fail());
-            None
-        }
-    }
+pub async fn status() -> Result<StatusResponse, String> {
+    let template = "{{ base }}/?email=research@ornl.gov";
+    let resources = vec![Resource::init().name("status").method("get").template(template).build()];
+    let endpoint = Endpoint::at("api.citeas.org").resources(resources).build();
+    let response = endpoint.invoke("status", None).await;
+    endpoint.handle::<StatusResponse>(response)
 }
 impl Citations {
     /// Use CiteAs API to get citation data from DOI value
-    pub async fn from_doi(value: &str) -> Citations {
-        let url = format!("https://api.citeas.org/product/{value}?email=research@ornl.gov");
-        match get(url).send().await {
-            | Ok(response) => {
-                let content: serde_json::Result<Citations> = match response.text().await {
-                    | Ok(text) => serde_json::from_str(&text),
-                    | Err(why) => {
-                        error!("=> {} Parse API status response - {why}", Label::fail());
-                        Err(serde_json::Error::io(std::io::Error::other("Failed to read response text")))
-                    }
-                };
-                match content {
-                    | Ok(results) => {
-                        debug!("=> {} Response", Label::using());
-                        results
-                    }
-                    | Err(why) => {
-                        error!("=> {} Parse API status response - {why}", Label::fail());
-                        Citations::default()
-                    }
-                }
-            }
-            | Err(why) => {
-                error!("{} Get Citations data - {why}", Label::fail());
-                Citations::default()
-            }
-        }
+    pub async fn from_doi(value: &str) -> Result<Citations, String> {
+        let template = "{{ base }}/product/{{ doi }}?email=research@ornl.gov";
+        let resources = vec![Resource::init().name("record").method("get").template(template).build()];
+        let data = vec![Param::of_type(ParamStyle::TemplateValue).values(vec![vec![Some(value)]]).with_key("doi")];
+        let endpoint = Endpoint::at("api.citeas.org").resources(resources).build();
+        let response = endpoint.invoke("record", Some(data)).await;
+        endpoint.handle::<Citations>(response)
     }
     /// Get citation data with given citation style (ex. "APA")
     ///
@@ -229,9 +187,10 @@ impl Citations {
         }
     }
 }
-impl DOI {
-    /// Convert a `DOI` to a `Citations`
-    pub async fn to_citations(self) -> Citations {
+#[async_trait]
+impl ToCitations for DOI {
+    /// Convert a [`DOI`] to a [`Citations`]
+    async fn to_citations(&self) -> Result<Citations, String> {
         Citations::from_doi(&self.to_string()).await
     }
 }
