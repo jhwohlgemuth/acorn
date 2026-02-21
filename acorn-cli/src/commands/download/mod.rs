@@ -16,15 +16,15 @@ pub async fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option
             | Ok(content) => {
                 let mut total: usize = 0;
                 if let Some(buckets) = content.buckets {
-                    buckets.into_iter().for_each(|bucket| {
+                    for bucket in buckets {
                         if let Some(path) = output.clone() {
                             total += if *offline || bucket.clone().code_repository.is_local() {
                                 bucket.copy_files(path)
                             } else {
-                                bucket.download_files(path)
+                                bucket.download_files(path).await
                             };
                         }
-                    });
+                    }
                 }
                 println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             }
@@ -40,7 +40,7 @@ pub async fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option
             total += if *offline || bucket.clone().code_repository.is_local() {
                 bucket.copy_files(path)
             } else {
-                bucket.download_files(path)
+                bucket.download_files(path).await
             };
             println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
         }

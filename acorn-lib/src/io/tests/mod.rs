@@ -1,6 +1,7 @@
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::{
-    archive, file_checksum, files_all, files_from_git_branch, files_from_git_commit, filter_git_command_result, filter_ignored, image_paths,
+    archive, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_git_command_result,
+    filter_ignored, image_paths,
 };
 use std::path::PathBuf;
 
@@ -102,6 +103,41 @@ fn test_filter_git_command_result() {
     let empty = "".to_string();
     let files = filter_git_command_result(empty, Some(vec!["json"]));
     assert!(files.is_empty());
+}
+#[test]
+#[ignore]
+fn test_files_from_git_main() {
+    let files = files_from_git_commit("ab8862e", Some(vec!["csv"]));
+    assert_eq!(files.len(), 2);
+    let hash = "ae61400cfdd079c06c2563c6ffe16d3c714a6bdc";
+    let files = files_from_git_commit(hash, Some(vec!["rs"]));
+    assert_eq!(files.len(), 6);
+    let files = files_from_git_commit(hash, Some(vec!["json", "rs"]));
+    assert_eq!(files.len(), 7);
+    let files = files_from_git_commit(hash, Some(vec!["json"]));
+    assert_eq!(files.len(), 1);
+    let expected = "tests/fixtures/data/invalid_project_a/index.json";
+    assert_eq!(files[0].to_str().unwrap(), expected);
+}
+#[ignore]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn test_files_from_gitlab_merge_request() {
+    let extensions = Some(vec!["json", "yaml"]);
+    let expected = PathBuf::from("project/gravity/gravity.json");
+    let files = temp_env::with_vars(
+        [
+            ("CI_API_V4_URL", Some("https://code.ornl.gov/api/v4")),
+            ("CI_MERGE_REQUEST_PROJECT_ID", Some("17410")),
+            ("CI_MERGE_REQUEST_IID", Some("27")),
+        ],
+        || {
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async { files_from_gitlab_merge_request(extensions.clone()).await })
+            })
+        },
+    );
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0], expected);
 }
 #[test]
 fn test_filter_ignored() {

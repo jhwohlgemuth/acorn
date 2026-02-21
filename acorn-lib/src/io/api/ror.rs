@@ -11,7 +11,7 @@
 //! let ror = endpoints.find_by_name("ror");
 //! let text = match &ror {
 //!     | Some(endpoint) => {
-//!         let response = endpoint.invoke_sync("status", None);
+//!         let response = endpoint.invoke("status", None).await;
 //!         endpoint.handle::<api::TextResponse>(response)
 //!     }
 //!     | None => Err("No ROR endpoint found".into()),
@@ -29,7 +29,7 @@
 //!         let data = vec![Param::of_type(ParamStyle::TemplateValue)
 //!             .values(vec![vec![Some("01qz5mb56")]])
 //!             .with_key("identifier")];
-//!         let response = endpoint.invoke_sync("record", Some(data));
+//!         let response = endpoint.invoke("record", Some(data)).await;
 //!         endpoint.handle::<ror::SingleRecord>(response)
 //!     }
 //!     | None => Err("No ROR endpoint found".into()),
@@ -52,7 +52,7 @@
 //!                 .values(vec![vec![Some("status"), Some("inactive")]])
 //!                 .with_key("filter"),
 //!         ];
-//!         let response = endpoint.invoke_sync("search", Some(data));
+//!         let response = endpoint.invoke("search", Some(data)).await;
 //!         endpoint.handle::<ror::SearchResponse>(response)
 //!     }
 //!     | None => Err("No ROR endpoint found".into()),

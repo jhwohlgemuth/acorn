@@ -26,7 +26,7 @@ pub async fn run(
         .merge_request(merge_request)
         .build();
 
-    let paths = paths_from_options(path, &Some(options));
+    let paths = paths_from_options(path, &Some(options)).await;
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
         | Ok(data) => {
             let mime = MimeType::from_path(path);

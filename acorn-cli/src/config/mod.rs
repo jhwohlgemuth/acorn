@@ -7,18 +7,19 @@
 use acorn::io::api::github::{GithubTreeEntry, GithubTreeResponse};
 use acorn::io::api::gitlab::{GitlabTreeEntry, GitlabTreeResponse};
 use acorn::io::api::Endpoint;
-use acorn::io::{files_all, parent, read_file, sync_get, write_file, FromPath, InputOutput};
+use acorn::io::{files_all, get, parent, read_file, write_file, FromPath, InputOutput};
 use acorn::prelude::{self, create_dir_all, exit, io, Cursor, Error, File, PathBuf};
 use acorn::util::{detect_json, suffix, Label, MimeType, ToAbsoluteString};
 use acorn::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt::Debug;
 use derive_more::Display;
+use futures::future::join_all;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use reqwest::blocking::{Client, Response};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::header::{HeaderMap, USER_AGENT};
+use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace, warn};
@@ -204,8 +205,8 @@ impl InputOutput for ApplicationConfiguration {
 }
 impl Bucket {
     /// Parse GitHub tree entries
-    fn parse_github_response(response: Response) -> Vec<String> {
-        let content = response.text().unwrap();
+    async fn parse_github_response(response: Response) -> Vec<String> {
+        let content = response.text().await.unwrap_or_default();
         let data: serde_json::Result<GithubTreeResponse> = serde_json::from_str(&content);
         match data {
             | Ok(GithubTreeResponse { tree, .. }) => {
@@ -219,12 +220,14 @@ impl Bucket {
         }
     }
     /// Parse GitLab tree entries
-    fn parse_gitlab_response(response: Response) -> Vec<String> {
-        let content = response.text().unwrap();
+    async fn parse_gitlab_response(response: Response) -> Vec<String> {
+        let content = response.text().await.unwrap_or_default();
         let data: serde_json::Result<GitlabTreeResponse> = serde_json::from_str(&content);
-        debug!("=> {} {} Tree entries", Label::found(), data.as_ref().unwrap().len());
         match data {
-            | Ok(entries) => entries.into_iter().filter(GitlabTreeEntry::is_blob).map(GitlabTreeEntry::path).collect(),
+            | Ok(entries) => {
+                debug!("=> {} {} Tree entries", Label::found(), entries.len());
+                entries.into_iter().filter(GitlabTreeEntry::is_blob).map(GitlabTreeEntry::path).collect()
+            }
             | Err(why) => {
                 error!("=> {} Process tree entries - {why}", Label::fail());
                 vec![]
@@ -251,13 +254,14 @@ impl Bucket {
             | Repository::Git { .. } => todo!("Add support for generic repositories"),
         }
     }
-    fn tree(&self, directory: &str, page: Option<u32>) -> Result<Response, Error> {
+    async fn tree(&self, directory: &str, page: Option<u32>) -> Result<Response, Error> {
         let url = self.tree_url(directory, page);
         let client = Client::new();
         client
             .get(url.unwrap_or_default())
             .header(USER_AGENT, "rust-web-api-client")
             .send()
+            .await
             .map_err(|why| Error::other(format!("Failed to send HTTP request: {why}")))
     }
     fn tree_url(&self, directory: &str, page: Option<u32>) -> Option<String> {
@@ -308,10 +312,9 @@ impl Bucket {
                     unimplemented!()
                 }
             };
-            let paths = self
-                .clone()
-                .file_paths("")
+            let paths = files_all(PathBuf::from(bucket_root.clone()), None)
                 .into_iter()
+                .map(|x| x.display().to_string())
                 .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
                 .filter(|path| PathBuf::from(path).is_file())
                 .collect::<Vec<String>>();
@@ -350,10 +353,11 @@ impl Bucket {
     /// Download files from bucket to local directory
     ///
     /// Ignores files listed in [`IGNORE`]
-    pub fn download_files(self: Bucket, output: PathBuf) -> usize {
+    pub async fn download_files(self: Bucket, output: PathBuf) -> usize {
         let paths = self
             .clone()
             .file_paths("")
+            .await
             .into_iter()
             .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
             .collect::<Vec<String>>();
@@ -361,15 +365,15 @@ impl Bucket {
         let total_images: usize = count_image_files(paths.clone());
         let message = operations_complete_message(self.name, total_data, total_images);
         let progress = ProgressBar::new(paths.len() as u64);
-        paths.par_iter().for_each(|path| {
+        for path in paths {
             progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
             progress.set_message(format!("Downloading {path}"));
             let folder = format!("{}/{}", output.display(), parent(path.clone()).display());
             create_dir_all(folder.clone()).unwrap();
             if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
                 if let Some(url) = self.code_repository.raw_url(path.to_string()) {
-                    match sync_get(url).send() {
-                        | Ok(response) => match response.bytes() {
+                    match get(url).send().await {
+                        | Ok(response) => match response.bytes().await {
                             | Ok(bytes) => {
                                 let mut content = Cursor::new(bytes);
                                 let _ = io::copy(&mut content, &mut file);
@@ -385,12 +389,12 @@ impl Bucket {
                 }
             };
             progress.inc(1);
-        });
+        }
         progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
         progress.finish_with_message(message);
         total_data + total_images
     }
-    fn file_paths(self: Bucket, directory: &str) -> Vec<String> {
+    async fn file_paths(self: Bucket, directory: &str) -> Vec<String> {
         const FIRST_PAGE: Option<u32> = Some(1);
         fn page_count(response: &Response) -> u32 {
             fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
@@ -416,8 +420,8 @@ impl Bucket {
                 };
                 files_all(path, None).into_iter().map(|x| x.display().to_string()).collect()
             }
-            | Repository::GitHub { .. } => match self.tree(directory, None) {
-                | Ok(response) if response.status().is_success() => Bucket::parse_github_response(response),
+            | Repository::GitHub { .. } => match self.tree(directory, None).await {
+                | Ok(response) if response.status().is_success() => Bucket::parse_github_response(response).await,
                 | Ok(_) | Err(_) => {
                     let url = self.tree_url(directory, None);
                     let name = self.name.unwrap_or_else(|| "Bucket".to_string());
@@ -426,12 +430,12 @@ impl Bucket {
                     vec![]
                 }
             },
-            | Repository::GitLab { .. } => match self.tree(directory, FIRST_PAGE) {
+            | Repository::GitLab { .. } => match self.tree(directory, FIRST_PAGE).await {
                 | Ok(response) if response.status().is_success() => {
-                    let paths = (FIRST_PAGE.unwrap_or_default()..=page_count(&response))
-                        .into_par_iter()
-                        .map(|page| self.clone().file_paths_for_page(directory, Some(page)))
-                        .reduce(Vec::new, |a, b| [a, b].concat());
+                    let start = FIRST_PAGE.unwrap_or_default();
+                    let end = page_count(&response);
+                    let tasks = (start..=end).map(|page| self.clone().file_paths_for_page(directory, Some(page)));
+                    let paths = join_all(tasks).await.into_iter().flatten().collect::<Vec<String>>();
                     trace!("{:#?}", response);
                     paths
                 }
@@ -445,18 +449,11 @@ impl Bucket {
             },
         }
     }
-    fn file_paths_for_page(self: Bucket, directory: &str, page: Option<u32>) -> Vec<String> {
-        match self.tree(directory, page) {
-            | Ok(response) if response.status().is_success() => match self.tree(directory, page) {
-                | Ok(response) if response.status().is_success() => Bucket::parse_gitlab_response(response),
-                | Ok(_) | Err(_) => {
-                    let url = self.tree_url(directory, Some(1));
-                    error!(url, page, "=> {} Failed to get paths", Label::fail());
-                    vec![]
-                }
-            },
+    async fn file_paths_for_page(self: Bucket, directory: &str, page: Option<u32>) -> Vec<String> {
+        match self.tree(directory, page).await {
+            | Ok(response) if response.status().is_success() => Bucket::parse_gitlab_response(response).await,
             | Ok(_) | Err(_) => {
-                let url = self.tree_url(directory, page);
+                let url = self.tree_url(directory, Some(1));
                 error!(url, page, "=> {} Failed to get paths", Label::fail());
                 vec![]
             }

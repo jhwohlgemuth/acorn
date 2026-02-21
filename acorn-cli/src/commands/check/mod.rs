@@ -49,7 +49,7 @@ pub async fn run(
         .merge_request(*merge_request)
         .build();
     let CommandLineOptions { exit_on_first_error, .. } = options;
-    let paths = paths_from_options(path, &Some(options));
+    let paths = paths_from_options(path, &Some(options)).await;
     let schema_issues = if skip.contains(&CheckCategory::Schema) {
         skip!("Schema validation");
         vec![]

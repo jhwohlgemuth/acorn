@@ -20,6 +20,7 @@ dependencies = [
  "exitcode",
  "fancy-regex",
  "fast_qr",
+ "futures",
  "indicatif",
  "insta",
  "is-terminal",

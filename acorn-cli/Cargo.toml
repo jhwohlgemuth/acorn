@@ -32,6 +32,7 @@ dotenvy = { workspace = true }
 exitcode = { version = "1.1.2", default-features = false }
 fancy-regex = { workspace = true }
 fast_qr = { version = "0.13.0", features = ["image"] }
+futures = { workspace = true }
 indicatif = { version = "0.18.2", default-features = false }
 is-terminal = "0.4.16"
 itertools = { workspace = true }

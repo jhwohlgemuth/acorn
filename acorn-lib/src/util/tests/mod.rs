@@ -1,13 +1,11 @@
 use crate::io::{
-    command_exists, extract_zip, files_from_git_commit, files_from_gitlab_merge_request, git_branch_name, git_default_branch_name, parent, read_file,
+    command_exists, extract_zip, git_branch_name, git_default_branch_name, parent, read_file,
     to_absolute_string, FromCommand, FromPath,
 };
 use crate::prelude::{Path, PathBuf};
 use crate::util::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;
-#[cfg(test)]
-use temp_env;
 
 const FIXTURES: &str = "../tests/fixtures";
 
@@ -123,41 +121,6 @@ fn test_file_extension() {
     assert_eq!(file_extension("./path/to/folder"), None);
     assert_eq!(file_extension("/path/to/.hidden/folder"), None);
     assert_eq!(file_extension("path/to/.hidden/folder"), None);
-}
-#[test]
-#[ignore]
-fn test_files_from_git_main() {
-    let files = files_from_git_commit("ab8862e", Some(vec!["csv"]));
-    assert_eq!(files.len(), 2);
-    let hash = "ae61400cfdd079c06c2563c6ffe16d3c714a6bdc";
-    let files = files_from_git_commit(hash, Some(vec!["rs"]));
-    assert_eq!(files.len(), 6);
-    let files = files_from_git_commit(hash, Some(vec!["json", "rs"]));
-    assert_eq!(files.len(), 7);
-    let files = files_from_git_commit(hash, Some(vec!["json"]));
-    assert_eq!(files.len(), 1);
-    let expected = "tests/fixtures/data/invalid_project_a/index.json";
-    assert_eq!(files[0].to_str().unwrap(), expected);
-}
-#[ignore]
-#[test]
-fn test_files_from_gitlab_merge_request() {
-    let extensions = Some(vec!["json", "yaml"]);
-    let expected = PathBuf::from("project/gravity/gravity.json");
-    temp_env::with_vars(
-        [
-            ("CI_API_V4_URL", Some("https://code.ornl.gov/api/v4")),
-            // NSSD Bucket
-            ("CI_MERGE_REQUEST_PROJECT_ID", Some("17410")),
-            // Gravity merge request
-            ("CI_MERGE_REQUEST_IID", Some("27")),
-        ],
-        || {
-            let files = files_from_gitlab_merge_request(extensions.clone());
-            assert_eq!(files.len(), 1);
-            assert_eq!(files[0], expected)
-        },
-    );
 }
 #[test]
 fn test_find_first() {

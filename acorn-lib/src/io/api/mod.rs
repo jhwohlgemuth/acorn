@@ -2,7 +2,7 @@
 //!
 //! Interact with RESTful APIs, handling requests and responses, authentication, and data serialization.
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
-use crate::io::{get, post, put, sync_get, sync_post, sync_put};
+use crate::io::{get, post, put};
 use crate::prelude::io::ErrorKind;
 use crate::prelude::Error;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
@@ -65,13 +65,6 @@ pub trait RestfulInterface {
     async fn invoke(&self, action: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>;
     /// Send data to the endpoint and receive a response asynchronously using explicit query/field types
     async fn invoke_with<Q, F>(&self, action: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
-    where
-        Q: QueryField + ValueValidator,
-        F: QueryField;
-    /// Send data to the endpoint and receive a response synchronously
-    fn invoke_sync(&self, action: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>;
-    /// Send data to the endpoint and receive a response synchronously using explicit query/field types
-    fn invoke_sync_with<Q, F>(&self, action: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
     where
         Q: QueryField + ValueValidator,
         F: QueryField;
@@ -566,86 +559,6 @@ impl RestfulInterface for Endpoint {
                 let headers = data.unwrap_or_default().into_headers();
                 match request.headers(headers).send().await {
                     | Ok(response) => match response.text().await {
-                        | Ok(text) => {
-                            let content = if detect_json(&text) {
-                                ResponseContent::Json(text)
-                            } else if detect_xml(&text) {
-                                ResponseContent::Xml(text)
-                            } else {
-                                ResponseContent::Raw(text)
-                            };
-                            Ok(content)
-                        }
-                        | Err(why) => Err(Error::other(why.to_string())),
-                    },
-                    | Err(why) => Err(Error::other(why.to_string())),
-                }
-            }
-            | None => Err(Error::new(ErrorKind::NotFound, "Resource not found")),
-        }
-    }
-    /// Invoke an endpoint resource with data and receive a response using [`EmptyField`] as the default query and field types.
-    /// ### Example
-    /// ```ignore
-    /// let ror = endpoints.find_by_name("ror");
-    /// let text = match &ror {
-    ///     | Some(endpoint) => {
-    ///         let response = endpoint.invoke_sync("status", None);
-    ///         endpoint.handle::<api::TextResponse>(response)
-    ///     }
-    ///     | None => Err("No ROR endpoint found".into()),
-    /// };
-    /// println!("ROR Status: {text:#?}");
-    /// ```
-    fn invoke_sync(&self, name: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error> {
-        self.invoke_sync_with::<Self::Query, Self::Field>(name, data)
-    }
-    /// Invoke an endpoint resource with data and receive a response using explicit query and field types.
-    /// ### Example
-    /// ```ignore
-    /// let orcid = endpoints.find_by_name("orcid");
-    /// let text = match &orcid {
-    ///     | Some(endpoint) => {
-    ///         let data = vec![
-    ///             api::Param::of_type(api::ParamStyle::QueryPair)
-    ///                 .values(vec![
-    ///                     vec![Some("affiliation-org-name"), Some("Lyrasis")],
-    ///                     vec![Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")],
-    ///                 ])
-    ///                 .with_key("q"),
-    ///             api::Param::of_type(api::ParamStyle::FieldList)
-    ///                 .values(vec![vec![Some("family-name")]])
-    ///                 .with_key("fl"),
-    ///         ];
-    ///         let response = endpoint.invoke_sync_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data));
-    ///         endpoint.handle::<api::orcid::SearchResponse>(response)
-    ///     }
-    ///     | None => Err("No ORCiD endpoint found".into()),
-    /// };
-    /// println!("ORCiD Search Response: {text:#?}");
-    /// ```
-    fn invoke_sync_with<Q, F>(&self, name: impl Into<String> + Clone, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
-    where
-        Q: QueryField + ValueValidator,
-        F: QueryField,
-    {
-        let Self { resources, .. } = self;
-        let mut tera = Tera::default();
-        let context = self.context_with::<Q, F>(data.clone());
-        let resource = resources.iter().find(|resource| resource.name == name.clone().into());
-        match resource {
-            | Some(Resource { method, template, .. }) => {
-                let path = tera.render_str(template, &context).unwrap_or_default();
-                let request = match method {
-                    | HttpMethod::Get => sync_get(path),
-                    // TODO: Pass Body params for POST and PUT requests
-                    | HttpMethod::Post => sync_post(path),
-                    | HttpMethod::Put => sync_put(path),
-                    | _ => unimplemented!("Only GET, POST, and PUT methods are currently implemented"),
-                };
-                let headers = data.unwrap_or_default().into_headers();
-                match request.headers(headers).send() {
-                    | Ok(response) => match response.text() {
                         | Ok(text) => {
                             let content = if detect_json(&text) {
                                 ResponseContent::Json(text)

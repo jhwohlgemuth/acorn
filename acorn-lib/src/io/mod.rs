@@ -571,15 +571,18 @@ pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<
 /// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
 ///
 /// [^env]: See <https://docs.gitlab.com/ci/variables/predefined_variables/> for more information about GitLab CI environment variables
-pub fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+pub async fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     let root = var("CI_API_V4_URL").unwrap_or_default();
     let project_id = var("CI_MERGE_REQUEST_PROJECT_ID").unwrap_or_default();
     let merge_request_iid = var("CI_MERGE_REQUEST_IID").unwrap_or_default();
     let path = format!("/projects/{project_id}/merge_requests/{merge_request_iid}/diffs");
     let url = format!("{root}{path}");
-    match sync_get(url).send() {
+    match get(url).send().await {
         | Ok(response) => {
-            let content: serde_json::Result<Vec<GitlabMergeRequestDiffResponse>> = serde_json::from_str(&response.text().unwrap());
+            let content: serde_json::Result<Vec<GitlabMergeRequestDiffResponse>> = response.text().await.map_or_else(
+                |_| Err(serde_json::Error::io(io::Error::other("Failed to read response text"))),
+                |body| serde_json::from_str(&body),
+            );
             match content {
                 | Ok(data) => {
                     debug!("=> {} GitLab API merge request diff response - {data:#?}", Label::using());

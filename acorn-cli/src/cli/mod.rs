@@ -50,7 +50,7 @@ pub struct CommandLineOptions {
 /// If the options specify a branch, the files changed in the branch are returned.
 /// If none of the above options are set, the files in the given path are returned.
 /// If the options include an ignore regex, it is applied to the files returned.
-pub fn paths_from_options(path: &Option<PathBuf>, options: &Option<CommandLineOptions>) -> Vec<PathBuf> {
+pub async fn paths_from_options(path: &Option<PathBuf>, options: &Option<CommandLineOptions>) -> Vec<PathBuf> {
     let extensions = Some(vec!["JSON", "YAML"]);
     match options {
         | Some(CommandLineOptions {
@@ -61,7 +61,7 @@ pub fn paths_from_options(path: &Option<PathBuf>, options: &Option<CommandLineOp
             ..
         }) => {
             let files = if *merge_request {
-                files_from_gitlab_merge_request(extensions)
+                files_from_gitlab_merge_request(extensions).await
             } else {
                 match commit {
                     | Some(hash) => files_from_git_commit(hash, extensions),

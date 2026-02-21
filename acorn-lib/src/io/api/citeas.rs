@@ -2,7 +2,7 @@
 //! > CiteAs is a way to get the correct citation for diverse research products including, software, datasets, preprints, and traditional articles. By making it easier to cite software and other "alternative" scholarly products, we aim to help the creators of such products get full credit for their work.
 //!
 //! See <https://citeas.org/api> for more information
-use crate::io::sync_get;
+use crate::io::get;
 use crate::schema::pid::DOI;
 use crate::util::Label;
 use serde::{Deserialize, Serialize};
@@ -147,12 +147,18 @@ pub struct Provenance {
     pub key_word: Option<String>,
 }
 /// Get status of CiteAs API
-pub fn status() -> Option<Status> {
+pub async fn status() -> Option<Status> {
     let url = "https://api.citeas.org?email=research@ornl.gov";
     debug!(url, "=> {}", Label::using());
-    match sync_get(url).send() {
+    match get(url).send().await {
         | Ok(response) => {
-            let content: serde_json::Result<Status> = serde_json::from_str(&response.text().unwrap_or_default());
+            let content: serde_json::Result<Status> = match response.text().await {
+                | Ok(text) => serde_json::from_str(&text),
+                | Err(why) => {
+                    error!("=> {} Parse API status response - {why}", Label::fail());
+                    Err(serde_json::Error::io(std::io::Error::other("Failed to read response text")))
+                }
+            };
             match content {
                 | Ok(status) => {
                     debug!("=> {} Status", Label::using());
@@ -172,11 +178,17 @@ pub fn status() -> Option<Status> {
 }
 impl Citations {
     /// Use CiteAs API to get citation data from DOI value
-    pub fn from_doi(value: &str) -> Citations {
+    pub async fn from_doi(value: &str) -> Citations {
         let url = format!("https://api.citeas.org/product/{value}?email=research@ornl.gov");
-        match sync_get(url).send() {
+        match get(url).send().await {
             | Ok(response) => {
-                let content: serde_json::Result<Citations> = serde_json::from_str(&response.text().unwrap());
+                let content: serde_json::Result<Citations> = match response.text().await {
+                    | Ok(text) => serde_json::from_str(&text),
+                    | Err(why) => {
+                        error!("=> {} Parse API status response - {why}", Label::fail());
+                        Err(serde_json::Error::io(std::io::Error::other("Failed to read response text")))
+                    }
+                };
                 match content {
                     | Ok(results) => {
                         debug!("=> {} Response", Label::using());
@@ -219,7 +231,7 @@ impl Citations {
 }
 impl DOI {
     /// Convert a `DOI` to a `Citations`
-    pub fn to_citations(self) -> Citations {
-        Citations::from_doi(&self.to_string())
+    pub async fn to_citations(self) -> Citations {
+        Citations::from_doi(&self.to_string()).await
     }
 }

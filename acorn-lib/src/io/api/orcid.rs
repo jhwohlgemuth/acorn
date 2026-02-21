@@ -11,7 +11,7 @@
 //! let orcid = endpoints.find_by_name("orcid");
 //! let text = match &orcid {
 //!     | Some(endpoint) => {
-//!         let response = endpoint.invoke_sync("status", None);
+//!         let response = endpoint.invoke("status", None).await;
 //!         endpoint.handle::<orcid::StatusResponse>(response)
 //!     }
 //!     | None => Err("No ORCiD endpoint found".into()),
@@ -37,7 +37,7 @@
 //!                 .values(vec![(Some("family-name"), None)])
 //!                 .with_key("fl"),
 //!         ];
-//!         let response = endpoint.invoke_sync_with::<orcid::SearchField, orcid::OutputColumn>("search", Some(data));
+//!         let response = endpoint.invoke_with::<orcid::SearchField, orcid::OutputColumn>("search", Some(data)).await;
 //!         endpoint.handle::<orcid::SearchResponse>(response)
 //!     }
 //!     | None => Err("No ORCiD endpoint found".into()),

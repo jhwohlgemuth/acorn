@@ -54,7 +54,7 @@ pub async fn run(
                 .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
         }
         | FileFormat::Json => {
-            let from_options = paths_from_options(path, &Some(options.clone()));
+            let from_options = paths_from_options(path, &Some(options.clone())).await;
             let (skipped, paths): (Vec<_>, Vec<_>) = from_options
                 .iter()
                 .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
@@ -86,7 +86,7 @@ pub async fn run(
             Ok(())
         }
         | FileFormat::Pdf => {
-            let paths = paths_from_options(path, &Some(options));
+            let paths = paths_from_options(path, &Some(options)).await;
             let playwright = Playwright::initialize().await.unwrap();
             playwright.install_chromium().unwrap(); // Install browsers
             let chromium = playwright.chromium();
@@ -107,7 +107,7 @@ pub async fn run(
             Ok(())
         }
         | FileFormat::Markdown => {
-            let from_options = paths_from_options(path, &Some(options.clone()));
+            let from_options = paths_from_options(path, &Some(options.clone())).await;
             let (skipped, paths): (Vec<_>, Vec<_>) = from_options
                 .iter()
                 .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
@@ -139,7 +139,7 @@ pub async fn run(
             Ok(())
         }
         | FileFormat::Powerpoint => {
-            let paths = paths_from_options(path, &Some(options.clone()));
+            let paths = paths_from_options(path, &Some(options.clone())).await;
             let options = CommandLineOptions::init()
                 .maybe_path(path.clone())
                 .maybe_output(output.clone())
@@ -166,7 +166,7 @@ pub async fn run(
             Ok(())
         }
         | FileFormat::Yaml => {
-            let from_options = paths_from_options(path, &Some(options.clone()));
+            let from_options = paths_from_options(path, &Some(options.clone())).await;
             let (skipped, paths): (Vec<_>, Vec<_>) = from_options
                 .iter()
                 .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
