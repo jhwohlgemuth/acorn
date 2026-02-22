@@ -499,7 +499,6 @@ pub struct VideoObject {
     /// See <https://schema.org/description> for more information
     #[serde(deserialize_with = "string_trim")]
     pub description: String,
-    // TODO: Create ISO 8601 struct and/or validator
     /// Duration of video in [ISO 8601 format](https://en.wikipedia.org/wiki/ISO_8601)
     ///
     /// See <https://schema.org/duration> for more information

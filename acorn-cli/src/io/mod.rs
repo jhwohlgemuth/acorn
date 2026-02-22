@@ -32,7 +32,6 @@ pub fn read_stdin() -> Option<String> {
             let stdin = io::stdin();
             let reader = stdin.lock();
             let lines = reader.lines();
-            // TODO: Handle errors and get rid of unwrap
             let value = lines.last().expect("Failed to read stdin line").unwrap();
             Some(value)
         }

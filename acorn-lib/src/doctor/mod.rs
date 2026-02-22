@@ -58,7 +58,6 @@ pub struct NetworkInformation {
     /// List of networks
     pub networks: Vec<Network>,
 }
-// TODO: Add detailed CPU information printer
 /// Information about microprocessor
 #[derive(Debug, Clone)]
 pub struct Processor {

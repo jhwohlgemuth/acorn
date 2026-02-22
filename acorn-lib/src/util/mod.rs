@@ -978,15 +978,13 @@ pub fn print_changes(old: &str, new: &str) {
         }
     }
 }
-// TODO: Improve flexibility (see https://rust-lang.github.io/api-guidelines/flexibility.html#c-generic)
 /// Prints the given values as a table.
 ///
 /// # Arguments
-///
 /// * `title` - The title of the table.
 /// * `headers` - The headers of the table.
 /// * `rows` - The rows of the table as a vector of vectors of strings.
-pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<String>>) {
+pub fn print_values_as_table(title: impl ToString, headers: Vec<&str>, rows: Vec<Vec<String>>) {
     let mut table = Table::new();
     table
         .load_preset(UTF8_FULL)
@@ -996,7 +994,7 @@ pub fn print_values_as_table(title: &str, headers: Vec<&str>, rows: Vec<Vec<Stri
     rows.into_iter().for_each(|row| {
         table.add_row(row);
     });
-    println!("=> {} \n{table}", title.green().bold());
+    println!("=> {} \n{table}", title.to_string().green().bold());
 }
 /// Helper function to create a lookup dictionary for regex captures
 /// ### Note

@@ -894,14 +894,8 @@ impl PersistentIdentifierParse for ARK {
     /// ```
     fn is_valid(value: impl ToString) -> bool {
         let pid = ARK::from_string(value);
-        // TODO: Test NAAN length? Test betanumeric?
-        let naan_is_integer = match pid.name_assigning_authority_number {
-            | Some(value) => match value.parse::<u32>() {
-                | Ok(_) => true,
-                | Err(_) => false,
-            },
-            | None => false,
-        };
+        let naan = pid.name_assigning_authority_number.unwrap_or_default();
+        let naan_is_betanumeric = naan.chars().all(|x| x.is_betanumeric());
         let shoulder_starts_with_lowercase_letter = match pid.assigned_name {
             | Some(value) => match value.chars().next() {
                 | Some(value) => value.is_ascii_lowercase() && !value.eq(&'l'),
@@ -909,7 +903,7 @@ impl PersistentIdentifierParse for ARK {
             },
             | None => false,
         };
-        naan_is_integer && shoulder_starts_with_lowercase_letter
+        !naan.is_empty() && naan_is_betanumeric && shoulder_starts_with_lowercase_letter
     }
 }
 impl PersistentIdentifierParse for DOI {

@@ -252,8 +252,6 @@ pub struct TextResponse {
     /// The raw text content from the response
     pub content: String,
 }
-// TODO: Define lookup maps for ORCiD, ROR, Vale, GitLab, GitHub, and Citeas APIs
-// TODO: Import paths from OpenAPI spec
 impl Endpoint {
     /// Get the base URL for the API endpoint, constructed from scheme, domain, and port if not provided
     pub fn base(&self) -> String {
@@ -479,8 +477,6 @@ impl RemoteResource for Endpoint {
                         });
                     }
                 });
-                // TODO: Add header/body params to request builder
-                dbg!(&context);
             }
             | None => (),
         }

@@ -494,8 +494,8 @@ fn test_validate_attribute_doi() {
 }
 #[test]
 fn test_validate_attribute_impact() {
-    let valid = ["x".repeat(10), "x".repeat(150)];
-    let invalid = ["x".repeat(151), "x".repeat(500)];
+    let valid = ["X".repeat(10), "X".repeat(150)];
+    let invalid = ["X".repeat(151), "X".repeat(500)];
     for x in valid.iter() {
         assert!(validate_attribute_impact(core::slice::from_ref(x)).is_ok());
     }
@@ -514,6 +514,12 @@ fn test_validate_attribute_impact() {
         "This is an impact statement with a period.".to_string(),
     ])
     .is_err());
+    assert!(validate_attribute_impact(&["starts with lowercase impact statement".to_string()]).is_err());
+    assert!(validate_attribute_impact(&[
+        "Starts with uppercase impact statement".to_string(),
+        "Another uppercase impact statement".to_string(),
+    ])
+    .is_ok());
 }
 #[test]
 fn test_validate_attribute_ror() {

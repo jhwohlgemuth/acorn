@@ -135,7 +135,7 @@ pub async fn run(
             let headers = vec!["Issue Type", "Issue Count"];
             let rows = summary(all_issues);
             println!("\n");
-            print_values_as_table(&Label::fmt_fail("Issues Overview"), headers, rows);
+            print_values_as_table(Label::fmt_fail("Issues Overview"), headers, rows);
         }
         exit(exitcode::DATAERR);
     }

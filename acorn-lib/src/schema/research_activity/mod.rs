@@ -361,7 +361,7 @@ impl InputOutput for ResearchActivity {
             }
         };
         let (frontmatter, _body) = frontmatter_and_body(&content);
-        let meta: ResearchActivityMetadata = match frontmatter {
+        let _meta: ResearchActivityMetadata = match frontmatter {
             | Some(value) => match serde_yml::from_str(&value) {
                 | Ok(data) => data,
                 | Err(why) => {
@@ -371,8 +371,6 @@ impl InputOutput for ResearchActivity {
             },
             | None => ResearchActivityMetadata::default(),
         };
-        dbg!(&meta);
-        // TODO: Parse body into title, subtitle, sections, and contact
         None
     }
     fn read_yaml(path: PathBuf) -> Result<ResearchActivity, Error> {
@@ -464,7 +462,6 @@ impl ResearchActivity {
     }
 }
 impl ToMarkdown for ResearchActivity {
-    // TODO: Implement to_markdown for ASPECT
     fn to_markdown(&self) -> String {
         let Self {
             meta,

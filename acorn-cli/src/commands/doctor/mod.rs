@@ -28,7 +28,6 @@ pub async fn run(fix: &bool, interactive: &bool, check: &[Diagnostic], offline: 
     if should_run(check, Diagnostic::Network) {
         NetworkInformation::init().print();
     }
-    // TODO: Add support for GPU information
     if should_run(check, Diagnostic::Gpu) {
         warn!("GPU diagnostics is not implemented yet");
     }

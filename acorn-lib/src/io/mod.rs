@@ -470,7 +470,6 @@ where
 /// # Returns
 ///
 /// A `Vec` containing `PathBuf` values of all files in the given directory that match at least one of the given extensions.
-// TODO: Add support for URI path
 pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()

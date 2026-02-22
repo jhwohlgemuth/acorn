@@ -70,7 +70,6 @@ pub fn is_ark(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new("ark").with_message(MESSAGE.into())),
     }
 }
-// TODO: Add chrono crate to handle dates
 fn is_current_year(value: String) -> bool {
     let now: DateTime<Utc> = Utc::now();
     let year = now.year().to_string().parse::<i32>().unwrap_or_default();
@@ -107,7 +106,6 @@ pub fn is_isbn(value: &str) -> Result<(), ValidationError> {
 /// > `2025-06-04`
 pub fn is_iso8601_date(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid ISO 8601 date (e.g., YYYY-MM-DD)";
-    // TODO: Make sure not in the future
     match RE_ISO_8601_DATE.is_match(value) {
         | Ok(value) if value => Ok(()),
         | _ => Err(ValidationError::new("ISO 8601 Date").with_message(MESSAGE.into())),
@@ -264,7 +262,6 @@ pub(crate) fn validate_attribute_ror_list(value: &[String]) -> Result<(), Valida
         | _ => Err(ValidationError::new("RORs").with_message("Every ROR should be valid".to_string().into())),
     }
 }
-// TODO: Check that statments start with capital letter (use regex for period and captial?)
 /// Custom validator function for [`ResearchActivity`] [impact](/acorn_lib/schema/struct.Sections.html#structfield.impact)
 ///
 /// [`ResearchActivity`]: ../struct.ResearchActivity.html
@@ -276,7 +273,23 @@ pub(crate) fn validate_attribute_impact(value: &[String]) -> Result<(), Validati
             let no_periods = value.iter().all(|x| !x.trim().ends_with("."));
             let is_valid = all_periods || no_periods;
             match is_valid {
-                | true => Ok(()),
+                | true => {
+                    let capitalized = value.iter().all(|x| {
+                        let first = x.trim().chars().find(|c| c.is_alphabetic());
+                        match first {
+                            | Some(letter) => {
+                                let actual = letter.to_string();
+                                let upper = actual.to_case(Case::Upper);
+                                actual.eq(&upper)
+                            }
+                            | None => false,
+                        }
+                    });
+                    match capitalized {
+                        | true => Ok(()),
+                        | _ => Err(ValidationError::new("impact").with_message("Impact statements should begin with a capital letter".into())),
+                    }
+                }
                 | _ => Err(ValidationError::new("impact")
                     .with_message("Impact statements should be all sentences with periods or all phrases without periods".into())),
             }

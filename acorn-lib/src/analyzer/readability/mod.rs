@@ -360,7 +360,6 @@ pub fn syllable_count(text: &str) -> usize {
     let tokens = text.split_whitespace().flat_map(tokenize).collect::<Vec<String>>();
     tokens.into_iter().map(syllables).sum()
 }
-// TODO: Expand acronyms into words
 /// Break text into tokens
 ///
 /// Currently replaces `é` and `ë` with `-e`, splits on hyphens, and removes non-alphabetic characters.
