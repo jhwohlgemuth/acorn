@@ -162,10 +162,10 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 String(&'static str, String),
                 Bullets(&'static str, Vec<String>),
             }
-            // TODO: Use CiteAs API to get in Chicago format
             let replacements = vec![
                 Replacement::String("caption", caption),
                 Replacement::String("challenge", challenge),
+                // TODO: Use CiteAs API to get in Chicago format
                 Replacement::String("citation", doi.unwrap_or_else(|| vec!["".to_string()])[0].clone()),
                 Replacement::String("email", email),
                 Replacement::String("first", first),

@@ -708,7 +708,7 @@ impl ContactPoint {
     #[cfg(feature = "std")]
     pub fn format_with(self, _context: Option<PathBuf>) -> Self {
         // TODO: Resolve ORCiD identifier from first, last, and email
-        self
+        self.format()
     }
 }
 impl Default for ContactPoint {

@@ -946,7 +946,6 @@ pub struct Title {
     /// <div class="warning">Listed as "recommended" (optional) and "required"</div>
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    // TODO: Add support for month and day(?)
     #[validate(custom(function = "is_iso8601_year"))]
     pub end_date: String,
 }

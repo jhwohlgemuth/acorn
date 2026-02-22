@@ -1096,7 +1096,6 @@ impl PersistentIdentifierParse for ORCID {
 impl PersistentIdentifierParse for RAID {
     /// Find all [`RAID`] values present in a string
     fn find_all(value: impl ToString) -> Vec<Self> {
-        // TODO: RAiDs are DOIs, but they might have extra format to distinguish them as RAiDs?
         let re = &RE_DOI;
         re.find_iter(&value.to_string()).map(|m| RAID::from_string(m.unwrap().as_str())).collect()
     }

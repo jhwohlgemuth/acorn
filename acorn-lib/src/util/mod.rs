@@ -95,11 +95,9 @@ where
     /// Chunk a string into substrings of a given size
     fn chunk(&self, size: usize) -> Vec<String>;
 }
-// TODO: Unify with io::api::spdx::License
-/// # License
 /// SPDX compliant license identifier
 ///
-/// See <https://spdx.org/licenses/>
+/// See <https://spdx.org/licenses/> for more information
 #[derive(Clone, Debug, Display, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum License {
     /// GNU Affero General Public License v3.0 only

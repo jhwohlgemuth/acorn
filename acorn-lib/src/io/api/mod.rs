@@ -684,7 +684,6 @@ where
         | Err(e) => Err(format!("Failed to parse ORCiD search response: {e}")),
     }
 }
-// TODO: Support OR statements for field values (e.g., affiliation-org-name:("University of Plymouth" OR "Plymouth University"))
 /// Construct a query string for an endpoint API query from a list of field-value pairs, a list of fields, and a list of fields with boosted relevance.
 ///
 /// The query string is constructed by joining the following parts with "&":

@@ -7,7 +7,9 @@ use crate::io::{
     filter_ignored, image_paths, InputOutput,
 };
 use crate::{Location, Repository, Scheme};
+use std::fs::{create_dir_all, read_to_string, remove_dir_all};
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const ENDPOINTS: &str = r#"{
     "endpoints": [
@@ -75,6 +77,7 @@ const ENDPOINTS: &str = r#"{
         }
     ]
 }"#;
+const TEST_BAGGING_DATE: &str = "2026-02-22";
 
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("tests/fixtures")
@@ -219,7 +222,6 @@ fn test_runners() {
     let config = ApplicationConfiguration::read_json(path).unwrap();
     insta::assert_snapshot!("acorn__io__config__tests__runners", format!("{:#?}", config.runners));
 }
-
 #[test]
 fn test_archive() {
     let path = fixtures_dir().join("data");
@@ -229,8 +231,8 @@ fn test_archive() {
 #[test]
 fn test_bagit() {
     let info = BagInfo::init()
-        .organization("Oak Ridge National Laboratory".to_string())
-        .contact_name("Jason Wohlgemuth".to_string())
+        .organization(vec!["Oak Ridge National Laboratory".to_string()])
+        .contact_name(vec!["Jason Wohlgemuth".to_string()])
         .build();
     let bag = Bag::init()
         .base_directory(fixtures_dir().join("data").display().to_string())
@@ -245,6 +247,52 @@ fn test_bagit() {
         }
         | Err(why) => panic!("Failed to save bag: {why}"),
     }
+}
+#[test]
+fn test_baginfo_save_repeatable_fields() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = std::env::temp_dir().join(format!("acorn-baginfo-{stamp}"));
+    create_dir_all(dir.clone()).unwrap();
+    let info = BagInfo::init()
+        .organization(vec!["Org One".to_string(), "Org Two".to_string()])
+        .contact_name(vec!["Alice".to_string(), "Bob".to_string()])
+        .count(vec![(1, Some(3)), (2, None)])
+        .date(TEST_BAGGING_DATE.to_string())
+        .size("1 MB".to_string())
+        .build();
+    let path = info.save(dir.clone()).unwrap();
+    assert_eq!(path, dir);
+    let content = read_to_string(dir.join("bag-info.txt")).unwrap();
+    let lines = content.lines().collect::<Vec<_>>();
+    let expected_date = format!("Bagging-Date: {TEST_BAGGING_DATE}");
+    assert_eq!(
+        lines,
+        vec![
+            "Source-Organization: Org One",
+            "Source-Organization: Org Two",
+            "Contact-Name: Alice",
+            "Contact-Name: Bob",
+            "Bag-Count: 1 of 3",
+            "Bag-Count: 2 of ?",
+            expected_date.as_str(),
+            "Bag-Size: 1 MB",
+        ]
+    );
+    remove_dir_all(dir).unwrap();
+}
+#[test]
+fn test_baginfo_save_single_value_fields_only() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = std::env::temp_dir().join(format!("acorn-baginfo-single-{stamp}"));
+    create_dir_all(dir.clone()).unwrap();
+    let info = BagInfo::init().date(TEST_BAGGING_DATE.to_string()).size("42 KB".to_string()).build();
+    let path = info.save(dir.clone()).unwrap();
+    assert_eq!(path, dir);
+    let content = read_to_string(dir.join("bag-info.txt")).unwrap();
+    let lines = content.lines().collect::<Vec<_>>();
+    let expected_date = format!("Bagging-Date: {TEST_BAGGING_DATE}");
+    assert_eq!(lines, vec![expected_date.as_str(), "Bag-Size: 42 KB"]);
+    remove_dir_all(dir).unwrap();
 }
 #[test]
 #[ignore = "Verification is broke on macbook for some reason"]

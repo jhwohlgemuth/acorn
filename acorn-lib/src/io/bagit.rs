@@ -81,26 +81,26 @@ pub struct Bag {
 #[builder(start_fn = init)]
 pub struct BagInfo {
     /// Organization transferring the content (Source-Organization)
-    pub organization: Option<String>,
+    pub organization: Option<Vec<String>>,
     /// Mailing address of the source organization (Organization-Address)
-    pub organization_address: Option<String>,
+    pub organization_address: Option<Vec<String>>,
     /// Person responsible for the content transfer (Contact-Name)
-    pub contact_name: Option<String>,
+    pub contact_name: Option<Vec<String>>,
     /// International format telephone number of responsible person (Contact-Phone)
-    pub contact_phone: Option<String>,
+    pub contact_phone: Option<Vec<String>>,
     /// Fully qualified email address of responsible person (Contact-Email)
-    pub contact_email: Option<String>,
+    pub contact_email: Option<Vec<String>>,
     /// Brief explanation of contents and provenance (External-Description)
-    pub description: Option<String>,
+    pub description: Option<Vec<String>>,
     /// Date (YYYY-MM-DD) that content was prepared for transfer (Bagging-Date)
     pub date: Option<String>,
     /// Sender-supplied identifier for the bag (External-Identifier)
-    pub identifier: Option<String>,
+    pub identifier: Option<Vec<String>>,
     /// Size or approximate size of the bag with abbreviation (Bag-Size)
     pub size: Option<String>,
-    /// Bag count as (N, T) tuple where N is ordinal position and T is total (Bag-Count)
+    /// Bag count values as (N, T) tuples where N is ordinal position and T is total
     /// T is None if unknown ("?")
-    pub count: Option<(u32, Option<u32>)>,
+    pub count: Option<Vec<(u32, Option<u32>)>>,
 }
 impl Bag {
     /// Verify the completeness and correctness of a bag
@@ -280,25 +280,30 @@ impl BagInfo {
             size,
             count,
         } = self;
-        let base = [
+        let repeatable = [
             ("Source-Organization", organization),
             ("Organization-Address", organization_address),
             ("Contact-Name", contact_name),
             ("Contact-Phone", contact_phone),
             ("Contact-Email", contact_email),
             ("External-Description", description),
-            ("Bagging-Date", date),
             ("External-Identifier", identifier),
-            ("Bag-Size", size),
         ]
         .into_iter()
-        .filter_map(|(key, value)| value.as_ref().map(|v| (key.to_string(), v.clone())));
-        // Option as iterator: Some(item) -> one element, None -> empty.
-        let count = count.iter().map(|(index, total)| {
+        .flat_map(|(key, values)| {
+            values
+                .iter()
+                .flat_map(|items| items.iter())
+                .map(move |value| (key.to_string(), value.clone()))
+        });
+        let count = count.iter().flat_map(|items| items.iter()).map(|(index, total)| {
             let total = total.map_or_else(|| "?".to_string(), |value| value.to_string());
             ("Bag-Count".to_string(), format!("{index} of {total}"))
         });
-        base.chain(count).collect()
+        let single = [("Bagging-Date", date.clone()), ("Bag-Size", size.clone())]
+            .into_iter()
+            .filter_map(|(key, value)| value.map(|v| (key.to_string(), v)));
+        repeatable.chain(count).chain(single).collect()
     }
 }
 impl Default for BagInfo {
