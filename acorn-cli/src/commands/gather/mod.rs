@@ -1,4 +1,5 @@
-use acorn::io::api::{self, Endpoint, EndpointSearch, Param, RemoteResource, ENDPOINTS};
+use acorn::io::api::{self, Endpoint, EndpointSearch, RemoteResource, ENDPOINTS};
+use acorn::param;
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
@@ -26,15 +27,12 @@ async fn orcid_example(endpoints: &Vec<Endpoint>) {
     let text = match &orcid {
         | Some(endpoint) => {
             let data = vec![
-                Param::of_type(api::ParamStyle::QueryPair)
-                    .values(vec![
-                        vec![Some("affiliation-org-name"), Some("Lyrasis")],
-                        vec![Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")],
-                    ])
-                    .with_key("q"),
-                Param::of_type(api::ParamStyle::FieldList)
-                    .values(vec![vec![Some("family-name")]])
-                    .with_key("fl"),
+                param!(
+                    QueryPair,
+                    "q",
+                    (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
+                ),
+                param!(FieldList, "fl", "family-name"),
             ];
             let response = endpoint
                 .invoke_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data))
@@ -67,9 +65,7 @@ async fn ror_example(endpoints: &Vec<Endpoint>) {
     println!("ROR Status: {text:#?}");
     let text = match &ror {
         | Some(endpoint) => {
-            let data = vec![Param::of_type(api::ParamStyle::TemplateValue)
-                .values(vec![vec![Some("01qz5mb56")]])
-                .with_key("identifier")];
+            let data = vec![param!(TemplateValue, "identifier", "01qz5mb56")];
             let response = endpoint.invoke("record", Some(data)).await;
             endpoint.handle::<api::ror::SingleRecord>(response)
         }
@@ -79,12 +75,8 @@ async fn ror_example(endpoints: &Vec<Endpoint>) {
     let text = match &ror {
         | Some(endpoint) => {
             let data = vec![
-                Param::of_type(api::ParamStyle::FieldList)
-                    .values(vec![vec![Some("Oak Ridge")]])
-                    .with_key("query"),
-                Param::of_type(api::ParamStyle::QueryPair)
-                    .values(vec![vec![Some("status"), Some("inactive")]])
-                    .with_key("filter"),
+                param!(FieldList, "query", "Oak Ridge"),
+                param!(QueryPair, "filter", ("status", "inactive")),
             ];
             let response = endpoint.invoke("search", Some(data)).await;
             endpoint.handle::<api::ror::SearchResponse>(response)

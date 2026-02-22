@@ -1,6 +1,8 @@
+use crate::io::api::ParamStyle;
 use crate::io::{
     command_exists, extract_zip, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand, FromPath,
 };
+use crate::param;
 use crate::prelude::{Path, PathBuf};
 use crate::util::*;
 #[cfg(test)]
@@ -335,4 +337,56 @@ fn test_to_absolute_string() {
         | Ok(false) => (),
         | Err(_) => (),
     }
+}
+#[test]
+fn test_param_single_value() {
+    let param = param!(ParamStyle::FieldList, "fl", "family-name");
+    assert_eq!(param.name, "fl");
+    assert_eq!(param.values, vec![vec![Some("family-name".to_string())]]);
+}
+#[test]
+fn test_param_single_tuple() {
+    let param = param!(ParamStyle::QueryPair, "filter", ("status", "inactive"));
+    assert_eq!(param.name, "filter");
+    assert_eq!(param.values, vec![vec![Some("status".to_string()), Some("inactive".to_string())]]);
+}
+#[test]
+fn test_param_multiple_tuples() {
+    let param = param!(
+        ParamStyle::QueryPair,
+        "q",
+        (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "https://ror.org/01qz5mb56"),)
+    );
+    assert_eq!(param.name, "q");
+    assert_eq!(
+        param.values,
+        vec![
+            vec![Some("affiliation-org-name".to_string()), Some("Lyrasis".to_string())],
+            vec![Some("ror-org-id".to_string()), Some("https://ror.org/01qz5mb56".to_string())]
+        ]
+    );
+}
+#[test]
+fn test_param_vec_notation() {
+    let param = param!(ParamStyle::FieldList, "fields", vec![vec!["field1", "field2"], vec!["field3"],]);
+    assert_eq!(param.name, "fields");
+    assert_eq!(
+        param.values,
+        vec![
+            vec![Some("field1".to_string()), Some("field2".to_string())],
+            vec![Some("field3".to_string())]
+        ]
+    );
+}
+#[test]
+fn test_param_template_value() {
+    let param = param!(ParamStyle::TemplateValue, "identifier", "01qz5mb56");
+    assert_eq!(param.name, "identifier");
+    assert_eq!(param.values, vec![vec![Some("01qz5mb56".to_string())]]);
+}
+#[test]
+fn test_param_with_quoted_value() {
+    let param = param!(ParamStyle::QueryPair, "ror-id", "\"https://ror.org/01qz5mb56\"");
+    assert_eq!(param.name, "ror-id");
+    assert_eq!(param.values, vec![vec![Some("\"https://ror.org/01qz5mb56\"".to_string())]]);
 }
