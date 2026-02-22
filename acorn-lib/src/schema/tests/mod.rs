@@ -318,6 +318,11 @@ fn test_organization() {
     assert!(OrganizationType::Group.order() < OrganizationType::Division.order());
 }
 #[test]
+fn test_organization_alternative_names() {
+    let names = Organization::alternative_names();
+    insta::assert_snapshot!(format!("{names:#?}"));
+}
+#[test]
 fn test_organization_graph() {
     let nssd = "National Security Sciences Directorate";
     let gshs = "Geospatial Science and Human Security Division";

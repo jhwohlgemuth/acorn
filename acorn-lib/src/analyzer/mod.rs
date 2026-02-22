@@ -9,7 +9,7 @@ use crate::io::{get, InputOutput};
 use crate::prelude;
 use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
 use crate::schema::research_activity::ResearchActivity;
-use crate::schema::{ImageObject, MediaObject, ProgrammingLanguage, VideoObject, Website};
+use crate::schema::{ImageObject, MediaObject, Organization, ProgrammingLanguage, VideoObject, Website};
 use crate::skip;
 use crate::util::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
@@ -165,7 +165,6 @@ pub struct Check {
 }
 #[async_trait]
 impl Analysis for ResearchActivity {
-    // TODO: Refactor to use "gather" capability on RAD as text (although might be less efficient?)
     /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
     #[cfg(feature = "std")]
     async fn check_websites(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
@@ -720,12 +719,18 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 }
                 match File::create(format!("{parent}/accept.txt")) {
                     | Ok(mut file) => {
-                        // TODO: Concatenate organization alternative names to accept file
                         let acronyms = Constant::last_values("acronyms");
                         let partners = Constant::last_values("partners");
                         let sponsors = Constant::last_values("sponsors");
+                        let abbreviations = Organization::alternative_names();
                         let words = Constant::read_lines("accept.txt");
-                        let content = acronyms.chain(partners).chain(sponsors).chain(words).collect::<Vec<String>>().join("\n");
+                        let content = acronyms
+                            .chain(partners)
+                            .chain(sponsors)
+                            .chain(abbreviations)
+                            .chain(words)
+                            .collect::<Vec<String>>()
+                            .join("\n");
                         file.write_all(content.as_bytes()).expect("Unable to write to accept.txt");
                     }
                     | Err(why) => panic!("=> {} Create accept.txt - {why}", Label::fail()),

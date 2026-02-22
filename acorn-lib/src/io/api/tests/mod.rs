@@ -467,3 +467,39 @@ fn test_ror_search_response() {
     let response: ror::SearchResponse = serde_json::from_str(&json).expect("Failed to deserialize JSON");
     insta::assert_snapshot!(format!("{:#?}", response));
 }
+#[test]
+fn test_params_into_body() {
+    use crate::io::api::IntoBody;
+    // Test single value body param
+    let params = vec![Param::of_type(ParamStyle::Body)
+        .values(vec![vec![Some("test value")]])
+        .with_key("message")];
+    let body = params.into_body();
+    assert_eq!(body["message"], serde_json::Value::String("test value".to_string()));
+    // Test multiple values body param (should be an array)
+    let params = vec![Param::of_type(ParamStyle::Body)
+        .values(vec![vec![Some("value1")], vec![Some("value2")]])
+        .with_key("items")];
+    let body = params.into_body();
+    assert_eq!(body["items"], serde_json::json!(["value1", "value2"]));
+    // Test empty body param (should be null)
+    let params = vec![Param::of_type(ParamStyle::Body).values(vec![]).with_key("empty")];
+    let body = params.into_body();
+    assert_eq!(body["empty"], serde_json::Value::Null);
+    // Test mixed params (only body params should be included)
+    let params = vec![
+        Param::of_type(ParamStyle::Body)
+            .values(vec![vec![Some("body value")]])
+            .with_key("body_field"),
+        Param::of_type(ParamStyle::QueryPair)
+            .values(vec![vec![Some("query"), Some("value")]])
+            .with_key("q"),
+        Param::of_type(ParamStyle::Header)
+            .values(vec![vec![Some("Bearer token")]])
+            .with_key("Authorization"),
+    ];
+    let body = params.into_body();
+    assert_eq!(body["body_field"], serde_json::Value::String("body value".to_string()));
+    assert!(body.get("q").is_none());
+    assert!(body.get("Authorization").is_none());
+}

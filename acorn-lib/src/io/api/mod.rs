@@ -40,6 +40,11 @@ pub trait EndpointSearch {
     /// Filter list of endpoints by name and return the first match
     fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint>;
 }
+/// Helper trait for converting parameter collections into HTTP request body
+pub trait IntoBody {
+    /// Convert this value into a `serde_json::Value` for request body, using only body-style parameters.
+    fn into_body(self) -> serde_json::Value;
+}
 /// Helper trait for converting parameter collections into HTTP headers
 pub trait IntoHeaders {
     /// Convert this value into a `reqwest::HeaderMap`, using only header-style parameters.
@@ -428,6 +433,27 @@ impl Param {
         rendered.unwrap_or_default()
     }
 }
+impl IntoBody for Vec<Param> {
+    fn into_body(self) -> serde_json::Value {
+        let body = self
+            .into_iter()
+            .filter(|param| param.is_body())
+            .map(|param| {
+                let Param { name, values, .. } = param;
+                let flattened: Vec<String> = values.into_iter().flat_map(|vec| vec.into_iter().flatten()).collect();
+                let value = if flattened.len() == 1 {
+                    serde_json::Value::String(flattened.into_iter().next().unwrap())
+                } else if flattened.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::Value::Array(flattened.into_iter().map(serde_json::Value::String).collect())
+                };
+                (name, value)
+            })
+            .collect();
+        serde_json::Value::Object(body)
+    }
+}
 impl IntoHeaders for Vec<Param> {
     fn into_headers(self) -> HeaderMap {
         let mut headers = HeaderMap::new();
@@ -553,14 +579,15 @@ impl RemoteResource for Endpoint {
         match resource {
             | Some(Resource { method, template, .. }) => {
                 let path = tera.render_str(template, &context).unwrap_or_default();
+                let params = data.unwrap_or_default();
+                let headers = params.clone().into_headers();
+                let body = params.into_body();
                 let request = match method {
                     | HttpMethod::Get => get(path),
-                    // TODO: Pass Body params for POST and PUT requests
-                    | HttpMethod::Post => post(path),
-                    | HttpMethod::Put => put(path),
+                    | HttpMethod::Post => post(path).json(&body),
+                    | HttpMethod::Put => put(path).json(&body),
                     | _ => unimplemented!("Only GET, POST, and PUT methods are currently implemented"),
                 };
-                let headers = data.unwrap_or_default().into_headers();
                 match request.headers(headers).send().await {
                     | Ok(response) => match response.text().await {
                         | Ok(text) => {

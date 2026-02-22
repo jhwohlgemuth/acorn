@@ -768,6 +768,15 @@ impl MediaObject {
     }
 }
 impl Organization {
+    /// Return list of all alternative names
+    pub fn alternative_names() -> Vec<String> {
+        let members = Organization::load()[0].clone().members();
+        
+        members
+            .into_iter()
+            .flat_map(|Organization { alternative_name, .. }| alternative_name)
+            .collect::<Vec<String>>()
+    }
     /// Returns a list of all organizations, loaded from the organization.json asset file
     pub fn load() -> Vec<Organization> {
         serde_json::from_str(&Constant::from_asset("organization.json")).unwrap()

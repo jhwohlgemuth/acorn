@@ -1164,7 +1164,6 @@
                             },
                             {
                                 "name": "Vulnerability Science",
-                                "alternativeName": "VS",
                                 "additionalType": "group",
                                 "member": []
                             }
@@ -1804,7 +1803,6 @@
                             },
                             {
                                 "name": "Macromolecular Nanomaterials",
-                                "alternativeName": "Macro",
                                 "additionalType": "group",
                                 "member": []
                             },

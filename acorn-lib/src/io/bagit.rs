@@ -75,7 +75,6 @@ pub struct Bag {
 /// specification. These fields correspond to the reserved metadata element names from RFC 8493.
 ///
 /// See <https://datatracker.ietf.org/doc/html/draft-kunze-bagit> for details
-// TODO: Make repeatable fields vectors
 #[derive(Builder, Clone, Debug, Display, Serialize, Deserialize, JsonSchema)]
 #[display("Bag-Info")]
 #[builder(start_fn = init)]
