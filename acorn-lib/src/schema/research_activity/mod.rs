@@ -8,14 +8,8 @@ use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutpu
 #[cfg(feature = "std")]
 use crate::prelude::{io::Error, PathBuf};
 use crate::schema::constants::{CODEMETA_CONTEXT, DCAT_CONTEXT, SCHEMA_ORG_CONTEXT};
-#[cfg(feature = "std")]
-use crate::schema::validate::format_phone_number;
 use crate::schema::validate::{is_kebabcase, is_list_url, validate_attribute_books, validate_attribute_doi, validate_attribute_ror_list};
-#[cfg(feature = "std")]
-use crate::schema::Organization;
 use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Sections, Status, Website};
-#[cfg(feature = "std")]
-use crate::util::constants::DEFAULT_AFFILIATION;
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
 use crate::util::{frontmatter_and_body, LinkedData, ToMarkdown};
 #[cfg(feature = "std")]
@@ -426,7 +420,7 @@ impl ResearchActivity {
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
     /// Creates a copy of a `ResearchActivity`
-    pub fn copy(self) -> ResearchActivity {
+    pub fn copy(&self) -> ResearchActivity {
         let ResearchActivity {
             meta,
             title,
@@ -447,89 +441,26 @@ impl ResearchActivity {
     }
     /// Formats research activity data
     /// ### Actions
-    /// - Resolves URL of first media object (if found) and add empty caption
     /// - Resolves keywords, technology, organization, partners, sponsors, and affiliation using fuzzy matching against controlled vocabularies
-    /// - Formats telephone number
-    // TODO: Isolate formatting that can be done without filesystem access
-    pub fn format(self, path: Option<PathBuf>) -> ResearchActivity {
-        let mut clone = self.clone().copy();
-        #[cfg(feature = "std")]
-        {
-            let path_parent = match path {
-                | Some(value) => parent(value),
-                | None => PathBuf::from("."),
-            };
-            debug!(path = path_parent.to_absolute_string(), "=> {} Parent directory", Label::using());
-            let name = match image_paths(&path_parent) {
-                | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
-                | _ => None,
-            };
-            if let Some(value) = name {
-                debug!(value, "=> {} First image", Label::using());
-                // Make sure first graphic is well formed with a resolved image URL and caption
-                let first_graphic = match self.meta.clone().media {
-                    | Some(values) if !values.is_empty() => {
-                        let caption = self.meta.clone().first_image_caption();
-                        let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
-                        MediaObject::Image(image_data)
-                    }
-                    | Some(_) | None => {
-                        let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
-                        MediaObject::Image(image_data)
-                    }
-                };
-                // Get the rest of the media objects
-                let rest = match self.clone().meta.media {
-                    | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
-                    | Some(_) | None => vec![],
-                };
-                clone.meta.media = Some([vec![first_graphic], rest].concat());
-            };
-        }
-        clone.meta.keywords = Vocabulary::Keywords.resolve(Some(clone.meta.keywords));
-        clone.meta.technology = Vocabulary::Technology.resolve(Some(clone.meta.technology));
-        clone.contact.telephone = match format_phone_number(&self.contact.telephone) {
-            | Ok(value) => value,
-            | Err(_) => {
-                error!(value = self.contact.telephone, "=> {} Phone number", Label::invalid());
-                self.contact.telephone.to_string()
-            }
-        };
-        clone.contact.organization = match resolve_from_organization_json(self.clone().contact.organization) {
-            | Some(value) => value,
-            | None => "".to_string(),
-        };
-        clone.contact.affiliation = match self.clone().contact.affiliation {
-            | Some(ref affiliation) => match resolve_from_organization_json(affiliation.to_string()) {
-                | Some(resolved) => Some(resolved),
-                | None => {
-                    error!(affiliation, "=> {} Affiliation", Label::not_found());
-                    Some(DEFAULT_AFFILIATION.to_string())
-                }
-            },
-            | None => {
-                let ornl = &Organization::load()[0];
-                match ornl.clone().member(&clone.contact.organization) {
-                    | Some(organization) => match organization.nearest(OrganizationType::Directorate) {
-                        | Some(Organization { name, .. }) => Some(name),
-                        | None => Some(DEFAULT_AFFILIATION.to_string()),
-                    },
-                    | None => {
-                        error!("=> {} Nearest directorate", Label::not_found());
-                        Some(DEFAULT_AFFILIATION.to_string())
-                    }
-                }
-            }
-        };
-        clone.meta.partners = match Vocabulary::Partners.resolve(clone.meta.partners) {
-            | values if !values.is_empty() => Some(values),
-            | _ => None,
-        };
-        clone.meta.sponsors = match Vocabulary::Sponsors.resolve(clone.meta.sponsors) {
-            | values if !values.is_empty() => Some(values),
-            | _ => None,
-        };
+    /// - Formats contact telephone number
+    pub fn format(self) -> ResearchActivity {
+        let Self { meta, contact, .. } = self.clone();
+        let mut clone = self.clone();
+        clone.meta = meta.format();
+        clone.contact = contact.format();
         clone
+    }
+    /// Formats research activity data with context of filesystem and/or remote resources
+    /// ### Actions
+    /// - Resolves URL of first media object (if found) and add empty caption
+    /// - Resolves ORCiD identifier from contact first name, last name, and email (if found)
+    #[cfg(feature = "std")]
+    pub fn format_with(self, context: Option<PathBuf>) -> ResearchActivity {
+        let Self { meta, contact, .. } = self.clone();
+        let mut clone = self.clone();
+        clone.meta = meta.format_with(context.clone());
+        clone.contact = contact.format_with(context.clone());
+        clone.format()
     }
 }
 impl ToMarkdown for ResearchActivity {
@@ -598,6 +529,57 @@ impl ResearchActivityMetadata {
             },
             | Some(_) | None => DEFAULT_GRAPHIC_CAPTION.to_string(),
         }
+    }
+    /// Fix, resolve, and augment research activity metadata
+    pub fn format(self) -> Self {
+        let mut clone = self.clone();
+        clone.keywords = Vocabulary::Keywords.resolve(Some(clone.keywords));
+        clone.technology = Vocabulary::Technology.resolve(Some(clone.technology));
+        clone.partners = match Vocabulary::Partners.resolve(clone.partners) {
+            | values if !values.is_empty() => Some(values),
+            | _ => None,
+        };
+        clone.sponsors = match Vocabulary::Sponsors.resolve(clone.sponsors) {
+            | values if !values.is_empty() => Some(values),
+            | _ => None,
+        };
+        clone
+    }
+    /// Fix, resolve, and augment research activity metadata with access to filesystem and/or remote resources
+    #[cfg(feature = "std")]
+    pub fn format_with(self, path: Option<PathBuf>) -> Self {
+        let mut clone = self.clone();
+        let path_parent = match path {
+            | Some(value) => parent(value),
+            | None => PathBuf::from("."),
+        };
+        debug!(path = path_parent.to_absolute_string(), "=> {} Parent directory", Label::using());
+        let name = match image_paths(&path_parent) {
+            | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
+            | _ => None,
+        };
+        if let Some(value) = name {
+            debug!(value, "=> {} First image", Label::using());
+            // Make sure first graphic is well formed with a resolved image URL and caption
+            let first_graphic = match self.media.clone() {
+                | Some(values) if !values.is_empty() => {
+                    let caption = self.clone().first_image_caption();
+                    let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
+                    MediaObject::Image(image_data)
+                }
+                | Some(_) | None => {
+                    let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
+                    MediaObject::Image(image_data)
+                }
+            };
+            // Get the rest of the media objects
+            let rest = match self.clone().media {
+                | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
+                | Some(_) | None => vec![],
+            };
+            clone.media = Some([vec![first_graphic], rest].concat());
+        };
+        clone.format()
     }
 }
 impl Vocabulary {
@@ -674,29 +656,4 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
         .map(|(x, _)| x.to_string());
     print_resolution(output.clone(), value, name);
     output
-}
-pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
-    let organization = &Organization::load()[0];
-    let mut items = vec![organization.clone()];
-    let directorates = organization.member.clone();
-    for directorate in &directorates {
-        items.push(directorate.clone());
-        let divisions = directorate.member.clone();
-        for division in &divisions {
-            items.push(division.clone());
-        }
-    }
-    let data = items
-        .into_iter()
-        .map(|x| (x.name.clone(), x.alternative_name.clone()))
-        .filter(|(name, alias)| !(name.is_empty() && alias.is_none()))
-        .map(|(name, alias)| {
-            let alternative_name = match alias {
-                | Some(x) => x.to_string(),
-                | None => name.clone(),
-            };
-            vec![name, alternative_name]
-        })
-        .collect::<Vec<Vec<String>>>();
-    resolve_from_list_of_lists(value, data, "organization".to_string())
 }

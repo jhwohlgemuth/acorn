@@ -396,7 +396,7 @@ fn test_research_activity_format() {
     let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/changes/index.json")).unwrap();
     assert!(pre.meta.media.is_none());
     assert!(pre.contact.affiliation.is_none());
-    let post = pre.format(path.clone());
+    let post = pre.format_with(path.clone());
     assert_eq!(post.meta.media.unwrap()[0].clone().content_url(), Some("42.png".to_string()));
     assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
     //
@@ -405,7 +405,7 @@ fn test_research_activity_format() {
     let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/unresolved_changes/index.json")).unwrap();
     assert!(pre.meta.media.is_some());
     assert_eq!(pre.contact.affiliation, Some("Not an actual affiliation".to_string()));
-    let post = pre.format(None);
+    let post = pre.format_with(None);
     assert!(post.clone().meta.media.unwrap()[0].clone().content_url().is_none());
     assert_eq!(post.clone().meta.first_image().unwrap().description(), "".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
@@ -415,7 +415,7 @@ fn test_research_activity_format() {
     let mut pre = post.clone().copy();
     pre.contact.organization = "Not an actual organization".to_string();
     pre.contact.affiliation = None;
-    let post = pre.format(None);
+    let post = pre.format_with(None);
     assert_eq!(post.contact.organization, "".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
     //
@@ -424,7 +424,7 @@ fn test_research_activity_format() {
     let mut pre = post.clone().copy();
     pre.contact.organization = "Oak Ridge National Laboratory".to_string();
     pre.contact.affiliation = None;
-    let post = pre.format(None);
+    let post = pre.format_with(None);
     assert_eq!(post.contact.organization, "Oak Ridge National Laboratory".to_string());
     assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
     //
@@ -434,7 +434,7 @@ fn test_research_activity_format() {
     let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/no_changes/index.json")).unwrap();
     assert_eq!(pre.clone().meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
     assert_eq!(pre.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
-    let post = pre.clone().format(path);
+    let post = pre.clone().format_with(path);
     assert_eq!(post.meta.media.unwrap()[0].clone().content_url(), Some("42.png".to_string()));
     assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
 }

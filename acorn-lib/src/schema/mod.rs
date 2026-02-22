@@ -2,15 +2,33 @@
 //!
 //! Here you'll find everything needed to build and use the research activity data schema, including metadata fields, section information, media objects, formats, and functions that power ACORN CLI commands.
 //!
+
+#[cfg(feature = "std")]
+use crate::prelude::PathBuf;
+#[cfg(feature = "std")]
+use crate::schema::validate::format_phone_number;
+#[cfg(feature = "std")]
+use crate::util::constants::DEFAULT_AFFILIATION;
 use crate::util::constants::{
     MAX_COUNT_APPROACH, MAX_COUNT_CAPABILITIES, MAX_COUNT_IMPACT, MAX_COUNT_RESEARCH_AREAS, MAX_LENGTH_IMAGE_CAPTION, MAX_LENGTH_RESEARCH_FOCUS,
     MAX_LENGTH_SECTION_CHALLENGE, MAX_LENGTH_SECTION_MISSION,
 };
+#[cfg(feature = "std")]
+use crate::util::Label;
 use crate::util::{Constant, LinkedData, ToMarkdown};
 use bon::Builder;
+#[cfg(feature = "std")]
+use convert_case::{Case, Casing};
 use core::hash::Hash;
 use core::num::NonZeroU64;
 use derive_more::Display;
+#[cfg(feature = "std")]
+use fancy_regex::Regex;
+#[cfg(feature = "std")]
+use nucleo_matcher::{
+    pattern::{CaseMatching, Normalization, Pattern},
+    Config, Matcher,
+};
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use petgraph::graph::Graph;
 use schemars::JsonSchema;
@@ -18,6 +36,8 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
+#[cfg(feature = "std")]
+use tracing::{debug, error, trace};
 use validator::Validate;
 
 pub mod constants;
@@ -621,6 +641,77 @@ pub struct Research {
     #[serde(deserialize_with = "vec_string_trim")]
     pub areas: Vec<String>,
 }
+impl ContactPoint {
+    /// Fix, resolve, and augment contact point data
+    pub fn format(self) -> Self {
+        let ContactPoint {
+            affiliation,
+            context,
+            contact_point_type,
+            email,
+            family_name,
+            given_name,
+            identifier,
+            job_title,
+            organization,
+            telephone,
+            url,
+            ..
+        } = self.clone();
+        let updated_organization = match resolve_from_organization_json(organization) {
+            | Some(value) => value,
+            | None => "".to_string(),
+        };
+        let updated_affiliation = match affiliation {
+            | Some(ref affiliation) => match resolve_from_organization_json(affiliation.to_string()) {
+                | Some(resolved) => Some(resolved),
+                | None => {
+                    error!(affiliation, "=> {} Affiliation", Label::not_found());
+                    Some(DEFAULT_AFFILIATION.to_string())
+                }
+            },
+            | None => {
+                let ornl = &Organization::load()[0];
+                match ornl.clone().member(&updated_organization) {
+                    | Some(organization) => match organization.nearest(OrganizationType::Directorate) {
+                        | Some(Organization { name, .. }) => Some(name),
+                        | None => Some(DEFAULT_AFFILIATION.to_string()),
+                    },
+                    | None => {
+                        error!("=> {} Nearest directorate", Label::not_found());
+                        Some(DEFAULT_AFFILIATION.to_string())
+                    }
+                }
+            }
+        };
+        let updated_telephone = match format_phone_number(&telephone) {
+            | Ok(value) => value,
+            | Err(_) => {
+                error!(value = telephone, "=> {} Phone number", Label::invalid());
+                telephone.to_string()
+            }
+        };
+        Self::init()
+            .maybe_affiliation(updated_affiliation)
+            .maybe_context(context)
+            .maybe_contact_point_type(contact_point_type)
+            .email(email)
+            .family_name(family_name)
+            .given_name(given_name)
+            .maybe_identifier(identifier)
+            .job_title(job_title)
+            .organization(updated_organization)
+            .telephone(updated_telephone)
+            .url(url)
+            .build()
+    }
+    /// Fix, resolve, and augment research activity metadata with access to filesystem and/or remote resources
+    #[cfg(feature = "std")]
+    pub fn format_with(self, _context: Option<PathBuf>) -> Self {
+        // TODO: Resolve ORCiD identifier from first, last, and email
+        self
+    }
+}
 impl Default for ContactPoint {
     fn default() -> Self {
         Self::init().build()
@@ -894,6 +985,88 @@ impl View for ContactPoint {
             </section>
         }
     }
+}
+pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I, name: String) -> Option<String> {
+    fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
+        let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
+        let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+        pattern.match_list(values.clone(), &mut matcher)
+    }
+    fn print_resolution(output: Option<String>, value: String, name: String) {
+        let label = name.to_case(Case::Title);
+        match output {
+            | Some(resolved) => {
+                if resolved.eq(&value.to_string()) {
+                    trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
+                } else {
+                    debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
+                }
+            }
+            | None => {
+                debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
+            }
+        };
+    }
+    fn sanitize(value: String) -> String {
+        match Regex::new(r"[-_.,]") {
+            | Ok(re) => re.replace_all(&value, "").replace("&", "and").trim().to_string(),
+            | Err(err) => err.to_string(),
+        }
+    }
+    let output = data
+        .into_iter()
+        .flat_map(|values| {
+            let sanitized = sanitize(value.clone());
+            let matched = match_list(sanitized, values.clone().into_iter().take(4));
+            trace!("{} => {:?}", value.clone(), matched.clone());
+            if matched.clone().is_empty() {
+                None
+            } else {
+                match values.first() {
+                    | Some(x) => {
+                        if value.eq(x) {
+                            Some((x.into(), 10000))
+                        } else {
+                            let score = matched.into_iter().map(|(_, score)| score).max();
+                            match score {
+                                | Some(value) if value > 0 => Some((x.to_string(), value)),
+                                | Some(_) | None => None,
+                            }
+                        }
+                    }
+                    | None => None,
+                }
+            }
+        })
+        .max_by_key(|(_, score)| *score)
+        .map(|(x, _)| x.to_string());
+    print_resolution(output.clone(), value, name);
+    output
+}
+pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
+    let organization = &Organization::load()[0];
+    let mut items = vec![organization.clone()];
+    let directorates = organization.member.clone();
+    for directorate in &directorates {
+        items.push(directorate.clone());
+        let divisions = directorate.member.clone();
+        for division in &divisions {
+            items.push(division.clone());
+        }
+    }
+    let data = items
+        .into_iter()
+        .map(|x| (x.name.clone(), x.alternative_name.clone()))
+        .filter(|(name, alias)| !(name.is_empty() && alias.is_none()))
+        .map(|(name, alias)| {
+            let alternative_name = match alias {
+                | Some(x) => x.to_string(),
+                | None => name.clone(),
+            };
+            vec![name, alternative_name]
+        })
+        .collect::<Vec<Vec<String>>>();
+    resolve_from_list_of_lists(value, data, "organization".to_string())
 }
 
 #[cfg(test)]

@@ -125,11 +125,14 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandL
     let research_activity_data = paths
         .clone()
         .iter()
-        .map(|x| match ResearchActivity::read(x.clone()) {
-            | Ok(value) => value.format(Some(x.clone())),
+        .map(|path| match ResearchActivity::read(path.clone()) {
+            | Ok(value) => {
+                let context = Some(path.clone());
+                value.format_with(context)
+            }
             | Err(why) => {
                 error!(
-                    path = x.to_absolute_string(),
+                    path = path.to_absolute_string(),
                     "=> {} Read data for PowerPoint export - {why}",
                     Label::fail(),
                 );

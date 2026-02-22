@@ -41,9 +41,11 @@ pub async fn run(
                 | MimeType::Yaml => serde_yml::to_string(&data).unwrap(),
                 | _ => unimplemented!("Unsupported file type"),
             };
+            let context = Some(path.clone());
+            let formatted = data.format_with(context);
             let new_content = match mime {
-                | MimeType::Json => serde_json::to_string_pretty(&data.format(Some(path.clone()))).unwrap(),
-                | MimeType::Yaml => serde_yml::to_string(&data.format(Some(path.clone()))).unwrap(),
+                | MimeType::Json => serde_json::to_string_pretty(&formatted).unwrap(),
+                | MimeType::Yaml => serde_yml::to_string(&formatted).unwrap(),
                 | _ => unimplemented!("Unsupported file type"),
             };
             if dry_run {

@@ -165,7 +165,8 @@ pub struct Check {
 }
 #[async_trait]
 impl Analysis for ResearchActivity {
-    /// Checks links associated with research activity
+    // TODO: Refactor to use "gather" capability on RAD as text (although might be less efficient?)
+    /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
     #[cfg(feature = "std")]
     async fn check_websites(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
         let futures = paths.into_iter().map(|path| async move {
@@ -181,7 +182,7 @@ impl Analysis for ResearchActivity {
                             | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
                             | None => vec![],
                         };
-                        let links: Vec<String> = dois.into_iter().chain(websites).collect();
+                        let links: Vec<String> = dois.into_iter().chain(websites).chain([data.clone().contact.url]).collect();
                         let link_futures = links.into_iter().map(|url| link_check(Some(url)));
                         issues = join_all(link_futures).await;
                     }
