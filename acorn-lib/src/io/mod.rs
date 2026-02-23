@@ -865,18 +865,24 @@ pub fn read_file<P>(path: P) -> Result<String, io::Error>
 where
     P: Into<PathBuf> + Clone,
 {
-    let mut content = String::new();
-    let _ = match File::open(path.clone().into()) {
-        | Ok(mut file) => {
-            debug!(path = path.into().to_absolute_string(), "=> {}", Label::read());
-            file.read_to_string(&mut content)
-        }
+    let path_buf = path.into();
+    let filename = path_buf.file_name().unwrap_or_default().to_string_lossy().to_string();
+    let file = match File::open(&path_buf) {
+        | Ok(file) => file,
         | Err(why) => {
-            error!(path = path.into().to_absolute_string(), "=> {} Read file", Label::fail());
-            Err(why)
+            error!(filename, "=> {} Read file", Label::fail());
+            return Err(why);
         }
     };
-    Ok(content)
+    let mut reader = BufReader::new(file);
+    let mut content = String::new();
+    match reader.read_to_string(&mut content) {
+        | Ok(_) => Ok(content),
+        | Err(why) => {
+            error!(filename, "=> {} Read file content", Label::fail());
+            Err(why)
+        }
+    }
 }
 /// Returns path to a folder in the operating system's cache directory that is unique to the given
 /// `namespace` with a random UUID as the name of the final folder.

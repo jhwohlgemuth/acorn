@@ -223,8 +223,7 @@ fn test_read() {
     assert_eq!(content.unwrap(), "Hello world!");
     let path = PathBuf::from(FIXTURES).join("does-not-exist");
     let content = read_file(path);
-    assert!(content.is_ok());
-    assert_eq!(content.unwrap(), "");
+    assert!(content.is_err());
 }
 #[test]
 fn test_regex_capture_lookup() {

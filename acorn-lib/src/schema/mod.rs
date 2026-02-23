@@ -771,7 +771,7 @@ impl Organization {
     /// Return list of all alternative names
     pub fn alternative_names() -> Vec<String> {
         let members = Organization::load()[0].clone().members();
-        
+
         members
             .into_iter()
             .flat_map(|Organization { alternative_name, .. }| alternative_name)
