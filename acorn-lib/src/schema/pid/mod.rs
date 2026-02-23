@@ -8,9 +8,9 @@
 //! - Access the sub parts of a persistent identifier
 //!
 //! [RAiDs]: https://www.raid.org/
+use crate::schema::constants::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::util::constants::{
-    DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI, RE_ARK, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT,
-    RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
+    RE_ARK, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
 };
 use crate::util::{base32_crockford_decode, regex_capture_lookup, ToStringChunks};
 use bon::Builder;

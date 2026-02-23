@@ -7,9 +7,9 @@
 use crate::io::read_file;
 #[cfg(feature = "std")]
 use crate::prelude::{Error, PathBuf};
+use crate::schema::constants::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror, is_unix_epoch};
-use crate::util::constants::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 #[cfg(feature = "std")]
 use crate::util::Label;
 use crate::util::{current_date, License};
