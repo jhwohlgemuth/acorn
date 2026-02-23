@@ -23,7 +23,7 @@ use crate::fail;
 use crate::prelude::{canonicalize, create_dir_all, io, var, BufReader, Cursor, Error, File, PathBuf, Read, Write};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, Permissions, PermissionsExt};
-use crate::util::constants::{APPLICATION, ORGANIZATION, QUALIFIER};
+use crate::util::constants::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
 use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, ToAbsoluteString, ToStrings};
@@ -881,19 +881,60 @@ where
 {
     let path_buf = path.into();
     let filename = path_buf.file_name().unwrap_or_default().to_string_lossy().to_string();
+    let is_large_file = match path_buf.metadata() {
+        | Ok(metadata) => metadata.len() >= LARGE_FILE_THRESHOLD_BYTES,
+        | Err(_) => false,
+    };
+    if is_large_file {
+        trace!(filename, "=> {} Read file with large-file strategy", Label::using());
+        read_large_file(path_buf)
+    } else {
+        match File::open(&path_buf) {
+            | Ok(file) => {
+                let mut reader = BufReader::new(file);
+                let mut content = String::new();
+                match reader.read_to_string(&mut content) {
+                    | Ok(_) => Ok(content),
+                    | Err(why) => {
+                        error!(filename, "=> {} Read file content", Label::fail());
+                        Err(why)
+                    }
+                }
+            }
+            | Err(why) => {
+                error!(filename, "=> {} Read file", Label::fail());
+                Err(why)
+            }
+        }
+    }
+}
+/// Reads large files and returns the contents as a string.
+///
+/// This function uses a larger buffered reader and pre-allocates the output string
+/// using file metadata when available.
+pub fn read_large_file<P>(path: P) -> Result<String, io::Error>
+where
+    P: Into<PathBuf> + Clone + Send,
+{
+    let path_buf = path.into();
+    let filename = path_buf.file_name().unwrap_or_default().to_string_lossy().to_string();
     let file = match File::open(&path_buf) {
         | Ok(file) => file,
         | Err(why) => {
-            error!(filename, "=> {} Read file", Label::fail());
+            error!(filename, "=> {} Read large file", Label::fail());
             return Err(why);
         }
     };
-    let mut reader = BufReader::new(file);
-    let mut content = String::new();
+    let capacity = match file.metadata() {
+        | Ok(metadata) => usize::try_from(metadata.len()).unwrap_or(0),
+        | Err(_) => 0,
+    };
+    let mut reader = BufReader::with_capacity(1024 * 1024, file);
+    let mut content = if capacity > 0 { String::with_capacity(capacity) } else { String::new() };
     match reader.read_to_string(&mut content) {
         | Ok(_) => Ok(content),
         | Err(why) => {
-            error!(filename, "=> {} Read file content", Label::fail());
+            error!(filename, "=> {} Read large file content", Label::fail());
             Err(why)
         }
     }

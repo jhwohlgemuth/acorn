@@ -4,10 +4,10 @@ use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::config::{ApplicationConfiguration, Bucket};
 use crate::io::{
     archive, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_git_command_result,
-    filter_ignored, image_paths, InputOutput,
+    filter_ignored, image_paths, read_file, read_large_file, InputOutput,
 };
 use crate::{Location, Repository, Scheme};
-use std::fs::{create_dir_all, read_to_string, remove_dir_all};
+use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -422,4 +422,24 @@ fn test_image_paths() {
     let path = PathBuf::from(".");
     let files = image_paths(path);
     assert_eq!(files.len(), 0);
+}
+#[test]
+fn test_read_large_file() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = std::env::temp_dir().join(format!("acorn-read-large-file-{stamp}.txt"));
+    let expected = "ACORN ".repeat(500_000);
+    write(path.clone(), expected.clone()).unwrap();
+    let content = read_large_file(path.clone()).unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
+}
+#[test]
+fn test_read_file_large_content() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = std::env::temp_dir().join(format!("acorn-read-file-large-{stamp}.txt"));
+    let expected = "ACORN-LARGE ".repeat(800_000);
+    write(path.clone(), expected.clone()).unwrap();
+    let content = read_file(path.clone()).unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
 }
