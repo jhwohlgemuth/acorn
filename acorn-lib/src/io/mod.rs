@@ -853,6 +853,8 @@ where
 }
 /// Reads the given file and returns its contents as a string.
 ///
+/// This function is thread-safe and can be used with rayon's parallel iterators.
+///
 /// # Parameters
 ///
 /// * `path` - A `PathBuf` or string slice containing the path to the file to be read.
@@ -861,9 +863,21 @@ where
 ///
 /// A `Result` containing the contents of the file as a string if the file is readable, or an
 /// `std::io::Error` otherwise.
+///
+/// # Example with rayon
+///
+/// ```ignore
+/// use rayon::prelude::*;
+///
+/// let paths = vec![PathBuf::from("file1.txt"), PathBuf::from("file2.txt")];
+/// let contents: Vec<_> = paths
+///     .par_iter()
+///     .filter_map(|path| read_file(path).ok())
+///     .collect();
+/// ```
 pub fn read_file<P>(path: P) -> Result<String, io::Error>
 where
-    P: Into<PathBuf> + Clone,
+    P: Into<PathBuf> + Clone + Send,
 {
     let path_buf = path.into();
     let filename = path_buf.file_name().unwrap_or_default().to_string_lossy().to_string();
