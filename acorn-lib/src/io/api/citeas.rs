@@ -2,7 +2,8 @@
 //! > CiteAs is a way to get the correct citation for diverse research products including, software, datasets, preprints, and traditional articles. By making it easier to cite software and other "alternative" scholarly products, we aim to help the creators of such products get full credit for their work.
 //!
 //! See <https://citeas.org/api> for more information
-use crate::io::api::{Endpoint, Param, ParamStyle, RemoteResource, Resource};
+use crate::io::api::{EndpointSearch, RemoteResource, ENDPOINTS};
+use crate::param;
 use crate::schema::pid::DOI;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -148,21 +149,25 @@ pub struct StatusResponse {
 }
 /// Get status of CiteAs API
 pub async fn status() -> Result<StatusResponse, String> {
-    let template = "{{ base }}/?email=research@ornl.gov";
-    let resources = vec![Resource::init().name("status").method("get").template(template).build()];
-    let endpoint = Endpoint::at("api.citeas.org").resources(resources).build();
-    let response = endpoint.invoke("status", None).await;
-    endpoint.handle::<StatusResponse>(response)
+    match ENDPOINTS.find_by_name("citeas") {
+        | Some(endpoint) => {
+            let response = endpoint.invoke("status", None).await;
+            endpoint.handle::<StatusResponse>(response)
+        }
+        | None => Err("CiteAs API endpoint not found".to_string()),
+    }
 }
 impl Citations {
     /// Use CiteAs API to get citation data from DOI value
     pub async fn from_doi(value: &str) -> Result<Citations, String> {
-        let template = "{{ base }}/product/{{ doi }}?email=research@ornl.gov";
-        let resources = vec![Resource::init().name("record").method("get").template(template).build()];
-        let data = vec![Param::of_type(ParamStyle::TemplateValue).values(vec![vec![Some(value)]]).with_key("doi")];
-        let endpoint = Endpoint::at("api.citeas.org").resources(resources).build();
-        let response = endpoint.invoke("record", Some(data)).await;
-        endpoint.handle::<Citations>(response)
+        match ENDPOINTS.find_by_name("citeas") {
+            | Some(endpoint) => {
+                let data = vec![param!(TemplateValue, "doi", value)];
+                let response = endpoint.invoke("record", Some(data)).await;
+                endpoint.handle::<Citations>(response)
+            }
+            | None => Err("CiteAs API endpoint not found".to_string()),
+        }
     }
     /// Get citation data with given citation style (ex. "APA")
     ///
