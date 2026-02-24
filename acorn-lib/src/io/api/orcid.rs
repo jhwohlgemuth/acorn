@@ -6,7 +6,7 @@
 //!
 //! ### Get API status
 //! ```ignore
-//! use acorn_lib::io::api::{orcid, EndpointSearch};
+//! use acorn_lib::io::api::{orcid, Searchable};
 //!
 //! let orcid = endpoints.find_by_name("orcid");
 //! let text = match &orcid {
@@ -21,21 +21,19 @@
 //!
 //! ### Search the ORCiD API
 //! ```ignore
-//! use acorn_lib::io::api::{orcid, EndpointSearch, Param, ParamStyle};
+//! use acorn_lib::io::api::{orcid, Searchable};
+//! use acorn_lib::param;
 //!
 //! let orcid = endpoints.find_by_name("orcid");
 //! let text = match &orcid {
 //!     | Some(endpoint) => {
 //!         let data = vec![
-//!             Param::of_type(ParamStyle::QueryPair)
-//!                 .values(vec![
-//!                     (Some("affiliation-org-name"), Some("Lyrasis")),
-//!                     (Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")),
-//!                 ])
-//!                 .with_key("q"),
-//!             Param::of_type(ParamStyle::FieldList)
-//!                 .values(vec![(Some("family-name"), None)])
-//!                 .with_key("fl"),
+//!             param!(
+//!                 QueryPair,
+//!                 "q",
+//!                 (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
+//!             ),
+//!             param!(FieldList, "fl", "family-name"),
 //!         ];
 //!         let response = endpoint.invoke_with::<orcid::SearchField, orcid::OutputColumn>("search", Some(data)).await;
 //!         endpoint.handle::<orcid::SearchResponse>(response)
@@ -44,7 +42,7 @@
 //! };
 //! println!("ORCiD Search Response: {text:#?}");
 //! ```
-use crate::io::api::{self, ValueValidator};
+use crate::io::api::{self, RemoteResource, Searchable, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::schema::validate::{is_orcid, is_ror};
 use bon::Builder;
 use core::fmt;
@@ -81,7 +79,7 @@ pub enum SearchField {
     /// [ROR](https://ror.org) organization ID
     /// ### Notes
     /// - Must include ror.org domain
-    /// - Must be enclosed in double qoutes
+    /// - Must be enclosed in double quotes
     /// ### Examples
     /// - "<https://ror.org/01qz5mb56>" (Oak Ridge National Laboratory)
     /// - "<https://ror.org/05p915b28>" (Oak Ridge Leadership Computing Facility)
@@ -281,7 +279,62 @@ impl TryFrom<&str> for OutputColumn {
         }
     }
 }
+/// Check if API is healthy
+/// ### Example
+/// ```ignore
+/// use acorn_lib::io::api;
+///
+/// println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
+/// ```
+pub async fn is_healthy() -> bool {
+    match status().await {
+        | Ok(StatusResponse { overall, .. }) => overall,
+        | Err(_) => false,
+    }
+}
 /// Construct query string for ORCiD API search endpoint
 pub fn query_string(query_pairs: Vec<(&str, &str)>, field_list: Vec<&str>, query_fields: Vec<&str>) -> String {
     api::query_string::<SearchField, OutputColumn>(query_pairs, field_list, query_fields)
+}
+/// Search the ORCiD API with given query parameters and output fields
+///
+/// ### Example
+/// ```ignore
+/// use acorn::param;
+/// use acorn::io::api::orcid::{self, SearchResponse};
+///
+/// let params = vec![
+///     param!(
+///         QueryPair,
+///         "q",
+///         (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
+///     ),
+///     param!(FieldList, "fl", "family-name"),
+/// ];
+/// let result: Result<SearchResponse, String> = orcid::search(params).await;
+/// ```
+pub async fn search(params: Vec<api::Param>) -> Result<SearchResponse, String> {
+    let name = "ORCiD";
+    let action = "search";
+    let data = Some(params);
+    match INCLUDED_ENDPOINTS.find_by_name(name) {
+        | Some(endpoint) => {
+            let response = endpoint.invoke_with::<SearchField, OutputColumn>(action, data).await;
+            endpoint.handle::<SearchResponse>(response)
+        }
+        | None => Err(format!("{name} API endpoint not found")),
+    }
+}
+/// Get status of ORCiD API
+pub async fn status() -> Result<StatusResponse, String> {
+    let name = "ORCiD";
+    let action = "status";
+    let data = None;
+    match INCLUDED_ENDPOINTS.find_by_name(name) {
+        | Some(endpoint) => {
+            let response = endpoint.invoke(action, data).await;
+            endpoint.handle::<StatusResponse>(response)
+        }
+        | None => Err(format!("{name} API endpoint not found")),
+    }
 }

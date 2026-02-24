@@ -2,7 +2,7 @@
 //! > CiteAs is a way to get the correct citation for diverse research products including, software, datasets, preprints, and traditional articles. By making it easier to cite software and other "alternative" scholarly products, we aim to help the creators of such products get full credit for their work.
 //!
 //! See <https://citeas.org/api> for more information
-use crate::io::api::{EndpointSearch, RemoteResource, ENDPOINTS};
+use crate::io::api::{Param, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
 use crate::param;
 use crate::schema::pid::DOI;
 use async_trait::async_trait;
@@ -147,27 +147,65 @@ pub struct StatusResponse {
     /// > "0.1"
     pub version: String,
 }
-/// Get status of CiteAs API
-pub async fn status() -> Result<StatusResponse, String> {
-    match ENDPOINTS.find_by_name("citeas") {
+/// Check if API is healthy
+/// ### Example
+/// ```ignore
+/// use acorn_lib::io::api;
+///
+/// println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
+/// ```
+pub async fn is_healthy() -> bool {
+    match status().await {
+        | Ok(StatusResponse { msg, .. }) => msg.eq_ignore_ascii_case("Don't panic"),
+        | Err(_) => false,
+    }
+}
+/// Perform search on CiteAs API
+///
+/// The CiteAs API is simple and only has two endpoints. This accesses the endpoint for retrieving citation data for a [`DOI`]
+///
+/// ### Example
+/// ```ignore
+/// use acorn::param;
+/// use acorn::io::api::citeas;
+///
+/// let doi = "10.11578/dc.20250604.1";
+/// let params = vec![param!(TemplateValue, "doi", doi)];
+/// let citations = citeas::search(params).await;
+/// ```
+pub async fn search(params: Vec<Param>) -> Result<Citations, String> {
+    let name = "CiteAs";
+    let action = "record";
+    let data = Some(params);
+    match INCLUDED_ENDPOINTS.find_by_name(name) {
         | Some(endpoint) => {
-            let response = endpoint.invoke("status", None).await;
+            let response = endpoint.invoke(action, data).await;
+            endpoint.handle::<Citations>(response)
+        }
+        | None => Err(format!("{name} API endpoint not found")),
+    }
+}
+/// Get status of CiteAs API
+///
+/// See `https://citeas.org/api#api-status-object` for more information
+pub async fn status() -> Result<StatusResponse, String> {
+    let name = "CiteAs";
+    let action = "status";
+    let data = None;
+    match INCLUDED_ENDPOINTS.find_by_name(name) {
+        | Some(endpoint) => {
+            let response = endpoint.invoke(action, data).await;
             endpoint.handle::<StatusResponse>(response)
         }
-        | None => Err("CiteAs API endpoint not found".to_string()),
+        | None => Err(format!("{name} API endpoint not found")),
     }
 }
 impl Citations {
-    /// Use CiteAs API to get citation data from DOI value
-    pub async fn from_doi(value: &str) -> Result<Citations, String> {
-        match ENDPOINTS.find_by_name("citeas") {
-            | Some(endpoint) => {
-                let data = vec![param!(TemplateValue, "doi", value)];
-                let response = endpoint.invoke("record", Some(data)).await;
-                endpoint.handle::<Citations>(response)
-            }
-            | None => Err("CiteAs API endpoint not found".to_string()),
-        }
+    /// Use CiteAs API to get citation data from a [`DOI`]
+    pub async fn from(value: DOI) -> Result<Citations, String> {
+        let doi = value.to_string();
+        let params = vec![param!(TemplateValue, "doi", &doi)];
+        search(params).await
     }
     /// Get citation data with given citation style (ex. "APA")
     ///
@@ -196,6 +234,6 @@ impl Citations {
 impl ToCitations for DOI {
     /// Convert a [`DOI`] to a [`Citations`]
     async fn to_citations(&self) -> Result<Citations, String> {
-        Citations::from_doi(&self.to_string()).await
+        Citations::from(self.clone()).await
     }
 }

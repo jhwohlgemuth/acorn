@@ -6,7 +6,7 @@
 //!
 //! ### Get API status
 //! ```ignore
-//! use acorn_lib::io::api::{self, EndpointSearch, Param, ParamStyle};
+//! use acorn_lib::io::api::{self, Search};
 //!
 //! let ror = endpoints.find_by_name("ror");
 //! let text = match &ror {
@@ -21,14 +21,13 @@
 //!
 //! ### Get single ROR record by ID
 //! ```ignore
-//! use acorn_lib::io::api::{ror, EndpointSearch, Param, ParamStyle};
+//! use acorn_lib::io::api::{ror, Search};
+//! use acorn_lib::param;
 //!
 //! let ror = endpoints.find_by_name("ror");
 //! let text = match &ror {
 //!     | Some(endpoint) => {
-//!         let data = vec![Param::of_type(ParamStyle::TemplateValue)
-//!             .values(vec![vec![Some("01qz5mb56")]])
-//!             .with_key("identifier")];
+//!         let data = vec![param!(TemplateValue, "identifier", "01qz5mb56")];
 //!         let response = endpoint.invoke("record", Some(data)).await;
 //!         endpoint.handle::<ror::SingleRecord>(response)
 //!     }
@@ -39,18 +38,15 @@
 //!
 //! ### Search and filter ROR records
 //! ```ignore
-//! use acorn_lib::io::api::{ror, EndpointSearch, Param, ParamStyle};
+//! use acorn_lib::io::api::{ror, Search};
+//! use acorn_lib::param;
 //!
 //! let ror = endpoints.find_by_name("ror");
 //! let text = match &ror {
 //!     | Some(endpoint) => {
 //!         let data = vec![
-//!             Param::of_type(ParamStyle::FieldList)
-//!                 .values(vec![vec![Some("Oak Ridge")]])
-//!                 .with_key("query"),
-//!             Param::of_type(ParamStyle::QueryPair)
-//!                 .values(vec![vec![Some("status"), Some("inactive")]])
-//!                 .with_key("filter"),
+//!             param!(FieldList, "query", "Oak Ridge"),
+//!             param!(QueryPair, "filter", (("status", "inactive"),)),
 //!         ];
 //!         let response = endpoint.invoke("search", Some(data)).await;
 //!         endpoint.handle::<ror::SearchResponse>(response)
@@ -59,13 +55,15 @@
 //! };
 //! println!("ROR Search Results: {text:#?}");
 //! ```
-// use crate::io::api::{self, ValueValidator};
+use crate::io::api::{Param, RemoteResource, Searchable, TextResponse, INCLUDED_ENDPOINTS};
 use bon::Builder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use validator::Validate;
 
+/// ROR API status response is just "OK"
+pub type StatusResponse = TextResponse;
 /// External identifier type for ROR API search results
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -394,4 +392,55 @@ pub struct SingleRecord {
     pub status: Status,
     /// Types of associated ROR organization
     pub types: Vec<OrganizationType>,
+}
+/// Check if API is healthy
+/// ### Example
+/// ```ignore
+/// use acorn_lib::io::api;
+///
+/// println!("ROR API is healthy: {}", api::ror::is_healthy().await);
+/// ```
+pub async fn is_healthy() -> bool {
+    match status().await {
+        | Ok(StatusResponse { content, .. }) => content.eq_ignore_ascii_case("OK"),
+        | Err(_) => false,
+    }
+}
+/// Search the ROR API with given query parameters and output fields
+///
+/// ### Example
+/// ```ignore
+/// use acorn::param;
+/// use acorn::io::api::ror::{self, SearchResponse};
+///
+/// let data = vec![
+///     param!(FieldList, "query", "Oak Ridge"),
+///     param!(QueryPair, "filter", ("status", "inactive")),
+/// ];
+/// let result: Result<SearchResponse, String> = ror::search(params).await;
+/// ```
+pub async fn search(params: Vec<Param>) -> Result<SearchResponse, String> {
+    let name = "ROR";
+    let action = "search";
+    let data = Some(params);
+    match INCLUDED_ENDPOINTS.find_by_name(name) {
+        | Some(endpoint) => {
+            let response = endpoint.invoke(action, data).await;
+            endpoint.handle::<SearchResponse>(response)
+        }
+        | None => Err(format!("{name} API endpoint not found")),
+    }
+}
+/// Get status of ROR API
+pub async fn status() -> Result<StatusResponse, String> {
+    let name = "ROR";
+    let action = "status";
+    let data = None;
+    match INCLUDED_ENDPOINTS.find_by_name(name) {
+        | Some(endpoint) => {
+            let response = endpoint.invoke(action, data).await;
+            endpoint.handle::<StatusResponse>(response)
+        }
+        | None => Err(format!("{name} API endpoint not found")),
+    }
 }

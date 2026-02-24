@@ -1,7 +1,7 @@
 use crate::io::api::citeas::{self, ToCitations};
-use crate::io::api::geonames::{self, CountrySearch};
-use crate::io::api::{self, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, ResponseContent};
+use crate::io::api::{self, geonames, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, Resource, ResponseContent, Searchable};
 use crate::io::read_file;
+use crate::param;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
 use crate::{Location, Repository, Scheme};
 use std::path::PathBuf;
@@ -18,8 +18,10 @@ async fn test_citeas() {
     if let Ok(citeas::StatusResponse { documentation_url, .. }) = status {
         assert_eq!(documentation_url, "https://citeas.org/api");
     }
+    let doi = "10.11578/dc.20250604.1";
+    let params = vec![param!(TemplateValue, "doi", doi)];
     let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
-    if let Some(citeas::Citation { text, .. }) = citeas::Citations::from_doi("10.11578/dc.20250604.1").await.unwrap().match_style("apa") {
+    if let Some(citeas::Citation { text, .. }) = citeas::search(params).await.unwrap().match_style("apa") {
         println!("CiteAs Test Response Received");
         assert_eq!(text, expected);
     };
@@ -64,6 +66,25 @@ fn test_endpoint_from_repository() {
     };
     let endpoint: Endpoint = nssd.into();
     assert_eq!(endpoint.domain, expected);
+}
+#[test]
+fn test_search_resource_find_by_name() {
+    let resources = vec![
+        Resource {
+            name: "status".to_string(),
+            method: api::HttpMethod::Get,
+            template: "/status".to_string(),
+        },
+        Resource {
+            name: "search".to_string(),
+            method: api::HttpMethod::Get,
+            template: "/search{{ query }}".to_string(),
+        },
+    ];
+    let found = resources.find_by_name("SEARCH");
+    assert!(found.is_some());
+    assert_eq!(found.unwrap().name, "search");
+    assert!(resources.find_by_name("missing").is_none());
 }
 #[test]
 fn test_endpoint_context() {
@@ -132,8 +153,9 @@ fn test_endpoint_parse() {
 }
 #[test]
 fn test_geonames() {
-    let tsv = read_file(fixtures_dir().join("geonames.tsv")).expect("Failed to read TSV fixture");
-    let countries = geonames::parse_tsv(&tsv);
+    let content = read_file(fixtures_dir().join("geonames.tsv")).expect("Failed to read TSV fixture");
+    let response = api::TextResponse { content };
+    let countries = response.parse();
     assert!(!countries.is_empty(), "Expected at least one GeoNames row");
     let us = countries.find_by_iso("US").expect("US row not found in GeoNames data");
     let geonames::Country {

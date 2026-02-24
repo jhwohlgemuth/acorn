@@ -32,14 +32,9 @@ pub mod spdx;
 
 lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
-    pub static ref ENDPOINTS: Vec<Endpoint> = ApplicationConfiguration::parse(ENDPOINTS_TEXT).unwrap().endpoints.unwrap_or_default();
+    pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = ApplicationConfiguration::parse(ENDPOINTS_TEXT).unwrap().endpoints.unwrap_or_default();
 }
 
-/// Helper trait for working with list of endpoints
-pub trait EndpointSearch {
-    /// Filter list of endpoints by name and return the first match
-    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint>;
-}
 /// Helper trait for converting parameter collections into HTTP request body
 pub trait IntoBody {
     /// Convert this value into a `serde_json::Value` for request body, using only body-style parameters.
@@ -89,6 +84,23 @@ pub trait RemoteResource {
     fn parse_xml<R>(&self, content: &str) -> Result<R, String>
     where
         R: for<'de> Deserialize<'de>;
+}
+/// Helper trait for searching lists of named API elements
+pub trait Searchable<T> {
+    /// Check if a certain value is present in the list
+    /// ### Note
+    /// This method will differ greatly on the implementation and type of T
+    fn contains(&self, _value: &str) -> bool {
+        false
+    }
+    /// Filter list by ISO or ISO3 and return the first match
+    ///### Note
+    /// This method is specific to the `Country` type in the GeoNames API, but is included in the trait for convenience and consistency with `find_by_name`
+    fn find_by_iso(&self, _value: impl Into<String>) -> Option<T> {
+        None
+    }
+    /// Filter list by name and return the first match
+    fn find_by_name(&self, value: impl Into<String>) -> Option<T>;
 }
 /// Trait to enable validation of field values
 pub trait ValueValidator {
@@ -267,10 +279,16 @@ impl Endpoint {
         format!("{scheme}://{domain}{port}{root}")
     }
 }
-impl EndpointSearch for Vec<Endpoint> {
+impl Searchable<Endpoint> for Vec<Endpoint> {
     fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
         let name = value.into();
-        self.iter().find(|endpoint| endpoint.name == name).cloned()
+        self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
+    }
+}
+impl Searchable<Resource> for Vec<Resource> {
+    fn find_by_name(&self, value: impl Into<String>) -> Option<Resource> {
+        let name = value.into();
+        self.iter().find(|resource| resource.name.eq_ignore_ascii_case(&name)).cloned()
     }
 }
 /// Blanket implementation for all types that satisfy the bounds
@@ -546,19 +564,18 @@ impl RemoteResource for Endpoint {
     /// Invoke an endpoint resource asynchronously with data and receive a response using explicit query and field types.
     /// ### Example
     /// ```ignore
-    /// let orcid = endpoints.find_by_name("orcid");
+    /// use acorn::io::api::{self, Searchable, INCLUDED_ENDPOINTS};
+    ///
+    /// let orcid = INCLUDED_ENDPOINTS.find_by_name("orcid");
     /// let text = match &orcid {
     ///     | Some(endpoint) => {
     ///         let data = vec![
-    ///             api::Param::of_type(api::ParamStyle::QueryPair)
-    ///                 .values(vec![
-    ///                     vec![Some("affiliation-org-name"), Some("Lyrasis")],
-    ///                     vec![Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")],
-    ///                 ])
-    ///                 .with_key("q"),
-    ///             api::Param::of_type(api::ParamStyle::FieldList)
-    ///                 .values(vec![vec![Some("family-name")]])
-    ///                 .with_key("fl"),
+    ///             param!(
+    ///                 QueryPair,
+    ///                 "q",
+    ///                 (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
+    ///             ),
+    ///             param!(FieldList, "fl", "family-name"),
     ///         ];
     ///         let response = endpoint.invoke_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data)).await;
     ///         endpoint.handle::<api::orcid::SearchResponse>(response)
@@ -575,10 +592,10 @@ impl RemoteResource for Endpoint {
         let Self { resources, .. } = self;
         let mut tera = Tera::default();
         let context = self.context_with::<Q, F>(data.clone());
-        let resource = resources.iter().find(|resource| resource.name == name.clone().into());
+        let resource = resources.find_by_name(name);
         match resource {
             | Some(Resource { method, template, .. }) => {
-                let path = tera.render_str(template, &context).unwrap_or_default();
+                let path = tera.render_str(&template, &context).unwrap_or_default();
                 let params = data.unwrap_or_default();
                 let headers = params.clone().into_headers();
                 let body = params.into_body();
