@@ -1,9 +1,10 @@
+use crate::cmd;
 use crate::io::api::ParamStyle;
 use crate::io::{
     command_exists, extract_zip, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand, FromPath,
 };
 use crate::param;
-use crate::prelude::{Path, PathBuf};
+use crate::prelude::{CommandOutput, Path, PathBuf};
 use crate::util::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;
@@ -388,4 +389,69 @@ fn test_param_with_quoted_value() {
     let param = param!(ParamStyle::QueryPair, "ror-id", "\"https://ror.org/01qz5mb56\"");
     assert_eq!(param.name, "ror-id");
     assert_eq!(param.values, vec![vec![Some("\"https://ror.org/01qz5mb56\"".to_string())]]);
+}
+#[test]
+fn test_cmd_output() {
+    // Array literal
+    let output = cmd!("echo", ["hello"]).expect("array literal");
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "hello");
+    // Args variable
+    let args = vec!["world"];
+    let output = cmd!("echo", args).expect("args variable");
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "world");
+    // CLI-style literals
+    let output = cmd!("echo" "cli-style").expect("cli-style");
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "cli-style");
+    // Shell string
+    let output = cmd!(sh "echo sh-output").expect("sh string");
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "sh-output");
+    // Shell string with multiple args
+    let output = cmd!(sh "echo one two three").expect("sh multi-arg");
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "one two three");
+    // Shell string with format! interpolation
+    let name = "world";
+    let output = cmd!(sh format!("echo hello-{name}")).expect("sh format!");
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "hello-world");
+    // Stderr capture
+    let output = cmd!("sh", ["-c", "echo oops >&2"]).expect("stderr");
+    assert_eq!(output.stderr(), "oops");
+    // Non-zero exit code
+    let output = cmd!("sh", ["-c", "exit 42"]).expect("exit code");
+    assert!(!output.status.success());
+}
+#[test]
+fn test_cmd_status() {
+    // Array literal
+    let status = cmd!(status "echo", ["hello"]).expect("array literal");
+    assert!(status.success());
+    // Args variable
+    let args = vec!["hello"];
+    let status = cmd!(status "echo", args).expect("args variable");
+    assert!(status.success());
+    // CLI-style literals
+    let status = cmd!(status "echo" "status-check").expect("cli-style");
+    assert!(status.success());
+    // Shell string
+    let status = cmd!(sh status "echo sh-status").expect("sh string");
+    assert!(status.success());
+    // Shell string with format! interpolation
+    let arg = "check";
+    let status = cmd!(sh status format!("echo {arg}")).expect("sh format!");
+    assert!(status.success());
+    // Non-zero exit code
+    let status = cmd!(status "sh", ["-c", "exit 42"]).expect("exit code");
+    assert!(!status.success());
+}
+#[test]
+fn test_cmd_error() {
+    // Nonexistent binary — array style
+    assert!(cmd!("not-a-real-command-xyz", ["arg"]).is_err());
+    // Nonexistent binary — sh style
+    assert!(cmd!(sh "not-a-real-command-xyz arg").is_err());
 }

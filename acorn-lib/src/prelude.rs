@@ -13,7 +13,7 @@ mod std {
     #[cfg(unix)]
     pub use std::os::unix::fs::PermissionsExt;
     pub use std::path::{absolute, Path, PathBuf};
-    pub use std::process::{exit, Command};
+    pub use std::process::{exit, Command, Output};
 }
 /// Module that provides `no-std` support
 #[allow(unused_imports)]
@@ -25,6 +25,42 @@ mod no_std {
 pub use no_std::*;
 #[cfg(feature = "std")]
 pub use std::*;
+
+/// Extension trait for extracting strings from [`std::process::Output`]
+///
+/// Eliminates repeated `String::from_utf8_lossy(&output.stdout).trim().to_string()` patterns.
+///
+/// # Examples
+///
+/// ```ignore
+/// use acorn::cmd;
+/// use acorn::prelude::CommandOutput;
+///
+/// match cmd!("git", ["branch", "--show-current"]) {
+///     Ok(output) if output.status.success() => {
+///         let branch = output.stdout();
+///         println!("{branch}");
+///     }
+///     Ok(output) => eprintln!("{}", output.stderr()),
+///     Err(why) => eprintln!("{why}"),
+/// }
+/// ```
+#[cfg(feature = "std")]
+pub trait CommandOutput {
+    /// Extract stdout as a trimmed, lossy UTF-8 string
+    fn stdout(&self) -> String;
+    /// Extract stderr as a trimmed, lossy UTF-8 string
+    fn stderr(&self) -> String;
+}
+#[cfg(feature = "std")]
+impl CommandOutput for Output {
+    fn stdout(&self) -> String {
+        String::from_utf8_lossy(&self.stdout).trim().to_string()
+    }
+    fn stderr(&self) -> String {
+        String::from_utf8_lossy(&self.stderr).trim().to_string()
+    }
+}
 /// Get Vale release filename for a given platform operating system (e.g., linux, windows, macos)
 #[cfg(feature = "std")]
 pub fn vale_release_filename() -> String {

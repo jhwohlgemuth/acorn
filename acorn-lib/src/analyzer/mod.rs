@@ -3,11 +3,12 @@
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
+use crate::cmd;
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder};
 #[cfg(feature = "std")]
 use crate::io::{get, InputOutput};
 use crate::prelude;
-use crate::prelude::{create_dir_all, remove_file, Command, Error, File, HashMap, PathBuf, Write};
+use crate::prelude::{create_dir_all, remove_file, Command, CommandOutput, Error, File, HashMap, PathBuf, Write};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{ImageObject, MediaObject, Organization, ProgrammingLanguage, VideoObject, Website};
 use crate::skip;
@@ -538,8 +539,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 };
                 match result {
                     | Ok(output) if output.status.success() => {
-                        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                        let parsed = ValeOutput::parse(&stdout, path.clone());
+                        let parsed = ValeOutput::parse(&output.stdout(), path.clone());
                         if parsed.is_empty() {
                             Check::init().category(CheckCategory::Prose).success(true).message(id).build()
                         } else {
@@ -554,7 +554,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         }
                     }
                     | Ok(output) => {
-                        let why = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                        let why = output.stderr();
                         let message = if why.is_empty() {
                             format!("process exited with status {}", output.status)
                         } else {
@@ -775,8 +775,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             let path = which(name.clone()).unwrap().to_path_buf();
             self.binary = Some(path.clone());
             let offset = "vale version ".len();
-            let output = Command::new(name.clone()).arg("--version").output().unwrap();
-            let stdout = String::from_utf8(output.stdout).unwrap();
+            let output = cmd!(name.clone(), ["--version"]).unwrap();
+            let stdout = output.stdout();
             let version = stdout[offset..].trim().to_string();
             self.version = Some(SemanticVersion::from(version.as_ref()));
             debug!(
