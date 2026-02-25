@@ -7,7 +7,7 @@ use crate::io::{command_exists, download_binary, extract_zip, file_checksum, mak
 #[cfg(feature = "std")]
 use crate::io::{get, InputOutput};
 use crate::prelude;
-use crate::prelude::{create_dir_all, remove_file, Error, File, HashMap, PathBuf, Write};
+use crate::prelude::{create_dir_all, remove_file, Command, Error, File, HashMap, PathBuf, Write};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{ImageObject, MediaObject, Organization, ProgrammingLanguage, VideoObject, Website};
 use crate::skip;
@@ -25,7 +25,6 @@ use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
 use core::ops::RangeInclusive;
 use derive_more::Display;
-use duct::cmd;
 use flate2::read::GzDecoder;
 use futures::future::join_all;
 use ini::Ini;
@@ -35,7 +34,6 @@ use polars::frame::row::Row;
 use polars::prelude::{AnyValue, DataFrame, PolarsResult};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tar::Archive;
-use tokio;
 use tracing::{debug, error, info, trace};
 use validator::Validate;
 use validator::ValidationErrorsKind;
@@ -80,9 +78,9 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Resolve analyzer
     async fn resolve(_config: Config, _is_offline: bool, _skip_verify_checksum: bool) -> Self;
     /// Run analyzer on content
-    fn run(&self, id: String, content: String, output: Option<String>) -> Check;
+    async fn run(&self, id: String, content: String, output: Option<String>) -> Check;
     /// Perform sync operation (only applies to Vale)
-    fn sync(self, is_offline: bool) -> Result<(), Error>;
+    async fn sync(self, is_offline: bool) -> Result<(), Error>;
     /// Set binary
     fn with_binary<P>(self, path: P) -> Self
     where
@@ -199,22 +197,21 @@ impl Analysis for ResearchActivity {
         // Create and save Vale config asynchronously
         let config = ValeConfig::default().save().await;
         let vale = Vale::resolve(config, is_offline, skip_verify_checksum).await;
-        let vale_clone = vale.clone();
-        match tokio::task::spawn_blocking(move || vale_clone.sync(is_offline)).await.unwrap() {
+        match vale.clone().sync(is_offline).await {
             | Ok(_) => {
                 let mut results = Vec::new();
                 for path in paths {
-                    let vale_clone = vale.clone();
-                    let path_clone = path.clone();
-                    let result = tokio::task::spawn_blocking(move || match ResearchActivity::read(&path_clone) {
-                        | Ok(data) => vale_clone.run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into())),
+                    let result = match ResearchActivity::read(&path) {
+                        | Ok(data) => {
+                            vale.clone()
+                                .run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into()))
+                                .await
+                        }
                         | Err(why) => {
                             error!("=> {} Read research activity data - {why}", Label::fail());
                             Check::init().category(CheckCategory::Prose).success(false).build()
                         }
-                    })
-                    .await
-                    .unwrap();
+                    };
 
                     results.push(result);
                 }
@@ -479,7 +476,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         let init = Vale::init().build();
         let vale = if command_exists(name) {
             let init_with_config = init.with_config(config);
-            tokio::task::spawn_blocking(move || init_with_config.with_system_command()).await.unwrap()
+            init_with_config.with_system_command()
         } else if is_offline || any_exist(vec![format!("{root}{name}"), format!("{root}{name}.exe")]) {
             info!("=> {} Local {} binary", Label::using(), name.green().bold());
             #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
@@ -495,7 +492,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         vale
     }
-    fn run(&self, id: String, content: String, output: Option<String>) -> Check {
+    async fn run(&self, id: String, content: String, output: Option<String>) -> Check {
         let root = standard_project_folder("check", None);
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
@@ -518,34 +515,31 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         match &self.config {
             | Some(config) => {
                 let result = match output {
-                    | Some(value) => cmd!(
-                        binary,
-                        "--no-wrap",
-                        "--config",
-                        config.clone().path,
-                        "--output",
-                        value,
-                        path.clone(),
-                        "--ext",
-                        ".md",
-                        "--no-exit",
-                    )
-                    .read(),
-                    | None => cmd!(
-                        binary,
-                        "--no-wrap",
-                        "--config",
-                        config.clone().path,
-                        path.clone(),
-                        "--ext",
-                        ".md",
-                        "--no-exit"
-                    )
-                    .read(),
+                    | Some(value) => Command::new(binary)
+                        .arg("--no-wrap")
+                        .arg("--config")
+                        .arg(config.clone().path)
+                        .arg("--output")
+                        .arg(value)
+                        .arg(path.clone())
+                        .arg("--ext")
+                        .arg(".md")
+                        .arg("--no-exit")
+                        .output(),
+                    | None => Command::new(binary)
+                        .arg("--no-wrap")
+                        .arg("--config")
+                        .arg(config.clone().path)
+                        .arg(path.clone())
+                        .arg("--ext")
+                        .arg(".md")
+                        .arg("--no-exit")
+                        .output(),
                 };
                 match result {
-                    | Ok(output) => {
-                        let parsed = ValeOutput::parse(&output, path.clone());
+                    | Ok(output) if output.status.success() => {
+                        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                        let parsed = ValeOutput::parse(&stdout, path.clone());
                         if parsed.is_empty() {
                             Check::init().category(CheckCategory::Prose).success(true).message(id).build()
                         } else {
@@ -559,8 +553,18 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                                 .build()
                         }
                     }
-                    | Err(output) => {
-                        error!("=> {} Analyze - {}", Label::fail(), output);
+                    | Ok(output) => {
+                        let why = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                        let message = if why.is_empty() {
+                            format!("process exited with status {}", output.status)
+                        } else {
+                            why
+                        };
+                        error!("=> {} Analyze - {}", Label::fail(), message);
+                        Check::init().category(CheckCategory::Prose).success(false).message(id).build()
+                    }
+                    | Err(why) => {
+                        error!("=> {} Analyze - {}", Label::fail(), why);
                         Check::init().category(CheckCategory::Prose).success(false).message(id).build()
                     }
                 }
@@ -693,7 +697,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         }
     }
-    fn sync(self, is_offline: bool) -> Result<(), Error> {
+    async fn sync(self, is_offline: bool) -> Result<(), Error> {
         let command = self.clone().command();
         let path = match self.binary {
             | Some(value) => value,
@@ -703,11 +707,15 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         };
         let config_path = self.config.unwrap().path;
-        let result = if is_offline {
+        let result: Result<(), Error> = if is_offline {
             skip!("Vale sync");
-            cmd!("").run()
+            Ok(())
         } else {
-            cmd!(path.clone(), "--config", config_path.clone(), "sync").run()
+            match Command::new(path.clone()).arg("--config").arg(config_path.clone()).arg("sync").status() {
+                | Ok(status) if status.success() => Ok(()),
+                | Ok(status) => Err(Error::other(format!("Vale sync failed with status: {status}"))),
+                | Err(why) => Err(why),
+            }
         };
         match result {
             | Ok(_) => {
@@ -767,7 +775,9 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             let path = which(name.clone()).unwrap().to_path_buf();
             self.binary = Some(path.clone());
             let offset = "vale version ".len();
-            let version = cmd!(name.clone(), "--version").read().unwrap()[offset..].to_string();
+            let output = Command::new(name.clone()).arg("--version").output().unwrap();
+            let stdout = String::from_utf8(output.stdout).unwrap();
+            let version = stdout[offset..].trim().to_string();
             self.version = Some(SemanticVersion::from(version.as_ref()));
             debug!(
                 path = path.to_absolute_string(),

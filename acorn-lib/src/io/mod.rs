@@ -20,7 +20,7 @@
 //! ```
 //!
 use crate::fail;
-use crate::prelude::{canonicalize, create_dir_all, io, var, BufReader, Cursor, Error, File, PathBuf, Read, Write};
+use crate::prelude::{canonicalize, create_dir_all, io, var, BufReader, Command, Cursor, Error, File, PathBuf, Read, Write};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, Permissions, PermissionsExt};
 use crate::util::constants::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
@@ -30,7 +30,6 @@ use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, ToAbs
 use core::time::Duration;
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
-use duct::cmd;
 use fancy_regex::Regex;
 use glob::glob;
 use is_executable::IsExecutable;
@@ -60,7 +59,7 @@ pub trait FromCommand {
     fn from_command<S>(name: S) -> Option<Self>
     where
         Self: Sized,
-        S: Into<String> + duct::IntoExecutablePath + core::marker::Copy;
+        S: Into<String> + core::marker::Copy;
 }
 /// Add `from_path` trait to a value (like `MimeType`)
 pub trait FromPath {
@@ -158,19 +157,19 @@ impl FromCommand for SemanticVersion {
     #[cfg(feature = "std")]
     fn from_command<S>(name: S) -> Option<SemanticVersion>
     where
-        S: Into<String> + duct::IntoExecutablePath + core::marker::Copy,
+        S: Into<String> + core::marker::Copy,
     {
-        if command_exists(name.into()) {
-            let result = cmd(name, vec!["--version"]).read();
-            match result {
-                | Ok(value) => {
-                    let first_line = value.lines().collect::<Vec<_>>().first().cloned();
-                    match first_line {
+        let command = name.into();
+        if command_exists(command.clone()) {
+            match Command::new(&command).arg("--version").output() {
+                | Ok(output) if output.status.success() => {
+                    let value = String::from_utf8_lossy(&output.stdout);
+                    match value.lines().next() {
                         | Some(line) => Some(SemanticVersion::from(line)),
                         | None => None,
                     }
                 }
-                | Err(_) => None,
+                | Ok(_) | Err(_) => None,
             }
         } else {
             None
@@ -524,9 +523,19 @@ pub fn files_from_git_branch(value: &str, extensions: Option<Vec<&str>>) -> Vec<
             | None => "main".to_string(),
         };
         let args = vec!["diff", "--name-only", &default_branch, "--merge-base", value];
-        let result = cmd("git", args).read();
+        let result = Command::new("git").args(args).output();
         match result {
-            | Ok(value) => filter_git_command_result(value, extensions),
+            | Ok(output) if output.status.success() => filter_git_command_result(String::from_utf8_lossy(&output.stdout).to_string(), extensions),
+            | Ok(output) => {
+                let why = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                let message = if why.is_empty() {
+                    format!("process exited with status {}", output.status)
+                } else {
+                    why
+                };
+                error!("=> {} Get files from Git branch - {}", Label::fail(), message);
+                vec![]
+            }
             | Err(why) => {
                 error!("=> {} Get files from Git branch - {why}", Label::fail());
                 vec![]
@@ -545,10 +554,20 @@ pub fn files_from_git_branch(value: &str, extensions: Option<Vec<&str>>) -> Vec<
 pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     if command_exists("git".to_owned()) {
         let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
-        let result = cmd("git", args).read();
+        let result = Command::new("git").args(args).output();
         debug!("=> {} Git command response - {result:?}", Label::using());
         let files = match result {
-            | Ok(value) => filter_git_command_result(value, extensions),
+            | Ok(output) if output.status.success() => filter_git_command_result(String::from_utf8_lossy(&output.stdout).to_string(), extensions),
+            | Ok(output) => {
+                let why = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                let message = if why.is_empty() {
+                    format!("process exited with status {}", output.status)
+                } else {
+                    why
+                };
+                error!("=> {} Get files from Git commit - {}", Label::fail(), message);
+                vec![]
+            }
             | Err(why) => {
                 error!("=> {} Get files from Git commit - {why}", Label::fail());
                 vec![]
@@ -663,15 +682,17 @@ pub fn folder_size<P: Into<PathBuf>>(path: P) -> u64 {
 pub fn git_branch_name() -> Option<String> {
     if command_exists("git".to_owned()) {
         let args = vec!["symbolic-ref", "--short", "HEAD"];
-        let result = cmd("git", args).read();
+        let result = Command::new("git").args(args).output();
         match result {
-            | Ok(ref value) => {
-                let name = match value.clone().split("/").last() {
+            | Ok(output) if output.status.success() => {
+                let value = String::from_utf8_lossy(&output.stdout).to_string();
+                let name = match value.split("/").last() {
                     | Some(x) => Some(x.to_string()),
                     | None => None,
                 };
                 name
             }
+            | Ok(_) => None,
             | Err(_) => None,
         }
     } else {
@@ -686,15 +707,17 @@ pub fn git_branch_name() -> Option<String> {
 pub fn git_default_branch_name() -> Option<String> {
     if command_exists("git".to_owned()) {
         let args = vec!["symbolic-ref", "refs/remotes/origin/HEAD", "--short"];
-        let result = cmd("git", args).read();
+        let result = Command::new("git").args(args).output();
         match result {
-            | Ok(ref value) => {
-                let name = match value.clone().split("/").last() {
+            | Ok(output) if output.status.success() => {
+                let value = String::from_utf8_lossy(&output.stdout).to_string();
+                let name = match value.split("/").last() {
                     | Some(x) => Some(x.to_string()),
                     | None => None,
                 };
                 name
             }
+            | Ok(_) => None,
             | Err(_) => None,
         }
     } else {

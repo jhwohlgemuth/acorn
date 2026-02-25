@@ -38,7 +38,6 @@ data-encoding = { workspace = true }
 derive_more = { workspace = true }
 directories = { version = "6.0.0", default-features = false }
 dotenvy = { workspace = true }
-duct = { version = "1.1.0", default-features = false, optional = true }
 fancy-regex = { workspace = true }
 flate2 = { version = "1.1.5", default-features = false }
 futures = { workspace = true }
@@ -95,7 +94,7 @@ analyzer = ["dep:bat"]
 default = ["analyzer", "std"]
 doctor = []
 powerpoint = []
-std = ["dep:duct", "dep:lychee-lib", "dep:reqwest", "dep:tokio", "dep:which"]
+std = ["dep:lychee-lib", "dep:reqwest", "dep:tokio", "dep:which"]
 
 [lints.rust]
 missing-docs = "deny"
