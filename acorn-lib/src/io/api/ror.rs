@@ -2,60 +2,9 @@
 //!
 //! Provides types and functions for constructing ROR API queries with field validation and output column selection
 //!
-//! ## Example Uses
-//!
-//! ### Get API status
-//! ```ignore
-//! use acorn_lib::io::api::{self, Search};
-//!
-//! let ror = endpoints.find_by_name("ror");
-//! let text = match &ror {
-//!     | Some(endpoint) => {
-//!         let response = endpoint.invoke("status", None).await;
-//!         endpoint.handle::<api::TextResponse>(response)
-//!     }
-//!     | None => Err("No ROR endpoint found".into()),
-//! };
-//! println!("ROR Status: {text:#?}");
-//! ```
-//!
-//! ### Get single ROR record by ID
-//! ```ignore
-//! use acorn_lib::io::api::{ror, Search};
-//! use acorn_lib::param;
-//!
-//! let ror = endpoints.find_by_name("ror");
-//! let text = match &ror {
-//!     | Some(endpoint) => {
-//!         let data = vec![param!(TemplateValue, "identifier", "01qz5mb56")];
-//!         let response = endpoint.invoke("record", Some(data)).await;
-//!         endpoint.handle::<ror::SingleRecord>(response)
-//!     }
-//!     | None => Err("No ROR endpoint found".into()),
-//! };
-//! println!("ROR Record: {text:#?}");
-//! ```
-//!
-//! ### Search and filter ROR records
-//! ```ignore
-//! use acorn_lib::io::api::{ror, Search};
-//! use acorn_lib::param;
-//!
-//! let ror = endpoints.find_by_name("ror");
-//! let text = match &ror {
-//!     | Some(endpoint) => {
-//!         let data = vec![
-//!             param!(FieldList, "query", "Oak Ridge"),
-//!             param!(QueryPair, "filter", (("status", "inactive"),)),
-//!         ];
-//!         let response = endpoint.invoke("search", Some(data)).await;
-//!         endpoint.handle::<ror::SearchResponse>(response)
-//!     }
-//!     | None => Err("No ROR endpoint found".into()),
-//! };
-//! println!("ROR Search Results: {text:#?}");
-//! ```
 use crate::io::api::{Param, RemoteResource, Searchable, TextResponse, INCLUDED_ENDPOINTS};
+use crate::param;
+use crate::schema::pid::{PersistentIdentifierParse, ROR};
 use bon::Builder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -404,6 +353,35 @@ pub async fn is_healthy() -> bool {
     match status().await {
         | Ok(StatusResponse { content, .. }) => content.eq_ignore_ascii_case("OK"),
         | Err(_) => false,
+    }
+}
+/// Get a single ROR record by identifier
+/// ### Note
+/// Will only make a request if the identifier is valid ROR
+///
+/// ### Example
+/// ```ignore
+/// use acorn_lib::io::api::ror::{self, SingleRecord};
+///
+/// let identifier = "01qz5mb56";
+/// let result: Result<SingleRecord, String> = ror::record(identifier).await;
+/// ```
+pub async fn record(identifier: impl ToString) -> Result<SingleRecord, String> {
+    let value = identifier.to_string();
+    if ROR::is_valid(&value) {
+        let name = "ROR";
+        let action = "search";
+        let params = vec![param!(TemplateValue, "identifier", &value)];
+        let data = Some(params);
+        match INCLUDED_ENDPOINTS.find_by_name(name) {
+            | Some(endpoint) => {
+                let response = endpoint.invoke(action, data).await;
+                endpoint.handle::<SingleRecord>(response)
+            }
+            | None => Err(format!("{name} API endpoint not found")),
+        }
+    } else {
+        Err(format!("Invalid ROR identifier: {}", &value))
     }
 }
 /// Search the ROR API with given query parameters and output fields

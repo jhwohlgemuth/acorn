@@ -17,6 +17,7 @@ use lazy_static::lazy_static;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::collections::HashSet;
 use tera::{Context, Tera};
 use uriparse::URI;
 use validator::Validate;
@@ -76,14 +77,6 @@ pub trait RemoteResource {
     where
         Q: QueryField + ValueValidator,
         F: QueryField;
-    /// Parse JSON response string content
-    fn parse_json<R>(&self, content: &str) -> Result<R, String>
-    where
-        R: for<'de> Deserialize<'de>;
-    /// Parse XML response string content
-    fn parse_xml<R>(&self, content: &str) -> Result<R, String>
-    where
-        R: for<'de> Deserialize<'de>;
 }
 /// Helper trait for searching lists of named API elements
 pub trait Searchable<T> {
@@ -533,13 +526,11 @@ impl RemoteResource for Endpoint {
     {
         match response {
             | Ok(content) => match content {
-                | ResponseContent::Json(content) => self.parse_json(&content),
-                | ResponseContent::Xml(content) => self.parse_xml(&content),
+                | ResponseContent::Json(content) => parse_json(&content),
+                | ResponseContent::Xml(content) => parse_xml(&content),
                 | ResponseContent::Raw(content) => {
                     let raw = TextResponse { content };
-                    serde_json::to_string(&raw)
-                        .map_err(|e| e.to_string())
-                        .and_then(|json| self.parse_json(&json))
+                    serde_json::to_string(&raw).map_err(|e| e.to_string()).and_then(|json| parse_json(&json))
                 }
             },
             | Err(e) => Err(e.to_string()),
@@ -590,15 +581,15 @@ impl RemoteResource for Endpoint {
         F: QueryField,
     {
         let Self { resources, .. } = self;
-        let mut tera = Tera::default();
-        let context = self.context_with::<Q, F>(data.clone());
+        let mut context = self.context_with::<Q, F>(data.clone());
         let resource = resources.find_by_name(name);
         match resource {
             | Some(Resource { method, template, .. }) => {
-                let path = tera.render_str(&template, &context).unwrap_or_default();
+                let path = render(&template, &mut context);
                 let params = data.unwrap_or_default();
                 let headers = params.clone().into_headers();
                 let body = params.into_body();
+                dbg!(&path);
                 let request = match method {
                     | HttpMethod::Get => get(path),
                     | HttpMethod::Post => post(path).json(&body),
@@ -625,24 +616,6 @@ impl RemoteResource for Endpoint {
             | None => Err(Error::new(ErrorKind::NotFound, "Resource not found")),
         }
     }
-    fn parse_json<R>(&self, content: &str) -> Result<R, String>
-    where
-        R: for<'de> Deserialize<'de>,
-    {
-        match serde_json::from_str::<R>(content) {
-            | Ok(response) => Ok(response),
-            | Err(why) => Err(why.to_string()),
-        }
-    }
-    fn parse_xml<R>(&self, content: &str) -> Result<R, String>
-    where
-        R: for<'de> Deserialize<'de>,
-    {
-        match quick_xml::de::from_str::<R>(content) {
-            | Ok(response) => Ok(response),
-            | Err(why) => Err(why.to_string()),
-        }
-    }
 }
 impl TryFrom<&str> for EmptyField {
     type Error = String;
@@ -656,8 +629,47 @@ impl ValueValidator for EmptyField {
         true
     }
 }
+pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
+    fn extract_key(expression: &str) -> Option<String> {
+        let trimmed = expression.trim().trim_matches('-');
+        let mut base_parts = trimmed.split('|');
+        let base = match base_parts.next() {
+            | Some(value) => value.trim(),
+            | None => return None,
+        };
+        let mut key_parts = base.split_whitespace();
+        let key = match key_parts.next() {
+            | Some(value) => value.trim(),
+            | None => return None,
+        };
+        if key.is_empty() {
+            None
+        } else {
+            Some(key.to_string())
+        }
+    }
+    let mut keys = Vec::new();
+    let mut seen = HashSet::new();
+    let mut remaining = template;
+    while let Some(start) = remaining.find("{{") {
+        remaining = &remaining[start + 2..];
+        let end = match remaining.find("}}") {
+            | Some(value) => value,
+            | None => break,
+        };
+        let raw = &remaining[..end];
+        if let Some(key) = extract_key(raw) {
+            let key_value = key.to_string();
+            if seen.insert(key_value.clone()) {
+                keys.push(key_value);
+            }
+        }
+        remaining = &remaining[end + 2..];
+    }
+    keys
+}
 /// Create a query string from a lookup table of key-value pairs with field validation
-pub fn param_from_query_pairs<T: QueryField + ValueValidator>(key: &str, separator: &str, pairs: Vec<(&str, &str)>) -> Option<String> {
+pub(crate) fn param_from_query_pairs<T: QueryField + ValueValidator>(key: &str, separator: &str, pairs: Vec<(&str, &str)>) -> Option<String> {
     let values: Vec<String> = pairs
         .into_iter()
         .filter_map(|(k, v)| {
@@ -682,7 +694,7 @@ pub fn param_from_query_pairs<T: QueryField + ValueValidator>(key: &str, separat
     }
 }
 /// Create a query string from a list of field values
-pub fn param_from_field_list<T: QueryField>(key: &str, separator: &str, fields: Vec<&str>) -> Option<String> {
+pub(crate) fn param_from_field_list<T: QueryField>(key: &str, separator: &str, fields: Vec<&str>) -> Option<String> {
     let values: Vec<String> = fields
         .into_iter()
         .filter_map(|value: &str| {
@@ -700,7 +712,7 @@ pub fn param_from_field_list<T: QueryField>(key: &str, separator: &str, fields: 
     }
 }
 /// Create a boosted query string from a list of fields with weighted relevance
-pub fn param_from_query_fields<T: QueryField>(key: &str, separator: &str, fields: Vec<&str>) -> Option<String> {
+pub(crate) fn param_from_query_fields<T: QueryField>(key: &str, separator: &str, fields: Vec<&str>) -> Option<String> {
     let valid_fields: Vec<T> = fields.into_iter().filter_map(|value| T::try_from(value).ok()).collect();
     if valid_fields.is_empty() {
         None
@@ -718,14 +730,22 @@ pub fn param_from_query_fields<T: QueryField>(key: &str, separator: &str, fields
         ))
     }
 }
-/// Parse API response content into a structured data type using `quick_xml` for XML deserialization
-pub fn parse<R>(content: &str) -> Result<R, String>
+pub(crate) fn parse_json<R>(content: &str) -> Result<R, String>
+where
+    R: for<'de> Deserialize<'de>,
+{
+    match serde_json::from_str::<R>(content) {
+        | Ok(response) => Ok(response),
+        | Err(why) => Err(why.to_string()),
+    }
+}
+pub(crate) fn parse_xml<R>(content: &str) -> Result<R, String>
 where
     R: for<'de> Deserialize<'de>,
 {
     match quick_xml::de::from_str::<R>(content) {
         | Ok(response) => Ok(response),
-        | Err(e) => Err(format!("Failed to parse ORCiD search response: {e}")),
+        | Err(why) => Err(why.to_string()),
     }
 }
 /// Construct a query string for an endpoint API query from a list of field-value pairs, a list of fields, and a list of fields with boosted relevance.
@@ -737,7 +757,7 @@ where
 /// - The list of fields with boosted relevance, joined with URL encoded space, prefixed with "&qf=".
 ///
 /// If the list of field-value pairs is empty, an empty string is returned.
-pub fn query_string<Q: QueryField + ValueValidator, F: QueryField>(
+pub(crate) fn query_string<Q: QueryField + ValueValidator, F: QueryField>(
     query_pairs: Vec<(&str, &str)>,
     field_list: Vec<&str>,
     query_fields: Vec<&str>,
@@ -748,6 +768,16 @@ pub fn query_string<Q: QueryField + ValueValidator, F: QueryField>(
         Param::from_query_field("qf", query_fields),
     ];
     Param::to_query_string::<Q, F>(params)
+}
+pub(crate) fn render(template: &str, context: &mut Context) -> String {
+    let mut tera = Tera::default();
+    let keys = extract_template_keys(template);
+    keys.into_iter().for_each(|key| {
+        if !context.contains_key(&key) {
+            context.insert(&key, "");
+        }
+    });
+    tera.render_str(template, context).unwrap_or_default()
 }
 
 #[cfg(test)]

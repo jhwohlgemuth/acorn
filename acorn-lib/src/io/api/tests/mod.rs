@@ -1,5 +1,7 @@
 use crate::io::api::citeas::{self, ToCitations};
-use crate::io::api::{self, geonames, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, Resource, ResponseContent, Searchable};
+use crate::io::api::{
+    self, extract_template_keys, geonames, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, Resource, ResponseContent, Searchable,
+};
 use crate::io::read_file;
 use crate::param;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
@@ -137,15 +139,14 @@ fn test_endpoint_handle() {
 #[test]
 fn test_endpoint_parse() {
     let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<expanded-search:expanded-search num-found=\"2\" xmlns:expanded-search=\"http://www.orcid.org/ns/expanded-search\">\n    <expanded-search:expanded-result>\n        <expanded-search:family-names>Carson</expanded-search:family-names>\n    </expanded-search:expanded-result>\n    <expanded-search:expanded-result>\n        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>\n    </expanded-search:expanded-result>\n</expanded-search:expanded-search>\n";
-    let endpoint = Endpoint::at("pub.orcid.org").root("v3.0").build();
-    let response = endpoint.parse_xml::<orcid::SearchResponse>(xml).expect("Failed to parse XML");
+    let response = api::parse_xml::<orcid::SearchResponse>(xml).expect("Failed to parse XML");
     assert_eq!(response.num_found, 2);
     assert_eq!(response.namespace, "http://www.orcid.org/ns/expanded-search");
     assert_eq!(response.results.len(), 2);
     assert_eq!(response.results[0].family_names, Some("Carson".to_string()));
     assert_eq!(response.results[1].family_names, Some("Wohlgemuth".to_string()));
     let json = "{\"tomcatUp\":true,\"dbConnectionOk\":true,\"readOnlyDbConnectionOk\":false,\"overallOk\":true}";
-    let status = endpoint.parse_json::<orcid::StatusResponse>(json).expect("Failed to parse JSON");
+    let status = api::parse_json::<orcid::StatusResponse>(json).expect("Failed to parse JSON");
     assert!(status.application);
     assert!(status.database);
     assert!(!status.database_readonly);
@@ -273,11 +274,35 @@ fn test_orcid_query_string() {
     assert_eq!(query, expected);
 }
 #[test]
+fn test_extract_template_keys() {
+    let template = "{{ base }}/organizations/{{ identifier }}{{ query }}";
+    let keys = extract_template_keys(template);
+    let expected = vec!["base", "identifier", "query"].into_iter().map(String::from).collect::<Vec<String>>();
+    assert_eq!(keys, expected);
+    let template = "{{ query | default(value=\"\") }} and {{- name -}}";
+    let keys = extract_template_keys(template);
+    let expected = vec!["query", "name"].into_iter().map(String::from).collect::<Vec<String>>();
+    assert_eq!(keys, expected);
+    let template = "{{ base }}/{{ base }}/{{ identifier }}";
+    let keys = extract_template_keys(template);
+    let expected = vec!["base", "identifier"].into_iter().map(String::from).collect::<Vec<String>>();
+    assert_eq!(keys, expected);
+
+    let template = "{{ base }}/{{ missing";
+    let keys = extract_template_keys(template);
+    let expected = vec!["base"].into_iter().map(String::from).collect::<Vec<String>>();
+    assert_eq!(keys, expected);
+    let template = "";
+    let keys = extract_template_keys(template);
+    let expected: Vec<String> = vec![];
+    assert_eq!(keys, expected);
+}
+#[test]
 fn test_orcid_response_handler() {
     // Load XML fixture file
     let xml = read_file(fixtures_dir().join("response_orcid_wohlgemuth.xml")).expect("Failed to read XML fixture");
     // Parse XML into OrcidSearchResponse
-    let response = api::parse::<orcid::SearchResponse>(&xml).expect("Failed to deserialize XML");
+    let response = api::parse_xml::<orcid::SearchResponse>(&xml).expect("Failed to deserialize XML");
     // Verify basic response properties
     let total = 68;
     assert_eq!(response.num_found, total);

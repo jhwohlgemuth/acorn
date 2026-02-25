@@ -236,14 +236,9 @@ pub const ENDPOINTS_TEXT: &str = r#"{
             "root": "v2",
             "resources": [
                 {
-                    "name": "record",
-                    "method": "get",
-                    "template": "{{ base }}/organizations/{{ identifier }}"
-                },
-                {
                     "name": "search",
                     "method": "get",
-                    "template": "{{ base }}/organizations/{{ query }}"
+                    "template": "{{ base }}/organizations/{{ identifier }}{{ query }}"
                 },
                 {
                     "name": "status",
