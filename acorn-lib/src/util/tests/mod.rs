@@ -1,11 +1,10 @@
-use crate::cmd;
 use crate::io::api::ParamStyle;
 use crate::io::{
     command_exists, extract_zip, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand, FromPath,
 };
-use crate::param;
 use crate::prelude::{CommandOutput, Path, PathBuf};
 use crate::util::*;
+use crate::{cmd, param};
 #[cfg(test)]
 use similar_asserts::assert_eq;
 
@@ -29,6 +28,115 @@ fn test_chunk_string() {
     assert_eq!("abcdefghi".chunk(3), vec!["abc", "def", "ghi"]);
     assert_eq!("abcdefghi".chunk(2), vec!["ab", "cd", "ef", "gh", "i"]);
     assert_eq!("abcdefghi".to_string().chunk(3), vec!["abc", "def", "ghi"]);
+}
+#[test]
+fn test_cmd_output() {
+    // Platform-specific shell tests
+    #[cfg(unix)]
+    {
+        // Shell string
+        let output = cmd!(sh "echo sh-output").expect("sh string");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "sh-output");
+        // Shell string with multiple args
+        let output = cmd!(sh "echo one two three").expect("sh multi-arg");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "one two three");
+        // Shell string with format! interpolation
+        let name = "world";
+        let output = cmd!(sh format!("echo hello-{name}")).expect("sh format!");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello-world");
+        // Array literal
+        let output = cmd!("echo", ["hello"]).expect("array literal");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello");
+        // Args variable
+        let args = vec!["world"];
+        let output = cmd!("echo", args).expect("args variable");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "world");
+        // CLI-style literals
+        let output = cmd!("echo" "cli-style").expect("cli-style");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "cli-style");
+        // Stderr capture
+        let output = cmd!("sh", ["-c", "echo oops >&2"]).expect("stderr");
+        assert_eq!(output.stderr(), "oops");
+        // Non-zero exit code
+        let output = cmd!("sh", ["-c", "exit 42"]).expect("exit code");
+        assert!(!output.status.success());
+    }
+    #[cfg(windows)]
+    {
+        // Windows shell string using cmd /c
+        let output = cmd!(sh "cmd /c echo sh-output").expect("sh string");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "sh-output");
+        // Shell string with multiple args
+        let output = cmd!(sh "cmd /c echo one two three").expect("sh multi-arg");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "one two three");
+        // Shell string with format! interpolation
+        let name = "world";
+        let output = cmd!(sh format!("cmd /c echo hello-{name}")).expect("sh format!");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello-world");
+        // Array literal - using 'cargo' which exists as executable
+        let output = cmd!("cargo", ["--version"]).expect("array literal");
+        assert!(output.status.success());
+        assert!(output.stdout().contains("cargo"));
+        // Stderr capture using cmd /c
+        let output = cmd!("cmd", ["/c", "echo oops 1>&2"]).expect("stderr");
+        assert!(output.stderr().contains("oops") || output.stdout().contains("oops"));
+    }
+}
+#[test]
+fn test_cmd_status() {
+    // Platform-specific tests
+    #[cfg(unix)]
+    {
+        // Shell string
+        let status = cmd!(sh status "echo sh-status").expect("sh string");
+        assert!(status.success());
+        // Shell string with format! interpolation
+        let arg = "check";
+        let status = cmd!(sh status format!("echo {arg}")).expect("sh format!");
+        assert!(status.success());
+        // Array literal
+        let status = cmd!(status "echo", ["hello"]).expect("array literal");
+        assert!(status.success());
+        // Args variable
+        let args = vec!["hello"];
+        let status = cmd!(status "echo", args).expect("args variable");
+        assert!(status.success());
+        // CLI-style literals
+        let status = cmd!(status "echo" "status-check").expect("cli-style");
+        assert!(status.success());
+        // Non-zero exit code
+        let status = cmd!(status "sh", ["-c", "exit 42"]).expect("exit code");
+        assert!(!status.success());
+    }
+    #[cfg(windows)]
+    {
+        // Windows shell string using cmd /c
+        let status = cmd!(sh status "cmd /c echo sh-status").expect("sh string");
+        assert!(status.success());
+        // Shell string with format! interpolation
+        let arg = "check";
+        let status = cmd!(sh status format!("cmd /c echo {arg}")).expect("sh format!");
+        assert!(status.success());
+        // Array literal - using 'cargo' which exists as executable
+        let status = cmd!(status "cargo", ["--version"]).expect("array literal");
+        assert!(status.success());
+    }
+}
+#[test]
+fn test_cmd_error() {
+    // Nonexistent binary — array style
+    assert!(cmd!("not-a-real-command-xyz", ["arg"]).is_err());
+    // Nonexistent binary — sh style
+    assert!(cmd!(sh "not-a-real-command-xyz arg").is_err());
 }
 #[test]
 fn test_current_date() {
@@ -209,6 +317,58 @@ fn test_mimetype() {
     assert_eq!(MimeType::Yaml.file_type(), "yaml");
 }
 #[test]
+fn test_param_single_value() {
+    let param = param!(ParamStyle::FieldList, "fl", "family-name");
+    assert_eq!(param.name, "fl");
+    assert_eq!(param.values, vec![vec![Some("family-name".to_string())]]);
+}
+#[test]
+fn test_param_single_tuple() {
+    let param = param!(ParamStyle::QueryPair, "filter", ("status", "inactive"));
+    assert_eq!(param.name, "filter");
+    assert_eq!(param.values, vec![vec![Some("status".to_string()), Some("inactive".to_string())]]);
+}
+#[test]
+fn test_param_multiple_tuples() {
+    let param = param!(
+        ParamStyle::QueryPair,
+        "q",
+        (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "https://ror.org/01qz5mb56"),)
+    );
+    assert_eq!(param.name, "q");
+    assert_eq!(
+        param.values,
+        vec![
+            vec![Some("affiliation-org-name".to_string()), Some("Lyrasis".to_string())],
+            vec![Some("ror-org-id".to_string()), Some("https://ror.org/01qz5mb56".to_string())]
+        ]
+    );
+}
+#[test]
+fn test_param_vec_notation() {
+    let param = param!(ParamStyle::FieldList, "fields", vec![vec!["field1", "field2"], vec!["field3"],]);
+    assert_eq!(param.name, "fields");
+    assert_eq!(
+        param.values,
+        vec![
+            vec![Some("field1".to_string()), Some("field2".to_string())],
+            vec![Some("field3".to_string())]
+        ]
+    );
+}
+#[test]
+fn test_param_template_value() {
+    let param = param!(ParamStyle::TemplateValue, "identifier", "01qz5mb56");
+    assert_eq!(param.name, "identifier");
+    assert_eq!(param.values, vec![vec![Some("01qz5mb56".to_string())]]);
+}
+#[test]
+fn test_param_with_quoted_value() {
+    let param = param!(ParamStyle::QueryPair, "ror-id", "\"https://ror.org/01qz5mb56\"");
+    assert_eq!(param.name, "ror-id");
+    assert_eq!(param.values, vec![vec![Some("\"https://ror.org/01qz5mb56\"".to_string())]]);
+}
+#[test]
 fn test_parent() {
     assert!(parent(FIXTURES).ends_with("tests"));
     assert!(parent(FIXTURES.to_string()).ends_with("tests"));
@@ -337,121 +497,4 @@ fn test_to_absolute_string() {
         | Ok(false) => (),
         | Err(_) => (),
     }
-}
-#[test]
-fn test_param_single_value() {
-    let param = param!(ParamStyle::FieldList, "fl", "family-name");
-    assert_eq!(param.name, "fl");
-    assert_eq!(param.values, vec![vec![Some("family-name".to_string())]]);
-}
-#[test]
-fn test_param_single_tuple() {
-    let param = param!(ParamStyle::QueryPair, "filter", ("status", "inactive"));
-    assert_eq!(param.name, "filter");
-    assert_eq!(param.values, vec![vec![Some("status".to_string()), Some("inactive".to_string())]]);
-}
-#[test]
-fn test_param_multiple_tuples() {
-    let param = param!(
-        ParamStyle::QueryPair,
-        "q",
-        (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "https://ror.org/01qz5mb56"),)
-    );
-    assert_eq!(param.name, "q");
-    assert_eq!(
-        param.values,
-        vec![
-            vec![Some("affiliation-org-name".to_string()), Some("Lyrasis".to_string())],
-            vec![Some("ror-org-id".to_string()), Some("https://ror.org/01qz5mb56".to_string())]
-        ]
-    );
-}
-#[test]
-fn test_param_vec_notation() {
-    let param = param!(ParamStyle::FieldList, "fields", vec![vec!["field1", "field2"], vec!["field3"],]);
-    assert_eq!(param.name, "fields");
-    assert_eq!(
-        param.values,
-        vec![
-            vec![Some("field1".to_string()), Some("field2".to_string())],
-            vec![Some("field3".to_string())]
-        ]
-    );
-}
-#[test]
-fn test_param_template_value() {
-    let param = param!(ParamStyle::TemplateValue, "identifier", "01qz5mb56");
-    assert_eq!(param.name, "identifier");
-    assert_eq!(param.values, vec![vec![Some("01qz5mb56".to_string())]]);
-}
-#[test]
-fn test_param_with_quoted_value() {
-    let param = param!(ParamStyle::QueryPair, "ror-id", "\"https://ror.org/01qz5mb56\"");
-    assert_eq!(param.name, "ror-id");
-    assert_eq!(param.values, vec![vec![Some("\"https://ror.org/01qz5mb56\"".to_string())]]);
-}
-#[test]
-fn test_cmd_output() {
-    // Array literal
-    let output = cmd!("echo", ["hello"]).expect("array literal");
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "hello");
-    // Args variable
-    let args = vec!["world"];
-    let output = cmd!("echo", args).expect("args variable");
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "world");
-    // CLI-style literals
-    let output = cmd!("echo" "cli-style").expect("cli-style");
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "cli-style");
-    // Shell string
-    let output = cmd!(sh "echo sh-output").expect("sh string");
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "sh-output");
-    // Shell string with multiple args
-    let output = cmd!(sh "echo one two three").expect("sh multi-arg");
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "one two three");
-    // Shell string with format! interpolation
-    let name = "world";
-    let output = cmd!(sh format!("echo hello-{name}")).expect("sh format!");
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "hello-world");
-    // Stderr capture
-    let output = cmd!("sh", ["-c", "echo oops >&2"]).expect("stderr");
-    assert_eq!(output.stderr(), "oops");
-    // Non-zero exit code
-    let output = cmd!("sh", ["-c", "exit 42"]).expect("exit code");
-    assert!(!output.status.success());
-}
-#[test]
-fn test_cmd_status() {
-    // Array literal
-    let status = cmd!(status "echo", ["hello"]).expect("array literal");
-    assert!(status.success());
-    // Args variable
-    let args = vec!["hello"];
-    let status = cmd!(status "echo", args).expect("args variable");
-    assert!(status.success());
-    // CLI-style literals
-    let status = cmd!(status "echo" "status-check").expect("cli-style");
-    assert!(status.success());
-    // Shell string
-    let status = cmd!(sh status "echo sh-status").expect("sh string");
-    assert!(status.success());
-    // Shell string with format! interpolation
-    let arg = "check";
-    let status = cmd!(sh status format!("echo {arg}")).expect("sh format!");
-    assert!(status.success());
-    // Non-zero exit code
-    let status = cmd!(status "sh", ["-c", "exit 42"]).expect("exit code");
-    assert!(!status.success());
-}
-#[test]
-fn test_cmd_error() {
-    // Nonexistent binary — array style
-    assert!(cmd!("not-a-real-command-xyz", ["arg"]).is_err());
-    // Nonexistent binary — sh style
-    assert!(cmd!(sh "not-a-real-command-xyz arg").is_err());
 }

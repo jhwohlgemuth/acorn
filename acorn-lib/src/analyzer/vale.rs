@@ -166,5 +166,8 @@ pub(crate) fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
 #[cfg(windows)]
 pub(crate) fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
     let input = path.as_path().display().to_string().replace("\\", "/");
-    output.replace("\\\\", "/").replace(&input, "items")
+    // First replace double backslashes with forward slashes
+    let normalized = output.replace("\\\\", "/");
+    // Then handle the extended-length path prefix and replace the full path
+    normalized.replace(&format!("//?/{}", input), "items").replace(&input, "items")
 }

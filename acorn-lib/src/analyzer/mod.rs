@@ -3,20 +3,18 @@
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
-use crate::cmd;
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder};
 #[cfg(feature = "std")]
 use crate::io::{get, InputOutput};
-use crate::prelude;
-use crate::prelude::{create_dir_all, remove_file, Command, CommandOutput, Error, File, HashMap, PathBuf, Write};
+use crate::prelude::{self, create_dir_all, remove_file, Command, CommandOutput, Error, File, HashMap, PathBuf, Write};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{ImageObject, MediaObject, Organization, ProgrammingLanguage, VideoObject, Website};
-use crate::skip;
 use crate::util::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
     VALE_RELEASES_URL, VALE_VERSION,
 };
 use crate::util::{suffix, Constant, Label, SemanticVersion, ToAbsoluteString, ToMarkdown};
+use crate::{cmd, skip};
 use crate::{Location, Repository};
 use ariadne::{Config, Report, Source};
 use async_trait::async_trait;
@@ -516,26 +514,32 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         match &self.config {
             | Some(config) => {
                 let result = match output {
-                    | Some(value) => Command::new(binary)
-                        .arg("--no-wrap")
-                        .arg("--config")
-                        .arg(config.clone().path)
-                        .arg("--output")
-                        .arg(value)
-                        .arg(path.clone())
-                        .arg("--ext")
-                        .arg(".md")
-                        .arg("--no-exit")
-                        .output(),
-                    | None => Command::new(binary)
-                        .arg("--no-wrap")
-                        .arg("--config")
-                        .arg(config.clone().path)
-                        .arg(path.clone())
-                        .arg("--ext")
-                        .arg(".md")
-                        .arg("--no-exit")
-                        .output(),
+                    | Some(value) => cmd!(
+                        binary.to_absolute_string(),
+                        [
+                            "--no-wrap",
+                            "--config",
+                            &config.clone().path.to_absolute_string(),
+                            "--output",
+                            value.as_str(),
+                            &path.clone().to_absolute_string(),
+                            "--ext",
+                            ".md",
+                            "--no-exit"
+                        ]
+                    ),
+                    | None => cmd!(
+                        binary.to_absolute_string(),
+                        [
+                            "--no-wrap",
+                            "--config",
+                            &config.clone().path.to_absolute_string(),
+                            &path.clone().to_absolute_string(),
+                            "--ext",
+                            ".md",
+                            "--no-exit"
+                        ]
+                    ),
                 };
                 match result {
                     | Ok(output) if output.status.success() => {

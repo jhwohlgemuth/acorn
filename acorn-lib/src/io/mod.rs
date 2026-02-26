@@ -19,8 +19,6 @@
 //! write_file(PathBuf::from("/path/to/that/file"), contents);
 //! ```
 //!
-use crate::cmd;
-use crate::fail;
 use crate::prelude::CommandOutput;
 use crate::prelude::{canonicalize, create_dir_all, io, var, BufReader, Cursor, Error, File, PathBuf, Read, Write};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
@@ -29,6 +27,7 @@ use crate::util::constants::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATI
 #[cfg(windows)]
 use crate::util::file_extension;
 use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, ToAbsoluteString, ToStrings};
+use crate::{cmd, fail};
 use core::time::Duration;
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
