@@ -207,9 +207,39 @@ pub const ENDPOINTS_TEXT: &str = r#"{
             "root": "api/v4",
             "resources": [
                 {
+                    "name": "groups",
+                    "method": "get",
+                    "template": "{{ base }}/groups/{{ identifier }}/descendant_groups{{ query }}"
+                },
+                {
+                    "name": "jobs",
+                    "method": "get",
+                    "template": "{{ base }}/runners/{{ identifier }}/jobs{{ query }}"
+                },
+                {
+                    "name": "merge-requests",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}{{ query }}"
+                },
+                {
+                    "name": "releases",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ identifier }}/releases{{ query }}"
+                },
+                {
+                    "name": "runners",
+                    "method": "get",
+                    "template": "{{ base }}/runners/{{ identifier }}{{ query }}"
+                },
+                {
+                    "name": "tags",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ identifier }}/repository/tags{{ query }}"
+                },
+                {
                     "name": "tree",
                     "method": "get",
-                    "template": "{{ base }}/projects/{{ project_id }}//repository/tree/{{ query }}"
+                    "template": "{{ base }}/projects/{{ identifier }}/repository/tree{{ query }}"
                 }
             ]
         },

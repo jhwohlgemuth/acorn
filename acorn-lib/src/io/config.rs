@@ -4,8 +4,8 @@
 //!
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
-use crate::io::api::github::{GithubTreeEntry, GithubTreeResponse};
-use crate::io::api::gitlab::{GitlabTreeEntry, GitlabTreeResponse};
+use crate::io::api::github::{TreeEntry as GithubTreeEntry, TreeResponse as GithubTreeResponse};
+use crate::io::api::gitlab::{TreeEntry as GitlabTreeEntry, TreeResponse as GitlabTreeResponse};
 use crate::io::api::Endpoint;
 use crate::io::{files_all, get, parent, read_file, write_file, FromPath, InputOutput};
 use crate::prelude::{self, create_dir_all, exit, io, Cursor, Error, File, PathBuf};
@@ -25,22 +25,43 @@ use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace, warn};
 
 const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
+
+/// Runner status for CI/CD pipelines
+#[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunnerStatus {
+    /// Online and available to run jobs
+    #[default]
+    Online,
+    /// Offline and/or unavailable to run jobs
+    Offline,
+    /// Runner has not contacted the server for a while
+    Stale,
+    /// Runner has never contacted the server
+    NeverContacted,
+    /// Deprecated
+    Active,
+    /// Deprecated
+    Paused,
+}
 /// Runner types for CI/CD pipelines
 ///
 /// Mostly for GitLab as GitHub only has two types: hosted (by GitHub) and self-hosted
 #[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub enum RunnerType {
     /// Accessible to a specific group and its projects/subgroups
     #[default]
     #[display("group_type")]
+    #[serde(rename = "group_type", alias = "group")]
     Group,
     /// Available to all projects and groups within an instance
     /// > Also called "shared runners" in GitLab
     #[display("instance_type")]
+    #[serde(rename = "instance_type", alias = "instance")]
     Instance,
     /// Available to a specific project
     #[display("project_type")]
+    #[serde(rename = "project_type", alias = "project")]
     Project,
 }
 /// Struct for application configuration

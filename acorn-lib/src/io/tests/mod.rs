@@ -1,4 +1,4 @@
-use crate::io::api::gitlab::GitlabTreeEntry;
+use crate::io::api::gitlab::TreeEntry;
 use crate::io::api::TreeEntryType;
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::config::{ApplicationConfiguration, Bucket};
@@ -132,7 +132,7 @@ fn test_bucket() {
 }
 #[test]
 fn test_gitlab_tree_entry() {
-    let entry = GitlabTreeEntry {
+    let entry = TreeEntry {
         id: 1234.to_string(),
         name: "acorn".to_string(),
         entry_type: TreeEntryType::Tree,

@@ -8,7 +8,7 @@ use serde_with::skip_serializing_none;
 /// [GitHub]: https://docs.github.com/en/rest
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GithubTreeEntry {
+pub struct TreeEntry {
     /// Path of tree entry
     ///
     /// The path inside the repository. Used to get content of subdirectories.
@@ -42,7 +42,7 @@ pub struct GithubTreeEntry {
 ///   "truncated": false
 /// }
 /// ```
-/// where `"tree"` is a list of [GithubTreeEntry].
+/// where `"tree"` is a list of [TreeEntry].
 ///
 /// ### Example Endpoint
 /// > `https://api.github.com/repos/jhwohlgemuth/pwsh-prelude/git/trees/master?recursive=1`
@@ -52,17 +52,17 @@ pub struct GithubTreeEntry {
 /// [GitHub]: https://docs.github.com/en/rest
 /// [documentation]: https://docs.github.com/en/rest/git/trees?apiVersion=2022-11-28#get-a-tree
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GithubTreeResponse {
+pub struct TreeResponse {
     /// SHA1 of tree
     pub sha: String,
     /// URL of associated data API endpoint
     pub url: String,
-    /// List of [GithubTreeEntry]
-    pub tree: Vec<GithubTreeEntry>,
+    /// List of [TreeEntry]
+    pub tree: Vec<TreeEntry>,
     /// Whether tree is truncated
     pub truncated: bool,
 }
-impl GithubTreeEntry {
+impl TreeEntry {
     /// Get path of tree entry
     pub fn path(self) -> String {
         self.path
