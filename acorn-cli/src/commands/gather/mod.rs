@@ -1,4 +1,4 @@
-use acorn::io::api::{self, Endpoint, RemoteResource, Searchable};
+use acorn::io::api;
 use acorn::param;
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
@@ -10,9 +10,9 @@ pub async fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &b
     println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
     println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
     println!("ROR API is healthy: {}", api::ror::is_healthy().await);
-    // spdx_example(&INCLUDED_ENDPOINTS).await;
+    println!("Licenses: {:#?}", api::spdx::Licenses::download().await);
     // orcid_example().await;
-    ror_example().await;
+    // ror_example().await;
     Ok(())
 }
 #[allow(dead_code)]
@@ -25,9 +25,7 @@ async fn orcid_example() {
         ),
         param!(FieldList, "fl", "family-name"),
     ];
-    // ORCiD API examples
-    let text = api::orcid::search(params).await;
-    println!("ORCiD Search Response: {text:#?}");
+    println!("ORCiD Search Response: {:#?}", api::orcid::search(params).await);
 }
 #[allow(dead_code)]
 async fn ror_example() {
@@ -38,15 +36,4 @@ async fn ror_example() {
         param!(QueryPair, "filter", ("status", "inactive")),
     ];
     println!("ROR Search Results: {:#?}", api::ror::search(params).await);
-}
-#[allow(dead_code)]
-async fn spdx_example(endpoints: &Vec<Endpoint>) {
-    let text = match endpoints.find_by_name("spdx") {
-        | Some(endpoint) => {
-            let response = endpoint.invoke("licenses", None).await;
-            endpoint.handle::<api::spdx::Licenses>(response)
-        }
-        | None => Err("No SPDX endpoint found".into()),
-    };
-    println!("Licenses: {text:#?}");
 }

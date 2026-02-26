@@ -3,6 +3,7 @@
 //! See `https://github.com/spdx/license-list-data/blob/main/accessingLicenses.md` for more information on the SPDX license list and how to access it.
 //!
 //! See `https://spdx.org/rdf/terms/` for SPDX RDF terms.
+use crate::io::api::{self, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
 use serde::{Deserialize, Serialize};
 
 /// Struct for SPDX license data
@@ -42,5 +43,22 @@ impl License {
     /// Check if the license is OSI approved
     pub fn is_open_source(&self) -> bool {
         self.is_osi_approved
+    }
+}
+impl Licenses {
+    /// Download SPDX license data from homepage
+    /// ### Example
+    /// ```ignore
+    ///
+    /// let result = spdx::Licenses::download().await;
+    /// ```
+    pub async fn download() -> Result<Self, String> {
+        match INCLUDED_ENDPOINTS.find_by_name("spdx") {
+            | Some(endpoint) => {
+                let response = endpoint.invoke("licenses", None).await;
+                endpoint.handle::<api::spdx::Licenses>(response)
+            }
+            | None => Err("No SPDX endpoint found".into()),
+        }
     }
 }
