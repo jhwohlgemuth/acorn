@@ -34,7 +34,7 @@ If you would like to generously provide a pull request to correct a verified iss
 | Lint **ALL** code                        | `make lint`        |
 | Lint **ALL** code and run **ALL** tests  | `make lint test`   |
 | Run **ALL** tests                        | `make test`        |
-| Run **ALL** tests with coverage          | `make coverage`    |
+| Run **ALL** tests with coverage          | `make cover`       |
 | Run security audit on dependencies       | `make audit`       |
 | Generate documentation                   | `make doc`         |
 | Generate CHANGELOG<sup>[[1]](#1)</sup>   | `make changelog`   |
@@ -50,7 +50,7 @@ If you would like to generously provide a pull request to correct a verified iss
 ## Project Standards
 - Running `make lint` should not introduce any new lint and all format results should be included in proposed changes
 - Running `make test` should not have any failures
-- Running `make coverage` should not decrease coverage
+- Running `make cover` should not decrease coverage
 - Exceptions to any of these standards should be supported by strong reasoning and sufficient effort
 
 ## Running ACORN tasks from source

@@ -81,7 +81,7 @@ cargo install cargo-nextest cargo-tarpaulin cargo-audit cargo-auditable
 |------|---------|
 | Build | `make build` |
 | Test | `make test` (or `cargo nextest run --run-ignored all`) |
-| Coverage | `make coverage` |
+| Coverage | `make cover` |
 | Lint/Format | `make lint` |
 | Security audit | `make audit` |
 | Documentation | `make doc` |

@@ -43,7 +43,7 @@ changelog-release:
 	@git pull origin main --tags
 	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN} --latest
 
-coverage: clean lint
+cover: clean lint
 	@cargo tarpaulin --out lcov --line --skip-clean --no-dead-code --engine llvm
 
 doc:
@@ -196,7 +196,7 @@ TASKS = \
 	changelog \
 	changelog-release \
 	clean \
-	coverage \
+	cover \
 	doc \
 	lint \
 	publish-book \

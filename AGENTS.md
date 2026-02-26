@@ -48,7 +48,7 @@ make clean
 make doc
 
 # Run tests with coverage
-make coverage
+make cover
 
 # Security audit
 make audit
@@ -143,7 +143,7 @@ cargo nextest run --package acorn-cli commands::check::tests::test_check_command
 make test-ci
 
 # With coverage report
-make coverage
+make cover
 # OR
 cargo tarpaulin --out lcov --line --skip-clean --no-dead-code --engine llvm
 ```
@@ -168,7 +168,7 @@ Before submitting changes, verify:
 - [ ] Validation: Added appropriate `#[validate(...)]` attributes from `validator` crate
 - [ ] CLI output: Uses `Label::*()` from `acorn::util` for consistent styling
 - [ ] No new clippy warnings: `cargo clippy --workspace --no-deps --all-targets`
-- [ ] Coverage not decreased: `make coverage` (if applicable)
+- [ ] Coverage not decreased: `make cover` (if applicable)
 
 ## Project Structure
 
