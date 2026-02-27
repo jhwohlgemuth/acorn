@@ -143,6 +143,8 @@ pub enum ParamStyle {
     QueryField,
     /// Specifies response fields (e.g., "given-names,family-name")
     FieldList,
+    /// Key-value pair parameter (e.g., "key=value")
+    KeyValuePair,
     /// Header parameter
     Header,
     /// Body parameter (data sent via POST or PUT request)
@@ -356,6 +358,10 @@ impl Param {
     pub fn is_body(&self) -> bool {
         matches!(self.style, ParamStyle::Body)
     }
+    /// Check if this parameter is a key-value parameter
+    pub fn is_key_value(&self) -> bool {
+        matches!(self.style, ParamStyle::KeyValuePair)
+    }
     /// Check if this parameter is a query parameter (either a query pair, boosted query field, or field list)
     pub fn is_query(&self) -> bool {
         matches!(self.style, ParamStyle::QueryPair | ParamStyle::QueryField | ParamStyle::FieldList)
@@ -372,7 +378,7 @@ impl Param {
     pub fn to_query_string<Q: QueryField + ValueValidator, F: QueryField>(params: Vec<Param>) -> String {
         let query = params
             .iter()
-            .filter(|param| param.is_query())
+            .filter(|param| param.is_query() || param.is_key_value())
             .map(|param| param.to_string::<Q, F>())
             .filter(|s| !s.is_empty())
             .collect::<Vec<String>>()
@@ -439,6 +445,14 @@ impl Param {
                 let fields: Vec<&str> = self.values.iter().filter_map(|vec| vec.first().and_then(|o| o.as_deref())).collect();
                 param_from_field_list::<F>(key, separator, fields)
             }
+            | ParamStyle::KeyValuePair => {
+                let value = self
+                    .values
+                    .iter()
+                    .filter_map(|vec| vec.first().and_then(|o| o.as_deref()))
+                    .collect::<String>();
+                param_from_key_value_pair::<Q>(key, &value)
+            }
             | _ => None,
         };
         rendered.unwrap_or_default()
@@ -501,7 +515,8 @@ impl RemoteResource for Endpoint {
         let mut context = Context::new();
         match data {
             | Some(params) => {
-                let (query_params, other_params): (Vec<Param>, Vec<Param>) = params.into_iter().partition(|param| param.is_query());
+                let (query_params, other_params): (Vec<Param>, Vec<Param>) =
+                    params.into_iter().partition(|param| param.is_query() || param.is_key_value());
                 let query = Param::to_query_string::<Q, F>(query_params);
                 context.insert("query", &query);
                 other_params.into_iter().for_each(|param| {
@@ -667,6 +682,19 @@ pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
         remaining = &remaining[end + 2..];
     }
     keys
+}
+/// Create a query string component from a key-value pair with key and value validation
+pub(crate) fn param_from_key_value_pair<T: QueryField + ValueValidator>(key: &str, value: &str) -> Option<String> {
+    match T::try_from(key) {
+        | Ok(field) => {
+            if field.is_valid(value) {
+                Some(format!("{}={}", field, urlencoding::encode(value)))
+            } else {
+                None
+            }
+        }
+        | Err(_) => None,
+    }
 }
 /// Create a query string from a lookup table of key-value pairs with field validation
 pub(crate) fn param_from_query_pairs<T: QueryField + ValueValidator>(key: &str, separator: &str, pairs: Vec<(&str, &str)>) -> Option<String> {

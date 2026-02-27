@@ -5,15 +5,15 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 
 pub async fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
-    // let countries = api::geonames::get_countries().await;
-    // println!("Countries: {:#?}", countries);
-    // println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
-    // println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
-    // println!("ROR API is healthy: {}", api::ror::is_healthy().await);
-    // println!("Licenses: {:#?}", api::spdx::Licenses::download().await);
+    let countries = api::geonames::get_countries().await;
+    println!("Countries: {:#?}", countries);
+    println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
+    println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
+    println!("ROR API is healthy: {}", api::ror::is_healthy().await);
+    println!("Licenses: {:#?}", api::spdx::Licenses::download().await);
     gitlab_example().await;
-    // orcid_example().await;
-    // ror_example().await;
+    orcid_example().await;
+    ror_example().await;
     Ok(())
 }
 #[allow(dead_code)]

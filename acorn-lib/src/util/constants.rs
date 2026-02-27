@@ -207,6 +207,11 @@ pub const ENDPOINTS_TEXT: &str = r#"{
             "root": "api/v4",
             "resources": [
                 {
+                    "name": "group",
+                    "method": "get",
+                    "template": "{{ base }}/groups/{{ identifier }}{{ query }}"
+                },
+                {
                     "name": "groups",
                     "method": "get",
                     "template": "{{ base }}/groups/{{ identifier }}/descendant_groups{{ query }}"
@@ -220,6 +225,11 @@ pub const ENDPOINTS_TEXT: &str = r#"{
                     "name": "merge-requests",
                     "method": "get",
                     "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}{{ query }}"
+                },
+                {
+                    "name": "projects",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ identifier }}{{ query }}"
                 },
                 {
                     "name": "releases",

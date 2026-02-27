@@ -1,0 +1,10 @@
+---
+source: acorn-lib/src/io/api/tests/mod.rs
+expression: "format!(\"{:#?}\", response)"
+---
+StatusResponse {
+    application: true,
+    database: true,
+    database_readonly: false,
+    overall: true,
+}

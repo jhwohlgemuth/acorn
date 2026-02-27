@@ -2,9 +2,10 @@
 //!
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
-use crate::io::api::{RemoteResource, Searchable, TreeEntryType, INCLUDED_ENDPOINTS};
+use crate::io::api::{EmptyField, RemoteResource, Searchable, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::config::{RunnerStatus, RunnerType};
 use crate::param;
+use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -24,15 +25,109 @@ pub enum AccessLevel {
     RefProtected,
 }
 /// Group visibility level
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GroupVisibility {
     /// Public visibility
+    #[default]
     Public,
     /// Internal visibility
     Internal,
     /// Private visibility
     Private,
+}
+/// Pagination list parameters
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PaginationField {
+    /// Column by which to order by
+    OrderBy,
+    /// Page number to retrieve (default: 1)
+    Page,
+    /// Enable keyset pagination
+    Pagination,
+    /// Number of items to list per page (default: 20, max: 100)
+    PerPage,
+    /// Sort order
+    Sort,
+}
+/// Valid values for pagination order_by field
+///
+/// Projects can be ordered by
+/// - `created_at` (default)
+/// - `id`
+/// - `last_activity_at`
+/// - `name`
+/// - `path`
+/// - `similarity`
+/// - `star_count`
+/// - `updated_at`
+///
+/// Groups can be ordered by
+/// - `name` (default)
+/// - `id`
+/// - `path`
+/// - `similarity`
+///
+/// Issues can be ordered by
+/// - `created_at` (default)
+/// - `due_date`
+/// - `label_priority`
+/// - `milestone_due`
+/// - `popularity`
+/// - `priority`
+/// - `relative_position`
+/// - `title`
+/// - `updated_at`
+/// - `weight`
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderByValue {
+    /// Sort by creation timestamp
+    CreatedAt,
+    /// Sort by full hierarchical name
+    FullName,
+    /// Sort by unique identifier
+    #[serde(rename = "id")]
+    Identifier,
+    /// Sort by label priority
+    LabelPriority,
+    /// Sort by last activity timestamp
+    LastActivityAt,
+    /// Sort by milestone due date
+    MilestoneDue,
+    /// Sort by human-readable name
+    Name,
+    /// Sort by URL-encoded path
+    Path,
+    /// Sort by popularity
+    Popularity,
+    /// Sort by due date
+    DueDate,
+    /// Sort by priority
+    Priority,
+    /// Sort by manual relative position
+    RelativePosition,
+    /// Sort by search similarity score
+    Similarity,
+    /// Sort by title
+    Title,
+    /// Sort by last update timestamp
+    UpdatedAt,
+    /// Sort by weight/priority
+    Weight,
+}
+/// Valid values for pagination sort field
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SortValue {
+    /// Descending order
+    #[default]
+    #[serde(rename = "desc")]
+    Descending,
+    /// Ascending order
+    #[serde(rename = "asc")]
+    Ascending,
 }
 /// Runner group details
 #[skip_serializing_none]
@@ -127,7 +222,8 @@ pub struct GroupDetails {
     /// Group deletion schedule date
     pub marked_for_deletion_on: Option<String>,
     /// LDAP common name
-    pub ldap_cn: Option<String>,
+    #[serde(rename = "ldap_cn")]
+    pub ldap_common_name: Option<String>,
     /// LDAP access value
     pub ldap_access: Option<String>,
     /// File template project identifier
@@ -329,6 +425,68 @@ pub struct UserDetails {
     #[serde(rename = "web_url")]
     pub url: String,
 }
+impl fmt::Display for PaginationField {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            | PaginationField::OrderBy => "order_by",
+            | PaginationField::Page => "page",
+            | PaginationField::Pagination => "pagination",
+            | PaginationField::PerPage => "per_page",
+            | PaginationField::Sort => "sort",
+        };
+        write!(f, "{}", s)
+    }
+}
+impl TryFrom<&str> for PaginationField {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            | "order_by" => Ok(PaginationField::OrderBy),
+            | "page" => Ok(PaginationField::Page),
+            | "pagination" => Ok(PaginationField::Pagination),
+            | "per_page" => Ok(PaginationField::PerPage),
+            | "sort" => Ok(PaginationField::Sort),
+            | _ => Err(format!("Invalid GitLab pagination field: {value}")),
+        }
+    }
+}
+impl TryFrom<&str> for OrderByValue {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            | "created_at" => Ok(OrderByValue::CreatedAt),
+            | "due_date" => Ok(OrderByValue::DueDate),
+            | "full_name" => Ok(OrderByValue::FullName),
+            | "id" => Ok(OrderByValue::Identifier),
+            | "label_priority" => Ok(OrderByValue::LabelPriority),
+            | "last_activity_at" => Ok(OrderByValue::LastActivityAt),
+            | "milestone_due" => Ok(OrderByValue::MilestoneDue),
+            | "name" => Ok(OrderByValue::Name),
+            | "path" => Ok(OrderByValue::Path),
+            | "popularity" => Ok(OrderByValue::Popularity),
+            | "priority" => Ok(OrderByValue::Priority),
+            | "relative_position" => Ok(OrderByValue::RelativePosition),
+            | "similarity" => Ok(OrderByValue::Similarity),
+            | "title" => Ok(OrderByValue::Title),
+            | "updated_at" => Ok(OrderByValue::UpdatedAt),
+            | "weight" => Ok(OrderByValue::Weight),
+            | _ => Err(format!("Invalid GitLab order_by value: {value}")),
+        }
+    }
+}
+impl TryFrom<&str> for SortValue {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            | "asc" => Ok(SortValue::Ascending),
+            | "desc" => Ok(SortValue::Descending),
+            | _ => Err(format!("Invalid GitLab sort order: {value}")),
+        }
+    }
+}
 impl TreeEntry {
     /// Get path of tree entry
     pub fn path(self) -> String {
@@ -340,6 +498,18 @@ impl TreeEntry {
         entry_type.eq(&TreeEntryType::Blob)
     }
 }
+impl ValueValidator for PaginationField {
+    /// Validate pagination field values according to GitLab API documentation
+    fn is_valid(&self, value: &str) -> bool {
+        match self {
+            | PaginationField::OrderBy => OrderByValue::try_from(value).is_ok(),
+            | PaginationField::Page => value.parse::<u64>().is_ok(),
+            | PaginationField::PerPage => value.parse::<u64>().is_ok(),
+            | PaginationField::Sort => SortValue::try_from(value).is_ok(),
+            | _ => true,
+        }
+    }
+}
 /// Get descendant groups of a group by identifier
 pub async fn groups(identifier: impl Into<String>, token: impl Into<String>) -> Result<GroupsResponse, String> {
     let name = "GitLab";
@@ -349,10 +519,10 @@ pub async fn groups(identifier: impl Into<String>, token: impl Into<String>) -> 
             let params = vec![
                 param!(Header, "PRIVATE-TOKEN", &token.into()),
                 param!(TemplateValue, "identifier", &identifier.into()),
-                // param!(FieldList, "page", "1"),
-                param!(FieldList, "per_page", "100"),
+                param!(FieldList, "page", "1"),
+                param!(KeyValuePair, "per_page", "100"),
             ];
-            let response = endpoint.invoke(action, Some(params)).await;
+            let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<GroupsResponse>(response)
         }
         | None => Err(format!("{name} API endpoint not found")),
@@ -382,7 +552,7 @@ pub async fn runners(token: impl Into<String>) -> Result<RunnersResponse, String
     match INCLUDED_ENDPOINTS.find_by_name(name) {
         | Some(endpoint) => {
             let params = vec![param!(Header, "PRIVATE-TOKEN", &token.into())];
-            let response = endpoint.invoke(action, Some(params)).await;
+            let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<RunnersResponse>(response)
         }
         | None => Err(format!("{name} API endpoint not found")),
