@@ -41,7 +41,9 @@ use tracing::{debug, error, trace};
 use validator::Validate;
 
 pub mod constants;
+pub mod datacite;
 pub mod graph;
+pub mod ods;
 pub mod pid;
 pub mod prompt;
 pub mod research_activity;
