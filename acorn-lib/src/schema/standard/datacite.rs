@@ -3,7 +3,7 @@
 //! These types model the DataCite Metadata Schema 4.6 structure, including
 //! DOI records, creators, contributors, related identifiers, funding
 //! references, geolocation, rights, and other metadata properties
-use crate::schema::ods;
+use super::ods;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -11,101 +11,109 @@ use serde_with::skip_serializing_none;
 /// Collection of DataCite DOI records
 pub type Catalog = Vec<Record>;
 /// Contributor type enumeration per DataCite 4.6 property 7.a
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/contributorType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ContributorType {
-    /// Contact person
+    /// Person with knowledge of how to access, troubleshoot, or otherwise field issues related to the resource
     ContactPerson,
-    /// Data collector
+    /// Person/institution responsible for finding or gathering/collecting data under the guidelines of the author(s) or Principal Investigator (PI)
     DataCollector,
-    /// Data curator
+    /// Person tasked with reviewing, enhancing, cleaning, or standardizing metadata and the associated data submitted for storage, use, and maintenance within a data centre or repository
     DataCurator,
-    /// Data manager
+    /// Person or organization responsible for maintaining the finished resource
     DataManager,
-    /// Distributor
+    /// Institution tasked with responsibility to generate/disseminate copies of the resource in either electronic or print form
     Distributor,
-    /// Editor
+    /// Person who oversees the details related to the publication format of the resource
     Editor,
-    /// Hosting institution
+    /// Typically, the organisation allowing the resource to be available on the internet through the provision of its hardware/software/operating support
     HostingInstitution,
-    /// Producer
+    /// Typically, a person or organisation responsible for the artistry and form of a media product
     Producer,
-    /// Project leader
+    /// Person officially designated as head of project team or sub- project team instrumental in the work necessary to development of the resource
     ProjectLeader,
-    /// Project manager
+    /// Person officially designated as manager of a project
+    /// ### Note
+    /// > Project may consist of one or many project teams and sub-teams
     ProjectManager,
-    /// Project member
+    /// Person on the membership list of a designated project/project team
     ProjectMember,
-    /// Registration agency
+    /// Institution/organisation officially appointed by a Registration Authority to handle specific tasks within a defined area of responsibility
     RegistrationAgency,
-    /// Registration authority
+    /// Standards-setting body from which Registration Agencies obtain official recognition and guidance
     RegistrationAuthority,
-    /// Related person
+    /// Person without a specifically defined role in the development of the resource, but who is someone the author wishes to recognize
     RelatedPerson,
-    /// Research group
+    /// Typically refers to a group of individuals with a lab, department, or division that has a specifically defined focus of activity
     ResearchGroup,
-    /// Researcher
+    /// Person involved in analysing data or the results of an experiment or formal study
+    /// ### Note
+    /// > May indicate an intern or assistant to one of the authors who helped with research but who was not so "key" as to be listed as an author
     Researcher,
-    /// Rights holder
+    /// Person or institution owning or managing property rights, including intellectual property rights over the resource
     RightsHolder,
-    /// Sponsor
+    /// Person or organisation that issued a contract or under the auspices of which a work has been written, printed, published, developed, etc.
     Sponsor,
-    /// Supervisor
+    /// Designated administrator over one or more groups/teams working to produce a resource, or over one or more steps of a development process
     Supervisor,
-    /// Translator
+    /// Person, organization, or automated system responsible for converting the content of a resource from one language into another, preserving its meaning and intended message
     Translator,
     /// Work package leader
     WorkPackageLeader,
-    /// Other
+    /// Any person or institution making a significant contribution to the development and/or maintenance of the resource, but whose contribution is not adequately described by any of the other values
+    /// ### Examples
+    /// - Photographer
+    /// - Artist
+    /// - Writer
     Other,
 }
 /// Date type enumeration per DataCite 4.6 property 8.a
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/dateType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum DateType {
-    /// Accepted
+    /// Date that the publisher accepted the resource into their system
     Accepted,
-    /// Available
+    /// Date the resource is made publicly available (may be a range)
     Available,
-    /// Collected
+    /// Date or date range in which the resource content was collected
     Collected,
-    /// Copyrighted
+    /// Specific, documented date at which the resource receives a copyrighted status, if applicable
     Copyrighted,
-    /// Coverage
+    /// Date or date range that the resource content applies to, describes, or covers
     Coverage,
-    /// Created
+    /// Date the resource itself was put together
     Created,
-    /// Issued
+    /// Date that the resource is published or distributed
     Issued,
-    /// Submitted
+    /// Date the creator submits the resource to the publisher
     Submitted,
-    /// Updated
+    /// Date the resource was last updated (may be a range)
     Updated,
-    /// Valid
+    /// Date or date range during which the dataset or resource is accurate
     Valid,
-    /// Withdrawn
+    /// Date the resource is removed
     Withdrawn,
-    /// Other
+    /// Other date that does not fit into an existing category
     Other,
 }
 /// Description type enumeration
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/descriptionType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum DescriptionType {
-    /// Abstract
-    #[serde(rename = "Abstract")]
+    /// Brief description of the resource and the context in which the resource was created
     Abstract,
-    /// Methods
-    #[serde(rename = "Methods")]
+    /// Methodology employed for the study or research
     Methods,
-    /// Series information
-    #[serde(rename = "SeriesInformation")]
+    /// Information about a repeating series, such as volume, issue, number
     SeriesInformation,
     /// Table of contents
-    #[serde(rename = "TableOfContents")]
     TableOfContents,
-    /// Technical info
-    #[serde(rename = "TechnicalInfo")]
+    /// Detailed information that may be associated with design, implementation, operation, use, and/or maintenance of a process, system, or instrument
     TechnicalInfo,
     /// Other
-    #[serde(rename = "Other")]
     Other,
 }
 /// Funder identifier type enumeration per DataCite 4.6 property 19.2.a
@@ -114,20 +122,22 @@ pub enum FunderIdentifierType {
     /// Crossref Funder ID
     #[serde(rename = "Crossref Funder ID")]
     CrossrefFunderId,
-    /// GRID
+    /// Global Research Identifier Database ([GRID](https://www.grid.ac/))
+    /// ### Note
+    /// > GRID was retired in 2022 and replaced by ROR, but some funders may still use GRID identifiers
     #[serde(rename = "GRID")]
     Grid,
-    /// ISNI
+    ///  International Standard Name Identifier ([ISNI](https://en.wikipedia.org/wiki/International_Standard_Name_Identifier))
     #[serde(rename = "ISNI")]
     Isni,
-    /// ROR
+    /// Research Organization Registry (see [`ROR`](crate::schema::pid::ROR))
     #[serde(rename = "ROR")]
     Ror,
     /// Other
     #[serde(rename = "Other")]
     Other,
 }
-/// Name type enumeration
+/// Name type enumeration per DataCite 4.6 property 7.1.a
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum NameType {
     /// Personal name
@@ -138,6 +148,8 @@ pub enum NameType {
     Organizational,
 }
 /// Related identifier type enumeration per DataCite 4.6 property 12.a
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/relatedIdentifierType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RelatedIdentifierType {
     /// ARK
@@ -205,9 +217,13 @@ pub enum RelatedIdentifierType {
     W3id,
 }
 /// Relation type enumeration per DataCite 4.6 property 12.b
+/// 
+/// Description of the relationship of the resource being registered (A) and the related resource (B)
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/relationType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RelationType {
-    /// Cites
+    /// Indicates that A includes B in a citation
     Cites,
     /// Collects
     Collects,
@@ -227,11 +243,11 @@ pub enum RelationType {
     HasTranslation,
     /// Has version
     HasVersion,
-    /// Is cited by
+    /// Indicates that B includes A in a citation
     IsCitedBy,
-    /// Is collected by
+    /// Indicates A is collected by B
     IsCollectedBy,
-    /// Is compiled by
+    /// Indicates B is used to compile or create A
     IsCompiledBy,
     /// Is continued by
     IsContinuedBy,
@@ -287,72 +303,129 @@ pub enum RelationType {
 /// General resource type enumeration per DataCite 4.6 property 10.a
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResourceTypeGeneral {
-    /// Audiovisual
+    /// Series of visual representations imparting an impression of motion when shown in succession (may or may not include sound)
+    /// ### Dublin Core equivalent
+    /// > `MovingImage`
     Audiovisual,
-    /// Award
+    /// Umbrella term for resources provided to individual(s) or organization(s) in support of research, academic output, or training, such as a specific instance of funding, grant, investment, sponsorship, scholarship, recognition, or non-monetary materials
     Award,
-    /// Book
+    /// Medium for recording information in the form of writing or images, typically composed of many pages bound together and protected by a cover
+    /// ### Dublin Core equivalent
+    /// > `Text`
     Book,
-    /// Book chapter
+    /// One of the main divisions of a book
+    /// ### Dublin Core equivalent
+    /// > `Text`
     BookChapter,
-    /// Collection
+    /// An aggregation of resources, which may encompass collections of one resourceType as well as those of mixed types
+    /// ### Dublin Core equivalent
+    /// > `Collection`
     Collection,
-    /// Computational notebook
+    /// Virtual notebook environment used for literate programming
+    /// ### Dublin Core equivalent
+    /// > `InteractiveResource`
     ComputationalNotebook,
-    /// Conference paper
+    /// Article that is written with the goal of being accepted to a conference
+    /// ### Dublin Core equivalent
+    /// > `Text`
     ConferencePaper,
-    /// Conference proceeding
+    /// Collection of academic papers published in the context of an academic conference
+    /// ### Dublin Core equivalent
+    /// > `Text`
     ConferenceProceeding,
-    /// Data paper
+    /// Factual and objective publication with a focused intent to identify and describe specific data, sets of data, or data collections to facilitate discoverability
+    /// ### Dublin Core equivalent
+    /// > `Text`
     DataPaper,
-    /// Dataset
+    /// Data encoded in a defined structure
+    /// ### Dublin Core equivalent
+    /// > `Dataset`
     Dataset,
-    /// Dissertation
+    /// Written essay, treatise, or thesis, especially one written by a candidate for the degree of Doctor of Philosophy
+    /// ### Dublin Core equivalent
+    /// > `Text`
     Dissertation,
-    /// Event
+    /// Non-persistent, time-based occurrence
+    /// ### Dublin Core equivalent
+    /// > `Event`
     Event,
-    /// Image
+    /// Visual representation other than text
+    /// ### Dublin Core equivalent
+    /// > `Image`
     Image,
-    /// Interactive resource
+    /// Resource requiring interaction from the user to be understood, executed, or experienced
+    /// ### Dublin Core equivalent
+    /// > `InteractiveResource`
     InteractiveResource,
-    /// Instrument
+    /// Device, tool or apparatus used to obtain, measure and/or analyze data
     Instrument,
-    /// Journal
+    /// Scholarly publication consisting of articles that is published regularly throughout the year
+    /// ### Dublin Core equivalent
+    /// > `Text`
     Journal,
-    /// Journal article
+    /// Written composition on a topic of interest, which forms a separate part of a journal
+    /// ### Dublin Core equivalent
+    /// > `Text`
     JournalArticle,
-    /// Model
+    /// Abstract, conceptual, graphical, mathematical or visualization model that represents empirical objects, phenomena, or physical processes
     Model,
-    /// Output management plan
+    /// Formal document that outlines how research outputs are to be handled both during a research project and after the project is completed
+    /// ### Dublin Core equivalent
+    /// > `Text`
     OutputManagementPlan,
-    /// Peer review
+    /// Evaluation of scientific, academic, or professional work by others working in the same field
+    /// ### Dublin Core equivalent
+    /// > `Text`
     PeerReview,
-    /// Physical object
+    /// Physical object or substance
+    /// ### Dublin Core equivalent
+    /// > `PhysicalObject`
     PhysicalObject,
     /// Preprint
+    /// ### Dublin Core equivalent
+    /// > `Text`
     Preprint,
-    /// Project
+    /// Planned endeavor or activity, frequently collaborative, intended to achieve a particular aim using allocated resources such as budget, time, and expertise
     Project,
     /// Report
+    /// ### Dublin Core equivalent
+    /// > `Text`
     Report,
     /// Service
+    /// ### Dublin Core equivalent
+    /// > `Service`
     Service,
     /// Software
+    /// ### Dublin Core equivalent
+    /// > `Software`
     Software,
-    /// Sound
+    /// Resource primarily intended to be heard
+    /// ### Dublin Core equivalent
+    /// > `Sound`
     Sound,
-    /// Standard
+    /// Something established by authority, custom, or general consent as a model, example, or point of reference
+    /// ### Dublin Core equivalent
+    /// > `Text`
     Standard,
-    /// Study registration
+    /// Ddetailed, time-stamped description of a research plan, often openly shared in a registry or published in a journal before the study is conducted to lend accountability and transparency in the hypothesis generating and testing process
+    /// ### Examples
+    /// - [OSF Registries](https://osf.io/registries)
+    /// - [ClinicalTrials.gov](https://clinicaltrials.gov/)
+    /// ### Dublin Core equivalent
+    /// > `Text`
     StudyRegistration,
-    /// Text
+    /// Resource consisting primarily of words for reading that is not covered by any other textual resource type in this list
+    /// ### Dublin Core equivalent
+    /// > `Text`
     Text,
-    /// Workflow
+    /// Structured series of steps which can be executed to produce a final outcome, allowing users a means to specify and enact their work in a more reproducible manner
     Workflow,
     /// Other
     Other,
 }
 /// Title type enumeration per DataCite 4.6 property 3.a
+/// ### Note
+/// > The titleType subproperty is used when more than a single title is provided. Unless otherwise indicated by titleType, a title is considered to be the main title
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum TitleType {
     /// Alternative title
@@ -373,7 +446,7 @@ pub struct Affiliation {
     /// Affiliation identifier
     #[serde(rename = "affiliationIdentifier")]
     pub affiliation_identifier: Option<String>,
-    /// Affiliation identifier scheme
+    /// Affiliation identifier scheme (ex. "ROR", "GRID", "ISNI")
     #[serde(rename = "affiliationIdentifierScheme")]
     pub affiliation_identifier_scheme: Option<String>,
     /// Scheme URI
@@ -387,11 +460,13 @@ pub struct AlternateIdentifier {
     /// Alternate identifier value
     #[serde(rename = "alternateIdentifier")]
     pub alternate_identifier: String,
-    /// Alternate identifier type
+    /// Alternate identifier type (free text)
     #[serde(rename = "alternateIdentifierType")]
     pub alternate_identifier_type: String,
 }
 /// Record attributes containing all DataCite metadata properties
+/// 
+/// Should be an additional identifier for the same instance of the resource (i.e., same location, same file)
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Attributes {
@@ -448,6 +523,19 @@ pub struct Attributes {
     #[serde(rename = "schemaVersion")]
     pub schema_version: Option<String>,
 }
+/// Award number element with URI attribute (property 19.3)
+///
+/// In kernel-4 XML, the award URI is an attribute of the
+/// `<awardNumber>` element rather than a sibling field.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AwardNumber {
+    /// Award URI
+    #[serde(rename = "@awardURI")]
+    pub award_uri: Option<String>,
+    /// Award number value
+    #[serde(rename = "$text")]
+    pub value: String,
+}
 /// Contributor per DataCite 4.6 property 7
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -477,6 +565,7 @@ pub struct Contributor {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Creator {
     /// Creator name
+    #[serde(alias = "creatorName")]
     pub name: String,
     /// Name type
     #[serde(rename = "nameType")]
@@ -488,35 +577,74 @@ pub struct Creator {
     #[serde(rename = "familyName")]
     pub family_name: Option<String>,
     /// Name identifiers
-    #[serde(rename = "nameIdentifiers")]
+    #[serde(rename = "nameIdentifiers", alias = "nameIdentifier")]
     pub name_identifiers: Option<Vec<NameIdentifier>>,
     /// Creator affiliations
     pub affiliation: Option<Vec<Affiliation>>,
+}
+/// Container for `<creators>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Creators {
+    /// Creator list
+    pub creator: Vec<Creator>,
 }
 /// Date per DataCite 4.6 property 8
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Date {
     /// Date value (YYYY, YYYY-MM-DD, or date range)
+    #[serde(alias = "$text")]
     pub date: String,
     /// Date type
-    #[serde(rename = "dateType")]
+    #[serde(rename = "dateType", alias = "@dateType")]
     pub date_type: DateType,
     /// Additional date information
-    #[serde(rename = "dateInformation")]
+    #[serde(rename = "dateInformation", alias = "@dateInformation")]
     pub date_information: Option<String>,
+}
+/// Container for `<dates>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Dates {
+    /// Date list
+    pub date: Vec<Date>,
 }
 /// Resource description per DataCite 4.6 property 17
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Description {
     /// Description text
+    #[serde(alias = "$text")]
     pub description: String,
     /// Description type
-    #[serde(rename = "descriptionType")]
+    #[serde(rename = "descriptionType", alias = "@descriptionType")]
     pub description_type: Option<DescriptionType>,
     /// Description language
     pub language: Option<String>,
+}
+/// Container for `<descriptions>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Descriptions {
+    /// Description list
+    pub description: Vec<Description>,
+}
+/// Container for `<formats>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Formats {
+    /// Format list
+    pub format: Vec<String>,
+}
+/// Funder identifier element with typed attribute (property 19.2)
+///
+/// In kernel-4 XML, the funder identifier type is an attribute of the
+/// `<funderIdentifier>` element rather than a sibling field.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FunderIdentifier {
+    /// Funder identifier type
+    #[serde(rename = "@funderIdentifierType")]
+    pub funder_identifier_type: Option<FunderIdentifierType>,
+    /// Funder identifier value
+    #[serde(rename = "$text")]
+    pub value: String,
 }
 /// Funding reference per DataCite 4.6 property 19
 #[skip_serializing_none]
@@ -543,6 +671,13 @@ pub struct FundingReference {
     /// Award title
     #[serde(rename = "awardTitle")]
     pub award_title: Option<String>,
+}
+/// Container for `<fundingReferences>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FundingReferences {
+    /// Funding reference list
+    #[serde(rename = "fundingReference")]
+    pub funding_reference: Vec<KernelFundingReference>,
 }
 /// Geographic location per DataCite 4.6 property 18
 #[skip_serializing_none]
@@ -592,24 +727,62 @@ pub struct GeoLocationPoint {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct GeoLocationPolygon {
     /// Polygon points (minimum 4, last must equal first)
-    #[serde(rename = "polygonPoints")]
+    #[serde(rename = "polygonPoints", alias = "polygonPoint")]
     pub polygon_points: Vec<GeoLocationPoint>,
     /// Interior point for polygons larger than half the earth
     #[serde(rename = "inPolygonPoint")]
     pub in_polygon_point: Option<GeoLocationPoint>,
+}
+/// Container for `<geoLocations>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GeoLocations {
+    /// Geo location list
+    #[serde(rename = "geoLocation")]
+    pub geo_location: Vec<GeoLocation>,
+}
+/// DataCite kernel-4 XML resource identifier (property 1)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Identifier {
+    /// Identifier type (e.g., "DOI")
+    #[serde(rename = "@identifierType")]
+    pub identifier_type: String,
+    /// Identifier value
+    #[serde(rename = "$text")]
+    pub value: String,
+}
+/// Funding reference within a DataCite kernel-4 XML resource (property 19)
+///
+/// This type models the hierarchical XML structure where `funderIdentifier`
+/// and `awardNumber` contain attributes, unlike the flat JSON API format
+/// modeled by [`FundingReference`].
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KernelFundingReference {
+    /// Funder name
+    #[serde(rename = "funderName")]
+    pub funder_name: String,
+    /// Funder identifier with type attribute
+    #[serde(rename = "funderIdentifier")]
+    pub funder_identifier: Option<FunderIdentifier>,
+    /// Award number with URI attribute
+    #[serde(rename = "awardNumber")]
+    pub award_number: Option<AwardNumber>,
+    /// Award title
+    #[serde(rename = "awardTitle")]
+    pub award_title: Option<String>,
 }
 /// Persistent identifier for a creator or contributor
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct NameIdentifier {
     /// Identifier value
-    #[serde(rename = "nameIdentifier")]
+    #[serde(rename = "nameIdentifier", alias = "$text")]
     pub name_identifier: String,
     /// Identifier scheme
-    #[serde(rename = "nameIdentifierScheme")]
+    #[serde(rename = "nameIdentifierScheme", alias = "@nameIdentifierScheme")]
     pub name_identifier_scheme: Option<String>,
     /// Scheme URI
-    #[serde(rename = "schemeUri")]
+    #[serde(rename = "schemeUri", alias = "@schemeURI")]
     pub scheme_uri: Option<String>,
 }
 /// Publisher information per DataCite 4.6 property 4
@@ -645,13 +818,13 @@ pub struct Record {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct RelatedIdentifier {
     /// Related identifier value
-    #[serde(rename = "relatedIdentifier")]
+    #[serde(rename = "relatedIdentifier", alias = "$text")]
     pub related_identifier: String,
     /// Related identifier type
-    #[serde(rename = "relatedIdentifierType")]
+    #[serde(rename = "relatedIdentifierType", alias = "@relatedIdentifierType")]
     pub related_identifier_type: Option<RelatedIdentifierType>,
     /// Relation type
-    #[serde(rename = "relationType")]
+    #[serde(rename = "relationType", alias = "@relationType")]
     pub relation_type: Option<RelationType>,
     /// Related metadata scheme
     #[serde(rename = "relatedMetadataScheme")]
@@ -666,15 +839,69 @@ pub struct RelatedIdentifier {
     #[serde(rename = "resourceTypeGeneral")]
     pub resource_type_general: Option<ResourceTypeGeneral>,
 }
+/// Container for `<relatedIdentifiers>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RelatedIdentifiers {
+    /// Related identifier list
+    #[serde(rename = "relatedIdentifier")]
+    pub related_identifier: Vec<RelatedIdentifier>,
+}
+/// Represents the top-level `<resource>` element in DataCite kernel-4 XML.
+/// Reuses existing leaf types ([`Creator`], [`GeoLocation`], [`Subject`], etc.)
+/// with container wrappers for the XML list-element pattern.
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Resource {
+    /// Resource identifier (property 1)
+    pub identifier: Identifier,
+    /// Creators (property 2)
+    pub creators: Creators,
+    /// Titles (property 3)
+    pub titles: Titles,
+    /// Publisher name (property 4)
+    pub publisher: String,
+    /// Publication year (property 5)
+    #[serde(rename = "publicationYear")]
+    pub publication_year: u32,
+    /// Resource type (property 10)
+    #[serde(rename = "resourceType")]
+    pub resource_type: ResourceTypes,
+    /// Subjects (property 6)
+    pub subjects: Option<Subjects>,
+    /// Dates (property 8)
+    pub dates: Option<Dates>,
+    /// Language code (property 9)
+    pub language: Option<String>,
+    /// Related identifiers (property 12)
+    #[serde(rename = "relatedIdentifiers")]
+    pub related_identifiers: Option<RelatedIdentifiers>,
+    /// Sizes (property 13)
+    pub sizes: Option<Sizes>,
+    /// Formats (property 14)
+    pub formats: Option<Formats>,
+    /// Version (property 15)
+    pub version: Option<String>,
+    /// Rights list (property 16)
+    #[serde(rename = "rightsList")]
+    pub rights_list: Option<RightsList>,
+    /// Descriptions (property 17)
+    pub descriptions: Option<Descriptions>,
+    /// Geographic locations (property 18)
+    #[serde(rename = "geoLocations")]
+    pub geo_locations: Option<GeoLocations>,
+    /// Funding references (property 19)
+    #[serde(rename = "fundingReferences")]
+    pub funding_references: Option<FundingReferences>,
+}
 /// Resource type information per DataCite 4.6 property 10
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ResourceTypes {
     /// General resource type
-    #[serde(rename = "resourceTypeGeneral")]
+    #[serde(rename = "resourceTypeGeneral", alias = "@resourceTypeGeneral")]
     pub resource_type_general: Option<ResourceTypeGeneral>,
     /// Specific resource type
-    #[serde(rename = "resourceType")]
+    #[serde(rename = "resourceType", alias = "$text")]
     pub resource_type: Option<String>,
 }
 /// Rights information per DataCite 4.6 property 16
@@ -682,50 +909,77 @@ pub struct ResourceTypes {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Rights {
     /// Rights statement
+    #[serde(alias = "$text")]
     pub rights: Option<String>,
     /// Rights URI
-    #[serde(rename = "rightsURI")]
+    #[serde(rename = "rightsURI", alias = "@rightsURI")]
     pub rights_uri: Option<String>,
     /// Rights identifier (e.g., CC-BY-4.0)
-    #[serde(rename = "rightsIdentifier")]
+    #[serde(rename = "rightsIdentifier", alias = "@rightsIdentifier")]
     pub rights_identifier: Option<String>,
     /// Rights identifier scheme (e.g., SPDX)
-    #[serde(rename = "rightsIdentifierScheme")]
+    #[serde(rename = "rightsIdentifierScheme", alias = "@rightsIdentifierScheme")]
     pub rights_identifier_scheme: Option<String>,
     /// Scheme URI
-    #[serde(rename = "schemeURI")]
+    #[serde(rename = "schemeURI", alias = "@schemeURI")]
     pub scheme_uri: Option<String>,
+}
+/// Container for `<rightsList>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RightsList {
+    /// Rights list
+    pub rights: Vec<Rights>,
+}
+/// Container for `<sizes>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Sizes {
+    /// Size list
+    pub size: Vec<String>,
 }
 /// Subject keyword per DataCite 4.6 property 6
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Subject {
     /// Subject keyword
+    #[serde(alias = "$text")]
     pub subject: String,
     /// Subject language
     pub language: Option<String>,
     /// Subject scheme
-    #[serde(rename = "subjectScheme")]
+    #[serde(rename = "subjectScheme", alias = "@subjectScheme")]
     pub subject_scheme: Option<String>,
     /// Scheme URI
-    #[serde(rename = "schemeURI")]
+    #[serde(rename = "schemeURI", alias = "@schemeURI")]
     pub scheme_uri: Option<String>,
     /// Value URI
-    #[serde(rename = "valueURI")]
+    #[serde(rename = "valueURI", alias = "@valueURI")]
     pub value_uri: Option<String>,
     /// Classification code
-    #[serde(rename = "classificationCode")]
+    #[serde(rename = "classificationCode", alias = "@classificationCode")]
     pub classification_code: Option<String>,
+}
+/// Container for `<subjects>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Subjects {
+    /// Subject list
+    pub subject: Vec<Subject>,
 }
 /// Dataset title per DataCite 4.6 property 3
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Title {
     /// Title text
+    #[serde(alias = "$text")]
     pub title: String,
     /// Title type
-    #[serde(rename = "titleType")]
+    #[serde(rename = "titleType", alias = "@titleType")]
     pub title_type: Option<TitleType>,
+}
+/// Container for `<titles>` XML element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Titles {
+    /// Title list
+    pub title: Vec<Title>,
 }
 impl From<ods::Dataset> for Record {
     fn from(dataset: ods::Dataset) -> Self {

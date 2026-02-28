@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://datacite.org/schema/kernel-4"
+    xsi:schemaLocation="http://datacite.org/schema/kernel-4 http://schema.datacite.org/meta/kernel-4/metadata.xsd">
+    <identifier identifierType="DOI">10.1594/PANGAEA.771774</identifier>
+    <creators>
+        <creator>
+            <creatorName>Hillenbrand, Claus-Dieter</creatorName>
+            <givenName>Claus-Dieter</givenName>
+            <familyName>Hillenbrand</familyName>
+            <nameIdentifier nameIdentifierScheme="ORCID" schemeURI="https://orcid.org">
+                https://orcid.org/0000-0003-0240-7317</nameIdentifier>
+        </creator>
+        <creator>
+            <creatorName>Melles, Martin</creatorName>
+            <givenName>Martin</givenName>
+            <familyName>Melles</familyName>
+            <nameIdentifier nameIdentifierScheme="ORCID" schemeURI="https://orcid.org">
+                https://orcid.org/0000-0003-0977-9463</nameIdentifier>
+        </creator>
+        <creator>
+            <creatorName>Kuhn, Gerhard</creatorName>
+            <givenName>Gerhard</givenName>
+            <familyName>Kuhn</familyName>
+            <nameIdentifier nameIdentifierScheme="ORCID" schemeURI="https://orcid.org">
+                https://orcid.org/0000-0001-6069-7485</nameIdentifier>
+        </creator>
+        <creator>
+            <creatorName>Larter, Robert D</creatorName>
+            <givenName>Robert D</givenName>
+            <familyName>Larter</familyName>
+            <nameIdentifier nameIdentifierScheme="ORCID" schemeURI="https://orcid.org">
+                https://orcid.org/0000-0002-8414-7389</nameIdentifier>
+        </creator>
+    </creators>
+    <titles>
+        <title>Last glacial maximum sediment record of the southern Weddell Sea shelf</title>
+    </titles>
+    <publisher>PANGAEA</publisher>
+    <publicationYear>2011</publicationYear>
+    <resourceType resourceTypeGeneral="Collection">Supplementary Publication Series of Datasets</resourceType>
+    <subjects>
+        <subject subjectScheme="Method">Gravity corer</subject>
+        <subject subjectScheme="Method">Piston corer</subject>
+        <subject subjectScheme="Method">Giant box corer</subject>
+        <subject subjectScheme="Method">Dredge</subject>
+        <subject subjectScheme="Method">Gravity corer (Kiel type)</subject>
+        <subject subjectScheme="Method">Multiboxcorer</subject>
+        <subject subjectScheme="Campaign">IWSOE68</subject>
+        <subject subjectScheme="Campaign">IWSOE69</subject>
+        <subject subjectScheme="Campaign">IWSOE70</subject>
+        <subject subjectScheme="Campaign">NARE77</subject>
+        <subject subjectScheme="Campaign">NARE79</subject>
+        <subject subjectScheme="Campaign">ANT-I/2</subject>
+        <subject subjectScheme="Campaign">ANT-II/4</subject>
+        <subject subjectScheme="Campaign">ANT-III/3</subject>
+        <subject subjectScheme="Campaign">ANT-IV/3</subject>
+        <subject subjectScheme="Campaign">ANT-V/4</subject>
+        <subject subjectScheme="Campaign">ANT-VI/3</subject>
+        <subject subjectScheme="Basis">Glacier</subject>
+        <subject subjectScheme="Basis">Polarsirkel</subject>
+        <subject subjectScheme="Basis">Polarstern</subject>
+        <subject subjectScheme="Project">Paleoenvironmental Reconstructions from Marine Sediments @ AWI (AWI_Paleo)</subject>
+    </subjects>
+    <dates>
+        <date dateType="Issued">2011</date>
+    </dates>
+    <language>en</language>
+    <relatedIdentifiers>
+        <relatedIdentifier relatedIdentifierType="DOI" relationType="IsSupplementTo">10.1016/j.quascirev.2011.11.017</relatedIdentifier>
+    </relatedIdentifiers>
+    <sizes>
+        <size>2 datasets</size>
+    </sizes>
+    <formats>
+        <format>application/zip</format>
+    </formats>
+    <version />
+    <rightsList>
+        <rights rightsURI="https://creativecommons.org/licenses/by/3.0/legalcode"
+            rightsIdentifier="cc-by-3.0" rightsIdentifierScheme="SPDX"
+            schemeURI="https://spdx.org/licenses/">Creative Commons Attribution 3.0 Unported</rights>
+    </rightsList>
+    <descriptions>
+        <description descriptionType="Abstract">Abstract: The history of grounded ice-sheet extent
+            on the southern Weddell Sea shelf during the Last Glacial Maximum (LGM) and the timing
+            of post-LGM ice-sheet retreat are poorly constrained. Several glaciological models
+            reconstructed widespread grounding and major thickening of the Antarctic Ice Sheet in
+            the Weddell Sea sector at the LGM. In contrast, recently published onshore data and
+            modelling results concluded only very limited LGM-thickening of glaciers and ice streams
+            feeding into the modern Filchner and Ronne ice shelves. These studies concluded that
+            during the LGM ice shelves rather than grounded ice covered the Filchner and Ronne
+            troughs, two deep palaeo-ice stream troughs eroded into the southern Weddell Sea
+            shelf.Here we review previously published and unpublished marine geophysical and
+            geological data from the southern Weddell Sea shelf. The stratigraphy and geometry of
+            reflectors in acoustic sub-bottom profiles are similar to those from other West
+            Antarctic palaeo-ice stream troughs, where grounded ice had advanced to the shelf break
+            at the LGM. Numerous cores from the southern Weddell Sea shelf recovered sequences with
+            properties typical for subglacially deposited tills or subglacially compacted sediments.
+            These data sets give evidence that grounded ice had advanced across the shelf during the
+            past, thereby grounding in even the deepest parts of the Filchner and Ronne troughs.
+            Radiocarbon dates from glaciomarine sediments overlying the subglacial deposits are
+            limited, but indicate that the ice grounding occurred at the LGM and that ice retreat
+            started before ~15.1 corrected 14C kyrs before present (BP) on the outer shelf and
+            before ~7.7 corrected 14C kyrs BP on the inner shelf, which is broadly synchronous with
+            ice retreat in other Antarctic sectors.The apparent mismatch between the ice-sheet
+            reconstructions from marine and terrestrial data can be attributed to ice streams with
+            very low surface profiles (similar to those of "ice plains") that had advanced through
+            Filchner Trough and Ronne Trough at the LGM. Considering the global sea-level lowstand
+            of ~130 metres below present, a low surface slope of the expanded LGM-ice sheet in the
+            southern Weddell Sea can reconcile grounding-line advance to the shelf break with
+            limited thickening of glaciers and ice streams in the hinterland. This scenario implies
+            that ice-sheet growth in the Weddell Sea sector during the LGM and ice-sheet drawdown
+            throughout the last deglaciation could only have made minor contributions to the major
+            global sea-level fluctuations during these times.</description>
+        <description descriptionType="Methods">Graphical representation of the steps used to
+            reconstruct sequence alignments of the Nudix superfamily, as described in the Materials
+            and Methods section. (A) The pipeline to build the 78-PDB structure guided sequence
+            alignment. (B) The pipeline to build the 324-core sequence alignment guided by the
+            78-PDB sequence alignment. (C) The pipeline to build the alignment of the complete Nudix
+            clan (38,950 sequences). (D) Illustration of how to combine two alignment into one
+            guided by a scaffold alignment.</description>
+        <description descriptionType="Other">Supplement to: Hillenbrand, Claus-Dieter; Melles,
+            Martin; Kuhn, Gerhard; Larter, Robert D (2012): Marine geological constraints for the
+            grounding-line position of the Antarctic Ice Sheet on the southern Weddell Sea shelf at
+            the Last Glacial Maximum. Quaternary Science Reviews, 32, 25-47</description>
+    </descriptions>
+    <geoLocations>
+        <geoLocation>
+            <geoLocationBox>
+                <westBoundLongitude>-61.321666666667</westBoundLongitude>
+                <eastBoundLongitude>-25.716666666667</eastBoundLongitude>
+                <southBoundLatitude>-78.088166666667</southBoundLatitude>
+                <northBoundLatitude>-73.486166666667</northBoundLatitude>
+            </geoLocationBox>
+        </geoLocation>
+        <geoLocation>
+            <geoLocationPlace>Weddell Sea</geoLocationPlace>
+        </geoLocation>
+        <geoLocation>
+            <geoLocationPlace>Filchner Trough</geoLocationPlace>
+        </geoLocation>
+        <geoLocation>
+            <geoLocationPlace>Filchner Shelf</geoLocationPlace>
+        </geoLocation>
+        <geoLocation>
+            <geoLocationPlace>Gould Bay</geoLocationPlace>
+        </geoLocation>
+        <geoLocation>
+            <geoLocationPlace>Cape Fiske</geoLocationPlace>
+        </geoLocation>
+        <geoLocation>
+            <geoLocationPlace>Disko Bay</geoLocationPlace>
+            <geoLocationPoint>
+                <pointLongitude>-52.000000</pointLongitude>
+                <pointLatitude>69.000000</pointLatitude>
+            </geoLocationPoint>
+        </geoLocation>
+        <geoLocation>
+            <geoLocationBox>
+                <westBoundLongitude>-123.27</westBoundLongitude>
+                <eastBoundLongitude>-123.225</eastBoundLongitude>
+                <southBoundLatitude>49.24</southBoundLatitude>
+                <northBoundLatitude>49.28</northBoundLatitude>
+            </geoLocationBox>
+        </geoLocation>
+        <geoLocation>
+            <geoLocationPlace>Triangle Park, Vancouver, British Columbia, Canada</geoLocationPlace>
+            <geoLocationPolygon>
+                <polygonPoint>
+                    <pointLatitude>49.27221864484867</pointLatitude>
+                    <pointLongitude>-123.10816711373577</pointLongitude>
+                </polygonPoint>
+                <polygonPoint>
+                    <pointLatitude>49.27221277624654</pointLatitude>
+                    <pointLongitude>-123.1079152171403</pointLongitude>
+                </polygonPoint>
+                <polygonPoint>
+                    <pointLatitude>49.271782397943014</pointLatitude>
+                    <pointLongitude>-123.10793993417674</pointLongitude>
+                </polygonPoint>
+                <polygonPoint>
+                    <pointLatitude>49.27178389083912</pointLatitude>
+                    <pointLongitude>-123.10797492052856</pointLongitude>
+                </polygonPoint>
+                <polygonPoint>
+                    <pointLatitude>49.27221864484867</pointLatitude>
+                    <pointLongitude>-123.10816711373577</pointLongitude>
+                </polygonPoint>
+                <inPolygonPoint>
+                    <pointLatitude>49.272001</pointLatitude>
+                    <pointLongitude>-123.108041</pointLongitude>
+                </inPolygonPoint>
+            </geoLocationPolygon>
+        </geoLocation>
+    </geoLocations>
+    <fundingReferences>
+        <fundingReference>
+            <funderName>European Commission</funderName>
+            <funderIdentifier funderIdentifierType="Crossref Funder ID">https://doi.org/10.13039/501100000780</funderIdentifier>
+            <awardNumber awardURI="https://cordis.europa.eu/project/rcn/100180_en.html">282625</awardNumber>
+            <awardTitle>MOTivational strength of ecosystem services and alternative ways to express
+                the value of BIOdiversity</awardTitle>
+        </fundingReference>
+        <fundingReference>
+            <funderName>European Commission</funderName>
+            <funderIdentifier funderIdentifierType="Crossref Funder ID">https://doi.org/10.13039/501100000780</funderIdentifier>
+            <awardNumber awardURI="https://cordis.europa.eu/project/rcn/100603_en.html">284382</awardNumber>
+            <awardTitle>Institutionalizing global genetic-resource commons. Global Strategies for
+                accessing and using essential public knowledge assets in the life sciences</awardTitle>
+        </fundingReference>
+    </fundingReferences>
+</resource>

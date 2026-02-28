@@ -1,5 +1,5 @@
 ---
-source: acorn-lib/src/schema/tests/datacite.rs
+source: acorn-lib/src/schema/standard/tests/datacite.rs
 assertion_line: 210
 expression: "serde_json::to_string_pretty(&json).expect(\"failed to format json\")"
 ---

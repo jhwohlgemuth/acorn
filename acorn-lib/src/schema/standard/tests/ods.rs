@@ -1,4 +1,4 @@
-use crate::schema::ods::{Catalog, DublinCoreType};
+use crate::schema::standard::ods::{Catalog, DublinCoreType};
 use serde_json::Value;
 
 const FIXTURE_PATH: &str = "../tests/fixtures/schema/ods.json";
