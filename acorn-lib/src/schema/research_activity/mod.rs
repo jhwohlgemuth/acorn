@@ -897,3 +897,6 @@ pub(crate) fn is_attribute_impact(value: &[String]) -> Result<(), ValidationErro
         | _ => Err(ValidationError::new(CODE).with_message(format!("Each impact statement should be less than {MAX_LENGTH} characters").into())),
     }
 }
+
+#[cfg(test)]
+mod tests;

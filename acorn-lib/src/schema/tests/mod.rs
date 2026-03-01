@@ -1,12 +1,9 @@
-use crate::io::InputOutput;
-use crate::prelude::PathBuf;
 use crate::schema::research_activity::*;
 use crate::schema::validate::*;
 use crate::schema::*;
 use glob::glob;
 use pretty_assertions::assert_eq;
 
-const FIXTURES: &str = "../tests/fixtures";
 const VALID_ARK_VALUES: [&str; 8] = [
     "https://n2t.net/ark:99166/w66d60p2",
     "https://n2t.net/ark:/99166/w66d60p2",
@@ -271,35 +268,6 @@ fn test_fuzzy_matching_techology() {
     assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
 }
 #[test]
-fn test_metadata() {
-    const DEFAULT_HREF: &str = "00.png";
-    const DEFAULT_CAPTION: &str = "";
-    let meta = ResearchActivityMetadata::init().identifier("test-data".to_string()).build();
-    assert_eq!(meta.identifier, "test-data".to_string());
-    assert_eq!(meta.first_image_content_url(), DEFAULT_HREF);
-    let href = "abc.png";
-    let caption = "hello world";
-    let graphics = vec![MediaObject::Image(
-        ImageObject::init().caption(caption.to_owned()).content_url(href.to_owned()).build(),
-    )];
-    let meta = ResearchActivityMetadata::init()
-        .identifier("test-data".to_string())
-        .media(graphics)
-        .build();
-    assert_eq!(meta.clone().first_image_content_url(), href);
-    assert_eq!(meta.first_image_caption(), caption);
-    let meta = ResearchActivityMetadata::init().identifier("test-data".to_string()).media(vec![]).build();
-    assert_eq!(meta.clone().first_image_content_url(), DEFAULT_HREF);
-    assert_eq!(meta.first_image_caption(), DEFAULT_CAPTION);
-    let graphics = vec![MediaObject::Image(ImageObject::init().caption("".to_owned()).build())];
-    let meta = ResearchActivityMetadata::init()
-        .identifier("test-data".to_string())
-        .media(graphics)
-        .build();
-    assert_eq!(meta.clone().first_image_content_url(), DEFAULT_HREF);
-    assert_eq!(meta.first_image_caption(), DEFAULT_CAPTION);
-}
-#[test]
 fn test_organization() {
     const ORNL_ORGANIZATION_COUNT: usize = 368;
     let data = Organization::load();
@@ -352,98 +320,6 @@ fn test_read() {
     }
 }
 #[test]
-fn test_research_activity_default() {
-    let expected = r#"---
-classification: UNCLASSIFIED
-archive: false
-draft: true
-status: active
-identifier: some-research-project
-keywords: []
-technology: []
----
-# Research Activity Title
-
-## Mission
-Purpose of the research
-
-## Challenge
-Reason for the research
-
-## Approach
-- List of actions taken to perform the research
-
-## Impact
-- List of tangible proof that validates the research approach
-
-## Focus
-Focus of the research
-
-## Areas
-- Areas of research
-
-## Contact
-- Role: Researcher
-- Name: First Last
-- Email: [first_last@example.com](mailto:first_last@example.com)
-- Telephone: 123-456-7890
-"#;
-    let data = ResearchActivity::default();
-    let actual = data.to_markdown().replace("\r\n", "\n");
-    assert_eq!(actual, expected);
-}
-#[test]
-fn test_research_activity_format() {
-    //
-    // with changes
-    //
-    let path = Some(PathBuf::from(FIXTURES).join("data/format/changes"));
-    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/changes/index.json")).unwrap();
-    assert!(pre.meta.media.is_none());
-    assert!(pre.contact.affiliation.is_none());
-    let post = pre.format_with(path.clone());
-    assert_eq!(post.meta.media.unwrap()[0].clone().content_url(), Some("42.png".to_string()));
-    assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
-    //
-    // with unresolved changes
-    //
-    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/unresolved_changes/index.json")).unwrap();
-    assert!(pre.meta.media.is_some());
-    assert_eq!(pre.contact.affiliation, Some("Not an actual affiliation".to_string()));
-    let post = pre.format_with(None);
-    assert!(post.clone().meta.media.unwrap()[0].clone().content_url().is_none());
-    assert_eq!(post.clone().meta.first_image().unwrap().description(), "".to_string());
-    assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
-    //
-    // with more unresolved changes
-    //
-    let mut pre = post.clone().copy();
-    pre.contact.organization = "Not an actual organization".to_string();
-    pre.contact.affiliation = None;
-    let post = pre.format_with(None);
-    assert_eq!(post.contact.organization, "".to_string());
-    assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
-    //
-    // with ORNL as organization and no affiliation
-    //
-    let mut pre = post.clone().copy();
-    pre.contact.organization = "Oak Ridge National Laboratory".to_string();
-    pre.contact.affiliation = None;
-    let post = pre.format_with(None);
-    assert_eq!(post.contact.organization, "Oak Ridge National Laboratory".to_string());
-    assert_eq!(post.contact.affiliation, Some("Oak Ridge National Laboratory".to_string()));
-    //
-    // without changes
-    //
-    let path = Some(PathBuf::from(FIXTURES).join("data/format/no_changes"));
-    let pre = ResearchActivity::read(PathBuf::from(FIXTURES).join("data/format/no_changes/index.json")).unwrap();
-    assert_eq!(pre.clone().meta.media.unwrap()[0].clone().content_url(), Some("00.png".to_string()));
-    assert_eq!(pre.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
-    let post = pre.clone().format_with(path);
-    assert_eq!(post.meta.media.unwrap()[0].clone().content_url(), Some("42.png".to_string()));
-    assert_eq!(post.contact.affiliation, Some("National Security Sciences Directorate".to_string()));
-}
-#[test]
 fn test_status() {
     let data: Status = serde_json::from_str("\"active\"").unwrap();
     assert_eq!(data, Status::Active);
@@ -469,72 +345,7 @@ fn test_trl_panic() {
     assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("10").unwrap());
 }
 #[test]
-fn test_validate_attribute_areas() {
-    let valid = ["x".repeat(10), "x".repeat(40)];
-    let invalid = ["x".repeat(41), "x".repeat(100)];
-    for x in valid.iter() {
-        assert!(is_attribute_areas(core::slice::from_ref(x)).is_ok());
-    }
-    for x in invalid.iter() {
-        assert!(is_attribute_areas(core::slice::from_ref(x)).is_err());
-    }
-}
-#[test]
-fn test_validate_attribute_capabilities() {
-    let valid = ["x".repeat(10), "x".repeat(300)];
-    let invalid = ["x".repeat(301), "x".repeat(400)];
-    for x in valid.iter() {
-        assert!(is_attribute_capabilities(core::slice::from_ref(x)).is_ok());
-    }
-    for x in invalid.iter() {
-        assert!(is_attribute_capabilities(core::slice::from_ref(x)).is_err());
-    }
-}
-#[test]
-fn test_validate_attribute_doi() {
-    let valid = ["10.1000/182".to_string(), "10.97812345/99990".to_string()];
-    assert!(is_attribute_doi_list(&valid).is_ok());
-    let invalid = ["https://not.doi.org/10.1000/182".to_string()];
-    assert!(is_attribute_doi_list(&invalid).is_err());
-}
-#[test]
-fn test_validate_attribute_impact() {
-    let valid = ["X".repeat(10), "X".repeat(150)];
-    let invalid = ["X".repeat(151), "X".repeat(500)];
-    for x in valid.iter() {
-        assert!(is_attribute_impact(core::slice::from_ref(x)).is_ok());
-    }
-    for x in invalid.iter() {
-        assert!(is_attribute_impact(core::slice::from_ref(x)).is_err());
-    }
-    assert!(is_attribute_impact(&[
-        "This is an impact statement with no period".to_string(),
-        "This is another impact statement with no period".to_string(),
-        "This is a third impact statement with no period".to_string(),
-    ])
-    .is_ok());
-    assert!(is_attribute_impact(&[
-        "This is an impact statement with no period".to_string(),
-        "This is another impact statement with no period".to_string(),
-        "This is an impact statement with a period.".to_string(),
-    ])
-    .is_err());
-    assert!(is_attribute_impact(&["starts with lowercase impact statement".to_string()]).is_err());
-    assert!(is_attribute_impact(&[
-        "Starts with uppercase impact statement".to_string(),
-        "Another uppercase impact statement".to_string(),
-    ])
-    .is_ok());
-}
-#[test]
-fn test_validate_attribute_ror() {
-    let valid = VALID_ROR_VALUES.into_iter().map(|x| x.to_string()).collect::<Vec<String>>();
-    assert!(is_attribute_ror_list(&valid).is_ok());
-    let invalid = ["https://doi.org/10.1000/182".to_string()];
-    assert!(is_attribute_ror_list(&invalid).is_err());
-}
-#[test]
-fn test_validate_has_image_extension() {
+fn test_has_image_extension() {
     let valid = [
         "foo.png",
         "bar.jpg",
@@ -555,7 +366,7 @@ fn test_validate_has_image_extension() {
     }
 }
 #[test]
-fn test_validate_is_ark() {
+fn test_is_ark() {
     let valid = VALID_ARK_VALUES;
     let invalid = [
         "978-12345-99990",
@@ -580,7 +391,7 @@ fn test_validate_is_ark() {
     }
 }
 #[test]
-fn test_validate_is_doi() {
+fn test_is_doi() {
     let valid = VALID_DOI_VALUES;
     let invalid = [
         "978-12345-99990",
@@ -598,7 +409,7 @@ fn test_validate_is_doi() {
     }
 }
 #[test]
-fn test_validate_is_ip6() {
+fn test_is_ip6() {
     let valid = [
         "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
         "FE80:0000:0000:0000:0202:B3FF:FE1E:8329",
@@ -641,7 +452,7 @@ fn test_is_iso8601() {
     }
 }
 #[test]
-fn test_validate_is_kebabcase() {
+fn test_is_kebabcase() {
     let valid = ["this-is-valid", "thisisvalid"];
     let invalid = ["this_is_not_valid", "ThisIsNotValid", "this is not valid", "This-Is-Not-Valid"];
     for x in valid.iter() {
@@ -652,7 +463,7 @@ fn test_validate_is_kebabcase() {
     }
 }
 #[test]
-fn test_validate_is_list_url() {
+fn test_is_list_url() {
     let valid = [
         "http://www.example.com".to_string(),
         "https://example.com".to_string(),
@@ -670,7 +481,7 @@ fn test_validate_is_list_url() {
     assert!(is_list_url(&invalid).is_err());
 }
 #[test]
-fn test_validate_is_orcid() {
+fn test_is_orcid() {
     let valid = VALID_ORCID_VALUES;
     let invalid = [
         "0000-0002-1823-1234",
@@ -685,7 +496,7 @@ fn test_validate_is_orcid() {
     }
 }
 #[test]
-fn test_validate_is_phone_number() {
+fn test_is_phone_number() {
     let valid = [
         "555-123-4567",
         "555.123.4567",
@@ -716,7 +527,7 @@ fn test_validate_is_phone_number() {
     }
 }
 #[test]
-fn test_validate_is_ror() {
+fn test_is_ror() {
     let valid = VALID_ROR_VALUES;
     let invalid = ["978-12345-99990", "10.1000/182", "10.97812345/99990", "3t40cz74", "03ebg0v16-"];
     for x in valid.iter() {
@@ -725,6 +536,13 @@ fn test_validate_is_ror() {
     for x in invalid.iter() {
         assert!(is_ror(x).is_err(), "=> [REASON] \"{x}\" IS a valid ROR");
     }
+}
+#[test]
+fn test_is_attribute_ror_list() {
+    let valid = VALID_ROR_VALUES.into_iter().map(|x| x.to_string()).collect::<Vec<String>>();
+    assert!(is_attribute_ror_list(&valid).is_ok());
+    let invalid = ["https://doi.org/10.1000/182".to_string()];
+    assert!(is_attribute_ror_list(&invalid).is_err());
 }
 #[test]
 fn test_validate_is_unix_epoch() {
