@@ -473,10 +473,10 @@ fn test_validate_attribute_areas() {
     let valid = ["x".repeat(10), "x".repeat(40)];
     let invalid = ["x".repeat(41), "x".repeat(100)];
     for x in valid.iter() {
-        assert!(validate_attribute_areas(core::slice::from_ref(x)).is_ok());
+        assert!(is_attribute_areas(core::slice::from_ref(x)).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_attribute_areas(core::slice::from_ref(x)).is_err());
+        assert!(is_attribute_areas(core::slice::from_ref(x)).is_err());
     }
 }
 #[test]
@@ -484,43 +484,43 @@ fn test_validate_attribute_capabilities() {
     let valid = ["x".repeat(10), "x".repeat(300)];
     let invalid = ["x".repeat(301), "x".repeat(400)];
     for x in valid.iter() {
-        assert!(validate_attribute_capabilities(core::slice::from_ref(x)).is_ok());
+        assert!(is_attribute_capabilities(core::slice::from_ref(x)).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_attribute_capabilities(core::slice::from_ref(x)).is_err());
+        assert!(is_attribute_capabilities(core::slice::from_ref(x)).is_err());
     }
 }
 #[test]
 fn test_validate_attribute_doi() {
     let valid = ["10.1000/182".to_string(), "10.97812345/99990".to_string()];
-    assert!(validate_attribute_doi(&valid).is_ok());
+    assert!(is_attribute_doi_list(&valid).is_ok());
     let invalid = ["https://not.doi.org/10.1000/182".to_string()];
-    assert!(validate_attribute_doi(&invalid).is_err());
+    assert!(is_attribute_doi_list(&invalid).is_err());
 }
 #[test]
 fn test_validate_attribute_impact() {
     let valid = ["X".repeat(10), "X".repeat(150)];
     let invalid = ["X".repeat(151), "X".repeat(500)];
     for x in valid.iter() {
-        assert!(validate_attribute_impact(core::slice::from_ref(x)).is_ok());
+        assert!(is_attribute_impact(core::slice::from_ref(x)).is_ok());
     }
     for x in invalid.iter() {
-        assert!(validate_attribute_impact(core::slice::from_ref(x)).is_err());
+        assert!(is_attribute_impact(core::slice::from_ref(x)).is_err());
     }
-    assert!(validate_attribute_impact(&[
+    assert!(is_attribute_impact(&[
         "This is an impact statement with no period".to_string(),
         "This is another impact statement with no period".to_string(),
         "This is a third impact statement with no period".to_string(),
     ])
     .is_ok());
-    assert!(validate_attribute_impact(&[
+    assert!(is_attribute_impact(&[
         "This is an impact statement with no period".to_string(),
         "This is another impact statement with no period".to_string(),
         "This is an impact statement with a period.".to_string(),
     ])
     .is_err());
-    assert!(validate_attribute_impact(&["starts with lowercase impact statement".to_string()]).is_err());
-    assert!(validate_attribute_impact(&[
+    assert!(is_attribute_impact(&["starts with lowercase impact statement".to_string()]).is_err());
+    assert!(is_attribute_impact(&[
         "Starts with uppercase impact statement".to_string(),
         "Another uppercase impact statement".to_string(),
     ])
@@ -529,9 +529,9 @@ fn test_validate_attribute_impact() {
 #[test]
 fn test_validate_attribute_ror() {
     let valid = VALID_ROR_VALUES.into_iter().map(|x| x.to_string()).collect::<Vec<String>>();
-    assert!(validate_attribute_ror_list(&valid).is_ok());
+    assert!(is_attribute_ror_list(&valid).is_ok());
     let invalid = ["https://doi.org/10.1000/182".to_string()];
-    assert!(validate_attribute_ror_list(&invalid).is_err());
+    assert!(is_attribute_ror_list(&invalid).is_err());
 }
 #[test]
 fn test_validate_has_image_extension() {

@@ -6,8 +6,8 @@
 use crate::io::{read_file, write_file};
 use crate::prelude::PathBuf;
 use crate::schema::research_activity::aspect::AspectFramework;
-use crate::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
-use crate::schema::{ContactPoint, Notes, Other, Research, Sections};
+use crate::schema::research_activity::{Research, ResearchActivity, ResearchActivityMetadata, Sections};
+use crate::schema::{ContactPoint, Notes, Other};
 use crate::util::{Label, StringInterpolation};
 use fancy_regex::Regex;
 use quick_xml::events::Event;

@@ -11,7 +11,7 @@ use serde_with::skip_serializing_none;
 /// Collection of DataCite DOI records
 pub type Catalog = Vec<Record>;
 /// Contributor type enumeration per DataCite 4.6 property 7.a
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/contributorType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ContributorType {
@@ -69,7 +69,7 @@ pub enum ContributorType {
     Other,
 }
 /// Date type enumeration per DataCite 4.6 property 8.a
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/dateType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum DateType {
@@ -99,7 +99,7 @@ pub enum DateType {
     Other,
 }
 /// Description type enumeration
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/descriptionType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum DescriptionType {
@@ -148,7 +148,7 @@ pub enum NameType {
     Organizational,
 }
 /// Related identifier type enumeration per DataCite 4.6 property 12.a
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/relatedIdentifierType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RelatedIdentifierType {
@@ -217,9 +217,9 @@ pub enum RelatedIdentifierType {
     W3id,
 }
 /// Relation type enumeration per DataCite 4.6 property 12.b
-/// 
+///
 /// Description of the relationship of the resource being registered (A) and the related resource (B)
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/relationType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RelationType {
@@ -465,7 +465,7 @@ pub struct AlternateIdentifier {
     pub alternate_identifier_type: String,
 }
 /// Record attributes containing all DataCite metadata properties
-/// 
+///
 /// Should be an additional identifier for the same instance of the resource (i.e., same location, same file)
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

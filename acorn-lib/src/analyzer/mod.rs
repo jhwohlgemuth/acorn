@@ -38,9 +38,11 @@ use validator::Validate;
 use validator::ValidationErrorsKind;
 use which::which;
 
+pub mod error;
 pub mod readability;
 pub mod vale;
 
+use error::ErrorKind;
 use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
@@ -125,18 +127,6 @@ pub enum CheckCategory {
     /// Schema validation check
     #[display("schema")]
     Schema,
-}
-/// Error kind
-#[derive(Clone, Debug)]
-pub enum ErrorKind {
-    /// Readability issue where calculated index exceeds threshold of associated metric
-    Readability((f64, ReadabilityType)),
-    /// Prose issue found by Vale
-    Vale(Vec<ValeOutputItem>),
-    /// Schema validation issue found by [validator crate]
-    ///
-    /// [validator crate]: https://crates.io/crates/validator
-    Validator(ValidationErrorsKind),
 }
 /// Data structure for holding the result of a schema validation check
 #[derive(Builder, Clone, Debug, Display)]
@@ -408,13 +398,20 @@ impl Check {
                 } else {
                     let count = self.issue_count();
                     error!(
-                        "=> {} Found {} schema validation issue{} in {}: \n{:#?}",
+                        "=> {} Found {} schema validation issue{} in {}:",
                         Label::fail(),
                         count.red(),
                         suffix(count),
                         path.italic().underline(),
-                        self.errors.unwrap()
                     );
+                    match self.errors {
+                        | Some(errors) => {
+                            println!("{}", errors.to_string());
+                        }
+                        | None => {
+                            error!("Error details are unavailable");
+                        }
+                    }
                 }
             }
         }

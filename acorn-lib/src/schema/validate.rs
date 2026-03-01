@@ -3,10 +3,7 @@
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 //!
 use crate::schema::pid::{Patent, PersistentIdentifierConvert};
-use crate::util::constants::{
-    MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA, RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6,
-    RE_ISO_8601_DATE, RE_ISO_8601_YEAR, RE_PHONE, RE_RAID, RE_UNIX_EPOCH,
-};
+use crate::util::constants::{RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_ISO_8601_YEAR, RE_PHONE, RE_RAID, RE_UNIX_EPOCH};
 use chrono::{DateTime, Datelike, Utc};
 use convert_case::{Case, Casing};
 use uriparse::URI;
@@ -67,7 +64,7 @@ pub fn is_ark(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid ARK";
     match value.is_ark() {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("ark").with_message(MESSAGE.into())),
+        | _ => Err(ValidationError::new("ARK").with_message(MESSAGE.into())),
     }
 }
 fn is_current_year(value: String) -> bool {
@@ -80,7 +77,7 @@ pub fn is_doi(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid DOI, by itself and without domain or 'doi:' prefix.";
     match value.is_doi() {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("doi").with_message(MESSAGE.into())),
+        | _ => Err(ValidationError::new("DOI").with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid IP6 address
@@ -118,7 +115,7 @@ pub fn is_iso8601_year(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid ISO 8601 year (e.g., YYYY)";
     match RE_ISO_8601_YEAR.is_match(value) {
         | Ok(x) if x && is_current_year(value.to_string()) => Ok(()),
-        | _ => Err(ValidationError::new("ISO 8601 Date").with_message(MESSAGE.into())),
+        | _ => Err(ValidationError::new("ISO 8601 Year").with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid kebab-case (e.g. 'this-is-kebab-case')
@@ -142,7 +139,7 @@ pub fn is_orcid(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid ORCiD";
     match value.is_orcid() {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("orcid").with_message(MESSAGE.into())),
+        | _ => Err(ValidationError::new("ORCiD").with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid [`crate::schema::pid::Patent`]
@@ -172,7 +169,7 @@ pub fn is_raid(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid RAiD";
     match RE_RAID.is_match(value) {
         | Ok(value) if value => Ok(()),
-        | _ => Err(ValidationError::new("raid").with_message(MESSAGE.into())),
+        | _ => Err(ValidationError::new("RAiD").with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid Research Organization Registry (ROR) value
@@ -182,7 +179,7 @@ pub fn is_ror(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Please provide a valid ROR";
     match value.is_ror() {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("ror").with_message(MESSAGE.into())),
+        | _ => Err(ValidationError::new("ROR").with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid Unix epoch timestamp
@@ -191,109 +188,5 @@ pub fn is_unix_epoch(value: usize) -> Result<(), ValidationError> {
     match RE_UNIX_EPOCH.is_match(&value.to_string()) {
         | Ok(value) if value => Ok(()),
         | _ => Err(ValidationError::new("unix epoch").with_message(MESSAGE.into())),
-    }
-}
-/// Custom validator function for [approach](/acorn_lib/schema/struct.Sections.html#structfield.approach)
-pub(crate) fn validate_attribute_approach(value: &[String]) -> Result<(), ValidationError> {
-    const MAX_LENGTH: usize = MAX_LENGTH_APPROACH;
-    let message: String = format!("Each approach statement should be less than {MAX_LENGTH} characters");
-    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("approach").with_message(message.into())),
-    }
-}
-/// Custom validator function for [research areas](/acorn_lib/schema/struct.Research.html#structfield.areas)
-pub(crate) fn validate_attribute_areas(value: &[String]) -> Result<(), ValidationError> {
-    const MAX_LENGTH: usize = MAX_LENGTH_RESEARCH_AREA;
-    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("area").with_message(format!("Each area should be less than {MAX_LENGTH} characters").into())),
-    }
-}
-/// Custom validator function for [`ResearchActivity`] [patents](/acorn_lib/schema/struct.Metadata.html#structfield.patents)
-///
-/// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub(crate) fn validate_attribute_books(value: &[String]) -> Result<(), ValidationError> {
-    let is_valid = value.iter().all(|x| x.is_isbn());
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("books").with_message("Every book should be a valid ISBN".to_string().into())),
-    }
-}
-/// Custom validator function for [`ResearchActivity`] [capabilities](/acorn_lib/schema/struct.Sections.html#structfield.capabilities)
-///
-/// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub(crate) fn validate_attribute_capabilities(value: &[String]) -> Result<(), ValidationError> {
-    const MAX_LENGTH: usize = MAX_LENGTH_CAPABILIY;
-    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("capability").with_message(format!("Each capability should be less than {MAX_LENGTH} characters").into())),
-    }
-}
-/// Custom validator function for [`ResearchActivity`] [doi](/acorn_lib/schema/struct.Metadata.html#structfield.doi)
-///
-/// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub(crate) fn validate_attribute_doi(value: &[String]) -> Result<(), ValidationError> {
-    let is_valid = value.iter().all(|x| is_doi(x).is_ok());
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("DOIs").with_message("Every DOI should be valid".to_string().into())),
-    }
-}
-/// Custom validator function for [`ResearchActivity`] [ror](/acorn_lib/schema/struct.Metadata.html#structfield.ror)
-///
-/// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub fn validate_attribute_ror(value: &str) -> Result<(), ValidationError> {
-    match is_ror(value).is_ok() {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("RORs").with_message("Every ROR should be valid".to_string().into())),
-    }
-}
-/// Custom validator function for [`ResearchActivity`] [ror](/acorn_lib/schema/struct.Metadata.html#structfield.ror)
-///
-/// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub(crate) fn validate_attribute_ror_list(value: &[String]) -> Result<(), ValidationError> {
-    let is_valid = value.iter().all(|x| is_ror(x).is_ok());
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("RORs").with_message("Every ROR should be valid".to_string().into())),
-    }
-}
-/// Custom validator function for [`ResearchActivity`] [impact](/acorn_lib/schema/struct.Sections.html#structfield.impact)
-///
-/// [`ResearchActivity`]: ../struct.ResearchActivity.html
-pub(crate) fn validate_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
-    const MAX_LENGTH: usize = MAX_LENGTH_IMPACT;
-    match value.iter().all(|x| x.len() <= MAX_LENGTH) {
-        | true => {
-            let all_periods = value.iter().all(|x| x.trim().ends_with("."));
-            let no_periods = value.iter().all(|x| !x.trim().ends_with("."));
-            let is_valid = all_periods || no_periods;
-            match is_valid {
-                | true => {
-                    let capitalized = value.iter().all(|x| {
-                        let first = x.trim().chars().find(|c| c.is_alphabetic());
-                        match first {
-                            | Some(letter) => {
-                                let actual = letter.to_string();
-                                let upper = actual.to_case(Case::Upper);
-                                actual.eq(&upper)
-                            }
-                            | None => false,
-                        }
-                    });
-                    match capitalized {
-                        | true => Ok(()),
-                        | _ => Err(ValidationError::new("impact").with_message("Impact statements should begin with a capital letter".into())),
-                    }
-                }
-                | _ => Err(ValidationError::new("impact")
-                    .with_message("Impact statements should be all sentences with periods or all phrases without periods".into())),
-            }
-        }
-        | _ => Err(ValidationError::new("impact").with_message(format!("Each impact statement should be less than {MAX_LENGTH} characters").into())),
     }
 }

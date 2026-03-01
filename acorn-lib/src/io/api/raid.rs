@@ -3,7 +3,7 @@
 //! See <https://metadata.raid.org> for more information
 //!
 use crate::schema::pid::raid;
-use crate::schema::validate::validate_attribute_ror;
+use crate::schema::validate::is_ror;
 use bon::Builder;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
@@ -61,7 +61,7 @@ pub struct ServicePointResponse {
     /// Name of service point associated with response
     pub name: String,
     /// ROR of service point owner
-    #[validate(custom(function = "validate_attribute_ror"))]
+    #[validate(custom(function = "is_ror"))]
     #[serde(alias = "identifierOwner")]
     pub owner: String,
     /// Repository identifier

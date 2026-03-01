@@ -9,10 +9,7 @@ use crate::prelude::PathBuf;
 use crate::schema::validate::format_phone_number;
 #[cfg(feature = "std")]
 use crate::util::constants::DEFAULT_AFFILIATION;
-use crate::util::constants::{
-    MAX_COUNT_APPROACH, MAX_COUNT_CAPABILITIES, MAX_COUNT_IMPACT, MAX_COUNT_RESEARCH_AREAS, MAX_LENGTH_IMAGE_CAPTION, MAX_LENGTH_RESEARCH_FOCUS,
-    MAX_LENGTH_SECTION_CHALLENGE, MAX_LENGTH_SECTION_MISSION,
-};
+use crate::util::constants::MAX_LENGTH_IMAGE_CAPTION;
 #[cfg(feature = "std")]
 use crate::util::Label;
 use crate::util::{Constant, LinkedData, ToMarkdown};
@@ -34,7 +31,7 @@ use petgraph::graph::Graph;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use serde_trim::{option_string_trim, string_trim, vec_string_trim};
+use serde_trim::{option_string_trim, string_trim};
 use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
 use tracing::{debug, error, trace};
@@ -49,10 +46,7 @@ pub mod standard;
 pub mod validate;
 use constants::SCHEMA_ORG_CONTEXT;
 use graph::{node_from_label, node_name, node_parent};
-use validate::{
-    has_image_extension, is_orcid, is_phone_number, validate_attribute_approach, validate_attribute_areas, validate_attribute_capabilities,
-    validate_attribute_impact,
-};
+use validate::{has_image_extension, is_orcid, is_phone_number};
 
 /// ## Keywords
 /// > Core concepts related to the associated research activity
@@ -544,103 +538,6 @@ pub struct Website {
     #[serde(deserialize_with = "string_trim")]
     pub url: String,
 }
-/// Research activity prose components that describe the activity using natural language
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
-#[builder(start_fn = init)]
-#[serde(deny_unknown_fields)]
-pub struct Sections {
-    /// The reason for the research or research organization to exist
-    /// ### Example
-    /// > "Develop the first atomic bombs in the world to assist the Allied forces and bring an end to WWII"
-    #[validate(length(
-        min = 10,
-        max = "MAX_LENGTH_SECTION_MISSION",
-        message = "Mission is too long, please reduce the length below 250."
-    ))]
-    #[builder(default = "Purpose of the research".to_string())]
-    #[serde(alias = "introduction", deserialize_with = "string_trim")]
-    pub mission: String,
-    /// A problem or situation within a research field requiring scientific effort, resources, and/or innovation to overcome
-    /// ### Example
-    /// > "During WWII, there was a fear that Germany was researching and developing nuclear weapons, giving them a decisive advantage over Allied forces, including the United States, Great Britain, and Canada."
-    #[validate(length(
-        min = 10,
-        max = "MAX_LENGTH_SECTION_CHALLENGE",
-        message = "Challenge is too long, please reduce the length below 500."
-    ))]
-    #[builder(default = "Reason for the research".to_string())]
-    #[serde(deserialize_with = "string_trim")]
-    pub challenge: String,
-    /// The plan, resources and actions taken to perform the research in a given project or organization
-    /// ### Examples
-    /// - "Production across four different sites in the United States, each with a different focus, for security and safety purposes"
-    /// - "Research into new fields including nuclear fission, isotope separation methods, uranium enrichment, plutonium development, and weapons design"
-    /// - "Military coordination for project construction and security management as well as defense communications to national leaders"
-    #[validate(
-        length(min = 1, max = "MAX_COUNT_APPROACH", message = "Please limit the number of approaches to 6"),
-        custom(function = "validate_attribute_approach")
-    )]
-    #[builder(default = vec!["List of actions taken to perform the research".to_string()])]
-    #[serde(deserialize_with = "vec_string_trim")]
-    pub approach: Vec<String>,
-    /// Tangible effects the research approach has on areas outside academia, such as industry, society, the surrounding environment, or culture
-    /// ### Examples
-    /// - "Development of the world's first atomic weapons"
-    /// - "Introduction of the nuclear age, including advancements in nuclear science, engineering and a new source of energy"
-    /// - "The end of WWII, along with many ethical and moral considerations related to use of atomic weapons"
-    #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "validate_attribute_impact"))]
-    #[builder(default = vec!["List of tangible proof that validates the research approach".to_string()])]
-    #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
-    pub impact: Vec<String>,
-    /// Notable recognition or awards given to the research team, organization, or research products
-    /// ### Examples
-    /// - "At least six Nobel Prizes awarded to Manhattan Project researchers in the years following the end of the project"
-    /// - "Creation of the Atomic Energy Commission in 1946, later becoming the Department of Energy and Nuclear Regulatory Commission"
-    #[validate(length(min = 1, max = 4, message = "Please limit the number of achievements to 4"))]
-    pub achievement: Option<Vec<String>>,
-    /// Expertise as applied to technology in a given mission space
-    /// ### Examples
-    /// - "Gaseous diffusion and electromagnetic separation to create fissionable materials"
-    /// - "Mechanisms for achieving supercritical mass for nuclear detonation"
-    /// - "Nuclear reactor development, which paved the way for nuclear power"
-    /// - "Radiochemistry for nuclear detonation analysis and advanced medical research with radioisotopes"
-    /// - "Large-scale multidisciplinary scientific collaboration"
-    #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "validate_attribute_capabilities"))]
-    pub capabilities: Option<Vec<String>>,
-    /// Overview of research focus and areas
-    /// ### Example Focus
-    /// > "Developing fissionable materials for nuclear reactions to develop the world's first atomic weapons"
-    /// ### Example Areas
-    /// - "Nuclear fission"
-    /// - "Radiochemistry"
-    /// - "Uranium enrichment"
-    /// - "Electromagnetic separation"
-    /// - "Weapon design"
-    #[validate(nested)]
-    #[builder(default = Research::init().build())]
-    pub research: Research,
-}
-/// Overview of research focus and areas
-#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
-#[builder(start_fn = init)]
-#[serde(deny_unknown_fields)]
-pub struct Research {
-    /// Brief overview of the project or organization's research
-    #[validate(length(
-        min = 10,
-        max = "MAX_LENGTH_RESEARCH_FOCUS",
-        message = "Focus is too long, please reduce the length below 150."
-    ))]
-    #[builder(default = "Focus of the research".to_string())]
-    #[serde(deserialize_with = "string_trim")]
-    pub focus: String,
-    /// Topics related to and encapsulated within the project or organization
-    #[validate(length(min = 1, max = "MAX_COUNT_RESEARCH_AREAS"), custom(function = "validate_attribute_areas"))]
-    #[builder(default = vec!["Areas of research".to_string()])]
-    #[serde(deserialize_with = "vec_string_trim")]
-    pub areas: Vec<String>,
-}
 impl ContactPoint {
     /// Fix, resolve, and augment contact point data
     pub fn format(self) -> Self {
@@ -730,11 +627,6 @@ impl Default for ContactPointContext {
             .organization(format!("{SCHEMA_ORG_CONTEXT}/worksFor"))
             .affiliation(format!("{SCHEMA_ORG_CONTEXT}/affiliation"))
             .build()
-    }
-}
-impl Default for Sections {
-    fn default() -> Self {
-        Sections::init().build()
     }
 }
 impl LinkedData for ContactPoint {
@@ -916,49 +808,6 @@ impl ToMarkdown for ContactPoint {
 - Email: [{email}](mailto:{email})
 - Telephone: {telephone}
 "#
-        )
-    }
-}
-impl ToMarkdown for Research {
-    fn to_markdown(&self) -> String {
-        let Research { focus, areas } = self;
-        format!(
-            r#"
-## Focus
-{focus}
-
-## Areas{}"#,
-            areas.to_markdown(),
-        )
-    }
-}
-impl ToMarkdown for Sections {
-    fn to_markdown(&self) -> String {
-        let Sections {
-            mission,
-            challenge,
-            approach,
-            impact,
-            research,
-            ..
-        } = self;
-        format!(
-            r#"
-## Mission
-{}
-
-## Challenge
-{}
-
-## Approach{}
-
-## Impact{}
-{}"#,
-            mission,
-            challenge,
-            approach.to_markdown(),
-            impact.to_markdown(),
-            research.to_markdown(),
         )
     }
 }

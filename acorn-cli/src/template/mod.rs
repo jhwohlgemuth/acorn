@@ -1,5 +1,5 @@
-use acorn::schema::research_activity::ResearchActivity;
-use acorn::schema::{ContactPoint, Research, Sections};
+use acorn::schema::research_activity::{Research, ResearchActivity, Sections};
+use acorn::schema::ContactPoint;
 use acorn::util::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
 use acorn::util::{Label, MimeType};
 use data_encoding::BASE64;

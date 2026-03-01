@@ -42,7 +42,7 @@
     ]
   },
   "title": "Invalid Project A",
-  "subtitle": "Subtitle for this project",
+  "subtitle": "Subtitle for this project that is way too long and should trigger a validation error because it exceeds the maximum length allowed for subtitles in the ACORN schema.",
   "sections": {
     "mission": "ACORN standardizes and automates the research content creation process to better communicate projects, capabilities, technology and, therefore, the people at ORNL.",
     "challenge": "Research project communication mediums should be straightforward and standardized. However, the creation process is often cumbersome, involving multiple editing rounds among different teams. Once created, there is often no version control, stewardship or central content repository.",
@@ -51,7 +51,7 @@
       "Through ACORN's automation and collaboration features, teams can maintain accurate, creative, standardized content products and repositories."
     ],
     "impact": [
-      "Project owner stewardship of content creation and maintenance",
+      "Project owner stewardship of content creation and maintenance.",
       "Communications team end-to-end editorial oversight",
       "Findable Accessible Indexable Reusable (FAIR) data standards and governance through sustainable workflow processes",
       "Using group name abbreviations like CNMSD should not trigger an issue, but E-MNA will",

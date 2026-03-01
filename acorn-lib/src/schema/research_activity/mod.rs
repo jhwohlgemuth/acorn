@@ -8,17 +8,23 @@ use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutpu
 #[cfg(feature = "std")]
 use crate::prelude::{io::Error, PathBuf};
 use crate::schema::constants::{CODEMETA_CONTEXT, DCAT_CONTEXT, SCHEMA_ORG_CONTEXT};
-use crate::schema::validate::{is_kebabcase, is_list_url, validate_attribute_books, validate_attribute_doi, validate_attribute_ror_list};
-use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Sections, Status, Website};
+use crate::schema::pid::PersistentIdentifierConvert;
+use crate::schema::validate::{is_doi, is_kebabcase, is_list_url, is_ror};
+use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website};
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
+use crate::util::constants::{
+    MAX_COUNT_APPROACH, MAX_COUNT_CAPABILITIES, MAX_COUNT_IMPACT, MAX_COUNT_RESEARCH_AREAS, MAX_LENGTH_RESEARCH_FOCUS, MAX_LENGTH_SECTION_CHALLENGE,
+    MAX_LENGTH_SECTION_MISSION,
+};
+use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
 use crate::util::{frontmatter_and_body, LinkedData, ToMarkdown};
 #[cfg(feature = "std")]
 use crate::util::{Constant, Label};
 #[cfg(feature = "std")]
 use crate::util::{MimeType, ToAbsoluteString};
 use bon::Builder;
-#[cfg(feature = "std")]
 use convert_case::{Case, Casing};
+
 use core::hash::{Hash, Hasher};
 use derive_more::Display;
 #[cfg(feature = "std")]
@@ -36,7 +42,7 @@ use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
 use tracing::{debug, error, trace};
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 pub mod aspect;
 use aspect::AspectFramework;
@@ -51,6 +57,26 @@ enum Vocabulary {
     Sponsors,
     #[display("technology")]
     Technology,
+}
+/// Overview of research focus and areas
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields)]
+pub struct Research {
+    /// Brief overview of the project or organization's research
+    #[validate(length(
+        min = 10,
+        max = "MAX_LENGTH_RESEARCH_FOCUS",
+        message = "Focus is too long, please reduce the length below 150."
+    ))]
+    #[builder(default = "Focus of the research".to_string())]
+    #[serde(deserialize_with = "string_trim")]
+    pub focus: String,
+    /// Topics related to and encapsulated within the project or organization
+    #[validate(length(min = 1, max = "MAX_COUNT_RESEARCH_AREAS"), custom(function = "is_attribute_areas"))]
+    #[builder(default = vec!["Areas of research".to_string()])]
+    #[serde(deserialize_with = "vec_string_trim")]
+    pub areas: Vec<String>,
 }
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
@@ -153,11 +179,11 @@ pub struct ResearchActivityMetadata {
     /// Digital Object Identifier(s) related to the associated research activity data
     ///
     /// See <https://www.doi.org/> for more information
-    #[validate(custom(function = "validate_attribute_doi"))]
+    #[validate(custom(function = "is_attribute_doi_list"))]
     #[serde(default)]
     pub doi: Option<Vec<String>>,
     /// ISBN(s) of books related to the associated research activity data
-    #[validate(custom(function = "validate_attribute_books"))]
+    #[validate(custom(function = "is_attribute_books"))]
     #[serde(default)]
     pub books: Option<Vec<String>>,
     /// Patent(s) related to the associated research activity data
@@ -173,7 +199,7 @@ pub struct ResearchActivityMetadata {
     /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
-    #[validate(custom(function = "validate_attribute_ror_list"))]
+    #[validate(custom(function = "is_attribute_ror_list"))]
     #[serde(default)]
     pub ror: Option<Vec<String>>,
     /// Type of associated research activity data when directly associated with an organization
@@ -256,6 +282,83 @@ pub struct ResearchActivityMetadataContext {
     pub partners: String,
     /// Related research activity data
     pub related: String,
+}
+/// Research activity prose components that describe the activity using natural language
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init)]
+#[serde(deny_unknown_fields)]
+pub struct Sections {
+    /// The reason for the research or research organization to exist
+    /// ### Example
+    /// > "Develop the first atomic bombs in the world to assist the Allied forces and bring an end to WWII"
+    #[validate(length(
+        min = 10,
+        max = "MAX_LENGTH_SECTION_MISSION",
+        message = "Mission is too long, please reduce the length below 250."
+    ))]
+    #[builder(default = "Purpose of the research".to_string())]
+    #[serde(alias = "introduction", deserialize_with = "string_trim")]
+    pub mission: String,
+    /// A problem or situation within a research field requiring scientific effort, resources, and/or innovation to overcome
+    /// ### Example
+    /// > "During WWII, there was a fear that Germany was researching and developing nuclear weapons, giving them a decisive advantage over Allied forces, including the United States, Great Britain, and Canada."
+    #[validate(length(
+        min = 10,
+        max = "MAX_LENGTH_SECTION_CHALLENGE",
+        message = "Challenge is too long, please reduce the length below 500."
+    ))]
+    #[builder(default = "Reason for the research".to_string())]
+    #[serde(deserialize_with = "string_trim")]
+    pub challenge: String,
+    /// The plan, resources and actions taken to perform the research in a given project or organization
+    /// ### Examples
+    /// - "Production across four different sites in the United States, each with a different focus, for security and safety purposes"
+    /// - "Research into new fields including nuclear fission, isotope separation methods, uranium enrichment, plutonium development, and weapons design"
+    /// - "Military coordination for project construction and security management as well as defense communications to national leaders"
+    #[validate(
+        length(min = 1, max = "MAX_COUNT_APPROACH", message = "Please limit the number of approaches to 6"),
+        custom(function = "is_attribute_approach")
+    )]
+    #[builder(default = vec!["List of actions taken to perform the research".to_string()])]
+    #[serde(deserialize_with = "vec_string_trim")]
+    pub approach: Vec<String>,
+    /// Tangible effects the research approach has on areas outside academia, such as industry, society, the surrounding environment, or culture
+    /// ### Examples
+    /// - "Development of the world's first atomic weapons"
+    /// - "Introduction of the nuclear age, including advancements in nuclear science, engineering and a new source of energy"
+    /// - "The end of WWII, along with many ethical and moral considerations related to use of atomic weapons"
+    #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "is_attribute_impact"))]
+    #[builder(default = vec!["List of tangible proof that validates the research approach".to_string()])]
+    #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
+    pub impact: Vec<String>,
+    /// Notable recognition or awards given to the research team, organization, or research products
+    /// ### Examples
+    /// - "At least six Nobel Prizes awarded to Manhattan Project researchers in the years following the end of the project"
+    /// - "Creation of the Atomic Energy Commission in 1946, later becoming the Department of Energy and Nuclear Regulatory Commission"
+    #[validate(length(min = 1, max = 4, message = "Please limit the number of achievements to 4"))]
+    pub achievement: Option<Vec<String>>,
+    /// Expertise as applied to technology in a given mission space
+    /// ### Examples
+    /// - "Gaseous diffusion and electromagnetic separation to create fissionable materials"
+    /// - "Mechanisms for achieving supercritical mass for nuclear detonation"
+    /// - "Nuclear reactor development, which paved the way for nuclear power"
+    /// - "Radiochemistry for nuclear detonation analysis and advanced medical research with radioisotopes"
+    /// - "Large-scale multidisciplinary scientific collaboration"
+    #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "is_attribute_capabilities"))]
+    pub capabilities: Option<Vec<String>>,
+    /// Overview of research focus and areas
+    /// ### Example Focus
+    /// > "Developing fissionable materials for nuclear reactions to develop the world's first atomic weapons"
+    /// ### Example Areas
+    /// - "Nuclear fission"
+    /// - "Radiochemistry"
+    /// - "Uranium enrichment"
+    /// - "Electromagnetic separation"
+    /// - "Weapon design"
+    #[validate(nested)]
+    #[builder(default = Research::init().build())]
+    pub research: Research,
 }
 impl Default for ResearchActivity {
     fn default() -> Self {
@@ -653,4 +756,144 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
         .map(|(x, _)| x.to_string());
     print_resolution(output.clone(), value, name);
     output
+}
+impl Default for Sections {
+    fn default() -> Self {
+        Sections::init().build()
+    }
+}
+impl ToMarkdown for Research {
+    fn to_markdown(&self) -> String {
+        let Research { focus, areas } = self;
+        format!(
+            r#"
+## Focus
+{focus}
+
+## Areas{}"#,
+            areas.to_markdown(),
+        )
+    }
+}
+impl ToMarkdown for Sections {
+    fn to_markdown(&self) -> String {
+        let Sections {
+            mission,
+            challenge,
+            approach,
+            impact,
+            research,
+            ..
+        } = self;
+        format!(
+            r#"
+## Mission
+{}
+
+## Challenge
+{}
+
+## Approach{}
+
+## Impact{}
+{}"#,
+            mission,
+            challenge,
+            approach.to_markdown(),
+            impact.to_markdown(),
+            research.to_markdown(),
+        )
+    }
+}
+/// Custom validator function for [approach](Sections::approach)
+pub(crate) fn is_attribute_approach(value: &[String]) -> Result<(), ValidationError> {
+    const CODE: &str = "sections.approach";
+    const MAX_LENGTH: usize = MAX_LENGTH_APPROACH;
+    let message: String = format!("Each approach statement should be less than {MAX_LENGTH} characters");
+    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
+    match is_valid {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new(CODE).with_message(message.into())),
+    }
+}
+/// Custom validator function for [research areas](Research::areas)
+pub(crate) fn is_attribute_areas(value: &[String]) -> Result<(), ValidationError> {
+    const CODE: &str = "sections.areas";
+    const MAX_LENGTH: usize = MAX_LENGTH_RESEARCH_AREA;
+    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
+    match is_valid {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new(CODE).with_message(format!("Each area should be less than {MAX_LENGTH} characters").into())),
+    }
+}
+/// Custom validator function for [`ResearchActivity`] [books](ResearchActivityMetadata::books)
+pub(crate) fn is_attribute_books(value: &[String]) -> Result<(), ValidationError> {
+    const CODE: &str = "meta.books";
+    let is_valid = value.iter().all(|x| x.is_isbn());
+    match is_valid {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new(CODE).with_message("Every book should be a valid ISBN".to_string().into())),
+    }
+}
+/// Custom validator function for [`ResearchActivity`] [capabilities](Sections::capabilities)
+pub(crate) fn is_attribute_capabilities(value: &[String]) -> Result<(), ValidationError> {
+    const CODE: &str = "sections.capabilities";
+    const MAX_LENGTH: usize = MAX_LENGTH_CAPABILIY;
+    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
+    match is_valid {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new(CODE).with_message(format!("Each capability should be less than {MAX_LENGTH} characters").into())),
+    }
+}
+/// Custom validator function for [`ResearchActivity`] [doi](ResearchActivityMetadata::doi)
+pub(crate) fn is_attribute_doi_list(value: &[String]) -> Result<(), ValidationError> {
+    const CODE: &str = "meta.doi";
+    let is_valid = value.iter().all(|x| is_doi(x).is_ok());
+    match is_valid {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new(CODE).with_message("Every DOI should be valid".to_string().into())),
+    }
+}
+/// Custom validator function for [`ResearchActivity`] [ror](ResearchActivityMetadata::ror)
+pub(crate) fn is_attribute_ror_list(value: &[String]) -> Result<(), ValidationError> {
+    const CODE: &str = "meta.ror";
+    let is_valid = value.iter().all(|x| is_ror(x).is_ok());
+    match is_valid {
+        | true => Ok(()),
+        | _ => Err(ValidationError::new(CODE).with_message("Every ROR should be valid".to_string().into())),
+    }
+}
+/// Custom validator function for [`ResearchActivity`] [impact](Sections::impact)
+pub(crate) fn is_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
+    const CODE: &str = "sections.impact";
+    const MAX_LENGTH: usize = MAX_LENGTH_IMPACT;
+    match value.iter().all(|x| x.len() <= MAX_LENGTH) {
+        | true => {
+            let all_periods = value.iter().all(|x| x.trim().ends_with("."));
+            let no_periods = value.iter().all(|x| !x.trim().ends_with("."));
+            let is_valid = all_periods || no_periods;
+            match is_valid {
+                | true => {
+                    let capitalized = value.iter().all(|x| {
+                        let first = x.trim().chars().find(|c| c.is_alphabetic());
+                        match first {
+                            | Some(letter) => {
+                                let actual = letter.to_string();
+                                let upper = actual.to_case(Case::Upper);
+                                actual.eq(&upper)
+                            }
+                            | None => false,
+                        }
+                    });
+                    match capitalized {
+                        | true => Ok(()),
+                        | _ => Err(ValidationError::new(CODE).with_message("Impact statements should begin with a capital letter".into())),
+                    }
+                }
+                | _ => Err(ValidationError::new(CODE)
+                    .with_message("Impact statements should be all sentences with periods or all phrases without periods".into())),
+            }
+        }
+        | _ => Err(ValidationError::new(CODE).with_message(format!("Each impact statement should be less than {MAX_LENGTH} characters").into())),
+    }
 }

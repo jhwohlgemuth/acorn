@@ -263,39 +263,30 @@ fn test_preprocess_vale_output_windows_full_example() {
     }
   ]
 }"#;
-
     let result = preprocess_vale_output(path, input);
-
     // Verify the JSON is valid and can be parsed as ValeOutput
     let parsed: serde_json::Result<ValeOutput> = serde_json::from_str(&result);
     assert!(parsed.is_ok(), "Should parse as valid ValeOutput");
-
     if let Ok(vale_output) = parsed {
         assert_eq!(vale_output.items.len(), 8, "Should contain 8 items");
-
-        // Verify specific items
         assert_eq!(vale_output.items[0].check, "Google.OxfordComma");
         assert_eq!(vale_output.items[1].check, "Vale.Spelling");
         assert_eq!(vale_output.items[1].line, 47);
         assert_eq!(vale_output.items[7].check, "Google.WordList");
     }
 }
-
 #[test]
 fn test_vale_output_parse_empty() {
     let path = PathBuf::from("test-file");
     let empty_output = "{}";
-
     let result = ValeOutput::parse(empty_output, path);
     assert_eq!(result.len(), 0, "Empty output should return empty vector");
 }
-
 #[test]
 fn test_vale_output_severity_colored() {
     let warning = ValeOutputItemSeverity::Warning;
     let error = ValeOutputItemSeverity::Error;
     let suggestion = ValeOutputItemSeverity::Suggestion;
-
     assert!(!warning.colored().is_empty());
     assert!(!error.colored().is_empty());
     assert!(!suggestion.colored().is_empty());

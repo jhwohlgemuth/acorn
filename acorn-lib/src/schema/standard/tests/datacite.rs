@@ -1,6 +1,5 @@
 use crate::schema::standard::datacite::{
-    Catalog, DateType, DescriptionType, FunderIdentifierType, NameType,
-    RelatedIdentifierType, RelationType, Resource, ResourceTypeGeneral, TitleType,
+    Catalog, DateType, DescriptionType, FunderIdentifierType, NameType, RelatedIdentifierType, RelationType, Resource, ResourceTypeGeneral, TitleType,
 };
 use serde_json::Value;
 
@@ -143,20 +142,29 @@ fn test_datacite_xml_fixture_parsing() {
     assert_eq!(resource.creators.creator[0].name, "Hillenbrand, Claus-Dieter");
     assert_eq!(resource.creators.creator[0].given_name.as_deref(), Some("Claus-Dieter"));
     assert_eq!(resource.creators.creator[0].family_name.as_deref(), Some("Hillenbrand"));
-    let name_ids = resource.creators.creator[0].name_identifiers.as_ref().expect("should have name identifiers");
+    let name_ids = resource.creators.creator[0]
+        .name_identifiers
+        .as_ref()
+        .expect("should have name identifiers");
     assert_eq!(name_ids.len(), 1);
     assert_eq!(name_ids[0].name_identifier_scheme.as_deref(), Some("ORCID"));
     assert_eq!(name_ids[0].scheme_uri.as_deref(), Some("https://orcid.org"));
     assert!(name_ids[0].name_identifier.trim().starts_with("https://orcid.org/"));
     // Titles
     assert_eq!(resource.titles.title.len(), 1);
-    assert_eq!(resource.titles.title[0].title, "Last glacial maximum sediment record of the southern Weddell Sea shelf");
+    assert_eq!(
+        resource.titles.title[0].title,
+        "Last glacial maximum sediment record of the southern Weddell Sea shelf"
+    );
     // Publisher & year
     assert_eq!(resource.publisher, "PANGAEA");
     assert_eq!(resource.publication_year, 2011);
     // Resource type
     assert_eq!(resource.resource_type.resource_type_general, Some(ResourceTypeGeneral::Collection));
-    assert_eq!(resource.resource_type.resource_type.as_deref(), Some("Supplementary Publication Series of Datasets"));
+    assert_eq!(
+        resource.resource_type.resource_type.as_deref(),
+        Some("Supplementary Publication Series of Datasets")
+    );
     // Subjects
     let subjects = resource.subjects.as_ref().expect("subjects should exist");
     assert_eq!(subjects.subject.len(), 21);
@@ -187,7 +195,10 @@ fn test_datacite_xml_fixture_parsing() {
     assert_eq!(rights_list.rights.len(), 1);
     assert_eq!(rights_list.rights[0].rights_identifier.as_deref(), Some("cc-by-3.0"));
     assert_eq!(rights_list.rights[0].rights_identifier_scheme.as_deref(), Some("SPDX"));
-    assert_eq!(rights_list.rights[0].rights_uri.as_deref(), Some("https://creativecommons.org/licenses/by/3.0/legalcode"));
+    assert_eq!(
+        rights_list.rights[0].rights_uri.as_deref(),
+        Some("https://creativecommons.org/licenses/by/3.0/legalcode")
+    );
     assert_eq!(rights_list.rights[0].scheme_uri.as_deref(), Some("https://spdx.org/licenses/"));
     assert_eq!(rights_list.rights[0].rights.as_deref(), Some("Creative Commons Attribution 3.0 Unported"));
     // Descriptions
@@ -200,18 +211,27 @@ fn test_datacite_xml_fixture_parsing() {
     // GeoLocations
     let geo_locations = resource.geo_locations.as_ref().expect("geo locations should exist");
     assert_eq!(geo_locations.geo_location.len(), 9);
-    let geo_box = geo_locations.geo_location[0].geo_location_box.as_ref().expect("first geolocation should have a box");
+    let geo_box = geo_locations.geo_location[0]
+        .geo_location_box
+        .as_ref()
+        .expect("first geolocation should have a box");
     assert_eq!(geo_box.west_bound_longitude, -61.321666666667);
     assert_eq!(geo_box.east_bound_longitude, -25.716666666667);
     assert_eq!(geo_box.south_bound_latitude, -78.088166666667);
     assert_eq!(geo_box.north_bound_latitude, -73.486166666667);
     assert_eq!(geo_locations.geo_location[1].geo_location_place.as_deref(), Some("Weddell Sea"));
     // Point location (Disko Bay)
-    let point = geo_locations.geo_location[6].geo_location_point.as_ref().expect("Disko Bay should have a point");
+    let point = geo_locations.geo_location[6]
+        .geo_location_point
+        .as_ref()
+        .expect("Disko Bay should have a point");
     assert_eq!(point.point_longitude, -52.0);
     assert_eq!(point.point_latitude, 69.0);
     // Polygon location (Triangle Park)
-    let polygon = geo_locations.geo_location[8].geo_location_polygon.as_ref().expect("Triangle Park should have a polygon");
+    let polygon = geo_locations.geo_location[8]
+        .geo_location_polygon
+        .as_ref()
+        .expect("Triangle Park should have a polygon");
     assert_eq!(polygon.polygon_points.len(), 5);
     let in_point = polygon.in_polygon_point.as_ref().expect("polygon should have in-polygon point");
     assert_eq!(in_point.point_latitude, 49.272001);
@@ -220,11 +240,18 @@ fn test_datacite_xml_fixture_parsing() {
     let funding_refs = resource.funding_references.as_ref().expect("funding references should exist");
     assert_eq!(funding_refs.funding_reference.len(), 2);
     assert_eq!(funding_refs.funding_reference[0].funder_name, "European Commission");
-    let funder_id = funding_refs.funding_reference[0].funder_identifier.as_ref().expect("should have funder identifier");
+    let funder_id = funding_refs.funding_reference[0]
+        .funder_identifier
+        .as_ref()
+        .expect("should have funder identifier");
     assert_eq!(funder_id.funder_identifier_type, Some(FunderIdentifierType::CrossrefFunderId));
     assert_eq!(funder_id.value, "https://doi.org/10.13039/501100000780");
     let award = funding_refs.funding_reference[0].award_number.as_ref().expect("should have award number");
     assert_eq!(award.value, "282625");
     assert_eq!(award.award_uri.as_deref(), Some("https://cordis.europa.eu/project/rcn/100180_en.html"));
-    assert!(funding_refs.funding_reference[0].award_title.as_ref().expect("should have award title").contains("BIOdiversity"));
+    assert!(funding_refs.funding_reference[0]
+        .award_title
+        .as_ref()
+        .expect("should have award title")
+        .contains("BIOdiversity"));
 }
