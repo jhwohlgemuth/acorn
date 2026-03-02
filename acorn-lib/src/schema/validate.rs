@@ -4,11 +4,30 @@
 //!
 use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::util::constants::{RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_ISO_8601_YEAR, RE_PHONE, RE_RAID, RE_UNIX_EPOCH};
+use crate::{method_validator, regex_validator};
 use chrono::{DateTime, Datelike, Utc};
 use convert_case::{Case, Casing};
 use uriparse::URI;
 use validator::ValidationError;
 
+method_validator!(is_ark, "ARK");
+method_validator!(is_doi, "DOI");
+method_validator!(is_orcid, "ORCiD");
+method_validator!(is_ror, "ROR");
+regex_validator!(is_ip6, RE_IP6, "IP6");
+regex_validator!(is_raid, RE_RAID, "RAiD");
+regex_validator!(
+    has_image_extension,
+    RE_IMAGE_EXTENSION,
+    "image",
+    "Please provide a path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension"
+);
+regex_validator!(
+    is_iso8601_date,
+    RE_ISO_8601_DATE,
+    "ISO 8601 Date",
+    "Please provide a valid ISO 8601 date (e.g., YYYY-MM-DD)"
+);
 /// Format a phone number into a standard format
 /// ### Note
 /// > Output format is `000.000.0000`
@@ -51,42 +70,10 @@ pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
         | _ => Err(ValidationError::new("telephone").with_message(MESSAGE.into())),
     }
 }
-/// Check if a path has a valid image extension
-pub fn has_image_extension(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide a path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension";
-    match RE_IMAGE_EXTENSION.is_match(value) {
-        | Ok(value) if value => Ok(()),
-        | _ => Err(ValidationError::new("image").with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is a valid [`crate::schema::pid::ARK`]
-pub fn is_ark(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide a valid ARK";
-    match value.is_ark() {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("ARK").with_message(MESSAGE.into())),
-    }
-}
 fn is_current_year(value: String) -> bool {
     let now: DateTime<Utc> = Utc::now();
     let year = now.year().to_string().parse::<i32>().unwrap_or_default();
     value.parse::<i32>().unwrap_or_default() <= year
-}
-/// Check if value is a valid [`crate::schema::pid::DOI`]
-pub fn is_doi(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide a valid DOI, by itself and without domain or 'doi:' prefix.";
-    match value.is_doi() {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("DOI").with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is a valid IP6 address
-pub fn is_ip6(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide a valid IP6 address";
-    match RE_IP6.is_match(value) {
-        | Ok(value) if value => Ok(()),
-        | _ => Err(ValidationError::new("IP6").with_message(MESSAGE.into())),
-    }
 }
 /// Check if value is a valid [`crate::schema::pid::ISBN`]
 /// ### Example
@@ -96,16 +83,6 @@ pub fn is_isbn(value: &str) -> Result<(), ValidationError> {
     match value.is_isbn() {
         | true => Ok(()),
         | _ => Err(ValidationError::new("ISBN").with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is a valid ISO 8601 date (e.g., YYYY-MM-DD)
-/// ### Example
-/// > `2025-06-04`
-pub fn is_iso8601_date(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide a valid ISO 8601 date (e.g., YYYY-MM-DD)";
-    match RE_ISO_8601_DATE.is_match(value) {
-        | Ok(value) if value => Ok(()),
-        | _ => Err(ValidationError::new("ISO 8601 Date").with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid ISO 8601 year (e.g., YYYY)
@@ -120,27 +97,24 @@ pub fn is_iso8601_year(value: &str) -> Result<(), ValidationError> {
 }
 /// Check if value is a valid kebab-case (e.g. 'this-is-kebab-case')
 pub fn is_kebabcase(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide an ID in kebab-case format";
-    match value.to_case(Case::Kebab).eq(&value) {
+    let valid = value.to_case(Case::Kebab);
+    let message = format!("Please provide an ID in kebab-case format (e.g., {valid})");
+    match valid.eq(&value) {
         | true => Ok(()),
-        | _ => Err(ValidationError::new("kebabcase").with_message(MESSAGE.into())),
+        | _ => Err(ValidationError::new("kebabcase").with_message(message.into())),
     }
 }
 /// Custom validator function for validating list of URLs
 pub fn is_list_url(value: &[String]) -> Result<(), ValidationError> {
-    let is_valid = value.iter().all(|x| URI::try_from(x.as_str()).is_ok());
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("URLs").with_message("Every URL should be valid".to_string().into())),
-    }
-}
-/// Check if value is a valid [`crate::schema::pid::ORCID`]
-pub fn is_orcid(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide a valid ORCiD";
-    match value.is_orcid() {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("ORCiD").with_message(MESSAGE.into())),
-    }
+    value
+        .iter()
+        .position(|x| URI::try_from(x.as_str()).is_err())
+        .map(|index| {
+            let mut err = ValidationError::new("URLs").with_message("Every URL should be valid".to_string().into());
+            err.add_param("index".into(), &index);
+            err
+        })
+        .map_or(Ok(()), Err)
 }
 /// Check if value is a valid [`crate::schema::pid::Patent`]
 pub fn is_patent_identifier(value: &str) -> Result<(), ValidationError> {
@@ -154,32 +128,12 @@ pub fn is_patent_identifier(value: &str) -> Result<(), ValidationError> {
 ///
 /// Uses same regex as `format_phone_number`
 pub fn is_phone_number(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide a valid phone number";
-    let is_fake = match RE_FAKE_PHONE.is_match(value) {
-        | Ok(value) if value => true,
-        | _ => false,
-    };
-    match RE_PHONE.is_match(value) {
-        | Ok(value) if value && !is_fake => Ok(()),
-        | _ => Err(ValidationError::new("phone").with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is a valid [`crate::schema::pid::raid`]
-pub fn is_raid(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide a valid RAiD";
-    match RE_RAID.is_match(value) {
-        | Ok(value) if value => Ok(()),
-        | _ => Err(ValidationError::new("RAiD").with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is a valid Research Organization Registry (ROR) value
-///
-/// See <https://www.ror.org/> for more information
-pub fn is_ror(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Please provide a valid ROR";
-    match value.is_ror() {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new("ROR").with_message(MESSAGE.into())),
+    let is_fake = RE_FAKE_PHONE.is_match(value).unwrap_or(false);
+    let is_valid = RE_PHONE.is_match(value).unwrap_or(false);
+    match (is_valid, is_fake) {
+        | (true, false) => Ok(()),
+        | (_, true) => Err(ValidationError::new("phone").with_message("Please provide a real phone number, not a placeholder".into())),
+        | _ => Err(ValidationError::new("phone").with_message("Please provide a valid phone number".into())),
     }
 }
 /// Check if value is a valid Unix epoch timestamp

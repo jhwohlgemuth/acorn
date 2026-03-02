@@ -408,10 +408,10 @@ impl Check {
                     match self.errors {
                         | Some(errors) => {
                             println!("{}", errors);
-                            // errors.flatten().iter().for_each(|error| {
-                            //     let parts = error.split(';').collect::<Vec<&str>>();
-                            //     dbg!(&parts);
-                            // })
+                            errors.flatten().iter().for_each(|error| {
+                                let parts = error.split(';').collect::<Vec<&str>>();
+                                dbg!(&parts);
+                            })
                         }
                         | None => {
                             error!("Error details are unavailable");

@@ -809,93 +809,135 @@ impl ToMarkdown for Sections {
 pub(crate) fn is_attribute_approach(value: &[String]) -> Result<(), ValidationError> {
     const CODE: &str = "sections.approach";
     const MAX_LENGTH: usize = MAX_LENGTH_APPROACH;
-    let message: String = format!("Each approach statement should be less than {MAX_LENGTH} characters");
-    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new(CODE).with_message(message.into())),
-    }
+    value
+        .iter()
+        .position(|x| x.len() > MAX_LENGTH)
+        .map(|index| {
+            let length = value[index].len();
+            let mut err =
+                ValidationError::new(CODE).with_message(format!("Each approach statement should be less than {MAX_LENGTH} characters").into());
+            err.add_param("index".into(), &index);
+            err.add_param("length".into(), &length);
+            err
+        })
+        .map_or(Ok(()), Err)
 }
 /// Custom validator function for [research areas](Research::areas)
 pub(crate) fn is_attribute_areas(value: &[String]) -> Result<(), ValidationError> {
     const CODE: &str = "sections.areas";
     const MAX_LENGTH: usize = MAX_LENGTH_RESEARCH_AREA;
-    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new(CODE).with_message(format!("Each area should be less than {MAX_LENGTH} characters").into())),
-    }
+    value
+        .iter()
+        .position(|x| x.len() > MAX_LENGTH)
+        .map(|index| {
+            let length = value[index].len();
+            let mut err = ValidationError::new(CODE).with_message(format!("Each area should be less than {MAX_LENGTH} characters").into());
+            err.add_param("index".into(), &index);
+            err.add_param("length".into(), &length);
+            err
+        })
+        .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [books](ResearchActivityMetadata::books)
 pub(crate) fn is_attribute_books(value: &[String]) -> Result<(), ValidationError> {
     const CODE: &str = "meta.books";
-    let is_valid = value.iter().all(|x| x.is_isbn());
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new(CODE).with_message("Every book should be a valid ISBN".to_string().into())),
-    }
+    value
+        .iter()
+        .position(|x| !x.is_isbn())
+        .map(|index| {
+            let mut err = ValidationError::new(CODE).with_message("Every book should be a valid ISBN".to_string().into());
+            err.add_param("index".into(), &index);
+            err
+        })
+        .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [capabilities](Sections::capabilities)
 pub(crate) fn is_attribute_capabilities(value: &[String]) -> Result<(), ValidationError> {
     const CODE: &str = "sections.capabilities";
     const MAX_LENGTH: usize = MAX_LENGTH_CAPABILIY;
-    let is_valid = value.iter().all(|x| x.len() <= MAX_LENGTH);
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new(CODE).with_message(format!("Each capability should be less than {MAX_LENGTH} characters").into())),
-    }
+    value
+        .iter()
+        .position(|x| x.len() > MAX_LENGTH)
+        .map(|index| {
+            let length = value[index].len();
+            let mut err = ValidationError::new(CODE).with_message(format!("Each capability should be less than {MAX_LENGTH} characters").into());
+            err.add_param("index".into(), &index);
+            err.add_param("length".into(), &length);
+            err
+        })
+        .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [doi](ResearchActivityMetadata::doi)
 pub(crate) fn is_attribute_doi_list(value: &[String]) -> Result<(), ValidationError> {
     const CODE: &str = "meta.doi";
-    let is_valid = value.iter().all(|x| is_doi(x).is_ok());
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new(CODE).with_message("Every DOI should be valid".to_string().into())),
-    }
+    value
+        .iter()
+        .position(|x| is_doi(x).is_err())
+        .map(|index| {
+            let mut err = ValidationError::new(CODE).with_message("Every DOI should be valid".to_string().into());
+            err.add_param("index".into(), &index);
+            err
+        })
+        .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [ror](ResearchActivityMetadata::ror)
 pub(crate) fn is_attribute_ror_list(value: &[String]) -> Result<(), ValidationError> {
     const CODE: &str = "meta.ror";
-    let is_valid = value.iter().all(|x| is_ror(x).is_ok());
-    match is_valid {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new(CODE).with_message("Every ROR should be valid".to_string().into())),
-    }
+    value
+        .iter()
+        .position(|x| is_ror(x).is_err())
+        .map(|index| {
+            let mut err = ValidationError::new(CODE).with_message("Every ROR should be valid".to_string().into());
+            err.add_param("index".into(), &index);
+            err
+        })
+        .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [impact](Sections::impact)
 pub(crate) fn is_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
     const CODE: &str = "sections.impact";
     const MAX_LENGTH: usize = MAX_LENGTH_IMPACT;
-    match value.iter().all(|x| x.len() <= MAX_LENGTH) {
-        | true => {
-            let all_periods = value.iter().all(|x| x.trim().ends_with("."));
-            let no_periods = value.iter().all(|x| !x.trim().ends_with("."));
-            let is_valid = all_periods || no_periods;
-            match is_valid {
-                | true => {
-                    let capitalized = value.iter().all(|x| {
-                        let first = x.trim().chars().find(|c| c.is_alphabetic());
-                        match first {
-                            | Some(letter) => {
-                                let actual = letter.to_string();
-                                let upper = actual.to_case(Case::Upper);
-                                actual.eq(&upper)
-                            }
-                            | None => false,
-                        }
-                    });
-                    match capitalized {
-                        | true => Ok(()),
-                        | _ => Err(ValidationError::new(CODE).with_message("Impact statements should begin with a capital letter".into())),
-                    }
-                }
-                | _ => Err(ValidationError::new(CODE)
-                    .with_message("Impact statements should be all sentences with periods or all phrases without periods".into())),
-            }
-        }
-        | _ => Err(ValidationError::new(CODE).with_message(format!("Each impact statement should be less than {MAX_LENGTH} characters").into())),
-    }
+    value
+        .iter()
+        .position(|x| x.len() > MAX_LENGTH)
+        .map(|index| {
+            let length = value[index].len();
+            let mut err =
+                ValidationError::new(CODE).with_message(format!("Each impact statement should be less than {MAX_LENGTH} characters").into());
+            err.add_param("index".into(), &index);
+            err.add_param("length".into(), &length);
+            err
+        })
+        .or_else(|| {
+            value
+                .first()
+                .and_then(|first| {
+                    let ends_with_period = first.trim().ends_with(".");
+                    value.iter().position(|x| x.trim().ends_with(".") != ends_with_period)
+                })
+                .map(|index| {
+                    let mut err = ValidationError::new(CODE)
+                        .with_message("Impact statements should be all sentences with periods or all phrases without periods".into());
+                    err.add_param("index".into(), &index);
+                    err
+                })
+        })
+        .or_else(|| {
+            value
+                .iter()
+                .position(|x| {
+                    x.trim().chars().find(|c| c.is_alphabetic()).is_none_or(|letter| {
+                        let actual = letter.to_string();
+                        actual != actual.to_case(Case::Upper)
+                    })
+                })
+                .map(|index| {
+                    let mut err = ValidationError::new(CODE).with_message("Impact statements should begin with a capital letter".into());
+                    err.add_param("index".into(), &index);
+                    err
+                })
+        })
+        .map_or(Ok(()), Err)
 }
 
 #[cfg(test)]

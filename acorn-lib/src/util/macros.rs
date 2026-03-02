@@ -249,3 +249,127 @@ macro_rules! param {
             .with_key($name)
     };
 }
+/// Generate a validator function that delegates to a method on the input value
+///
+/// Creates a public function `fn(value: &str) -> Result<(), ValidationError>` that
+/// calls the given method on the input and validates the boolean result.
+///
+/// # Syntax
+///
+/// ```ignore
+/// // Full form: separate function name, method name, error code, and message
+/// method_validator!(
+///     /// Doc comment
+///     function_name,
+///     method_name,
+///     "error_code",
+///     "Error message"
+/// );
+///
+/// // Without message: generates "Please provide a valid {code}"
+/// method_validator!(
+///     /// Doc comment
+///     function_name,
+///     method_name,
+///     "error_code"
+/// );
+///
+/// // Shorthand with message: uses function name as method name
+/// method_validator!(
+///     /// Doc comment
+///     function_name,
+///     "error_code",
+///     "Error message"
+/// );
+///
+/// // Minimal: uses function name as method name, generates default message
+/// method_validator!(
+///     /// Doc comment
+///     function_name,
+///     "error_code"
+/// );
+/// ```
+#[macro_export]
+macro_rules! method_validator {
+    ($(#[$meta:meta])* $fn_name:ident, $method:ident, $code:literal, $message:literal) => {
+        #[doc = concat!("Check if value is a valid ", $code)]
+        $(#[$meta])*
+        pub fn $fn_name(value: &str) -> Result<(), ::validator::ValidationError> {
+            match value.$method() {
+                | true => Ok(()),
+                | _ => Err(::validator::ValidationError::new($code).with_message($message.into())),
+            }
+        }
+    };
+    ($(#[$meta:meta])* $fn_name:ident, $method:ident, $code:literal) => {
+        #[doc = concat!("Check if value is a valid ", $code)]
+        $(#[$meta])*
+        pub fn $fn_name(value: &str) -> Result<(), ::validator::ValidationError> {
+            match value.$method() {
+                | true => Ok(()),
+                | _ => Err(::validator::ValidationError::new($code)
+                    .with_message(concat!("Please provide a valid ", $code).into())),
+            }
+        }
+    };
+    ($(#[$meta:meta])* $fn_name:ident, $code:literal, $message:literal) => {
+        #[doc = concat!("Check if value is a valid ", $code)]
+        $(#[$meta])*
+        pub fn $fn_name(value: &str) -> Result<(), ::validator::ValidationError> {
+            match value.$fn_name() {
+                | true => Ok(()),
+                | _ => Err(::validator::ValidationError::new($code).with_message($message.into())),
+            }
+        }
+    };
+    ($(#[$meta:meta])* $fn_name:ident, $code:literal) => {
+        #[doc = concat!("Check if value is a valid ", $code)]
+        $(#[$meta])*
+        pub fn $fn_name(value: &str) -> Result<(), ::validator::ValidationError> {
+            match value.$fn_name() {
+                | true => Ok(()),
+                | _ => Err(::validator::ValidationError::new($code)
+                    .with_message(concat!("Please provide a valid ", $code, " value").into())),
+            }
+        }
+    };
+}
+/// Generate a validator function that matches a value against a regex
+///
+/// Creates a public function `fn(value: &str) -> Result<(), ValidationError>` that
+/// matches the input against the given regex expression.
+///
+/// # Syntax
+/// ```ignore
+/// regex_validator!(
+///     /// Doc comment
+///     function_name,
+///     REGEX_CONSTANT,
+///     "error_code",
+///     "Error message"
+/// );
+/// ```
+#[macro_export]
+macro_rules! regex_validator {
+    ($(#[$meta:meta])* $fn_name:ident, $regex:expr, $code:literal, $message:literal) => {
+        #[doc = concat!("Check if value is a valid ", $code)]
+        $(#[$meta])*
+        pub fn $fn_name(value: &str) -> Result<(), ::validator::ValidationError> {
+            match $regex.is_match(value) {
+                | Ok(value) if value => Ok(()),
+                | _ => Err(::validator::ValidationError::new($code).with_message($message.into())),
+            }
+        }
+    };
+    ($(#[$meta:meta])* $fn_name:ident, $regex:expr, $code:literal) => {
+        #[doc = concat!("Check if value is a valid ", $code)]
+        $(#[$meta])*
+        pub fn $fn_name(value: &str) -> Result<(), ::validator::ValidationError> {
+            match $regex.is_match(value) {
+                | Ok(value) if value => Ok(()),
+                | _ => Err(::validator::ValidationError::new($code)
+                    .with_message(concat!("Please provide a valid ", $code).into())),
+            }
+        }
+    };
+}
