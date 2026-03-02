@@ -396,6 +396,7 @@ impl Check {
                 if self.success {
                     info!("=> {} {} has {}", Label::pass(), path, "no schema validation issues".green().bold());
                 } else {
+                    // TODO: Remove error! and replace error print with ariadne report like prose issues
                     let count = self.issue_count();
                     error!(
                         "=> {} Found {} schema validation issue{} in {}:",
@@ -406,7 +407,11 @@ impl Check {
                     );
                     match self.errors {
                         | Some(errors) => {
-                            println!("{}", errors.to_string());
+                            println!("{}", errors);
+                            // errors.flatten().iter().for_each(|error| {
+                            //     let parts = error.split(';').collect::<Vec<&str>>();
+                            //     dbg!(&parts);
+                            // })
                         }
                         | None => {
                             error!("Error details are unavailable");
