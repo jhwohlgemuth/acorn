@@ -2,13 +2,16 @@
 //!
 use super::ReadabilityType;
 use crate::analyzer::vale::ValeOutputItem;
+use crate::prelude::HashMap;
 use core::fmt;
 use derive_more::Display;
 use serde_json::Value;
-
 use validator::{ValidationError, ValidationErrorsKind};
-// use color_eyre::owo_colors::OwoColorize;
 
+/// Flattened schema validation issue tuple.
+///
+/// Tuple fields are `(code, path, message, params)`.
+pub type ValidationIssue = (ErrorCode, Option<String>, String, HashMap<String, String>);
 /// Augmented list of validator crate error codes, with custom codes for ACORN-specific validation errors
 #[derive(Clone, Debug, Display)]
 #[display(rename_all = "lowercase")]
@@ -95,35 +98,41 @@ impl From<&str> for ErrorCode {
     }
 }
 impl ErrorKind {
-    /// Flatten errors to a list of strings
-    pub fn flatten(self) -> Vec<String> {
+    /// Process errors to a list of `(code, path, message, params)` tuples.
+    pub fn process(self) -> Vec<ValidationIssue> {
         match self {
             | ErrorKind::Validator(kind) => process("", kind),
             | _ => vec![],
         }
     }
 }
-fn process(path: &str, kind: ValidationErrorsKind) -> Vec<String> {
+fn process(path: &str, kind: ValidationErrorsKind) -> Vec<ValidationIssue> {
     match kind {
         | ValidationErrorsKind::Field(errors) => {
             let result = errors
                 .into_iter()
                 .map(|error| {
                     let ValidationError { code, message, params } = error;
-                    let prefix = if path.is_empty() { "".to_string() } else { path.to_string() };
+                    let path = if path.is_empty() { None } else { Some(path.to_string()) };
                     let message = message.map(|m| m.to_string()).unwrap_or_else(|| code.to_string());
-                    let value = match params.get("value").unwrap_or(&Value::Null) {
-                        | Value::String(s) => s.clone(),
-                        | Value::Array(items) => items.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(", "),
-                        | other => other.to_string(),
-                    };
-                    format!("{code};{prefix};{};{}", message, value)
+                    let params = params
+                        .into_iter()
+                        .map(|(key, value)| {
+                            let value = match value {
+                                | Value::String(s) => s,
+                                | Value::Array(items) => items.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(", "),
+                                | other => other.to_string(),
+                            };
+                            (key.to_string(), value)
+                        })
+                        .collect::<HashMap<String, String>>();
+                    (ErrorCode::from(code.as_ref()), path, message, params)
                 })
-                .collect::<Vec<String>>();
+                .collect::<Vec<ValidationIssue>>();
             result
         }
         | ValidationErrorsKind::Struct(errors) => {
-            let result: Vec<String> = errors
+            let result: Vec<ValidationIssue> = errors
                 .into_errors()
                 .into_iter()
                 .flat_map(|(field, kind)| {
@@ -134,7 +143,7 @@ fn process(path: &str, kind: ValidationErrorsKind) -> Vec<String> {
             result
         }
         | ValidationErrorsKind::List(errors) => {
-            let result: Vec<String> = errors
+            let result: Vec<ValidationIssue> = errors
                 .into_iter()
                 .flat_map(|(index, error)| {
                     let prefix = if path.is_empty() { "".to_string() } else { path.to_string() };
@@ -144,5 +153,121 @@ fn process(path: &str, kind: ValidationErrorsKind) -> Vec<String> {
                 .collect();
             result
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{process, ErrorCode, ErrorKind};
+    use validator::{Validate, ValidationErrorsKind};
+    #[derive(Validate)]
+    struct FieldModel {
+        #[validate(length(min = 3, max = 3))]
+        name: String,
+    }
+    #[derive(Validate)]
+    struct ChildModel {
+        #[validate(email)]
+        email: String,
+    }
+    #[derive(Validate)]
+    struct ParentModel {
+        #[validate(nested)]
+        child: ChildModel,
+    }
+    #[derive(Validate)]
+    struct ParentListModel {
+        #[validate(nested)]
+        children: Vec<ChildModel>,
+    }
+    #[derive(Validate)]
+    struct ArrayParamModel {
+        #[validate(length(min = 3))]
+        tags: Vec<String>,
+    }
+    #[test]
+    fn process_returns_field_issue_tuple() {
+        let value = FieldModel { name: "x".to_string() };
+        let errors = value.validate().expect_err("expected validation failure");
+        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process();
+        assert_eq!(issues.len(), 1);
+        let (code, path, message, params) = &issues[0];
+        assert!(matches!(code, ErrorCode::Length));
+        assert_eq!(path.as_deref(), Some("name"));
+        assert_eq!(message, "length");
+        assert_eq!(params.get("value").map(String::as_str), Some("x"));
+        assert_eq!(params.get("min").map(String::as_str), Some("3"));
+        assert_eq!(params.get("max").map(String::as_str), Some("3"));
+    }
+    #[test]
+    fn process_returns_nested_struct_path() {
+        let value = ParentModel {
+            child: ChildModel {
+                email: "not-an-email".to_string(),
+            },
+        };
+        let errors = value.validate().expect_err("expected validation failure");
+        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process();
+        assert_eq!(issues.len(), 1);
+        let (code, path, _message, params) = &issues[0];
+        assert!(matches!(code, ErrorCode::Email));
+        assert_eq!(path.as_deref(), Some("child.email"));
+        assert_eq!(params.get("value").map(String::as_str), Some("not-an-email"));
+    }
+    #[test]
+    fn process_returns_nested_list_index_path() {
+        let value = ParentListModel {
+            children: vec![
+                ChildModel {
+                    email: "valid@example.com".to_string(),
+                },
+                ChildModel {
+                    email: "invalid".to_string(),
+                },
+            ],
+        };
+        let errors = value.validate().expect_err("expected validation failure");
+        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process();
+        assert_eq!(issues.len(), 1);
+        let (code, path, _message, params) = &issues[0];
+        assert!(matches!(code, ErrorCode::Email));
+        assert_eq!(path.as_deref(), Some("children[1].email"));
+        assert_eq!(params.get("value").map(String::as_str), Some("invalid"));
+    }
+    #[test]
+    fn process_returns_none_path_for_root_field_errors() {
+        let value = FieldModel { name: "x".to_string() };
+        let errors = value.validate().expect_err("expected validation failure");
+        let field_errors = errors
+            .into_errors()
+            .remove("name")
+            .and_then(|kind| match kind {
+                | ValidationErrorsKind::Field(errors) => Some(errors),
+                | _ => None,
+            })
+            .expect("expected field-level validation errors for name");
+        let issues = process("", ValidationErrorsKind::Field(field_errors));
+        assert_eq!(issues.len(), 1);
+        let (code, path, message, params) = &issues[0];
+        assert!(matches!(code, ErrorCode::Length));
+        assert_eq!(*path, None);
+        assert_eq!(message, "length");
+        assert_eq!(params.get("value").map(String::as_str), Some("x"));
+        assert_eq!(params.get("min").map(String::as_str), Some("3"));
+    }
+    #[test]
+    fn process_serializes_array_param_values() {
+        let value = ArrayParamModel {
+            tags: vec!["one".to_string(), "two".to_string()],
+        };
+        let errors = value.validate().expect_err("expected validation failure");
+        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process();
+        assert_eq!(issues.len(), 1);
+        let (code, path, message, params) = &issues[0];
+        assert!(matches!(code, ErrorCode::Length));
+        assert_eq!(path.as_deref(), Some("tags"));
+        assert_eq!(message, "length");
+        assert_eq!(params.get("value").map(String::as_str), Some("\"one\", \"two\""));
+        assert_eq!(params.get("min").map(String::as_str), Some("3"));
     }
 }

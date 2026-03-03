@@ -408,9 +408,9 @@ impl Check {
                     match self.errors {
                         | Some(errors) => {
                             println!("{}", errors);
-                            errors.flatten().iter().for_each(|error| {
-                                dbg!(error);
-                            })
+                            // errors.process().iter().for_each(|error| {
+                            //     dbg!(error);
+                            // })
                         }
                         | None => {
                             error!("Error details are unavailable");
