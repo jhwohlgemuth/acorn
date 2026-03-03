@@ -3,10 +3,55 @@
 use super::ReadabilityType;
 use crate::analyzer::vale::ValeOutputItem;
 use core::fmt;
+use derive_more::Display;
 use serde_json::Value;
+
 use validator::{ValidationError, ValidationErrorsKind};
 // use color_eyre::owo_colors::OwoColorize;
 
+/// Augmented list of validator crate error codes, with custom codes for ACORN-specific validation errors
+#[derive(Clone, Debug, Display)]
+#[display(rename_all = "lowercase")]
+pub enum ErrorCode {
+    /// Invalid ARK identifier
+    Ark,
+    /// Invalid ISO 8601 date
+    Date,
+    /// Invalid DOI
+    Doi,
+    /// Invalid email address
+    Email,
+    /// Invalid Unix epoch timestamp
+    Epoch,
+    /// Unsupported image file extension
+    Image,
+    /// Invalid IPv6 address
+    Ip6,
+    /// Invalid ISBN
+    Isbn,
+    /// Invalid kebab-case string
+    KebabCase,
+    /// Value exceeds allowed length
+    Length,
+    /// Invalid ORCiD
+    Orcid,
+    /// Other
+    Other,
+    /// Invalid patent identifier
+    Patent,
+    /// Invalid phone number
+    Phone,
+    /// Invalid RAiD identifier
+    Raid,
+    /// Value outside allowed range
+    Range,
+    /// Invalid ROR identifier
+    Ror,
+    /// Invalid URL
+    Url,
+    /// Invalid ISO 8601 year
+    Year,
+}
 /// Error kind
 #[derive(Clone, Debug)]
 pub enum ErrorKind {
@@ -24,95 +69,33 @@ impl fmt::Display for ErrorKind {
         write!(f, "{:#?}", self)
     }
 }
+impl From<&str> for ErrorCode {
+    fn from(code: &str) -> Self {
+        match code.to_lowercase().as_str() {
+            | "ark" => Self::Ark,
+            | "iso 8601 date" | "date" => Self::Date,
+            | "doi" => Self::Doi,
+            | "email" => Self::Email,
+            | "epoch" | "unix epoch" => Self::Epoch,
+            | "image" => Self::Image,
+            | "ip6" => Self::Ip6,
+            | "isbn" => Self::Isbn,
+            | "kebabcase" => Self::KebabCase,
+            | "length" => Self::Length,
+            | "orcid" => Self::Orcid,
+            | "patent" => Self::Patent,
+            | "phone" => Self::Phone,
+            | "raid" | "raìd" => Self::Raid,
+            | "range" => Self::Range,
+            | "ror" => Self::Ror,
+            | "url" | "urls" => Self::Url,
+            | "year" => Self::Year,
+            | _ => Self::Other,
+        }
+    }
+}
 impl ErrorKind {
-    /// `Field(Vec<ValidationError>)`
-    /// ```ignore
-    /// Validator(
-    ///     Field(
-    ///         [
-    ///             ValidationError {
-    ///                 code: "length",
-    ///                 message: Some(
-    ///                     "Subtitle is too long, please reduce the length below 75.",
-    ///                 ),
-    ///                 params: {
-    ///                     "max": Number(75),
-    ///                     "value": String("Subtitle for this project that is way too long and should trigger a validation error because it exceeds the maximum length allowed for subtitles in the ACORN schema."),
-    ///                 },
-    ///             },
-    ///         ],
-    ///     ),
-    /// )
-    /// ```
-    /// `Struct(Box<ValidationErrors>)`
-    /// ```ignore
-    /// Validator(
-    ///    Struct(
-    ///        ValidationErrors(
-    ///            {
-    ///                "email": Field(
-    ///                    [
-    ///                        ValidationError {
-    ///                            code: "email",
-    ///                            message: Some(
-    ///                                "Please provide a valid email",
-    ///                            ),
-    ///                            params: {
-    ///                                "value": String("Not an email"),
-    ///                            },
-    ///                        },
-    ///                    ],
-    ///                ),
-    ///                "telephone": Field(
-    ///                    [
-    ///                        ValidationError {
-    ///                            code: "phone",
-    ///                            message: Some(
-    ///                                "Please provide a valid phone number",
-    ///                            ),
-    ///                            params: {
-    ///                                "value": String("42"),
-    ///                            },
-    ///                        },
-    ///                    ],
-    ///                ),
-    ///            },
-    ///        ),
-    ///    ),
-    /// )
-    /// ```
-    /// `List(BTreeMap<usize, Box<ValidationErrors>>)`
-    /// ```ignore
-    /// Validator(
-    ///     Struct(
-    ///         ValidationErrors(
-    ///             {
-    ///                 "websites": List(
-    ///                     {
-    ///                         1: ValidationErrors(
-    ///                             {
-    ///                                 "url": Field(
-    ///                                     [
-    ///                                         ValidationError {
-    ///                                             code: "url",
-    ///                                             message: Some(
-    ///                                                 "Please provide a valid URL",
-    ///                                             ),
-    ///                                             params: {
-    ///                                                 "value": String("Not a URL"),
-    ///                                             },
-    ///                                         },
-    ///                                     ],
-    ///                                 ),
-    ///                             },
-    ///                         ),
-    ///                     },
-    ///                 ),
-    ///             },
-    ///         ),
-    ///     ),
-    /// )
-    /// ```
+    /// Flatten errors to a list of strings
     pub fn flatten(self) -> Vec<String> {
         match self {
             | ErrorKind::Validator(kind) => process("", kind),
@@ -130,14 +113,8 @@ fn process(path: &str, kind: ValidationErrorsKind) -> Vec<String> {
                     let prefix = if path.is_empty() { "".to_string() } else { path.to_string() };
                     let message = message.map(|m| m.to_string()).unwrap_or_else(|| code.to_string());
                     let value = match params.get("value").unwrap_or(&Value::Null) {
-                        | Value::String(s) => s.clone().replace("\"", "").replace("\\", ""),
-                        | Value::Array(items) => items
-                            .iter()
-                            .map(|v| v.to_string())
-                            .collect::<Vec<String>>()
-                            .join(", ")
-                            .replace("\"", "")
-                            .replace("\\", ""),
+                        | Value::String(s) => s.clone(),
+                        | Value::Array(items) => items.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(", "),
                         | other => other.to_string(),
                     };
                     format!("{code};{prefix};{};{}", message, value)
@@ -162,7 +139,6 @@ fn process(path: &str, kind: ValidationErrorsKind) -> Vec<String> {
                 .flat_map(|(index, error)| {
                     let prefix = if path.is_empty() { "".to_string() } else { path.to_string() };
                     let kind = ValidationErrorsKind::Struct(error);
-                    // format!("{prefix}[{index}] - {:?}", process(&format!("{prefix}."), kind))
                     process(&format!("{prefix}[{index}]"), kind)
                 })
                 .collect();

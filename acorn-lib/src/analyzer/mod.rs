@@ -409,8 +409,7 @@ impl Check {
                         | Some(errors) => {
                             println!("{}", errors);
                             errors.flatten().iter().for_each(|error| {
-                                let parts = error.split(';').collect::<Vec<&str>>();
-                                dbg!(&parts);
+                                dbg!(error);
                             })
                         }
                         | None => {
