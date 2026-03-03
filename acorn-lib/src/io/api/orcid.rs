@@ -1,4 +1,4 @@
-//! Module for interacting with ORCiD API
+//! Module for interacting with [ORCiD REST API](https://info.orcid.org/what-is-orcid/services/public-api/)
 //!
 //! Provides types and functions for constructing ORCiD API queries with field validation and output column selection
 //!
@@ -6,41 +6,25 @@
 //!
 //! ### Get API status
 //! ```ignore
-//! use acorn_lib::io::api::{orcid, Searchable};
+//! use acorn_lib::io::api;
 //!
-//! let orcid = endpoints.find_by_name("orcid");
-//! let text = match &orcid {
-//!     | Some(endpoint) => {
-//!         let response = endpoint.invoke("status", None).await;
-//!         endpoint.handle::<orcid::StatusResponse>(response)
-//!     }
-//!     | None => Err("No ORCiD endpoint found".into()),
-//! };
-//! println!("ORCiD Status: {text:#?}");
+//! println!("ORCiD REST API is healthy: {}", api::orcid::is_healthy().await);
 //! ```
 //!
-//! ### Search the ORCiD API
+//! ### Search for last names of people affiliated with Lyrasis and ORNL
 //! ```ignore
-//! use acorn_lib::io::api::{orcid, Searchable};
 //! use acorn_lib::param;
-//!
-//! let orcid = endpoints.find_by_name("orcid");
-//! let text = match &orcid {
-//!     | Some(endpoint) => {
-//!         let data = vec![
-//!             param!(
-//!                 QueryPair,
-//!                 "q",
-//!                 (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
-//!             ),
-//!             param!(FieldList, "fl", "family-name"),
-//!         ];
-//!         let response = endpoint.invoke_with::<orcid::SearchField, orcid::OutputColumn>("search", Some(data)).await;
-//!         endpoint.handle::<orcid::SearchResponse>(response)
-//!     }
-//!     | None => Err("No ORCiD endpoint found".into()),
-//! };
-//! println!("ORCiD Search Response: {text:#?}");
+//! use acorn_lib::io::api;
+//! 
+//! let params = vec![
+//!     param!(
+//!         QueryPair,
+//!         "q",
+//!         (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
+//!     ),
+//!     param!(FieldList, "fl", "family-name"),
+//! ];
+//! println!("ORCiD Search Response: {:#?}", api::orcid::search(params).await);
 //! ```
 use crate::io::api::{self, RemoteResource, Searchable, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::schema::validate::{is_orcid, is_ror};

@@ -1,7 +1,26 @@
-//! Module for interacting with ROR API
+//! Module for interacting with [ROR REST API](https://ror.readme.io/docs/rest-api)
 //!
-//! Provides types and functions for constructing ROR API queries with field validation and output column selection
+//! Provides types and functions for constructing API queries with field validation and output column selection
 //!
+//! The ROR REST API supports three primary parameters, each of which has different use cases:
+//! - `query`
+//!   - [`crate::io::api::ParamStyle::KeyValuePair`] (value should be URL encoded)
+//!   - Best for finding organization records by name keywords or by non-ROR identifiers (GRID, Wikidata, Crossref Funder ID, ISNI)
+//! - `filter`
+//!   - [`crate::io::api::ParamStyle::QueryPair`]
+//!   - Filter by status, type, country, or continent
+//! - `affiliation`
+//!   - [`crate::io::api::ParamStyle::KeyValuePair`] (value should be URL encoded)
+//!   - Best for large-scale programmatic matching of complex, unstructured text strings to ROR IDs
+//! 
+//! ## Example Use
+//!
+//! ### Get API status
+//! ```ignore
+//! use acorn_lib::io::api;
+//!
+//! println!("ROR REST API is healthy: {}", api::ror::is_healthy().await);
+//! ```
 use crate::io::api::{Param, RemoteResource, Searchable, TextResponse, INCLUDED_ENDPOINTS};
 use crate::param;
 use crate::schema::pid::{PersistentIdentifierParse, ROR};
