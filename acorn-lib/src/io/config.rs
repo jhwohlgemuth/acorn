@@ -88,7 +88,7 @@ pub enum RunnerType {
 ///     ]
 /// }
 /// ```
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ApplicationConfiguration {
     /// List of buckets
     pub buckets: Option<Vec<Bucket>>,

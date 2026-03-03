@@ -15,7 +15,7 @@
 //! ```ignore
 //! use acorn_lib::param;
 //! use acorn_lib::io::api;
-//! 
+//!
 //! let params = vec![
 //!     param!(
 //!         QueryPair,

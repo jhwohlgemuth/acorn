@@ -1,0 +1,139 @@
+{
+    "endpoints": [
+        {
+            "name": "citeas",
+            "domain": "api.citeas.org",
+            "resources": [
+                {
+                    "name": "record",
+                    "method": "get",
+                    "template": "{{ base }}/product/{{ doi }}?email=research@ornl.gov"
+                },
+                {
+                    "name": "status",
+                    "method": "get",
+                    "template": "{{ base }}/?email=research@ornl.gov"
+                }
+            ]
+        },
+        {
+            "name": "geonames",
+            "domain": "download.geonames.org",
+            "resources": [
+                {
+                    "name": "countries",
+                    "method": "get",
+                    "template": "{{ base }}/export/dump/countryInfo.txt"
+                }
+            ]
+        },
+        {
+            "name": "github",
+            "domain": "api.github.com",
+            "resources": [
+                {
+                    "name": "tree",
+                    "method": "get",
+                    "template": "{{ base }}/{{ path }}/git/trees/{{ branch }}?recursive=1"
+                }
+            ]
+        },
+        {
+            "name": "gitlab",
+            "domain": "code.ornl.gov",
+            "root": "api/v4",
+            "resources": [
+                {
+                    "name": "group",
+                    "method": "get",
+                    "template": "{{ base }}/groups/{{ identifier }}{{ query }}"
+                },
+                {
+                    "name": "groups",
+                    "method": "get",
+                    "template": "{{ base }}/groups/{{ identifier }}/descendant_groups{{ query }}"
+                },
+                {
+                    "name": "jobs",
+                    "method": "get",
+                    "template": "{{ base }}/runners/{{ identifier }}/jobs{{ query }}"
+                },
+                {
+                    "name": "merge-requests",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}{{ query }}"
+                },
+                {
+                    "name": "projects",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ identifier }}{{ query }}"
+                },
+                {
+                    "name": "releases",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ identifier }}/releases{{ query }}"
+                },
+                {
+                    "name": "runners",
+                    "method": "get",
+                    "template": "{{ base }}/runners/{{ identifier }}{{ query }}"
+                },
+                {
+                    "name": "tags",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ identifier }}/repository/tags{{ query }}"
+                },
+                {
+                    "name": "tree",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ identifier }}/repository/tree{{ query }}"
+                }
+            ]
+        },
+        {
+            "name": "orcid",
+            "domain": "pub.orcid.org",
+            "root": "v3.0",
+            "resources": [
+                {
+                    "name": "search",
+                    "method": "get",
+                    "template": "{{ base }}/expanded-search/{{ query }}"
+                },
+                {
+                    "name": "status",
+                    "method": "get",
+                    "template": "{{ base }}/pubStatus"
+                }
+            ]
+        },
+        {
+            "name": "ror",
+            "domain": "api.ror.org",
+            "root": "v2",
+            "resources": [
+                {
+                    "name": "search",
+                    "method": "get",
+                    "template": "{{ base }}/organizations/{{ identifier }}{{ query }}"
+                },
+                {
+                    "name": "status",
+                    "method": "get",
+                    "template": "{{ base }}/heartbeat"
+                }
+            ]
+        },
+        {
+            "name": "spdx",
+            "domain": "spdx.org",
+            "resources": [
+                {
+                    "name": "licenses",
+                    "method": "get",
+                    "template": "{{ base }}/licenses/licenses.json"
+                }
+            ]
+        }
+    ]
+}

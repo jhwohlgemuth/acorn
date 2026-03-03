@@ -12,7 +12,7 @@
 //! - `affiliation`
 //!   - [`crate::io::api::ParamStyle::KeyValuePair`] (value should be URL encoded)
 //!   - Best for large-scale programmatic matching of complex, unstructured text strings to ROR IDs
-//! 
+//!
 //! ## Example Use
 //!
 //! ### Get API status

@@ -32,6 +32,7 @@ use owo_colors::{OwoColorize, Style, Styled};
 use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
@@ -329,16 +330,12 @@ pub struct SemanticVersion {
 }
 impl Constant {
     /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the file does not exist in the asset folder.
     pub fn from_asset(file_name: &str) -> String {
         match Constant::get(file_name) {
             | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
             | None => {
-                fail!("Import Constant asset");
-                panic!("Unable to import {file_name}")
+                fail!("Import Constant asset ({})", file_name);
+                "".to_string()
             }
         }
     }
@@ -355,29 +352,31 @@ impl Constant {
             .filter(|x| !x.is_empty())
     }
     /// Reads a file from the asset folder and returns its contents as an iterator over individual lines.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the file does not exist in the asset folder.
     pub fn read_lines(file_name: &str) -> Vec<String> {
-        let data = Constant::from_asset(file_name);
-        data.lines().map(String::from).collect()
+        Constant::from_asset(file_name).lines().map(String::from).collect()
     }
     /// Reads a CSV file from the asset folder and returns its contents as a `Vec` of `Vec<String>`,
     /// where each inner vector represents a row and each string within the inner vector represents a cell value.
     ///
     /// # Arguments
-    ///
-    /// * `file_name` - A string slice representing the name of the CSV file (without extension).
-    ///
-    /// # Panics
-    ///
-    /// Panics if the file does not exist in the asset folder.
-    pub fn csv(file_name: &str) -> Vec<Vec<String>> {
-        Constant::read_lines(format!("{file_name}.csv").as_str())
+    /// * `file_name` - A string slice representing the name of the CSV file (without extension)
+    pub fn csv(file_name: impl AsRef<str>) -> Vec<Vec<String>> {
+        Constant::read_lines(format!("{}.csv", file_name.as_ref()).as_str())
             .into_iter()
             .map(|x| x.split(",").map(String::from).collect())
             .collect()
+    }
+    /// Reads a JSON file from the asset folder and returns its contents
+    ///
+    /// # Arguments
+    /// * `file_name` - A string slice representing the name of the JSON file (without extension)
+    pub fn json<T>(file_name: impl AsRef<str>) -> T
+    where
+        T: Default + serde::de::DeserializeOwned,
+    {
+        let text = Constant::from_asset(format!("{}.json", file_name.as_ref()).as_str());
+        let content: T = serde_json::from_str(&text).unwrap_or_default();
+        content
     }
 }
 impl Label {
@@ -824,7 +823,7 @@ pub fn current_date() -> String {
 }
 /// Try to parse text as JSON and return `true` if successful, `false` otherwise
 pub fn detect_json(text: impl ToString) -> bool {
-    serde_json::from_str::<serde_json::Value>(&text.to_string()).is_ok()
+    serde_json::from_str::<Value>(&text.to_string()).is_ok()
 }
 /// Try to parse text as XML and return `true` if successful, `false` otherwise
 pub fn detect_xml(text: impl ToString) -> bool {

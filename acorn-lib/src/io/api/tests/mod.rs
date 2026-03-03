@@ -1,6 +1,7 @@
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
     self, extract_template_keys, geonames, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, Resource, ResponseContent, Searchable,
+    INCLUDED_ENDPOINTS,
 };
 use crate::io::read_file;
 use crate::param;
@@ -12,6 +13,10 @@ fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("tests/fixtures")
 }
 
+#[test]
+fn test_endpoints_length() {
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 7);
+}
 #[tokio::test]
 #[ignore = "Requires internet connection and citeas.org to be up"]
 async fn test_citeas() {

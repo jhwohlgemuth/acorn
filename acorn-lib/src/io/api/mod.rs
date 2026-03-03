@@ -6,8 +6,8 @@ use crate::io::config::ApplicationConfiguration;
 use crate::io::{get, post, put};
 use crate::prelude::io::ErrorKind;
 use crate::prelude::Error;
-use crate::util::constants::{ENDPOINTS_TEXT, URL_ENCODED_CARAT, URL_ENCODED_SPACE};
-use crate::util::{detect_json, detect_xml};
+use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
+use crate::util::{detect_json, detect_xml, Constant};
 use crate::{Location, Repository, Scheme};
 use async_trait::async_trait;
 use bon::Builder;
@@ -33,7 +33,7 @@ pub mod spdx;
 
 lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
-    pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = ApplicationConfiguration::parse(ENDPOINTS_TEXT).unwrap().endpoints.unwrap_or_default();
+    pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = Constant::json::<ApplicationConfiguration>("application").endpoints.unwrap_or_default();
 }
 
 /// Helper trait for converting parameter collections into HTTP request body
