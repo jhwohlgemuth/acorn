@@ -7,7 +7,7 @@ use crate::template::Convert;
 use acorn::io::InputOutput;
 use acorn::prelude::{absolute, create_dir_all, remove_file, File};
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{Label, ToAbsoluteString};
+use acorn::util::{Label, StringConversion};
 use playwright::api::Page;
 use std::process::exit;
 use tracing::{debug, error};

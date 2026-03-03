@@ -48,6 +48,13 @@ pub trait LinkedData {
     /// Add linked data (e.g., JSON-LD) context
     fn with_context(&self) -> Self;
 }
+/// Trait for augmenting and formatting data for display
+pub trait StringConversion {
+    /// Return a string representation of the file_name with its parent folder (or just the folder name if it is a folder)
+    fn file_name_with_parent(&self) -> String;
+    /// Return a string representation of the absolute path
+    fn to_absolute_string(&self) -> String;
+}
 /// Add enhanced string interpolation functionality
 pub trait StringInterpolation<T>
 where
@@ -57,11 +64,6 @@ where
     fn replace_placeholder_with_string(&self, placeholder: &str, value: &str) -> String;
     /// Prepend indentation of a given number of spaces to each line of a text
     fn with_indent(&self, spaces: usize) -> String;
-}
-/// Trait for augmenting path value functionality with absolute path string conversion
-pub trait ToAbsoluteString {
-    /// Return a string representation of the absolute path
-    fn to_absolute_string(&self) -> String;
 }
 /// Format data structures as Markdown
 pub trait ToMarkdown {

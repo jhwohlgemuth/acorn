@@ -26,7 +26,7 @@ use crate::prelude::{set_permissions, Permissions, PermissionsExt};
 use crate::util::constants::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
-use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, ToAbsoluteString, ToStrings};
+use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, StringConversion, ToStrings};
 use crate::{cmd, fail};
 use core::time::Duration;
 use data_encoding::HEXUPPER;
@@ -200,7 +200,10 @@ impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
         self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_string()).collect()
     }
 }
-impl ToAbsoluteString for PathBuf {
+impl StringConversion for PathBuf {
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(self.clone())
+    }
     fn to_absolute_string(&self) -> String {
         to_absolute_string(self.clone())
     }
@@ -825,6 +828,27 @@ where
     U: reqwest::IntoUrl,
 {
     create_sync_http_client().put(url).header(USER_AGENT, ACORN_USER_AGENT)
+}
+/// Returns a string containing the file name with its parent directory.
+///
+/// If the `PathBuf` is a directory, only the file name is returned.
+pub fn file_name_with_parent(value: impl Into<PathBuf>) -> String {
+    let path = value.into();
+    let name = path.file_name().and_then(|value| value.to_str()).unwrap_or_default().to_string();
+    if path.is_dir() {
+        name
+    } else {
+        let parent_name = path
+            .parent()
+            .and_then(|value| value.file_name())
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        if parent_name.is_empty() {
+            name
+        } else {
+            format!("{parent_name}/{name}")
+        }
+    }
 }
 /// Returns the absolute path of the parent directory for the given path.
 pub fn parent<P>(path: P) -> PathBuf

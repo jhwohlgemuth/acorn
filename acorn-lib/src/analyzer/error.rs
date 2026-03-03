@@ -106,7 +106,8 @@ impl ErrorKind {
         }
     }
 }
-fn process(path: &str, kind: ValidationErrorsKind) -> Vec<ValidationIssue> {
+/// Process validator errors into a more manageable form
+pub fn process(path: &str, kind: ValidationErrorsKind) -> Vec<ValidationIssue> {
     match kind {
         | ValidationErrorsKind::Field(errors) => {
             let result = errors

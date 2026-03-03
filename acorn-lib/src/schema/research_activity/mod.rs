@@ -21,7 +21,7 @@ use crate::util::{frontmatter_and_body, LinkedData, ToMarkdown};
 #[cfg(feature = "std")]
 use crate::util::{Constant, Label};
 #[cfg(feature = "std")]
-use crate::util::{MimeType, ToAbsoluteString};
+use crate::util::{MimeType, StringConversion};
 use bon::Builder;
 use convert_case::{Case, Casing};
 

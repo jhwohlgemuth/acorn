@@ -9,7 +9,7 @@ use crate::io::api::gitlab::{TreeEntry as GitlabTreeEntry, TreeResponse as Gitla
 use crate::io::api::Endpoint;
 use crate::io::{files_all, get, parent, read_file, write_file, FromPath, InputOutput};
 use crate::prelude::{self, create_dir_all, exit, io, Cursor, Error, File, PathBuf};
-use crate::util::{detect_json, suffix, Label, MimeType, ToAbsoluteString};
+use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use core::fmt::Debug;

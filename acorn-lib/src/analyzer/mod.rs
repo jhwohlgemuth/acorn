@@ -13,7 +13,7 @@ use crate::util::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
     VALE_RELEASES_URL, VALE_VERSION,
 };
-use crate::util::{suffix, Constant, Label, SemanticVersion, ToAbsoluteString, ToMarkdown};
+use crate::util::{Constant, Label, SemanticVersion, StringConversion, ToMarkdown};
 use crate::{cmd, skip};
 use crate::{Location, Repository};
 use ariadne::{Config, Report, Source};
@@ -42,7 +42,7 @@ pub mod error;
 pub mod readability;
 pub mod vale;
 
-use error::ErrorKind;
+use error::{process, ErrorKind};
 use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
@@ -192,9 +192,8 @@ impl Analysis for ResearchActivity {
                 for path in paths {
                     let result = match ResearchActivity::read(&path) {
                         | Ok(data) => {
-                            vale.clone()
-                                .run(data.clone().meta.identifier, data.to_markdown(), Some("JSON".into()))
-                                .await
+                            let identifier = data.clone().meta.identifier.to_lowercase();
+                            vale.clone().run(identifier, data.to_markdown(), Some("JSON".into())).await
                         }
                         | Err(why) => {
                             error!("=> {} Read research activity data - {why}", Label::fail());
@@ -315,19 +314,6 @@ impl Check {
                 } = self;
                 match &errors {
                     | Some(ErrorKind::Vale(values)) => {
-                        error!("=> {} {} issues found in {}", Label::fail(), values.len(), message.underline());
-                        for item in values {
-                            let ValeOutputItem {
-                                check,
-                                line,
-                                message,
-                                severity,
-                                span,
-                                ..
-                            } = item;
-                            let location = format!("Line {}, Character {}", line, span[0]);
-                            println!("  {:<24} {:<21} {} {}", location, severity.colored(), message, check.dimmed());
-                        }
                         let title = self.uri.unwrap_or("index.json".to_string());
                         if let Some(text) = &context {
                             println!();
@@ -346,7 +332,7 @@ impl Check {
                                     .with_config(Config::default().with_compact(true))
                                     .with_message(check)
                                     .with_label(
-                                        ariadne::Label::new((&title, hightlighted_span(source.clone(), span, *line)))
+                                        ariadne::Label::new((&title, highlighted_span(source.clone(), span, *line)))
                                             .with_message(message.italic())
                                             .with_color(severity.into()),
                                     )
@@ -354,6 +340,19 @@ impl Check {
                                     .print((&title, source));
                             });
                             println!();
+                            error!("=> {} {} issues found in {}", Label::fail(), values.len(), message.underline());
+                            for item in values {
+                                let ValeOutputItem {
+                                    check,
+                                    line,
+                                    message,
+                                    severity,
+                                    span,
+                                    ..
+                                } = item;
+                                let location = format!("Line {}, Character {}", line, span[0]);
+                                println!("  {:<24} {:<21} {} {}", location, severity.colored(), message, check.dimmed());
+                            }
                         }
                     }
                     | None | Some(_) => {
@@ -392,29 +391,34 @@ impl Check {
                 }
             }
             | CheckCategory::Schema => {
-                let path = self.clone().uri.unwrap();
-                if self.success {
-                    info!("=> {} {} has {}", Label::pass(), path, "no schema validation issues".green().bold());
-                } else {
-                    // TODO: Remove error! and replace error print with ariadne report like prose issues
-                    let count = self.issue_count();
-                    error!(
-                        "=> {} Found {} schema validation issue{} in {}:",
-                        Label::fail(),
-                        count.red(),
-                        suffix(count),
-                        path.italic().underline(),
-                    );
-                    match self.errors {
-                        | Some(errors) => {
-                            println!("{}", errors);
-                            // errors.process().iter().for_each(|error| {
-                            //     dbg!(error);
-                            // })
-                        }
-                        | None => {
-                            error!("Error details are unavailable");
-                        }
+                let Check { errors, message: prefix, .. } = self.clone();
+                let uri = self.clone().uri.unwrap();
+                let title = uri;
+                match &errors {
+                    | Some(ErrorKind::Validator(kind)) => {
+                        // println!("{}", errors);
+                        process(&prefix, kind.clone())
+                            .iter()
+                            .enumerate()
+                            .for_each(|(index, (_code, path, message, params))| {
+                                // dbg!(index, code, message, params);
+                                let value = params.get("value").cloned().unwrap_or_default();
+                                let source = Source::from(value);
+                                let _ = Report::build(ariadne::ReportKind::Error, (&title, 1..=1))
+                                    .with_code(index)
+                                    .with_config(Config::default().with_compact(true))
+                                    .with_message(path.clone().unwrap_or_default())
+                                    .with_label(
+                                        ariadne::Label::new((&title, 0..=1))
+                                            .with_message(message.italic())
+                                            .with_color(ariadne::Color::Red),
+                                    )
+                                    .finish()
+                                    .print((&title, source));
+                            });
+                    }
+                    | None | Some(_) => {
+                        info!("=> {} {title} has {}", Label::pass(), "no schema validation issues".green().bold());
                     }
                 }
             }
@@ -493,12 +497,12 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         vale
     }
     async fn run(&self, id: String, content: String, output: Option<String>) -> Check {
-        let root = standard_project_folder("check", None);
+        let root = standard_project_folder("check", None).join(&id);
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
             | Err(why) => error!(path = root.clone().to_absolute_string(), "=> {} Create - {why}", Label::fail()),
         }
-        let path = root.join(&id);
+        let path = root.join("index.json");
         let mut file = match File::create(&path) {
             | Ok(file) => file,
             | Err(why) => panic!("=> {} Create file {} - {why}", Label::fail(), path.display()),
@@ -554,7 +558,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                                 .message(id)
                                 .errors(ErrorKind::Vale(parsed))
                                 .context(content)
-                                .uri(path.file_name().unwrap().to_str().unwrap().to_string())
+                                .uri(path.file_name_with_parent())
                                 .build()
                         }
                     }
@@ -876,7 +880,7 @@ impl Validation for ResearchActivity {
                     .clone()
                     .validation_issues()
                     .into_iter()
-                    .map(|issue| issue.with_uri(path.display().to_string()))
+                    .map(|issue| issue.with_uri(path.file_name_with_parent()))
                     .collect(),
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
@@ -916,7 +920,7 @@ impl Validation for ResearchActivity {
         found.into_iter().flatten().flatten().collect::<Vec<_>>()
     }
 }
-fn hightlighted_span(source: Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
+fn highlighted_span(source: Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
     let selected = (line_number as usize) - 1;
     let begin = source.lines().take(selected).fold((span[0] - 1) as usize, |acc, line| acc + line.len());
     let character_count = (span[1] as usize) - (span[0] as usize);

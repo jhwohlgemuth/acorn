@@ -1,6 +1,7 @@
 use crate::io::api::ParamStyle;
 use crate::io::{
-    command_exists, extract_zip, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand, FromPath,
+    command_exists, extract_zip, file_name_with_parent, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand,
+    FromPath,
 };
 use crate::prelude::{CommandOutput, Path, PathBuf};
 use crate::util::*;
@@ -497,4 +498,21 @@ fn test_to_absolute_string() {
         | Ok(false) => (),
         | Err(_) => (),
     }
+}
+
+#[test]
+fn test_file_name_with_parent() {
+    let root = std::env::temp_dir().join(format!("acorn-test-path-{}", generate_guid()));
+    // Folder
+    let directory = root.join("folder");
+    let created = std::fs::create_dir_all(&directory);
+    assert!(created.is_ok());
+    assert_eq!(file_name_with_parent(directory.clone()), "folder".to_string());
+    // File
+    let file = directory.join("example.txt");
+    let written = std::fs::write(&file, "content");
+    assert!(written.is_ok());
+    assert_eq!(file_name_with_parent(file), "folder/example.txt".to_string());
+    let removed = std::fs::remove_dir_all(&root);
+    assert!(removed.is_ok());
 }

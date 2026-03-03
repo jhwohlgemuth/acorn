@@ -4,7 +4,7 @@
 //! This module provides utilities to create, verify, and work with BagIt packages containing research
 //! activity data, metadata, and supporting documentation.
 //!
-use crate::io::{archive, file_checksum, files_all, read_file, write_file, ToAbsoluteString};
+use crate::io::{archive, file_checksum, files_all, read_file, write_file, StringConversion};
 use crate::prelude::{copy, create_dir_all, Error, PathBuf};
 use crate::util::Label;
 use bon::Builder;

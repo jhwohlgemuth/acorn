@@ -3,7 +3,7 @@ use acorn::fail;
 use acorn::io::{FromPath, InputOutput};
 use acorn::prelude::{File, PathBuf, Write};
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{print_changes, Label, MimeType, ToAbsoluteString};
+use acorn::util::{print_changes, Label, MimeType, StringConversion};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
