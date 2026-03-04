@@ -117,9 +117,9 @@ pub async fn run(
     } else {
         vec![]
     };
-    let all_issues = schema_issues
-        .clone()
+    let all_issues = vec![]
         .into_iter()
+        .chain(schema_issues.clone())
         .chain(prose_issues.clone())
         .chain(readability_issues.clone())
         .chain(conventions_issues.clone())

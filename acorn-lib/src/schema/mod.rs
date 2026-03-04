@@ -818,6 +818,14 @@ impl ToMarkdown for Website {
         format!("[{}]({})", description, url)
     }
 }
+impl Validate for MediaObject {
+    fn validate(&self) -> Result<(), validator::ValidationErrors> {
+        match self {
+            | Self::Image(img) => img.validate(),
+            | Self::Video(vid) => vid.validate(),
+        }
+    }
+}
 impl View for ContactPoint {
     fn render(&self) -> VirtualNode {
         let ContactPoint {

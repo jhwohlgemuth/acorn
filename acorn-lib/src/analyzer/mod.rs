@@ -8,7 +8,7 @@ use crate::io::{command_exists, download_binary, extract_zip, file_checksum, mak
 use crate::io::{get, InputOutput};
 use crate::prelude::{self, create_dir_all, remove_file, Command, CommandOutput, Error, File, HashMap, PathBuf, Write};
 use crate::schema::research_activity::ResearchActivity;
-use crate::schema::{ImageObject, MediaObject, Organization, ProgrammingLanguage, VideoObject, Website};
+use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
     VALE_RELEASES_URL, VALE_VERSION,
@@ -32,6 +32,7 @@ use polars::datatypes::PlSmallStr;
 use polars::frame::row::Row;
 use polars::prelude::{AnyValue, DataFrame, PolarsResult};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use serde_json::Value;
 use tar::Archive;
 use tracing::{debug, error, info, trace};
 use validator::Validate;
@@ -42,7 +43,7 @@ pub mod error;
 pub mod readability;
 pub mod vale;
 
-use error::{process, ErrorKind};
+use error::{process, ErrorCode, ErrorKind};
 use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
@@ -188,22 +189,22 @@ impl Analysis for ResearchActivity {
         let vale = Vale::resolve(config, is_offline, skip_verify_checksum).await;
         match vale.clone().sync(is_offline).await {
             | Ok(_) => {
-                let mut results = Vec::new();
-                for path in paths {
-                    let result = match ResearchActivity::read(&path) {
-                        | Ok(data) => {
-                            let identifier = data.clone().meta.identifier.to_lowercase();
-                            vale.clone().run(identifier, data.to_markdown(), Some("JSON".into())).await
+                let results = paths.into_iter().map(|path| {
+                    let vale = vale.clone();
+                    async move {
+                        match ResearchActivity::read(&path) {
+                            | Ok(data) => {
+                                let identifier = data.clone().meta.identifier.to_lowercase();
+                                vale.run(identifier, data.to_markdown(), Some("JSON".into())).await
+                            }
+                            | Err(why) => {
+                                error!("=> {} Read research activity data - {why}", Label::fail());
+                                Check::init().category(CheckCategory::Prose).success(false).build()
+                            }
                         }
-                        | Err(why) => {
-                            error!("=> {} Read research activity data - {why}", Label::fail());
-                            Check::init().category(CheckCategory::Prose).success(false).build()
-                        }
-                    };
-
-                    results.push(result);
-                }
-                results
+                    }
+                });
+                join_all(results).await
             }
             | Err(why) => {
                 error!("=> {} Vale sync - {why}", Label::fail());
@@ -257,6 +258,23 @@ impl Analysis for ResearchActivity {
     }
 }
 impl Check {
+    /// Recursively count validation errors from a given ValidationErrorsKind
+    pub fn count_validation_errors(kind: &ValidationErrorsKind) -> usize {
+        match kind {
+            | ValidationErrorsKind::Field(_) => 1,
+            | ValidationErrorsKind::Struct(errors) => errors
+                .clone()
+                .into_errors()
+                .into_values()
+                .map(|nested| Self::count_validation_errors(&nested))
+                .sum(),
+            | ValidationErrorsKind::List(errors) => errors
+                .clone()
+                .into_values()
+                .map(|error| Self::count_validation_errors(&ValidationErrorsKind::Struct(error)))
+                .sum(),
+        }
+    }
     /// Returns the number of errors
     pub fn issue_count(&self) -> usize {
         match self.category {
@@ -275,11 +293,7 @@ impl Check {
             | CheckCategory::Schema => {
                 if let Some(kind) = &self.errors {
                     match kind {
-                        | ErrorKind::Validator(values) => match values {
-                            | ValidationErrorsKind::Field(_) => 1,
-                            | ValidationErrorsKind::Struct(values) => values.clone().into_errors().len(),
-                            | ValidationErrorsKind::List(_) => 0,
-                        },
+                        | ErrorKind::Validator(kind) => Self::count_validation_errors(kind),
                         | _ => 0,
                     }
                 } else {
@@ -329,7 +343,7 @@ impl Check {
                                 let source = Source::from(text.clone());
                                 let _ = Report::build(severity.into(), (&title, 1..=1))
                                     .with_code(index)
-                                    .with_config(Config::default().with_compact(true))
+                                    .with_config(Config::default().with_compact(false))
                                     .with_message(check)
                                     .with_label(
                                         ariadne::Label::new((&title, highlighted_span(source.clone(), span, *line)))
@@ -396,20 +410,47 @@ impl Check {
                 let title = uri;
                 match &errors {
                     | Some(ErrorKind::Validator(kind)) => {
-                        // println!("{}", errors);
                         process(&prefix, kind.clone())
                             .iter()
                             .enumerate()
-                            .for_each(|(index, (_code, path, message, params))| {
-                                // dbg!(index, code, message, params);
-                                let value = params.get("value").cloned().unwrap_or_default();
-                                let source = Source::from(value);
+                            .for_each(|(index, (code, path, message, params))| {
+                                dbg!(code, params);
+                                let text = match params.get("value") {
+                                    | Some(Value::Array(items)) => items.iter().map(|item| item.to_string()).collect::<Vec<_>>().to_markdown(),
+                                    | Some(value) => value.to_string(),
+                                    | None => "".to_string(),
+                                };
+                                let source = Source::from(text);
+                                let default_span = 0..=(source.text().len() - 1);
+                                let span = match code {
+                                    | ErrorCode::Length => match params.get("max") {
+                                        | Some(Value::Number(max)) => match max.as_u64() {
+                                            | Some(max) => max as usize..=(source.text().len() - 2),
+                                            | None => default_span,
+                                        },
+                                        | None | Some(_) => default_span,
+                                    },
+                                    | ErrorCode::Section => match params.get("index") {
+                                        | Some(Value::Number(index)) => match index.as_u64() {
+                                            | Some(_index) => {
+                                                // TODO: Highlight problem line
+                                                // let line = index as u32;
+                                                // highlighted_span(source.clone(), &[0 as u32], line)
+                                                dbg!(source.text());
+                                                default_span
+                                            }
+                                            | None => default_span,
+                                        },
+                                        | None | Some(_) => default_span,
+                                    },
+                                    | _ => default_span,
+                                };
                                 let _ = Report::build(ariadne::ReportKind::Error, (&title, 1..=1))
                                     .with_code(index)
-                                    .with_config(Config::default().with_compact(true))
+                                    .with_config(Config::default().with_compact(false))
                                     .with_message(path.clone().unwrap_or_default())
                                     .with_label(
-                                        ariadne::Label::new((&title, 0..=1))
+                                        ariadne::Label::new((&title, span))
                                             .with_message(message.italic())
                                             .with_color(ariadne::Color::Red),
                                     )
@@ -875,49 +916,34 @@ impl Validation for ResearchActivity {
     fn check(paths: Vec<PathBuf>) -> Vec<Check> {
         paths
             .par_iter()
-            .map(|path| match ResearchActivity::read(path) {
-                | Ok(data) => data
-                    .clone()
-                    .validation_issues()
-                    .into_iter()
-                    .map(|issue| issue.with_uri(path.file_name_with_parent()))
-                    .collect(),
+            .flat_map(|path| match ResearchActivity::read(path) {
+                | Ok(data) => {
+                    let uri = path.file_name_with_parent();
+                    data.clone()
+                        .validation_issues()
+                        .into_iter()
+                        .map(|issue| issue.with_uri(uri.clone()))
+                        .collect::<Vec<_>>()
+                }
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
                     vec![Check::init().category(CheckCategory::Schema).success(false).build()]
                 }
             })
-            .flatten()
             .collect()
     }
     fn validation_issues(self) -> Vec<Check> {
-        fn errors_collect<T: Validate>(attribute: T) -> Option<Vec<Check>> {
-            match attribute.validate() {
-                | Ok(_) => None,
-                | Err(err) => Some(
-                    err.into_errors()
-                        .into_iter()
-                        .map(|(key, value)| {
-                            Check::init()
-                                .category(CheckCategory::Schema)
-                                .success(false)
-                                .errors(ErrorKind::Validator(value))
-                                .message(key.to_string())
-                                .build()
-                        })
-                        .collect::<Vec<Check>>(),
-                ),
-            }
-        }
-        let mut found = vec![errors_collect::<ResearchActivity>(self.clone())];
-        match self.meta.media {
-            | Some(values) => values.iter().for_each(|media| match media {
-                | MediaObject::Image(x) => found.push(errors_collect::<ImageObject>(x.clone())),
-                | MediaObject::Video(x) => found.push(errors_collect::<VideoObject>(x.clone())),
-            }),
-            | None => {}
-        }
-        found.into_iter().flatten().flatten().collect::<Vec<_>>()
+        self.validate()
+            .err()
+            .into_iter()
+            .map(|err| {
+                Check::init()
+                    .category(CheckCategory::Schema)
+                    .success(false)
+                    .errors(ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(err))))
+                    .build()
+            })
+            .collect()
     }
 }
 fn highlighted_span(source: Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {

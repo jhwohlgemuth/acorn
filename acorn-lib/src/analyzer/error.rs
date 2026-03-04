@@ -11,7 +11,7 @@ use validator::{ValidationError, ValidationErrorsKind};
 /// Flattened schema validation issue tuple.
 ///
 /// Tuple fields are `(code, path, message, params)`.
-pub type ValidationIssue = (ErrorCode, Option<String>, String, HashMap<String, String>);
+pub type ValidationIssue = (ErrorCode, Option<String>, String, HashMap<String, Value>);
 /// Augmented list of validator crate error codes, with custom codes for ACORN-specific validation errors
 #[derive(Clone, Debug, Display)]
 #[display(rename_all = "lowercase")]
@@ -50,6 +50,8 @@ pub enum ErrorCode {
     Range,
     /// Invalid ROR identifier
     Ror,
+    /// Research activity prose section (see [`schema::research_activity::Sections`])
+    Section,
     /// Invalid URL
     Url,
     /// Invalid ISO 8601 year
@@ -91,6 +93,7 @@ impl From<&str> for ErrorCode {
             | "raid" | "raìd" => Self::Raid,
             | "range" => Self::Range,
             | "ror" => Self::Ror,
+            | "sections.approach" | "sections.areas" | "sections.capabilities" | "sections.impact" => Self::Section,
             | "url" | "urls" => Self::Url,
             | "year" => Self::Year,
             | _ => Self::Other,
@@ -118,15 +121,8 @@ pub fn process(path: &str, kind: ValidationErrorsKind) -> Vec<ValidationIssue> {
                     let message = message.map(|m| m.to_string()).unwrap_or_else(|| code.to_string());
                     let params = params
                         .into_iter()
-                        .map(|(key, value)| {
-                            let value = match value {
-                                | Value::String(s) => s,
-                                | Value::Array(items) => items.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(", "),
-                                | other => other.to_string(),
-                            };
-                            (key.to_string(), value)
-                        })
-                        .collect::<HashMap<String, String>>();
+                        .map(|(key, value)| (key.to_string(), value))
+                        .collect::<HashMap<String, Value>>();
                     (ErrorCode::from(code.as_ref()), path, message, params)
                 })
                 .collect::<Vec<ValidationIssue>>();
@@ -196,9 +192,9 @@ mod tests {
         assert!(matches!(code, ErrorCode::Length));
         assert_eq!(path.as_deref(), Some("name"));
         assert_eq!(message, "length");
-        assert_eq!(params.get("value").map(String::as_str), Some("x"));
-        assert_eq!(params.get("min").map(String::as_str), Some("3"));
-        assert_eq!(params.get("max").map(String::as_str), Some("3"));
+        assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("x")));
+        assert_eq!(params.get("min").map(|v| v.as_str()), Some(Some("3")));
+        assert_eq!(params.get("max").map(|v| v.as_str()), Some(Some("3")));
     }
     #[test]
     fn process_returns_nested_struct_path() {
@@ -213,7 +209,7 @@ mod tests {
         let (code, path, _message, params) = &issues[0];
         assert!(matches!(code, ErrorCode::Email));
         assert_eq!(path.as_deref(), Some("child.email"));
-        assert_eq!(params.get("value").map(String::as_str), Some("not-an-email"));
+        assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
     }
     #[test]
     fn process_returns_nested_list_index_path() {
@@ -233,7 +229,7 @@ mod tests {
         let (code, path, _message, params) = &issues[0];
         assert!(matches!(code, ErrorCode::Email));
         assert_eq!(path.as_deref(), Some("children[1].email"));
-        assert_eq!(params.get("value").map(String::as_str), Some("invalid"));
+        assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("invalid")));
     }
     #[test]
     fn process_returns_none_path_for_root_field_errors() {
@@ -253,8 +249,8 @@ mod tests {
         assert!(matches!(code, ErrorCode::Length));
         assert_eq!(*path, None);
         assert_eq!(message, "length");
-        assert_eq!(params.get("value").map(String::as_str), Some("x"));
-        assert_eq!(params.get("min").map(String::as_str), Some("3"));
+        assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("x")));
+        assert_eq!(params.get("min").map(|v| v.as_str()), Some(Some("3")));
     }
     #[test]
     fn process_serializes_array_param_values() {
@@ -268,7 +264,7 @@ mod tests {
         assert!(matches!(code, ErrorCode::Length));
         assert_eq!(path.as_deref(), Some("tags"));
         assert_eq!(message, "length");
-        assert_eq!(params.get("value").map(String::as_str), Some("\"one\", \"two\""));
-        assert_eq!(params.get("min").map(String::as_str), Some("3"));
+        assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("\"one\", \"two\"")));
+        assert_eq!(params.get("min").map(|v| v.as_str()), Some(Some("3")));
     }
 }

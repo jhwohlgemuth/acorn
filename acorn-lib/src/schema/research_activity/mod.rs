@@ -205,6 +205,7 @@ pub struct ResearchActivityMetadata {
     /// Type of associated research activity data when directly associated with an organization
     pub additional_type: Option<OrganizationType>,
     /// Images, videos, and other media related to the associated research activity data
+    #[validate(nested)]
     #[serde(alias = "graphics")]
     pub media: Option<Vec<MediaObject>>,
     /// Websites related to the associated research activity data

@@ -65,19 +65,3 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
-## 5. Always prefer functional programming style when possible
-
-**Minimize moving parts. Avoid mutable state and side effects.**
-
-- Prioritize the 3 T's of functional programming:
-  1. Immutability
-  2. Composability
-  3. Purity
-- Avoid mutable state and side effects.
-- Minimize use of `return` statements and early exits. Instead, structure code to flow naturally from inputs to outputs.
-- Favor pure functions that take inputs and return outputs without modifying external state.
-- Use immutable data structures and avoid shared mutable state.
-- This leads to clearer, more predictable code that is easier to test and debug.
-
-OOP makes code understandable by encapsulating moving parts. Functional Programming makes code understandable by minimizing moving parts.
