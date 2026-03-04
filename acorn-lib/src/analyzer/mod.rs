@@ -22,6 +22,7 @@ use bat::PrettyPrinter;
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
+use core::fmt;
 use core::ops::RangeInclusive;
 use derive_more::Display;
 use flate2::read::GzDecoder;
@@ -130,9 +131,8 @@ pub enum CheckCategory {
     Schema,
 }
 /// Data structure for holding the result of a schema validation check
-#[derive(Builder, Clone, Debug, Display)]
+#[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into))]
-#[display("{message}")]
 pub struct Check {
     /// Check category
     pub category: CheckCategory,
@@ -302,8 +302,8 @@ impl Check {
             }
         }
     }
-    /// Print the schema check results
-    pub fn print(self) {
+    /// Fancy output in contrast with more compressed output of Display impl
+    pub fn report(self) {
         match self.category {
             | CheckCategory::Link => {
                 let code = match self.status_code {
@@ -353,20 +353,6 @@ impl Check {
                                     .finish()
                                     .print((&title, source));
                             });
-                            println!();
-                            error!("=> {} {} issues found in {}", Label::fail(), values.len(), message.underline());
-                            for item in values {
-                                let ValeOutputItem {
-                                    check,
-                                    line,
-                                    message,
-                                    severity,
-                                    span,
-                                    ..
-                                } = item;
-                                let location = format!("Line {}, Character {}", line, span[0]);
-                                println!("  {:<24} {:<21} {} {}", location, severity.colored(), message, check.dimmed());
-                            }
                         }
                     }
                     | None | Some(_) => {
@@ -414,7 +400,6 @@ impl Check {
                             .iter()
                             .enumerate()
                             .for_each(|(index, (code, path, message, params))| {
-                                dbg!(code, params);
                                 let text = match params.get("value") {
                                     | Some(Value::Array(items)) => items.iter().map(|item| item.to_string()).collect::<Vec<_>>().to_markdown(),
                                     | Some(value) => value.to_string(),
@@ -432,13 +417,16 @@ impl Check {
                                     },
                                     | ErrorCode::Section => match params.get("index") {
                                         | Some(Value::Number(index)) => match index.as_u64() {
-                                            | Some(_index) => {
-                                                // TODO: Highlight problem line
-                                                // let line = index as u32;
-                                                // highlighted_span(source.clone(), &[0 as u32], line)
-                                                dbg!(source.text());
-                                                default_span
-                                            }
+                                            | Some(index) => match params.get("value") {
+                                                | Some(Value::Array(value)) => {
+                                                    const PADDING: u64 = 2;
+                                                    let end = (value[index as usize].to_string().len() + 1) as u32;
+                                                    let span = &[4, end];
+                                                    let line = (index + PADDING) as u32;
+                                                    highlighted_span(source.clone(), span, line)
+                                                }
+                                                | Some(_) | None => default_span,
+                                            },
                                             | None => default_span,
                                         },
                                         | None | Some(_) => default_span,
@@ -475,6 +463,87 @@ impl Check {
             .maybe_status_code(self.status_code)
             .maybe_errors(self.errors)
             .build()
+    }
+}
+impl fmt::Display for Check {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.category {
+            | CheckCategory::Prose => match &self.errors {
+                | Some(ErrorKind::Vale(values)) => {
+                    let last = values.len().saturating_sub(1);
+                    values.iter().enumerate().try_for_each(|(index, item)| {
+                        let ValeOutputItem {
+                            check,
+                            line,
+                            message,
+                            severity,
+                            span,
+                            ..
+                        } = item;
+                        let location = format!("Line {}, Character {}", line, span[0]);
+                        f.write_fmt(format_args!(
+                            "  {:<27} {:<22} {} {}",
+                            location,
+                            severity.colored(),
+                            message,
+                            check.dimmed()
+                        ))
+                        .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
+                    })
+                }
+                | None | Some(_) => {
+                    let message = format!("=> {} {} has {}", Label::pass(), self.message.underline(), "no prose issues".green());
+                    write!(f, "{message}")
+                }
+            },
+            | CheckCategory::Schema => match &self.errors {
+                | Some(ErrorKind::Validator(kind)) => {
+                    let Check { message: prefix, .. } = self.clone();
+                    let rows = process(&prefix, kind.clone());
+                    let last = rows.len().saturating_sub(1);
+                    rows.iter().enumerate().try_for_each(|(index, (code, path, message, _params))| {
+                        let field = path.clone().unwrap_or_default();
+                        f.write_fmt(format_args!(
+                            "  {field:<27} {:<12} {message} {}",
+                            "error".red().bold(),
+                            code.to_string().dimmed(),
+                        ))
+                        .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
+                    })
+                }
+                | None | Some(_) => {
+                    let message = format!(
+                        "=> {} {} has {}",
+                        Label::pass(),
+                        self.message.underline(),
+                        "no schema validation issues".green()
+                    );
+                    write!(f, "{message}")
+                }
+            },
+            | CheckCategory::Link => {
+                let uri = self
+                    .uri
+                    .as_ref()
+                    .map(|value| value.to_string().underline().italic().to_string())
+                    .unwrap_or_else(|| "Missing".to_string());
+                let status = if self.success {
+                    "valid".green().to_string()
+                } else {
+                    "invalid".red().to_string()
+                };
+                let indent = " ".repeat(30);
+                let message = self.message.to_case(Case::Title);
+                write!(f, "{indent}{:<22} {uri} {}", status.bold(), message.dimmed())
+            }
+            | _ => write!(
+                f,
+                "=> {} {} - {}",
+                if self.success { Label::pass() } else { Label::fail() },
+                self.message,
+                self.category
+            ),
+        }
     }
 }
 impl<'a> IntoRow<'a> for Check {

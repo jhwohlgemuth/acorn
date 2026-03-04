@@ -102,9 +102,9 @@ impl From<&str> for ErrorCode {
 }
 impl ErrorKind {
     /// Process errors to a list of `(code, path, message, params)` tuples.
-    pub fn process(self) -> Vec<ValidationIssue> {
+    pub fn process(self, prefix: &str) -> Vec<ValidationIssue> {
         match self {
-            | ErrorKind::Validator(kind) => process("", kind),
+            | ErrorKind::Validator(kind) => process(prefix, kind),
             | _ => vec![],
         }
     }
@@ -186,15 +186,15 @@ mod tests {
     fn process_returns_field_issue_tuple() {
         let value = FieldModel { name: "x".to_string() };
         let errors = value.validate().expect_err("expected validation failure");
-        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process();
+        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
         assert_eq!(issues.len(), 1);
         let (code, path, message, params) = &issues[0];
         assert!(matches!(code, ErrorCode::Length));
         assert_eq!(path.as_deref(), Some("name"));
         assert_eq!(message, "length");
         assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("x")));
-        assert_eq!(params.get("min").map(|v| v.as_str()), Some(Some("3")));
-        assert_eq!(params.get("max").map(|v| v.as_str()), Some(Some("3")));
+        assert_eq!(params.get("min").and_then(|v| v.as_i64()), Some(3));
+        assert_eq!(params.get("max").and_then(|v| v.as_i64()), Some(3));
     }
     #[test]
     fn process_returns_nested_struct_path() {
@@ -204,7 +204,7 @@ mod tests {
             },
         };
         let errors = value.validate().expect_err("expected validation failure");
-        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process();
+        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
         assert_eq!(issues.len(), 1);
         let (code, path, _message, params) = &issues[0];
         assert!(matches!(code, ErrorCode::Email));
@@ -224,7 +224,7 @@ mod tests {
             ],
         };
         let errors = value.validate().expect_err("expected validation failure");
-        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process();
+        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
         assert_eq!(issues.len(), 1);
         let (code, path, _message, params) = &issues[0];
         assert!(matches!(code, ErrorCode::Email));
@@ -250,7 +250,7 @@ mod tests {
         assert_eq!(*path, None);
         assert_eq!(message, "length");
         assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("x")));
-        assert_eq!(params.get("min").map(|v| v.as_str()), Some(Some("3")));
+        assert_eq!(params.get("min").and_then(|v| v.as_i64()), Some(3));
     }
     #[test]
     fn process_serializes_array_param_values() {
@@ -258,13 +258,22 @@ mod tests {
             tags: vec!["one".to_string(), "two".to_string()],
         };
         let errors = value.validate().expect_err("expected validation failure");
-        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process();
+        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
         assert_eq!(issues.len(), 1);
         let (code, path, message, params) = &issues[0];
         assert!(matches!(code, ErrorCode::Length));
         assert_eq!(path.as_deref(), Some("tags"));
         assert_eq!(message, "length");
-        assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("\"one\", \"two\"")));
-        assert_eq!(params.get("min").map(|v| v.as_str()), Some(Some("3")));
+        assert_eq!(
+            params.get("value").and_then(|v| v.as_array()).map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str())
+                    .map(|item| item.to_string())
+                    .collect::<Vec<String>>()
+            }),
+            Some(vec!["one".to_string(), "two".to_string()])
+        );
+        assert_eq!(params.get("min").and_then(|v| v.as_i64()), Some(3));
     }
 }

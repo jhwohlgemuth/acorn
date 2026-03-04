@@ -67,7 +67,7 @@ pub struct Research {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_RESEARCH_FOCUS",
-        message = "Focus is too long, please reduce the length below 150."
+        message = "Focus is too long, please reduce the length below 150 characters."
     ))]
     #[builder(default = "Focus of the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
@@ -104,7 +104,10 @@ pub struct ResearchActivity {
     #[serde(deserialize_with = "string_trim")]
     pub title: String,
     /// Short description that augments the title of the associated research activity
-    #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, please reduce the length below 75."))]
+    #[validate(length(
+        max = "MAX_LENGTH_SUBTITLE",
+        message = "Subtitle is too long, please reduce the length below 75 characters."
+    ))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub subtitle: Option<String>,
     /// Prose components of associated research activity
@@ -296,7 +299,7 @@ pub struct Sections {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_MISSION",
-        message = "Mission is too long, please reduce the length below 250."
+        message = "Mission is too long, please reduce the length below 250 characters."
     ))]
     #[builder(default = "Purpose of the research".to_string())]
     #[serde(alias = "introduction", deserialize_with = "string_trim")]
@@ -307,7 +310,7 @@ pub struct Sections {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_CHALLENGE",
-        message = "Challenge is too long, please reduce the length below 500."
+        message = "Challenge is too long, please reduce the length below 500 characters."
     ))]
     #[builder(default = "Reason for the research".to_string())]
     #[serde(deserialize_with = "string_trim")]

@@ -50,21 +50,17 @@ pub async fn run(
         .build();
     let CommandLineOptions { exit_on_first_error, .. } = options;
     let paths = paths_from_options(path, &Some(options)).await;
+    let is_offline = *offline || *disable_website_checks;
     let schema_issues = if skip.contains(&CheckCategory::Schema) {
         skip!("Schema validation");
         vec![]
     } else {
-        let is_offline = *offline || *disable_website_checks;
-        let website_checks = ResearchActivity::check_websites(paths.clone(), is_offline).await;
-        let results = ResearchActivity::check(paths.clone())
-            .into_iter()
-            .chain(website_checks)
-            .collect::<Vec<_>>();
+        let results = ResearchActivity::check(paths.clone());
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             if level.is_some() {
                 fail!("ACORN found {} schema validation errors", issues);
-                results.iter().for_each(|issue| issue.clone().print());
+                results.iter().for_each(|issue| issue.clone().report());
             }
             exit(exitcode::DATAERR);
         }
@@ -79,7 +75,7 @@ pub async fn run(
         if issues > 0 && exit_on_first_error {
             if level.is_some() {
                 fail!("ACORN found {} prose issues", issues);
-                results.iter().for_each(|issue| issue.clone().print());
+                results.iter().for_each(|issue| issue.clone().report());
             }
             exit(exitcode::DATAERR);
         }
@@ -100,12 +96,12 @@ pub async fn run(
             },
             | _ => metric_value_from_cli,
         };
-        let results = ResearchActivity::readability_analysis(paths, metric);
+        let results = ResearchActivity::readability_analysis(paths.clone(), metric);
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
             if level.is_some() {
                 fail!("ACORN found {} readability issues", issues);
-                results.iter().for_each(|issue| issue.clone().print());
+                results.iter().for_each(|issue| issue.clone().report());
             }
             exit(exitcode::DATAERR);
         }
@@ -117,24 +113,30 @@ pub async fn run(
     } else {
         vec![]
     };
+    let website_checks = ResearchActivity::check_websites(paths.clone(), is_offline).await;
     let all_issues = vec![]
         .into_iter()
         .chain(schema_issues.clone())
         .chain(prose_issues.clone())
         .chain(readability_issues.clone())
         .chain(conventions_issues.clone())
-        .inspect(|issue| {
-            if level.is_some() {
-                issue.clone().print();
-            }
-        })
+        .chain(website_checks.clone())
         .filter(|Check { success, .. }| !success)
         .collect::<Vec<Check>>();
+    // Detailed
+    all_issues.iter().for_each(|issue| {
+        if level.is_some() {
+            issue.clone().report();
+        }
+    });
+    // Compact
+    all_issues.clone().into_iter().for_each(|issue| {
+        println!("{issue}");
+    });
     if count(all_issues.clone()) > 0 && !*no_fail {
         if level.is_some() {
             let headers = vec!["Issue Type", "Issue Count"];
             let rows = summary(all_issues);
-            println!("\n");
             print_values_as_table(Label::fmt_fail("Issues Overview"), headers, rows);
         }
         exit(exitcode::DATAERR);
