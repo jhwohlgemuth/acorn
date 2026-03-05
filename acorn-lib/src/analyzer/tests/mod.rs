@@ -1,8 +1,9 @@
+use crate::analyzer::error::ErrorCode;
 use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
-use crate::analyzer::{checks_to_dataframe, Check, CheckCategory};
-use crate::prelude::PathBuf;
-#[cfg(test)]
-use pretty_assertions::assert_eq;
+use crate::analyzer::{checks_to_dataframe, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, Check, CheckCategory};
+use crate::prelude::{HashMap, PathBuf};
+use ariadne::Source;
+use serde_json::Value;
 
 #[test]
 fn test_checks_to_dataframe() {
@@ -11,6 +12,71 @@ fn test_checks_to_dataframe() {
     let df = checks_to_dataframe(checks.clone());
     let reason = "Failed to convert checks to dataframe";
     assert_eq!(df.expect(reason).shape(), (checks.len(), 6));
+}
+#[test]
+fn test_highlighted_span() {
+    let source = Source::from(String::from("line one\nline two\nline three"));
+    let span = &[1, 5];
+    let line_number = 2;
+    let result = highlighted_span(source, span, line_number);
+    assert_eq!(result, 9..=13);
+}
+#[test]
+fn test_highlighted_span_for_array() {
+    let source = Source::from(String::from("{\n  \"key\": [\n    \"a\",\n    \"b\",\n    \"c\"\n  ]\n}"));
+    let index = 1;
+    let value = serde_json::json!(["a", "b", "c"]);
+    let mut params: HashMap<String, Value> = HashMap::new();
+    params.insert("index".to_string(), Value::Number(index.into()));
+    params.insert("value".to_string(), value);
+    let result = highlighted_span_for_array(source.clone(), params);
+    assert!(result.is_some());
+    let span = result.unwrap();
+    assert!(*span.start() < source.text().len());
+    assert!(*span.end() <= source.text().len());
+}
+#[test]
+fn test_highlighted_span_from_params_length() {
+    let source = Source::from(String::from("{\"key\": \"value\"}"));
+    let code = ErrorCode::Length;
+    let mut params: HashMap<String, Value> = HashMap::new();
+    params.insert("max".to_string(), Value::Number(10.into()));
+    let result = highlighted_span_from_params(source.clone(), code, params);
+    assert!(result.is_some());
+    let span = result.unwrap();
+    assert!(span.contains(&(source.text().len() - 2)));
+}
+#[test]
+fn test_highlighted_span_from_params_section() {
+    let source = Source::from(String::from("{\n  \"sections\": [\n    \"intro\",\n    \"methods\"\n  ]\n}"));
+    let code = ErrorCode::Section;
+    let index = 1;
+    let value = serde_json::json!(["intro", "methods"]);
+    let mut params: HashMap<String, Value> = HashMap::new();
+    params.insert("index".to_string(), Value::Number(index.into()));
+    params.insert("value".to_string(), value);
+    let result = highlighted_span_from_params(source, code, params);
+    assert!(result.is_some());
+}
+#[test]
+fn test_highlighted_span_from_params_with_index() {
+    let source = Source::from(String::from("{\n  \"items\": [\n    \"first\",\n    \"second\"\n  ]\n}"));
+    let code = ErrorCode::Other;
+    let index = 0;
+    let value = serde_json::json!(["first", "second"]);
+    let mut params: HashMap<String, Value> = HashMap::new();
+    params.insert("index".to_string(), Value::Number(index.into()));
+    params.insert("value".to_string(), value);
+    let result = highlighted_span_from_params(source, code, params);
+    assert!(result.is_some());
+}
+#[test]
+fn test_highlighted_span_from_params_no_match() {
+    let source = Source::from(String::from("{\"key\": \"value\"}"));
+    let code = ErrorCode::Date;
+    let params: HashMap<String, Value> = HashMap::new();
+    let result = highlighted_span_from_params(source, code, params);
+    assert!(result.is_none());
 }
 #[test]
 fn test_parse_vale_output() {

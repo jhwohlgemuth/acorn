@@ -400,43 +400,27 @@ impl Check {
                             .iter()
                             .enumerate()
                             .for_each(|(index, (code, path, message, params))| {
+                                let title_message = match path {
+                                    | Some(value) => match params.get("index") {
+                                        | Some(Value::Number(index)) => format!("{}[{}]", value, index),
+                                        | None | Some(_) => value.to_string(),
+                                    },
+                                    | None => code.to_string().to_uppercase(),
+                                };
                                 let text = match params.get("value") {
                                     | Some(Value::Array(items)) => items.iter().map(|item| item.to_string()).collect::<Vec<_>>().to_markdown(),
                                     | Some(value) => value.to_string(),
                                     | None => "".to_string(),
                                 };
                                 let source = Source::from(text);
-                                let default_span = 0..=(source.text().len() - 1);
-                                let span = match code {
-                                    | ErrorCode::Length => match params.get("max") {
-                                        | Some(Value::Number(max)) => match max.as_u64() {
-                                            | Some(max) => max as usize..=(source.text().len() - 2),
-                                            | None => default_span,
-                                        },
-                                        | None | Some(_) => default_span,
-                                    },
-                                    | ErrorCode::Section => match params.get("index") {
-                                        | Some(Value::Number(index)) => match index.as_u64() {
-                                            | Some(index) => match params.get("value") {
-                                                | Some(Value::Array(value)) => {
-                                                    const PADDING: u64 = 2;
-                                                    let end = (value[index as usize].to_string().len() + 1) as u32;
-                                                    let span = &[4, end];
-                                                    let line = (index + PADDING) as u32;
-                                                    highlighted_span(source.clone(), span, line)
-                                                }
-                                                | Some(_) | None => default_span,
-                                            },
-                                            | None => default_span,
-                                        },
-                                        | None | Some(_) => default_span,
-                                    },
-                                    | _ => default_span,
+                                let span = match highlighted_span_from_params(source.clone(), code.clone(), params.clone()) {
+                                    | Some(span) => span,
+                                    | None => 0..=(source.text().len() - 1),
                                 };
                                 let _ = Report::build(ariadne::ReportKind::Error, (&title, 1..=1))
                                     .with_code(index)
                                     .with_config(Config::default().with_compact(false))
-                                    .with_message(path.clone().unwrap_or_default())
+                                    .with_message(title_message)
                                     .with_label(
                                         ariadne::Label::new((&title, span))
                                             .with_message(message.italic())
@@ -1016,12 +1000,50 @@ impl Validation for ResearchActivity {
             .collect()
     }
 }
-fn highlighted_span(source: Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
+pub(crate) fn highlighted_span(source: Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
     let selected = (line_number as usize) - 1;
     let begin = source.lines().take(selected).fold((span[0] - 1) as usize, |acc, line| acc + line.len());
     let character_count = (span[1] as usize) - (span[0] as usize);
     let end = begin + character_count;
     begin..=end
+}
+pub(crate) fn highlighted_span_for_array(source: Source, params: HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
+    match params.get("index") {
+        | Some(Value::Number(index)) => match index.as_u64() {
+            | Some(index) => match params.get("value") {
+                | Some(Value::Array(value)) => {
+                    const PADDING: u64 = 2;
+                    let end = (value[index as usize].to_string().len() + 1) as u32;
+                    let span = &[4, end];
+                    let line = (index + PADDING) as u32;
+                    Some(highlighted_span(source.clone(), span, line))
+                }
+                | Some(_) | None => None,
+            },
+            | None => None,
+        },
+        | None | Some(_) => None,
+    }
+}
+pub(crate) fn highlighted_span_from_params(source: Source, code: ErrorCode, params: HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
+    match code {
+        | ErrorCode::Length => match params.get("max") {
+            | Some(Value::Number(max)) => match max.as_u64() {
+                | Some(max) => Some(max as usize..=(source.text().len() - 2)),
+                | None => None,
+            },
+            | None | Some(_) => None,
+        },
+        | ErrorCode::Section => match highlighted_span_for_array(source.clone(), params.clone()) {
+            | Some(span) => Some(span),
+            | None => None,
+        },
+        | value if params.get("index").is_some() => match highlighted_span_for_array(source.clone(), params.clone()) {
+            | Some(span) => Some(span),
+            | None => None,
+        },
+        | _ => None,
+    }
 }
 /// Convert Lychee response to [`Check`]
 pub fn convert_lychee_response(value: Response) -> Check {
