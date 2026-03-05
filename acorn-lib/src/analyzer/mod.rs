@@ -504,9 +504,10 @@ impl fmt::Display for Check {
                     rows.iter().enumerate().try_for_each(|(index, (code, path, message, _params))| {
                         let field = path.clone().unwrap_or_default();
                         f.write_fmt(format_args!(
-                            "  {field:<27} {:<12} {message} {}",
+                            "  {field:<27} {:<12} {message} {}{}",
                             "error".red().bold(),
-                            code.to_string().dimmed(),
+                            "code=".dimmed(),
+                            code.to_string().to_uppercase().dimmed(),
                         ))
                         .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
                     })

@@ -186,7 +186,7 @@ impl TableFormatPrint for MemoryInformation {
             to_string(vec!["Used", &used]),
             to_string(vec!["Swap", &swap]),
         ];
-        print_values_as_table("Memory", headers, rows);
+        print_values_as_table(headers, rows, Some("Memory"));
     }
 }
 impl TableFormatPrint for NetworkInformation {
@@ -217,7 +217,7 @@ impl TableFormatPrint for NetworkInformation {
                 }
             })
             .collect::<Vec<_>>();
-        print_values_as_table("Network", headers, rows);
+        print_values_as_table(headers, rows, Some("Network"));
     }
 }
 impl TableFormatPrint for SystemInformation {
@@ -251,7 +251,7 @@ impl TableFormatPrint for SystemInformation {
             to_string(vec!["CPU Architecture", &cpu_arch]),
             to_string(vec!["CPU Count", &cpu_count]),
         ];
-        print_values_as_table("System", headers, rows);
+        print_values_as_table(headers, rows, Some("System"));
     }
 }
 impl TableFormatPrint for SystemSoftwareInformation {
@@ -286,7 +286,7 @@ impl TableFormatPrint for SystemSoftwareInformation {
             pandoc.as_row("Pandoc"),
             vale.as_row("Vale"),
         ];
-        print_values_as_table("Software", headers, rows);
+        print_values_as_table(headers, rows, Some("Software"));
     }
 }
 fn parse_network_addresses(data: &sysinfo::NetworkData) -> Vec<String> {

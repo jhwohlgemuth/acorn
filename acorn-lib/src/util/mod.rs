@@ -980,10 +980,13 @@ pub fn print_changes(old: &str, new: &str) {
 /// Prints the given values as a table.
 ///
 /// # Arguments
-/// * `title` - The title of the table.
 /// * `headers` - The headers of the table.
 /// * `rows` - The rows of the table as a vector of vectors of strings.
-pub fn print_values_as_table(title: impl ToString, headers: Vec<&str>, rows: Vec<Vec<String>>) {
+/// * `title` - Optional title of the table.
+pub fn print_values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, title: Option<T>)
+where
+    T: ToString,
+{
     let mut table = Table::new();
     table
         .load_preset(UTF8_FULL)
@@ -993,7 +996,10 @@ pub fn print_values_as_table(title: impl ToString, headers: Vec<&str>, rows: Vec
     rows.into_iter().for_each(|row| {
         table.add_row(row);
     });
-    println!("=> {} \n{table}", title.to_string().green().bold());
+    match title {
+        | Some(value) => println!("=> {} \n{table}", value.to_string().green().bold()),
+        | None => println!("{table}"),
+    }
 }
 /// Helper function to create a lookup dictionary for regex captures
 /// ### Note

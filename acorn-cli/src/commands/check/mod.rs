@@ -123,23 +123,26 @@ pub async fn run(
         .chain(website_checks.clone())
         .filter(|Check { success, .. }| !success)
         .collect::<Vec<Check>>();
-    // Detailed
-    all_issues.iter().for_each(|issue| {
-        if level.is_some() {
-            issue.clone().report();
-        }
-    });
-    // Compact
-    all_issues.clone().into_iter().for_each(|issue| {
-        println!("{issue}");
-    });
+    print_detailed(all_issues.clone());
+    print_compact(all_issues.clone());
     if count(all_issues.clone()) > 0 && !*no_fail {
         if level.is_some() {
+            // Summary
             let headers = vec!["Issue Type", "Issue Count"];
             let rows = summary(all_issues);
-            print_values_as_table(Label::fmt_fail("Issues Overview"), headers, rows);
+            print_values_as_table::<String>(headers, rows, None);
         }
         exit(exitcode::DATAERR);
     }
     Ok(())
+}
+fn print_detailed(issues: Vec<Check>) {
+    issues.iter().for_each(|issue| {
+        issue.clone().report();
+    });
+}
+fn print_compact(issues: Vec<Check>) {
+    issues.iter().for_each(|issue| {
+        println!("{issue}");
+    });
 }
