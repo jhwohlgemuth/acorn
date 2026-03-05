@@ -266,7 +266,7 @@ macro_rules! param {
 ///     "Error message"
 /// );
 ///
-/// // Without message: generates "Please provide a valid {code}"
+/// // Without message: generates "Provide a valid {code}"
 /// method_validator!(
 ///     /// Doc comment
 ///     function_name,
@@ -308,7 +308,7 @@ macro_rules! method_validator {
             match value.$method() {
                 | true => Ok(()),
                 | _ => Err(::validator::ValidationError::new($code)
-                    .with_message(concat!("Please provide a valid ", $code).into())),
+                    .with_message(concat!("Provide valid ", $code).into())),
             }
         }
     };
@@ -329,7 +329,7 @@ macro_rules! method_validator {
             match value.$fn_name() {
                 | true => Ok(()),
                 | _ => Err(::validator::ValidationError::new($code)
-                    .with_message(concat!("Please provide a valid ", $code, " value").into())),
+                    .with_message(concat!("Provide valid ", $code, " value").into())),
             }
         }
     };
@@ -368,7 +368,7 @@ macro_rules! regex_validator {
             match $regex.is_match(value) {
                 | Ok(value) if value => Ok(()),
                 | _ => Err(::validator::ValidationError::new($code)
-                    .with_message(concat!("Please provide a valid ", $code).into())),
+                    .with_message(concat!("Provide valid ", $code).into())),
             }
         }
     };

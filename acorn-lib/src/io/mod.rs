@@ -501,7 +501,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
         if extensions.is_some() {
             warn!(
                 path = path.clone().to_absolute_string(),
-                "=> {} Extension passed with single file to files_all() - please make sure this is desired",
+                "=> {} Extension passed with single file to files_all()...was this intended?",
                 Label::using()
             );
         }

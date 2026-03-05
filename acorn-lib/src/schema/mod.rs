@@ -332,7 +332,7 @@ pub struct ContactPoint {
     /// Email address of contact point
     ///
     /// See <https://schema.org/email> for more information
-    #[validate(email(message = "Please provide a valid email"))]
+    #[validate(email(message = "Email address must be in the format name@example.com"))]
     #[builder(default = "first_last@example.com".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub email: String,
@@ -346,7 +346,7 @@ pub struct ContactPoint {
     /// Profile URL of contact point
     /// ### Example
     /// > Profile URL for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
-    #[validate(url(message = "Please provide a valid profile URL"))]
+    #[validate(url(message = "Profile URL must be in the format https://example.com"))]
     #[builder(default = "https://example.com".to_string())]
     #[serde(alias = "profile", deserialize_with = "string_trim")]
     pub url: String,
@@ -398,7 +398,10 @@ pub struct ContactPointContext {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ImageObject {
     /// Image caption
-    #[validate(length(max = "MAX_LENGTH_IMAGE_CAPTION", message = "Caption is too long, please reduce the length below 100."))]
+    #[validate(length(
+        max = "MAX_LENGTH_IMAGE_CAPTION",
+        message = "Caption is too long, reduce the length below 100 characters."
+    ))]
     #[serde(deserialize_with = "string_trim")]
     pub caption: String,
     /// File size (in kilobytes)
@@ -535,7 +538,7 @@ pub struct Website {
     #[serde(alias = "title", deserialize_with = "string_trim")]
     pub description: String,
     /// Associated website URL
-    #[validate(url(message = "Please provide a valid URL"))]
+    #[validate(url(message = "Provide valid URL"))]
     #[serde(deserialize_with = "string_trim")]
     pub url: String,
 }

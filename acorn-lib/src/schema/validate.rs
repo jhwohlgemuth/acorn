@@ -21,13 +21,13 @@ regex_validator!(
     has_image_extension,
     RE_IMAGE_EXTENSION,
     "image",
-    "Please provide a path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension"
+    "Provide path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension"
 );
 regex_validator!(
     is_iso8601_date,
     RE_ISO_8601_DATE,
     "ISO 8601 Date",
-    "Please provide a valid ISO 8601 date (e.g., YYYY-MM-DD)"
+    "Provide valid ISO 8601 date (e.g., YYYY-MM-DD)"
 );
 /// Format a phone number into a standard format
 /// ### Note
@@ -82,7 +82,7 @@ fn is_current_year(value: String) -> bool {
 /// - `2025`
 pub fn is_iso8601_year(value: &str) -> Result<(), ValidationError> {
     const CODE: &str = "year";
-    const MESSAGE: &str = "Please provide a valid ISO 8601 year (e.g., YYYY)";
+    const MESSAGE: &str = "Provide valid ISO 8601 year (e.g., YYYY)";
     match RE_ISO_8601_YEAR.is_match(value) {
         | Ok(x) if x && is_current_year(value.to_string()) => Ok(()),
         | _ => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
@@ -92,7 +92,7 @@ pub fn is_iso8601_year(value: &str) -> Result<(), ValidationError> {
 pub fn is_kebabcase(value: &str) -> Result<(), ValidationError> {
     const CODE: &str = "kebabcase";
     let valid = value.to_case(Case::Kebab);
-    let message = format!("Please provide an ID in kebab-case format (e.g., {valid})");
+    let message = format!("Provide ID in kebab-case format (e.g., {valid})");
     match valid.eq(&value) {
         | true => Ok(()),
         | _ => Err(ValidationError::new(CODE).with_message(message.into())),
@@ -114,7 +114,7 @@ pub fn is_list_url(value: &[String]) -> Result<(), ValidationError> {
 /// Check if value is a valid [`crate::schema::pid::Patent`]
 pub fn is_patent_identifier(value: &str) -> Result<(), ValidationError> {
     const CODE: &str = "patent";
-    const MESSAGE: &str = "Please provide a valid patent identifier";
+    const MESSAGE: &str = "Provide valid patent identifier";
     match Patent::is_valid(value) {
         | true => Ok(()),
         | _ => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
@@ -129,14 +129,14 @@ pub fn is_phone_number(value: &str) -> Result<(), ValidationError> {
     let is_valid = RE_PHONE.is_match(value).unwrap_or(false);
     match (is_valid, is_fake) {
         | (true, false) => Ok(()),
-        | (_, true) => Err(ValidationError::new(CODE).with_message("Please provide a real phone number, not a placeholder".into())),
-        | _ => Err(ValidationError::new(CODE).with_message("Please provide a valid phone number".into())),
+        | (_, true) => Err(ValidationError::new(CODE).with_message("Provide real phone number, not a placeholder".into())),
+        | _ => Err(ValidationError::new(CODE).with_message("Provide valid phone number".into())),
     }
 }
 /// Check if value is a valid Unix epoch timestamp
 pub fn is_unix_epoch(value: usize) -> Result<(), ValidationError> {
     const CODE: &str = "epoch";
-    const MESSAGE: &str = "Please provide a valid Unix epoch timestamp";
+    const MESSAGE: &str = "Provide valid Unix epoch timestamp";
     match RE_UNIX_EPOCH.is_match(&value.to_string()) {
         | Ok(value) if value => Ok(()),
         | _ => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),

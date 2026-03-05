@@ -67,7 +67,7 @@ pub struct Research {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_RESEARCH_FOCUS",
-        message = "Focus is too long, please reduce the length below 150 characters."
+        message = "Focus is too long, reduce the length below 150 characters."
     ))]
     #[builder(default = "Focus of the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
@@ -104,10 +104,7 @@ pub struct ResearchActivity {
     #[serde(deserialize_with = "string_trim")]
     pub title: String,
     /// Short description that augments the title of the associated research activity
-    #[validate(length(
-        max = "MAX_LENGTH_SUBTITLE",
-        message = "Subtitle is too long, please reduce the length below 75 characters."
-    ))]
+    #[validate(length(max = "MAX_LENGTH_SUBTITLE", message = "Subtitle is too long, reduce the length below 75 characters."))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub subtitle: Option<String>,
     /// Prose components of associated research activity
@@ -299,7 +296,7 @@ pub struct Sections {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_MISSION",
-        message = "Mission is too long, please reduce the length below 250 characters."
+        message = "Mission is too long, reduce the length below 250 characters."
     ))]
     #[builder(default = "Purpose of the research".to_string())]
     #[serde(alias = "introduction", deserialize_with = "string_trim")]
@@ -310,7 +307,7 @@ pub struct Sections {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_CHALLENGE",
-        message = "Challenge is too long, please reduce the length below 500 characters."
+        message = "Challenge is too long, reduce the length below 500 characters."
     ))]
     #[builder(default = "Reason for the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
@@ -321,7 +318,7 @@ pub struct Sections {
     /// - "Research into new fields including nuclear fission, isotope separation methods, uranium enrichment, plutonium development, and weapons design"
     /// - "Military coordination for project construction and security management as well as defense communications to national leaders"
     #[validate(
-        length(min = 1, max = "MAX_COUNT_APPROACH", message = "Please limit the number of approaches to 6"),
+        length(min = 1, max = "MAX_COUNT_APPROACH", message = "Limit the number of approaches to 6"),
         custom(function = "is_attribute_approach")
     )]
     #[builder(default = vec!["List of actions taken to perform the research".to_string()])]
@@ -340,7 +337,7 @@ pub struct Sections {
     /// ### Examples
     /// - "At least six Nobel Prizes awarded to Manhattan Project researchers in the years following the end of the project"
     /// - "Creation of the Atomic Energy Commission in 1946, later becoming the Department of Energy and Nuclear Regulatory Commission"
-    #[validate(length(min = 1, max = 4, message = "Please limit the number of achievements to 4"))]
+    #[validate(length(min = 1, max = 4, message = "Limit the number of achievements to 4"))]
     pub achievement: Option<Vec<String>>,
     /// Expertise as applied to technology in a given mission space
     /// ### Examples
