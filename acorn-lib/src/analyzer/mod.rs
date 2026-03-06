@@ -159,8 +159,9 @@ impl Analysis for ResearchActivity {
         let futures = paths.into_iter().map(|path| async move {
             match ResearchActivity::read(&path) {
                 | Ok(data) => {
-                    let mut issues = vec![];
-                    if !is_offline {
+                    let issues = if is_offline {
+                        vec![]
+                    } else {
                         let dois = match data.clone().meta.doi {
                             | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
                             | None => vec![],
@@ -171,8 +172,8 @@ impl Analysis for ResearchActivity {
                         };
                         let links: Vec<String> = dois.into_iter().chain(websites).chain([data.clone().contact.url]).collect();
                         let link_futures = links.into_iter().map(|url| link_check(Some(url)));
-                        issues = join_all(link_futures).await;
-                    }
+                        join_all(link_futures).await
+                    };
                     issues.into_iter().map(|check| check.with_context(path.file_name_with_parent())).collect()
                 }
                 | Err(why) => {
@@ -346,7 +347,6 @@ impl Check {
                     | Some(ErrorKind::Vale(values)) => {
                         let title = self.uri.unwrap_or("index.json".to_string());
                         if let Some(text) = &context {
-                            println!();
                             values.iter().enumerate().for_each(|(index, item)| {
                                 let ValeOutputItem {
                                     check,

@@ -17,6 +17,7 @@ use bon::Builder;
 #[cfg(feature = "std")]
 use convert_case::{Case, Casing};
 use core::hash::Hash;
+use core::iter::once;
 use core::num::NonZeroU64;
 use derive_more::Display;
 #[cfg(feature = "std")]
@@ -687,21 +688,17 @@ impl Organization {
     /// This function collects the organization, its directorates, divisions, and groups
     /// into a single vector, maintaining their hierarchical order.
     pub fn members(self) -> Vec<Organization> {
-        let organization = self;
-        let mut items = vec![organization.clone()];
-        let directorates = organization.member.clone();
-        for directorate in &directorates {
-            items.push(directorate.clone());
-            let divisions = directorate.member.clone();
-            for division in &divisions {
-                items.push(division.clone());
-                let groups = division.member.clone();
-                for group in &groups {
-                    items.push(group.clone());
-                }
-            }
-        }
-        items
+        let organization = self.clone();
+        once(organization.clone())
+            .chain(organization.member.iter().flat_map(|directorate| {
+                once(directorate.clone()).chain(
+                    directorate
+                        .member
+                        .iter()
+                        .flat_map(|division| once(division.clone()).chain(division.member.iter().cloned())),
+                )
+            }))
+            .collect()
     }
     /// Returns the nearest organization of the given type in the organization hierarchy.
     pub fn nearest(self, organization_type: OrganizationType) -> Option<Organization> {
@@ -748,18 +745,18 @@ impl Organization {
         let mut graph: Graph<String, u8, petgraph::Directed> = Graph::new();
         let organization = &self;
         let root = graph.add_node(organization.name.clone());
-        for directorate in organization.member.iter() {
+        organization.member.iter().for_each(|directorate| {
             let a = graph.add_node(directorate.name.clone());
             graph.add_edge(root, a, 0);
-            for division in directorate.member.iter() {
+            directorate.member.iter().for_each(|division| {
                 let b = graph.add_node(division.name.clone());
                 graph.add_edge(a, b, 0);
-                for group in division.member.iter() {
+                division.member.iter().for_each(|group| {
                     let c = graph.add_node(group.name.clone());
                     graph.add_edge(b, c, 0);
-                }
-            }
-        }
+                });
+            });
+        });
         graph
     }
 }
@@ -915,24 +912,20 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
 }
 pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
     let organization = &Organization::load()[0];
-    let mut items = vec![organization.clone()];
-    let directorates = organization.member.clone();
-    for directorate in &directorates {
-        items.push(directorate.clone());
-        let divisions = directorate.member.clone();
-        for division in &divisions {
-            items.push(division.clone());
-        }
-    }
+    let items: Vec<Organization> = once(organization.clone())
+        .chain(
+            organization
+                .member
+                .iter()
+                .flat_map(|directorate| once(directorate.clone()).chain(directorate.member.iter().cloned())),
+        )
+        .collect();
     let data = items
         .into_iter()
         .map(|x| (x.name.clone(), x.alternative_name.clone()))
         .filter(|(name, alias)| !(name.is_empty() && alias.is_none()))
         .map(|(name, alias)| {
-            let alternative_name = match alias {
-                | Some(x) => x.to_string(),
-                | None => name.clone(),
-            };
+            let alternative_name = alias.as_ref().map_or(name.clone(), |x| x.to_string());
             vec![name, alternative_name]
         })
         .collect::<Vec<Vec<String>>>();

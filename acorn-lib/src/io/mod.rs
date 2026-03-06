@@ -944,16 +944,17 @@ where
     let path_buf = path.into();
     let filename = path_buf.file_name().unwrap_or_default().to_string_lossy().to_string();
     let file = match File::open(&path_buf) {
-        | Ok(file) => file,
+        | Ok(f) => f,
         | Err(why) => {
             error!(filename, "=> {} Read large file", Label::fail());
             return Err(why);
         }
     };
-    let capacity = match file.metadata() {
-        | Ok(metadata) => usize::try_from(metadata.len()).unwrap_or(0),
-        | Err(_) => 0,
-    };
+    let capacity = file
+        .metadata()
+        .ok()
+        .and_then(|metadata| usize::try_from(metadata.len()).ok())
+        .unwrap_or(0);
     let mut reader = BufReader::with_capacity(1024 * 1024, file);
     let mut content = if capacity > 0 { String::with_capacity(capacity) } else { String::new() };
     match reader.read_to_string(&mut content) {

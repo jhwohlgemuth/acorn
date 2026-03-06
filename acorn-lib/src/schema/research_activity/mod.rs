@@ -412,20 +412,22 @@ impl Hash for ResearchActivity {
 }
 impl LinkedData for ResearchActivity {
     fn with_context(&self) -> Self {
-        let mut clone = self.clone().copy();
-        clone.context = Some(ResearchActivityContext::default());
-        clone.research_activity_type = None;
-        clone.meta = self.meta.with_context();
-        clone.contact = self.contact.with_context();
-        clone
+        Self {
+            context: Some(ResearchActivityContext::default()),
+            research_activity_type: None,
+            meta: self.meta.with_context(),
+            contact: self.contact.with_context(),
+            ..self.clone().copy()
+        }
     }
 }
 impl LinkedData for ResearchActivityMetadata {
     fn with_context(&self) -> Self {
-        let mut clone = self.clone();
-        clone.context = Some(ResearchActivityMetadataContext::default());
-        clone.metadata_type = None;
-        clone
+        Self {
+            context: Some(ResearchActivityMetadataContext::default()),
+            metadata_type: None,
+            ..self.clone()
+        }
     }
 }
 #[cfg(feature = "std")]
@@ -519,7 +521,10 @@ impl ResearchActivity {
     /// Print research activity schema as JSON schema
     pub fn to_schema() {
         let schema = schema_for!(ResearchActivity);
-        println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+        match serde_json::to_string_pretty(&schema) {
+            | Ok(json) => println!("{}", json),
+            | Err(why) => eprintln!("Failed to serialize schema: {}", why),
+        }
     }
     /// Creates a copy of a `ResearchActivity`
     pub fn copy(&self) -> ResearchActivity {
@@ -547,10 +552,11 @@ impl ResearchActivity {
     /// - Formats contact telephone number
     pub fn format(self) -> ResearchActivity {
         let Self { meta, contact, .. } = self.clone();
-        let mut clone = self.clone();
-        clone.meta = meta.format();
-        clone.contact = contact.format();
-        clone
+        Self {
+            meta: meta.format(),
+            contact: contact.format(),
+            ..self
+        }
     }
     /// Formats research activity data with context of filesystem and/or remote resources
     /// ### Actions
@@ -559,10 +565,12 @@ impl ResearchActivity {
     #[cfg(feature = "std")]
     pub fn format_with(self, context: Option<PathBuf>) -> ResearchActivity {
         let Self { meta, contact, .. } = self.clone();
-        let mut clone = self.clone();
-        clone.meta = meta.format_with(context.clone());
-        clone.contact = contact.format_with(context.clone());
-        clone.format()
+        Self {
+            meta: meta.format_with(context.clone()),
+            contact: contact.format_with(context.clone()),
+            ..self
+        }
+        .format()
     }
 }
 impl ToMarkdown for ResearchActivity {

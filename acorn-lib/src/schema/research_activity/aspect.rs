@@ -287,17 +287,19 @@ impl Default for DataDescriptionContext {
 }
 impl LinkedData for AspectFramework {
     fn with_context(&self) -> Self {
-        let mut clone = self.clone();
-        clone.context = Some(AspectFrameworkContext::default());
-        clone.aspect_type = None;
-        clone
+        Self {
+            context: Some(AspectFrameworkContext::default()),
+            aspect_type: None,
+            ..self.clone()
+        }
     }
 }
 impl LinkedData for DataDescription {
     fn with_context(&self) -> Self {
-        let mut clone = self.clone();
-        clone.context = Some(DataDescriptionContext::default());
-        clone.description_type = None;
-        clone
+        Self {
+            context: Some(DataDescriptionContext::default()),
+            description_type: None,
+            ..self.clone()
+        }
     }
 }

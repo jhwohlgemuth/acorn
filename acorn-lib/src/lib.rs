@@ -322,7 +322,6 @@ impl Repository {
                     match text {
                         | Ok(text) => {
                             if text.contains("API rate limit exceeded") {
-                                println!("API rate limit exceeded");
                                 error!("=> {} GitHub API rate limit exceeded", Label::fail());
                                 vec![]
                             } else {

@@ -982,7 +982,10 @@ impl Metadata {
     /// Print research activity identifier (RAiD) metadata schema as JSON schema
     pub fn to_schema() {
         let schema = schema_for!(Metadata);
-        println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+        match serde_json::to_string_pretty(&schema) {
+            | Ok(json) => println!("{}", json),
+            | Err(why) => eprintln!("Failed to serialize schema: {}", why),
+        }
     }
     /// Read RAiD metadata from a file
     #[cfg(feature = "std")]
@@ -992,14 +995,12 @@ impl Metadata {
                 | Ok(value) => Ok(value),
                 | Err(why) => {
                     let msg = format!("Parse RAiD metadata - {why}");
-                    println!("=> {} {}", Label::fail(), msg);
                     error!("=> {} {}", Label::fail(), msg);
                     Err(Error::other(msg))
                 }
             },
             | Err(why) => {
                 let msg = format!("Read RAiD metadata file - {why}");
-                println!("=> {} {}", Label::fail(), msg);
                 error!("=> {} {}", Label::fail(), msg);
                 Err(Error::other(msg))
             }
