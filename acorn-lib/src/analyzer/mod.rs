@@ -1090,7 +1090,7 @@ pub(crate) fn highlighted_span_from_params(source: Source, code: ErrorCode, para
             | Some(span) => Some(span),
             | None => None,
         },
-        | value if params.get("index").is_some() => match highlighted_span_for_array(source.clone(), params.clone()) {
+        | _ if params.get("index").is_some() => match highlighted_span_for_array(source.clone(), params.clone()) {
             | Some(span) => Some(span),
             | None => None,
         },

@@ -218,6 +218,9 @@ pub enum Commands {
         /// > CAUTION: Use at your own risk
         #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
         no_fail: bool,
+        /// Use compact output format instead of detailed output
+        #[arg(short = 't', long, value_name = "BOOL", help_heading = "FLAGS")]
+        terse: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },

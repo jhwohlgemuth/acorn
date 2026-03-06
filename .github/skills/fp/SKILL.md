@@ -1,6 +1,6 @@
 ---
 name: fp
-description: Functional programming (FP) principles for use whenever code is involved. FP emphasizes immutability, composability, and purity to create clearer, more predictable code. This skill should be applied whenever writing or modifying code, especially when it can lead to simpler and more maintainable solutions.
+description: Functional programming (FP) principles for use whenever code is involved. FP emphasizes immutability, composability, and purity to create clearer, more predictable code. This skill should be applied whenever writing or modifying code, especially when it can lead to simpler and more maintainable solutions. *use this skill whenever code is involved*
 license: MIT
 ---
 

@@ -34,6 +34,7 @@ pub async fn run(
     skip_verify_checksum: &bool,
     offline: &bool,
     no_fail: &bool,
+    terse: &bool,
     readability_metric: &ReadabilityTypeArgument,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
@@ -123,26 +124,31 @@ pub async fn run(
         .chain(website_checks.clone())
         .filter(|Check { success, .. }| !success)
         .collect::<Vec<Check>>();
-    print_detailed(all_issues.clone());
-    print_compact(all_issues.clone());
-    if count(all_issues.clone()) > 0 && !*no_fail {
+    if *terse {
+        print_compact(&all_issues);
+    } else {
+        print_detailed(&all_issues);
+    }
+    if !(*no_fail || *terse) {
         if level.is_some() {
-            // Summary
-            let headers = vec!["Issue Type", "Issue Count"];
-            let rows = summary(all_issues);
-            print_values_as_table::<String>(headers, rows, None);
+            print_summary(&all_issues);
         }
         exit(exitcode::DATAERR);
     }
     Ok(())
 }
-fn print_detailed(issues: Vec<Check>) {
+fn print_detailed(issues: &[Check]) {
     issues.iter().for_each(|issue| {
         issue.clone().report();
     });
 }
-fn print_compact(issues: Vec<Check>) {
+fn print_compact(issues: &[Check]) {
     issues.iter().for_each(|issue| {
         println!("{issue}");
     });
+}
+fn print_summary(issues: &[Check]) {
+    let headers = vec!["Issue Type", "Issue Count"];
+    let rows = summary(issues.to_vec());
+    print_values_as_table::<String>(headers, rows, None);
 }

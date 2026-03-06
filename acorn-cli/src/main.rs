@@ -129,6 +129,7 @@ async fn main() -> Void {
             merge_request,
             skip_verify_checksum,
             no_fail,
+            terse,
             readability_metric,
             verbose,
             ..
@@ -145,6 +146,7 @@ async fn main() -> Void {
                 skip_verify_checksum,
                 &offline,
                 no_fail,
+                terse,
                 readability_metric,
                 verbose,
             )
