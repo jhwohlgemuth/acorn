@@ -4,6 +4,7 @@
 
 setup:
 	@cargo install $(DEV_DEPENDENCIES) --locked
+	@rustup target add $(TARGETS)
 
 audit:
 	@cargo udeps
