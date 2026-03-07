@@ -641,23 +641,27 @@ impl ResearchActivityMetadata {
     }
     /// Fix, resolve, and augment research activity metadata
     pub fn format(self) -> Self {
-        let mut clone = self.clone();
-        clone.keywords = Vocabulary::Keywords.resolve(Some(clone.keywords));
-        clone.technology = Vocabulary::Technology.resolve(Some(clone.technology));
-        clone.partners = match Vocabulary::Partners.resolve(clone.partners) {
+        let keywords = Vocabulary::Keywords.resolve(Some(self.keywords.clone()));
+        let technology = Vocabulary::Technology.resolve(Some(self.technology.clone()));
+        let partners = match Vocabulary::Partners.resolve(self.partners.clone()) {
             | values if !values.is_empty() => Some(values),
             | _ => None,
         };
-        clone.sponsors = match Vocabulary::Sponsors.resolve(clone.sponsors) {
+        let sponsors = match Vocabulary::Sponsors.resolve(self.sponsors.clone()) {
             | values if !values.is_empty() => Some(values),
             | _ => None,
         };
-        clone
+        Self {
+            keywords,
+            technology,
+            partners,
+            sponsors,
+            ..self
+        }
     }
     /// Fix, resolve, and augment research activity metadata with access to filesystem and/or remote resources
     #[cfg(feature = "std")]
     pub fn format_with(self, path: Option<PathBuf>) -> Self {
-        let mut clone = self.clone();
         let path_parent = match path {
             | Some(value) => parent(value),
             | None => PathBuf::from("."),
@@ -667,28 +671,29 @@ impl ResearchActivityMetadata {
             | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
             | _ => None,
         };
-        if let Some(value) = name {
-            debug!(value, "=> {} First image", Label::using());
-            // Make sure first graphic is well formed with a resolved image URL and caption
-            let first_graphic = match self.media.clone() {
-                | Some(values) if !values.is_empty() => {
-                    let caption = self.clone().first_image_caption();
-                    let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
-                    MediaObject::Image(image_data)
-                }
-                | Some(_) | None => {
-                    let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
-                    MediaObject::Image(image_data)
-                }
-            };
-            // Get the rest of the media objects
-            let rest = match self.clone().media {
-                | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
-                | Some(_) | None => vec![],
-            };
-            clone.media = Some([vec![first_graphic], rest].concat());
+        let media = match name {
+            | Some(value) => {
+                debug!(value, "=> {} First image", Label::using());
+                let first_graphic = match self.media.clone() {
+                    | Some(values) if !values.is_empty() => {
+                        let caption = self.clone().first_image_caption();
+                        let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
+                        MediaObject::Image(image_data)
+                    }
+                    | Some(_) | None => {
+                        let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
+                        MediaObject::Image(image_data)
+                    }
+                };
+                let rest = match self.clone().media {
+                    | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
+                    | Some(_) | None => vec![],
+                };
+                Some([vec![first_graphic], rest].concat())
+            }
+            | None => self.media.clone(),
         };
-        clone.format()
+        Self { media, ..self }.format()
     }
 }
 impl Vocabulary {

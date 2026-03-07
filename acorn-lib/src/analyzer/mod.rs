@@ -6,7 +6,7 @@ use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder};
 #[cfg(feature = "std")]
 use crate::io::{get, InputOutput};
-use crate::prelude::{self, create_dir_all, remove_file, Command, CommandOutput, Error, File, HashMap, PathBuf, Write};
+use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, Error, File, HashMap, PathBuf, Write};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::{
@@ -650,12 +650,10 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | Err(why) => error!(path = root.clone().to_absolute_string(), "=> {} Create - {why}", Label::fail()),
         }
         let path = root.join("index.json");
-        let mut file = match File::create(&path) {
-            | Ok(file) => file,
-            | Err(why) => panic!("=> {} Create file {} - {why}", Label::fail(), path.display()),
-        };
-        file.write_all(content.as_bytes())
-            .expect("Unable to write to cache directory project file");
+        match write(&path, content.as_bytes()) {
+            | Ok(_) => {}
+            | Err(why) => panic!("=> {} Write file {} - {why}", Label::fail(), path.display()),
+        }
         let binary = match &self.binary {
             | Some(value) => value,
             | None => {

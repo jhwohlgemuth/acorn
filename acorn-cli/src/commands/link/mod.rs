@@ -1,13 +1,12 @@
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::io::{FromPath, InputOutput};
-use acorn::prelude::{File, PathBuf, Write};
+use acorn::prelude::{exit, write, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{print_changes, Label, MimeType, StringConversion};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::process::exit;
 use tracing::{error, info};
 
 pub async fn run(
@@ -50,14 +49,7 @@ pub async fn run(
             }
             if !dry_run {
                 let filepath = path.clone().with_extension("jsonld").to_absolute_string();
-                let mut file = match File::create(&filepath) {
-                    | Ok(file) => file,
-                    | Err(why) => {
-                        error!(file = filepath, "=> {} Create - {why}", Label::fail());
-                        exit(exitcode::UNAVAILABLE);
-                    }
-                };
-                match file.write_all(new_content.as_bytes()) {
+                match write(&filepath, new_content.as_bytes()) {
                     | Ok(_) => {
                         info!(file = filepath, "=> {} Linked", Label::pass());
                     }

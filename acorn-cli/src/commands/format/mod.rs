@@ -1,14 +1,13 @@
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::fail;
 use acorn::io::{FromPath, InputOutput};
-use acorn::prelude::{File, PathBuf, Write};
+use acorn::prelude::{exit, write, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{print_changes, Label, MimeType, StringConversion};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::process::exit;
 use tracing::info;
 
 #[allow(clippy::too_many_arguments)]
@@ -62,14 +61,7 @@ pub async fn run(
                 }
             }
             if !dry_run {
-                let mut file = match File::create(path) {
-                    | Ok(file) => file,
-                    | Err(why) => {
-                        fail!("Create - {}", why);
-                        exit(exitcode::UNAVAILABLE);
-                    }
-                };
-                match file.write_all(new_content.as_bytes()) {
+                match write(path, new_content.as_bytes()) {
                     | Ok(_) => {
                         info!("=> {} Formatted", Label::pass());
                     }

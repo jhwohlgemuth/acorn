@@ -19,3 +19,11 @@ license: MIT
 - This leads to clearer, more predictable code that is easier to test and debug.
 
 OOP makes code understandable by encapsulating moving parts. Functional Programming makes code understandable by minimizing moving parts.
+
+## Unique applications to Rust
+- Avoid adding `?` to the code — always handle errors properly. This promotes better error handling and prevents silent failures.
+- Import modules at the top of the file, not inside functions. This keeps dependencies clear and avoids unnecessary imports.
+- Avoid using `mut` unless necessary. Emphasize immutability to enhance code safety and readability.
+- Use iterators and functional combinators (like `map`, `filter`, `fold`) instead of loops and mutable state. This promotes a more declarative style of programming.
+- Leverage Rust's powerful type system to create abstractions that promote immutability and composability, such as using `Option` and `Result` types for error handling instead of mutable state.
+- Always prefer `core` over `std` when possible, as it is more lightweight and promotes a functional programming style by avoiding unnecessary dependencies and side effects.

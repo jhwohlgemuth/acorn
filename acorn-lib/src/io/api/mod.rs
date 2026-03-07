@@ -604,7 +604,6 @@ impl RemoteResource for Endpoint {
                 let params = data.unwrap_or_default();
                 let headers = params.clone().into_headers();
                 let body = params.into_body();
-                dbg!(&path);
                 let request = match method {
                     | HttpMethod::Get => get(path),
                     | HttpMethod::Post => post(path).json(&body),
@@ -647,41 +646,21 @@ impl ValueValidator for EmptyField {
 pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
     fn extract_key(expression: &str) -> Option<String> {
         let trimmed = expression.trim().trim_matches('-');
-        let mut base_parts = trimmed.split('|');
-        let base = match base_parts.next() {
-            | Some(value) => value.trim(),
-            | None => return None,
-        };
-        let mut key_parts = base.split_whitespace();
-        let key = match key_parts.next() {
-            | Some(value) => value.trim(),
-            | None => return None,
-        };
-        if key.is_empty() {
-            None
-        } else {
-            Some(key.to_string())
-        }
+        trimmed
+            .split('|')
+            .next()
+            .map(str::trim)
+            .and_then(|base| base.split_whitespace().next().map(str::trim))
+            .and_then(|key| (!key.is_empty()).then(|| key.to_string()))
     }
-    let mut keys = Vec::new();
     let mut seen = HashSet::new();
-    let mut remaining = template;
-    while let Some(start) = remaining.find("{{") {
-        remaining = &remaining[start + 2..];
-        let end = match remaining.find("}}") {
-            | Some(value) => value,
-            | None => break,
-        };
-        let raw = &remaining[..end];
-        if let Some(key) = extract_key(raw) {
-            let key_value = key.to_string();
-            if seen.insert(key_value.clone()) {
-                keys.push(key_value);
-            }
-        }
-        remaining = &remaining[end + 2..];
-    }
-    keys
+    template
+        .split("{{")
+        .skip(1)
+        .filter_map(|segment| segment.split_once("}}").map(|(before, _)| before))
+        .filter_map(extract_key)
+        .filter(|key| seen.insert(key.clone()))
+        .collect()
 }
 /// Create a query string component from a key-value pair with key and value validation
 pub(crate) fn param_from_key_value_pair<T: QueryField + ValueValidator>(key: &str, value: &str) -> Option<String> {

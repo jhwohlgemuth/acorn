@@ -194,7 +194,6 @@ fn test_extract_template_keys() {
     let keys = extract_template_keys(template);
     let expected = vec!["base", "identifier"].into_iter().map(String::from).collect::<Vec<String>>();
     assert_eq!(keys, expected);
-
     let template = "{{ base }}/{{ missing";
     let keys = extract_template_keys(template);
     let expected = vec!["base"].into_iter().map(String::from).collect::<Vec<String>>();

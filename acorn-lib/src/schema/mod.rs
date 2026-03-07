@@ -711,33 +711,17 @@ impl Organization {
             let graph = ornl.clone().to_graph();
             let name = match b - a {
                 | 3 => Some(ornl.clone().name),
-                | 2 => match node_from_label(&graph, &self.name) {
-                    | Some(node) => match node_parent(&graph, node) {
-                        | Some(parent) => match node_parent(&graph, parent) {
-                            | Some(grandparent) => node_name(&graph, grandparent),
-                            | None => None,
-                        },
-                        | None => None,
-                    },
-                    | None => None,
-                },
-                | 1 => match node_from_label(&graph, &self.name) {
-                    | Some(node) => match node_parent(&graph, node) {
-                        | Some(parent) => node_name(&graph, parent),
-                        | None => None,
-                    },
-                    | None => None,
-                },
+                | 2 => node_from_label(&graph, &self.name)
+                    .and_then(|node| node_parent(&graph, node))
+                    .and_then(|parent| node_parent(&graph, parent))
+                    .and_then(|grandparent| node_name(&graph, grandparent)),
+                | 1 => node_from_label(&graph, &self.name)
+                    .and_then(|node| node_parent(&graph, node))
+                    .and_then(|parent| node_name(&graph, parent)),
                 | 0 => Some(self.name),
                 | _ => None,
             };
-            match name {
-                | Some(value) => match ornl.member(&value) {
-                    | Some(organization) => Some(organization),
-                    | None => None,
-                },
-                | None => None,
-            }
+            name.and_then(|value| ornl.member(&value))
         }
     }
     /// Returns a graph representation of the organization hierarchy.
@@ -745,17 +729,21 @@ impl Organization {
         let mut graph: Graph<String, u8, petgraph::Directed> = Graph::new();
         let organization = &self;
         let root = graph.add_node(organization.name.clone());
-        organization.member.iter().for_each(|directorate| {
-            let a = graph.add_node(directorate.name.clone());
-            graph.add_edge(root, a, 0);
-            directorate.member.iter().for_each(|division| {
-                let b = graph.add_node(division.name.clone());
-                graph.add_edge(a, b, 0);
-                division.member.iter().for_each(|group| {
-                    let c = graph.add_node(group.name.clone());
-                    graph.add_edge(b, c, 0);
-                });
-            });
+        let edges: Vec<(String, String)> = organization
+            .member
+            .iter()
+            .flat_map(|directorate| {
+                once((organization.name.clone(), directorate.name.clone())).chain(directorate.member.iter().flat_map(|division| {
+                    once((directorate.name.clone(), division.name.clone()))
+                        .chain(division.member.iter().map(|group| (division.name.clone(), group.name.clone())))
+                }))
+            })
+            .collect();
+
+        edges.into_iter().for_each(|(parent_name, child_name)| {
+            let parent = node_from_label(&graph, &parent_name).unwrap_or(root);
+            let child = node_from_label(&graph, &child_name).unwrap_or_else(|| graph.add_node(child_name.clone()));
+            graph.add_edge(parent, child, 0);
         });
         graph
     }

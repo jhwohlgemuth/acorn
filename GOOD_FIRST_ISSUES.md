@@ -16,10 +16,8 @@ This document catalogs opportunities to improve the ACORN codebase by applying f
 ### 1.1 Remove Debug `println!` Statements
 
 **Locations:**
-- `acorn-lib/src/analyzer/mod.rs:349` - Empty println in code
-- `acorn-lib/src/schema/research_activity/mod.rs:522` - Debug JSON output
-- `acorn-lib/src/schema/pid/raid.rs:985,995,1002` - Debug print statements
-- `acorn-lib/src/lib.rs:325` - Rate limit print
+- `acorn-lib/src/schema/pid/raid.rs:986-987` - Debug print in serialization
+- `acorn-lib/src/schema/research_activity/mod.rs:525-526` - Debug JSON output
 
 **Change:** Replace with proper logging (`tracing::debug!`/`info!`) or remove entirely.
 
@@ -28,28 +26,43 @@ This document catalogs opportunities to improve the ACORN codebase by applying f
 ### 1.2 Replace Nested `for` Loops with Iterator Chains
 
 **Locations:**
-- `acorn-lib/src/schema/mod.rs:693-704` - Triple nested loop building member list
-- `acorn-lib/src/schema/mod.rs:751-762` - Similar pattern in `to_graph()` method
-- `acorn-lib/src/schema/mod.rs:920-930` - Duplicate of above
+- `acorn-lib/src/schema/mod.rs:748-759` - Nested `for_each` in `to_graph()` method
 
 **Current pattern:**
 ```rust
-let mut items = vec![organization.clone()];
-for directorate in &directorates {
-    items.push(directorate.clone());
-    for division in &divisions {
-        items.push(division.clone());
-        // ...
-    }
-}
+organization.member.iter().for_each(|directorate| {
+    let a = graph.add_node(directorate.name.clone());
+    graph.add_edge(root, a, 0);
+    directorate.member.iter().for_each(|division| {
+        let b = graph.add_node(division.name.clone());
+        graph.add_edge(a, b, 0);
+        division.member.iter().for_each(|group| {
+            // ...
+        });
+    });
+});
 ```
 
 **Suggested refactor:**
 ```rust
-std::iter::once(organization.clone())
-    .chain(directorates.iter().cloned())
-    .chain(divisions.iter().flat_map(|d| std::iter::once(d.clone()).chain(groups.iter().cloned())))
-    .collect()
+use petgraph::graph::NodeIndex;
+use std::collections::HashMap;
+
+let mut indices: HashMap<_, NodeIndex<u32>> = HashMap::new();
+indices.insert(organization.name.clone(), root);
+
+organization.member.iter().flat_map(|d| {
+    std::iter::once(d).chain(d.member.iter().flat_map(|div| {
+        std::iter::once(div).chain(div.member.iter())
+    }))
+}).for_each(|org| {
+    let parent = // find parent index
+    let idx = graph.add_node(org.name.clone());
+    if let Some(p) = parent {
+        graph.add_edge(p, idx, 0);
+    }
+    indices.insert(org.name.clone(), idx);
+});
 ```
 
 ---
@@ -57,10 +70,9 @@ std::iter::once(organization.clone())
 ### 1.3 Replace `.push()` in Loops with Immutable Collection Building
 
 **Locations:**
-- `acorn-lib/src/schema/mod.rs:694,697,700,921,924`
-- `acorn-lib/src/io/api/mod.rs:679`
+- `acorn-lib/src/io/api/mod.rs:679` - Template key extraction loop
 
-**Change:** Use `.iter().flat_map().collect()` or iterator chains instead.
+**Change:** Use `.iter().flat_map().collect()` or iterator chains instead when possible.
 
 ---
 
@@ -81,39 +93,39 @@ x.map_or(default, |y| ...)
 
 ---
 
-### 1.5 Consolidate Duplicate Organization Hierarchy Code
+### 1.5 Refactor Match Expressions to Option Methods
 
-**Location:** `acorn-lib/src/schema/mod.rs`
+**Locations:**
+- `acorn-lib/src/schema/mod.rs:712-740` - Nested match blocks in `nearest()` method
 
-The `members()` method at lines 689-704 and 916-930 are nearly identical.
-
-**Change:** Extract to single pure function, reuse in both places.
+**Change:** Use `and_then()`, `map()`, or `map_or()` to flatten nested matches.
 
 ---
 
 ## Priority 2: Moderate Complexity
 
-### 2.1 Eliminate Unnecessary `let mut` in Iterator Transformations
+### 2.1 Eliminate Unnecessary Mutable Variables in Loops
 
 **Locations:**
-- `acorn-lib/src/analyzer/mod.rs:162` - `let mut issues = vec![]` then reassigned
+- `acorn-lib/src/io/mod.rs:366` - `let mut success = true` mutated in for loop
 - `acorn-lib/src/schema/research_activity/mod.rs:415,425,550,562,636,652`
 
 **Current:**
 ```rust
-let mut issues = vec![];
-if !is_offline {
-    issues = join_all(link_futures).await;
+let mut success = true;
+for index in 0..archive.len() {
+    // ...
+    if error_occurred {
+        success = false;
+    }
 }
 ```
 
 **Refactor to:**
 ```rust
-let issues = if is_offline {
-    vec![]
-} else {
-    join_all(link_futures).await
-};
+let success = (0..archive.len()).all(|index| {
+    // returns true if all succeed, false otherwise
+});
 ```
 
 ---
@@ -166,12 +178,12 @@ Large validation block with many `let mut err = ValidationError::new()`.
 
 | # | Location | Type | Difficulty |
 |---|----------|------|------------|
-| 1.1 | analyzer/mod.rs, schema/*, lib.rs | Remove println! | Easy |
-| 1.2 | schema/mod.rs | Iterator chains | Easy |
-| 1.3 | schema/mod.rs, io/api/mod.rs | Remove .push() | Easy |
+| 1.1 | schema/pid/raid.rs, schema/research_activity/mod.rs | Remove println! | Easy |
+| 1.2 | schema/mod.rs:748-759 | Iterator chains | Easy |
+| 1.3 | io/api/mod.rs:679 | Remove .push() | Easy |
 | 1.4 | Throughout | Use map_or | Easy |
-| 1.5 | schema/mod.rs | Deduplicate | Easy |
-| 2.1 | analyzer/mod.rs, schema/* | Remove let mut | Moderate |
+| 1.5 | schema/mod.rs:712-740 | Flatten matches | Easy |
+| 2.1 | io/mod.rs:366, schema/* | Remove let mut | Moderate |
 | 2.2 | io/mod.rs, commands/* | File operations | Moderate |
 | 2.3 | io/mod.rs, io/api/mod.rs | Early returns | Moderate |
 | 3.1 | schema/research_activity/mod.rs | Extract pure fn | Advanced |

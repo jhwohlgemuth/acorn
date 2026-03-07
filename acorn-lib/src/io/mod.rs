@@ -363,36 +363,34 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBu
     match File::open(path.clone()) {
         | Ok(zip_file) => match ZipArchive::new(zip_file) {
             | Ok(mut archive) => {
-                let mut success = true;
-                for index in 0..archive.len() {
-                    match archive.by_index(index) {
-                        | Ok(mut file) => {
-                            let target = root.join(file.name());
-                            if let Some(parent) = target.parent() {
-                                match create_dir_all(parent) {
-                                    | Ok(_) => {}
-                                    | Err(why) => error!(path = parent.to_path_buf().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
-                                }
-                            }
-                            if let Ok(mut output_file) = File::create(&target) {
-                                match io::copy(&mut file, &mut output_file) {
-                                    | Ok(_) => {}
-                                    | Err(why) => {
-                                        error!(path = target.to_absolute_string(), "=> {} Copy file content - {why}", Label::fail());
-                                        success = false
-                                    }
-                                }
-                            } else {
-                                error!(path = target.to_absolute_string(), "=> {} Create file", Label::fail());
-                                success = false
+                let success = (0..archive.len()).all(|index| match archive.by_index(index) {
+                    | Ok(mut file) => {
+                        let target = root.join(file.name());
+                        if let Some(parent) = target.parent() {
+                            match create_dir_all(parent) {
+                                | Ok(_) => {}
+                                | Err(why) => error!(path = parent.to_path_buf().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
                             }
                         }
-                        | Err(why) => {
-                            error!(path = path.to_absolute_string(), "=> {} Extract file - {why}", Label::fail());
-                            success = false
+                        match File::create(&target) {
+                            | Ok(mut output_file) => match io::copy(&mut file, &mut output_file) {
+                                | Ok(_) => true,
+                                | Err(why) => {
+                                    error!(path = target.to_absolute_string(), "=> {} Copy file content - {why}", Label::fail());
+                                    false
+                                }
+                            },
+                            | Err(_) => {
+                                error!(path = target.to_absolute_string(), "=> {} Create file", Label::fail());
+                                false
+                            }
                         }
                     }
-                }
+                    | Err(why) => {
+                        error!(path = path.to_absolute_string(), "=> {} Extract file - {why}", Label::fail());
+                        false
+                    }
+                });
                 if success {
                     info!(path = root.to_absolute_string(), "=> {} Extract zip archive", Label::pass());
                     Ok(root)
