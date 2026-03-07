@@ -484,20 +484,18 @@ impl IntoHeaders for Vec<Param> {
         let mut headers = HeaderMap::new();
         self.into_iter().filter(|param| param.is_header()).for_each(|param| {
             let Param { name, values, .. } = param;
-            let name: HeaderName = match name.parse() {
-                | Ok(header_name) => header_name,
-                | Err(_) => return,
-            };
-            values.into_iter().for_each(|vec| {
-                vec.into_iter().for_each(|opt_value| {
-                    if let Some(raw) = opt_value {
-                        if let Ok(mut header_value) = HeaderValue::from_str(&raw) {
-                            header_value.set_sensitive(true);
-                            headers.append(name.clone(), header_value);
+            if let Ok(header_name) = name.parse::<HeaderName>() {
+                values.into_iter().for_each(|vec| {
+                    vec.into_iter().for_each(|opt_value| {
+                        if let Some(raw) = opt_value {
+                            if let Ok(mut header_value) = HeaderValue::from_str(&raw) {
+                                header_value.set_sensitive(true);
+                                headers.append(header_name.clone(), header_value);
+                            }
                         }
-                    }
+                    });
                 });
-            });
+            }
         });
         headers
     }

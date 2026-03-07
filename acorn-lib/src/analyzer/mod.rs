@@ -6,7 +6,7 @@ use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder};
 #[cfg(feature = "std")]
 use crate::io::{get, InputOutput};
-use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, Error, File, HashMap, PathBuf, Write};
+use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, Error, File, HashMap, PathBuf};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::{
@@ -879,30 +879,26 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     | Ok(_) => {}
                     | Err(why) => error!(directory = parent, "=> {} Create - {why}", Label::fail()),
                 }
-                match File::create(format!("{parent}/accept.txt")) {
-                    | Ok(mut file) => {
-                        let acronyms = Constant::last_values("acronyms");
-                        let partners = Constant::last_values("partners");
-                        let sponsors = Constant::last_values("sponsors");
-                        let abbreviations = Organization::alternative_names();
-                        let words = Constant::read_lines("accept.txt");
-                        let content = acronyms
-                            .chain(partners)
-                            .chain(sponsors)
-                            .chain(abbreviations)
-                            .chain(words)
-                            .collect::<Vec<String>>()
-                            .join("\n");
-                        file.write_all(content.as_bytes()).expect("Unable to write to accept.txt");
-                    }
-                    | Err(why) => panic!("=> {} Create accept.txt - {why}", Label::fail()),
+                let acronyms = Constant::last_values("acronyms");
+                let partners = Constant::last_values("partners");
+                let sponsors = Constant::last_values("sponsors");
+                let abbreviations = Organization::alternative_names();
+                let words = Constant::read_lines("accept.txt");
+                let accept_content = acronyms
+                    .chain(partners)
+                    .chain(sponsors)
+                    .chain(abbreviations)
+                    .chain(words)
+                    .collect::<Vec<String>>()
+                    .join("\n");
+                match write(format!("{parent}/accept.txt"), accept_content.as_bytes()) {
+                    | Ok(_) => {}
+                    | Err(why) => panic!("=> {} Write accept.txt - {why}", Label::fail()),
                 }
-                match File::create(format!("{parent}/reject.txt")) {
-                    | Ok(mut file) => {
-                        let content = Constant::read_lines("reject.txt").join("\n");
-                        file.write_all(content.as_bytes()).expect("Unable to write to reject.txt");
-                    }
-                    | Err(why) => panic!("=> {} Create reject.txt - {why}", Label::fail()),
+                let reject_content = Constant::read_lines("reject.txt").join("\n");
+                match write(format!("{parent}/reject.txt"), reject_content.as_bytes()) {
+                    | Ok(_) => {}
+                    | Err(why) => panic!("=> {} Write reject.txt - {why}", Label::fail()),
                 }
                 Ok(())
             }

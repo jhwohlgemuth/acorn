@@ -6,7 +6,7 @@ use crate::cli::CommandLineOptions;
 use acorn::io::{archive, extract_zip, read_file, write_file, InputOutput};
 use acorn::powerpoint::ooxml::{Relationship, Relationships};
 use acorn::powerpoint::{interpolate_values, read_xml_rel};
-use acorn::prelude::{copy, create_dir_all, Error, Path, PathBuf};
+use acorn::prelude::{copy, create_dir_all, exit, Error, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{Label, StringConversion};
 use color_eyre::eyre::Result;
@@ -14,7 +14,6 @@ use fancy_regex::Regex;
 use itertools::izip;
 use nanoid::nanoid;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use std::process::exit;
 use tracing::{debug, error};
 
 fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {

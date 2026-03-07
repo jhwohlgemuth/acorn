@@ -819,6 +819,16 @@ impl ToMarkdown for Sections {
         )
     }
 }
+fn validation_error_with_index(code: &'static str, message: String, index: usize) -> ValidationError {
+    let mut err = ValidationError::new(code).with_message(message.into());
+    err.add_param("index".into(), &index);
+    err
+}
+fn validation_error_with_index_and_length(code: &'static str, message: String, index: usize, length: usize) -> ValidationError {
+    let mut err = validation_error_with_index(code, message, index);
+    err.add_param("length".into(), &length);
+    err
+}
 /// Custom validator function for [approach](Sections::approach)
 pub(crate) fn is_attribute_approach(value: &[String]) -> Result<(), ValidationError> {
     const CODE: &str = "sections.approach";
@@ -828,11 +838,12 @@ pub(crate) fn is_attribute_approach(value: &[String]) -> Result<(), ValidationEr
         .position(|x| x.len() > MAX_LENGTH)
         .map(|index| {
             let length = value[index].len();
-            let mut err =
-                ValidationError::new(CODE).with_message(format!("Each approach statement should be less than {MAX_LENGTH} characters").into());
-            err.add_param("index".into(), &index);
-            err.add_param("length".into(), &length);
-            err
+            validation_error_with_index_and_length(
+                CODE,
+                format!("Each approach statement should be less than {MAX_LENGTH} characters"),
+                index,
+                length,
+            )
         })
         .map_or(Ok(()), Err)
 }
@@ -845,10 +856,7 @@ pub(crate) fn is_attribute_areas(value: &[String]) -> Result<(), ValidationError
         .position(|x| x.len() > MAX_LENGTH)
         .map(|index| {
             let length = value[index].len();
-            let mut err = ValidationError::new(CODE).with_message(format!("Each area should be less than {MAX_LENGTH} characters").into());
-            err.add_param("index".into(), &index);
-            err.add_param("length".into(), &length);
-            err
+            validation_error_with_index_and_length(CODE, format!("Each area should be less than {MAX_LENGTH} characters"), index, length)
         })
         .map_or(Ok(()), Err)
 }
@@ -858,11 +866,7 @@ pub(crate) fn is_attribute_books(value: &[String]) -> Result<(), ValidationError
     value
         .iter()
         .position(|x| !x.is_isbn())
-        .map(|index| {
-            let mut err = ValidationError::new(CODE).with_message("Every book should be a valid ISBN".to_string().into());
-            err.add_param("index".into(), &index);
-            err
-        })
+        .map(|index| validation_error_with_index(CODE, "Every book should be a valid ISBN".to_string(), index))
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [capabilities](Sections::capabilities)
@@ -874,10 +878,12 @@ pub(crate) fn is_attribute_capabilities(value: &[String]) -> Result<(), Validati
         .position(|x| x.len() > MAX_LENGTH)
         .map(|index| {
             let length = value[index].len();
-            let mut err = ValidationError::new(CODE).with_message(format!("Each capability should be less than {MAX_LENGTH} characters").into());
-            err.add_param("index".into(), &index);
-            err.add_param("length".into(), &length);
-            err
+            validation_error_with_index_and_length(
+                CODE,
+                format!("Each capability should be less than {MAX_LENGTH} characters"),
+                index,
+                length,
+            )
         })
         .map_or(Ok(()), Err)
 }
@@ -887,11 +893,7 @@ pub(crate) fn is_attribute_doi_list(value: &[String]) -> Result<(), ValidationEr
     value
         .iter()
         .position(|x| is_doi(x).is_err())
-        .map(|index| {
-            let mut err = ValidationError::new(CODE).with_message("Every DOI should be valid".to_string().into());
-            err.add_param("index".into(), &index);
-            err
-        })
+        .map(|index| validation_error_with_index(CODE, "Every DOI should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [ror](ResearchActivityMetadata::ror)
@@ -900,11 +902,7 @@ pub(crate) fn is_attribute_ror_list(value: &[String]) -> Result<(), ValidationEr
     value
         .iter()
         .position(|x| is_ror(x).is_err())
-        .map(|index| {
-            let mut err = ValidationError::new(CODE).with_message("Every ROR should be valid".to_string().into());
-            err.add_param("index".into(), &index);
-            err
-        })
+        .map(|index| validation_error_with_index(CODE, "Every ROR should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [impact](Sections::impact)
@@ -916,11 +914,12 @@ pub(crate) fn is_attribute_impact(value: &[String]) -> Result<(), ValidationErro
         .position(|x| x.len() > MAX_LENGTH)
         .map(|index| {
             let length = value[index].len();
-            let mut err =
-                ValidationError::new(CODE).with_message(format!("Each impact statement should be less than {MAX_LENGTH} characters").into());
-            err.add_param("index".into(), &index);
-            err.add_param("length".into(), &length);
-            err
+            validation_error_with_index_and_length(
+                CODE,
+                format!("Each impact statement should be less than {MAX_LENGTH} characters"),
+                index,
+                length,
+            )
         })
         .or_else(|| {
             value
@@ -930,10 +929,11 @@ pub(crate) fn is_attribute_impact(value: &[String]) -> Result<(), ValidationErro
                     value.iter().position(|x| x.trim().ends_with(".") != ends_with_period)
                 })
                 .map(|index| {
-                    let mut err = ValidationError::new(CODE)
-                        .with_message("Impact statements should be all sentences with periods or all phrases without periods".into());
-                    err.add_param("index".into(), &index);
-                    err
+                    validation_error_with_index(
+                        CODE,
+                        "Impact statements should be all sentences with periods or all phrases without periods".to_string(),
+                        index,
+                    )
                 })
         })
         .or_else(|| {
@@ -945,11 +945,7 @@ pub(crate) fn is_attribute_impact(value: &[String]) -> Result<(), ValidationErro
                         actual != actual.to_case(Case::Upper)
                     })
                 })
-                .map(|index| {
-                    let mut err = ValidationError::new(CODE).with_message("Impact statements should begin with a capital letter".into());
-                    err.add_param("index".into(), &index);
-                    err
-                })
+                .map(|index| validation_error_with_index(CODE, "Impact statements should begin with a capital letter".to_string(), index))
         })
         .map_or(Ok(()), Err)
 }
