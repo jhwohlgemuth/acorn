@@ -4,7 +4,7 @@ use acorn::util::constants::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAI
 use acorn::util::{Label, MimeType};
 use data_encoding::BASE64;
 use derive_more::Display;
-use fast_qr::convert::image::{ImageBuilder, ImageError};
+use fast_qr::convert::image::ImageBuilder;
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
@@ -62,17 +62,30 @@ impl DataUri {
     fn from_asset(value: &str) -> String {
         let mime = MimeType::from(value);
         match mime {
-            | MimeType::Otf => {
-                let binding = Font::get(value).unwrap();
-                let data = binding.data.as_ref();
-                DataUri::from_bytes(data, mime)
+            | MimeType::Otf => match Font::get(value) {
+                | Some(binding) => {
+                    let data = binding.data.as_ref();
+                    DataUri::from_bytes(data, mime)
+                }
+                | None => {
+                    error!(value, "=> {} Missing font asset", Label::fail());
+                    String::new()
+                }
+            },
+            | MimeType::Jpeg | MimeType::Png | MimeType::Svg => match Image::get(value) {
+                | Some(binding) => {
+                    let data = binding.data.as_ref();
+                    DataUri::from_bytes(data, mime)
+                }
+                | None => {
+                    error!(value, "=> {} Missing image asset", Label::fail());
+                    String::new()
+                }
+            },
+            | _ => {
+                error!(value, "=> {} Unsupported MIME type for DataUri asset", Label::fail());
+                String::new()
             }
-            | MimeType::Jpeg | MimeType::Png | MimeType::Svg => {
-                let binding = Image::get(value).unwrap();
-                let data = binding.data.as_ref();
-                DataUri::from_bytes(data, mime)
-            }
-            | _ => unimplemented!(),
         }
     }
 }
@@ -178,7 +191,13 @@ impl Convert for ResearchActivity {
         let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
         let graphic = meta.clone().first_image_content_url();
         let caption = meta.clone().first_image_caption();
-        let qrcode = DataUri::from_bytes(&generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)).unwrap(), MimeType::Png);
+        let qrcode = match generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)) {
+            | Some(bytes) => DataUri::from_bytes(&bytes, MimeType::Png),
+            | None => {
+                error!("=> {} Failed to generate QR code", Label::fail());
+                String::new()
+            }
+        };
         let node = html! {
             <html>
                 { head }
@@ -248,16 +267,26 @@ fn generate_font_faces() -> String {
         DataUri::from_asset("proxima_nova_regular_italic.otf"),
     )
 }
-fn generate_qr_code(text: &str) -> Result<Vec<u8>, ImageError> {
+fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
     let code = match QRBuilder::new(text).build() {
         | Ok(data) => data,
-        | Err(err) => panic!("Failed to generate QR code: {err}"),
+        | Err(why) => {
+            error!(?why, "=> {} Build QR code data", Label::fail());
+            return None;
+        }
     };
-    ImageBuilder::default()
+    match ImageBuilder::default()
         .shape(Shape::RoundedSquare)
         .background_color(COLOR_TRANSPARENT)
         .module_color(COLOR_PRIMARY)
         .margin(0)
         .fit_width(125)
         .to_bytes(&code)
+    {
+        | Ok(bytes) => Some(bytes),
+        | Err(why) => {
+            error!(?why, "=> {} Render QR code image", Label::fail());
+            None
+        }
+    }
 }

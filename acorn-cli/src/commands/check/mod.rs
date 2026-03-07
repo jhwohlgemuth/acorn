@@ -39,6 +39,7 @@ pub async fn run(
     verbose: &Verbosity,
 ) -> Result<(), Report> {
     let level = verbose.log_level();
+    let not_quiet = level.is_some();
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
@@ -59,7 +60,7 @@ pub async fn run(
         let results = ResearchActivity::check(paths.clone());
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
-            if level.is_some() {
+            if not_quiet {
                 fail!("ACORN found {} schema validation errors", issues);
                 results.iter().for_each(|issue| issue.clone().report());
             }
@@ -74,7 +75,7 @@ pub async fn run(
         let results = ResearchActivity::prose_analysis(paths.clone(), *offline, *skip_verify_checksum).await;
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
-            if level.is_some() {
+            if not_quiet {
                 fail!("ACORN found {} prose issues", issues);
                 results.iter().for_each(|issue| issue.clone().report());
             }
@@ -100,7 +101,7 @@ pub async fn run(
         let results = ResearchActivity::readability_analysis(paths.clone(), metric);
         let issues = count(results.clone());
         if issues > 0 && exit_on_first_error {
-            if level.is_some() {
+            if not_quiet {
                 fail!("ACORN found {} readability issues", issues);
                 results.iter().for_each(|issue| issue.clone().report());
             }
@@ -124,17 +125,17 @@ pub async fn run(
         .chain(website_checks.clone())
         .filter(|Check { success, .. }| !success)
         .collect::<Vec<Check>>();
-    if level.is_some() {
+    if not_quiet {
         if *terse {
             print_compact(&all_issues);
         } else {
             print_detailed(&all_issues);
         }
-    }
-    if !(*no_fail || *terse) {
-        if level.is_some() {
+        if !(*no_fail || *terse) {
             print_summary(&all_issues);
         }
+    }
+    if !(*no_fail || *terse) {
         exit(exitcode::DATAERR);
     }
     Ok(())
