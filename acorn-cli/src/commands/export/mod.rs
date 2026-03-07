@@ -199,3 +199,6 @@ pub async fn run(
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

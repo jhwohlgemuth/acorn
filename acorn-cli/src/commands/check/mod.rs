@@ -124,10 +124,12 @@ pub async fn run(
         .chain(website_checks.clone())
         .filter(|Check { success, .. }| !success)
         .collect::<Vec<Check>>();
-    if *terse {
-        print_compact(&all_issues);
-    } else {
-        print_detailed(&all_issues);
+    if level.is_some() {
+        if *terse {
+            print_compact(&all_issues);
+        } else {
+            print_detailed(&all_issues);
+        }
     }
     if !(*no_fail || *terse) {
         if level.is_some() {
@@ -152,3 +154,6 @@ fn print_summary(issues: &[Check]) {
     let rows = summary(issues.to_vec());
     print_values_as_table::<String>(headers, rows, None);
 }
+
+#[cfg(test)]
+mod tests;

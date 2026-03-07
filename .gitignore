@@ -1,6 +1,6 @@
 .DS_store
 .env
-/.vale
+.vale/
 /bin
 /content
 /docs/book
