@@ -15,9 +15,7 @@ stages:
 
 prepare-environment:
   stage: prepare
-  image:
-    name: ubuntu
-    pull_policy: if-not-present
+  image: ubuntu
   tags:
     - cpu
   inherit:
