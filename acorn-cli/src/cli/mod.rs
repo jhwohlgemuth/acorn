@@ -119,6 +119,25 @@ pub async fn paths_from_options(path: &Option<PathBuf>, options: &Option<Command
     override_usage = "acorn [FLAGS] [COMMAND]"
 )]
 pub struct Arguments {
+    /// Override local database path (defaults to cache directory when omitted)
+    #[arg(
+        short = 'P',
+        long = "database-path",
+        value_name = "PATH",
+        value_hint = ValueHint::FilePath,
+        conflicts_with = "no_local_database",
+        help_heading = "OPTIONS"
+    )]
+    pub database_path: Option<PathBuf>,
+    /// Disable local database initialization at startup
+    #[arg(
+        short = 'N',
+        long = "no-local-database",
+        value_name = "BOOL",
+        conflicts_with = "database_path",
+        help_heading = "FLAGS"
+    )]
+    pub no_local_database: bool,
     /// Prevent communication with the internet - intended for disconnected local environments
     ///
     /// Note: Use of --offline may require extra configuration options for certain commands

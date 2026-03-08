@@ -29,7 +29,7 @@ ariadne = { version = "0.6.0", features = ["auto-color"], default-features = fal
 async-trait = { workspace = true }
 bat = { version = "0.26.0", features = ["regex-onig"], default-features = false, optional = true }
 bon = { version = "3.8.1", default-features = false }
-chrono = { version = "0.4.42", features = ["clock", "serde"], default-features = false }
+chrono = { workspace = true }
 color-eyre = { workspace = true }
 comfy-table = { version = "7.2.1", default-features = false }
 console = { version = "0.16.1", features = ["ansi-parsing"], default-features = false }
@@ -59,6 +59,7 @@ quick-xml = { version = "0.39.1", features = ["serialize"], default-features = f
 rayon = { workspace = true }
 reqwest = { version = "0.13.2", features = ["blocking", "rustls", "json"], default-features = false, optional = true }
 ring = { version = "0.17.14", default-features = false }
+rusqlite = { workspace = true, default-features = false }
 rust-embed = { workspace = true }
 rust-ini = { version = "0.21.3", default-features = false }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false}

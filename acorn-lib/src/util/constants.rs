@@ -62,6 +62,8 @@ pub const APPLICATION: &str = "acorn";
 pub const ORGANIZATION: &str = "ornl";
 /// Organization qualifier
 pub const QUALIFIER: &str = "org";
+/// Database file name
+pub const DATABASE_NAME: &str = "acorn.db";
 /// File size threshold in bytes for switching to large-file read strategy (100 MB).
 pub const LARGE_FILE_THRESHOLD_BYTES: u64 = 100 * 1024 * 1024;
 // Schema defaults

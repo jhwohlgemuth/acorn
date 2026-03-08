@@ -21,6 +21,7 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 acorn-lib = { version = "0.1.30", path = "../acorn-lib", features = ["doctor", "powerpoint"] }
 bon = "3.3.2"
+chrono = { workspace = true }
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
 clap-markdown = { version = "0.1.5" }
 clap-verbosity-flag = "3.0.2"
@@ -43,6 +44,7 @@ percy-dom = "0.10.0"
 playwright = "0.0.20"
 rayon = { workspace = true }
 reqwest = { version = "0.13.2", features = ["blocking", "rustls", "json"], default-features = false }
+rusqlite = { workspace = true, features = ["bundled"] }
 rust-embed = { workspace = true }
 secrecy = { workspace = true }
 serde = { workspace = true }

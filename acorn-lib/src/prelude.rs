@@ -14,6 +14,7 @@ mod std {
     pub use std::os::unix::fs::PermissionsExt;
     pub use std::path::{absolute, Path, PathBuf};
     pub use std::process::{exit, Command, Output};
+    pub use std::sync::{Mutex, OnceLock};
 }
 /// Module that provides `no-std` support
 #[allow(unused_imports)]

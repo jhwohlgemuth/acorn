@@ -1,4 +1,5 @@
 use acorn::io::config::{ApplicationConfiguration, Bucket};
+use acorn::io::database::{print_usage_custom, save_usage_custom};
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
 use acorn::util::{suffix, Label};
@@ -7,7 +8,13 @@ use owo_colors::OwoColorize;
 use std::process::exit;
 use tracing::error;
 
-pub async fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option<PathBuf>, offline: &bool) -> Result<(), Report> {
+pub async fn run(
+    config: &Option<PathBuf>,
+    url: &Option<String>,
+    output: &Option<PathBuf>,
+    offline: &bool,
+    database_path: &Option<PathBuf>,
+) -> Result<(), Report> {
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
@@ -27,6 +34,10 @@ pub async fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option
                     }
                 }
                 println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
+                if let Some(path) = output {
+                    save_usage_custom(path, database_path.as_ref());
+                    print_usage_custom(database_path.as_ref());
+                }
             }
             | Err(why) => {
                 error!("=> {} Download data - {why}", Label::fail());
@@ -38,11 +49,13 @@ pub async fn run(config: &Option<PathBuf>, url: &Option<String>, output: &Option
         let bucket = Bucket::from(value.as_ref());
         if let Some(path) = output.clone() {
             total += if *offline || bucket.clone().code_repository.is_local() {
-                bucket.copy_files(path)
+                bucket.copy_files(path.clone())
             } else {
-                bucket.download_files(path).await
+                bucket.download_files(path.clone()).await
             };
             println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
+            save_usage_custom(&path, database_path.as_ref());
+            print_usage_custom(database_path.as_ref());
         }
     }
     Ok(())

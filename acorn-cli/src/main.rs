@@ -21,6 +21,7 @@
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
+use acorn::io::database::with_connection_custom;
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::Label;
@@ -112,7 +113,19 @@ async fn main() -> Void {
                 .init();
         }
     }
-    let Arguments { offline, threads, .. } = args;
+    let Arguments {
+        offline,
+        threads,
+        no_local_database,
+        database_path,
+        ..
+    } = args;
+    let database_initialization = if no_local_database {
+        Ok(())
+    } else {
+        with_connection_custom(|_| Ok(()), database_path.as_ref()).map(|_| ())
+    };
+    database_initialization?;
     if threads > 0 {
         info!("{} {} threads", Label::using(), threads.cyan().bold());
         rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
@@ -153,7 +166,7 @@ async fn main() -> Void {
             .await
         }
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline).await,
-        | Some(Commands::Download { config, url, output, .. }) => commands::download::run(config, url, output, &offline).await,
+        | Some(Commands::Download { config, url, output, .. }) => commands::download::run(config, url, output, &offline, &database_path).await,
         | Some(Commands::Export {
             output,
             path,
