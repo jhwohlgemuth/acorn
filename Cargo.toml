@@ -64,8 +64,8 @@ debug-assertions = true
 
 [profile.release]
 debug = true
-codegen-units = 1
-opt-level = "s"
+codegen-units = 16
+opt-level = "z"
 overflow-checks = true
 panic = "abort"
 strip = true

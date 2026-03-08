@@ -30,5 +30,7 @@
         "**/.hg": true,
         "**/.DS_Store": true,
         "**/Thumbs.db": true
-    }
+    },
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda"
 }

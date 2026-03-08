@@ -183,9 +183,9 @@ Version: **0.1.50** (see Cargo.toml workspace.package.version)
 
 ### Feature Flags
 The library uses feature flags for optional functionality:
-- `default = ["analyzer", "std"]`
+- `default = ["analysis", "std"]`
 - `std`: Standard library support (includes reqwest, lychee-lib, tokio, which, duct)
-- `analyzer`: Text analysis and readability metrics (includes bat)
+- `analysis`: Text analysis and readability metrics (includes bat)
 - `doctor`: System diagnostics
 - `powerpoint`: PowerPoint import/export functionality
 
@@ -195,9 +195,9 @@ When adding code that uses `std`:
 use std::fs::File;
 ```
 
-When adding code that uses analyzer features:
+When adding code that uses analysis features:
 ```rust
-#[cfg(feature = "analyzer")]
+#[cfg(feature = "analysis")]
 use crate::analyzer::readability;
 ```
 

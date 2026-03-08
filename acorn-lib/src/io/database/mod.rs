@@ -3,7 +3,7 @@
 //! This module provides a lazily initialized, process-global SQLite connection
 //! guarded by a mutex and a helper to execute callbacks against that connection.
 
-use crate::prelude::{create_dir_all, Mutex, OnceLock, PathBuf};
+use crate::prelude::{create_dir_all, Mutex, OnceLock, Path, PathBuf};
 use crate::util::constants::{APPLICATION, DATABASE_NAME, ORGANIZATION, QUALIFIER};
 use crate::util::Label;
 use chrono::Utc;
@@ -13,8 +13,17 @@ use owo_colors::OwoColorize;
 use rusqlite::{params, Connection};
 use tracing::debug;
 
+mod schema;
+
 static CONNECTION: OnceLock<Mutex<Connection>> = OnceLock::new();
 
+/// Persist and access data in a database
+pub trait Connect {
+    /// Load data from database into the implementing type.
+    fn load(data: Self) -> Self;
+    /// Save the implementing type's data to database.
+    fn save(&self);
+}
 fn database_path(path: Option<&PathBuf>) -> eyre::Result<PathBuf, eyre::Report> {
     match path {
         | Some(path) => Ok(path.clone()),
@@ -50,7 +59,8 @@ fn sqlite_connection(path: Option<&PathBuf>) -> eyre::Result<&'static Mutex<Conn
             }),
     }
 }
-/// Executes a callback using a lazily initialized global SQLite connection.
+/// Executes a callback using a lazily initialized global SQLite connection,
+/// optionally overriding the default database path.
 ///
 /// # Examples
 ///
@@ -61,14 +71,9 @@ fn sqlite_connection(path: Option<&PathBuf>) -> eyre::Result<&'static Mutex<Conn
 ///     conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER, name TEXT)", [])
 ///         .map(|_| ())
 ///         .map_err(|why| Err("Failed to create table: {why}"))
-/// });
+/// }, None);
 /// ```
-pub fn with_connection<T>(callback: impl FnOnce(&Connection) -> eyre::Result<T, eyre::Report>) -> eyre::Result<T, eyre::Report> {
-    with_connection_custom(callback, None)
-}
-/// Executes a callback using a lazily initialized global SQLite connection,
-/// optionally overriding the default database path.
-pub fn with_connection_custom<T>(
+pub fn with_connection<T>(
     callback: impl FnOnce(&Connection) -> eyre::Result<T, eyre::Report>,
     path: Option<&PathBuf>,
 ) -> eyre::Result<T, eyre::Report> {
@@ -76,13 +81,10 @@ pub fn with_connection_custom<T>(
         .and_then(|connection| connection.lock().map_err(|why| eyre!("Failed to acquire SQLite connection lock: {why}")))
         .and_then(|guard| callback(&guard))
 }
-/// Saves usage information (date and path) to the database.
-pub fn save_usage(path: &PathBuf) {
-    save_usage_custom(path, None)
-}
-/// Saves usage information (date and path) to the database with optional database path override.
-pub fn save_usage_custom(path: &PathBuf, database_path_override: Option<&PathBuf>) {
-    with_connection_custom(
+/// Saves usage information (date and path) to the database,
+/// optionally overriding the default database path.
+pub fn save_usage(path: &Path, database_path_override: Option<&PathBuf>) {
+    with_connection(
         |conn| {
             conn.execute("CREATE TABLE IF NOT EXISTS usage (date TEXT NOT NULL, path TEXT NOT NULL)", [])
                 .and_then(|_| {
@@ -102,13 +104,10 @@ pub fn save_usage_custom(path: &PathBuf, database_path_override: Option<&PathBuf
         debug!("Database connection failed: {why}");
     });
 }
-/// Queries and prints recent usage history from the database.
-pub fn print_usage() {
-    print_usage_custom(None)
-}
-/// Queries and prints recent usage history from the database with optional database path override.
-pub fn print_usage_custom(path: Option<&PathBuf>) {
-    with_connection_custom(
+/// Queries and prints recent usage history from the database,
+/// optionally overriding the default database path.
+pub fn print_usage(path: Option<&PathBuf>) {
+    with_connection(
         |conn| {
             conn.prepare("SELECT date, path FROM usage ORDER BY date DESC LIMIT 10")
                 .map_err(|why| eyre!("Failed to prepare query: {why}"))

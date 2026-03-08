@@ -21,7 +21,7 @@
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn::io::database::with_connection_custom;
+use acorn::io::database::with_connection;
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::Label;
@@ -123,7 +123,7 @@ async fn main() -> Void {
     let database_initialization = if no_local_database {
         Ok(())
     } else {
-        with_connection_custom(|_| Ok(()), database_path.as_ref()).map(|_| ())
+        with_connection(|_| Ok(()), database_path.as_ref()).map(|_| ())
     };
     database_initialization?;
     if threads > 0 {

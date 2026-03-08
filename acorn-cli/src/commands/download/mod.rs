@@ -1,5 +1,5 @@
 use acorn::io::config::{ApplicationConfiguration, Bucket};
-use acorn::io::database::{print_usage_custom, save_usage_custom};
+use acorn::io::database::{print_usage, save_usage};
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
 use acorn::util::{suffix, Label};
@@ -35,8 +35,8 @@ pub async fn run(
                 }
                 println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
                 if let Some(path) = output {
-                    save_usage_custom(path, database_path.as_ref());
-                    print_usage_custom(database_path.as_ref());
+                    save_usage(path, database_path.as_ref());
+                    print_usage(database_path.as_ref());
                 }
             }
             | Err(why) => {
@@ -54,8 +54,8 @@ pub async fn run(
                 bucket.download_files(path.clone()).await
             };
             println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
-            save_usage_custom(&path, database_path.as_ref());
-            print_usage_custom(database_path.as_ref());
+            save_usage(&path, database_path.as_ref());
+            print_usage(database_path.as_ref());
         }
     }
     Ok(())

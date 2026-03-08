@@ -54,7 +54,7 @@ nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-n
 owo-colors = { workspace = true }
 percy-dom = {version = "0.10.0", features = ["macro"], default-features = false }
 petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
-polars = { version = "0.51.0", features = ["lazy"], default-features = false }
+polars = { version = "0.51.0", features = ["lazy"], default-features = false, optional = true }
 quick-xml = { version = "0.39.1", features = ["serialize"], default-features = false }
 rayon = { workspace = true }
 reqwest = { version = "0.13.2", features = ["blocking", "rustls", "json"], default-features = false, optional = true }
@@ -91,8 +91,8 @@ similar-asserts = "1.7.0"
 temp-env = "0.3.6"
 
 [features]
-analyzer = ["dep:bat"]
-default = ["analyzer", "std"]
+analysis = ["dep:bat", "dep:polars"]
+default = ["analysis", "std"]
 doctor = []
 powerpoint = []
 std = ["dep:lychee-lib", "dep:reqwest", "dep:tokio", "dep:which"]

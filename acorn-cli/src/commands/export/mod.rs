@@ -9,6 +9,7 @@ use acorn::{fail, skip};
 use color_eyre::eyre::{Report, Result};
 use core::iter::once;
 use indicatif::{ProgressBar, ProgressStyle};
+#[cfg(feature = "pdf")]
 use playwright::Playwright;
 use tracing::{debug, info};
 
@@ -86,25 +87,32 @@ pub async fn run(
             Ok(())
         }
         | FileFormat::Pdf => {
-            let paths = paths_from_options(path, &Some(options)).await;
-            let playwright = Playwright::initialize().await.unwrap();
-            playwright.install_chromium().unwrap(); // Install browsers
-            let chromium = playwright.chromium();
-            let browser = chromium.launcher().headless(true).launch().await.unwrap();
-            let context = browser.context_builder().build().await.unwrap();
-            let page = context.new_page().await.unwrap();
-            let progress = ProgressBar::new(paths.len() as u64);
-            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-            for path in &paths {
-                progress.set_message(format!("Generating PDF for {}", path.display()));
-                let pdf_options = CommandLineOptions::init().path(path.clone()).maybe_output(output.clone()).build();
-                pdf::create(&page, pdf_options).await;
-                progress.inc(1);
+            #[cfg(feature = "pdf")]
+            {
+                let paths = paths_from_options(path, &Some(options)).await;
+                let playwright = Playwright::initialize().await.unwrap();
+                playwright.install_chromium().unwrap(); // Install browsers
+                let chromium = playwright.chromium();
+                let browser = chromium.launcher().headless(true).launch().await.unwrap();
+                let context = browser.context_builder().build().await.unwrap();
+                let page = context.new_page().await.unwrap();
+                let progress = ProgressBar::new(paths.len() as u64);
+                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+                for path in &paths {
+                    progress.set_message(format!("Generating PDF for {}", path.display()));
+                    let pdf_options = CommandLineOptions::init().path(path.clone()).maybe_output(output.clone()).build();
+                    pdf::create(&page, pdf_options).await;
+                    progress.inc(1);
+                }
+                progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+                info!("=> {} Exported {} PDF{}", Label::pass(), paths.len(), suffix(paths.len()));
+                let _close = page.close(Some(false)).await;
+                Ok(())
             }
-            progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-            info!("=> {} Exported {} PDF{}", Label::pass(), paths.len(), suffix(paths.len()));
-            let _close = page.close(Some(false)).await;
-            Ok(())
+            #[cfg(not(feature = "pdf"))]
+            {
+                Err(eyre::eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
+            }
         }
         | FileFormat::Markdown => {
             let from_options = paths_from_options(path, &Some(options.clone())).await;

@@ -4,13 +4,6 @@
 //! `acorn-lib` is a one-stop-shop for everything related to building and maintaining research activity data (RAD)-related technology, including the Accessible Content Optimization for Research Needs (ACORN) tool.
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 //!
-#[cfg(feature = "std")]
-use crate::analyzer::{link_check, Check};
-#[cfg(feature = "std")]
-use crate::io::get;
-#[cfg(feature = "std")]
-use crate::prelude::PathBuf;
-use crate::util::Label;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
@@ -19,7 +12,6 @@ use tracing::{error, trace, warn};
 use uriparse::URI;
 use urlencoding::encode;
 
-#[cfg(feature = "analyzer")]
 pub mod analyzer;
 #[cfg(feature = "doctor")]
 pub mod doctor;
@@ -30,6 +22,14 @@ pub mod powerpoint;
 pub mod prelude;
 pub mod schema;
 pub mod util;
+
+#[cfg(feature = "std")]
+use crate::analyzer::{link_check, Check};
+#[cfg(feature = "std")]
+use crate::io::get;
+#[cfg(feature = "std")]
+use crate::prelude::PathBuf;
+use crate::util::Label;
 
 /// Abstraction for file and folder locations that can be local (e.g., file:///path/to/project) or remote (e.g., <https://gitlab.com/project>)
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]

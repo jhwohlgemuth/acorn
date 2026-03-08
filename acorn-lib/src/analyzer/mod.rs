@@ -29,8 +29,11 @@ use flate2::read::GzDecoder;
 use futures::future::join_all;
 use ini::Ini;
 use lychee_lib::{CacheStatus, Response, Status};
+#[cfg(feature = "analysis")]
 use polars::datatypes::PlSmallStr;
+#[cfg(feature = "analysis")]
 use polars::frame::row::Row;
+#[cfg(feature = "analysis")]
 use polars::prelude::{AnyValue, DataFrame, PolarsResult};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde_json::Value;
@@ -63,6 +66,7 @@ pub trait Analysis {
 /// Trait for converting to a ([Polars]) row
 ///
 /// [Polars]: https://docs.rs/polars/latest/polars/
+#[cfg(feature = "analysis")]
 pub trait IntoRow<'a> {
     /// Convert to a (Polars) row
     fn to_row<T>(self) -> Row<'a>;
@@ -583,6 +587,7 @@ impl fmt::Display for Check {
         }
     }
 }
+#[cfg(feature = "analysis")]
 impl<'a> IntoRow<'a> for Check {
     fn to_row<Check>(self) -> Row<'a> {
         let Self {
@@ -1172,6 +1177,7 @@ pub async fn link_check(uri: Option<String>) -> Check {
     }
 }
 /// Convert vector of [`Check`] values to a Polars [DataFrame]
+#[cfg(feature = "analysis")]
 pub fn checks_to_dataframe(values: Vec<Check>) -> PolarsResult<DataFrame> {
     let names = ["success", "category", "message", "uri", "status_code", "context"];
     to_dataframe::<Check, _, &str>(values, names)
@@ -1220,6 +1226,7 @@ pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
 /// ```
 ///
 /// [DataFrame]: https://docs.rs/polars/latest/polars/prelude/struct.DataFrame.html
+#[cfg(feature = "analysis")]
 pub fn to_dataframe<'a, T, I, H>(values: Vec<T>, names: I) -> PolarsResult<DataFrame>
 where
     T: IntoRow<'a>,
