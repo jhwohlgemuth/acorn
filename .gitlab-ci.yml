@@ -36,9 +36,7 @@ prepare-environment:
 
 test:
   stage: test
-  image:
-    name: savannah.ornl.gov/research-enablement/acorn/rust:latest
-    pull_policy: if-not-present
+  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
     - cpu
   cache:
@@ -62,9 +60,7 @@ test:
 
 test-python:
   stage: test
-  image:
-    name: ghcr.io/prefix-dev/pixi:latest
-    pull_policy: if-not-present
+  image: ghcr.io/prefix-dev/pixi:latest
   tags:
     - cpu
   inherit:
@@ -82,9 +78,7 @@ test-python:
 
 build-release:
   stage: build
-  image:
-    name: savannah.ornl.gov/research-enablement/acorn/rust:latest
-    pull_policy: if-not-present
+  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
     - cpu
   inherit:
@@ -105,9 +99,7 @@ build-release:
 
 publish-release:
   stage: release
-  image:
-    name: registry.gitlab.com/gitlab-org/release-cli:latest
-    pull_policy: if-not-present
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
   tags:
     - cpu
   inherit:
@@ -137,9 +129,7 @@ publish-release:
 
 upload-binaries:
   stage: release
-  image:
-    name: curlimages/curl:latest
-    pull_policy: if-not-present
+  image: curlimages/curl:latest
   tags:
     - cpu
   inherit:
@@ -163,9 +153,7 @@ upload-binaries:
 
 publish-crates:
   stage: release
-  image:
-    name: savannah.ornl.gov/research-enablement/acorn/rust:latest
-    pull_policy: if-not-present
+  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
     - cpu
   inherit:
@@ -178,9 +166,7 @@ publish-crates:
 
 publish-book:
   stage: docs
-  image:
-    name: savannah.ornl.gov/research-enablement/acorn/rust:latest
-    pull_policy: if-not-present
+  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
     - cpu
   inherit:
