@@ -63,8 +63,7 @@ default-target = "x86_64-unknown-linux-musl"
 debug-assertions = true
 
 [profile.release]
-debug = true
-codegen-units = 16
+codegen-units = 1
 opt-level = "z"
 overflow-checks = true
 panic = "abort"
