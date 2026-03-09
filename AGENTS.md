@@ -1,5 +1,7 @@
 # AGENTS.md
 
+**USE [guidelines SKILL](./.github/skills/guidelines/) WHENEVER CODE IS TOUCHED OR CONSIDERED**
+
 This file provides guidance to agents (including WARP) when working with code in this repository.
 
 ACORN (Accessible Content Optimization for Research Needs) is a Rust-based CLI tool and library for maintaining and validating research activity data (RAD).

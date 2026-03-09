@@ -148,6 +148,20 @@ pub struct Arguments {
     /// See Rayon documentation for more information
     #[arg(default_value_t, short, long, value_name = "N", help_heading = "FLAGS")]
     pub threads: usize,
+    /// Clear cache data from database (link_cache, validation_history, research_activity_cache tables)
+    #[arg(long = "clear-cache", value_name = "BOOL", help_heading = "FLAGS")]
+    pub clear_cache: bool,
+    /// Clear all data from database (all tables)
+    #[arg(long = "reset-database", value_name = "BOOL", help_heading = "FLAGS")]
+    pub reset_database: bool,
+    /// Disable automatic cache cleanup on startup (expires old cache entries)
+    #[arg(long = "no-clear-cache", value_name = "BOOL", help_heading = "FLAGS")]
+    pub no_clear_cache: bool,
+    /// Override default cache TTL (in seconds). Default is 2592000 (30 days)
+    ///
+    /// Set to 0 to disable caching
+    #[arg(long = "cache-ttl", value_name = "SECONDS", help_heading = "OPTIONS")]
+    pub cache_ttl: Option<u64>,
     #[command(flatten)]
     pub verbose: Verbosity,
     #[arg(short = 'V', long, help = "Prints version information", help_heading = "FLAGS")]

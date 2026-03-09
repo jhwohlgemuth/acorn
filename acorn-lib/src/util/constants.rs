@@ -64,6 +64,10 @@ pub const ORGANIZATION: &str = "ornl";
 pub const QUALIFIER: &str = "org";
 /// Database file name
 pub const DATABASE_NAME: &str = "acorn.db";
+/// Default cache TTL in seconds (1 month = 30 days)
+pub const DEFAULT_CACHE_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
+/// Environment variable name for cache TTL override
+pub const ENV_CACHE_TTL: &str = "ACORN_CACHE_TTL";
 /// File size threshold in bytes for switching to large-file read strategy (100 MB).
 pub const LARGE_FILE_THRESHOLD_BYTES: u64 = 100 * 1024 * 1024;
 // Schema defaults

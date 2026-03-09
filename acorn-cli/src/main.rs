@@ -21,9 +21,11 @@
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn::io::database::with_connection;
+use acorn::io::database::{schema::Table, Database};
+use acorn::prelude::env;
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
+use acorn::util::constants::ENV_CACHE_TTL;
 use acorn::util::Label;
 use clap::{crate_version, Parser};
 use color_eyre::eyre;
@@ -118,14 +120,60 @@ async fn main() -> Void {
         threads,
         no_local_database,
         database_path,
+        clear_cache,
+        reset_database,
+        no_clear_cache,
+        cache_ttl,
         ..
     } = args;
-    let database_initialization = if no_local_database {
+    let database = Database::<Table>::from_path(database_path.clone());
+    if let Some(ttl) = cache_ttl {
+        env::set_var(ENV_CACHE_TTL, ttl.to_string());
+    }
+    if reset_database {
+        if no_local_database {
+            eprintln!("{} Cannot use --reset-database with --no-local-database", Label::fail());
+            exit(exitcode::USAGE);
+        }
+        match database.reset() {
+            | Ok(count) => {
+                println!("{} Reset database - cleared {} entries from all tables", Label::pass(), count);
+                exit(exitcode::OK);
+            }
+            | Err(e) => {
+                eprintln!("{} Failed to clear all data: {}", Label::fail(), e);
+                exit(exitcode::SOFTWARE);
+            }
+        }
+    }
+    if clear_cache {
+        if no_local_database {
+            eprintln!("{} Cannot use --clear-cache with --no-local-database", Label::fail());
+            exit(exitcode::USAGE);
+        }
+        match database.clear_cache() {
+            | Ok(count) => {
+                println!("{} Cleared {} entries from cache tables", Label::pass(), count);
+                exit(exitcode::OK);
+            }
+            | Err(e) => {
+                eprintln!("{} Failed to clear cache: {}", Label::fail(), e);
+                exit(exitcode::SOFTWARE);
+            }
+        }
+    }
+    let _database_initialization = if no_local_database {
         Ok(())
     } else {
-        with_connection(|_| Ok(()), database_path.as_ref()).map(|_| ())
+        database.migrate().and_then(|_| {
+            if !no_clear_cache {
+                if let Err(e) = database.cleanup_expired_cache() {
+                    info!("Cache cleanup warning: {}", e);
+                }
+            }
+            database.with_connection(|_| Ok(())).map(|_| ())
+        })
     };
-    database_initialization?;
     if threads > 0 {
         info!("{} {} threads", Label::using(), threads.cyan().bold());
         rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();

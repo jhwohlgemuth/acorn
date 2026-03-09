@@ -1,5 +1,7 @@
 # ACORN Copilot Instructions
 
+**USE [guidelines SKILL](./skills/guidelines/) WHENEVER CODE IS TOUCHED OR CONSIDERED**
+
 **ACORN** (Accessible Content Optimization for Research Needs) is a Rust-based multi-tool for managing research activity data (RAD), validating against schemas, and generating formatted outputs (PDFs, PowerPoint, etc.).
 
 ## Project Structure
