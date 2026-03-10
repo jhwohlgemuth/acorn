@@ -1,16 +1,21 @@
 //! Database schema model
 //!
+use crate::io::database::{self, macros::build_query, DatabaseResult};
+use acorn_macros::DatabaseRow;
+use bon::Builder;
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::eyre;
-use rusqlite::{params, Connection};
+use rusqlite::{params, params_from_iter, Connection};
 use serde::{Deserialize, Serialize};
-
-use super::{select, select_optional, DatabaseResult};
 
 /// Row metadata for database table mapping.
 pub trait Row {
     /// Returns the table associated with this row type.
     fn table() -> Table;
+    /// Selects rows from the database matching this row's field values.
+    fn select(&self) -> DatabaseResult<Vec<Self>>
+    where
+        Self: Sized;
     /// Inserts this row into its corresponding table.
     fn insert(self, _conn: &Connection) -> DatabaseResult<i64>
     where
@@ -32,82 +37,90 @@ pub enum Table {
     ResearchActivityCache = 4,
 }
 /// Activity log entry
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
+#[builder(start_fn = init)]
+#[row(order_by = "executed_at DESC")]
 pub struct ActivityRow {
     /// Unique identifier for the activity entry
-    pub id: i64,
+    pub id: Option<i64>,
     /// Command that was executed
-    pub command: String,
+    pub command: Option<String>,
     /// When the command was executed
-    pub executed_at: DateTime<Utc>,
+    pub executed_at: Option<DateTime<Utc>>,
     /// Path provided by user (if any)
     pub user_path: Option<String>,
     /// Whether the command succeeded
-    pub success: bool,
+    pub success: Option<bool>,
 }
 /// Catalog/index entry from bucket
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
+#[builder(start_fn = init)]
+#[row(order_by = "title")]
 pub struct CatalogRow {
     /// Unique identifier for the catalog entry
-    pub id: i64,
+    pub id: Option<i64>,
     /// Name of the bucket
-    pub bucket_name: String,
+    pub bucket_name: Option<String>,
     /// URL of the bucket repository
-    pub bucket_url: String,
+    pub bucket_url: Option<String>,
     /// Research activity identifier
-    pub identifier: String,
+    pub identifier: Option<String>,
     /// Research activity title
-    pub title: String,
+    pub title: Option<String>,
     /// When the entry was last updated
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 /// Link check cache entry
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
+#[builder(start_fn = init)]
 pub struct LinkCacheRow {
     /// Unique identifier for the cache entry
-    pub id: i64,
+    pub id: Option<i64>,
     /// The URL that was checked
-    pub url: String,
+    pub url: Option<String>,
     /// HTTP status code returned
-    pub status_code: i32,
+    pub status_code: Option<i32>,
     /// Whether the URL was reachable
-    pub is_reachable: bool,
+    pub is_reachable: Option<bool>,
     /// When the URL was checked
-    pub checked_at: DateTime<Utc>,
+    pub checked_at: Option<DateTime<Utc>>,
     /// When the cache entry expires
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 /// Research activity cache entry
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
+#[builder(start_fn = init)]
 pub struct ResearchActivityCacheRow {
     /// Unique identifier for the cache entry
-    pub id: i64,
+    pub id: Option<i64>,
     /// Research activity identifier
-    pub identifier: String,
+    pub identifier: Option<String>,
     /// Source bucket name
-    pub source_bucket: String,
+    pub source_bucket: Option<String>,
     /// Research activity title
-    pub title: String,
+    pub title: Option<String>,
     /// When the activity was downloaded
-    pub downloaded_at: DateTime<Utc>,
+    pub downloaded_at: Option<DateTime<Utc>>,
     /// Local file path where the activity is stored
-    pub file_path: String,
+    pub file_path: Option<String>,
 }
 /// Validation/check result history
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
+#[builder(start_fn = init)]
+#[row(order_by = "checked_at DESC")]
 pub struct ValidationRow {
     /// Unique identifier for the validation entry
-    pub id: i64,
+    pub id: Option<i64>,
     /// Path to the file that was validated
-    pub path: String,
+    pub path: Option<String>,
     /// Type of check performed (schema, link, prose, readability)
-    pub check_type: String,
+    pub check_type: Option<String>,
     /// Whether the validation passed
-    pub success: bool,
+    pub success: Option<bool>,
     /// Validation message or error details
-    pub message: String,
+    pub message: Option<String>,
     /// When the validation was performed
-    pub checked_at: DateTime<Utc>,
+    pub checked_at: Option<DateTime<Utc>>,
 }
 impl Table {
     /// Returns all table variants as a slice
@@ -199,71 +212,75 @@ impl Table {
 impl LinkCacheRow {
     /// Check if the cache entry is expired
     pub fn is_expired(&self) -> bool {
-        Utc::now() > self.expires_at
-    }
-}
-impl ActivityRow {
-    /// Select recent activity entries
-    pub fn select_recent(limit: usize) -> DatabaseResult<Vec<ActivityRow>> {
-        select(
-            "activity",
-            "SELECT id, command, executed_at, user_path, success FROM activity ORDER BY executed_at DESC LIMIT ?",
-            params![limit as i64],
-            |row| {
-                Ok(ActivityRow {
-                    id: row.get(0)?,
-                    command: row.get(1)?,
-                    executed_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(2)?)
-                        .map(|dt| dt.with_timezone(&Utc))
-                        .unwrap_or_default(),
-                    user_path: row.get(3)?,
-                    success: row.get::<_, i32>(4)? != 0,
-                })
-            },
-        )
+        self.expires_at.map(|e| Utc::now() > e).unwrap_or(true)
     }
 }
 impl Row for ActivityRow {
     fn table() -> Table {
         Table::Activity
     }
+    fn select(&self) -> DatabaseResult<Vec<ActivityRow>> {
+        let query = "SELECT id, command, executed_at, user_path, success FROM activity";
+        let (query, params) = build_query!(self, query, Self::ORDER_BY, [
+            id,
+            command,
+            user_path,
+            success => |value| value as i32,
+        ]);
+        let params = params_from_iter(params);
+        database::select("activity", &query, params, |row| {
+            let executed_at = row
+                .get::<_, String>(2)
+                .ok()
+                .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.with_timezone(&Utc));
+            let success = row.get::<_, i32>(4).ok().map(|v| v != 0);
+            Ok(ActivityRow {
+                id: row.get(0).ok(),
+                command: row.get(1).ok(),
+                executed_at,
+                user_path: row.get(3).ok(),
+                success,
+            })
+        })
+    }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
         conn.execute(
             "INSERT INTO activity (command, executed_at, user_path, success) VALUES (?, ?, ?, ?)",
-            params![self.command, self.executed_at.to_rfc3339(), self.user_path, self.success as i32],
+            params![
+                self.command,
+                self.executed_at.map(|d| d.to_rfc3339()),
+                self.user_path,
+                self.success.map(|s| s as i32),
+            ],
         )
         .map_err(|why| eyre!("Failed to insert activity: {}", why))
         .map(|_| conn.last_insert_rowid())
     }
 }
-impl CatalogRow {
-    /// Select catalog entries by bucket name
-    pub fn select_by_bucket(bucket_name: &str) -> DatabaseResult<Vec<CatalogRow>> {
-        select(
-            "catalog",
-            "SELECT id, bucket_name, bucket_url, identifier, title, updated_at FROM catalog WHERE bucket_name = ? ORDER BY title",
-            params![bucket_name],
-            |row| {
-                Ok(CatalogRow {
-                    id: row.get(0).unwrap_or_default(),
-                    bucket_name: row.get(1).unwrap_or_default(),
-                    bucket_url: row.get(2).unwrap_or_default(),
-                    identifier: row.get(3).unwrap_or_default(),
-                    title: row.get(4).unwrap_or_default(),
-                    updated_at: row
-                        .get::<_, String>(5)
-                        .ok()
-                        .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
-                        .map(|dt| dt.with_timezone(&Utc))
-                        .unwrap_or_default(),
-                })
-            },
-        )
-    }
-}
 impl Row for CatalogRow {
     fn table() -> Table {
         Table::Catalog
+    }
+    fn select(&self) -> DatabaseResult<Vec<CatalogRow>> {
+        let query = "SELECT id, bucket_name, bucket_url, identifier, title, updated_at FROM catalog";
+        let (query, params) = build_query!(self, query, Self::ORDER_BY, [id, bucket_name, bucket_url, identifier, title,]);
+        let params = params_from_iter(params);
+        database::select("catalog", &query, params, |row| {
+            let updated_at = row
+                .get::<_, String>(5)
+                .ok()
+                .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.with_timezone(&Utc));
+            Ok(CatalogRow {
+                id: row.get(0).ok(),
+                bucket_name: row.get(1).ok(),
+                bucket_url: row.get(2).ok(),
+                identifier: row.get(3).ok(),
+                title: row.get(4).ok(),
+                updated_at,
+            })
+        })
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
         conn.execute(
@@ -273,41 +290,47 @@ impl Row for CatalogRow {
                 self.bucket_url,
                 self.identifier,
                 self.title,
-                self.updated_at.to_rfc3339()
+                self.updated_at.map(|d| d.to_rfc3339())
             ],
         )
         .map_err(|why| eyre!("Failed to insert catalog: {}", why))
         .map(|_| conn.last_insert_rowid())
     }
 }
-impl LinkCacheRow {
-    /// Select a non-expired link cache entry by URL
-    pub fn select_by_url(url: &str) -> DatabaseResult<Option<LinkCacheRow>> {
-        let now = Utc::now().to_rfc3339();
-        select_optional(
-            "link cache",
-            "SELECT id, url, status_code, is_reachable, checked_at, expires_at FROM link_cache WHERE url = ? AND expires_at > ?",
-            params![url, now],
-            |row| {
-                Ok(LinkCacheRow {
-                    id: row.get(0)?,
-                    url: row.get(1)?,
-                    status_code: row.get(2)?,
-                    is_reachable: row.get::<_, i32>(3)? != 0,
-                    checked_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(4)?)
-                        .map(|dt| dt.with_timezone(&Utc))
-                        .unwrap_or_default(),
-                    expires_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
-                        .map(|dt| dt.with_timezone(&Utc))
-                        .unwrap_or_default(),
-                })
-            },
-        )
-    }
-}
 impl Row for LinkCacheRow {
     fn table() -> Table {
         Table::LinkCache
+    }
+    fn select(&self) -> DatabaseResult<Vec<LinkCacheRow>> {
+        let query = "SELECT id, url, status_code, is_reachable, checked_at, expires_at FROM link_cache";
+        let (query, params) = build_query!(self, query, Self::ORDER_BY, [
+            id,
+            url,
+            status_code,
+            is_reachable => |value| value as i32,
+        ]);
+        let params = params_from_iter(params);
+        database::select("link cache", &query, params, |row| {
+            let checked_at = row
+                .get::<_, String>(4)
+                .ok()
+                .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.with_timezone(&Utc));
+            let expires_at = row
+                .get::<_, String>(5)
+                .ok()
+                .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.with_timezone(&Utc));
+            let is_reachable = row.get::<_, i32>(3).ok().map(|v| v != 0);
+            Ok(LinkCacheRow {
+                id: row.get(0).ok().flatten(),
+                url: row.get(1).ok(),
+                status_code: row.get(2).ok(),
+                is_reachable,
+                checked_at,
+                expires_at,
+            })
+        })
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
         conn.execute(
@@ -315,40 +338,38 @@ impl Row for LinkCacheRow {
             params![
                 self.url,
                 self.status_code,
-                self.is_reachable as i32,
-                self.checked_at.to_rfc3339(),
-                self.expires_at.to_rfc3339()
+                self.is_reachable.map(|s| s as i32),
+                self.checked_at.map(|d| d.to_rfc3339()),
+                self.expires_at.map(|d| d.to_rfc3339())
             ],
         )
         .map_err(|why| eyre!("Failed to insert link cache: {}", why))
         .map(|_| conn.last_insert_rowid())
     }
 }
-impl ResearchActivityCacheRow {
-    /// Select a research activity cache entry by identifier
-    pub fn select_by_identifier(identifier: &str) -> DatabaseResult<Option<ResearchActivityCacheRow>> {
-        select_optional(
-            "research activity cache",
-            "SELECT id, identifier, source_bucket, title, downloaded_at, file_path FROM research_activity_cache WHERE identifier = ?",
-            params![identifier],
-            |row| {
-                Ok(ResearchActivityCacheRow {
-                    id: row.get(0)?,
-                    identifier: row.get(1)?,
-                    source_bucket: row.get(2)?,
-                    title: row.get(3)?,
-                    downloaded_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(4)?)
-                        .map(|dt| dt.with_timezone(&Utc))
-                        .unwrap_or_default(),
-                    file_path: row.get(5)?,
-                })
-            },
-        )
-    }
-}
 impl Row for ResearchActivityCacheRow {
     fn table() -> Table {
         Table::ResearchActivityCache
+    }
+    fn select(&self) -> DatabaseResult<Vec<ResearchActivityCacheRow>> {
+        let query = "SELECT id, identifier, source_bucket, title, downloaded_at, file_path FROM research_activity_cache";
+        let (query, params) = build_query!(self, query, Self::ORDER_BY, [id, identifier, source_bucket, title, file_path,]);
+        let params = params_from_iter(params);
+        database::select("research activity cache", &query, params, |row| {
+            let downloaded_at = row
+                .get::<_, String>(4)
+                .ok()
+                .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.with_timezone(&Utc));
+            Ok(ResearchActivityCacheRow {
+                id: row.get(0).ok(),
+                identifier: row.get(1).ok(),
+                source_bucket: row.get(2).ok(),
+                title: row.get(3).ok(),
+                downloaded_at,
+                file_path: row.get(5).ok(),
+            })
+        })
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
         conn.execute(
@@ -357,7 +378,7 @@ impl Row for ResearchActivityCacheRow {
                 self.identifier,
                 self.source_bucket,
                 self.title,
-                self.downloaded_at.to_rfc3339(),
+                self.downloaded_at.map(|d| d.to_rfc3339()),
                 self.file_path
             ],
         )
@@ -365,31 +386,36 @@ impl Row for ResearchActivityCacheRow {
         .map(|_| conn.last_insert_rowid())
     }
 }
-impl ValidationRow {
-    /// Select recent validation results for a path
-    pub fn select_by_path(path: &str, limit: usize) -> DatabaseResult<Vec<ValidationRow>> {
-        select(
-            "validations",
-            "SELECT id, path, check_type, success, message, checked_at FROM validation_history WHERE path = ? ORDER BY checked_at DESC LIMIT ?",
-            params![path, limit as i64],
-            |row| {
-                Ok(ValidationRow {
-                    id: row.get(0)?,
-                    path: row.get(1)?,
-                    check_type: row.get(2)?,
-                    success: row.get::<_, i32>(3)? != 0,
-                    message: row.get(4)?,
-                    checked_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
-                        .map(|dt| dt.with_timezone(&Utc))
-                        .unwrap_or_default(),
-                })
-            },
-        )
-    }
-}
 impl Row for ValidationRow {
     fn table() -> Table {
         Table::ValidationHistory
+    }
+    fn select(&self) -> DatabaseResult<Vec<ValidationRow>> {
+        let query = "SELECT id, path, check_type, success, message, checked_at FROM validation_history";
+        let (query, params) = build_query!(self, query, Self::ORDER_BY, [
+            id,
+            path,
+            check_type,
+            success => |value| value as i32,
+            message,
+        ]);
+        let params = params_from_iter(params);
+        database::select("validation", &query, params, |row| {
+            let checked_at = row
+                .get::<_, String>(5)
+                .ok()
+                .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.with_timezone(&Utc));
+            let success = row.get::<_, i32>(3).ok().map(|v| v != 0);
+            Ok(ValidationRow {
+                id: row.get(0).ok(),
+                path: row.get(1).ok(),
+                check_type: row.get(2).ok(),
+                success,
+                message: row.get(4).ok(),
+                checked_at,
+            })
+        })
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
         conn.execute(
@@ -397,9 +423,9 @@ impl Row for ValidationRow {
             params![
                 self.path,
                 self.check_type,
-                self.success as i32,
+                self.success.map(|s| s as i32),
                 self.message,
-                self.checked_at.to_rfc3339()
+                self.checked_at.map(|d| d.to_rfc3339())
             ],
         )
         .map_err(|why| eyre!("Failed to insert validation: {}", why))

@@ -13,6 +13,7 @@ use owo_colors::OwoColorize;
 use rusqlite::{params, Connection, Params, Row as SqliteRow};
 use tracing::{debug, info};
 
+pub(crate) mod macros;
 pub mod schema;
 
 use schema::Table;
@@ -28,54 +29,6 @@ pub trait DatabaseOperations {
     where
         T: Into<Table>,
         P: Params;
-}
-/// Insert a row into the database
-// pub(crate) fn insert_row<R>(row: impl Into<R>) -> DatabaseResult<i64>
-// where
-//     R: Row,
-// {
-//     let row = row.into();
-//     Database::<Table>::default().with_connection(|conn| row.insert(conn))
-// }
-pub(crate) fn select<R, P>(context: &str, query: &str, params: P, mapper: impl FnMut(&SqliteRow<'_>) -> rusqlite::Result<R>) -> DatabaseResult<Vec<R>>
-where
-    P: Params,
-{
-    Database::<Table>::default().with_connection(|conn| {
-        conn.prepare(query)
-            .map_err(|why| eyre!("Failed to prepare {} query: {}", context, why))
-            .and_then(|mut stmt| {
-                stmt.query_map(params, mapper)
-                    .map_err(|why| eyre!("Failed to query {}: {}", context, why))
-                    .and_then(|rows| {
-                        rows.collect::<Result<Vec<_>, _>>()
-                            .map_err(|why| eyre!("Failed to collect {}: {}", context, why))
-                    })
-            })
-    })
-}
-
-pub(crate) fn select_optional<R, P>(
-    context: &str,
-    query: &str,
-    params: P,
-    mapper: impl FnOnce(&SqliteRow<'_>) -> rusqlite::Result<R>,
-) -> DatabaseResult<Option<R>>
-where
-    P: Params,
-{
-    Database::<Table>::default().with_connection(|conn| {
-        conn.prepare(query)
-            .map_err(|why| eyre!("Failed to prepare {} query: {}", context, why))
-            .and_then(|mut stmt| {
-                let result = stmt.query_row(params, mapper);
-                match result {
-                    | Ok(row) => Ok(Some(row)),
-                    | Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-                    | Err(why) => Err(eyre!("Failed to query {}: {}", context, why)),
-                }
-            })
-    })
 }
 /// Table schema provider for database operations.
 pub trait TableSchemaProvider: Copy + Into<Table> + 'static {
@@ -110,14 +63,12 @@ where
     pub fn from_path(path: Option<PathBuf>) -> Self {
         Self { path, marker: PhantomData }
     }
-
     /// Executes a callback using the database path configured on this handle.
     pub fn with_connection<U>(&self, callback: impl FnOnce(&Connection) -> DatabaseResult<U>) -> DatabaseResult<U> {
         Self::sqlite_connection(self.path.as_ref())
             .and_then(|connection| connection.lock().map_err(|why| eyre!("Failed to acquire SQLite connection lock: {why}")))
             .and_then(|guard| callback(&guard))
     }
-
     fn sqlite_connection(path: Option<&PathBuf>) -> DatabaseResult<&'static Mutex<Connection>> {
         match CONNECTION.get() {
             | Some(connection) => Ok(connection),
@@ -245,6 +196,32 @@ impl TableSchemaProvider for Table {
     fn all() -> &'static [Self] {
         Table::all()
     }
+}
+/// Insert a row into the database
+// pub(crate) fn insert_row<R>(row: impl Into<R>) -> DatabaseResult<i64>
+// where
+//     R: Row,
+// {
+//     let row = row.into();
+//     Database::<Table>::default().with_connection(|conn| row.insert(conn))
+// }
+/// Executes a query and returns all matching rows as a vector
+pub(crate) fn select<R, P>(context: &str, query: &str, params: P, mapper: impl FnMut(&SqliteRow<'_>) -> rusqlite::Result<R>) -> DatabaseResult<Vec<R>>
+where
+    P: Params,
+{
+    Database::<Table>::default().with_connection(|conn| {
+        conn.prepare(query)
+            .map_err(|why| eyre!("Failed to prepare {} query: {}", context, why))
+            .and_then(|mut stmt| {
+                stmt.query_map(params, mapper)
+                    .map_err(|why| eyre!("Failed to query {}: {}", context, why))
+                    .and_then(|rows| {
+                        rows.collect::<Result<Vec<_>, _>>()
+                            .map_err(|why| eyre!("Failed to collect {}: {}", context, why))
+                    })
+            })
+    })
 }
 /// Queries and prints recent usage history from the database,
 /// optionally overriding the default database path.
@@ -374,3 +351,6 @@ fn database_path(path: Option<&PathBuf>) -> DatabaseResult<PathBuf> {
             })
     })
 }
+
+#[cfg(test)]
+mod tests;
