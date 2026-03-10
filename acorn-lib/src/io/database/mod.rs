@@ -3,15 +3,13 @@
 //! This module provides a lazily initialized, process-global SQLite connection
 //! guarded by a mutex and a helper to execute callbacks against that connection.
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
-use crate::schema::validate::format_timestamp;
 use crate::util::constants::{APPLICATION, DATABASE_NAME, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ORGANIZATION, QUALIFIER};
 use crate::util::Label;
 use chrono::{Duration, Utc};
 use color_eyre::eyre::{self, eyre};
 use core::marker::PhantomData;
 use directories::ProjectDirs;
-use owo_colors::OwoColorize;
-use rusqlite::{params, Connection, Params, Row as SqliteRow};
+use rusqlite::{params, Connection, Params};
 use tracing::{debug, info};
 
 pub(crate) mod macros;
@@ -197,82 +195,6 @@ impl TableSchemaProvider for Table {
     fn all() -> &'static [Self] {
         Table::all()
     }
-}
-/// Insert a row into the database
-// pub(crate) fn insert_row<R>(row: impl Into<R>) -> DatabaseResult<i64>
-// where
-//     R: Row,
-// {
-//     let row = row.into();
-//     Database::<Table>::default().with_connection(|conn| row.insert(conn))
-// }
-/// Executes a query and returns all matching rows as a vector
-pub(crate) fn select<R, P>(context: &str, query: &str, params: P, mapper: impl FnMut(&SqliteRow<'_>) -> rusqlite::Result<R>) -> DatabaseResult<Vec<R>>
-where
-    P: Params,
-{
-    Database::<Table>::default().with_connection(|conn| {
-        conn.prepare(query)
-            .map_err(|why| eyre!("Failed to prepare {} query: {}", context, why))
-            .and_then(|mut stmt| {
-                stmt.query_map(params, mapper)
-                    .map_err(|why| eyre!("Failed to query {}: {}", context, why))
-                    .and_then(|rows| {
-                        rows.collect::<Result<Vec<_>, _>>()
-                            .map_err(|why| eyre!("Failed to collect {}: {}", context, why))
-                    })
-            })
-    })
-}
-/// Queries and prints recent activity history from the database,
-/// optionally overriding the default database path.
-pub fn print_activity(row: ActivityRow, path: Option<&PathBuf>) {
-    let (mut query, params) = row.build_select_query("SELECT executed_at, command, user_path, success FROM activity");
-    query.push_str(" LIMIT 10");
-    Database::<Table>::from_path(path.cloned())
-        .with_connection(|conn| {
-            conn.prepare(&query)
-                .map_err(|why| eyre!("Failed to prepare query: {why}"))
-                .and_then(|mut stmt| {
-                    stmt.query_map(params, |row| {
-                        let executed_at = row.get::<_, String>(0)?;
-                        let command = row.get::<_, String>(1)?;
-                        let user_path = row.get::<_, Option<String>>(2)?;
-                        let success = row.get::<_, i32>(3)? != 0;
-                        Ok((executed_at, command, user_path, success))
-                    })
-                    .map_err(|why| eyre!("Query execution failed: {why}"))
-                    .map(|rows| {
-                        println!("\n{} Recent activity history:", Label::using());
-                        rows.enumerate().for_each(|(idx, result)| {
-                            result
-                                .map(|(executed_at, command, user_path, success)| {
-                                    let status = if success { "ok" } else { "fail" };
-                                    let display_path = user_path.unwrap_or_else(|| "-".to_string());
-                                    let executed_at = format_timestamp(&executed_at);
-                                    println!(
-                                        "  {}. {} [{}] {} - {}",
-                                        idx + 1,
-                                        executed_at.cyan(),
-                                        status,
-                                        command.yellow(),
-                                        display_path
-                                    );
-                                })
-                                .unwrap_or_else(|why| {
-                                    debug!("Failed to read row: {why}");
-                                });
-                        });
-                    })
-                })
-                .map_err(|why| {
-                    debug!("Failed to query usage from database: {why}");
-                    why
-                })
-        })
-        .unwrap_or_else(|why| {
-            debug!("Database connection failed: {why}");
-        });
 }
 /// Saves an activity row in the database,
 /// optionally overriding the default database path.

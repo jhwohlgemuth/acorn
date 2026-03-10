@@ -145,7 +145,6 @@ fn test_current_date() {
     assert_eq!(date.len(), 10);
     assert_eq!(date.split("-").count(), 3);
 }
-
 #[test]
 fn test_detect_json() {
     let valid = [

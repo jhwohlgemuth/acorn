@@ -1,11 +1,11 @@
 use acorn::io::config::{ApplicationConfiguration, Bucket};
-use acorn::io::database::print_activity;
 use acorn::io::database::schema::{ActivityRow, Row, Table};
 use acorn::io::database::Database;
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
 use acorn::util::{suffix, Label, StringConversion};
 use color_eyre::eyre::{Report, Result};
+use core::fmt;
 use owo_colors::OwoColorize;
 use std::process::exit;
 use tracing::error;
@@ -71,4 +71,13 @@ pub async fn run(
     }
     print_activity(ActivityRow::default(), database_path.as_ref());
     Ok(())
+}
+fn print_activity(row: impl Into<ActivityRow> + fmt::Display, path: Option<&PathBuf>) {
+    let row = row.into();
+    let (mut query, params) = row.build_select_query("SELECT executed_at, command, user_path, success FROM activity");
+    query.push_str(" LIMIT 10");
+    Table::Activity
+        .rows::<ActivityRow, _>(&query, params, path)
+        .into_iter()
+        .for_each(|rows| Table::Activity.print(rows));
 }

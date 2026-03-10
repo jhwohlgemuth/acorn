@@ -1,6 +1,8 @@
 use crate::io::database::macros::build_query;
 use crate::io::database::schema::{ActivityRow, CatalogRow, LinkCacheRow, ResearchActivityCacheRow, Row, Table, ValidationRow};
 
+mod display_tests;
+
 #[test]
 fn test_activity_row_default() {
     let row = ActivityRow::default();
@@ -57,11 +59,11 @@ fn test_validation_row_default() {
 }
 #[test]
 fn test_row_table_implementation() {
-    assert_eq!(ActivityRow::table(), Table::Activity);
-    assert_eq!(CatalogRow::table(), Table::Catalog);
-    assert_eq!(LinkCacheRow::table(), Table::LinkCache);
-    assert_eq!(ValidationRow::table(), Table::ValidationHistory);
-    assert_eq!(ResearchActivityCacheRow::table(), Table::ResearchActivityCache);
+    assert_eq!(ActivityRow::default().table(), Table::Activity);
+    assert_eq!(CatalogRow::default().table(), Table::Catalog);
+    assert_eq!(LinkCacheRow::default().table(), Table::LinkCache);
+    assert_eq!(ValidationRow::default().table(), Table::ValidationHistory);
+    assert_eq!(ResearchActivityCacheRow::default().table(), Table::ResearchActivityCache);
 }
 #[test]
 fn test_build_query_with_all_none_fields() {
