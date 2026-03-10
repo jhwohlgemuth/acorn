@@ -119,6 +119,13 @@ fn test_format_phone_number() {
     }
 }
 #[test]
+fn test_format_timestamp() {
+    let normalized = format_timestamp("2026-03-10T15:37:24.355614500+00:00");
+    assert_eq!(normalized, "2026-03-10T15:37:24.355614+00:00");
+    let passthrough = format_timestamp("not-a-date");
+    assert_eq!(passthrough, "not-a-date");
+}
+#[test]
 fn test_fuzzy_matching_keywords() {
     let name = "keywords".to_string();
     let exact: String = "critical-infrastructure".into();

@@ -5,7 +5,7 @@
 use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::util::constants::{RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_ISO_8601_YEAR, RE_PHONE, RE_RAID, RE_UNIX_EPOCH};
 use crate::{method_validator, regex_validator};
-use chrono::{DateTime, Datelike, Utc};
+use chrono::{DateTime, Datelike, SecondsFormat, Utc};
 use convert_case::{Case, Casing};
 use uriparse::URI;
 use validator::ValidationError;
@@ -71,6 +71,43 @@ pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
         },
         | _ => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
+}
+/// Normalizes RFC3339 timestamps to microsecond precision for display.
+///
+/// This function parses an RFC3339 timestamp string and reformats it to have
+/// microsecond precision. If parsing fails, it returns the original string.
+///
+/// # Arguments
+///
+/// * `value` - A string slice containing an RFC3339 timestamp
+///
+/// # Returns
+///
+/// A String containing the normalized timestamp with microsecond precision,
+/// or the original string if parsing fails.
+///
+/// # Examples
+///
+/// ```
+/// use acorn::schema::validate::format_timestamp;
+///
+/// // Valid RFC3339 timestamp with nanoseconds gets normalized to microseconds
+/// let input = "2023-01-01T12:00:00.123456789Z";
+/// let expected = "2023-01-01T12:00:00.123456Z";
+/// assert_eq!(format_timestamp(input), expected);
+///
+/// // Already in microsecond precision stays the same
+/// let input = "2023-01-01T12:00:00.123456Z";
+/// assert_eq!(format_timestamp(input), input);
+///
+/// // Invalid timestamp returns original string
+/// let invalid = "invalid-timestamp";
+/// assert_eq!(format_timestamp(invalid), invalid);
+/// ```
+pub fn format_timestamp(value: &str) -> String {
+    DateTime::parse_from_rfc3339(value)
+        .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Micros, false))
+        .unwrap_or_else(|_| value.to_string())
 }
 fn is_current_year(value: String) -> bool {
     let now: DateTime<Utc> = Utc::now();

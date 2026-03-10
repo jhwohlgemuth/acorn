@@ -1,13 +1,20 @@
 //! Database schema model
 //!
-use crate::io::database::{self, macros::build_query, DatabaseResult};
+use crate::io::database::{
+    self,
+    macros::{build_query, define_required_fn},
+    DatabaseResult,
+};
 use acorn_macros::DatabaseRow;
 use bon::Builder;
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::eyre;
-use rusqlite::{params, params_from_iter, Connection};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
+define_required_fn!(1, required1, A, a);
+define_required_fn!(3, required3, A, a, B, b, C, c);
+define_required_fn!(4, required4, A, a, B, b, C, c, D, d);
 /// Row metadata for database table mapping.
 pub trait Row {
     /// Returns the table associated with this row type.
@@ -39,7 +46,7 @@ pub enum Table {
 /// Activity log entry
 #[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
 #[builder(start_fn = init)]
-#[row(order_by = "executed_at DESC")]
+#[row(table = activity, order_by = "executed_at DESC")]
 pub struct ActivityRow {
     /// Unique identifier for the activity entry
     pub id: Option<i64>,
@@ -55,7 +62,7 @@ pub struct ActivityRow {
 /// Catalog/index entry from bucket
 #[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
 #[builder(start_fn = init)]
-#[row(order_by = "title")]
+#[row(table = catalog, order_by = "title")]
 pub struct CatalogRow {
     /// Unique identifier for the catalog entry
     pub id: Option<i64>,
@@ -73,6 +80,7 @@ pub struct CatalogRow {
 /// Link check cache entry
 #[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
 #[builder(start_fn = init)]
+#[row(table = link_cache)]
 pub struct LinkCacheRow {
     /// Unique identifier for the cache entry
     pub id: Option<i64>,
@@ -90,6 +98,7 @@ pub struct LinkCacheRow {
 /// Research activity cache entry
 #[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
 #[builder(start_fn = init)]
+#[row(table = research_activity_cache)]
 pub struct ResearchActivityCacheRow {
     /// Unique identifier for the cache entry
     pub id: Option<i64>,
@@ -107,7 +116,7 @@ pub struct ResearchActivityCacheRow {
 /// Validation/check result history
 #[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
 #[builder(start_fn = init)]
-#[row(order_by = "checked_at DESC")]
+#[row(table = validation_history, order_by = "checked_at DESC")]
 pub struct ValidationRow {
     /// Unique identifier for the validation entry
     pub id: Option<i64>,
@@ -220,15 +229,9 @@ impl Row for ActivityRow {
         Table::Activity
     }
     fn select(&self) -> DatabaseResult<Vec<ActivityRow>> {
-        let query = "SELECT id, command, executed_at, user_path, success FROM activity";
-        let (query, params) = build_query!(self, query, Self::ORDER_BY, [
-            id,
-            command,
-            user_path,
-            success => |value| value as i32,
-        ]);
-        let params = params_from_iter(params);
-        database::select("activity", &query, params, |row| {
+        let query = format!("SELECT id, command, executed_at, user_path, success FROM {}", Self::TABLE_NAME);
+        let (query, params) = self.build_select_query(&query);
+        database::select(Self::TABLE_NAME, &query, params, |row| {
             let executed_at = row
                 .get::<_, String>(2)
                 .ok()
@@ -245,17 +248,28 @@ impl Row for ActivityRow {
         })
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
-        conn.execute(
-            "INSERT INTO activity (command, executed_at, user_path, success) VALUES (?, ?, ?, ?)",
-            params![
-                self.command,
-                self.executed_at.map(|d| d.to_rfc3339()),
-                self.user_path,
-                self.success.map(|s| s as i32),
-            ],
-        )
-        .map_err(|why| eyre!("Failed to insert activity: {}", why))
-        .map(|_| conn.last_insert_rowid())
+        let ActivityRow {
+            command,
+            executed_at,
+            user_path,
+            success,
+            ..
+        } = self;
+        let executed_at = executed_at.unwrap_or_else(Utc::now).to_rfc3339();
+        let success = success.unwrap_or(true) as i32;
+        let required = required1(command);
+        match required {
+            | Ok((command,)) => {
+                let query = format!(
+                    "INSERT INTO {} (command, executed_at, user_path, success) VALUES (?, ?, ?, ?)",
+                    Self::TABLE_NAME
+                );
+                conn.execute(&query, params![command, executed_at, user_path, success,])
+                    .map_err(|why| eyre!("Failed to insert activity: {}", why))
+                    .map(|_| conn.last_insert_rowid())
+            }
+            | Err(why) => Err(why),
+        }
     }
 }
 impl Row for CatalogRow {
@@ -263,10 +277,12 @@ impl Row for CatalogRow {
         Table::Catalog
     }
     fn select(&self) -> DatabaseResult<Vec<CatalogRow>> {
-        let query = "SELECT id, bucket_name, bucket_url, identifier, title, updated_at FROM catalog";
-        let (query, params) = build_query!(self, query, Self::ORDER_BY, [id, bucket_name, bucket_url, identifier, title,]);
-        let params = params_from_iter(params);
-        database::select("catalog", &query, params, |row| {
+        let query = format!(
+            "SELECT id, bucket_name, bucket_url, identifier, title, updated_at FROM {}",
+            Self::TABLE_NAME
+        );
+        let (query, params) = self.build_select_query(&query);
+        database::select(Self::TABLE_NAME, &query, params, |row| {
             let updated_at = row
                 .get::<_, String>(5)
                 .ok()
@@ -283,18 +299,28 @@ impl Row for CatalogRow {
         })
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
-        conn.execute(
-            "INSERT INTO catalog (bucket_name, bucket_url, identifier, title, updated_at) VALUES (?, ?, ?, ?, ?)",
-            params![
-                self.bucket_name,
-                self.bucket_url,
-                self.identifier,
-                self.title,
-                self.updated_at.map(|d| d.to_rfc3339())
-            ],
-        )
-        .map_err(|why| eyre!("Failed to insert catalog: {}", why))
-        .map(|_| conn.last_insert_rowid())
+        let CatalogRow {
+            bucket_name,
+            bucket_url,
+            identifier,
+            title,
+            updated_at,
+            ..
+        } = self;
+        let updated_at = updated_at.unwrap_or_else(Utc::now).to_rfc3339();
+        let required = required4(bucket_name, bucket_url, identifier, title);
+        match required {
+            | Ok((bucket_name, bucket_url, identifier, title)) => {
+                let query = format!(
+                    "INSERT INTO {} (bucket_name, bucket_url, identifier, title, updated_at) VALUES (?, ?, ?, ?, ?)",
+                    Self::TABLE_NAME
+                );
+                conn.execute(&query, params![bucket_name, bucket_url, identifier, title, updated_at])
+                    .map_err(|why| eyre!("Failed to insert catalog: {}", why))
+                    .map(|_| conn.last_insert_rowid())
+            }
+            | Err(why) => Err(why),
+        }
     }
 }
 impl Row for LinkCacheRow {
@@ -302,15 +328,12 @@ impl Row for LinkCacheRow {
         Table::LinkCache
     }
     fn select(&self) -> DatabaseResult<Vec<LinkCacheRow>> {
-        let query = "SELECT id, url, status_code, is_reachable, checked_at, expires_at FROM link_cache";
-        let (query, params) = build_query!(self, query, Self::ORDER_BY, [
-            id,
-            url,
-            status_code,
-            is_reachable => |value| value as i32,
-        ]);
-        let params = params_from_iter(params);
-        database::select("link cache", &query, params, |row| {
+        let query = format!(
+            "SELECT id, url, status_code, is_reachable, checked_at, expires_at FROM {}",
+            Self::TABLE_NAME
+        );
+        let (query, params) = self.build_select_query(&query);
+        database::select(Self::TABLE_NAME, &query, params, |row| {
             let checked_at = row
                 .get::<_, String>(4)
                 .ok()
@@ -333,18 +356,31 @@ impl Row for LinkCacheRow {
         })
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
-        conn.execute(
-            "INSERT INTO link_cache (url, status_code, is_reachable, checked_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-            params![
-                self.url,
-                self.status_code,
-                self.is_reachable.map(|s| s as i32),
-                self.checked_at.map(|d| d.to_rfc3339()),
-                self.expires_at.map(|d| d.to_rfc3339())
-            ],
-        )
-        .map_err(|why| eyre!("Failed to insert link cache: {}", why))
-        .map(|_| conn.last_insert_rowid())
+        let LinkCacheRow {
+            url,
+            status_code,
+            is_reachable,
+            checked_at,
+            expires_at,
+            ..
+        } = self;
+        let checked_at = checked_at.unwrap_or_else(Utc::now).to_rfc3339();
+        let required = required4(url, status_code, is_reachable, expires_at);
+        match required {
+            | Ok((url, status_code, is_reachable, expires_at)) => {
+                let query = format!(
+                    "INSERT INTO {} (url, status_code, is_reachable, checked_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+                    Self::TABLE_NAME
+                );
+                conn.execute(
+                    &query,
+                    params![url, status_code, is_reachable as i32, checked_at, expires_at.to_rfc3339()],
+                )
+                .map_err(|why| eyre!("Failed to insert link cache: {}", why))
+                .map(|_| conn.last_insert_rowid())
+            }
+            | Err(why) => Err(why),
+        }
     }
 }
 impl Row for ResearchActivityCacheRow {
@@ -352,10 +388,12 @@ impl Row for ResearchActivityCacheRow {
         Table::ResearchActivityCache
     }
     fn select(&self) -> DatabaseResult<Vec<ResearchActivityCacheRow>> {
-        let query = "SELECT id, identifier, source_bucket, title, downloaded_at, file_path FROM research_activity_cache";
-        let (query, params) = build_query!(self, query, Self::ORDER_BY, [id, identifier, source_bucket, title, file_path,]);
-        let params = params_from_iter(params);
-        database::select("research activity cache", &query, params, |row| {
+        let query = format!(
+            "SELECT id, identifier, source_bucket, title, downloaded_at, file_path FROM {}",
+            Self::TABLE_NAME
+        );
+        let (query, params) = self.build_select_query(&query);
+        database::select(Self::TABLE_NAME, &query, params, |row| {
             let downloaded_at = row
                 .get::<_, String>(4)
                 .ok()
@@ -372,18 +410,28 @@ impl Row for ResearchActivityCacheRow {
         })
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
-        conn.execute(
-            "INSERT INTO research_activity_cache (identifier, source_bucket, title, downloaded_at, file_path) VALUES (?, ?, ?, ?, ?)",
-            params![
-                self.identifier,
-                self.source_bucket,
-                self.title,
-                self.downloaded_at.map(|d| d.to_rfc3339()),
-                self.file_path
-            ],
-        )
-        .map_err(|why| eyre!("Failed to insert research activity cache: {}", why))
-        .map(|_| conn.last_insert_rowid())
+        let ResearchActivityCacheRow {
+            identifier,
+            source_bucket,
+            title,
+            downloaded_at,
+            file_path,
+            ..
+        } = self;
+        let downloaded_at = downloaded_at.unwrap_or_else(Utc::now).to_rfc3339();
+        let required = required4(identifier, source_bucket, title, file_path);
+        match required {
+            | Ok((identifier, source_bucket, title, file_path)) => {
+                let query = format!(
+                    "INSERT INTO {} (identifier, source_bucket, title, downloaded_at, file_path) VALUES (?, ?, ?, ?, ?)",
+                    Self::TABLE_NAME
+                );
+                conn.execute(&query, params![identifier, source_bucket, title, downloaded_at, file_path])
+                    .map_err(|why| eyre!("Failed to insert research activity cache: {}", why))
+                    .map(|_| conn.last_insert_rowid())
+            }
+            | Err(why) => Err(why),
+        }
     }
 }
 impl Row for ValidationRow {
@@ -391,16 +439,9 @@ impl Row for ValidationRow {
         Table::ValidationHistory
     }
     fn select(&self) -> DatabaseResult<Vec<ValidationRow>> {
-        let query = "SELECT id, path, check_type, success, message, checked_at FROM validation_history";
-        let (query, params) = build_query!(self, query, Self::ORDER_BY, [
-            id,
-            path,
-            check_type,
-            success => |value| value as i32,
-            message,
-        ]);
-        let params = params_from_iter(params);
-        database::select("validation", &query, params, |row| {
+        let query = format!("SELECT id, path, check_type, success, message, checked_at FROM {}", Self::TABLE_NAME);
+        let (query, params) = self.build_select_query(&query);
+        database::select(Self::TABLE_NAME, &query, params, |row| {
             let checked_at = row
                 .get::<_, String>(5)
                 .ok()
@@ -418,17 +459,28 @@ impl Row for ValidationRow {
         })
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
-        conn.execute(
-            "INSERT INTO validation_history (path, check_type, success, message, checked_at) VALUES (?, ?, ?, ?, ?)",
-            params![
-                self.path,
-                self.check_type,
-                self.success.map(|s| s as i32),
-                self.message,
-                self.checked_at.map(|d| d.to_rfc3339())
-            ],
-        )
-        .map_err(|why| eyre!("Failed to insert validation: {}", why))
-        .map(|_| conn.last_insert_rowid())
+        let ValidationRow {
+            path,
+            check_type,
+            success,
+            message,
+            checked_at,
+            ..
+        } = self;
+        let success = success.unwrap_or(true) as i32;
+        let checked_at = checked_at.unwrap_or_else(Utc::now).to_rfc3339();
+        let required = required3(path, check_type, message);
+        match required {
+            | Ok((path, check_type, message)) => {
+                let query = format!(
+                    "INSERT INTO {} (path, check_type, success, message, checked_at) VALUES (?, ?, ?, ?, ?)",
+                    Self::TABLE_NAME
+                );
+                conn.execute(&query, params![path, check_type, success, message, checked_at])
+                    .map_err(|why| eyre!("Failed to insert validation: {}", why))
+                    .map(|_| conn.last_insert_rowid())
+            }
+            | Err(why) => Err(why),
+        }
     }
 }

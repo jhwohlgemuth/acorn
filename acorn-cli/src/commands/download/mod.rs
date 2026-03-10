@@ -1,8 +1,10 @@
 use acorn::io::config::{ApplicationConfiguration, Bucket};
-use acorn::io::database::{print_usage, save_usage};
+use acorn::io::database::print_activity;
+use acorn::io::database::schema::{ActivityRow, Row, Table};
+use acorn::io::database::Database;
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
-use acorn::util::{suffix, Label};
+use acorn::util::{suffix, Label, StringConversion};
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
 use std::process::exit;
@@ -18,6 +20,7 @@ pub async fn run(
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
+    let database = Database::<Table>::from_path(database_path.clone());
     if let Some(path) = config {
         match ApplicationConfiguration::read(path.clone()) {
             | Ok(content) => {
@@ -35,8 +38,12 @@ pub async fn run(
                 }
                 println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
                 if let Some(path) = output {
-                    save_usage(path, database_path.as_ref());
-                    print_usage(database_path.as_ref());
+                    let activity = ActivityRow::init()
+                        .command("download".to_string())
+                        .user_path(path.to_absolute_string())
+                        .success(true)
+                        .build();
+                    database.with_connection(|conn| activity.clone().insert(conn).map(|_| ()))?;
                 }
             }
             | Err(why) => {
@@ -54,9 +61,14 @@ pub async fn run(
                 bucket.download_files(path.clone()).await
             };
             println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
-            save_usage(&path, database_path.as_ref());
-            print_usage(database_path.as_ref());
+            let activity = ActivityRow::init()
+                .command("download".to_string())
+                .user_path(path.to_absolute_string())
+                .success(true)
+                .build();
+            database.with_connection(|conn| activity.clone().insert(conn).map(|_| ()))?;
         }
     }
+    print_activity(ActivityRow::default(), database_path.as_ref());
     Ok(())
 }
