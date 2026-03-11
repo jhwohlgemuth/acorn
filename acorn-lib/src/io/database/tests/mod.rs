@@ -1,5 +1,6 @@
 use crate::io::database::macros::build_query;
-use crate::io::database::schema::{ActivityRow, CatalogRow, LinkCacheRow, ResearchActivityCacheRow, Row, Table, ValidationRow};
+use crate::io::database::schema::{ActivityRow, CatalogRow, LinkCacheRow, ResearchActivityCacheRow, Table, ValidationRow};
+use crate::io::database::Row;
 
 mod display_tests;
 

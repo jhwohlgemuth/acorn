@@ -86,7 +86,6 @@ fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
             /// ORDER BY clause for queries on this row type.
             pub const ORDER_BY: Option<&'static str> = #order_by_expr;
             /// Field list for build_query! macro documentation purposes.
-            #[allow(dead_code)]
             pub const FIELDS: &'static [&'static str] = &[#(#field_names),*];
             /// Builds a SQL SELECT query with optional WHERE/ORDER BY clauses.
             pub fn build_select_query(
@@ -95,6 +94,11 @@ fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
             ) -> crate::io::database::SelectQuery {
                 let (query, params) = crate::io::database::macros::build_query!(self, base, Self::ORDER_BY, [#(#query_fields)*]);
                 (query, ::rusqlite::params_from_iter(params))
+            }
+        }
+        impl crate::io::database::RowMetadata for #_name {
+            fn fields() -> &'static [&'static str] {
+                Self::FIELDS
             }
         }
     })

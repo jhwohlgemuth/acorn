@@ -1,12 +1,9 @@
 //! Database schema model
 //!
-use crate::io::database::{
-    self,
-    macros::{build_query, define_required_fn},
-    DatabaseResult, SelectQuery, TableSchemaProvider,
-};
+use super::{Database, DatabaseResult, Row, SelectQuery, TableSchemaProvider};
+use crate::io::database::macros::{build_query, define_required_fn};
 use crate::prelude::PathBuf;
-use crate::util::Label;
+use crate::util::{print_values_as_table, Label};
 use acorn_macros::DatabaseRow;
 use bon::Builder;
 use chrono::{DateTime, Utc};
@@ -14,28 +11,12 @@ use color_eyre::eyre::eyre;
 use core::fmt;
 use rusqlite::{params, Connection, Params, Row as SqliteRow};
 use serde::{Deserialize, Serialize};
-use tracing::error;
 
 define_required_fn!(1, required1, A, a);
 define_required_fn!(3, required3, A, a, B, b, C, c);
 define_required_fn!(4, required4, A, a, B, b, C, c, D, d);
-/// Row metadata for database table mapping.
-pub trait Row {
-    /// Returns the table associated with this row type.
-    fn table(&self) -> Table;
-    /// Inserts this row into its corresponding table.
-    fn insert(self, _conn: &Connection) -> DatabaseResult<i64>
-    where
-        Self: Sized;
-    /// Selects rows from the database matching this row's field values.
-    fn select(&self) -> DatabaseResult<Vec<Self>>
-    where
-        Self: Sized;
-    /// Builds a SQL SELECT query with optional WHERE/ORDER BY clauses.
-    fn build_select_query(&self, base: &str) -> SelectQuery;
-}
 /// Database tables
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[repr(i32)]
 pub enum Table {
     /// CLI activity log
@@ -50,8 +31,8 @@ pub enum Table {
     ResearchActivityCache = 4,
 }
 /// Activity log entry
-#[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
-#[builder(start_fn = init)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[builder(start_fn = init, on(String, into))]
 #[row(table = activity, order_by = "executed_at DESC")]
 pub struct ActivityRow {
     /// Unique identifier for the activity entry
@@ -66,7 +47,7 @@ pub struct ActivityRow {
     pub success: Option<bool>,
 }
 /// Catalog/index entry from bucket
-#[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
 #[builder(start_fn = init)]
 #[row(table = catalog, order_by = "title")]
 pub struct CatalogRow {
@@ -84,7 +65,7 @@ pub struct CatalogRow {
     pub updated_at: Option<DateTime<Utc>>,
 }
 /// Link check cache entry
-#[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
 #[builder(start_fn = init)]
 #[row(table = link_cache)]
 pub struct LinkCacheRow {
@@ -102,7 +83,7 @@ pub struct LinkCacheRow {
     pub expires_at: Option<DateTime<Utc>>,
 }
 /// Research activity cache entry
-#[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
 #[builder(start_fn = init)]
 #[row(table = research_activity_cache)]
 pub struct ResearchActivityCacheRow {
@@ -120,7 +101,7 @@ pub struct ResearchActivityCacheRow {
     pub file_path: Option<String>,
 }
 /// Validation/check result history
-#[derive(Builder, Debug, Clone, Serialize, Deserialize, Default, DatabaseRow)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
 #[builder(start_fn = init)]
 #[row(table = validation_history, order_by = "checked_at DESC")]
 pub struct ValidationRow {
@@ -221,6 +202,65 @@ impl From<SqliteRow<'_>> for ValidationRow {
         ValidationRow::from(&row)
     }
 }
+impl From<ActivityRow> for Vec<String> {
+    fn from(row: ActivityRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.command.unwrap_or_default(),
+            row.executed_at.map_or_else(String::new, |v| v.to_rfc3339()),
+            row.user_path.unwrap_or_default(),
+            row.success.map_or_else(String::new, |v| v.to_string()),
+        ]
+    }
+}
+impl From<CatalogRow> for Vec<String> {
+    fn from(row: CatalogRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.bucket_name.unwrap_or_default(),
+            row.bucket_url.unwrap_or_default(),
+            row.identifier.unwrap_or_default(),
+            row.title.unwrap_or_default(),
+            row.updated_at.map_or_else(String::new, |v| v.to_rfc3339()),
+        ]
+    }
+}
+impl From<LinkCacheRow> for Vec<String> {
+    fn from(row: LinkCacheRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.url.unwrap_or_default(),
+            row.status_code.map_or_else(String::new, |v| v.to_string()),
+            row.is_reachable.map_or_else(String::new, |v| v.to_string()),
+            row.checked_at.map_or_else(String::new, |v| v.to_rfc3339()),
+            row.expires_at.map_or_else(String::new, |v| v.to_rfc3339()),
+        ]
+    }
+}
+impl From<ResearchActivityCacheRow> for Vec<String> {
+    fn from(row: ResearchActivityCacheRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.identifier.unwrap_or_default(),
+            row.source_bucket.unwrap_or_default(),
+            row.title.unwrap_or_default(),
+            row.downloaded_at.map_or_else(String::new, |v| v.to_rfc3339()),
+            row.file_path.unwrap_or_default(),
+        ]
+    }
+}
+impl From<ValidationRow> for Vec<String> {
+    fn from(row: ValidationRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.path.unwrap_or_default(),
+            row.check_type.unwrap_or_default(),
+            row.success.map_or_else(String::new, |v| v.to_string()),
+            row.message.unwrap_or_default(),
+            row.checked_at.map_or_else(String::new, |v| v.to_rfc3339()),
+        ]
+    }
+}
 impl fmt::Display for ActivityRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -291,12 +331,6 @@ impl fmt::Display for ValidationRow {
 }
 impl TableSchemaProvider for Table {
     fn all() -> &'static [Self] {
-        Table::all()
-    }
-}
-impl Table {
-    /// Returns all table variants as a slice
-    pub fn all() -> &'static [Table] {
         &[
             Table::Activity,
             Table::Catalog,
@@ -305,18 +339,8 @@ impl Table {
             Table::ResearchActivityCache,
         ]
     }
-    /// Returns the table name as a string
-    pub fn name(&self) -> &'static str {
-        match self {
-            | Table::Activity => "activity",
-            | Table::Catalog => "catalog",
-            | Table::LinkCache => "link_cache",
-            | Table::ValidationHistory => "validation_history",
-            | Table::ResearchActivityCache => "research_activity_cache",
-        }
-    }
     /// Returns CREATE TABLE SQL statement
-    pub fn create_sql(&self) -> &'static str {
+    fn create_statement(&self) -> &'static str {
         match self {
             | Table::Activity => {
                 r#"
@@ -380,13 +404,48 @@ impl Table {
             }
         }
     }
+    /// Returns the table name as a string
+    fn name(&self) -> &'static str {
+        match self {
+            | Table::Activity => "activity",
+            | Table::Catalog => "catalog",
+            | Table::LinkCache => "link_cache",
+            | Table::ValidationHistory => "validation_history",
+            | Table::ResearchActivityCache => "research_activity_cache",
+        }
+    }
+    /// Print all table rows
+    fn print(self, path: Option<PathBuf>) {
+        fn print_rows<R>(table: Table, path: Option<&PathBuf>)
+        where
+            R: Into<Vec<String>> + Row + Default + fmt::Display,
+            for<'row> R: From<&'row SqliteRow<'row>>,
+        {
+            let row = R::default();
+            let fields = <R as Row>::fields();
+            let query = format!("SELECT {} FROM {}", fields.join(", "), table.name());
+            let (query, params) = row.build_select_query(&query);
+            let rows = table
+                .rows::<R, _>(&query, params, path)
+                .map(|rows| rows.into_iter().map(Into::into).collect::<Vec<Vec<String>>>())
+                .unwrap_or_default();
+            print_values_as_table::<String>(fields.to_vec(), rows, Some(table.name().to_string()));
+        }
+        match self {
+            | Table::Activity => print_rows::<ActivityRow>(self, path.as_ref()),
+            | Table::Catalog => print_rows::<CatalogRow>(self, path.as_ref()),
+            | Table::LinkCache => print_rows::<LinkCacheRow>(self, path.as_ref()),
+            | Table::ValidationHistory => print_rows::<ValidationRow>(self, path.as_ref()),
+            | Table::ResearchActivityCache => print_rows::<ResearchActivityCacheRow>(self, path.as_ref()),
+        }
+    }
     /// Get table rows
-    pub fn rows<R, P>(&self, query: &str, params: P, path: Option<&PathBuf>) -> DatabaseResult<Vec<R>>
+    fn rows<R, P>(&self, query: &str, params: P, path: Option<&PathBuf>) -> DatabaseResult<Vec<R>>
     where
         P: Params,
         for<'row> R: Row + From<&'row SqliteRow<'row>>,
     {
-        database::Database::<Table>::from_path(path.cloned()).with_connection(|conn| {
+        Database::<Table>::from_path(path.cloned()).with_connection(|conn| {
             conn.prepare(query)
                 .map_err(|why| eyre!("=> {} Failed to prepare {} query: {why}", Label::fail(), self.name()))
                 .and_then(|mut stmt| {
@@ -398,35 +457,6 @@ impl Table {
                         })
                 })
         })
-    }
-    /// Print all table rows
-    pub fn print(self, path: Option<PathBuf>) {
-        match self {
-            | Table::Activity => self.print_rows::<ActivityRow>(path.as_ref()),
-            | Table::Catalog => self.print_rows::<CatalogRow>(path.as_ref()),
-            | Table::LinkCache => self.print_rows::<LinkCacheRow>(path.as_ref()),
-            | Table::ValidationHistory => self.print_rows::<ValidationRow>(path.as_ref()),
-            | Table::ResearchActivityCache => self.print_rows::<ResearchActivityCacheRow>(path.as_ref()),
-        }
-    }
-    fn print_rows<R>(self, path: Option<&PathBuf>)
-    where
-        R: Row + Default + fmt::Display,
-        for<'row> R: From<&'row SqliteRow<'row>>,
-    {
-        let row = R::default();
-        let query = format!("SELECT * FROM {}", self.name());
-        let (query, params) = row.build_select_query(&query);
-        match self.rows::<R, _>(&query, params, path) {
-            | Ok(rows) => rows.iter().enumerate().for_each(|(idx, row)| println!("  {}. {}", idx + 1, row)),
-            | Err(why) => error!("=> {} Print data - {why}", Label::fail()),
-        }
-    }
-}
-impl LinkCacheRow {
-    /// Check if the cache entry is expired
-    pub fn is_expired(&self) -> bool {
-        self.expires_at.map(|e| Utc::now() > e).unwrap_or(true)
     }
 }
 impl Row for ActivityRow {
@@ -624,6 +654,12 @@ impl Row for ValidationRow {
     }
     fn build_select_query(&self, base: &str) -> SelectQuery {
         ValidationRow::build_select_query(self, base)
+    }
+}
+impl LinkCacheRow {
+    /// Check if the cache entry is expired
+    pub fn is_expired(&self) -> bool {
+        self.expires_at.map(|e| Utc::now() > e).unwrap_or(true)
     }
 }
 fn display_or_none<T>(value: Option<&T>) -> String

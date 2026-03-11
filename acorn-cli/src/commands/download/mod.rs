@@ -1,6 +1,6 @@
 use acorn::io::config::{ApplicationConfiguration, Bucket};
 use acorn::io::database::schema::{ActivityRow, Table};
-use acorn::io::database::{Database, Operations};
+use acorn::io::database::{Database, Operations, TableSchemaProvider};
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
 use acorn::util::{suffix, Label, StringConversion};
@@ -38,7 +38,7 @@ pub async fn run(
                 println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
                 if let Some(path) = output {
                     let activity = ActivityRow::init()
-                        .command("download".to_string())
+                        .command("download")
                         .executed_at(chrono::Utc::now())
                         .user_path(path.to_absolute_string())
                         .success(true)
@@ -62,7 +62,7 @@ pub async fn run(
             };
             println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             let activity = ActivityRow::init()
-                .command("download".to_string())
+                .command("download")
                 .executed_at(chrono::Utc::now())
                 .user_path(path.to_absolute_string())
                 .success(true)

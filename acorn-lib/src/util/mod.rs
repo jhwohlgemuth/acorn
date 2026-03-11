@@ -997,7 +997,7 @@ where
         table.add_row(row);
     });
     match title {
-        | Some(value) => println!("=> {} \n{table}", value.to_string().green().bold()),
+        | Some(value) => println!("{} \n{table}", value.to_string().bold()),
         | None => println!("{table}"),
     }
 }
