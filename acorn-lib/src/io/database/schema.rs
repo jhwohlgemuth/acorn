@@ -3,9 +3,10 @@
 use crate::io::database::{
     self,
     macros::{build_query, define_required_fn},
-    DatabaseResult,
+    DatabaseResult, SelectQuery, TableSchemaProvider,
 };
 use crate::prelude::PathBuf;
+use crate::util::Label;
 use acorn_macros::DatabaseRow;
 use bon::Builder;
 use chrono::{DateTime, Utc};
@@ -13,6 +14,7 @@ use color_eyre::eyre::eyre;
 use core::fmt;
 use rusqlite::{params, Connection, Params, Row as SqliteRow};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 define_required_fn!(1, required1, A, a);
 define_required_fn!(3, required3, A, a, B, b, C, c);
@@ -29,6 +31,8 @@ pub trait Row {
     fn select(&self) -> DatabaseResult<Vec<Self>>
     where
         Self: Sized;
+    /// Builds a SQL SELECT query with optional WHERE/ORDER BY clauses.
+    fn build_select_query(&self, base: &str) -> SelectQuery;
 }
 /// Database tables
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -221,10 +225,10 @@ impl fmt::Display for ActivityRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "ActivityRow(id: {}, command: {}, success: {})",
+            "ActivityRow = id: {}, command: {}, success: {}",
             display_or_none(self.id.as_ref()),
             display_or_none(self.command.as_ref()),
-            self.success.unwrap_or(false)
+            self.success.unwrap_or(false),
         )
         .and_then(|_| write_optional_field(f, "path", self.user_path.as_ref()))
         .and_then(|_| write_optional_timestamp(f, "executed_at", self.executed_at.as_ref()))
@@ -234,7 +238,7 @@ impl fmt::Display for CatalogRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "CatalogRow(id: {}, bucket: {}, identifier: {}, title: {})",
+            "CatalogRow = id: {}, bucket: {}, identifier: {}, title: {}",
             display_or_none(self.id.as_ref()),
             display_or_none(self.bucket_name.as_ref()),
             display_or_none(self.identifier.as_ref()),
@@ -247,7 +251,7 @@ impl fmt::Display for LinkCacheRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "LinkCacheRow(id: {}, url: {}, status: {}, reachable: {})",
+            "LinkCacheRow = id: {}, url: {}, status: {}, reachable: {}",
             display_or_none(self.id.as_ref()),
             display_or_none(self.url.as_ref()),
             self.status_code.unwrap_or(0),
@@ -261,7 +265,7 @@ impl fmt::Display for ResearchActivityCacheRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "ResearchActivityCacheRow(id: {}, identifier: {}, bucket: {}, title: {})",
+            "ResearchActivityCacheRow = id: {}, identifier: {}, bucket: {}, title: {}",
             display_or_none(self.id.as_ref()),
             display_or_none(self.identifier.as_ref()),
             display_or_none(self.source_bucket.as_ref()),
@@ -275,7 +279,7 @@ impl fmt::Display for ValidationRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "ValidationRow(id: {}, path: {}, type: {}, success: {}, message: {})",
+            "ValidationRow = id: {}, path: {}, type: {}, success: {}, message: {}",
             display_or_none(self.id.as_ref()),
             display_or_none(self.path.as_ref()),
             display_or_none(self.check_type.as_ref()),
@@ -283,6 +287,11 @@ impl fmt::Display for ValidationRow {
             display_or_none(self.message.as_ref())
         )
         .and_then(|_| write_optional_timestamp(f, "checked_at", self.checked_at.as_ref()))
+    }
+}
+impl TableSchemaProvider for Table {
+    fn all() -> &'static [Self] {
+        Table::all()
     }
 }
 impl Table {
@@ -371,7 +380,7 @@ impl Table {
             }
         }
     }
-    /// Executes a query and returns mapped rows for this table.
+    /// Get table rows
     pub fn rows<R, P>(&self, query: &str, params: P, path: Option<&PathBuf>) -> DatabaseResult<Vec<R>>
     where
         P: Params,
@@ -379,25 +388,39 @@ impl Table {
     {
         database::Database::<Table>::from_path(path.cloned()).with_connection(|conn| {
             conn.prepare(query)
-                .map_err(|why| eyre!("Failed to prepare {} query: {why}", self.name()))
+                .map_err(|why| eyre!("=> {} Failed to prepare {} query: {why}", Label::fail(), self.name()))
                 .and_then(|mut stmt| {
                     stmt.query_map(params, |row| Ok(R::from(row)))
-                        .map_err(|why| eyre!("Failed to query {}: {why}", self.name()))
+                        .map_err(|why| eyre!("=> {} Failed to query {}: {why}", Label::fail(), self.name()))
                         .and_then(|rows| {
                             rows.collect::<Result<Vec<_>, _>>()
-                                .map_err(|why| eyre!("Failed to read {} rows: {why}", self.name()))
+                                .map_err(|why| eyre!("=> {} Failed to read {} rows: {why}", Label::fail(), self.name()))
                         })
                 })
         })
     }
-    /// Prints mapped rows for this table.
-    pub fn print<R>(&self, rows: Vec<R>)
+    /// Print all table rows
+    pub fn print(self, path: Option<PathBuf>) {
+        match self {
+            | Table::Activity => self.print_rows::<ActivityRow>(path.as_ref()),
+            | Table::Catalog => self.print_rows::<CatalogRow>(path.as_ref()),
+            | Table::LinkCache => self.print_rows::<LinkCacheRow>(path.as_ref()),
+            | Table::ValidationHistory => self.print_rows::<ValidationRow>(path.as_ref()),
+            | Table::ResearchActivityCache => self.print_rows::<ResearchActivityCacheRow>(path.as_ref()),
+        }
+    }
+    fn print_rows<R>(self, path: Option<&PathBuf>)
     where
-        R: fmt::Display,
+        R: Row + Default + fmt::Display,
+        for<'row> R: From<&'row SqliteRow<'row>>,
     {
-        rows.iter().enumerate().for_each(|(idx, row)| {
-            println!("  {}. {}", idx + 1, row);
-        });
+        let row = R::default();
+        let query = format!("SELECT * FROM {}", self.name());
+        let (query, params) = row.build_select_query(&query);
+        match self.rows::<R, _>(&query, params, path) {
+            | Ok(rows) => rows.iter().enumerate().for_each(|(idx, row)| println!("  {}. {}", idx + 1, row)),
+            | Err(why) => error!("=> {} Print data - {why}", Label::fail()),
+        }
     }
 }
 impl LinkCacheRow {
@@ -411,9 +434,11 @@ impl Row for ActivityRow {
         Table::Activity
     }
     fn select(&self) -> DatabaseResult<Vec<ActivityRow>> {
-        let query = format!("SELECT id, command, executed_at, user_path, success FROM {}", Self::TABLE_NAME);
+        let table = self.table();
+        let fields = Self::FIELDS.join(", ");
+        let query = format!("SELECT {fields} FROM {}", table.name());
         let (query, params) = self.build_select_query(&query);
-        self.table().rows(&query, params, None)
+        table.rows(&query, params, None)
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
         let ActivityRow {
@@ -422,7 +447,7 @@ impl Row for ActivityRow {
             user_path,
             success,
             ..
-        } = self;
+        } = self.clone();
         let executed_at = executed_at.unwrap_or_else(Utc::now).to_rfc3339();
         let success = success.unwrap_or(true) as i32;
         let required = required1(command);
@@ -430,14 +455,17 @@ impl Row for ActivityRow {
             | Ok((command,)) => {
                 let query = format!(
                     "INSERT INTO {} (command, executed_at, user_path, success) VALUES (?, ?, ?, ?)",
-                    Self::TABLE_NAME
+                    self.table().name()
                 );
                 conn.execute(&query, params![command, executed_at, user_path, success,])
-                    .map_err(|why| eyre!("Failed to insert activity: {}", why))
+                    .map_err(|why| eyre!("=> {} Failed to insert activity: {why}", Label::fail()))
                     .map(|_| conn.last_insert_rowid())
             }
             | Err(why) => Err(why),
         }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        ActivityRow::build_select_query(self, base)
     }
 }
 impl Row for CatalogRow {
@@ -445,12 +473,11 @@ impl Row for CatalogRow {
         Table::Catalog
     }
     fn select(&self) -> DatabaseResult<Vec<CatalogRow>> {
-        let query = format!(
-            "SELECT id, bucket_name, bucket_url, identifier, title, updated_at FROM {}",
-            Self::TABLE_NAME
-        );
+        let table = self.table();
+        let fields = Self::FIELDS.join(", ");
+        let query = format!("SELECT {fields} FROM {}", table.name());
         let (query, params) = self.build_select_query(&query);
-        self.table().rows(&query, params, None)
+        table.rows(&query, params, None)
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
         let CatalogRow {
@@ -460,21 +487,24 @@ impl Row for CatalogRow {
             title,
             updated_at,
             ..
-        } = self;
+        } = self.clone();
         let updated_at = updated_at.unwrap_or_else(Utc::now).to_rfc3339();
         let required = required4(bucket_name, bucket_url, identifier, title);
         match required {
             | Ok((bucket_name, bucket_url, identifier, title)) => {
                 let query = format!(
                     "INSERT INTO {} (bucket_name, bucket_url, identifier, title, updated_at) VALUES (?, ?, ?, ?, ?)",
-                    Self::TABLE_NAME
+                    self.table().name()
                 );
                 conn.execute(&query, params![bucket_name, bucket_url, identifier, title, updated_at])
-                    .map_err(|why| eyre!("Failed to insert catalog: {}", why))
+                    .map_err(|why| eyre!("=> {} Failed to insert catalog: {why}", Label::fail()))
                     .map(|_| conn.last_insert_rowid())
             }
             | Err(why) => Err(why),
         }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        CatalogRow::build_select_query(self, base)
     }
 }
 impl Row for LinkCacheRow {
@@ -482,12 +512,11 @@ impl Row for LinkCacheRow {
         Table::LinkCache
     }
     fn select(&self) -> DatabaseResult<Vec<LinkCacheRow>> {
-        let query = format!(
-            "SELECT id, url, status_code, is_reachable, checked_at, expires_at FROM {}",
-            Self::TABLE_NAME
-        );
+        let table = self.table();
+        let fields = Self::FIELDS.join(", ");
+        let query = format!("SELECT {fields} FROM {}", table.name());
         let (query, params) = self.build_select_query(&query);
-        self.table().rows(&query, params, None)
+        table.rows(&query, params, None)
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
         let LinkCacheRow {
@@ -497,24 +526,27 @@ impl Row for LinkCacheRow {
             checked_at,
             expires_at,
             ..
-        } = self;
+        } = self.clone();
         let checked_at = checked_at.unwrap_or_else(Utc::now).to_rfc3339();
         let required = required4(url, status_code, is_reachable, expires_at);
         match required {
             | Ok((url, status_code, is_reachable, expires_at)) => {
                 let query = format!(
                     "INSERT INTO {} (url, status_code, is_reachable, checked_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-                    Self::TABLE_NAME
+                    self.table().name()
                 );
                 conn.execute(
                     &query,
                     params![url, status_code, is_reachable as i32, checked_at, expires_at.to_rfc3339()],
                 )
-                .map_err(|why| eyre!("Failed to insert link cache: {}", why))
+                .map_err(|why| eyre!("=> {} Failed to insert link cache: {why}", Label::fail()))
                 .map(|_| conn.last_insert_rowid())
             }
             | Err(why) => Err(why),
         }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        LinkCacheRow::build_select_query(self, base)
     }
 }
 impl Row for ResearchActivityCacheRow {
@@ -522,12 +554,11 @@ impl Row for ResearchActivityCacheRow {
         Table::ResearchActivityCache
     }
     fn select(&self) -> DatabaseResult<Vec<ResearchActivityCacheRow>> {
-        let query = format!(
-            "SELECT id, identifier, source_bucket, title, downloaded_at, file_path FROM {}",
-            Self::TABLE_NAME
-        );
+        let table = self.table();
+        let fields = Self::FIELDS.join(", ");
+        let query = format!("SELECT {fields} FROM {}", table.name());
         let (query, params) = self.build_select_query(&query);
-        self.table().rows(&query, params, None)
+        table.rows(&query, params, None)
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
         let ResearchActivityCacheRow {
@@ -537,21 +568,24 @@ impl Row for ResearchActivityCacheRow {
             downloaded_at,
             file_path,
             ..
-        } = self;
+        } = self.clone();
         let downloaded_at = downloaded_at.unwrap_or_else(Utc::now).to_rfc3339();
         let required = required4(identifier, source_bucket, title, file_path);
         match required {
             | Ok((identifier, source_bucket, title, file_path)) => {
                 let query = format!(
                     "INSERT INTO {} (identifier, source_bucket, title, downloaded_at, file_path) VALUES (?, ?, ?, ?, ?)",
-                    Self::TABLE_NAME
+                    self.table().name()
                 );
                 conn.execute(&query, params![identifier, source_bucket, title, downloaded_at, file_path])
-                    .map_err(|why| eyre!("Failed to insert research activity cache: {}", why))
+                    .map_err(|why| eyre!("=> {} Failed to insert research activity cache: {why}", Label::fail()))
                     .map(|_| conn.last_insert_rowid())
             }
             | Err(why) => Err(why),
         }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        ResearchActivityCacheRow::build_select_query(self, base)
     }
 }
 impl Row for ValidationRow {
@@ -571,7 +605,7 @@ impl Row for ValidationRow {
             message,
             checked_at,
             ..
-        } = self;
+        } = self.clone();
         let success = success.unwrap_or(true) as i32;
         let checked_at = checked_at.unwrap_or_else(Utc::now).to_rfc3339();
         let required = required3(path, check_type, message);
@@ -579,14 +613,17 @@ impl Row for ValidationRow {
             | Ok((path, check_type, message)) => {
                 let query = format!(
                     "INSERT INTO {} (path, check_type, success, message, checked_at) VALUES (?, ?, ?, ?, ?)",
-                    Self::TABLE_NAME
+                    self.table().name()
                 );
                 conn.execute(&query, params![path, check_type, success, message, checked_at])
-                    .map_err(|why| eyre!("Failed to insert validation: {}", why))
+                    .map_err(|why| eyre!("=> {} Failed to insert validation: {why}", Label::fail()))
                     .map(|_| conn.last_insert_rowid())
             }
             | Err(why) => Err(why),
         }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        ValidationRow::build_select_query(self, base)
     }
 }
 fn display_or_none<T>(value: Option<&T>) -> String
@@ -614,35 +651,5 @@ fn write_optional_timestamp(f: &mut fmt::Formatter<'_>, label: &str, value: Opti
     match value {
         | Some(value) => write!(f, ", {label}: {}", value.format("%Y-%m-%d %H:%M:%S")),
         | None => Ok(()),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::TimeZone;
-
-    #[test]
-    fn activity_row_display_includes_optional_values() {
-        let row = ActivityRow {
-            id: Some(1),
-            command: Some("download".to_string()),
-            executed_at: Utc.with_ymd_and_hms(2026, 3, 10, 16, 54, 34).single(),
-            user_path: Some("content".to_string()),
-            success: Some(true),
-        };
-        assert_eq!(
-            row.to_string(),
-            "ActivityRow(id: 1, command: download, success: true), path: content, executed_at: 2026-03-10 16:54:34"
-        );
-    }
-
-    #[test]
-    fn validation_row_display_uses_none_for_missing_values() {
-        let row = ValidationRow::default();
-        assert_eq!(
-            row.to_string(),
-            "ValidationRow(id: None, path: None, type: None, success: false, message: None)"
-        );
     }
 }

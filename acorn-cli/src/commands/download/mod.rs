@@ -1,11 +1,10 @@
 use acorn::io::config::{ApplicationConfiguration, Bucket};
-use acorn::io::database::schema::{ActivityRow, Row, Table};
-use acorn::io::database::Database;
+use acorn::io::database::schema::{ActivityRow, Table};
+use acorn::io::database::{Database, Operations};
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
 use acorn::util::{suffix, Label, StringConversion};
 use color_eyre::eyre::{Report, Result};
-use core::fmt;
 use owo_colors::OwoColorize;
 use std::process::exit;
 use tracing::error;
@@ -40,10 +39,11 @@ pub async fn run(
                 if let Some(path) = output {
                     let activity = ActivityRow::init()
                         .command("download".to_string())
+                        .executed_at(chrono::Utc::now())
                         .user_path(path.to_absolute_string())
                         .success(true)
                         .build();
-                    database.with_connection(|conn| activity.clone().insert(conn).map(|_| ()))?;
+                    database.insert(activity).ok();
                 }
             }
             | Err(why) => {
@@ -63,21 +63,13 @@ pub async fn run(
             println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             let activity = ActivityRow::init()
                 .command("download".to_string())
+                .executed_at(chrono::Utc::now())
                 .user_path(path.to_absolute_string())
                 .success(true)
                 .build();
-            database.with_connection(|conn| activity.clone().insert(conn).map(|_| ()))?;
+            database.insert(activity).ok();
         }
     }
-    print_activity(ActivityRow::default(), database_path.as_ref());
+    Table::Activity.print(None);
     Ok(())
-}
-fn print_activity(row: impl Into<ActivityRow> + fmt::Display, path: Option<&PathBuf>) {
-    let row = row.into();
-    let (mut query, params) = row.build_select_query("SELECT executed_at, command, user_path, success FROM activity");
-    query.push_str(" LIMIT 10");
-    Table::Activity
-        .rows::<ActivityRow, _>(&query, params, path)
-        .into_iter()
-        .for_each(|rows| Table::Activity.print(rows));
 }

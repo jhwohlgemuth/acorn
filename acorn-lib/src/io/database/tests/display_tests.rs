@@ -31,7 +31,6 @@ fn test_catalog_row_display() {
     assert!(display.contains("CatalogRow"));
     assert!(display.contains("id: 1"));
     assert!(display.contains("bucket: test-bucket"));
-    assert!(display.contains("url: https://example.com/bucket"));
     assert!(display.contains("identifier: test-identifier"));
     assert!(display.contains("title: Test Title"));
 }

@@ -9,8 +9,8 @@ use syn::{parse_macro_input, Data, DeriveInput, Fields, Meta};
 /// - `#[row(order_by = "...")]` — optional ORDER BY clause
 /// - `#[row(table = ...)]` — optional table name (string or identifier)
 ///
-/// This derive exposes constants `ORDER_BY` and `FIELDS`, and a helper method
-/// `build_select_query` for generating dynamic WHERE/ORDER BY SQL.
+/// This derive exposes constants `ORDER_BY` and `FIELDS`, and helper methods
+/// for generating dynamic WHERE/ORDER BY SQL.
 ///
 /// Example:
 /// ```ignore
@@ -92,7 +92,7 @@ fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
             pub fn build_select_query(
                 &self,
                 base: &str,
-            ) -> (String, ::rusqlite::ParamsFromIter<::std::vec::Vec<Box<dyn ::rusqlite::ToSql>>>) {
+            ) -> crate::io::database::SelectQuery {
                 let (query, params) = crate::io::database::macros::build_query!(self, base, Self::ORDER_BY, [#(#query_fields)*]);
                 (query, ::rusqlite::params_from_iter(params))
             }

@@ -10,24 +10,32 @@ use color_eyre::eyre::{self, eyre};
 use core::marker::PhantomData;
 use directories::ProjectDirs;
 use rusqlite::{params, Connection, Params};
-use tracing::{debug, info};
+use tracing::info;
 
 pub(crate) mod macros;
 pub mod schema;
 
-use schema::{ActivityRow, Table};
+use schema::{Row, Table};
 
 static CONNECTION: OnceLock<Mutex<Connection>> = OnceLock::new();
 
 /// Utility type alias for database operation results
 pub type DatabaseResult<T> = eyre::Result<T, eyre::Report>;
+/// SQL parameters produced for dynamic queries.
+pub type QueryParams = rusqlite::ParamsFromIter<Vec<Box<dyn rusqlite::ToSql>>>;
+/// SQL query string paired with its bound parameters.
+pub type SelectQuery = (String, QueryParams);
 /// Persist and access data in a database
-pub trait DatabaseOperations {
+pub trait Operations {
     /// Select a value from the database
     fn select<T, P>(&self, value: P) -> DatabaseResult<Option<T>>
     where
         T: Into<Table>,
         P: Params;
+    /// Insert a value (row) into the database
+    fn insert<R>(&self, value: R) -> DatabaseResult<i64>
+    where
+        R: Row;
 }
 /// Table schema provider for database operations.
 pub trait TableSchemaProvider: Copy + Into<Table> + 'static {
@@ -52,6 +60,26 @@ where
             path: None,
             marker: PhantomData,
         }
+    }
+}
+impl<S> Operations for Database<S>
+where
+    S: TableSchemaProvider,
+{
+    fn select<T, P>(&self, _value: P) -> DatabaseResult<Option<T>>
+    where
+        T: Into<Table>,
+        P: Params,
+    {
+        unimplemented!()
+    }
+
+    fn insert<R>(&self, value: R) -> DatabaseResult<i64>
+    where
+        R: Row,
+    {
+        let row: R = value;
+        self.with_connection(|conn| row.insert(conn))
     }
 }
 impl<T> Database<T>
@@ -190,97 +218,6 @@ where
                 info!("{} Cleared {} entries from all tables", Label::pass(), total);
             })
     }
-}
-impl TableSchemaProvider for Table {
-    fn all() -> &'static [Self] {
-        Table::all()
-    }
-}
-/// Saves an activity row in the database,
-/// optionally overriding the default database path.
-pub fn save_activity(row: ActivityRow, database_path_override: Option<&PathBuf>) {
-    let normalized = ActivityRow {
-        id: row.id,
-        command: row.command,
-        executed_at: row.executed_at.or(Some(Utc::now())),
-        user_path: row.user_path,
-        success: row.success.or(Some(true)),
-    };
-    Database::<Table>::from_path(database_path_override.cloned())
-        .with_connection(|conn| {
-            conn.execute(
-                "INSERT INTO activity (command, executed_at, user_path, success) VALUES (?, ?, ?, ?)",
-                params![
-                    normalized.command,
-                    normalized.executed_at.map(|value| value.to_rfc3339()),
-                    normalized.user_path,
-                    normalized.success.map(|value| value as i32),
-                ],
-            )
-            .map(|_| ())
-            .map_err(|why| {
-                debug!("Failed to save activity to database: {why}");
-                eyre!("Database error: {why}")
-            })
-        })
-        .unwrap_or_else(|why| {
-            debug!("Database connection failed: {why}");
-        });
-}
-/// Insert or update a catalog entry
-pub fn upsert_catalog(bucket_name: &str, bucket_url: &str, identifier: &str, title: &str) -> DatabaseResult<()> {
-    let now = Utc::now().to_rfc3339();
-    Database::<Table>::default().with_connection(|conn| {
-        conn.execute(
-            "INSERT INTO catalog (bucket_name, bucket_url, identifier, title, updated_at)
-                 VALUES (?, ?, ?, ?, ?)
-                 ON CONFLICT(bucket_name, identifier) DO UPDATE SET
-                    bucket_url = excluded.bucket_url,
-                    title = excluded.title,
-                    updated_at = excluded.updated_at",
-            params![bucket_name, bucket_url, identifier, title, now],
-        )
-        .map_err(|why| eyre!("Failed to upsert catalog: {}", why))
-        .map(|_| ())
-    })
-}
-/// Insert or update a link cache entry
-pub fn upsert_link_cache(url: &str, status_code: i32, is_reachable: bool) -> DatabaseResult<()> {
-    let ttl = Database::<Table>::default().cache_ttl();
-    let now = Utc::now();
-    let expires = (now + ttl).to_rfc3339();
-    Database::<Table>::default().with_connection(|conn| {
-        conn.execute(
-            "INSERT INTO link_cache (url, status_code, is_reachable, checked_at, expires_at)
-                 VALUES (?, ?, ?, ?, ?)
-                 ON CONFLICT(url) DO UPDATE SET
-                    status_code = excluded.status_code,
-                    is_reachable = excluded.is_reachable,
-                    checked_at = excluded.checked_at,
-                    expires_at = excluded.expires_at",
-            params![url, status_code, is_reachable as i32, now.to_rfc3339(), expires],
-        )
-        .map_err(|why| eyre!("Failed to upsert link cache: {}", why))
-        .map(|_| ())
-    })
-}
-/// Insert or update a research activity cache entry
-pub fn upsert_research_activity_cache(identifier: &str, source_bucket: &str, title: &str, file_path: &str) -> DatabaseResult<()> {
-    let now = Utc::now().to_rfc3339();
-    Database::<Table>::default().with_connection(|conn| {
-        conn.execute(
-            "INSERT INTO research_activity_cache (identifier, source_bucket, title, downloaded_at, file_path)
-                 VALUES (?, ?, ?, ?, ?)
-                 ON CONFLICT(identifier) DO UPDATE SET
-                    source_bucket = excluded.source_bucket,
-                    title = excluded.title,
-                    downloaded_at = excluded.downloaded_at,
-                    file_path = excluded.file_path",
-            params![identifier, source_bucket, title, now, file_path],
-        )
-        .map_err(|why| eyre!("Failed to upsert research activity cache: {}", why))
-        .map(|_| ())
-    })
 }
 fn database_path(path: Option<&PathBuf>) -> DatabaseResult<PathBuf> {
     match path {
