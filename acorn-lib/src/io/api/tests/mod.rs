@@ -157,8 +157,8 @@ fn test_endpoint_parse() {
     assert!(!status.database_readonly);
     assert!(status.overall);
 }
-#[test]
-fn test_geonames() {
+#[tokio::test]
+async fn test_geonames() {
     let content = read_file(fixtures_dir().join("geonames.tsv")).expect("Failed to read TSV fixture");
     let response = api::TextResponse { content };
     let countries = response.parse();
@@ -179,6 +179,8 @@ fn test_geonames() {
     assert!(countries.contains("fr"), "Expected to find France in GeoNames data");
     assert!(countries.contains("FRA"), "Expected to find France in GeoNames data");
     assert!(!countries.contains("XYZ"), "Expected not to find XYZ in GeoNames data");
+    let languages = geonames::languages(Some(countries)).await;
+    assert!(!languages.contains(&"us-EN".to_string()));
 }
 #[test]
 fn test_extract_template_keys() {

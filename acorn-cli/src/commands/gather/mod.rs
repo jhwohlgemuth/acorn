@@ -5,7 +5,7 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 
 pub async fn run(_path: &Option<PathBuf>, _ignore: &Option<String>, _offline: &bool, _verbose: &Verbosity) -> Result<(), Report> {
-    let countries = api::geonames::get_countries().await;
+    let countries = api::geonames::countries().await;
     println!("Countries: {:#?}", countries);
     println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
     println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);

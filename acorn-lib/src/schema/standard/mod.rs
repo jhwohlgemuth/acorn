@@ -6,6 +6,7 @@
 
 pub mod datacite;
 pub mod dublin_core;
+pub mod invenio;
 pub mod ods;
 
 #[cfg(test)]

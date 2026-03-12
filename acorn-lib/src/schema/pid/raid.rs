@@ -9,7 +9,7 @@ use crate::io::read_file;
 use crate::prelude::{Error, PathBuf};
 use crate::schema::constants::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::research_activity::ResearchActivity;
-use crate::schema::validate::{is_iso8601_date, is_iso8601_year, is_orcid, is_raid, is_ror, is_unix_epoch};
+use crate::schema::validate::{is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
 #[cfg(feature = "std")]
 use crate::util::Label;
 use crate::util::{current_date, License};
@@ -400,7 +400,7 @@ pub struct Access {
     /// <div class="warning">Embargo expiration dates may not lay more than 18 months from the date the RAiD was registered. Year, month, and day mush be specified.</div>
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_iso8601_date"))]
+    #[validate(custom(function = "is_date"))]
     pub embargo_expiry: Option<String>,
     /// Access statement
     ///
@@ -529,14 +529,14 @@ pub struct Date {
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_iso8601_date"))]
+    #[validate(custom(function = "is_date"))]
     pub start_date: String,
     /// Associated data end date
     /// ### Format
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_iso8601_date"))]
+    #[validate(custom(function = "is_date"))]
     pub end_date: Option<String>,
 }
 /// Metadata schema block containing the description of the RAiD and associated properties
@@ -935,7 +935,7 @@ pub struct Title {
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_iso8601_date"))]
+    #[validate(custom(function = "is_date"))]
     pub start_date: String,
     /// Date the project or activity title was changed or stopped being used
     /// ### Format
@@ -946,7 +946,7 @@ pub struct Title {
     /// <div class="warning">Listed as "recommended" (optional) and "required"</div>
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_iso8601_year"))]
+    #[validate(custom(function = "is_year"))]
     pub end_date: String,
 }
 /// Metadata schema block containing information about Traditional Knowledge / Biocultural Labels and Notices

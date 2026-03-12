@@ -48,7 +48,7 @@ pub struct ActivityRow {
 }
 /// Catalog/index entry from bucket
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 #[row(table = catalog, order_by = "title")]
 pub struct CatalogRow {
     /// Unique identifier for the catalog entry
@@ -66,7 +66,7 @@ pub struct CatalogRow {
 }
 /// Link check cache entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 #[row(table = link_cache)]
 pub struct LinkCacheRow {
     /// Unique identifier for the cache entry
@@ -84,7 +84,7 @@ pub struct LinkCacheRow {
 }
 /// Research activity cache entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 #[row(table = research_activity_cache)]
 pub struct ResearchActivityCacheRow {
     /// Unique identifier for the cache entry
@@ -102,7 +102,7 @@ pub struct ResearchActivityCacheRow {
 }
 /// Validation/check result history
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 #[row(table = validation_history, order_by = "checked_at DESC")]
 pub struct ValidationRow {
     /// Unique identifier for the validation entry

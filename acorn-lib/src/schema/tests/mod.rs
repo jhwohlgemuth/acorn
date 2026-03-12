@@ -108,6 +108,48 @@ fn test_classification() {
     assert!(ClassificationLevel::Secret < ClassificationLevel::TopSecret);
 }
 #[test]
+fn test_date_validation() {
+    let valid = ["2000-01-01", "2025-06-04", "1950-12-28"];
+    let invalid = [
+        // "3000-01-01",
+        "1949-01-02",
+        "01-02-2023",
+        "1234",
+        "foo",
+        "42",
+        "2025/06/04",
+    ];
+    for x in valid.iter() {
+        assert!(is_date(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid ISO 8601 date (YYYY-MM-DD)");
+    }
+    for x in invalid.iter() {
+        assert!(is_date(x).is_err(), "=> [REASON] \"{x}\" IS valid ISO 8601 date (YYYY-MM-DD)");
+    }
+    let valid_years = ["2000", "2025", "1950", "0999"];
+    let invalid_years = ["3000", "999", "42"];
+    for x in valid_years.iter() {
+        assert!(is_year(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid ISO 8601 year (YYYY)");
+    }
+    for x in invalid_years.iter() {
+        assert!(is_year(x).is_err(), "=> [REASON] \"{x}\" IS valid ISO 8601 year (YYYY)");
+    }
+    let valid_timestamps = [
+        "2004-03-02/2005-06-02",
+        "2026-03-12T15:04:05Z/2026-03-13T15:04:05Z",
+        "2026-03-12",
+        "2026-03-12T15:04:05Z",
+        "2026-03-12T15:04:05+00:00",
+        "2026-03-12T15:04:05.123456Z",
+    ];
+    let invalid_timestamps = ["2026/03/12T15:04:05Z", "not-a-date", "2026-13-12T15:04:05Z"];
+    for x in valid_timestamps.iter() {
+        assert!(is_rfc3339(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid RFC3339/ISO 8601 date-time");
+    }
+    for x in invalid_timestamps.iter() {
+        assert!(is_rfc3339(x).is_err(), "=> [REASON] \"{x}\" IS valid RFC3339/ISO 8601 date-time");
+    }
+}
+#[test]
 fn test_format_phone_number() {
     let no_country_code = ["555-123-4567", "555.123.4567", "(555) 123-4567"];
     for x in no_country_code.iter() {
@@ -275,6 +317,26 @@ fn test_fuzzy_matching_techology() {
     assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
 }
 #[test]
+fn test_is_latlon() {
+    let valid_latitude = [-90_f64, -45.7_f64, 0., 10_f64, 90_f64];
+    for x in valid_latitude.iter() {
+        assert!(is_latitude(*x).is_ok(), "=> [REASON] \"{x}\" IS NOT a valid latitude value");
+    }
+    let invalid_latitude = [-90.5_f64];
+    for x in invalid_latitude.iter() {
+        assert!(is_latitude(*x).is_err(), "=> [REASON] \"{x}\" IS a valid latitude value");
+    }
+
+    let valid_longitude = [-180_f64, -90_f64, 0., 90_f64, 180_f64];
+    for x in valid_longitude.iter() {
+        assert!(is_longitude(*x).is_ok(), "=> [REASON] \"{x}\" IS NOT a valid longitude value");
+    }
+    let invalid_longitude = [-180.5_f64, 180.5_f64];
+    for x in invalid_longitude.iter() {
+        assert!(is_longitude(*x).is_err(), "=> [REASON] \"{x}\" IS a valid longitude value");
+    }
+}
+#[test]
 fn test_organization() {
     const ORNL_ORGANIZATION_COUNT: usize = 368;
     let data = Organization::load();
@@ -432,33 +494,6 @@ fn test_is_ip6() {
     }
 }
 #[test]
-fn test_is_iso8601() {
-    let valid = ["2000-01-01", "2025-06-04", "1950-12-28"];
-    let invalid = [
-        // "3000-01-01",
-        "1949-01-02",
-        "01-02-2023",
-        "1234",
-        "foo",
-        "42",
-        "2025/06/04",
-    ];
-    for x in valid.iter() {
-        assert!(is_iso8601_date(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid ISO 8601 date (YYYY-MM-DD)");
-    }
-    for x in invalid.iter() {
-        assert!(is_iso8601_date(x).is_err(), "=> [REASON] \"{x}\" IS valid ISO 8601 date (YYYY-MM-DD)");
-    }
-    let valid_years = ["2000", "2025", "1950"];
-    let invalid_years = ["3000", "1949"];
-    for x in valid_years.iter() {
-        assert!(is_iso8601_year(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid ISO 8601 year (YYYY)");
-    }
-    for x in invalid_years.iter() {
-        assert!(is_iso8601_year(x).is_err(), "=> [REASON] \"{x}\" IS valid ISO 8601 year (YYYY)");
-    }
-}
-#[test]
 fn test_is_kebabcase() {
     let valid = ["this-is-valid", "thisisvalid"];
     let invalid = ["this_is_not_valid", "ThisIsNotValid", "this is not valid", "This-Is-Not-Valid"];
@@ -531,6 +566,17 @@ fn test_is_phone_number() {
     }
     for x in invalid.iter() {
         assert!(is_phone_number(x).is_err(), "=> [REASON] \"{x}\" IS a valid phone number");
+    }
+}
+#[test]
+fn test_is_semantic_version() {
+    let valid = ["1", "1.2", "1.2.3", "0.0.0", "999.10.42"];
+    let invalid = ["v1.2.3", "1.2.3.4", "alpha", "1.2.x", "2.1.0-alpha.1", "1.0.0+build.42"];
+    for x in valid.iter() {
+        assert!(is_semantic_version(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid semantic version");
+    }
+    for x in invalid.iter() {
+        assert!(is_semantic_version(x).is_err(), "=> [REASON] \"{x}\" IS a valid semantic version");
     }
 }
 #[test]

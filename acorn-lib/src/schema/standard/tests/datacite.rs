@@ -1,5 +1,6 @@
 use crate::schema::standard::datacite::{
-    Catalog, DateType, DescriptionType, FunderIdentifierType, NameType, RelatedIdentifierType, RelationType, Resource, ResourceTypeGeneral, TitleType,
+    Catalog, DateType, DescriptionType, FunderIdentifierType, GeoLocationPoint, NameType, RelatedIdentifierType, RelationType, Resource,
+    ResourceTypeGeneral, TitleType,
 };
 use serde_json::Value;
 
@@ -225,8 +226,13 @@ fn test_datacite_xml_fixture_parsing() {
         .geo_location_point
         .as_ref()
         .expect("Disko Bay should have a point");
-    assert_eq!(point.point_longitude, -52.0);
-    assert_eq!(point.point_latitude, 69.0);
+    assert_eq!(
+        point,
+        &GeoLocationPoint {
+            longitude: -52.0,
+            latitude: 69.0,
+        }
+    );
     // Polygon location (Triangle Park)
     let polygon = geo_locations.geo_location[8]
         .geo_location_polygon
@@ -234,8 +240,13 @@ fn test_datacite_xml_fixture_parsing() {
         .expect("Triangle Park should have a polygon");
     assert_eq!(polygon.polygon_points.len(), 5);
     let in_point = polygon.in_polygon_point.as_ref().expect("polygon should have in-polygon point");
-    assert_eq!(in_point.point_latitude, 49.272001);
-    assert_eq!(in_point.point_longitude, -123.108041);
+    assert_eq!(
+        in_point,
+        &GeoLocationPoint {
+            longitude: -123.108041,
+            latitude: 49.272001,
+        }
+    );
     // Funding references
     let funding_refs = resource.funding_references.as_ref().expect("funding references should exist");
     assert_eq!(funding_refs.funding_reference.len(), 2);

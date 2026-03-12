@@ -4,9 +4,12 @@
 //! DOI records, creators, contributors, related identifiers, funding
 //! references, geolocation, rights, and other metadata properties
 use super::ods;
+use crate::schema::constants::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
+use crate::schema::validate::{is_doi, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use validator::Validate;
 
 /// Collection of DataCite DOI records
 pub type Catalog = Vec<Record>;
@@ -439,7 +442,7 @@ pub enum TitleType {
 }
 /// Creator or contributor affiliation per DataCite 4.6 property 2.5
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Affiliation {
     /// Affiliation name
     pub name: String,
@@ -450,12 +453,13 @@ pub struct Affiliation {
     #[serde(rename = "affiliationIdentifierScheme")]
     pub affiliation_identifier_scheme: Option<String>,
     /// Scheme URI
+    #[validate(url)]
     #[serde(rename = "schemeURI")]
     pub scheme_uri: Option<String>,
 }
 /// Alternate identifier per DataCite 4.6 property 11
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct AlternateIdentifier {
     /// Alternate identifier value
     #[serde(rename = "alternateIdentifier")]
@@ -468,9 +472,10 @@ pub struct AlternateIdentifier {
 ///
 /// Should be an additional identifier for the same instance of the resource (i.e., same location, same file)
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Attributes {
     /// DOI string (property 1)
+    #[validate(custom(function = "is_doi"))]
     pub doi: String,
     /// Publication event type
     pub event: Option<String>,
@@ -481,18 +486,23 @@ pub struct Attributes {
     /// Publisher information (property 4)
     pub publisher: Option<Publisher>,
     /// Publication year (property 5)
+    #[validate(custom(function = "is_year"))]
     #[serde(rename = "publicationYear")]
     pub publication_year: Option<i32>,
     /// Resource types (property 10)
     #[serde(rename = "types")]
     pub resource_types: Option<ResourceTypes>,
     /// URL to the resource
+    #[validate(url)]
     pub url: Option<String>,
     /// Subject keywords (property 6)
+    #[validate(nested)]
     pub subjects: Option<Vec<Subject>>,
     /// Contributors (property 7)
+    #[validate(nested)]
     pub contributors: Option<Vec<Contributor>>,
     /// Dates (property 8)
+    #[validate(nested)]
     pub dates: Option<Vec<Date>>,
     /// Language code (property 9)
     pub language: Option<String>,
@@ -500,26 +510,39 @@ pub struct Attributes {
     #[serde(rename = "alternateIdentifiers")]
     pub alternate_identifiers: Option<Vec<AlternateIdentifier>>,
     /// Related identifiers (property 12)
+    #[validate(nested)]
     #[serde(rename = "relatedIdentifiers")]
     pub related_identifiers: Option<Vec<RelatedIdentifier>>,
     /// Sizes (property 13)
+    /// ### Examples
+    /// - "15 pages"
+    /// - "6 MB"
+    /// - "45 minutes"
     pub sizes: Option<Vec<String>>,
     /// Formats (property 14)
+    /// ### Note
+    /// > Use file extension or MIME type where possible, e.g., PDF, XML, MPG or application/pdf, text/xml, video/mpeg
     pub formats: Option<Vec<String>>,
     /// Version (property 15)
+    #[validate(custom(function = "is_semantic_version"))]
     pub version: Option<String>,
     /// Rights list (property 16)
+    #[validate(nested)]
     #[serde(rename = "rightsList")]
     pub rights_list: Option<Vec<Rights>>,
     /// Descriptions of the resource (property 17)
+    #[validate(nested)]
     pub descriptions: Option<Vec<Description>>,
     /// Geographic locations (property 18)
+    #[validate(nested)]
     #[serde(rename = "geoLocations")]
     pub geo_locations: Option<Vec<GeoLocation>>,
     /// Funding references (property 19)
+    #[validate(nested)]
     #[serde(rename = "fundingReferences")]
     pub funding_references: Option<Vec<FundingReference>>,
     /// DataCite schema version
+    #[validate(url)]
     #[serde(rename = "schemaVersion")]
     pub schema_version: Option<String>,
 }
@@ -527,9 +550,10 @@ pub struct Attributes {
 ///
 /// In kernel-4 XML, the award URI is an attribute of the
 /// `<awardNumber>` element rather than a sibling field.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct AwardNumber {
     /// Award URI
+    #[validate(url)]
     #[serde(rename = "@awardURI")]
     pub award_uri: Option<String>,
     /// Award number value
@@ -538,7 +562,7 @@ pub struct AwardNumber {
 }
 /// Contributor per DataCite 4.6 property 7
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Contributor {
     /// Contributor name
     pub name: String,
@@ -555,14 +579,16 @@ pub struct Contributor {
     #[serde(rename = "familyName")]
     pub family_name: Option<String>,
     /// Name identifiers
+    #[validate(nested)]
     #[serde(rename = "nameIdentifiers")]
     pub name_identifiers: Option<Vec<NameIdentifier>>,
     /// Contributor affiliations
+    #[validate(nested)]
     pub affiliation: Option<Vec<Affiliation>>,
 }
 /// Creator or author information per DataCite 4.6 property 2
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Creator {
     /// Creator name
     #[serde(alias = "creatorName")]
@@ -580,19 +606,22 @@ pub struct Creator {
     #[serde(rename = "nameIdentifiers", alias = "nameIdentifier")]
     pub name_identifiers: Option<Vec<NameIdentifier>>,
     /// Creator affiliations
+    #[validate(nested)]
     pub affiliation: Option<Vec<Affiliation>>,
 }
 /// Container for `<creators>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Creators {
     /// Creator list
+    #[validate(nested)]
     pub creator: Vec<Creator>,
 }
 /// Date per DataCite 4.6 property 8
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Date {
     /// Date value (YYYY, YYYY-MM-DD, or date range)
+    #[validate(custom(function = "is_rfc3339"))]
     #[serde(alias = "$text")]
     pub date: String,
     /// Date type
@@ -603,14 +632,16 @@ pub struct Date {
     pub date_information: Option<String>,
 }
 /// Container for `<dates>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Dates {
     /// Date list
+    #[validate(nested)]
     pub date: Vec<Date>,
 }
 /// Resource description per DataCite 4.6 property 17
+// TODO: Add prose validation
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Description {
     /// Description text
     #[serde(alias = "$text")]
@@ -619,16 +650,18 @@ pub struct Description {
     #[serde(rename = "descriptionType", alias = "@descriptionType")]
     pub description_type: Option<DescriptionType>,
     /// Description language
+    // TODO: Add validation using GeoNames language codes
     pub language: Option<String>,
 }
 /// Container for `<descriptions>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Descriptions {
     /// Description list
+    #[validate(nested)]
     pub description: Vec<Description>,
 }
 /// Container for `<formats>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Formats {
     /// Format list
     pub format: Vec<String>,
@@ -637,7 +670,7 @@ pub struct Formats {
 ///
 /// In kernel-4 XML, the funder identifier type is an attribute of the
 /// `<funderIdentifier>` element rather than a sibling field.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct FunderIdentifier {
     /// Funder identifier type
     #[serde(rename = "@funderIdentifierType")]
@@ -648,7 +681,7 @@ pub struct FunderIdentifier {
 }
 /// Funding reference per DataCite 4.6 property 19
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct FundingReference {
     /// Funder name
     #[serde(rename = "funderName")]
@@ -660,12 +693,14 @@ pub struct FundingReference {
     #[serde(rename = "funderIdentifierType")]
     pub funder_identifier_type: Option<FunderIdentifierType>,
     /// Funder identifier scheme URI
+    #[validate(url)]
     #[serde(rename = "schemeURI")]
     pub scheme_uri: Option<String>,
     /// Award number
     #[serde(rename = "awardNumber")]
     pub award_number: Option<String>,
     /// Award URI
+    #[validate(url)]
     #[serde(rename = "awardURI")]
     pub award_uri: Option<String>,
     /// Award title
@@ -673,80 +708,95 @@ pub struct FundingReference {
     pub award_title: Option<String>,
 }
 /// Container for `<fundingReferences>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct FundingReferences {
     /// Funding reference list
+    #[validate(nested)]
     #[serde(rename = "fundingReference")]
     pub funding_reference: Vec<KernelFundingReference>,
 }
 /// Geographic location per DataCite 4.6 property 18
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocation {
     /// Point location
+    #[validate(nested)]
     #[serde(rename = "geoLocationPoint")]
     pub geo_location_point: Option<GeoLocationPoint>,
     /// Bounding box
+    #[validate(nested)]
     #[serde(rename = "geoLocationBox")]
     pub geo_location_box: Option<GeoLocationBox>,
     /// Place name
     #[serde(rename = "geoLocationPlace")]
     pub geo_location_place: Option<String>,
     /// Polygon area
+    // TODO: Add custom validation function for checking inPolygonPoint is "in" polygon
+    #[validate(nested)]
     #[serde(rename = "geoLocationPolygon")]
     pub geo_location_polygon: Option<GeoLocationPolygon>,
 }
 /// Geographic bounding box per DataCite 4.6 property 18.2
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocationBox {
     /// Western longitude
+    #[validate(custom(function = "is_longitude"))]
     #[serde(rename = "westBoundLongitude")]
     pub west_bound_longitude: f64,
     /// Eastern longitude
+    #[validate(custom(function = "is_longitude"))]
     #[serde(rename = "eastBoundLongitude")]
     pub east_bound_longitude: f64,
     /// Southern latitude
+    #[validate(custom(function = "is_latitude"))]
     #[serde(rename = "southBoundLatitude")]
     pub south_bound_latitude: f64,
     /// Northern latitude
+    #[validate(custom(function = "is_latitude"))]
     #[serde(rename = "northBoundLatitude")]
     pub north_bound_latitude: f64,
 }
 /// Geographic point per DataCite 4.6 property 18.1
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocationPoint {
     /// Longitude (-180 to 180)
+    #[validate(custom(function = "is_longitude"))]
     #[serde(rename = "pointLongitude")]
-    pub point_longitude: f64,
+    pub longitude: f64,
     /// Latitude (-90 to 90)
+    #[validate(custom(function = "is_latitude"))]
     #[serde(rename = "pointLatitude")]
-    pub point_latitude: f64,
+    pub latitude: f64,
 }
 /// Geographic polygon per DataCite 4.6 property 18.4
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocationPolygon {
-    /// Polygon points (minimum 4, last must equal first)
+    /// Polygon points (last must equal first)
+    #[validate(nested, length(min = 4), custom(function = "is_polygon"))]
     #[serde(rename = "polygonPoints", alias = "polygonPoint")]
     pub polygon_points: Vec<GeoLocationPoint>,
     /// Interior point for polygons larger than half the earth
+    #[validate(nested)]
     #[serde(rename = "inPolygonPoint")]
     pub in_polygon_point: Option<GeoLocationPoint>,
 }
 /// Container for `<geoLocations>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocations {
     /// Geo location list
+    #[validate(nested)]
     #[serde(rename = "geoLocation")]
     pub geo_location: Vec<GeoLocation>,
 }
 /// DataCite kernel-4 XML resource identifier (property 1)
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Identifier {
     /// Identifier type (e.g., "DOI")
-    #[serde(rename = "@identifierType")]
+    #[serde(default = "default_identifier_type", rename = "@identifierType")]
     pub identifier_type: String,
     /// Identifier value
+    #[validate(custom(function = "is_doi"))]
     #[serde(rename = "$text")]
     pub value: String,
 }
@@ -756,7 +806,7 @@ pub struct Identifier {
 /// and `awardNumber` contain attributes, unlike the flat JSON API format
 /// modeled by [`FundingReference`].
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct KernelFundingReference {
     /// Funder name
     #[serde(rename = "funderName")]
@@ -765,6 +815,7 @@ pub struct KernelFundingReference {
     #[serde(rename = "funderIdentifier")]
     pub funder_identifier: Option<FunderIdentifier>,
     /// Award number with URI attribute
+    #[validate(nested)]
     #[serde(rename = "awardNumber")]
     pub award_number: Option<AwardNumber>,
     /// Award title
@@ -773,7 +824,7 @@ pub struct KernelFundingReference {
 }
 /// Persistent identifier for a creator or contributor
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct NameIdentifier {
     /// Identifier value
     #[serde(rename = "nameIdentifier", alias = "$text")]
@@ -782,12 +833,13 @@ pub struct NameIdentifier {
     #[serde(rename = "nameIdentifierScheme", alias = "@nameIdentifierScheme")]
     pub name_identifier_scheme: Option<String>,
     /// Scheme URI
+    #[validate(url)]
     #[serde(rename = "schemeUri", alias = "@schemeURI")]
     pub scheme_uri: Option<String>,
 }
 /// Publisher information per DataCite 4.6 property 4
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Publisher {
     /// Publisher name
     pub name: String,
@@ -798,24 +850,27 @@ pub struct Publisher {
     #[serde(rename = "publisherIdentifierScheme")]
     pub publisher_identifier_scheme: Option<String>,
     /// Scheme URI
+    #[validate(url)]
     #[serde(rename = "schemeURI")]
     pub scheme_uri: Option<String>,
 }
 /// Top-level DataCite DOI record
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Record {
     /// Unique DOI identifier
+    #[validate(custom(function = "is_doi"))]
     pub id: String,
     /// Record type (typically "dois")
     #[serde(rename = "type")]
     pub r#type: String,
     /// Record attributes containing metadata
+    #[validate(nested)]
     pub attributes: Attributes,
 }
 /// Related identifier per DataCite 4.6 property 12
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct RelatedIdentifier {
     /// Related identifier value
     #[serde(rename = "relatedIdentifier", alias = "$text")]
@@ -830,6 +885,7 @@ pub struct RelatedIdentifier {
     #[serde(rename = "relatedMetadataScheme")]
     pub related_metadata_scheme: Option<String>,
     /// Scheme URI
+    #[validate(url)]
     #[serde(rename = "schemeURI")]
     pub scheme_uri: Option<String>,
     /// Scheme type
@@ -840,9 +896,11 @@ pub struct RelatedIdentifier {
     pub resource_type_general: Option<ResourceTypeGeneral>,
 }
 /// Container for `<relatedIdentifiers>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct RelatedIdentifiers {
     /// Related identifier list
+    #[validate(nested)]
     #[serde(rename = "relatedIdentifier")]
     pub related_identifier: Vec<RelatedIdentifier>,
 }
@@ -850,52 +908,66 @@ pub struct RelatedIdentifiers {
 /// Reuses existing leaf types ([`Creator`], [`GeoLocation`], [`Subject`], etc.)
 /// with container wrappers for the XML list-element pattern.
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Resource {
     /// Resource identifier (property 1)
+    #[validate(nested)]
     pub identifier: Identifier,
     /// Creators (property 2)
+    #[validate(nested)]
     pub creators: Creators,
     /// Titles (property 3)
+    #[validate(nested)]
     pub titles: Titles,
     /// Publisher name (property 4)
     pub publisher: String,
     /// Publication year (property 5)
+    #[validate(custom(function = "is_year"))]
     #[serde(rename = "publicationYear")]
     pub publication_year: u32,
     /// Resource type (property 10)
     #[serde(rename = "resourceType")]
     pub resource_type: ResourceTypes,
     /// Subjects (property 6)
+    #[validate(nested)]
     pub subjects: Option<Subjects>,
     /// Dates (property 8)
+    #[validate(nested)]
     pub dates: Option<Dates>,
     /// Language code (property 9)
+    // TODO: Add validation for language using GeoNames data
     pub language: Option<String>,
     /// Related identifiers (property 12)
     #[serde(rename = "relatedIdentifiers")]
     pub related_identifiers: Option<RelatedIdentifiers>,
     /// Sizes (property 13)
+    #[validate(nested)]
     pub sizes: Option<Sizes>,
     /// Formats (property 14)
+    #[validate(nested)]
     pub formats: Option<Formats>,
     /// Version (property 15)
+    #[validate(custom(function = "is_semantic_version"))]
     pub version: Option<String>,
     /// Rights list (property 16)
+    #[validate(nested)]
     #[serde(rename = "rightsList")]
     pub rights_list: Option<RightsList>,
     /// Descriptions (property 17)
+    #[validate(nested)]
     pub descriptions: Option<Descriptions>,
     /// Geographic locations (property 18)
+    #[validate(nested)]
     #[serde(rename = "geoLocations")]
     pub geo_locations: Option<GeoLocations>,
     /// Funding references (property 19)
+    #[validate(nested)]
     #[serde(rename = "fundingReferences")]
     pub funding_references: Option<FundingReferences>,
 }
 /// Resource type information per DataCite 4.6 property 10
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct ResourceTypes {
     /// General resource type
     #[serde(rename = "resourceTypeGeneral", alias = "@resourceTypeGeneral")]
@@ -906,52 +978,59 @@ pub struct ResourceTypes {
 }
 /// Rights information per DataCite 4.6 property 16
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Rights {
     /// Rights statement
     #[serde(alias = "$text")]
     pub rights: Option<String>,
     /// Rights URI
+    #[validate(url)]
     #[serde(rename = "rightsURI", alias = "@rightsURI")]
     pub rights_uri: Option<String>,
     /// Rights identifier (e.g., CC-BY-4.0)
+    // TODO: Add validation for licenses using SPDX
     #[serde(rename = "rightsIdentifier", alias = "@rightsIdentifier")]
     pub rights_identifier: Option<String>,
     /// Rights identifier scheme (e.g., SPDX)
     #[serde(rename = "rightsIdentifierScheme", alias = "@rightsIdentifierScheme")]
     pub rights_identifier_scheme: Option<String>,
     /// Scheme URI
+    #[validate(url)]
     #[serde(rename = "schemeURI", alias = "@schemeURI")]
     pub scheme_uri: Option<String>,
 }
 /// Container for `<rightsList>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct RightsList {
     /// Rights list
+    #[validate(nested)]
     pub rights: Vec<Rights>,
 }
 /// Container for `<sizes>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Sizes {
     /// Size list
     pub size: Vec<String>,
 }
 /// Subject keyword per DataCite 4.6 property 6
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Subject {
     /// Subject keyword
     #[serde(alias = "$text")]
     pub subject: String,
     /// Subject language
+    // TODO: Add validation for language using GeoNames data
     pub language: Option<String>,
     /// Subject scheme
     #[serde(rename = "subjectScheme", alias = "@subjectScheme")]
     pub subject_scheme: Option<String>,
     /// Scheme URI
+    #[validate(url)]
     #[serde(rename = "schemeURI", alias = "@schemeURI")]
     pub scheme_uri: Option<String>,
     /// Value URI
+    #[validate(url)]
     #[serde(rename = "valueURI", alias = "@valueURI")]
     pub value_uri: Option<String>,
     /// Classification code
@@ -959,14 +1038,15 @@ pub struct Subject {
     pub classification_code: Option<String>,
 }
 /// Container for `<subjects>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Subjects {
     /// Subject list
+    #[validate(nested)]
     pub subject: Vec<Subject>,
 }
 /// Dataset title per DataCite 4.6 property 3
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Title {
     /// Title text
     #[serde(alias = "$text")]
@@ -976,11 +1056,17 @@ pub struct Title {
     pub title_type: Option<TitleType>,
 }
 /// Container for `<titles>` XML element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Titles {
     /// Title list
     pub title: Vec<Title>,
 }
+impl PartialEq for GeoLocationPoint {
+    fn eq(&self, other: &Self) -> bool {
+        self.longitude.to_bits() == other.longitude.to_bits() && self.latitude.to_bits() == other.latitude.to_bits()
+    }
+}
+impl Eq for GeoLocationPoint {}
 impl From<ods::Dataset> for Record {
     fn from(dataset: ods::Dataset) -> Self {
         let mut titles = None;
@@ -1028,4 +1114,7 @@ impl From<ods::Dataset> for Record {
 /// Convert an ODS catalog into a DataCite catalog
 pub fn from_ods(catalog: ods::Catalog) -> Catalog {
     catalog.into_iter().map(Record::from).collect()
+}
+fn default_identifier_type() -> String {
+    DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY[0].to_string()
 }

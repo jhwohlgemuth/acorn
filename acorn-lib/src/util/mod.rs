@@ -660,34 +660,19 @@ impl From<&str> for SemanticVersion {
     /// assert_eq!(version.minor, 2);
     /// ```
     fn from(value: &str) -> Self {
-        let pattern = r"(?<major>\d+)\.?(?<minor>\d+)?\.?(?<patch>\d+)?";
-        let result = match Regex::new(pattern) {
-            | Ok(re) => match re.find(value) {
-                | Ok(value) => match value {
-                    | Some(value) => value.as_str().to_string(),
-                    | None => unreachable!(),
-                },
-                | Err(_) => unreachable!(),
-            },
-            | Err(_) => unreachable!(),
-        };
-        let mut parts = result.split('.');
-        match parts.clone().collect::<Vec<_>>().len() {
-            | 3 => {
-                let major = parts.next().unwrap().parse::<u32>().unwrap();
-                let minor = parts.next().unwrap().parse::<u32>().unwrap();
-                let patch = parts.next().unwrap().parse::<u32>().unwrap();
-                SemanticVersion::init().major(major).minor(minor).patch(patch).build()
-            }
-            | 2 => {
-                let major = parts.next().unwrap().parse::<u32>().unwrap();
-                let minor = parts.next().unwrap().parse::<u32>().unwrap();
-                SemanticVersion::init().major(major).minor(minor).build()
-            }
-            | 1 => {
-                let major = parts.next().unwrap().parse::<u32>().unwrap();
-                SemanticVersion::init().major(major).build()
-            }
+        let token = value
+            .split(|c: char| !(c.is_ascii_digit() || c == '.'))
+            .find(|x: &&str| x.chars().any(|c: char| c.is_ascii_digit()))
+            .unwrap_or("");
+        let parts = token
+            .split('.')
+            .filter(|x: &&str| !x.is_empty())
+            .map(|x: &str| x.parse::<u32>())
+            .collect::<Vec<_>>();
+        match parts.as_slice() {
+            | [Ok(major), Ok(minor), Ok(patch)] => SemanticVersion::init().major(*major).minor(*minor).patch(*patch).build(),
+            | [Ok(major), Ok(minor)] => SemanticVersion::init().major(*major).minor(*minor).build(),
+            | [Ok(major)] => SemanticVersion::init().major(*major).build(),
             | _ => SemanticVersion::default(),
         }
     }

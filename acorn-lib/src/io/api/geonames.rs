@@ -159,7 +159,7 @@ impl SearchResponse {
     }
 }
 /// Pull GeoNames country data from the API and parse it into structured data
-pub async fn get_countries() -> Result<Countries, String> {
+pub async fn countries() -> Result<Countries, String> {
     let name = "GeoNames";
     match INCLUDED_ENDPOINTS.find_by_name(name) {
         | Some(endpoint) => {
@@ -168,4 +168,27 @@ pub async fn get_countries() -> Result<Countries, String> {
         }
         | None => Err(format!("{name} endpoint not found")),
     }
+}
+/// Isolate languages data from GeoNames country data for use in other contexts
+///
+/// Returns a sorted list of unique language tags from ISO-639-(1|2|3)
+pub async fn languages(data: Option<Vec<Country>>) -> Vec<String> {
+    let countries: Vec<Country> = match data {
+        | Some(countries) => countries,
+        | None => countries().await.unwrap_or_default(),
+    };
+    let mut languages = countries
+        .into_iter()
+        .flat_map(|country: Country| {
+            country
+                .languages
+                .into_iter()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .collect::<Vec<String>>()
+        })
+        .collect::<Vec<String>>();
+    languages.sort();
+    languages.dedup();
+    languages
 }
