@@ -34,6 +34,10 @@ pub enum ErrorCode {
     Isbn,
     /// Invalid kebab-case string
     KebabCase,
+    /// Invalid latitude
+    Latitude,
+    /// Invalid longitude
+    Longitude,
     /// Value exceeds allowed length
     Length,
     /// Invalid ORCiD
@@ -44,6 +48,8 @@ pub enum ErrorCode {
     Patent,
     /// Invalid phone number
     Phone,
+    /// Invalid polygon
+    Polygon,
     /// Invalid RAiD identifier
     Raid,
     /// Value outside allowed range
@@ -86,10 +92,13 @@ impl From<&str> for ErrorCode {
             | "ip6" => Self::Ip6,
             | "isbn" => Self::Isbn,
             | "kebabcase" => Self::KebabCase,
+            | "latitude" => Self::Latitude,
+            | "longitude" => Self::Longitude,
             | "length" => Self::Length,
             | "orcid" => Self::Orcid,
             | "patent" => Self::Patent,
             | "phone" => Self::Phone,
+            | "polygon" => Self::Polygon,
             | "raid" | "raìd" => Self::Raid,
             | "range" => Self::Range,
             | "ror" => Self::Ror,

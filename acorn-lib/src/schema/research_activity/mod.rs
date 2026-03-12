@@ -710,6 +710,54 @@ impl Vocabulary {
         }
     }
 }
+impl Default for Sections {
+    fn default() -> Self {
+        Sections::init().build()
+    }
+}
+impl ToMarkdown for Research {
+    fn to_markdown(&self) -> String {
+        let Research { focus, areas } = self;
+        format!(
+            r#"
+## Focus
+{focus}
+
+## Areas{}"#,
+            areas.to_markdown(),
+        )
+    }
+}
+impl ToMarkdown for Sections {
+    fn to_markdown(&self) -> String {
+        let Sections {
+            mission,
+            challenge,
+            approach,
+            impact,
+            research,
+            ..
+        } = self;
+        format!(
+            r#"
+## Mission
+{}
+
+## Challenge
+{}
+
+## Approach{}
+
+## Impact{}
+{}"#,
+            mission,
+            challenge,
+            approach.to_markdown(),
+            impact.to_markdown(),
+            research.to_markdown(),
+        )
+    }
+}
 pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
     let data = Constant::csv(&name);
     resolve_from_list_of_lists(value, data, name)
@@ -770,54 +818,6 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
         .map(|(x, _)| x.to_string());
     print_resolution(output.clone(), value, name);
     output
-}
-impl Default for Sections {
-    fn default() -> Self {
-        Sections::init().build()
-    }
-}
-impl ToMarkdown for Research {
-    fn to_markdown(&self) -> String {
-        let Research { focus, areas } = self;
-        format!(
-            r#"
-## Focus
-{focus}
-
-## Areas{}"#,
-            areas.to_markdown(),
-        )
-    }
-}
-impl ToMarkdown for Sections {
-    fn to_markdown(&self) -> String {
-        let Sections {
-            mission,
-            challenge,
-            approach,
-            impact,
-            research,
-            ..
-        } = self;
-        format!(
-            r#"
-## Mission
-{}
-
-## Challenge
-{}
-
-## Approach{}
-
-## Impact{}
-{}"#,
-            mission,
-            challenge,
-            approach.to_markdown(),
-            impact.to_markdown(),
-            research.to_markdown(),
-        )
-    }
 }
 fn validation_error_with_index(code: &'static str, message: String, index: usize) -> ValidationError {
     let mut err = ValidationError::new(code).with_message(message.into());

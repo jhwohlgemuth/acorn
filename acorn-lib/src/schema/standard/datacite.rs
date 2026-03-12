@@ -1067,6 +1067,12 @@ impl PartialEq for GeoLocationPoint {
     }
 }
 impl Eq for GeoLocationPoint {}
+impl core::fmt::Display for GeoLocationPoint {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let Self { longitude, latitude } = self;
+        write!(f, "({longitude}, {latitude})")
+    }
+}
 impl From<ods::Dataset> for Record {
     fn from(dataset: ods::Dataset) -> Self {
         let mut titles = None;

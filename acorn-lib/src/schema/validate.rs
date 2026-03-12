@@ -150,21 +150,29 @@ pub fn is_list_url(value: &[String]) -> Result<(), ValidationError> {
         .map_or(Ok(()), Err)
 }
 /// Check if value is a valid latitude
-pub fn is_latitude(value: f64) -> Result<(), ValidationError> {
+pub fn is_latitude<T>(value: T) -> Result<(), ValidationError>
+where
+    T: ToString,
+{
     const CODE: &str = "latitude";
     const MESSAGE: &str = "Provide valid latitude (-90 to 90)";
-    match (-90.0..=90.0).contains(&value) {
-        | true => Ok(()),
-        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    let parsed = value.to_string().parse::<f64>().ok();
+    match parsed.filter(|x| (-90.0..=90.0).contains(x)) {
+        | Some(_) => Ok(()),
+        | None => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid longitude
-pub fn is_longitude(value: f64) -> Result<(), ValidationError> {
+pub fn is_longitude<T>(value: T) -> Result<(), ValidationError>
+where
+    T: ToString,
+{
     const CODE: &str = "longitude";
     const MESSAGE: &str = "Provide valid longitude (-180 to 180)";
-    match (-180.0..=180.0).contains(&value) {
-        | true => Ok(()),
-        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    let parsed = value.to_string().parse::<f64>().ok();
+    match parsed.filter(|x| (-180.0..=180.0).contains(x)) {
+        | Some(_) => Ok(()),
+        | None => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid [`crate::schema::pid::Patent`]
@@ -190,13 +198,20 @@ pub fn is_phone_number(value: &str) -> Result<(), ValidationError> {
     }
 }
 /// Check if list of locations depict a valid polygon
-pub fn is_polygon(value: &Vec<GeoLocationPoint>) -> Result<(), ValidationError> {
+pub fn is_polygon(value: &[GeoLocationPoint]) -> Result<(), ValidationError> {
     const CODE: &str = "polygon";
-    const MESSAGE: &str = "Provide valid polygon (at least 4 points; first point must equal last point)";
+    const EMPTY_MESSAGE: &str = "Provide valid polygon — no points were provided";
+    let length_message = format!("Provide valid polygon — at least 4 points are required (only {} found)", value.len());
+    let first = value.first().unwrap();
+    let last = value.last().unwrap();
+    let closed_message = format!("Provide valid polygon — first point must equal last point ({first} ≠ {last})");
+    let length = value.len();
     let is_closed = value.first().zip(value.last()).map(|(first, last)| first == last).unwrap_or(false);
-    match value.len() >= 4 && is_closed {
-        | true => Ok(()),
-        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    match (length, is_closed) {
+        | (0, _) => Err(ValidationError::new(CODE).with_message(EMPTY_MESSAGE.into())),
+        | (1..=3, _) => Err(ValidationError::new(CODE).with_message(length_message.into())),
+        | (_, false) => Err(ValidationError::new(CODE).with_message(closed_message.into())),
+        | _ => Ok(()),
     }
 }
 /// Check if value is a valid semantic version (e.g., 1.2.3)

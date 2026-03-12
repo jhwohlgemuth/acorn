@@ -1089,6 +1089,14 @@ pub(crate) fn highlighted_span_from_params(source: Source, code: ErrorCode, para
             | Some(span) => Some(span),
             | None => None,
         },
+        | ErrorCode::Latitude => {
+            // TODO: Implement highlighting for latitude errors
+            None
+        }
+        | ErrorCode::Longitude => {
+            // TODO: Implement highlighting for longitude errors
+            None
+        }
         | _ if params.get("index").is_some() => match highlighted_span_for_array(source.clone(), params.clone()) {
             | Some(span) => Some(span),
             | None => None,
