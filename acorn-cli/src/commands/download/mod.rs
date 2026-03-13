@@ -15,6 +15,7 @@ pub async fn run(
     output: &Option<PathBuf>,
     offline: &bool,
     database_path: &Option<PathBuf>,
+    threads: usize,
 ) -> Result<(), Report> {
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
@@ -30,7 +31,7 @@ pub async fn run(
                             total += if *offline || bucket.clone().code_repository.is_local() {
                                 bucket.copy_files(path)
                             } else {
-                                bucket.download_files(path).await
+                                bucket.download_files(path, threads).await
                             };
                         }
                     }
@@ -65,7 +66,7 @@ pub async fn run(
             total += if *offline || bucket.clone().code_repository.is_local() {
                 bucket.copy_files(path.clone())
             } else {
-                bucket.download_files(path.clone()).await
+                bucket.download_files(path.clone(), threads).await
             };
             println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             let activity = ActivityRow::init()

@@ -377,8 +377,9 @@ impl Bucket {
     ///
     /// Ignores files listed in [`IGNORE`]
     ///
-    /// Downloads up to 10 files concurrently using buffered streams
-    pub async fn download_files(self: Bucket, output: PathBuf) -> usize {
+    /// Downloads files concurrently using buffered streams
+    pub async fn download_files(self: Bucket, output: PathBuf, threads: usize) -> usize {
+        let buffer_size: usize = if threads > 0 { threads } else { 10 };
         let paths = self
             .clone()
             .file_paths("")
@@ -422,7 +423,7 @@ impl Bucket {
                     progress.inc(1);
                 }
             })
-            .buffer_unordered(10)
+            .buffer_unordered(buffer_size)
             .collect::<Vec<()>>()
             .await;
         progress.set_style(ProgressStyle::with_template("{msg}").unwrap());

@@ -214,7 +214,9 @@ async fn main() -> Void {
             .await
         }
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline).await,
-        | Some(Commands::Download { config, url, output, .. }) => commands::download::run(config, url, output, &offline, &database_path).await,
+        | Some(Commands::Download { config, url, output, .. }) => {
+            commands::download::run(config, url, output, &offline, &database_path, threads).await
+        }
         | Some(Commands::Export {
             output,
             path,
