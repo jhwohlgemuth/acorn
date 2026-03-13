@@ -7,7 +7,7 @@
 use crate::io::read_file;
 #[cfg(feature = "std")]
 use crate::prelude::{Error, PathBuf};
-use crate::schema::constants::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
+use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
 #[cfg(feature = "std")]

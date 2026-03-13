@@ -7,7 +7,7 @@ use crate::fail;
 use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::{io::Error, PathBuf};
-use crate::schema::constants::{CODEMETA_CONTEXT, DCAT_CONTEXT, SCHEMA_ORG_CONTEXT};
+use crate::schema::namespaces::{codemeta, dcat, schema_org};
 use crate::schema::pid::PersistentIdentifierConvert;
 use crate::schema::validate::{is_doi, is_kebabcase, is_list_url, is_ror};
 use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website};
@@ -122,7 +122,7 @@ pub struct ResearchActivity {
 ///
 /// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ResearchActivityContext {
     /// Associated metadata
@@ -369,12 +369,12 @@ impl Default for ResearchActivity {
 impl Default for ResearchActivityContext {
     fn default() -> Self {
         ResearchActivityContext::init()
-            .meta(format!("{SCHEMA_ORG_CONTEXT}/CreativeWork"))
-            .title(format!("{SCHEMA_ORG_CONTEXT}/title"))
-            .subtitle(format!("{SCHEMA_ORG_CONTEXT}/alternativeHeadline"))
-            .sections(format!("{SCHEMA_ORG_CONTEXT}/CreativeWork"))
-            .contact(format!("{DCAT_CONTEXT}/contactPoint"))
-            .notes(format!("{SCHEMA_ORG_CONTEXT}/Text"))
+            .meta(schema_org("CreativeWork"))
+            .title(schema_org("title"))
+            .subtitle(schema_org("alternativeHeadline"))
+            .sections(schema_org("CreativeWork"))
+            .contact(dcat("contactPoint"))
+            .notes(schema_org("Text"))
             .build()
     }
 }
@@ -386,22 +386,22 @@ impl Default for ResearchActivityMetadata {
 impl Default for ResearchActivityMetadataContext {
     fn default() -> Self {
         ResearchActivityMetadataContext::init()
-            .classification(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .archive(format!("{SCHEMA_ORG_CONTEXT}/Boolean"))
-            .draft(format!("{SCHEMA_ORG_CONTEXT}/Boolean"))
-            .status(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .identifier(format!("{CODEMETA_CONTEXT}/identifier"))
+            .classification(schema_org("DefinedTerm"))
+            .archive(schema_org("Boolean"))
+            .draft(schema_org("Boolean"))
+            .status(schema_org("DefinedTerm"))
+            .identifier(codemeta("identifier"))
             .doi("https://doi.org")
             .raid("https://raid.org")
             .ror("https://ror.org")
-            .additional_type(format!("{SCHEMA_ORG_CONTEXT}/additionalType"))
-            .media(format!("{SCHEMA_ORG_CONTEXT}/MediaObject"))
-            .websites(format!("{SCHEMA_ORG_CONTEXT}/WebSite"))
-            .keywords(format!("{DCAT_CONTEXT}/keyword"))
-            .technology(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .sponsors(format!("{CODEMETA_CONTEXT}/sponsor"))
-            .partners(format!("{SCHEMA_ORG_CONTEXT}/Text"))
-            .related(format!("{SCHEMA_ORG_CONTEXT}/Text"))
+            .additional_type(schema_org("additionalType"))
+            .media(schema_org("MediaObject"))
+            .websites(schema_org("WebSite"))
+            .keywords(dcat("keyword"))
+            .technology(schema_org("DefinedTerm"))
+            .sponsors(codemeta("sponsor"))
+            .partners(schema_org("Text"))
+            .related(schema_org("Text"))
             .build()
     }
 }

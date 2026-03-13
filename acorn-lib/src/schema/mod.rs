@@ -38,16 +38,16 @@ use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace};
 use validator::Validate;
 
-pub mod constants;
 pub mod graph;
+pub mod namespaces;
 pub mod pid;
 pub mod prompt;
 pub mod research_activity;
 pub mod standard;
 pub mod validate;
 
-use constants::SCHEMA_ORG_CONTEXT;
 use graph::{node_from_label, node_name, node_parent};
+use namespaces::schema_org;
 use validate::{has_image_extension, is_orcid, is_phone_number};
 
 /// ## Keywords
@@ -622,15 +622,15 @@ impl Default for ContactPoint {
 impl Default for ContactPointContext {
     fn default() -> Self {
         Self::init()
-            .job_title(format!("{SCHEMA_ORG_CONTEXT}/jobTitle"))
-            .given_name(format!("{SCHEMA_ORG_CONTEXT}/givenName"))
-            .family_name(format!("{SCHEMA_ORG_CONTEXT}/familyName"))
+            .job_title(schema_org("jobTitle"))
+            .given_name(schema_org("givenName"))
+            .family_name(schema_org("familyName"))
             .identifier("https://orcid.org")
-            .email(format!("{SCHEMA_ORG_CONTEXT}/email"))
-            .telephone(format!("{SCHEMA_ORG_CONTEXT}/telephone"))
-            .url(format!("{SCHEMA_ORG_CONTEXT}/url"))
-            .organization(format!("{SCHEMA_ORG_CONTEXT}/worksFor"))
-            .affiliation(format!("{SCHEMA_ORG_CONTEXT}/affiliation"))
+            .email(schema_org("email"))
+            .telephone(schema_org("telephone"))
+            .url(schema_org("url"))
+            .organization(schema_org("worksFor"))
+            .affiliation(schema_org("affiliation"))
             .build()
     }
 }
@@ -638,7 +638,7 @@ impl LinkedData for ContactPoint {
     fn with_context(&self) -> Self {
         let mut clone = self.clone();
         clone.context = Some(ContactPointContext::default());
-        clone.contact_point_type = Some(format!("{SCHEMA_ORG_CONTEXT}/person"));
+        clone.contact_point_type = Some(schema_org("person"));
         clone
     }
 }

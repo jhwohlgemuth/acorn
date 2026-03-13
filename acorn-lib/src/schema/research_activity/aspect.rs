@@ -14,7 +14,7 @@
 //!
 //! In the context of technology, AI/ML and automation are the same.
 //!
-use crate::schema::constants::{CODEMETA_CONTEXT, SCHEMA_ORG_CONTEXT};
+use crate::schema::namespaces::{codemeta, schema_org};
 use crate::schema::prompt::Model;
 use crate::schema::TechnologyReadinessLevel;
 use crate::util::{License, LinkedData, Resource};
@@ -214,7 +214,7 @@ pub struct AspectFramework {
 }
 /// Linked data (e.g., JSON-LD) context for ASPECT information
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 pub struct AspectFrameworkContext {
     pub(crate) data: String,
     pub(crate) portability: String,
@@ -245,7 +245,7 @@ pub struct DataDescription {
 }
 /// Linked data (e.g., JSON-LD) context for data description
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 pub struct DataDescriptionContext {
     pub(crate) availability: String,
     pub(crate) license: String,
@@ -260,13 +260,13 @@ impl Default for AspectFramework {
 impl Default for AspectFrameworkContext {
     fn default() -> Self {
         AspectFrameworkContext::init()
-            .data(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .portability(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .motivity(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .autonomy(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .resources(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .maturity(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .task_type(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .data(schema_org("DefinedTerm"))
+            .portability(schema_org("DefinedTerm"))
+            .motivity(schema_org("DefinedTerm"))
+            .autonomy(schema_org("DefinedTerm"))
+            .resources(schema_org("DefinedTerm"))
+            .maturity(schema_org("DefinedTerm"))
+            .task_type(schema_org("DefinedTerm"))
             .build()
     }
 }
@@ -278,10 +278,10 @@ impl Default for DataDescription {
 impl Default for DataDescriptionContext {
     fn default() -> Self {
         DataDescriptionContext::init()
-            .availability(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .license(format!("{CODEMETA_CONTEXT}/softwareVersion"))
-            .modality(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
-            .quality(format!("{SCHEMA_ORG_CONTEXT}/DefinedTerm"))
+            .availability(schema_org("DefinedTerm"))
+            .license(codemeta("softwareVersion"))
+            .modality(schema_org("DefinedTerm"))
+            .quality(schema_org("DefinedTerm"))
             .build()
     }
 }

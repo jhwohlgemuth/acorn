@@ -4,7 +4,7 @@
 //! DOI records, creators, contributors, related identifiers, funding
 //! references, geolocation, rights, and other metadata properties
 use super::ods;
-use crate::schema::constants::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
+use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::validate::{is_doi, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
