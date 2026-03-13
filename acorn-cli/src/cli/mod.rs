@@ -323,6 +323,9 @@ pub enum Commands {
     ///
     ///     $> acorn export /path/to/data -t poster -o /path/to/output
     ///
+    ///     Export folder as a BagIt archive to /path/to/bag.zip
+    ///     $> acorn export /path/to/data --format bag --output /path/to/bag
+    ///
     ///     Export file(s) that were changed in a given Git commit
     ///     $> acorn export --commit <commit hash>
     ///

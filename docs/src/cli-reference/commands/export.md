@@ -12,11 +12,13 @@ graph LR
     data("JSON</br>(index.json)") --> export{Export}
     export --> PDF("PDF</br>(fact sheet)")
     export --> PPTX("PPTX</br>(presentation)")
+    export --> Convert("JSON | YAML | Markdown</br>(add to project)")
+    export --> BAG("BagIt</br>(archive)")
     export --> more("More to come...</br>(Markdown, YAML, etc.)")
 ```
 
 > [!TIP]
-> You can see the export command result by visiting the [ORNL Research Activity Index](https://research.ornl.gov), which features a variety of research activity data presented in different formats.
+> You can see some export command results by visiting the [ORNL Research Activity Index](https://research.ornl.gov), which features a variety of research activity data presented in different formats.
 
 ## Example Usage
 ```sh
@@ -26,6 +28,9 @@ acorn export /path/to/index.json --format pdf
 # Create PowerPoint presentations from all research activity data in a directory
 acorn export /path/to/project/ --format powerpoint
 ```
+
+> [!NOTE]
+> Each export format uses the `--output` option to specify the output file or directory path. If not provided, ACORN will generate a default output path based on the input path and selected format. For example, `--format pdf` and `--format powerpoint` will generate files in the default export location (`./export/`) with names based on the project parent folder(s), `--format bag` will add `.zip` to the output path (i.e., `--output ./export` will create `./export.zip` and `--output /path/to/bag` will create `/path/to/bag.zip`).
 
 ## PowerPoint Reference Template
 Customize the PowerPoint export by providing a reference template using the `--reference` option. This allows you to define specific styles, layouts, and branding for your presentations.

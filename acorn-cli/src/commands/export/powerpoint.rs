@@ -14,7 +14,7 @@ use fancy_regex::Regex;
 use itertools::izip;
 use nanoid::nanoid;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use tracing::{debug, error};
+use tracing::error;
 
 fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
     fn add_slide_element(xml: &str, revision_identifier: u32) -> String {
@@ -101,23 +101,6 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
 }
 /// Create PowerPoint presentation from Research Activity data
 pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandLineOptions>) -> Result<PathBuf, Error> {
-    fn output_path_string(output: &Option<PathBuf>, name: &str) -> String {
-        match output {
-            | Some(ref value) => match create_dir_all(value.clone()) {
-                | Ok(_) => {
-                    let path = format!("{}/{name}.pptx", value.display());
-                    debug!(path, "=> {} Output", Label::using());
-                    path
-                }
-                | Err(err) => {
-                    let path = value.clone().to_absolute_string();
-                    error!(path, "=> {} Create directory - {err}", Label::fail());
-                    exit(exitcode::IOERR);
-                }
-            },
-            | None => unreachable!(),
-        }
-    }
     let CommandLineOptions { output, path, reference, .. } = options.clone().unwrap();
     let paths: Vec<PathBuf> = paths.into_iter().collect();
     let count = paths.clone().len();
@@ -192,6 +175,30 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandL
     } else {
         path.as_ref().unwrap().to_path_buf()
     };
-    let name = folder.file_name().unwrap().to_string_lossy().to_string();
-    archive(reference_extract_path.clone(), Some(PathBuf::from(output_path_string(&output, &name))))
+    let folder_name = folder.file_name_with_parent();
+    prepare_destination(&output, &folder_name).and_then(|destination| archive(reference_extract_path.clone(), Some(destination)))
+}
+fn prepare_destination(output: &Option<PathBuf>, name: &str) -> Result<PathBuf, Error> {
+    const EXTENSION: &str = "pptx";
+    match output {
+        | Some(ref value) => match create_dir_all(value.clone()) {
+            | Ok(_) => Ok(value.join(name).with_extension(EXTENSION)),
+            | Err(why) => Err(Error::other(format!("Failed to create output directory for PowerPoint export — {why}"))),
+        },
+        | None => Err(Error::other("Missing output directory")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::prepare_destination;
+
+    #[test]
+    fn test_prepare_destination() {
+        let base = std::env::temp_dir();
+        let output = Some(base.clone());
+        let path = prepare_destination(&output, "example").unwrap();
+        let expected = base.join("example.pptx");
+        assert_eq!(path, expected);
+    }
 }

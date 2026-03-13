@@ -230,6 +230,9 @@ fn test_archive() {
 }
 #[test]
 fn test_bagit() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let temp_dir = std::env::temp_dir().join(format!("acorn-bagit-{stamp}"));
+    let _ = create_dir_all(temp_dir.clone());
     let info = BagInfo::init()
         .organization(vec!["Oak Ridge National Laboratory".to_string()])
         .contact_name(vec!["Jason Wohlgemuth".to_string()])
@@ -241,12 +244,15 @@ fn test_bagit() {
         .with_payload();
     assert_eq!(bag.payload.len(), 27);
     assert_eq!(bag.clone().info.unwrap().entries().len(), 2);
-    match bag.save("../export/bag") {
+    let save_path = temp_dir.join("bag");
+    match bag.save(save_path.to_str().unwrap()) {
         | Ok(path) => {
-            assert_eq!(path.display().to_string(), "../export/bag.zip");
+            assert_eq!(path.file_name().unwrap().to_str().unwrap(), "bag.zip");
+            assert!(path.exists(), "Saved bag file should exist at {:?}", path);
         }
         | Err(why) => panic!("Failed to save bag: {why}"),
     }
+    let _ = remove_dir_all(temp_dir);
 }
 #[test]
 fn test_baginfo_save_repeatable_fields() {
@@ -292,7 +298,7 @@ fn test_baginfo_save_single_value_fields_only() {
     let lines = content.lines().collect::<Vec<_>>();
     let expected_date = format!("Bagging-Date: {TEST_BAGGING_DATE}");
     assert_eq!(lines, vec![expected_date.as_str(), "Bag-Size: 42 KB"]);
-    remove_dir_all(dir).unwrap();
+    let _ = remove_dir_all(dir);
 }
 #[test]
 fn test_bagit_verify() {
@@ -301,6 +307,7 @@ fn test_bagit_verify() {
     if cfg!(target_os = "windows") {
         let path = fixtures_dir().join("bag");
         let result = Bag::verify(path);
+        dbg!(&result);
         assert!(result.is_ok());
     }
 }

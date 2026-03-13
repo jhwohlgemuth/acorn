@@ -47,11 +47,9 @@ pub async fn run(
             debug!("=> {} {:#?}", Label::using(), info);
             let bag = Bag::init().base_directory(base).info(info).build();
             let destination = output.clone().unwrap();
-            let save: Result<(), Report> = match bag.save(destination.clone()) {
-                | Ok(_) => Ok(()),
-                | Err(why) => Err(why.into()),
-            };
-            save.and_then(|_| Bag::verify(destination.clone()).map_err(|why| why.into()))
+            bag.save(destination.clone())
+                .map_err(|why| why.into())
+                .and_then(|_| Bag::verify(destination.clone()).map_err(|why| why.into()))
                 .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
         }
         | FileFormat::Json => {
