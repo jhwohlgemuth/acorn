@@ -15,6 +15,7 @@ use bon::Builder;
 use core::fmt::Debug;
 use derive_more::Display;
 use futures::future::join_all;
+use futures::stream::{self, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -375,6 +376,8 @@ impl Bucket {
     /// Download files from bucket to local directory
     ///
     /// Ignores files listed in [`IGNORE`]
+    ///
+    /// Downloads up to 10 files concurrently using buffered streams
     pub async fn download_files(self: Bucket, output: PathBuf) -> usize {
         let paths = self
             .clone()
@@ -387,31 +390,41 @@ impl Bucket {
         let total_images: usize = count_image_files(paths.clone());
         let message = operations_complete_message(self.name, total_data, total_images);
         let progress = ProgressBar::new(paths.len() as u64);
-        for path in paths {
-            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-            progress.set_message(format!("Downloading {path}"));
-            let folder = format!("{}/{}", output.display(), parent(path.clone()).display());
-            create_dir_all(folder.clone()).unwrap();
-            if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
-                if let Some(url) = self.code_repository.raw_url(path.to_string()) {
-                    match get(url).send().await {
-                        | Ok(response) => match response.bytes().await {
-                            | Ok(bytes) => {
-                                let mut content = Cursor::new(bytes);
-                                let _ = io::copy(&mut content, &mut file);
+        progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+        let repository = self.code_repository.clone();
+        stream::iter(paths)
+            .map(|path| {
+                let output = output.clone();
+                let repository = repository.clone();
+                let progress = progress.clone();
+                async move {
+                    progress.set_message(format!("Downloading {path}"));
+                    let folder = format!("{}/{}", output.display(), parent(path.clone()).display());
+                    create_dir_all(folder.clone()).unwrap();
+                    if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
+                        if let Some(url) = repository.raw_url(path.to_string()) {
+                            match get(url).send().await {
+                                | Ok(response) => match response.bytes().await {
+                                    | Ok(bytes) => {
+                                        let mut content = Cursor::new(bytes);
+                                        let _ = io::copy(&mut content, &mut file);
+                                    }
+                                    | Err(why) => {
+                                        error!(path, "=> {} Convert to bytes - {why}", Label::fail());
+                                    }
+                                },
+                                | Err(why) => {
+                                    error!(path, "=> {} Download file - {why}", Label::fail());
+                                }
                             }
-                            | Err(why) => {
-                                error!(path, "=> {} Convert to bytes - {why}", Label::fail());
-                            }
-                        },
-                        | Err(why) => {
-                            error!(path, "=> {} Download file - {why}", Label::fail());
                         }
-                    }
+                    };
+                    progress.inc(1);
                 }
-            };
-            progress.inc(1);
-        }
+            })
+            .buffer_unordered(10)
+            .collect::<Vec<()>>()
+            .await;
         progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
         progress.finish_with_message(message);
         total_data + total_images

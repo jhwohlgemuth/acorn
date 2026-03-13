@@ -110,7 +110,9 @@ pub async fn run(
             }
             #[cfg(not(feature = "pdf"))]
             {
-                Err(color_eyre::eyre::eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
+                Err(color_eyre::eyre::eyre!(
+                    "PDF export requires the 'pdf' feature. Rebuild with --features pdf"
+                ))
             }
         }
         | FileFormat::Markdown => {

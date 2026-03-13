@@ -48,6 +48,13 @@ pub async fn run(
             }
             | Err(why) => {
                 error!("=> {} Download data - {why}", Label::fail());
+                let activity = ActivityRow::init()
+                    .command("download")
+                    .executed_at(chrono::Utc::now())
+                    .user_path(path.file_name_with_parent())
+                    .success(false)
+                    .build();
+                database.insert(activity).ok();
                 exit(exitcode::DATAERR);
             }
         };

@@ -92,6 +92,7 @@ async fn test_export_powerpoint_format() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
+#[ignore = "Requires Playwright for PDF generation"]
 async fn test_export_pdf_format() -> Result<()> {
     let temp_dir = temp_test_dir("export_pdf");
     let _cleanup = TestCleanup::new(temp_dir.clone());
