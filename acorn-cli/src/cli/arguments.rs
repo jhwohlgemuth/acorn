@@ -4,7 +4,7 @@ use derive_more::Display;
 
 /// Database backend used for local cache and history tables.
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq, ValueEnum)]
-pub enum DatabaseBackendArgument {
+pub enum DatabaseBackend {
     /// SQLite backend
     #[display("sqlite")]
     Sqlite,

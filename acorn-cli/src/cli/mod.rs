@@ -10,7 +10,7 @@ use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
 
 pub mod arguments;
-use arguments::{CheckCategory, DatabaseBackendArgument, Diagnostic, FileFormat, ReadabilityTypeArgument};
+use arguments::{CheckCategory, DatabaseBackend, Diagnostic, FileFormat, ReadabilityTypeArgument};
 
 const PRIMARY_COLOR: u8 = 135;
 const STYLES: Styles = Styles::styled()
@@ -127,7 +127,7 @@ pub struct Arguments {
         env = ENV_DATABASE_BACKEND,
         help_heading = "OPTIONS"
     )]
-    pub database_backend: Option<DatabaseBackendArgument>,
+    pub database_backend: Option<DatabaseBackend>,
     /// Override local database path (defaults to cache directory when omitted)
     #[arg(
         short = 'P',
