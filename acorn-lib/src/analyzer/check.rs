@@ -1,9 +1,9 @@
 //! Check result types and helpers for analyzer output.
 
 use super::error::{process, ErrorCode, ErrorKind};
-use super::vale::{ValeOutputItem, ValeOutputItemSeverity};
 #[cfg(feature = "analysis")]
 use super::to_dataframe;
+use super::vale::{ValeOutputItem, ValeOutputItemSeverity};
 use ariadne::{Color, Config, Report, ReportKind, Source};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -206,7 +206,11 @@ impl Check {
             }
             | CheckCategory::Readability => {
                 let Check {
-                    context, errors, message, severity, ..
+                    context,
+                    errors,
+                    message,
+                    severity,
+                    ..
                 } = self;
                 match errors {
                     | Some(ErrorKind::Readability((index, readability_type))) => {
@@ -275,7 +279,7 @@ impl Check {
                                     | Some(span) => span,
                                     | None => 0..=(source.text().len() - 1),
                                 };
-                                let _ = Report::build(report_kind.clone(), (&title, 1..=1))
+                                let _ = Report::build(report_kind, (&title, 1..=1))
                                     .with_code(index)
                                     .with_config(Config::default().with_compact(false))
                                     .with_message(title_message)
@@ -326,9 +330,7 @@ impl fmt::Display for Check {
         const INDENT: &str = " ";
         const COL_ONE_WIDTH: usize = 25;
         const COL_TWO_WIDTH: usize = 29;
-        let format_row = |first: String, second: String, third: String| {
-            format!("{INDENT}{first:<COL_ONE_WIDTH$} {second:<COL_TWO_WIDTH$} {third}")
-        };
+        let format_row = |first: String, second: String, third: String| format!("{INDENT}{first:<COL_ONE_WIDTH$} {second:<COL_TWO_WIDTH$} {third}");
         let severity_colored = |severity: &CheckSeverity| match severity {
             | CheckSeverity::Error => severity.to_string().red().bold().to_string(),
             | CheckSeverity::Suggestion => severity.to_string().blue().bold().to_string(),
@@ -371,7 +373,7 @@ impl fmt::Display for Check {
                         let severity = CheckSeverity::from(severity.clone());
                         let details = format!("{} {}", message, check.dimmed());
                         f.write_fmt(format_args!("{}", format_row(location, severity_colored(&severity), details)))
-                        .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
+                            .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
                     })
                 }
                 | None | Some(_) => write!(f, ""),
@@ -411,7 +413,7 @@ impl fmt::Display for Check {
                         let field = path.clone().unwrap_or_default();
                         let details = format!("{message} {}{}", "code=".dimmed(), code.to_string().to_uppercase().dimmed());
                         f.write_fmt(format_args!("{}", format_row(field, severity.clone(), details)))
-                        .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
+                            .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
                     })
                 }
                 | None | Some(_) => write!(f, ""),

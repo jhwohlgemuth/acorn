@@ -64,6 +64,7 @@ which = { version = "8.0.0", features = ["real-sys"], default-features = false }
 
 [features]
 default = ["pdf"]
+duckdb = ["acorn-lib/duckdb"]
 pdf = ["dep:playwright"]
 
 [dev-dependencies]

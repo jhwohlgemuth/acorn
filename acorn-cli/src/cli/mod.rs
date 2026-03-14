@@ -1,3 +1,4 @@
+use acorn::io::database::backend::ENV_DATABASE_BACKEND;
 use acorn::io::{files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored};
 use acorn::prelude::PathBuf;
 use bon::Builder;
@@ -9,7 +10,7 @@ use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
 
 pub mod arguments;
-use arguments::{CheckCategory, Diagnostic, FileFormat, ReadabilityTypeArgument};
+use arguments::{CheckCategory, DatabaseBackendArgument, Diagnostic, FileFormat, ReadabilityTypeArgument};
 
 const PRIMARY_COLOR: u8 = 135;
 const STYLES: Styles = Styles::styled()
@@ -119,6 +120,14 @@ pub async fn paths_from_options(path: &Option<PathBuf>, options: &Option<Command
     override_usage = "acorn [FLAGS] [COMMAND]"
 )]
 pub struct Arguments {
+    /// Select database backend (`sqlite` or `duckdb`) for local cache/history storage
+    #[arg(
+        long = "database-backend",
+        value_name = "BACKEND",
+        env = ENV_DATABASE_BACKEND,
+        help_heading = "OPTIONS"
+    )]
+    pub database_backend: Option<DatabaseBackendArgument>,
     /// Override local database path (defaults to cache directory when omitted)
     #[arg(
         short = 'P',

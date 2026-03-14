@@ -14,7 +14,7 @@
 ///
 /// # Returns
 ///
-/// A tuple of `(String, Vec<Box<dyn rusqlite::ToSql>>)` containing:
+/// A tuple of `(String, Vec<Box<dyn ToSql>>)` containing:
 /// - The complete SQL query string with WHERE and ORDER BY clauses
 /// - A vector of bound parameters for the query
 ///
@@ -55,7 +55,7 @@
 macro_rules! build_query {
     ($row:expr, $base:expr, $order_by:expr, [$( $field:ident $(=> $map:expr)? ),* $(,)?]) => {{
         let mut conditions = Vec::new();
-        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let mut params: Vec<Box<dyn crate::io::database::backend::ToSql>> = Vec::new();
         $(
             if let Some(value) = build_query!(@value $row.$field.clone() $(, $map)?) {
                 conditions.push(concat!(stringify!($field), " = ?"));

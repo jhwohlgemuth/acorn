@@ -41,6 +41,7 @@ nanoid = { version = "0.4.0", default-features = false }
 owo-colors = { version = "4.2.3", features = ["alloc"], default-features = true }
 rayon = { version = "1.10.0", default-features = false }
 rust-embed = { version = "8.11.0", default-features = false }
+duckdb = { version = "1.1", default-features = false }
 rusqlite = { version = "0.37.0", default-features = false }
 secrecy = { version = "0.8.0", features = ["alloc"], default-features = false }
 serde = { version = "1.0.225", features = ["derive"], default-features = false }

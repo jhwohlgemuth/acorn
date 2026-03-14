@@ -93,7 +93,7 @@ fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 base: &str,
             ) -> crate::io::database::SelectQuery {
                 let (query, params) = crate::io::database::macros::build_query!(self, base, Self::ORDER_BY, [#(#query_fields)*]);
-                (query, ::rusqlite::params_from_iter(params))
+                (query, crate::io::database::backend::params_from_iter(params))
             }
         }
         impl crate::io::database::RowMetadata for #_name {

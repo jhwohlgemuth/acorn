@@ -60,6 +60,7 @@ quick-xml = { version = "0.39.1", features = ["serialize"], default-features = f
 rayon = { workspace = true }
 reqwest = { version = "0.13.2", features = ["blocking", "rustls", "json"], default-features = false, optional = true }
 ring = { version = "0.17.14", default-features = false }
+duckdb = { workspace = true, features = ["bundled"], default-features = false, optional = true }
 rusqlite = { workspace = true, features = ["bundled"], default-features = false }
 rust-embed = { workspace = true }
 rust-ini = { version = "0.21.3", default-features = false }
@@ -96,6 +97,7 @@ temp-env = "0.3.6"
 analysis = ["dep:bat", "dep:polars"]
 default = ["analysis", "std"]
 doctor = []
+duckdb = ["dep:duckdb"]
 powerpoint = []
 std = ["dep:lychee-lib", "dep:reqwest", "dep:tokio", "dep:which"]
 

@@ -40,17 +40,9 @@ pub mod error;
 pub mod readability;
 pub mod vale;
 
-pub use check::{
-    highlighted_span,
-    highlighted_span_for_array,
-    highlighted_span_from_params,
-    summary,
-    Check,
-    CheckCategory,
-    CheckSeverity,
-};
 #[cfg(feature = "analysis")]
 pub use check::{checks_to_dataframe, IntoRow};
+pub use check::{highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, Check, CheckCategory, CheckSeverity};
 
 use error::ErrorKind;
 use readability::ReadabilityType;
@@ -142,7 +134,11 @@ impl Analysis for ResearchActivity {
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
-                    vec![Check::init().category(CheckCategory::Schema).success(false).severity(CheckSeverity::Error).build()]
+                    vec![Check::init()
+                        .category(CheckCategory::Schema)
+                        .success(false)
+                        .severity(CheckSeverity::Error)
+                        .build()]
                 }
             }
         });
@@ -164,7 +160,11 @@ impl Analysis for ResearchActivity {
                             }
                             | Err(why) => {
                                 error!("=> {} Read research activity data - {why}", Label::fail());
-                                Check::init().category(CheckCategory::Prose).success(false).severity(CheckSeverity::Error).build()
+                                Check::init()
+                                    .category(CheckCategory::Prose)
+                                    .success(false)
+                                    .severity(CheckSeverity::Error)
+                                    .build()
                             }
                         }
                     }
@@ -173,7 +173,11 @@ impl Analysis for ResearchActivity {
             }
             | Err(why) => {
                 error!("=> {} Vale sync - {why}", Label::fail());
-                vec![Check::init().category(CheckCategory::Prose).success(false).severity(CheckSeverity::Error).build()]
+                vec![Check::init()
+                    .category(CheckCategory::Prose)
+                    .success(false)
+                    .severity(CheckSeverity::Error)
+                    .build()]
             }
         }
     }
@@ -217,7 +221,11 @@ impl Analysis for ResearchActivity {
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data - {why}", Label::fail());
-                    Check::init().category(CheckCategory::Readability).success(false).severity(CheckSeverity::Error).build()
+                    Check::init()
+                        .category(CheckCategory::Readability)
+                        .success(false)
+                        .severity(CheckSeverity::Error)
+                        .build()
                 }
             })
             .collect::<Vec<Check>>()
@@ -347,18 +355,33 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                             why
                         };
                         error!("=> {} Analyze - {}", Label::fail(), message);
-                        Check::init().category(CheckCategory::Prose).success(false).severity(CheckSeverity::Error).message(id).build()
+                        Check::init()
+                            .category(CheckCategory::Prose)
+                            .success(false)
+                            .severity(CheckSeverity::Error)
+                            .message(id)
+                            .build()
                     }
                     | Err(why) => {
                         error!("=> {} Analyze - {}", Label::fail(), why);
-                        Check::init().category(CheckCategory::Prose).success(false).severity(CheckSeverity::Error).message(id).build()
+                        Check::init()
+                            .category(CheckCategory::Prose)
+                            .success(false)
+                            .severity(CheckSeverity::Error)
+                            .message(id)
+                            .build()
                     }
                 }
             }
             | None => {
                 let title = self.clone().command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
-                Check::init().category(CheckCategory::Prose).success(false).severity(CheckSeverity::Error).message(id).build()
+                Check::init()
+                    .category(CheckCategory::Prose)
+                    .success(false)
+                    .severity(CheckSeverity::Error)
+                    .message(id)
+                    .build()
             }
         }
     }
@@ -659,7 +682,11 @@ impl Validation for ResearchActivity {
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
-                    vec![Check::init().category(CheckCategory::Schema).success(false).severity(CheckSeverity::Error).build()]
+                    vec![Check::init()
+                        .category(CheckCategory::Schema)
+                        .success(false)
+                        .severity(CheckSeverity::Error)
+                        .build()]
                 }
             })
             .collect()
@@ -767,7 +794,12 @@ pub async fn link_check(uri: Option<String>) -> Check {
                     .build(),
             }
         }
-        | None => Check::init().category(CheckCategory::Link).success(false).severity(CheckSeverity::Error).message("Missing URL").build(),
+        | None => Check::init()
+            .category(CheckCategory::Link)
+            .success(false)
+            .severity(CheckSeverity::Error)
+            .message("Missing URL")
+            .build(),
     }
 }
 /// Prints `text` to stdout using syntax highlighting for the specified `syntax`.

@@ -1,17 +1,18 @@
-//! SQLite database utilities for ACORN.
+//! Database utilities for ACORN.
 //!
-//! This module provides a lazily initialized, process-global SQLite connection
+//! This module provides a lazily initialized, process-global database connection
 //! guarded by a mutex and a helper to execute callbacks against that connection.
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
 use crate::util::constants::{APPLICATION, DATABASE_NAME, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ORGANIZATION, QUALIFIER};
 use crate::util::Label;
+use backend::{params, BackendRow, Connection, Params};
 use chrono::{Duration, Utc};
 use color_eyre::eyre::{self, eyre};
 use core::marker::PhantomData;
 use directories::ProjectDirs;
-use rusqlite::{params, Connection, Params, Row as SqliteRow};
 use tracing::info;
 
+pub mod backend;
 pub(crate) mod macros;
 pub mod schema;
 
@@ -22,7 +23,7 @@ static CONNECTION: OnceLock<Mutex<Connection>> = OnceLock::new();
 /// Utility type alias for database operation results
 pub type DatabaseResult<T> = eyre::Result<T, eyre::Report>;
 /// SQL parameters produced for dynamic queries.
-pub type QueryParams = rusqlite::ParamsFromIter<Vec<Box<dyn rusqlite::ToSql>>>;
+pub type QueryParams = backend::ParamsFromIter<Vec<Box<dyn backend::ToSql>>>;
 /// SQL query string paired with its bound parameters.
 pub type SelectQuery = (String, QueryParams);
 /// Persist and access data in a database
@@ -80,7 +81,7 @@ pub trait TableSchemaProvider: Copy + Into<Table> + 'static {
     fn rows<R, P>(&self, query: &str, params: P, path: Option<&PathBuf>) -> DatabaseResult<Vec<R>>
     where
         P: Params,
-        for<'row> R: Row + From<&'row SqliteRow<'row>>;
+        for<'row> R: Row + From<&'row BackendRow<'row>>;
 }
 /// Database handle for a given table schema provider type
 #[derive(Clone, Debug)]
@@ -132,24 +133,28 @@ where
     }
     /// Executes a callback using the database path configured on this handle.
     pub fn with_connection<U>(&self, callback: impl FnOnce(&Connection) -> DatabaseResult<U>) -> DatabaseResult<U> {
-        Self::sqlite_connection(self.path.as_ref())
-            .and_then(|connection| connection.lock().map_err(|why| eyre!("Failed to acquire SQLite connection lock: {why}")))
+        Self::db_connection(self.path.as_ref())
+            .and_then(|connection| {
+                connection
+                    .lock()
+                    .map_err(|why| eyre!("Failed to acquire database connection lock: {why}"))
+            })
             .and_then(|guard| callback(&guard))
     }
-    fn sqlite_connection(path: Option<&PathBuf>) -> DatabaseResult<&'static Mutex<Connection>> {
+    fn db_connection(path: Option<&PathBuf>) -> DatabaseResult<&'static Mutex<Connection>> {
         match CONNECTION.get() {
             | Some(connection) => Ok(connection),
             | None => database_path(path)
                 .and_then(|db_path| {
                     Connection::open(db_path)
                         .map(Mutex::new)
-                        .map_err(|why| eyre!("Failed to initialize SQLite connection: {why}"))
+                        .map_err(|why| eyre!("Failed to initialize database connection: {why}"))
                 })
                 .and_then(|connection| {
                     CONNECTION.set(connection).ok();
                     CONNECTION
                         .get()
-                        .ok_or_else(|| eyre!("Failed to access SQLite connection after initialization"))
+                        .ok_or_else(|| eyre!("Failed to access database connection after initialization"))
                 }),
         }
     }

@@ -21,7 +21,7 @@
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn::io::database::{schema::Table, Database};
+use acorn::io::database::{backend, schema::Table, Database};
 use acorn::prelude::env;
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
@@ -119,6 +119,7 @@ async fn main() -> Void {
         offline,
         threads,
         no_local_database,
+        database_backend,
         database_path,
         clear_cache,
         reset_database,
@@ -126,6 +127,13 @@ async fn main() -> Void {
         cache_ttl,
         ..
     } = args;
+    if let Some(selected) = database_backend {
+        env::set_var(backend::ENV_DATABASE_BACKEND, selected.to_string());
+    }
+    if let Err(why) = backend::validate_backend_selection() {
+        eprintln!("=> {} {why}", Label::fail());
+        exit(exitcode::USAGE);
+    }
     let database = Database::<Table>::from_path(database_path.clone());
     if let Some(ttl) = cache_ttl {
         env::set_var(ENV_CACHE_TTL, ttl.to_string());
@@ -141,14 +149,14 @@ async fn main() -> Void {
                 exit(exitcode::OK);
             }
             | Err(e) => {
-                eprintln!("{} Failed to clear all data: {}", Label::fail(), e);
+                eprintln!("=> {} Failed to clear all data: {}", Label::fail(), e);
                 exit(exitcode::SOFTWARE);
             }
         }
     }
     if clear_cache {
         if no_local_database {
-            eprintln!("{} Cannot use --clear-cache with --no-local-database", Label::fail());
+            eprintln!("=> {} Cannot use --clear-cache with --no-local-database", Label::fail());
             exit(exitcode::USAGE);
         }
         match database.clear_cache() {
@@ -157,7 +165,7 @@ async fn main() -> Void {
                 exit(exitcode::OK);
             }
             | Err(e) => {
-                eprintln!("{} Failed to clear cache: {}", Label::fail(), e);
+                eprintln!("=> {} Failed to clear cache: {}", Label::fail(), e);
                 exit(exitcode::SOFTWARE);
             }
         }

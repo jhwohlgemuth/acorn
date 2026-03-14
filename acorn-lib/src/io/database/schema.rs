@@ -1,5 +1,6 @@
 //! Database schema model
 //!
+use super::backend::{params, BackendRow, Connection, Params};
 use super::{Database, DatabaseResult, Row, SelectQuery, TableSchemaProvider};
 use crate::io::database::macros::{build_query, define_required_fn};
 use crate::prelude::PathBuf;
@@ -9,7 +10,6 @@ use bon::Builder;
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::eyre;
 use core::fmt;
-use rusqlite::{params, Connection, Params, Row as SqliteRow};
 use serde::{Deserialize, Serialize};
 
 define_required_fn!(1, required1, A, a);
@@ -118,8 +118,8 @@ pub struct ValidationRow {
     /// When the validation was performed
     pub checked_at: Option<DateTime<Utc>>,
 }
-impl From<&SqliteRow<'_>> for ActivityRow {
-    fn from(row: &SqliteRow<'_>) -> Self {
+impl From<&BackendRow<'_>> for ActivityRow {
+    fn from(row: &BackendRow<'_>) -> Self {
         ActivityRow {
             id: row.get(0).ok(),
             command: row.get(1).ok(),
@@ -129,13 +129,13 @@ impl From<&SqliteRow<'_>> for ActivityRow {
         }
     }
 }
-impl From<SqliteRow<'_>> for ActivityRow {
-    fn from(row: SqliteRow<'_>) -> Self {
+impl From<BackendRow<'_>> for ActivityRow {
+    fn from(row: BackendRow<'_>) -> Self {
         ActivityRow::from(&row)
     }
 }
-impl From<&SqliteRow<'_>> for CatalogRow {
-    fn from(row: &SqliteRow<'_>) -> Self {
+impl From<&BackendRow<'_>> for CatalogRow {
+    fn from(row: &BackendRow<'_>) -> Self {
         CatalogRow {
             id: row.get(0).ok(),
             bucket_name: row.get(1).ok(),
@@ -146,13 +146,13 @@ impl From<&SqliteRow<'_>> for CatalogRow {
         }
     }
 }
-impl From<SqliteRow<'_>> for CatalogRow {
-    fn from(row: SqliteRow<'_>) -> Self {
+impl From<BackendRow<'_>> for CatalogRow {
+    fn from(row: BackendRow<'_>) -> Self {
         CatalogRow::from(&row)
     }
 }
-impl From<&SqliteRow<'_>> for LinkCacheRow {
-    fn from(row: &SqliteRow<'_>) -> Self {
+impl From<&BackendRow<'_>> for LinkCacheRow {
+    fn from(row: &BackendRow<'_>) -> Self {
         LinkCacheRow {
             id: row.get(0).ok(),
             url: row.get(1).ok(),
@@ -163,13 +163,13 @@ impl From<&SqliteRow<'_>> for LinkCacheRow {
         }
     }
 }
-impl From<SqliteRow<'_>> for LinkCacheRow {
-    fn from(row: SqliteRow<'_>) -> Self {
+impl From<BackendRow<'_>> for LinkCacheRow {
+    fn from(row: BackendRow<'_>) -> Self {
         LinkCacheRow::from(&row)
     }
 }
-impl From<&SqliteRow<'_>> for ResearchActivityCacheRow {
-    fn from(row: &SqliteRow<'_>) -> Self {
+impl From<&BackendRow<'_>> for ResearchActivityCacheRow {
+    fn from(row: &BackendRow<'_>) -> Self {
         ResearchActivityCacheRow {
             id: row.get(0).ok(),
             identifier: row.get(1).ok(),
@@ -180,13 +180,13 @@ impl From<&SqliteRow<'_>> for ResearchActivityCacheRow {
         }
     }
 }
-impl From<SqliteRow<'_>> for ResearchActivityCacheRow {
-    fn from(row: SqliteRow<'_>) -> Self {
+impl From<BackendRow<'_>> for ResearchActivityCacheRow {
+    fn from(row: BackendRow<'_>) -> Self {
         ResearchActivityCacheRow::from(&row)
     }
 }
-impl From<&SqliteRow<'_>> for ValidationRow {
-    fn from(row: &SqliteRow<'_>) -> Self {
+impl From<&BackendRow<'_>> for ValidationRow {
+    fn from(row: &BackendRow<'_>) -> Self {
         ValidationRow {
             id: row.get(0).ok(),
             path: row.get(1).ok(),
@@ -197,8 +197,8 @@ impl From<&SqliteRow<'_>> for ValidationRow {
         }
     }
 }
-impl From<SqliteRow<'_>> for ValidationRow {
-    fn from(row: SqliteRow<'_>) -> Self {
+impl From<BackendRow<'_>> for ValidationRow {
+    fn from(row: BackendRow<'_>) -> Self {
         ValidationRow::from(&row)
     }
 }
@@ -419,7 +419,7 @@ impl TableSchemaProvider for Table {
         fn print_rows<R>(table: Table, path: Option<&PathBuf>)
         where
             R: Into<Vec<String>> + Row + Default + fmt::Display,
-            for<'row> R: From<&'row SqliteRow<'row>>,
+            for<'row> R: From<&'row BackendRow<'row>>,
         {
             let row = R::default();
             let fields = <R as Row>::fields();
@@ -443,7 +443,7 @@ impl TableSchemaProvider for Table {
     fn rows<R, P>(&self, query: &str, params: P, path: Option<&PathBuf>) -> DatabaseResult<Vec<R>>
     where
         P: Params,
-        for<'row> R: Row + From<&'row SqliteRow<'row>>,
+        for<'row> R: Row + From<&'row BackendRow<'row>>,
     {
         Database::<Table>::from_path(path.cloned()).with_connection(|conn| {
             conn.prepare(query)
@@ -487,9 +487,12 @@ impl Row for ActivityRow {
                     "INSERT INTO {} (command, executed_at, user_path, success) VALUES (?, ?, ?, ?)",
                     self.table().name()
                 );
-                conn.execute(&query, params![command, executed_at, user_path, success,])
-                    .map_err(|why| eyre!("=> {} Failed to insert activity: {why}", Label::fail()))
-                    .map(|_| conn.last_insert_rowid())
+                conn.query_row(
+                    &format!("{query} RETURNING id"),
+                    params![command, executed_at, user_path, success],
+                    |row| row.get(0),
+                )
+                .map_err(|why| eyre!("=> {} Failed to insert activity: {why}", Label::fail()))
             }
             | Err(why) => Err(why),
         }
@@ -526,9 +529,12 @@ impl Row for CatalogRow {
                     "INSERT INTO {} (bucket_name, bucket_url, identifier, title, updated_at) VALUES (?, ?, ?, ?, ?)",
                     self.table().name()
                 );
-                conn.execute(&query, params![bucket_name, bucket_url, identifier, title, updated_at])
-                    .map_err(|why| eyre!("=> {} Failed to insert catalog: {why}", Label::fail()))
-                    .map(|_| conn.last_insert_rowid())
+                conn.query_row(
+                    &format!("{query} RETURNING id"),
+                    params![bucket_name, bucket_url, identifier, title, updated_at],
+                    |row| row.get(0),
+                )
+                .map_err(|why| eyre!("=> {} Failed to insert catalog: {why}", Label::fail()))
             }
             | Err(why) => Err(why),
         }
@@ -565,12 +571,12 @@ impl Row for LinkCacheRow {
                     "INSERT INTO {} (url, status_code, is_reachable, checked_at, expires_at) VALUES (?, ?, ?, ?, ?)",
                     self.table().name()
                 );
-                conn.execute(
-                    &query,
+                conn.query_row(
+                    &format!("{query} RETURNING id"),
                     params![url, status_code, is_reachable as i32, checked_at, expires_at.to_rfc3339()],
+                    |row| row.get(0),
                 )
                 .map_err(|why| eyre!("=> {} Failed to insert link cache: {why}", Label::fail()))
-                .map(|_| conn.last_insert_rowid())
             }
             | Err(why) => Err(why),
         }
@@ -607,9 +613,12 @@ impl Row for ResearchActivityCacheRow {
                     "INSERT INTO {} (identifier, source_bucket, title, downloaded_at, file_path) VALUES (?, ?, ?, ?, ?)",
                     self.table().name()
                 );
-                conn.execute(&query, params![identifier, source_bucket, title, downloaded_at, file_path])
-                    .map_err(|why| eyre!("=> {} Failed to insert research activity cache: {why}", Label::fail()))
-                    .map(|_| conn.last_insert_rowid())
+                conn.query_row(
+                    &format!("{query} RETURNING id"),
+                    params![identifier, source_bucket, title, downloaded_at, file_path],
+                    |row| row.get(0),
+                )
+                .map_err(|why| eyre!("=> {} Failed to insert research activity cache: {why}", Label::fail()))
             }
             | Err(why) => Err(why),
         }
@@ -645,9 +654,12 @@ impl Row for ValidationRow {
                     "INSERT INTO {} (path, check_type, success, message, checked_at) VALUES (?, ?, ?, ?, ?)",
                     self.table().name()
                 );
-                conn.execute(&query, params![path, check_type, success, message, checked_at])
-                    .map_err(|why| eyre!("=> {} Failed to insert validation: {why}", Label::fail()))
-                    .map(|_| conn.last_insert_rowid())
+                conn.query_row(
+                    &format!("{query} RETURNING id"),
+                    params![path, check_type, success, message, checked_at],
+                    |row| row.get(0),
+                )
+                .map_err(|why| eyre!("=> {} Failed to insert validation: {why}", Label::fail()))
             }
             | Err(why) => Err(why),
         }
@@ -668,7 +680,7 @@ where
 {
     value.map(ToString::to_string).unwrap_or_else(|| "None".to_string())
 }
-fn parse_rfc3339_column(row: &SqliteRow<'_>, index: usize) -> Option<DateTime<Utc>> {
+fn parse_rfc3339_column(row: &BackendRow<'_>, index: usize) -> Option<DateTime<Utc>> {
     row.get::<_, String>(index)
         .ok()
         .and_then(|value| DateTime::parse_from_rfc3339(&value).ok())

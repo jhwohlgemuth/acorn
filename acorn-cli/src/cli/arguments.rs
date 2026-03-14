@@ -1,6 +1,17 @@
 use acorn::util::MimeType;
 use clap::ValueEnum;
 use derive_more::Display;
+
+/// Database backend used for local cache and history tables.
+#[derive(Clone, Copy, Debug, Display, PartialEq, Eq, ValueEnum)]
+pub enum DatabaseBackendArgument {
+    /// SQLite backend
+    #[display("sqlite")]
+    Sqlite,
+    /// DuckDB backend
+    #[display("duckdb")]
+    Duckdb,
+}
 /// Categories available when analyzing ("checking") research activity data
 #[derive(Clone, Debug, PartialEq, PartialOrd, ValueEnum)]
 pub enum CheckCategory {
