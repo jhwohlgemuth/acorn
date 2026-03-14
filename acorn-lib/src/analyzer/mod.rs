@@ -2,7 +2,7 @@
 //!
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
-use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
+use crate::analyzer::vale::{ValeOutput, ValeOutputItemSeverity};
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder};
 #[cfg(feature = "std")]
 use crate::io::{get, InputOutput};
@@ -16,15 +16,10 @@ use crate::util::constants::{
 use crate::util::{Constant, Label, SemanticVersion, StringConversion, ToMarkdown};
 use crate::{cmd, skip};
 use crate::{Location, Repository};
-use ariadne::{Config, Report, Source};
 use async_trait::async_trait;
 use bat::PrettyPrinter;
-use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
-use core::fmt;
-use core::ops::RangeInclusive;
-use derive_more::Display;
 use flate2::read::GzDecoder;
 use futures::future::join_all;
 use ini::Ini;
@@ -32,22 +27,32 @@ use lychee_lib::{CacheStatus, Response, Status};
 #[cfg(feature = "analysis")]
 use polars::datatypes::PlSmallStr;
 #[cfg(feature = "analysis")]
-use polars::frame::row::Row;
-#[cfg(feature = "analysis")]
-use polars::prelude::{AnyValue, DataFrame, PolarsResult};
+use polars::prelude::{DataFrame, PolarsResult};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use serde_json::Value;
 use tar::Archive;
 use tracing::{debug, error, info, trace};
 use validator::Validate;
 use validator::ValidationErrorsKind;
 use which::which;
 
+pub mod check;
 pub mod error;
 pub mod readability;
 pub mod vale;
 
-use error::{process, ErrorCode, ErrorKind};
+pub use check::{
+    highlighted_span,
+    highlighted_span_for_array,
+    highlighted_span_from_params,
+    summary,
+    Check,
+    CheckCategory,
+    CheckSeverity,
+};
+#[cfg(feature = "analysis")]
+pub use check::{checks_to_dataframe, IntoRow};
+
+use error::ErrorKind;
 use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
@@ -62,14 +67,6 @@ pub trait Analysis {
         R: Into<ReadabilityType>;
     /// Check if URLs links are valid and readable
     async fn check_websites(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check>;
-}
-/// Trait for converting to a ([Polars]) row
-///
-/// [Polars]: https://docs.rs/polars/latest/polars/
-#[cfg(feature = "analysis")]
-pub trait IntoRow<'a> {
-    /// Convert to a (Polars) row
-    fn to_row<T>(self) -> Row<'a>;
 }
 /// Trait for static analyzers (e.g. Vale)
 #[async_trait]
@@ -118,43 +115,6 @@ pub trait Validation {
     /// Get validation issues for a given item
     fn validation_issues(self) -> Vec<Check>;
 }
-/// Various check categories available for validating research activity data
-#[derive(Clone, Debug, Display, PartialEq)]
-pub enum CheckCategory {
-    /// Website avaialability check
-    #[display("link")]
-    Link,
-    /// Static analysis of prose
-    #[display("prose")]
-    Prose,
-    /// Readability check using one of several metrics
-    #[display("readability")]
-    Readability,
-    /// Schema validation check
-    #[display("schema")]
-    Schema,
-}
-/// Data structure for holding the result of a schema validation check
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init, on(String, into))]
-pub struct Check {
-    /// Check category
-    pub category: CheckCategory,
-    /// Textual context of check (e.g., paragraph where prose issues were found)
-    pub context: Option<String>,
-    /// Whether or not the check was successful
-    #[builder(default = false)]
-    pub success: bool,
-    /// HTTP status code
-    pub status_code: Option<String>,
-    /// Errors and issues found during check
-    pub errors: Option<ErrorKind>,
-    /// Path of file being validated
-    pub uri: Option<String>,
-    /// Message related to or description of validation issue (e.g., key name of invalid value, result of validation, etc.)
-    #[builder(default = "".to_string())]
-    pub message: String,
-}
 #[async_trait]
 impl Analysis for ResearchActivity {
     /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
@@ -182,7 +142,7 @@ impl Analysis for ResearchActivity {
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
-                    vec![Check::init().category(CheckCategory::Schema).success(false).build()]
+                    vec![Check::init().category(CheckCategory::Schema).success(false).severity(CheckSeverity::Error).build()]
                 }
             }
         });
@@ -204,7 +164,7 @@ impl Analysis for ResearchActivity {
                             }
                             | Err(why) => {
                                 error!("=> {} Read research activity data - {why}", Label::fail());
-                                Check::init().category(CheckCategory::Prose).success(false).build()
+                                Check::init().category(CheckCategory::Prose).success(false).severity(CheckSeverity::Error).build()
                             }
                         }
                     }
@@ -213,7 +173,7 @@ impl Analysis for ResearchActivity {
             }
             | Err(why) => {
                 error!("=> {} Vale sync - {why}", Label::fail());
-                vec![Check::init().category(CheckCategory::Prose).success(false).build()]
+                vec![Check::init().category(CheckCategory::Prose).success(false).severity(CheckSeverity::Error).build()]
             }
         }
     }
@@ -240,6 +200,7 @@ impl Analysis for ResearchActivity {
                         Check::init()
                             .category(CheckCategory::Readability)
                             .success(false)
+                            .severity(CheckSeverity::Warning)
                             .message(path.file_name_with_parent())
                             .errors(errors)
                             .context(maximum.to_string())
@@ -256,358 +217,10 @@ impl Analysis for ResearchActivity {
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data - {why}", Label::fail());
-                    Check::init().category(CheckCategory::Readability).success(false).build()
+                    Check::init().category(CheckCategory::Readability).success(false).severity(CheckSeverity::Error).build()
                 }
             })
             .collect::<Vec<Check>>()
-    }
-}
-impl Check {
-    /// Recursively count validation errors from a given ValidationErrorsKind
-    pub fn count_validation_errors(kind: &ValidationErrorsKind) -> usize {
-        match kind {
-            | ValidationErrorsKind::Field(_) => 1,
-            | ValidationErrorsKind::Struct(errors) => errors
-                .clone()
-                .into_errors()
-                .into_values()
-                .map(|nested| Self::count_validation_errors(&nested))
-                .sum(),
-            | ValidationErrorsKind::List(errors) => errors
-                .clone()
-                .into_values()
-                .map(|error| Self::count_validation_errors(&ValidationErrorsKind::Struct(error)))
-                .sum(),
-        }
-    }
-    /// Returns the number of errors
-    pub fn issue_count(&self) -> usize {
-        match self.category {
-            | CheckCategory::Link => 1,
-            | CheckCategory::Prose => {
-                if let Some(kind) = &self.errors {
-                    match kind {
-                        | ErrorKind::Vale(values) => values.len(),
-                        | _ => 0,
-                    }
-                } else {
-                    0
-                }
-            }
-            | CheckCategory::Readability => 1,
-            | CheckCategory::Schema => {
-                if let Some(kind) = &self.errors {
-                    match kind {
-                        | ErrorKind::Validator(kind) => Self::count_validation_errors(kind),
-                        | _ => 0,
-                    }
-                } else {
-                    0
-                }
-            }
-        }
-    }
-    /// Fancy output in contrast with more compressed output of Display impl
-    pub fn report(self) {
-        match self.category {
-            | CheckCategory::Link => {
-                let Check {
-                    context,
-                    message,
-                    success,
-                    uri,
-                    status_code,
-                    ..
-                } = self.clone();
-                let title = context.unwrap_or_else(|| "index.json".to_string());
-                let code = match status_code.clone() {
-                    | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
-                    | None | Some(_) => "".to_string(),
-                };
-                if !success {
-                    let text = match uri {
-                        | Some(uri) => uri.trim().to_string(),
-                        | None => "No URL".to_string(),
-                    };
-                    let span = 0..=(text.len() - 1);
-                    let source = Source::from(text.clone());
-                    let _ = Report::build(ariadne::ReportKind::Error, (&title, 1..=1))
-                        .with_config(Config::default().with_compact(false))
-                        .with_message("Website")
-                        .with_label(
-                            ariadne::Label::new((&title, span))
-                                .with_message(format!("{}{code}", message.italic()))
-                                .with_color(ariadne::Color::Red),
-                        )
-                        .finish()
-                        .print((&title, source));
-                }
-            }
-            | CheckCategory::Prose => {
-                let Check {
-                    context, errors, message, ..
-                } = self;
-                match &errors {
-                    | Some(ErrorKind::Vale(values)) => {
-                        let title = self.uri.unwrap_or("index.json".to_string());
-                        if let Some(text) = &context {
-                            values.iter().enumerate().for_each(|(index, item)| {
-                                let ValeOutputItem {
-                                    check,
-                                    line,
-                                    message,
-                                    severity,
-                                    span,
-                                    ..
-                                } = item;
-                                let source = Source::from(text.clone());
-                                let _ = Report::build(severity.into(), (&title, 1..=1))
-                                    .with_code(index)
-                                    .with_config(Config::default().with_compact(false))
-                                    .with_message(check)
-                                    .with_label(
-                                        ariadne::Label::new((&title, highlighted_span(source.clone(), span, *line)))
-                                            .with_message(message.italic())
-                                            .with_color(severity.into()),
-                                    )
-                                    .finish()
-                                    .print((&title, source));
-                            });
-                        }
-                    }
-                    | None | Some(_) => {
-                        let message = format!("=> {} {} has {}", Label::pass(), message.underline(), "no prose issues".green());
-                        info!("{}", message);
-                    }
-                }
-            }
-            | CheckCategory::Readability => {
-                let Check {
-                    context, errors, message, ..
-                } = self;
-                match errors {
-                    | Some(ErrorKind::Readability((index, readability_type))) => {
-                        let title = message.clone();
-                        let threshold = context.unwrap_or_default();
-                        let metric = readability_type.to_string().to_uppercase();
-                        let source_text =
-                            format!("Text was analyzed for readability using the {metric} metric. It has a score of {index} which is > {threshold}.");
-                        let source = Source::from(source_text.clone());
-                        let index_text = index.to_string();
-                        let start = source_text.find(index_text.as_str()).unwrap_or_default();
-                        let end = start + index_text.len().saturating_sub(1);
-                        let _ = Report::build(ariadne::ReportKind::Error, (&title, 1..=1))
-                            .with_config(Config::default().with_compact(false))
-                            .with_message("Readability")
-                            .with_label(
-                                ariadne::Label::new((&title, start..=end))
-                                    .with_message("Simplify language for a general audience".to_string().italic())
-                                    .with_color(ariadne::Color::Red),
-                            )
-                            .finish()
-                            .print((&title, source));
-                    }
-                    | None | Some(_) => {
-                        if let Some(value) = context {
-                            info!(
-                                "=> {} {} has {} {}",
-                                Label::pass(),
-                                message,
-                                "no readability issues".green().bold(),
-                                value.dimmed()
-                            );
-                        } else {
-                            info!("=> {} {} has {}", Label::pass(), message, "no readability issues".green().bold(),);
-                        }
-                    }
-                }
-            }
-            | CheckCategory::Schema => {
-                let Check { errors, message: prefix, .. } = self.clone();
-                let uri = self.clone().uri.unwrap();
-                let title = uri;
-                match &errors {
-                    | Some(ErrorKind::Validator(kind)) => {
-                        process(&prefix, kind.clone())
-                            .iter()
-                            .enumerate()
-                            .for_each(|(index, (code, path, message, params))| {
-                                let title_message = match path {
-                                    | Some(value) => match params.get("index") {
-                                        | Some(Value::Number(index)) => format!("{}[{}]", value, index),
-                                        | None | Some(_) => value.to_string(),
-                                    },
-                                    | None => code.to_string().to_uppercase(),
-                                };
-                                let text = match params.get("value") {
-                                    | Some(Value::Array(items)) => items.iter().map(|item| item.to_string()).collect::<Vec<_>>().to_markdown(),
-                                    | Some(value) => value.to_string(),
-                                    | None => "".to_string(),
-                                };
-                                let source = Source::from(text);
-                                let span = match highlighted_span_from_params(source.clone(), code.clone(), params.clone()) {
-                                    | Some(span) => span,
-                                    | None => 0..=(source.text().len() - 1),
-                                };
-                                let _ = Report::build(ariadne::ReportKind::Error, (&title, 1..=1))
-                                    .with_code(index)
-                                    .with_config(Config::default().with_compact(false))
-                                    .with_message(title_message)
-                                    .with_label(
-                                        ariadne::Label::new((&title, span))
-                                            .with_message(message.italic())
-                                            .with_color(ariadne::Color::Red),
-                                    )
-                                    .finish()
-                                    .print((&title, source));
-                            });
-                    }
-                    | None | Some(_) => {
-                        info!("=> {} {title} has {}", Label::pass(), "no schema validation issues".green().bold());
-                    }
-                }
-            }
-        }
-    }
-    /// Returns a new LinkCheckResult with the given context
-    pub fn with_context(self, value: String) -> Self {
-        Check::init()
-            .category(self.category)
-            .context(value)
-            .success(self.success)
-            .maybe_uri(self.uri)
-            .message(self.message)
-            .maybe_status_code(self.status_code)
-            .maybe_errors(self.errors)
-            .build()
-    }
-    /// Returns a new LinkCheckResult with the given URL
-    pub fn with_uri(self, value: String) -> Self {
-        Check::init()
-            .category(self.category)
-            .success(self.success)
-            .uri(value)
-            .message(self.message)
-            .maybe_status_code(self.status_code)
-            .maybe_errors(self.errors)
-            .build()
-    }
-}
-impl fmt::Display for Check {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.category {
-            | CheckCategory::Link => {
-                let Check {
-                    uri, status_code, message, ..
-                } = self;
-                let code = match status_code.clone() {
-                    | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
-                    | None | Some(_) => "".to_string(),
-                };
-                let uri = uri
-                    .as_ref()
-                    .map(|value| value.to_string().underline().italic().to_string())
-                    .unwrap_or_else(|| "Missing".to_string());
-                let status = if self.success {
-                    "valid".green().to_string()
-                } else {
-                    "invalid".red().to_string()
-                };
-                let indent = " ".repeat(28);
-                write!(f, "{indent}{:<20} {uri} {}{code}", status.bold(), message.dimmed())
-            }
-            | CheckCategory::Prose => match &self.errors {
-                | Some(ErrorKind::Vale(values)) => {
-                    let last = values.len().saturating_sub(1);
-                    values.iter().enumerate().try_for_each(|(index, item)| {
-                        let ValeOutputItem {
-                            check,
-                            line,
-                            message,
-                            severity,
-                            span,
-                            ..
-                        } = item;
-                        let location = format!("Line {}, Character {}", line, span[0]);
-                        f.write_fmt(format_args!(
-                            "  {:<25} {:<20} {} {}",
-                            location,
-                            severity.colored(),
-                            message,
-                            check.dimmed()
-                        ))
-                        .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
-                    })
-                }
-                | None | Some(_) => write!(f, ""),
-            },
-            | CheckCategory::Readability => {
-                let Check {
-                    context,
-                    errors,
-                    message: path,
-                    ..
-                } = self;
-                match &errors {
-                    | Some(ErrorKind::Readability(values)) => {
-                        let (index, readability_type) = values;
-                        let rtype = readability_type.to_string().to_uppercase().dimmed().to_string();
-                        let max = context.as_deref().unwrap_or("").cyan().to_string();
-                        let indent = " ".repeat(28);
-                        f.write_fmt(format_args!(
-                            "{indent}{:<10} Simplify language for a general audience ({} should be < {max}) {}{rtype} {}{}",
-                            "error".red().bold(),
-                            index.to_string().red().bold(),
-                            "type=".dimmed(),
-                            "path=".dimmed(),
-                            path.dimmed(),
-                        ))
-                    }
-                    | None | Some(_) => write!(f, ""),
-                }
-            }
-            | CheckCategory::Schema => match &self.errors {
-                | Some(ErrorKind::Validator(kind)) => {
-                    let Check { message: prefix, .. } = self.clone();
-                    let rows = process(&prefix, kind.clone());
-                    let last = rows.len().saturating_sub(1);
-                    rows.iter().enumerate().try_for_each(|(index, (code, path, message, _params))| {
-                        let field = path.clone().unwrap_or_default();
-                        f.write_fmt(format_args!(
-                            "  {field:<25} {:<10} {message} {}{}",
-                            "error".red().bold(),
-                            "code=".dimmed(),
-                            code.to_string().to_uppercase().dimmed(),
-                        ))
-                        .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
-                    })
-                }
-                | None | Some(_) => write!(f, ""),
-            },
-        }
-    }
-}
-#[cfg(feature = "analysis")]
-impl<'a> IntoRow<'a> for Check {
-    fn to_row<Check>(self) -> Row<'a> {
-        let Self {
-            success,
-            category,
-            message,
-            uri,
-            status_code,
-            context,
-            ..
-        } = self;
-        let data = [
-            if success { "pass" } else { "fail" },
-            &category.to_string(),
-            &message,
-            &uri.unwrap_or_default(),
-            &status_code.unwrap_or_default(),
-            &context.unwrap_or_default(),
-        ];
-        Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
     }
 }
 #[async_trait]
@@ -698,13 +311,27 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 };
                 match result {
                     | Ok(output) if output.status.success() => {
+                        fn severity_rank(value: &ValeOutputItemSeverity) -> u8 {
+                            match value {
+                                | ValeOutputItemSeverity::Error => 2,
+                                | ValeOutputItemSeverity::Suggestion => 0,
+                                | ValeOutputItemSeverity::Warning => 1,
+                            }
+                        }
                         let parsed = ValeOutput::parse(&output.stdout(), path.clone());
                         if parsed.is_empty() {
                             Check::init().category(CheckCategory::Prose).success(true).message(id).build()
                         } else {
+                            let severity = parsed
+                                .iter()
+                                .map(|item| item.severity.clone())
+                                .max_by_key(severity_rank)
+                                .map(CheckSeverity::from)
+                                .unwrap_or_default();
                             Check::init()
                                 .category(CheckCategory::Prose)
                                 .success(false)
+                                .severity(severity)
                                 .message(id)
                                 .errors(ErrorKind::Vale(parsed))
                                 .context(content)
@@ -720,18 +347,18 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                             why
                         };
                         error!("=> {} Analyze - {}", Label::fail(), message);
-                        Check::init().category(CheckCategory::Prose).success(false).message(id).build()
+                        Check::init().category(CheckCategory::Prose).success(false).severity(CheckSeverity::Error).message(id).build()
                     }
                     | Err(why) => {
                         error!("=> {} Analyze - {}", Label::fail(), why);
-                        Check::init().category(CheckCategory::Prose).success(false).message(id).build()
+                        Check::init().category(CheckCategory::Prose).success(false).severity(CheckSeverity::Error).message(id).build()
                     }
                 }
             }
             | None => {
                 let title = self.clone().command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
-                Check::init().category(CheckCategory::Prose).success(false).message(id).build()
+                Check::init().category(CheckCategory::Prose).success(false).severity(CheckSeverity::Error).message(id).build()
             }
         }
     }
@@ -1032,7 +659,7 @@ impl Validation for ResearchActivity {
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
-                    vec![Check::init().category(CheckCategory::Schema).success(false).build()]
+                    vec![Check::init().category(CheckCategory::Schema).success(false).severity(CheckSeverity::Error).build()]
                 }
             })
             .collect()
@@ -1045,63 +672,11 @@ impl Validation for ResearchActivity {
                 Check::init()
                     .category(CheckCategory::Schema)
                     .success(false)
+                    .severity(CheckSeverity::Error)
                     .errors(ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(err))))
                     .build()
             })
             .collect()
-    }
-}
-pub(crate) fn highlighted_span(source: Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
-    let selected = (line_number as usize) - 1;
-    let begin = source.lines().take(selected).fold((span[0] - 1) as usize, |acc, line| acc + line.len());
-    let character_count = (span[1] as usize) - (span[0] as usize);
-    let end = begin + character_count;
-    begin..=end
-}
-pub(crate) fn highlighted_span_for_array(source: Source, params: HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
-    match params.get("index") {
-        | Some(Value::Number(index)) => match index.as_u64() {
-            | Some(index) => match params.get("value") {
-                | Some(Value::Array(value)) => {
-                    const PADDING: u64 = 2;
-                    let end = (value[index as usize].to_string().len() + 1) as u32;
-                    let span = &[4, end];
-                    let line = (index + PADDING) as u32;
-                    Some(highlighted_span(source.clone(), span, line))
-                }
-                | Some(_) | None => None,
-            },
-            | None => None,
-        },
-        | None | Some(_) => None,
-    }
-}
-pub(crate) fn highlighted_span_from_params(source: Source, code: ErrorCode, params: HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
-    match code {
-        | ErrorCode::Length => match params.get("max") {
-            | Some(Value::Number(max)) => match max.as_u64() {
-                | Some(max) => Some(max as usize..=(source.text().len() - 2)),
-                | None => None,
-            },
-            | None | Some(_) => None,
-        },
-        | ErrorCode::Section => match highlighted_span_for_array(source.clone(), params.clone()) {
-            | Some(span) => Some(span),
-            | None => None,
-        },
-        | ErrorCode::Latitude => {
-            // TODO: Implement highlighting for latitude errors
-            None
-        }
-        | ErrorCode::Longitude => {
-            // TODO: Implement highlighting for longitude errors
-            None
-        }
-        | _ if params.get("index").is_some() => match highlighted_span_for_array(source.clone(), params.clone()) {
-            | Some(span) => Some(span),
-            | None => None,
-        },
-        | _ => None,
     }
 }
 /// Convert Lychee response to [`Check`]
@@ -1114,53 +689,63 @@ pub fn convert_lychee_response(value: Response) -> Check {
         | Status::Ok(_) | Status::Redirected(_, _) => Check::init()
             .category(CheckCategory::Link)
             .success(true)
+            .severity(CheckSeverity::Suggestion)
             .status_code(status_code.clone())
             .message("Has no HTTP errors"),
         | Status::Cached(status) => match status {
             | CacheStatus::Ok(_) => Check::init()
                 .category(CheckCategory::Link)
                 .success(true)
+                .severity(CheckSeverity::Suggestion)
                 .status_code(status_code.clone())
                 .message("Has no HTTP errors"),
             | CacheStatus::Error(Some(_)) => Check::init()
                 .category(CheckCategory::Link)
                 .success(false)
+                .severity(CheckSeverity::Error)
                 .status_code(status_code.clone())
                 .message("Has cached HTTP errors"),
             | CacheStatus::Unsupported => Check::init()
                 .category(CheckCategory::Link)
                 .success(false)
+                .severity(CheckSeverity::Warning)
                 .status_code(status_code.clone())
                 .message("Unsupported cached response"),
             | _ => Check::init()
                 .category(CheckCategory::Link)
                 .success(true)
+                .severity(CheckSeverity::Suggestion)
                 .status_code(status_code.clone())
                 .message("Ignored or otherwise successful (cached response)"),
         },
         | Status::Error(_) => Check::init()
             .category(CheckCategory::Link)
             .success(false)
+            .severity(CheckSeverity::Error)
             .status_code(status_code.clone())
             .message("Has HTTP errors"),
         | Status::Unsupported(why) => Check::init()
             .category(CheckCategory::Link)
             .success(false)
+            .severity(CheckSeverity::Warning)
             .status_code(status_code.clone())
             .message(format!("Unsupported HTTP response - {why}")),
         | Status::UnknownStatusCode(_) => Check::init()
             .category(CheckCategory::Link)
             .success(false)
+            .severity(CheckSeverity::Warning)
             .status_code(status_code.clone())
             .message("Unknown HTTP response"),
         | Status::Timeout(_) => Check::init()
             .category(CheckCategory::Link)
             .success(false)
+            .severity(CheckSeverity::Warning)
             .status_code(status_code.clone())
             .message("HTTP timeout"),
         | _ => Check::init()
             .category(CheckCategory::Link)
             .success(true)
+            .severity(CheckSeverity::Suggestion)
             .status_code(status_code.clone())
             .message("Ignored or otherwise successful"),
     };
@@ -1176,19 +761,14 @@ pub async fn link_check(uri: Option<String>) -> Check {
                 | Err(_) => Check::init()
                     .category(CheckCategory::Link)
                     .success(false)
+                    .severity(CheckSeverity::Error)
                     .uri(value)
                     .message("Unreachable")
                     .build(),
             }
         }
-        | None => Check::init().category(CheckCategory::Link).success(false).message("Missing URL").build(),
+        | None => Check::init().category(CheckCategory::Link).success(false).severity(CheckSeverity::Error).message("Missing URL").build(),
     }
-}
-/// Convert vector of [`Check`] values to a Polars [DataFrame]
-#[cfg(feature = "analysis")]
-pub fn checks_to_dataframe(values: Vec<Check>) -> PolarsResult<DataFrame> {
-    let names = ["success", "category", "message", "uri", "status_code", "context"];
-    to_dataframe::<Check, _, &str>(values, names)
 }
 /// Prints `text` to stdout using syntax highlighting for the specified `syntax`.
 ///
@@ -1206,26 +786,6 @@ pub fn pretty_print<I: IntoIterator<Item = usize>>(text: &str, syntax: Programmi
         printer.highlight(line);
     }
     printer.print().unwrap();
-}
-/// Create summary data table from given issues
-pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
-    [
-        CheckCategory::Schema,
-        CheckCategory::Link,
-        CheckCategory::Prose,
-        CheckCategory::Readability,
-    ]
-    .iter()
-    .map(|category| {
-        let count = issues
-            .iter()
-            .filter(|issue| issue.category == *category)
-            .map(|issue| issue.issue_count())
-            .sum::<usize>()
-            .to_string();
-        vec![category.to_string(), count]
-    })
-    .collect::<Vec<_>>()
 }
 /// Convert vector of values of a given type to a Polars [DataFrame]
 /// ### Example

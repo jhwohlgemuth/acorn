@@ -1,7 +1,17 @@
 use crate::analyzer::error::ErrorCode;
 use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
-use crate::analyzer::{checks_to_dataframe, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, Check, CheckCategory};
+use crate::analyzer::{
+  checks_to_dataframe,
+  highlighted_span,
+  highlighted_span_for_array,
+  highlighted_span_from_params,
+  Check,
+  CheckCategory,
+  CheckSeverity,
+};
 use crate::prelude::{HashMap, PathBuf};
+use ariadne::Color;
+use ariadne::ReportKind;
 use ariadne::Source;
 use serde_json::Value;
 
@@ -356,4 +366,59 @@ fn test_vale_output_severity_colored() {
     assert!(!warning.colored().is_empty());
     assert!(!error.colored().is_empty());
     assert!(!suggestion.colored().is_empty());
+}
+#[test]
+fn test_check_severity_default() {
+  let check = Check::init().category(CheckCategory::Prose).success(true).build();
+  assert_eq!(check.severity, CheckSeverity::Error);
+}
+#[test]
+fn test_check_severity_from_vale_output_item_severity_matrix() {
+  let matrix = [
+    (ValeOutputItemSeverity::Error, CheckSeverity::Error),
+    (ValeOutputItemSeverity::Suggestion, CheckSeverity::Suggestion),
+    (ValeOutputItemSeverity::Warning, CheckSeverity::Warning),
+  ];
+  matrix
+    .into_iter()
+    .for_each(|(input, expected)| assert_eq!(CheckSeverity::from(input), expected));
+}
+#[test]
+fn test_check_severity_to_ariadne_color_matrix() {
+  let matrix = [
+    (CheckSeverity::Error, Color::Red),
+    (CheckSeverity::Suggestion, Color::Blue),
+    (CheckSeverity::Warning, Color::Yellow),
+  ];
+  matrix
+    .into_iter()
+    .for_each(|(input, expected)| assert_eq!(Color::from(input), expected));
+}
+#[test]
+fn test_check_severity_to_ariadne_report_kind_matrix() {
+  let error_kind: ReportKind<'static> = CheckSeverity::Error.into();
+  let suggestion_kind: ReportKind<'static> = CheckSeverity::Suggestion.into();
+  let warning_kind: ReportKind<'static> = CheckSeverity::Warning.into();
+  assert!(matches!(error_kind, ReportKind::Error));
+  assert!(matches!(warning_kind, ReportKind::Warning));
+  match suggestion_kind {
+    | ReportKind::Custom(label, color) => {
+      assert_eq!(label, "Suggestion");
+      assert_eq!(color, Color::Blue);
+    }
+    | _ => panic!("Suggestion severity should map to custom report kind"),
+  }
+}
+#[test]
+fn test_with_context_and_with_uri_preserve_severity() {
+  let check = Check::init()
+    .category(CheckCategory::Link)
+    .success(false)
+    .severity(CheckSeverity::Warning)
+    .message("link check")
+    .build();
+  let with_context = check.clone().with_context("content/index.json".to_string());
+  let with_uri = check.with_uri("https://example.org".to_string());
+  assert_eq!(with_context.severity, CheckSeverity::Warning);
+  assert_eq!(with_uri.severity, CheckSeverity::Warning);
 }
