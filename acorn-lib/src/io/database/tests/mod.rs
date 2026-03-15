@@ -1,6 +1,9 @@
+use crate::io::database::backend::params;
 use crate::io::database::macros::build_query;
 use crate::io::database::schema::{ActivityRow, CatalogRow, LinkCacheRow, ResearchActivityCacheRow, Table, ValidationRow};
-use crate::io::database::Row;
+use crate::io::database::{Database, Operations, Row, TableSchemaProvider};
+use crate::prelude::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 mod display_tests;
 
@@ -144,4 +147,30 @@ fn test_build_query_empty_with_no_order_by() {
     let (query, params) = build_query!(&row, base, order_by, [id, path, check_type,]);
     assert_eq!(query, "SELECT * FROM validation");
     assert!(params.is_empty());
+}
+#[test]
+fn test_activity_insert_round_trip_with_database_handle() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
+    let path = PathBuf::from(format!("target/test_artifacts/activity-{unique}.duckdb"));
+    let database = Database::<Table>::from_path(Some(path.clone()));
+    database.migrate().unwrap();
+    let activity = ActivityRow::init()
+        .command("download")
+        .user_path("target/test_artifacts")
+        .success(true)
+        .build();
+    let inserted = database.insert(activity);
+    assert!(inserted.is_ok(), "insert failed: {inserted:?}");
+    let rows = Table::Activity.rows::<ActivityRow, _>(
+        "SELECT id, command, executed_at, user_path, success FROM activity",
+        params![],
+        Some(&path),
+    );
+    assert!(rows.is_ok(), "select failed: {rows:?}");
+    let rows = rows.unwrap();
+    assert!(!rows.is_empty());
+    assert_eq!(rows[0].command.as_deref(), Some("download"));
 }

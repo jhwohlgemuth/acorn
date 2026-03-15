@@ -44,7 +44,7 @@ pub async fn run(
                         .user_path(path.to_absolute_string())
                         .success(true)
                         .build();
-                    database.insert(activity).ok();
+                    let _ = database.insert(activity);
                 }
             }
             | Err(why) => {
@@ -55,7 +55,7 @@ pub async fn run(
                     .user_path(path.file_name_with_parent())
                     .success(false)
                     .build();
-                database.insert(activity).ok();
+                let _ = database.insert(activity);
                 exit(exitcode::DATAERR);
             }
         };
@@ -75,9 +75,9 @@ pub async fn run(
                 .user_path(path.to_absolute_string())
                 .success(true)
                 .build();
-            database.insert(activity).ok();
+            let _ = database.insert(activity);
         }
     }
-    Table::Activity.print(None);
+    Table::Activity.print(database_path.clone());
     Ok(())
 }

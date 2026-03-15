@@ -3,7 +3,7 @@
 //! This module provides a lazily initialized, process-global database connection
 //! guarded by a mutex and a helper to execute callbacks against that connection.
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
-use crate::util::constants::{APPLICATION, DATABASE_NAME, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ORGANIZATION, QUALIFIER};
+use crate::util::constants::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ORGANIZATION, QUALIFIER};
 use crate::util::Label;
 use backend::{params, BackendRow, Connection, Params};
 use chrono::{Duration, Utc};
@@ -34,7 +34,7 @@ pub trait Operations {
         T: Into<Table>,
         P: Params;
     /// Insert a value (row) into the database
-    fn insert<R>(&self, value: R) -> DatabaseResult<i64>
+    fn insert<R>(&self, value: R) -> DatabaseResult<usize>
     where
         R: Row;
 }
@@ -43,7 +43,7 @@ pub trait Row: RowMetadata {
     /// Returns the table associated with this row type.
     fn table(&self) -> Table;
     /// Inserts this row into its corresponding table.
-    fn insert(self, _conn: &Connection) -> DatabaseResult<i64>
+    fn insert(self, _conn: &Connection) -> DatabaseResult<usize>
     where
         Self: Sized;
     /// Selects rows from the database matching this row's field values.
@@ -115,7 +115,7 @@ where
         unimplemented!()
     }
 
-    fn insert<R>(&self, value: R) -> DatabaseResult<i64>
+    fn insert<R>(&self, value: R) -> DatabaseResult<usize>
     where
         R: Row,
     {
@@ -137,7 +137,7 @@ where
             .and_then(|connection| {
                 connection
                     .lock()
-                    .map_err(|why| eyre!("Failed to acquire database connection lock: {why}"))
+                    .map_err(|why| eyre!("Failed to acquire database connection lock — {why}"))
             })
             .and_then(|guard| callback(&guard))
     }
@@ -148,7 +148,7 @@ where
                 .and_then(|db_path| {
                     Connection::open(db_path)
                         .map(Mutex::new)
-                        .map_err(|why| eyre!("Failed to initialize database connection: {why}"))
+                        .map_err(|why| eyre!("Failed to initialize database connection — {why}"))
                 })
                 .and_then(|connection| {
                     CONNECTION.set(connection).ok();
@@ -185,7 +185,7 @@ where
         let table = table.into();
         self.with_connection(|conn| {
             conn.execute(table.create_statement(), params![])
-                .map_err(|why| eyre!("Failed to create table {}: {}", table.name(), why))
+                .map_err(|why| eyre!("Failed to create table {} — {why}", table.name()))
                 .map(|_| ())
         })
     }
@@ -200,7 +200,7 @@ where
         let table = table.into();
         self.with_connection(|conn| {
             conn.execute(&format!("DELETE FROM {}", table.name()), params![])
-                .map_err(|why| eyre!("Failed to clear {}: {}", table.name(), why))
+                .map_err(|why| eyre!("Failed to clear {} — {why}", table.name()))
         })
     }
     /// Delete rows where a timestamp/text column is older than a cutoff value.
@@ -209,7 +209,7 @@ where
         let sql = format!("DELETE FROM {} WHERE {} < ?", table.name(), column);
         self.with_connection(|conn| {
             conn.execute(&sql, params![cutoff])
-                .map_err(|why| eyre!("Failed to clean up {}: {}", table.name(), why))
+                .map_err(|why| eyre!("Failed to clean up {} — {why}", table.name()))
         })
     }
     /// Keep only the most recent `limit` rows using an id/order column pair.
@@ -223,7 +223,7 @@ where
         );
         self.with_connection(|conn| {
             conn.execute(&sql, params![limit as i64])
-                .map_err(|why| eyre!("Failed to trim {}: {}", table.name(), why))
+                .map_err(|why| eyre!("Failed to trim {} — {why}", table.name()))
         })
     }
     /// Clean up expired link cache entries and trim validation history.
@@ -235,7 +235,7 @@ where
             .and_then(|link_count| {
                 self.trim_to_recent(Table::ValidationHistory, "id", "checked_at", 1000).map(|_| {
                     if link_count > 0 {
-                        info!("{} Cleaned up {} expired cache entries", Label::run(), link_count);
+                        info!("{} Cleaned up {link_count} expired cache entries", Label::run());
                     }
                     link_count
                 })
@@ -247,7 +247,7 @@ where
             self.clear(Table::ValidationHistory).and_then(|validation_count| {
                 self.clear(Table::ResearchActivityCache).map(|cache_count| {
                     let total = link_count + validation_count + cache_count;
-                    info!("{} Cleared {} entries from cache tables", Label::pass(), total);
+                    info!("{} Cleared {total} entries from cache tables", Label::pass());
                     total
                 })
             })
@@ -260,8 +260,18 @@ where
             .copied()
             .try_fold(0usize, |total, table| self.clear(table).map(|count| total + count))
             .inspect(|&total| {
-                info!("{} Cleared {} entries from all tables", Label::pass(), total);
+                info!("{} Cleared {total} entries from all tables", Label::pass());
             })
+    }
+}
+fn database_name() -> &'static str {
+    #[cfg(feature = "duckdb")]
+    {
+        "acorn.duckdb"
+    }
+    #[cfg(not(feature = "duckdb"))]
+    {
+        "acorn.db"
     }
 }
 fn database_path(path: Option<&PathBuf>) -> DatabaseResult<PathBuf> {
@@ -269,7 +279,7 @@ fn database_path(path: Option<&PathBuf>) -> DatabaseResult<PathBuf> {
         | Some(path) => Ok(path.clone()),
         | None => ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
             .ok_or_else(|| eyre!("Failed to determine project directories"))
-            .map(|directories| directories.cache_dir().join("database").join(DATABASE_NAME)),
+            .map(|directories| directories.cache_dir().join("database").join(database_name())),
     }
     .and_then(|path| {
         path.parent()

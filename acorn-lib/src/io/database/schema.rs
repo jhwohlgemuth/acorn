@@ -1,6 +1,6 @@
 //! Database schema model
 //!
-use super::backend::{params, BackendRow, Connection, Params};
+use super::backend::{self, params, BackendRow, Connection, Params};
 use super::{Database, DatabaseResult, Row, SelectQuery, TableSchemaProvider};
 use crate::io::database::macros::{build_query, define_required_fn};
 use crate::prelude::PathBuf;
@@ -343,7 +343,21 @@ impl TableSchemaProvider for Table {
     fn create_statement(&self) -> &'static str {
         match self {
             | Table::Activity => {
-                r#"
+                #[cfg(feature = "duckdb")]
+                {
+                    r#"
+                CREATE TABLE IF NOT EXISTS activity (
+                    id BIGINT PRIMARY KEY,
+                    command TEXT NOT NULL,
+                    executed_at TEXT NOT NULL,
+                    user_path TEXT,
+                    success INTEGER NOT NULL DEFAULT 1
+                )
+                "#
+                }
+                #[cfg(not(feature = "duckdb"))]
+                {
+                    r#"
                 CREATE TABLE IF NOT EXISTS activity (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     command TEXT NOT NULL,
@@ -352,9 +366,26 @@ impl TableSchemaProvider for Table {
                     success INTEGER NOT NULL DEFAULT 1
                 )
                 "#
+                }
             }
             | Table::Catalog => {
-                r#"
+                #[cfg(feature = "duckdb")]
+                {
+                    r#"
+                CREATE TABLE IF NOT EXISTS catalog (
+                    id BIGINT PRIMARY KEY,
+                    bucket_name TEXT NOT NULL,
+                    bucket_url TEXT NOT NULL,
+                    identifier TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(bucket_name, identifier)
+                )
+                "#
+                }
+                #[cfg(not(feature = "duckdb"))]
+                {
+                    r#"
                 CREATE TABLE IF NOT EXISTS catalog (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     bucket_name TEXT NOT NULL,
@@ -365,9 +396,25 @@ impl TableSchemaProvider for Table {
                     UNIQUE(bucket_name, identifier)
                 )
                 "#
+                }
             }
             | Table::LinkCache => {
-                r#"
+                #[cfg(feature = "duckdb")]
+                {
+                    r#"
+                CREATE TABLE IF NOT EXISTS link_cache (
+                    id BIGINT PRIMARY KEY,
+                    url TEXT NOT NULL UNIQUE,
+                    status_code INTEGER NOT NULL,
+                    is_reachable INTEGER NOT NULL,
+                    checked_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL
+                )
+                "#
+                }
+                #[cfg(not(feature = "duckdb"))]
+                {
+                    r#"
                 CREATE TABLE IF NOT EXISTS link_cache (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     url TEXT NOT NULL UNIQUE,
@@ -377,9 +424,25 @@ impl TableSchemaProvider for Table {
                     expires_at TEXT NOT NULL
                 )
                 "#
+                }
             }
             | Table::ValidationHistory => {
-                r#"
+                #[cfg(feature = "duckdb")]
+                {
+                    r#"
+                CREATE TABLE IF NOT EXISTS validation_history (
+                    id BIGINT PRIMARY KEY,
+                    path TEXT NOT NULL,
+                    check_type TEXT NOT NULL,
+                    success INTEGER NOT NULL,
+                    message TEXT NOT NULL,
+                    checked_at TEXT NOT NULL
+                )
+                "#
+                }
+                #[cfg(not(feature = "duckdb"))]
+                {
+                    r#"
                 CREATE TABLE IF NOT EXISTS validation_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     path TEXT NOT NULL,
@@ -389,9 +452,25 @@ impl TableSchemaProvider for Table {
                     checked_at TEXT NOT NULL
                 )
                 "#
+                }
             }
             | Table::ResearchActivityCache => {
-                r#"
+                #[cfg(feature = "duckdb")]
+                {
+                    r#"
+                CREATE TABLE IF NOT EXISTS research_activity_cache (
+                    id BIGINT PRIMARY KEY,
+                    identifier TEXT NOT NULL UNIQUE,
+                    source_bucket TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    downloaded_at TEXT NOT NULL,
+                    file_path TEXT NOT NULL
+                )
+                "#
+                }
+                #[cfg(not(feature = "duckdb"))]
+                {
+                    r#"
                 CREATE TABLE IF NOT EXISTS research_activity_cache (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     identifier TEXT NOT NULL UNIQUE,
@@ -401,6 +480,7 @@ impl TableSchemaProvider for Table {
                     file_path TEXT NOT NULL
                 )
                 "#
+                }
             }
         }
     }
@@ -470,8 +550,8 @@ impl Row for ActivityRow {
         let (query, params) = self.build_select_query(&query);
         table.rows(&query, params, None)
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
-        let ActivityRow {
+    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+        let Self {
             command,
             executed_at,
             user_path,
@@ -483,16 +563,16 @@ impl Row for ActivityRow {
         let required = required1(command);
         match required {
             | Ok((command,)) => {
-                let query = format!(
-                    "INSERT INTO {} (command, executed_at, user_path, success) VALUES (?, ?, ?, ?)",
-                    self.table().name()
-                );
-                conn.query_row(
-                    &format!("{query} RETURNING id"),
-                    params![command, executed_at, user_path, success],
-                    |row| row.get(0),
-                )
-                .map_err(|why| eyre!("=> {} Failed to insert activity: {why}", Label::fail()))
+                let table_name = self.table().name();
+                let fields = Self::fields().join(", ");
+                match next_row_id(conn, table_name) {
+                    | Ok(id) => {
+                        let query = format!("INSERT INTO {table_name} ({fields}) VALUES (?, ?, ?, ?, ?)");
+                        let params = backend::params![id, command, executed_at, user_path, success];
+                        execute_insert(conn, &query, params)
+                    }
+                    | Err(why) => Err(why),
+                }
             }
             | Err(why) => Err(why),
         }
@@ -512,8 +592,8 @@ impl Row for CatalogRow {
         let (query, params) = self.build_select_query(&query);
         table.rows(&query, params, None)
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
-        let CatalogRow {
+    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+        let Self {
             bucket_name,
             bucket_url,
             identifier,
@@ -525,22 +605,22 @@ impl Row for CatalogRow {
         let required = required4(bucket_name, bucket_url, identifier, title);
         match required {
             | Ok((bucket_name, bucket_url, identifier, title)) => {
-                let query = format!(
-                    "INSERT INTO {} (bucket_name, bucket_url, identifier, title, updated_at) VALUES (?, ?, ?, ?, ?)",
-                    self.table().name()
-                );
-                conn.query_row(
-                    &format!("{query} RETURNING id"),
-                    params![bucket_name, bucket_url, identifier, title, updated_at],
-                    |row| row.get(0),
-                )
-                .map_err(|why| eyre!("=> {} Failed to insert catalog: {why}", Label::fail()))
+                let table_name = self.table().name();
+                let fields = Self::fields().join(", ");
+                match next_row_id(conn, table_name) {
+                    | Ok(id) => {
+                        let query = format!("INSERT INTO {table_name} ({fields}) VALUES (?, ?, ?, ?, ?, ?)");
+                        let params = backend::params![id, bucket_name, bucket_url, identifier, title, updated_at];
+                        execute_insert(conn, &query, params)
+                    }
+                    | Err(why) => Err(why),
+                }
             }
             | Err(why) => Err(why),
         }
     }
     fn build_select_query(&self, base: &str) -> SelectQuery {
-        CatalogRow::build_select_query(self, base)
+        Self::build_select_query(self, base)
     }
 }
 impl Row for LinkCacheRow {
@@ -554,8 +634,8 @@ impl Row for LinkCacheRow {
         let (query, params) = self.build_select_query(&query);
         table.rows(&query, params, None)
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
-        let LinkCacheRow {
+    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+        let Self {
             url,
             status_code,
             is_reachable,
@@ -567,22 +647,22 @@ impl Row for LinkCacheRow {
         let required = required4(url, status_code, is_reachable, expires_at);
         match required {
             | Ok((url, status_code, is_reachable, expires_at)) => {
-                let query = format!(
-                    "INSERT INTO {} (url, status_code, is_reachable, checked_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-                    self.table().name()
-                );
-                conn.query_row(
-                    &format!("{query} RETURNING id"),
-                    params![url, status_code, is_reachable as i32, checked_at, expires_at.to_rfc3339()],
-                    |row| row.get(0),
-                )
-                .map_err(|why| eyre!("=> {} Failed to insert link cache: {why}", Label::fail()))
+                let table_name = self.table().name();
+                let fields = Self::fields().join(", ");
+                match next_row_id(conn, table_name) {
+                    | Ok(id) => {
+                        let query = format!("INSERT INTO {table_name} ({fields}) VALUES (?, ?, ?, ?, ?, ?)");
+                        let params = backend::params![id, url, status_code, is_reachable as i32, checked_at, expires_at.to_rfc3339()];
+                        execute_insert(conn, &query, params)
+                    }
+                    | Err(why) => Err(why),
+                }
             }
             | Err(why) => Err(why),
         }
     }
     fn build_select_query(&self, base: &str) -> SelectQuery {
-        LinkCacheRow::build_select_query(self, base)
+        Self::build_select_query(self, base)
     }
 }
 impl Row for ResearchActivityCacheRow {
@@ -596,8 +676,8 @@ impl Row for ResearchActivityCacheRow {
         let (query, params) = self.build_select_query(&query);
         table.rows(&query, params, None)
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
-        let ResearchActivityCacheRow {
+    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+        let Self {
             identifier,
             source_bucket,
             title,
@@ -609,22 +689,22 @@ impl Row for ResearchActivityCacheRow {
         let required = required4(identifier, source_bucket, title, file_path);
         match required {
             | Ok((identifier, source_bucket, title, file_path)) => {
-                let query = format!(
-                    "INSERT INTO {} (identifier, source_bucket, title, downloaded_at, file_path) VALUES (?, ?, ?, ?, ?)",
-                    self.table().name()
-                );
-                conn.query_row(
-                    &format!("{query} RETURNING id"),
-                    params![identifier, source_bucket, title, downloaded_at, file_path],
-                    |row| row.get(0),
-                )
-                .map_err(|why| eyre!("=> {} Failed to insert research activity cache: {why}", Label::fail()))
+                let table_name = self.table().name();
+                let fields = Self::fields().join(", ");
+                match next_row_id(conn, table_name) {
+                    | Ok(id) => {
+                        let query = format!("INSERT INTO {table_name} ({fields}) VALUES (?, ?, ?, ?, ?, ?)");
+                        let params = backend::params![id, identifier, source_bucket, title, downloaded_at, file_path];
+                        execute_insert(conn, &query, params)
+                    }
+                    | Err(why) => Err(why),
+                }
             }
             | Err(why) => Err(why),
         }
     }
     fn build_select_query(&self, base: &str) -> SelectQuery {
-        ResearchActivityCacheRow::build_select_query(self, base)
+        Self::build_select_query(self, base)
     }
 }
 impl Row for ValidationRow {
@@ -636,8 +716,8 @@ impl Row for ValidationRow {
         let (query, params) = self.build_select_query(&query);
         self.table().rows(&query, params, None)
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<i64> {
-        let ValidationRow {
+    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+        let Self {
             path,
             check_type,
             success,
@@ -650,22 +730,22 @@ impl Row for ValidationRow {
         let required = required3(path, check_type, message);
         match required {
             | Ok((path, check_type, message)) => {
-                let query = format!(
-                    "INSERT INTO {} (path, check_type, success, message, checked_at) VALUES (?, ?, ?, ?, ?)",
-                    self.table().name()
-                );
-                conn.query_row(
-                    &format!("{query} RETURNING id"),
-                    params![path, check_type, success, message, checked_at],
-                    |row| row.get(0),
-                )
-                .map_err(|why| eyre!("=> {} Failed to insert validation: {why}", Label::fail()))
+                let table_name = self.table().name();
+                let fields = Self::fields().join(", ");
+                match next_row_id(conn, table_name) {
+                    | Ok(id) => {
+                        let query = format!("INSERT INTO {table_name} ({fields}) VALUES (?, ?, ?, ?, ?, ?)");
+                        let params = backend::params![id, path, check_type, success, message, checked_at];
+                        execute_insert(conn, &query, params)
+                    }
+                    | Err(why) => Err(why),
+                }
             }
             | Err(why) => Err(why),
         }
     }
     fn build_select_query(&self, base: &str) -> SelectQuery {
-        ValidationRow::build_select_query(self, base)
+        Self::build_select_query(self, base)
     }
 }
 impl LinkCacheRow {
@@ -679,6 +759,17 @@ where
     T: fmt::Display,
 {
     value.map(ToString::to_string).unwrap_or_else(|| "None".to_string())
+}
+fn execute_insert<P>(conn: &Connection, query: &str, params: P) -> DatabaseResult<usize>
+where
+    P: Params,
+{
+    conn.execute(query, params)
+        .map_err(|why| eyre!("=> {} Failed to insert row: {why}", Label::fail()))
+}
+fn next_row_id(conn: &Connection, table: &str) -> DatabaseResult<i64> {
+    conn.query_row(&format!("SELECT COALESCE(MAX(id), 0) + 1 FROM {table}"), params![], |row| row.get(0))
+        .map_err(|why| eyre!("=> {} Failed to determine next id for {table}: {why}", Label::fail()))
 }
 fn parse_rfc3339_column(row: &BackendRow<'_>, index: usize) -> Option<DateTime<Utc>> {
     row.get::<_, String>(index)

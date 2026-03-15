@@ -62,8 +62,6 @@ pub const APPLICATION: &str = "acorn";
 pub const ORGANIZATION: &str = "ornl";
 /// Organization qualifier
 pub const QUALIFIER: &str = "org";
-/// Database file name
-pub const DATABASE_NAME: &str = "acorn.db";
 /// Default cache TTL in seconds (1 month = 30 days)
 pub const DEFAULT_CACHE_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
 /// Environment variable name for cache TTL override
