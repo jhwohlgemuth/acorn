@@ -1,6 +1,6 @@
 //! Database schema model
 //!
-use super::backend::{self, params, BackendRow, Connection, Params};
+use super::backend::{self, BackendRow, Connection, Params};
 use super::{Database, DatabaseResult, Row, SelectQuery, TableSchemaProvider};
 use crate::io::database::macros::{build_query, define_required_fn};
 use crate::prelude::PathBuf;
@@ -543,13 +543,6 @@ impl Row for ActivityRow {
     fn table(&self) -> Table {
         Table::Activity
     }
-    fn select(&self) -> DatabaseResult<Vec<ActivityRow>> {
-        let table = self.table();
-        let fields = Self::FIELDS.join(", ");
-        let query = format!("SELECT {fields} FROM {}", table.name());
-        let (query, params) = self.build_select_query(&query);
-        table.rows(&query, params, None)
-    }
     fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
         let Self {
             command,
@@ -562,35 +555,23 @@ impl Row for ActivityRow {
         let success = success.unwrap_or(true) as i32;
         let required = required1(command);
         match required {
-            | Ok((command,)) => {
-                let table_name = self.table().name();
-                let fields = Self::fields().join(", ");
-                match next_row_id(conn, table_name) {
-                    | Ok(id) => {
-                        let query = format!("INSERT INTO {table_name} ({fields}) VALUES (?, ?, ?, ?, ?)");
-                        let params = backend::params![id, command, executed_at, user_path, success];
-                        execute_insert(conn, &query, params)
-                    }
-                    | Err(why) => Err(why),
+            | Ok((command,)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, command, executed_at, user_path, success];
+                    execute_insert(&self, conn, params)
                 }
-            }
+                | Err(why) => Err(why),
+            },
             | Err(why) => Err(why),
         }
     }
     fn build_select_query(&self, base: &str) -> SelectQuery {
-        ActivityRow::build_select_query(self, base)
+        Self::build_select_query(self, base)
     }
 }
 impl Row for CatalogRow {
     fn table(&self) -> Table {
         Table::Catalog
-    }
-    fn select(&self) -> DatabaseResult<Vec<CatalogRow>> {
-        let table = self.table();
-        let fields = Self::FIELDS.join(", ");
-        let query = format!("SELECT {fields} FROM {}", table.name());
-        let (query, params) = self.build_select_query(&query);
-        table.rows(&query, params, None)
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
         let Self {
@@ -604,18 +585,13 @@ impl Row for CatalogRow {
         let updated_at = updated_at.unwrap_or_else(Utc::now).to_rfc3339();
         let required = required4(bucket_name, bucket_url, identifier, title);
         match required {
-            | Ok((bucket_name, bucket_url, identifier, title)) => {
-                let table_name = self.table().name();
-                let fields = Self::fields().join(", ");
-                match next_row_id(conn, table_name) {
-                    | Ok(id) => {
-                        let query = format!("INSERT INTO {table_name} ({fields}) VALUES (?, ?, ?, ?, ?, ?)");
-                        let params = backend::params![id, bucket_name, bucket_url, identifier, title, updated_at];
-                        execute_insert(conn, &query, params)
-                    }
-                    | Err(why) => Err(why),
+            | Ok((bucket_name, bucket_url, identifier, title)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, bucket_name, bucket_url, identifier, title, updated_at];
+                    execute_insert(&self, conn, params)
                 }
-            }
+                | Err(why) => Err(why),
+            },
             | Err(why) => Err(why),
         }
     }
@@ -626,13 +602,6 @@ impl Row for CatalogRow {
 impl Row for LinkCacheRow {
     fn table(&self) -> Table {
         Table::LinkCache
-    }
-    fn select(&self) -> DatabaseResult<Vec<LinkCacheRow>> {
-        let table = self.table();
-        let fields = Self::FIELDS.join(", ");
-        let query = format!("SELECT {fields} FROM {}", table.name());
-        let (query, params) = self.build_select_query(&query);
-        table.rows(&query, params, None)
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
         let Self {
@@ -646,18 +615,13 @@ impl Row for LinkCacheRow {
         let checked_at = checked_at.unwrap_or_else(Utc::now).to_rfc3339();
         let required = required4(url, status_code, is_reachable, expires_at);
         match required {
-            | Ok((url, status_code, is_reachable, expires_at)) => {
-                let table_name = self.table().name();
-                let fields = Self::fields().join(", ");
-                match next_row_id(conn, table_name) {
-                    | Ok(id) => {
-                        let query = format!("INSERT INTO {table_name} ({fields}) VALUES (?, ?, ?, ?, ?, ?)");
-                        let params = backend::params![id, url, status_code, is_reachable as i32, checked_at, expires_at.to_rfc3339()];
-                        execute_insert(conn, &query, params)
-                    }
-                    | Err(why) => Err(why),
+            | Ok((url, status_code, is_reachable, expires_at)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, url, status_code, is_reachable as i32, checked_at, expires_at.to_rfc3339()];
+                    execute_insert(&self, conn, params)
                 }
-            }
+                | Err(why) => Err(why),
+            },
             | Err(why) => Err(why),
         }
     }
@@ -668,13 +632,6 @@ impl Row for LinkCacheRow {
 impl Row for ResearchActivityCacheRow {
     fn table(&self) -> Table {
         Table::ResearchActivityCache
-    }
-    fn select(&self) -> DatabaseResult<Vec<ResearchActivityCacheRow>> {
-        let table = self.table();
-        let fields = Self::FIELDS.join(", ");
-        let query = format!("SELECT {fields} FROM {}", table.name());
-        let (query, params) = self.build_select_query(&query);
-        table.rows(&query, params, None)
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
         let Self {
@@ -688,18 +645,13 @@ impl Row for ResearchActivityCacheRow {
         let downloaded_at = downloaded_at.unwrap_or_else(Utc::now).to_rfc3339();
         let required = required4(identifier, source_bucket, title, file_path);
         match required {
-            | Ok((identifier, source_bucket, title, file_path)) => {
-                let table_name = self.table().name();
-                let fields = Self::fields().join(", ");
-                match next_row_id(conn, table_name) {
-                    | Ok(id) => {
-                        let query = format!("INSERT INTO {table_name} ({fields}) VALUES (?, ?, ?, ?, ?, ?)");
-                        let params = backend::params![id, identifier, source_bucket, title, downloaded_at, file_path];
-                        execute_insert(conn, &query, params)
-                    }
-                    | Err(why) => Err(why),
+            | Ok((identifier, source_bucket, title, file_path)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, identifier, source_bucket, title, downloaded_at, file_path];
+                    execute_insert(&self, conn, params)
                 }
-            }
+                | Err(why) => Err(why),
+            },
             | Err(why) => Err(why),
         }
     }
@@ -710,11 +662,6 @@ impl Row for ResearchActivityCacheRow {
 impl Row for ValidationRow {
     fn table(&self) -> Table {
         Table::ValidationHistory
-    }
-    fn select(&self) -> DatabaseResult<Vec<ValidationRow>> {
-        let query = format!("SELECT id, path, check_type, success, message, checked_at FROM {}", Self::TABLE_NAME);
-        let (query, params) = self.build_select_query(&query);
-        self.table().rows(&query, params, None)
     }
     fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
         let Self {
@@ -729,18 +676,13 @@ impl Row for ValidationRow {
         let checked_at = checked_at.unwrap_or_else(Utc::now).to_rfc3339();
         let required = required3(path, check_type, message);
         match required {
-            | Ok((path, check_type, message)) => {
-                let table_name = self.table().name();
-                let fields = Self::fields().join(", ");
-                match next_row_id(conn, table_name) {
-                    | Ok(id) => {
-                        let query = format!("INSERT INTO {table_name} ({fields}) VALUES (?, ?, ?, ?, ?, ?)");
-                        let params = backend::params![id, path, check_type, success, message, checked_at];
-                        execute_insert(conn, &query, params)
-                    }
-                    | Err(why) => Err(why),
+            | Ok((path, check_type, message)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, path, check_type, success, message, checked_at];
+                    execute_insert(&self, conn, params)
                 }
-            }
+                | Err(why) => Err(why),
+            },
             | Err(why) => Err(why),
         }
     }
@@ -760,16 +702,18 @@ where
 {
     value.map(ToString::to_string).unwrap_or_else(|| "None".to_string())
 }
-fn execute_insert<P>(conn: &Connection, query: &str, params: P) -> DatabaseResult<usize>
+fn execute_insert<R, P>(row: &R, conn: &Connection, params: P) -> DatabaseResult<usize>
 where
+    R: Row,
     P: Params,
 {
-    conn.execute(query, params)
+    let table_name = row.table().name();
+    let table_columns = <R as Row>::fields();
+    let fields = table_columns.join(", ");
+    let placeholders = table_columns.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let query = format!("INSERT INTO {table_name} ({fields}) VALUES ({placeholders})");
+    conn.execute(&query, params)
         .map_err(|why| eyre!("=> {} Failed to insert row: {why}", Label::fail()))
-}
-fn next_row_id(conn: &Connection, table: &str) -> DatabaseResult<i64> {
-    conn.query_row(&format!("SELECT COALESCE(MAX(id), 0) + 1 FROM {table}"), params![], |row| row.get(0))
-        .map_err(|why| eyre!("=> {} Failed to determine next id for {table}: {why}", Label::fail()))
 }
 fn parse_rfc3339_column(row: &BackendRow<'_>, index: usize) -> Option<DateTime<Utc>> {
     row.get::<_, String>(index)

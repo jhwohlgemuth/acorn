@@ -145,11 +145,10 @@ async fn main() -> Void {
         }
         match database.reset() {
             | Ok(count) => {
-                println!("{} Reset database - cleared {} entries from all tables", Label::pass(), count);
-                exit(exitcode::OK);
+                info!("{} Reset database - cleared {count} entries from all tables", Label::pass());
             }
-            | Err(e) => {
-                eprintln!("=> {} Failed to clear all data: {}", Label::fail(), e);
+            | Err(why) => {
+                eprintln!("=> {} Failed to clear all data: {why}", Label::fail());
                 exit(exitcode::SOFTWARE);
             }
         }
@@ -161,11 +160,10 @@ async fn main() -> Void {
         }
         match database.clear_cache() {
             | Ok(count) => {
-                println!("{} Cleared {} entries from cache tables", Label::pass(), count);
-                exit(exitcode::OK);
+                info!("{} Cleared {count} entries from cache tables", Label::pass());
             }
-            | Err(e) => {
-                eprintln!("=> {} Failed to clear cache: {}", Label::fail(), e);
+            | Err(why) => {
+                eprintln!("=> {} Failed to clear cache: {why}", Label::fail());
                 exit(exitcode::SOFTWARE);
             }
         }
@@ -175,8 +173,8 @@ async fn main() -> Void {
     } else {
         database.migrate().and_then(|_| {
             if !no_clear_cache {
-                if let Err(e) = database.cleanup_expired_cache() {
-                    info!("Cache cleanup warning: {}", e);
+                if let Err(why) = database.cleanup_expired_cache() {
+                    info!("Cache cleanup warning: {why}");
                 }
             }
             database.with_connection(|_| Ok(())).map(|_| ())
