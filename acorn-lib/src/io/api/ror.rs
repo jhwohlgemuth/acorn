@@ -21,7 +21,7 @@
 //!
 //! println!("ROR REST API is healthy: {}", api::ror::is_healthy().await);
 //! ```
-use crate::io::api::{ApiResult, Param, RemoteResource, Searchable, TextResponse, INCLUDED_ENDPOINTS};
+use crate::io::api::{Param, RemoteResource, ApiResult, Searchable, TextResponse, INCLUDED_ENDPOINTS};
 use crate::param;
 use crate::schema::pid::{PersistentIdentifierParse, ROR};
 use bon::Builder;

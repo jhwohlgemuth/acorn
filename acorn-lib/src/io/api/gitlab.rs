@@ -2,10 +2,11 @@
 //!
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
-use crate::io::api::{ApiResult, EmptyField, RemoteResource, Searchable, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::api::{EmptyField, RemoteResource, Searchable, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::config::{RunnerStatus, RunnerType};
+use crate::io::ApiResult;
 use crate::param;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -441,7 +442,7 @@ impl fmt::Display for PaginationField {
 impl TryFrom<&str> for PaginationField {
     type Error = String;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
         match value {
             | "order_by" => Ok(PaginationField::OrderBy),
             | "page" => Ok(PaginationField::Page),
@@ -455,7 +456,7 @@ impl TryFrom<&str> for PaginationField {
 impl TryFrom<&str> for OrderByValue {
     type Error = String;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
         match value {
             | "created_at" => Ok(OrderByValue::CreatedAt),
             | "due_date" => Ok(OrderByValue::DueDate),
@@ -480,7 +481,7 @@ impl TryFrom<&str> for OrderByValue {
 impl TryFrom<&str> for SortValue {
     type Error = String;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
         match value {
             | "asc" => Ok(SortValue::Ascending),
             | "desc" => Ok(SortValue::Descending),

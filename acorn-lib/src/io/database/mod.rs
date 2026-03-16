@@ -2,12 +2,13 @@
 //!
 //! This module provides a lazily initialized, process-global database connection
 //! guarded by a mutex and a helper to execute callbacks against that connection.
+use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
 use crate::util::constants::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ORGANIZATION, QUALIFIER};
 use crate::util::Label;
 use backend::{params, BackendRow, Connection, Params};
 use chrono::{Duration, Utc};
-use color_eyre::eyre::{eyre, Report, Result};
+use color_eyre::eyre::eyre;
 use core::marker::PhantomData;
 use directories::ProjectDirs;
 use tracing::info;
@@ -20,8 +21,6 @@ use schema::Table;
 
 static CONNECTION: OnceLock<Mutex<Connection>> = OnceLock::new();
 
-/// Utility type alias for database operation results
-pub type DatabaseResult<T> = Result<T, Report>;
 /// SQL parameters produced for dynamic queries.
 pub type QueryParams = backend::ParamsFromIter<Vec<Box<dyn backend::ToSql>>>;
 /// SQL query string paired with its bound parameters.
@@ -29,27 +28,27 @@ pub type SelectQuery = (String, QueryParams);
 /// Trait for objects that can be persisted in a database
 pub trait DatabasePersistence {
     /// Download data to be saved in database
-    fn download(self) -> DatabaseResult<Self>
+    fn download(self) -> ApiResult<Self>
     where
         Self: Sized,
     {
         unimplemented!()
     }
     /// Persist data to database
-    fn persist(self, database: Database<Table>) -> DatabaseResult<usize>;
+    fn persist(self, database: Database<Table>) -> ApiResult<usize>;
 }
 /// Write and access data in a database
 pub trait Operations {
     /// Insert a value (row) into the database
-    fn insert<R>(&self, value: R) -> DatabaseResult<usize>
+    fn insert<R>(&self, value: R) -> ApiResult<usize>
     where
         R: Row;
     /// Save data to database
-    fn persist<P>(&self, data: Option<P>) -> DatabaseResult<usize>
+    fn persist<P>(&self, data: Option<P>) -> ApiResult<usize>
     where
         P: DatabasePersistence;
     /// Select a value from the database
-    fn select<T, P>(&self, value: P) -> DatabaseResult<Option<T>>
+    fn select<T, P>(&self, value: P) -> ApiResult<Option<T>>
     where
         T: Into<Table>,
         P: Params;
@@ -66,11 +65,11 @@ pub trait Row: RowMetadata {
         <Self as RowMetadata>::fields()
     }
     /// Inserts this row into its corresponding table.
-    fn insert(self, _conn: &Connection) -> DatabaseResult<usize>
+    fn insert(self, _conn: &Connection) -> ApiResult<usize>
     where
         Self: Sized;
     /// Selects rows from the database matching this row's field values.
-    fn select(&self) -> DatabaseResult<Vec<Self>>
+    fn select(&self) -> ApiResult<Vec<Self>>
     where
         Self: Sized,
         for<'row> Self: From<&'row BackendRow<'row>>,
@@ -85,7 +84,7 @@ pub trait Row: RowMetadata {
     /// Builds a SQL SELECT query with optional WHERE/ORDER BY clauses.
     fn build_select_query(&self, base: &str) -> SelectQuery;
     /// Get ID for next row (used when inserting new row)
-    fn next_row_id(&self, conn: &Connection) -> DatabaseResult<i64>
+    fn next_row_id(&self, conn: &Connection) -> ApiResult<i64>
     where
         Self: Sized,
     {
@@ -112,7 +111,7 @@ pub trait TableSchemaProvider: Copy + Into<Table> + 'static {
     /// Print all table rows
     fn print(self, path: Option<PathBuf>);
     /// Get table rows
-    fn rows<R, P>(&self, query: &str, params: P, path: Option<&PathBuf>) -> DatabaseResult<Vec<R>>
+    fn rows<R, P>(&self, query: &str, params: P, path: Option<&PathBuf>) -> ApiResult<Vec<R>>
     where
         P: Params,
         for<'row> R: Row + From<&'row BackendRow<'row>>;
@@ -141,14 +140,14 @@ impl<S> Operations for Database<S>
 where
     S: TableSchemaProvider,
 {
-    fn insert<R>(&self, value: R) -> DatabaseResult<usize>
+    fn insert<R>(&self, value: R) -> ApiResult<usize>
     where
         R: Row,
     {
         let row: R = value;
         self.with_connection(|conn| row.insert(conn))
     }
-    fn persist<P>(&self, data: Option<P>) -> DatabaseResult<usize>
+    fn persist<P>(&self, data: Option<P>) -> ApiResult<usize>
     where
         P: DatabasePersistence,
     {
@@ -158,7 +157,7 @@ where
             | None => Err(eyre!("Failed to persist data")),
         }
     }
-    fn select<T, P>(&self, _value: P) -> DatabaseResult<Option<T>>
+    fn select<T, P>(&self, _value: P) -> ApiResult<Option<T>>
     where
         T: Into<Table>,
         P: Params,
@@ -175,7 +174,7 @@ where
         Self { path, marker: PhantomData }
     }
     /// Executes a callback using the database path configured on this handle.
-    pub fn with_connection<U>(&self, callback: impl FnOnce(&Connection) -> DatabaseResult<U>) -> DatabaseResult<U> {
+    pub fn with_connection<U>(&self, callback: impl FnOnce(&Connection) -> ApiResult<U>) -> ApiResult<U> {
         Self::db_connection(self.path.as_ref())
             .and_then(|connection| {
                 connection
@@ -184,7 +183,7 @@ where
             })
             .and_then(|guard| callback(&guard))
     }
-    fn db_connection(path: Option<&PathBuf>) -> DatabaseResult<&'static Mutex<Connection>> {
+    fn db_connection(path: Option<&PathBuf>) -> ApiResult<&'static Mutex<Connection>> {
         match CONNECTION.get() {
             | Some(connection) => Ok(connection),
             | None => database_path(path)
@@ -224,7 +223,7 @@ where
         default_ttl
     }
     /// Create one table if it does not exist.
-    pub fn migrate_table(&self, table: impl Into<Table>) -> Result<(), Report> {
+    pub fn migrate_table(&self, table: impl Into<Table>) -> ApiResult<()> {
         let table = table.into();
         self.with_connection(|conn| {
             let statement = table.create_statement();
@@ -234,13 +233,13 @@ where
         })
     }
     /// Create all tables defined by the variant provider type.
-    pub fn migrate(&self) -> DatabaseResult<()> {
+    pub fn migrate(&self) -> ApiResult<()> {
         T::all().iter().copied().try_fold((), |_, table| self.migrate_table(table)).inspect(|_| {
             info!("{} Database migration complete", Label::pass());
         })
     }
     /// Delete all rows from a table.
-    pub fn clear(&self, table: impl Into<Table>) -> DatabaseResult<usize> {
+    pub fn clear(&self, table: impl Into<Table>) -> ApiResult<usize> {
         let table = table.into();
         self.with_connection(|conn| {
             conn.execute(&format!("DELETE FROM {}", table.name()), params![])
@@ -248,7 +247,7 @@ where
         })
     }
     /// Delete rows where a timestamp/text column is older than a cutoff value.
-    pub fn delete_expired_before(&self, table: impl Into<Table>, column: &str, cutoff: &str) -> DatabaseResult<usize> {
+    pub fn delete_expired_before(&self, table: impl Into<Table>, column: &str, cutoff: &str) -> ApiResult<usize> {
         let table = table.into();
         let sql = format!("DELETE FROM {} WHERE {} < ?", table.name(), column);
         self.with_connection(|conn| {
@@ -257,7 +256,7 @@ where
         })
     }
     /// Keep only the most recent `limit` rows using an id/order column pair.
-    pub fn trim_to_recent(&self, table: impl Into<Table>, id_column: &str, order_column: &str, limit: usize) -> DatabaseResult<usize> {
+    pub fn trim_to_recent(&self, table: impl Into<Table>, id_column: &str, order_column: &str, limit: usize) -> ApiResult<usize> {
         let table = table.into();
         let sql = format!(
             "DELETE FROM {table} WHERE {id_col} NOT IN (SELECT {id_col} FROM {table} ORDER BY {order_col} DESC LIMIT ?)",
@@ -271,7 +270,7 @@ where
         })
     }
     /// Clean up expired link cache entries and trim validation history.
-    pub fn cleanup_expired_cache(&self) -> DatabaseResult<usize> {
+    pub fn cleanup_expired_cache(&self) -> ApiResult<usize> {
         let ttl = self.cache_ttl();
         let now = Utc::now();
         let cutoff = (now - ttl).to_rfc3339();
@@ -286,7 +285,7 @@ where
             })
     }
     /// Clear all cache-related tables.
-    pub fn clear_cache(&self) -> DatabaseResult<usize> {
+    pub fn clear_cache(&self) -> ApiResult<usize> {
         self.clear(Table::LinkCache).and_then(|link_count| {
             self.clear(Table::ValidationHistory).and_then(|validation_count| {
                 self.clear(Table::ResearchActivityCache).map(|cache_count| {
@@ -298,7 +297,7 @@ where
         })
     }
     /// Clear (reset) all data from all tables.
-    pub fn reset(&self) -> DatabaseResult<usize> {
+    pub fn reset(&self) -> ApiResult<usize> {
         T::all()
             .iter()
             .copied()
@@ -318,7 +317,7 @@ fn database_name() -> &'static str {
         "acorn.db"
     }
 }
-fn database_path(path: Option<&PathBuf>) -> DatabaseResult<PathBuf> {
+fn database_path(path: Option<&PathBuf>) -> ApiResult<PathBuf> {
     match path {
         | Some(path) => Ok(path.clone()),
         | None => ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)

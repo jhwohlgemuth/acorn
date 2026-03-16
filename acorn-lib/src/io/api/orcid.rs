@@ -26,10 +26,11 @@
 //! ];
 //! println!("ORCiD Search Response: {:#?}", api::orcid::search(params).await);
 //! ```
-use crate::io::api::{self, ApiResult, RemoteResource, Searchable, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::api::{self, RemoteResource, Searchable, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::ApiResult;
 use crate::schema::validate::{is_orcid, is_ror};
 use bon::Builder;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -230,7 +231,7 @@ impl fmt::Display for OutputColumn {
 impl TryFrom<&str> for SearchField {
     type Error = String;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
         match value {
             | "affiliation-org-name" => Ok(SearchField::AffiliationOrgName),
             | "credit-name" => Ok(SearchField::CreditName),
@@ -250,7 +251,7 @@ impl TryFrom<&str> for SearchField {
 impl TryFrom<&str> for OutputColumn {
     type Error = String;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
         match value {
             | "credit-name" => Ok(OutputColumn::CreditName),
             | "current-institution-affiliation-name" => Ok(OutputColumn::CurrentInstitutionAffiliationName),

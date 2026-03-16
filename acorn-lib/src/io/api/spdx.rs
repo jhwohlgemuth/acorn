@@ -3,9 +3,10 @@
 //! See `https://github.com/spdx/license-list-data/blob/main/accessingLicenses.md` for more information on the SPDX license list and how to access it.
 //!
 //! See `https://spdx.org/rdf/terms/` for SPDX RDF terms.
-use crate::io::api::{self, ApiResult, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
+use crate::io::api::{self, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
 use crate::io::database::schema::{LicenseRow, Table};
-use crate::io::database::{Database, DatabasePersistence, DatabaseResult, Operations};
+use crate::io::database::{Database, DatabasePersistence, Operations};
+use crate::io::ApiResult;
 use crate::schema::validate::{is_list_url, is_semantic_version};
 use color_eyre::eyre::{eyre, Report};
 use serde::{Deserialize, Serialize};
@@ -93,13 +94,13 @@ impl DatabasePersistence for LicensesResponse {
     /// let database = Database::<Table>::from_path(database_path.clone());
     /// let _ = database.persist(Some(licenses));
     /// ```
-    fn persist(self, database: Database<Table>) -> DatabaseResult<usize> {
+    fn persist(self, database: Database<Table>) -> ApiResult<usize> {
         let Self { licenses, .. } = self;
         licenses
             .iter()
             .cloned()
             .map(|item| database.insert(LicenseRow::from(item)))
-            .collect::<Result<Vec<_>, _>>()
+            .collect::<ApiResult<Vec<_>>>()
             .map(|rows| rows.into_iter().sum())
             .map_err(Report::msg)
     }

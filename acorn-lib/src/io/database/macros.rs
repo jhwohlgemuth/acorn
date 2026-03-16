@@ -86,7 +86,7 @@ macro_rules! build_query {
 /// into a single tupled `DatabaseResult` while preserving first-error behavior.
 macro_rules! define_required_fn {
     (1, $fn_name:ident, $A:ident, $a:ident) => {
-        fn $fn_name<$A>($a: Option<$A>) -> crate::io::database::DatabaseResult<($A,)> {
+        fn $fn_name<$A>($a: Option<$A>) -> crate::io::Result<($A,)> {
             match $a.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($a))) {
                 | Ok($a) => Ok(($a,)),
                 | Err(why) => Err(why),
@@ -94,7 +94,7 @@ macro_rules! define_required_fn {
         }
     };
     (3, $fn_name:ident, $A:ident, $a:ident, $B:ident, $b:ident, $C:ident, $c:ident) => {
-        fn $fn_name<$A, $B, $C>($a: Option<$A>, $b: Option<$B>, $c: Option<$C>) -> crate::io::database::DatabaseResult<($A, $B, $C)> {
+        fn $fn_name<$A, $B, $C>($a: Option<$A>, $b: Option<$B>, $c: Option<$C>) -> crate::io::Result<($A, $B, $C)> {
             match (
                 $a.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($a))),
                 $b.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($b))),
@@ -108,12 +108,7 @@ macro_rules! define_required_fn {
         }
     };
     (4, $fn_name:ident, $A:ident, $a:ident, $B:ident, $b:ident, $C:ident, $c:ident, $D:ident, $d:ident) => {
-        fn $fn_name<$A, $B, $C, $D>(
-            $a: Option<$A>,
-            $b: Option<$B>,
-            $c: Option<$C>,
-            $d: Option<$D>,
-        ) -> crate::io::database::DatabaseResult<($A, $B, $C, $D)> {
+        fn $fn_name<$A, $B, $C, $D>($a: Option<$A>, $b: Option<$B>, $c: Option<$C>, $d: Option<$D>) -> crate::io::Result<($A, $B, $C, $D)> {
             match (
                 $a.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($a))),
                 $b.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($b))),
@@ -135,7 +130,7 @@ macro_rules! define_required_fn {
             $c: Option<$C>,
             $d: Option<$D>,
             $e: Option<$E>,
-        ) -> crate::io::database::DatabaseResult<($A, $B, $C, $D, $E)> {
+        ) -> crate::io::Result<($A, $B, $C, $D, $E)> {
             match (
                 $a.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($a))),
                 $b.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($b))),

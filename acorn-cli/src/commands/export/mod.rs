@@ -49,8 +49,7 @@ pub async fn run(
             let bag = Bag::init().base_directory(base).info(info).build();
             let destination = output.clone().unwrap();
             bag.save(destination.clone())
-                .map_err(|why| why.into())
-                .and_then(|_| Bag::verify(destination.clone()).map_err(|why| why.into()))
+                .and_then(|_| Bag::verify(destination.clone()))
                 .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
         }
         | FileFormat::Json => {
@@ -110,9 +109,7 @@ pub async fn run(
             }
             #[cfg(not(feature = "pdf"))]
             {
-                Err(color_eyre::eyre::eyre!(
-                    "PDF export requires the 'pdf' feature. Rebuild with --features pdf"
-                ))
+                Err(eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
             }
         }
         | FileFormat::Markdown => {

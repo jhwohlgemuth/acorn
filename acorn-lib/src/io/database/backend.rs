@@ -2,7 +2,7 @@
 //!
 //! Conditionally re-exports types from either `rusqlite` (default) or `duckdb`
 //! based on enabled feature flags.
-use crate::io::database::DatabaseResult;
+use crate::io::ApiResult;
 use crate::prelude::env;
 use color_eyre::eyre::eyre;
 
@@ -38,7 +38,7 @@ pub fn selected_backend() -> String {
         .unwrap_or_else(|| backend().to_string())
 }
 /// Validates runtime backend selection for the current build.
-pub fn validate_backend_selection() -> DatabaseResult<String> {
+pub fn validate_backend_selection() -> ApiResult<String> {
     let selected = selected_backend();
     if selected != BACKEND_SQLITE && selected != BACKEND_DUCKDB {
         return Err(eyre!(

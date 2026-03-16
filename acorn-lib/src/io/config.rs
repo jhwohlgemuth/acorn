@@ -7,11 +7,13 @@
 use crate::io::api::github::{TreeEntry as GithubTreeEntry, TreeResponse as GithubTreeResponse};
 use crate::io::api::gitlab::{TreeEntry as GitlabTreeEntry, TreeResponse as GitlabTreeResponse};
 use crate::io::api::Endpoint;
+use crate::io::ApiResult;
 use crate::io::{files_all, get, parent, read_file, write_file, FromPath, InputOutput};
-use crate::prelude::{self, create_dir_all, exit, io, Cursor, Error, File, PathBuf};
+use crate::prelude::{self, create_dir_all, exit, io, Cursor, File, PathBuf};
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
+use color_eyre::eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
 use futures::future::join_all;
@@ -172,16 +174,16 @@ impl ApplicationConfiguration {
 }
 impl InputOutput for ApplicationConfiguration {
     /// Read and parse application configuration file (JSON or YAML)
-    fn read(path: impl Into<PathBuf>) -> Result<Self, Error> {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
         match MimeType::from_path(source.clone()) {
             | MimeType::Json => Self::read_json(source.clone()),
             | MimeType::Yaml => Self::read_yaml(source.clone()),
-            | _ => Err(Error::other("Unsupported configuration file extension")),
+            | _ => Err(eyre!("Unsupported configuration file extension")),
         }
     }
     /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_json(path: PathBuf) -> Result<Self, Error> {
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
@@ -189,10 +191,10 @@ impl InputOutput for ApplicationConfiguration {
                 "{}".to_owned()
             }
         };
-        Self::parse_json(content).map_err(|why| Error::other(format!("Failed to parse JSON config: {why}")))
+        Self::parse_json(content).map_err(|why| eyre!("Failed to parse JSON config — {why}"))
     }
     /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_yaml(path: PathBuf) -> Result<Self, Error> {
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,
             | Err(_) => {
@@ -200,29 +202,29 @@ impl InputOutput for ApplicationConfiguration {
                 "".to_owned()
             }
         };
-        Self::parse_yaml(content).map_err(|why| Error::other(format!("Failed to parse YAML config: {why}")))
+        Self::parse_yaml(content).map_err(|why| eyre!("Failed to parse YAML config — {why}"))
     }
     /// Write configuration to specified path (detects JSON or YAML from extension)
-    fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let target = path.into();
         match MimeType::from_path(&target) {
             | MimeType::Json => self.write_json(&target),
             | MimeType::Yaml => self.write_yaml(&target),
-            | _ => unimplemented!("Unsupported configuration file extension"),
+            | _ => Err(eyre!("Unsupported configuration file extension")),
         }
     }
     /// Write configuration as JSON to specified path
-    fn write_json(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let target = path.into();
         serde_json::to_string_pretty(&self)
-            .map_err(|why| Error::other(why.to_string()))
+            .map_err(|why| eyre!("Failed to serialize JSON config — {why}"))
             .and_then(|content| write_file(target.clone(), content))
     }
     /// Write configuration as YAML to specified path
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let target = path.into();
         serde_yml::to_string(&self)
-            .map_err(|why| Error::other(why.to_string()))
+            .map_err(|why| eyre!("Failed to serialize YAML config — {why}"))
             .and_then(|content| write_file(target.clone(), content))
     }
 }
@@ -237,7 +239,7 @@ impl Bucket {
                 tree.into_iter().filter(GithubTreeEntry::is_blob).map(GithubTreeEntry::path).collect()
             }
             | Err(why) => {
-                error!("=> {} Process tree entries - {why}", Label::fail());
+                error!("=> {} Process tree entries — {why}", Label::fail());
                 vec![]
             }
         }
@@ -252,7 +254,7 @@ impl Bucket {
                 entries.into_iter().filter(GitlabTreeEntry::is_blob).map(GitlabTreeEntry::path).collect()
             }
             | Err(why) => {
-                error!("=> {} Process tree entries - {why}", Label::fail());
+                error!("=> {} Process tree entries — {why}", Label::fail());
                 vec![]
             }
         }
@@ -277,7 +279,7 @@ impl Bucket {
             | Repository::Git { .. } => todo!("Add support for generic repositories"),
         }
     }
-    async fn tree(&self, directory: &str, page: Option<u32>) -> Result<Response, Error> {
+    async fn tree(&self, directory: &str, page: Option<u32>) -> ApiResult<Response> {
         let url = self.tree_url(directory, page);
         let client = Client::new();
         client
@@ -285,7 +287,7 @@ impl Bucket {
             .header(USER_AGENT, "rust-web-api-client")
             .send()
             .await
-            .map_err(|why| Error::other(format!("Failed to send HTTP request: {why}")))
+            .map_err(|why| eyre!("Failed to send HTTP request — {why}"))
     }
     fn tree_url(&self, directory: &str, page: Option<u32>) -> Option<String> {
         match &self.code_repository {

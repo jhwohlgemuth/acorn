@@ -3,15 +3,13 @@
 //! Interact with RESTful APIs, handling requests and responses, authentication, and data serialization.
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
 use crate::io::config::ApplicationConfiguration;
-use crate::io::{get, post, put};
-use crate::prelude::io::ErrorKind;
-use crate::prelude::Error;
+use crate::io::{get, post, put, ApiResult};
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::util::{detect_json, detect_xml, Constant};
 use crate::{Location, Repository, Scheme};
 use async_trait::async_trait;
 use bon::Builder;
-use color_eyre::eyre::{eyre, Report, Result};
+use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use derive_more::Display;
 use lazy_static::lazy_static;
@@ -36,8 +34,6 @@ lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
     pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = Constant::json::<ApplicationConfiguration>("application").endpoints.unwrap_or_default();
 }
-/// Utility type alias for API operation results
-pub type ApiResult<T> = Result<T, Report>;
 /// Helper trait for converting parameter collections into HTTP request body
 pub trait IntoBody {
     /// Convert this value into a `serde_json::Value` for request body, using only body-style parameters.
@@ -69,13 +65,13 @@ pub trait RemoteResource {
         Q: QueryField + ValueValidator,
         F: QueryField;
     /// Handle a response from an endpoint request
-    fn handle<R>(&self, response: Result<ResponseContent, Error>) -> ApiResult<R>
+    fn handle<R>(&self, response: ApiResult<ResponseContent>) -> ApiResult<R>
     where
         R: for<'de> Deserialize<'de>;
     /// Send data to the endpoint and receive a response asynchronously
-    async fn invoke(&self, action: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>;
+    async fn invoke(&self, action: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent>;
     /// Send data to the endpoint and receive a response asynchronously using explicit query/field types
-    async fn invoke_with<Q, F>(&self, action: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
+    async fn invoke_with<Q, F>(&self, action: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent>
     where
         Q: QueryField + ValueValidator,
         F: QueryField;
@@ -535,7 +531,7 @@ impl RemoteResource for Endpoint {
         context.insert("base", &self.base());
         context
     }
-    fn handle<R>(&self, response: Result<ResponseContent, Error>) -> ApiResult<R>
+    fn handle<R>(&self, response: ApiResult<ResponseContent>) -> ApiResult<R>
     where
         R: for<'de> Deserialize<'de>,
     {
@@ -564,7 +560,7 @@ impl RemoteResource for Endpoint {
     /// };
     /// println!("ROR Status: {text:#?}");
     /// ```
-    async fn invoke(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> Result<ResponseContent, Error> {
+    async fn invoke(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent> {
         self.invoke_with::<Self::Query, Self::Field>(name, data).await
     }
     /// Invoke an endpoint resource asynchronously with data and receive a response using explicit query and field types.
@@ -590,7 +586,7 @@ impl RemoteResource for Endpoint {
     /// };
     /// println!("ORCiD Search Response: {text:#?}");
     /// ```
-    async fn invoke_with<Q, F>(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> Result<ResponseContent, Error>
+    async fn invoke_with<Q, F>(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent>
     where
         Q: QueryField + ValueValidator,
         F: QueryField,
@@ -622,19 +618,19 @@ impl RemoteResource for Endpoint {
                             };
                             Ok(content)
                         }
-                        | Err(why) => Err(Error::other(why.to_string())),
+                        | Err(why) => Err(eyre!(why)),
                     },
-                    | Err(why) => Err(Error::other(why.to_string())),
+                    | Err(why) => Err(eyre!(why)),
                 }
             }
-            | None => Err(Error::new(ErrorKind::NotFound, "Resource not found")),
+            | None => Err(eyre!("Resource not found")),
         }
     }
 }
 impl TryFrom<&str> for EmptyField {
     type Error = String;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
         Ok(EmptyField(value.to_string()))
     }
 }

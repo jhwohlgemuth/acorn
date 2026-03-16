@@ -3,10 +3,11 @@
 //! Module that defines the research activity schema
 //!
 use crate::fail;
+use crate::io::ApiResult;
 #[cfg(feature = "std")]
 use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutput};
 #[cfg(feature = "std")]
-use crate::prelude::{io::Error, PathBuf};
+use crate::prelude::PathBuf;
 use crate::schema::namespaces::{codemeta, dcat, schema_org};
 use crate::schema::pid::PersistentIdentifierConvert;
 use crate::schema::validate::{is_doi, is_kebabcase, is_list_url, is_ror};
@@ -23,8 +24,8 @@ use crate::util::{Constant, Label};
 #[cfg(feature = "std")]
 use crate::util::{MimeType, StringConversion};
 use bon::Builder;
+use color_eyre::eyre::eyre;
 use convert_case::{Case, Casing};
-
 use core::hash::{Hash, Hasher};
 use derive_more::Display;
 #[cfg(feature = "std")]
@@ -47,6 +48,7 @@ use validator::{Validate, ValidationError};
 pub mod aspect;
 use aspect::AspectFramework;
 
+type ValidationResult = core::result::Result<(), ValidationError>;
 #[derive(Debug, Display)]
 enum Vocabulary {
     #[display("keywords")]
@@ -432,12 +434,12 @@ impl LinkedData for ResearchActivityMetadata {
 }
 #[cfg(feature = "std")]
 impl InputOutput for ResearchActivity {
-    fn read(path: impl Into<PathBuf>) -> Result<ResearchActivity, Error> {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<ResearchActivity> {
         let source = path.into().clone();
         let result = match MimeType::from_path(source.clone()) {
             | MimeType::Json => ResearchActivity::read_json(source.clone()),
             | MimeType::Yaml => ResearchActivity::read_yaml(source.clone()),
-            | _ => Err(Error::other("Unsupported research activity data file extension")),
+            | _ => Err(eyre!("Unsupported research activity data file extension")),
         };
         let label = match result {
             | Ok(_) => Label::using(),
@@ -454,9 +456,8 @@ impl InputOutput for ResearchActivity {
         }
         result
     }
-    fn read_json(path: PathBuf) -> Result<ResearchActivity, Error> {
-        read_file(path.clone())
-            .and_then(|content| serde_json::from_str(&content).map_err(|why| Error::other(format!("Failed to parse JSON RAD: {}", why))))
+    fn read_json(path: PathBuf) -> ApiResult<ResearchActivity> {
+        read_file(path.clone()).and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to parse JSON RAD — {why}")))
     }
     fn read_markdown(path: PathBuf) -> Option<ResearchActivity> {
         let content = match read_file(path.clone()) {
@@ -479,11 +480,10 @@ impl InputOutput for ResearchActivity {
         };
         None
     }
-    fn read_yaml(path: PathBuf) -> Result<ResearchActivity, Error> {
-        read_file(path.clone())
-            .and_then(|content| serde_yml::from_str(&content).map_err(|why| Error::other(format!("Failed to parse YAML RAD: {}", why))))
+    fn read_yaml(path: PathBuf) -> ApiResult<ResearchActivity> {
+        read_file(path.clone()).and_then(|content| serde_yml::from_str(&content).map_err(|why| eyre!("Failed to parse YAML RAD — {why}")))
     }
-    fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
         let mime = MimeType::from_path(output.clone());
         match mime {
@@ -495,21 +495,21 @@ impl InputOutput for ResearchActivity {
             }
         }
     }
-    fn write_json(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("json");
         serde_json::to_string_pretty(&self)
-            .map_err(|why| Error::other(why.to_string()))
+            .map_err(|why| eyre!("Failed to serialize JSON RAD — {why}"))
             .and_then(|content| write_file(output, content))
     }
-    fn write_markdown(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+    fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("md");
         let content = self.to_markdown();
         write_file(output, content)
     }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> Result<(), Error> {
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("yaml");
         serde_yml::to_string(&self)
-            .map_err(|why| Error::other(why.to_string()))
+            .map_err(|why| eyre!("Failed to serialize YAML RAD — {why}"))
             .and_then(|content| write_file(output, content))
     }
 }
@@ -830,7 +830,7 @@ fn validation_error_with_index_and_length(code: &'static str, message: String, i
     err
 }
 /// Custom validator function for [approach](Sections::approach)
-pub(crate) fn is_attribute_approach(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn is_attribute_approach(value: &[String]) -> ValidationResult {
     const CODE: &str = "sections.approach";
     const MAX_LENGTH: usize = MAX_LENGTH_APPROACH;
     value
@@ -848,7 +848,7 @@ pub(crate) fn is_attribute_approach(value: &[String]) -> Result<(), ValidationEr
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [research areas](Research::areas)
-pub(crate) fn is_attribute_areas(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn is_attribute_areas(value: &[String]) -> ValidationResult {
     const CODE: &str = "sections.areas";
     const MAX_LENGTH: usize = MAX_LENGTH_RESEARCH_AREA;
     value
@@ -861,7 +861,7 @@ pub(crate) fn is_attribute_areas(value: &[String]) -> Result<(), ValidationError
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [books](ResearchActivityMetadata::books)
-pub(crate) fn is_attribute_books(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn is_attribute_books(value: &[String]) -> ValidationResult {
     const CODE: &str = "meta.books";
     value
         .iter()
@@ -870,7 +870,7 @@ pub(crate) fn is_attribute_books(value: &[String]) -> Result<(), ValidationError
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [capabilities](Sections::capabilities)
-pub(crate) fn is_attribute_capabilities(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn is_attribute_capabilities(value: &[String]) -> ValidationResult {
     const CODE: &str = "sections.capabilities";
     const MAX_LENGTH: usize = MAX_LENGTH_CAPABILIY;
     value
@@ -888,7 +888,7 @@ pub(crate) fn is_attribute_capabilities(value: &[String]) -> Result<(), Validati
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [doi](ResearchActivityMetadata::doi)
-pub(crate) fn is_attribute_doi_list(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn is_attribute_doi_list(value: &[String]) -> ValidationResult {
     const CODE: &str = "meta.doi";
     value
         .iter()
@@ -897,7 +897,7 @@ pub(crate) fn is_attribute_doi_list(value: &[String]) -> Result<(), ValidationEr
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [ror](ResearchActivityMetadata::ror)
-pub(crate) fn is_attribute_ror_list(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn is_attribute_ror_list(value: &[String]) -> ValidationResult {
     const CODE: &str = "meta.ror";
     value
         .iter()
@@ -906,7 +906,7 @@ pub(crate) fn is_attribute_ror_list(value: &[String]) -> Result<(), ValidationEr
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [impact](Sections::impact)
-pub(crate) fn is_attribute_impact(value: &[String]) -> Result<(), ValidationError> {
+pub(crate) fn is_attribute_impact(value: &[String]) -> ValidationResult {
     const CODE: &str = "sections.impact";
     const MAX_LENGTH: usize = MAX_LENGTH_IMPACT;
     value

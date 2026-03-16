@@ -3,13 +3,13 @@
 //! This module generates PPTX output by copying slide templates, updating
 //! OOXML relationships, and interpolating Research Activity data.
 use crate::cli::CommandLineOptions;
-use acorn::io::{archive, extract_zip, read_file, write_file, InputOutput};
+use acorn::io::{archive, extract_zip, read_file, write_file, InputOutput, ApiResult};
 use acorn::powerpoint::ooxml::{Relationship, Relationships};
 use acorn::powerpoint::{interpolate_values, read_xml_rel};
-use acorn::prelude::{copy, create_dir_all, exit, Error, Path, PathBuf};
+use acorn::prelude::{copy, create_dir_all, exit, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{Label, StringConversion};
-use color_eyre::eyre::Result;
+use color_eyre::eyre::eyre;
 use fancy_regex::Regex;
 use itertools::izip;
 use nanoid::nanoid;
@@ -100,7 +100,7 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
     copy(from, to)
 }
 /// Create PowerPoint presentation from Research Activity data
-pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandLineOptions>) -> Result<PathBuf, Error> {
+pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandLineOptions>) -> ApiResult<PathBuf> {
     let CommandLineOptions { output, path, reference, .. } = options.clone().unwrap();
     let paths: Vec<PathBuf> = paths.into_iter().collect();
     let count = paths.clone().len();
@@ -178,14 +178,14 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandL
     let folder_name = folder.file_name_with_parent();
     prepare_destination(&output, &folder_name).and_then(|destination| archive(reference_extract_path.clone(), Some(destination)))
 }
-fn prepare_destination(output: &Option<PathBuf>, name: &str) -> Result<PathBuf, Error> {
+fn prepare_destination(output: &Option<PathBuf>, name: &str) -> ApiResult<PathBuf> {
     const EXTENSION: &str = "pptx";
     match output {
         | Some(ref value) => match create_dir_all(value.clone()) {
             | Ok(_) => Ok(value.join(name).with_extension(EXTENSION)),
-            | Err(why) => Err(Error::other(format!("Failed to create output directory for PowerPoint export — {why}"))),
+            | Err(why) => Err(eyre!("Failed to create output directory for PowerPoint export — {why}")),
         },
-        | None => Err(Error::other("Missing output directory")),
+        | None => Err(eyre!("Missing output directory")),
     }
 }
 

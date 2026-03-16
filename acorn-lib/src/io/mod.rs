@@ -19,15 +19,16 @@
 //! write_file(PathBuf::from("/path/to/that/file"), contents);
 //! ```
 //!
+use crate::cmd;
 use crate::prelude::CommandOutput;
-use crate::prelude::{canonicalize, create_dir_all, io, var, write, BufReader, Error, File, PathBuf, Read, Write};
+use crate::prelude::{canonicalize, create_dir_all, io, var, write, BufReader, File, PathBuf, Read, Write};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, Permissions, PermissionsExt};
 use crate::util::constants::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
 use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, StringConversion, ToStrings};
-use crate::{cmd, fail};
+use color_eyre::eyre::{eyre, Report, Result};
 use core::time::Duration;
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
@@ -55,6 +56,8 @@ const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), " (h
 #[cfg(not(feature = "std"))]
 const ACORN_USER_AGENT: &str = "ACORN (https://acorn.ornl.gov; mailto:research@ornl.gov)";
 
+/// Utility type alias for database and API operation results
+pub type ApiResult<T> = Result<T, Report>;
 /// Add `from_command` trait to `SemanticVersion`
 pub trait FromCommand {
     /// Convert a command name to a `SemanticVersion` value
@@ -73,25 +76,25 @@ pub trait FromPath {
 /// Trait for I/O operations such as read and write
 pub trait InputOutput: Sized {
     /// Read data from specified file path
-    fn read(path: impl Into<PathBuf>) -> Result<Self, Error>;
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self>;
     /// Read data from specified JSON file path
-    fn read_json(path: PathBuf) -> Result<Self, Error>;
+    fn read_json(path: PathBuf) -> ApiResult<Self>;
     /// Read data as Markdown from specified path
     fn read_markdown(_path: PathBuf) -> Option<Self> {
         None
     }
     /// Read data from specified YAML file path
-    fn read_yaml(path: PathBuf) -> Result<Self, Error>;
+    fn read_yaml(path: PathBuf) -> ApiResult<Self>;
     /// Write data to specified path
-    fn write(&self, path: impl Into<PathBuf>) -> Result<(), Error>;
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
     /// Write data as JSON to specified path
-    fn write_json(&self, path: impl Into<PathBuf>) -> Result<(), Error>;
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
     /// Write data as Markdown (MD) to specified path
-    fn write_markdown(&self, _path: impl Into<PathBuf>) -> Result<(), Error> {
+    fn write_markdown(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
         Ok(())
     }
     /// Write data as YAML to specified path
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> Result<(), Error>;
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
 }
 /// Struct for parsing GitLab API merge request diff responses
 ///
@@ -210,7 +213,7 @@ impl StringConversion for PathBuf {
     }
 }
 /// Creates zip archive from directory
-pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, Error> {
+pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
     let zip_file_path = match destination {
         | Some(value) => value,
@@ -269,7 +272,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, E
             }
         }
     } else {
-        Err(io::Error::other("Unable to create zip archive"))
+        Err(eyre!("Unable to create zip archive"))
     }
 }
 /// Create a new [Tokio](https://tokio.rs/) runtime
@@ -330,7 +333,7 @@ where
 ///
 /// # Notes
 /// - Uses [`async_runtime`] for asynchronous operations.
-pub async fn download_binary<S, P>(url: S, destination: P) -> Result<PathBuf, String>
+pub async fn download_binary<S, P>(url: S, destination: P) -> ApiResult<PathBuf>
 where
     S: Into<String> + Clone + core::marker::Copy,
     P: Into<PathBuf> + Clone,
@@ -349,18 +352,18 @@ where
                         debug!(filename, "=> {} Downloaded", Label::output());
                         Ok(output)
                     }
-                    | Err(why) => Err(format!("Failed to write {filename} - {why}")),
+                    | Err(why) => Err(eyre!("Failed to write {filename} - {why}")),
                 }
             }
-            | Err(_) => Err(format!("No content downloaded from {url_string}")),
+            | Err(_) => Err(eyre!("No content downloaded from {url_string}")),
         },
-        | Err(_) => Err(format!("Failed to download {url_string}")),
+        | Err(_) => Err(eyre!("Failed to download {url_string}")),
     }
 }
 /// Extract zip archive
 /// ### Note
 /// If `destination` is not provided, the extracted files will be saved in a folder named "extract" an OS-specific cache location.
-pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBuf, io::Error> {
+pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
     let root = match destination {
         | Some(value) => value,
         | None => standard_project_folder("extract", None),
@@ -401,17 +404,17 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> Result<PathBu
                     Ok(root)
                 } else {
                     error!(path = root.to_absolute_string(), "=> {} Extract zip archive", Label::fail());
-                    Err(io::Error::from(io::ErrorKind::Other))
+                    Err(eyre!("Failed to extract zip archive"))
                 }
             }
             | Err(why) => {
                 error!(path = path.to_absolute_string(), "=> {} Read zip archive - {why}", Label::fail());
-                Err(why.into())
+                Err(eyre!("Failed to read zip archive - {why}"))
             }
         },
         | Err(why) => {
             error!(path = path.to_absolute_string(), "=> {} Read file - {why}", Label::fail());
-            Err(why)
+            Err(eyre!("Failed to read file - {why}"))
         }
     }
 }
@@ -903,7 +906,7 @@ where
 ///     .filter_map(|path| read_file(path).ok())
 ///     .collect();
 /// ```
-pub fn read_file<P>(path: P) -> Result<String, io::Error>
+pub fn read_file<P>(path: P) -> ApiResult<String>
 where
     P: Into<PathBuf> + Clone + Send,
 {
@@ -923,15 +926,12 @@ where
                 let mut content = String::new();
                 match reader.read_to_string(&mut content) {
                     | Ok(_) => Ok(content),
-                    | Err(why) => {
-                        error!(filename, "=> {} Read file content", Label::fail());
-                        Err(why)
-                    }
+                    | Err(why) => Err(eyre!("Failed to read file content — {why}")),
                 }
             }
             | Err(why) => {
                 error!(filename, "=> {} Read file", Label::fail());
-                Err(why)
+                Err(eyre!("Failed to read file — {why}"))
             }
         }
     }
@@ -940,13 +940,11 @@ where
 ///
 /// This function uses a larger buffered reader and pre-allocates the output string
 /// using file metadata when available.
-pub fn read_large_file<P>(path: P) -> Result<String, io::Error>
+pub fn read_large_file<P>(path: P) -> ApiResult<String>
 where
     P: Into<PathBuf> + Clone + Send,
 {
-    let path_buf = path.into();
-    let filename = path_buf.file_name().unwrap_or_default().to_string_lossy().to_string();
-    match File::open(&path_buf) {
+    match File::open(path.into()) {
         | Ok(file) => {
             let capacity = file
                 .metadata()
@@ -957,16 +955,10 @@ where
             let mut content = if capacity > 0 { String::with_capacity(capacity) } else { String::new() };
             match reader.read_to_string(&mut content) {
                 | Ok(_) => Ok(content),
-                | Err(why) => {
-                    error!(filename, "=> {} Read large file content", Label::fail());
-                    Err(why)
-                }
+                | Err(why) => Err(eyre!("Failed to read large file content — {why}")),
             }
         }
-        | Err(why) => {
-            error!(filename, "=> {} Read large file", Label::fail());
-            Err(why)
-        }
+        | Err(why) => Err(eyre!("Failed to read large file — {why}")),
     }
 }
 /// Returns path to a folder in the operating system's cache directory that is unique to the given
@@ -1031,17 +1023,14 @@ where
 /// # Return
 ///
 /// A `Result` containing a unit value if the file is written successfully, or an
-/// `std::io::Error` otherwise.
-pub fn write_file<P>(path: P, content: String) -> Result<(), io::Error>
+/// `eyre::Report` otherwise.
+pub fn write_file<P>(path: P, content: String) -> ApiResult<()>
 where
     P: Into<PathBuf>,
 {
     match write(path.into(), content.as_bytes()) {
         | Ok(_) => Ok(()),
-        | Err(why) => {
-            fail!("Write file - {}", why);
-            Err(why)
-        }
+        | Err(why) => Err(eyre!("Failed to write file - {why}")),
     }
 }
 

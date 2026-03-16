@@ -1,8 +1,9 @@
 //! Database schema model
 //!
 use super::backend::{self, BackendRow, Connection, Params};
-use super::{Database, DatabaseResult, Row, SelectQuery, TableSchemaProvider};
+use super::{Database, Row, SelectQuery, TableSchemaProvider};
 use crate::io::database::macros::{build_query, define_required_fn};
+use crate::io::ApiResult;
 use crate::prelude::PathBuf;
 use crate::util::{print_values_as_table, Label};
 use acorn_macros::DatabaseRow;
@@ -513,7 +514,7 @@ impl TableSchemaProvider for Table {
         }
     }
     /// Get table rows
-    fn rows<R, P>(&self, query: &str, params: P, path: Option<&PathBuf>) -> DatabaseResult<Vec<R>>
+    fn rows<R, P>(&self, query: &str, params: P, path: Option<&PathBuf>) -> ApiResult<Vec<R>>
     where
         P: Params,
         for<'row> R: Row + From<&'row BackendRow<'row>>,
@@ -525,7 +526,7 @@ impl TableSchemaProvider for Table {
                     stmt.query_map(params, |row| Ok(R::from(row)))
                         .map_err(|why| eyre!("=> {} Failed to query {}: {why}", Label::fail(), self.name()))
                         .and_then(|rows| {
-                            rows.collect::<Result<Vec<_>, _>>()
+                            rows.collect::<core::result::Result<Vec<_>, _>>()
                                 .map_err(|why| eyre!("=> {} Failed to read {} rows: {why}", Label::fail(), self.name()))
                         })
                 })
@@ -536,7 +537,7 @@ impl Row for ActivityRow {
     fn table(&self) -> Table {
         Table::Activity
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
         let Self {
             command,
             executed_at,
@@ -566,7 +567,7 @@ impl Row for CatalogRow {
     fn table(&self) -> Table {
         Table::Catalog
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
         let Self {
             bucket_name,
             bucket_url,
@@ -596,7 +597,7 @@ impl Row for LicenseRow {
     fn table(&self) -> Table {
         Table::Licenses
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
         let Self {
             identifier,
             name,
@@ -625,7 +626,7 @@ impl Row for LinkCacheRow {
     fn table(&self) -> Table {
         Table::LinkCache
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
         let Self {
             url,
             status_code,
@@ -655,7 +656,7 @@ impl Row for ResearchActivityCacheRow {
     fn table(&self) -> Table {
         Table::ResearchActivityCache
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
         let Self {
             identifier,
             source_bucket,
@@ -685,7 +686,7 @@ impl Row for ValidationRow {
     fn table(&self) -> Table {
         Table::ValidationHistory
     }
-    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
         let Self {
             path,
             check_type,
@@ -724,7 +725,7 @@ where
 {
     value.map(ToString::to_string).unwrap_or_else(|| "None".to_string())
 }
-fn execute_insert<R, P>(row: &R, conn: &Connection, params: P) -> DatabaseResult<usize>
+fn execute_insert<R, P>(row: &R, conn: &Connection, params: P) -> ApiResult<usize>
 where
     R: Row,
     P: Params,

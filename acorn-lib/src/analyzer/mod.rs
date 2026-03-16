@@ -3,10 +3,10 @@
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
 use crate::analyzer::vale::{ValeOutput, ValeOutputItemSeverity};
-use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder};
+use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder, ApiResult};
 #[cfg(feature = "std")]
 use crate::io::{get, InputOutput};
-use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, Error, File, HashMap, PathBuf};
+use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, PathBuf};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::{
@@ -18,6 +18,7 @@ use crate::{cmd, skip};
 use crate::{Location, Repository};
 use async_trait::async_trait;
 use bat::PrettyPrinter;
+use color_eyre::eyre::eyre;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
 use flate2::read::GzDecoder;
@@ -68,7 +69,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Download binary
     async fn download(self, config: Option<Config>, skip_verify_checksum: bool) -> Self;
     /// Download checksum values
-    async fn download_checksums(self) -> Result<HashMap<String, String>, String>;
+    async fn download_checksums(self) -> ApiResult<HashMap<String, String>>;
     /// Extract binary
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
     /// Resolve analyzer
@@ -76,7 +77,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Run analyzer on content
     async fn run(&self, id: String, content: String, output: Option<String>) -> Check;
     /// Perform sync operation (only applies to Vale)
-    async fn sync(self, is_offline: bool) -> Result<(), Error>;
+    async fn sync(self, is_offline: bool) -> ApiResult<()>;
     /// Set binary
     fn with_binary<P>(self, path: P) -> Self
     where
@@ -424,8 +425,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     None
                 }
             }
-            | Err(error) => {
-                error!(error, url, "=> {} {} download", Label::fail(), self.command());
+            | Err(why) => {
+                error!(url, "=> {} {} download — {why}", Label::fail(), self.command());
                 None
             }
         };
@@ -438,7 +439,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         }
     }
-    async fn download_checksums(self) -> Result<HashMap<String, String>, String> {
+    async fn download_checksums(self) -> ApiResult<HashMap<String, String>> {
         let release = match self.version {
             | Some(value) => value,
             | None => SemanticVersion::from(VALE_VERSION),
@@ -506,7 +507,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         }
     }
-    async fn sync(self, is_offline: bool) -> Result<(), Error> {
+    async fn sync(self, is_offline: bool) -> ApiResult<()> {
         let command = self.clone().command();
         let path = match self.binary {
             | Some(value) => value,
@@ -516,14 +517,14 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         };
         let config_path = self.config.unwrap().path;
-        let result: Result<(), Error> = if is_offline {
+        let result: ApiResult<()> = if is_offline {
             skip!("Vale sync");
             Ok(())
         } else {
             match Command::new(path.clone()).arg("--config").arg(config_path.clone()).arg("sync").status() {
                 | Ok(status) if status.success() => Ok(()),
-                | Ok(status) => Err(Error::other(format!("Vale sync failed with status: {status}"))),
-                | Err(why) => Err(why),
+                | Ok(status) => Err(eyre!("Vale sync failed with status: {status}")),
+                | Err(why) => Err(eyre!("Vale sync failed - {why}")),
             }
         };
         match result {

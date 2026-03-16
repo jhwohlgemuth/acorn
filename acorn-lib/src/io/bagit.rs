@@ -4,10 +4,11 @@
 //! This module provides utilities to create, verify, and work with BagIt packages containing research
 //! activity data, metadata, and supporting documentation.
 //!
-use crate::io::{archive, file_checksum, files_all, read_file, write_file, StringConversion};
-use crate::prelude::{copy, create_dir_all, Error, PathBuf};
+use crate::io::{archive, file_checksum, files_all, read_file, write_file, ApiResult, StringConversion};
+use crate::prelude::{copy, create_dir_all, PathBuf};
 use crate::util::Label;
 use bon::Builder;
+use color_eyre::eyre::eyre;
 use core::fmt;
 use derive_more::Display;
 use schemars::JsonSchema;
@@ -18,7 +19,7 @@ const LINE_ENDING: &str = if cfg!(windows) { "\r\n" } else { "\n" };
 /// Trait for persisting BagIt data
 pub trait Save {
     /// Persist BagIt data to a given path
-    fn save<P>(&self, destination: P) -> Result<PathBuf, Error>
+    fn save<P>(&self, destination: P) -> ApiResult<PathBuf>
     where
         P: Into<PathBuf> + Clone;
 }
@@ -108,7 +109,7 @@ impl Bag {
     /// - `manifest-<algorithm>.txt` exists
     /// - `data/` exists
     /// - Checksum values in manifest file matches checksum values of files in `data/`
-    pub fn verify<P>(path: P) -> Result<(), Error>
+    pub fn verify<P>(path: P) -> ApiResult<()>
     where
         P: Into<PathBuf>,
     {
@@ -148,17 +149,14 @@ impl Bag {
                         })
                         .collect::<Vec<_>>();
                     match compare_checksums.iter().enumerate().find(|(_, result)| !*result) {
-                        | Some((index, _)) => {
-                            let message = format!("Checksum mismatch in payload file = {}", pairs[index][1]);
-                            Err(Error::new(std::io::ErrorKind::InvalidData, message))
-                        }
+                        | Some((index, _)) => Err(eyre!("Checksum mismatch in payload file = {}", pairs[index][1])),
                         | None => Ok(()),
                     }
                 } else {
-                    Err(Error::new(std::io::ErrorKind::NotFound, "Missing required file(s) and/or folder(s)"))
+                    Err(eyre!("Missing required file(s) and/or folder(s)"))
                 }
             }
-            | None => Err(Error::new(std::io::ErrorKind::NotFound, "No manifest file found")),
+            | None => Err(eyre!("No manifest file found")),
         }
     }
     /// Populate payload file listing from files present in self.base_directory "data" directory
@@ -189,7 +187,7 @@ impl Bag {
 }
 impl Save for Bag {
     /// Persist files in a given directory as a archived ("zipped") BagIt format package
-    fn save<P>(&self, destination: P) -> Result<PathBuf, Error>
+    fn save<P>(&self, destination: P) -> ApiResult<PathBuf>
     where
         P: Into<PathBuf> + Clone,
     {
@@ -255,7 +253,7 @@ impl Save for Bag {
                     })
                     .and_then(|_| archive(dest.clone(), None))
             }
-            | Err(why) => Err(why),
+            | Err(why) => Err(eyre!("Failed to create bag - {why}")),
         }
     }
 }
@@ -311,7 +309,7 @@ impl Default for BagInfo {
     }
 }
 impl Save for BagInfo {
-    fn save<P>(&self, destination: P) -> Result<PathBuf, Error>
+    fn save<P>(&self, destination: P) -> ApiResult<PathBuf>
     where
         P: Into<PathBuf> + Clone,
     {
