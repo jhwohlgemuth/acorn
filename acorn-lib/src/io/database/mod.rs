@@ -7,7 +7,7 @@ use crate::util::constants::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_T
 use crate::util::Label;
 use backend::{params, BackendRow, Connection, Params};
 use chrono::{Duration, Utc};
-use color_eyre::eyre::{self, eyre};
+use color_eyre::eyre::{eyre, Report, Result};
 use core::marker::PhantomData;
 use directories::ProjectDirs;
 use tracing::info;
@@ -21,22 +21,31 @@ use schema::Table;
 static CONNECTION: OnceLock<Mutex<Connection>> = OnceLock::new();
 
 /// Utility type alias for database operation results
-pub type DatabaseResult<T> = eyre::Result<T, eyre::Report>;
+pub type DatabaseResult<T> = Result<T, Report>;
 /// SQL parameters produced for dynamic queries.
 pub type QueryParams = backend::ParamsFromIter<Vec<Box<dyn backend::ToSql>>>;
 /// SQL query string paired with its bound parameters.
 pub type SelectQuery = (String, QueryParams);
-/// Persist and access data in a database
+/// Trait for objects that can be persisted in a database
+pub trait DatabasePersistence {
+    /// Persist data to database
+    fn persist(self, database: Database<Table>) -> DatabaseResult<usize>;
+}
+/// Write and access data in a database
 pub trait Operations {
+    /// Insert a value (row) into the database
+    fn insert<R>(&self, value: R) -> DatabaseResult<usize>
+    where
+        R: Row;
+    /// Save data to database
+    fn persist<P>(&self, data: Option<P>) -> DatabaseResult<usize>
+    where
+        P: DatabasePersistence;
     /// Select a value from the database
     fn select<T, P>(&self, value: P) -> DatabaseResult<Option<T>>
     where
         T: Into<Table>,
         P: Params;
-    /// Insert a value (row) into the database
-    fn insert<R>(&self, value: R) -> DatabaseResult<usize>
-    where
-        R: Row;
 }
 /// Row metadata for database table mapping
 pub trait Row: RowMetadata {
@@ -90,7 +99,7 @@ pub trait TableSchemaProvider: Copy + Into<Table> + 'static {
     /// Returns all variants for the table type.
     fn all() -> &'static [Self];
     /// Returns the CREATE TABLE SQL statement for this table
-    fn create_statement(&self) -> &'static str;
+    fn create_statement(&self) -> String;
     /// Returns the table name as a string
     fn name(&self) -> &'static str;
     /// Print all table rows
@@ -125,20 +134,29 @@ impl<S> Operations for Database<S>
 where
     S: TableSchemaProvider,
 {
-    fn select<T, P>(&self, _value: P) -> DatabaseResult<Option<T>>
-    where
-        T: Into<Table>,
-        P: Params,
-    {
-        unimplemented!()
-    }
-
     fn insert<R>(&self, value: R) -> DatabaseResult<usize>
     where
         R: Row,
     {
         let row: R = value;
         self.with_connection(|conn| row.insert(conn))
+    }
+    fn persist<P>(&self, data: Option<P>) -> DatabaseResult<usize>
+    where
+        P: DatabasePersistence,
+    {
+        let database = Database::<Table>::from_path(self.path.clone());
+        match data {
+            | Some(rows) => rows.persist(database),
+            | None => Err(eyre!("Failed to persist data")),
+        }
+    }
+    fn select<T, P>(&self, _value: P) -> DatabaseResult<Option<T>>
+    where
+        T: Into<Table>,
+        P: Params,
+    {
+        unimplemented!()
     }
 }
 impl<T> Database<T>
@@ -199,10 +217,11 @@ where
         default_ttl
     }
     /// Create one table if it does not exist.
-    pub fn migrate_table(&self, table: impl Into<Table>) -> eyre::Result<(), eyre::Report> {
+    pub fn migrate_table(&self, table: impl Into<Table>) -> Result<(), Report> {
         let table = table.into();
         self.with_connection(|conn| {
-            conn.execute(table.create_statement(), params![])
+            let statement = table.create_statement();
+            conn.execute(&statement, params![])
                 .map_err(|why| eyre!("Failed to create table {} — {why}", table.name()))
                 .map(|_| ())
         })

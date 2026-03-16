@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 define_required_fn!(1, required1, A, a);
 define_required_fn!(3, required3, A, a, B, b, C, c);
 define_required_fn!(4, required4, A, a, B, b, C, c, D, d);
+define_required_fn!(5, required5, A, a, B, b, C, c, D, d, E, e);
 /// Database tables
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[repr(i32)]
@@ -23,12 +24,14 @@ pub enum Table {
     Activity = 0,
     /// Research activity index entries from buckets
     Catalog = 1,
+    /// SPDX license data
+    Licenses = 2,
     /// Cached link check results
-    LinkCache = 2,
+    LinkCache = 3,
     /// Validation/check results history
-    ValidationHistory = 3,
+    ValidationHistory = 4,
     /// Downloaded research activity snapshots
-    ResearchActivityCache = 4,
+    ResearchActivityCache = 5,
 }
 /// Activity log entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -63,6 +66,24 @@ pub struct CatalogRow {
     pub title: Option<String>,
     /// When the entry was last updated
     pub updated_at: Option<DateTime<Utc>>,
+}
+/// SPDX license entry
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+#[row(table = licenses)]
+pub struct LicenseRow {
+    /// Unique identifier for the license entry
+    pub id: Option<i64>,
+    /// Unique license identifier (ex., "MIT")
+    pub identifier: Option<String>,
+    /// License name (ex., "MIT License")
+    pub name: Option<String>,
+    /// Specifies whether the entire license is deprecated
+    pub is_deprecated: Option<bool>,
+    /// Specifies whether the License is listed as free by the Free Software Foundation (FSF)
+    pub is_free_software: Option<bool>,
+    /// Specifies whether the license is approved by the Open Source Initiative (OSI)
+    pub is_open_source: Option<bool>,
 }
 /// Link check cache entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -132,6 +153,23 @@ impl From<&BackendRow<'_>> for ActivityRow {
 impl From<BackendRow<'_>> for ActivityRow {
     fn from(row: BackendRow<'_>) -> Self {
         ActivityRow::from(&row)
+    }
+}
+impl From<&BackendRow<'_>> for LicenseRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        LicenseRow {
+            id: row.get(0).ok(),
+            identifier: row.get(1).ok(),
+            name: row.get(2).ok(),
+            is_deprecated: row.get::<_, i32>(3).ok().map(|value| value != 0),
+            is_free_software: row.get::<_, i32>(4).ok().map(|value| value != 0),
+            is_open_source: row.get::<_, i32>(5).ok().map(|value| value != 0),
+        }
+    }
+}
+impl From<BackendRow<'_>> for LicenseRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        LicenseRow::from(&row)
     }
 }
 impl From<&BackendRow<'_>> for CatalogRow {
@@ -225,6 +263,18 @@ impl From<CatalogRow> for Vec<String> {
         ]
     }
 }
+impl From<LicenseRow> for Vec<String> {
+    fn from(row: LicenseRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.identifier.unwrap_or_default(),
+            row.name.unwrap_or_default(),
+            row.is_deprecated.map_or_else(String::new, |v| v.to_string()),
+            row.is_free_software.map_or_else(String::new, |v| v.to_string()),
+            row.is_open_source.map_or_else(String::new, |v| v.to_string()),
+        ]
+    }
+}
 impl From<LinkCacheRow> for Vec<String> {
     fn from(row: LinkCacheRow) -> Self {
         vec![
@@ -272,6 +322,20 @@ impl fmt::Display for ActivityRow {
         )
         .and_then(|_| write_optional_field(f, "path", self.user_path.as_ref()))
         .and_then(|_| write_optional_timestamp(f, "executed_at", self.executed_at.as_ref()))
+    }
+}
+impl fmt::Display for LicenseRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "LicenseRow = id: {}, identifier: {}, name: {}, deprecated: {}, free: {}, osi: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.identifier.as_ref()),
+            display_or_none(self.name.as_ref()),
+            self.is_deprecated.unwrap_or(false),
+            self.is_free_software.unwrap_or(false),
+            self.is_open_source.unwrap_or(false),
+        )
     }
 }
 impl fmt::Display for CatalogRow {
@@ -334,161 +398,89 @@ impl TableSchemaProvider for Table {
         &[
             Table::Activity,
             Table::Catalog,
+            Table::Licenses,
             Table::LinkCache,
             Table::ValidationHistory,
             Table::ResearchActivityCache,
         ]
     }
     /// Returns CREATE TABLE SQL statement
-    fn create_statement(&self) -> &'static str {
-        match self {
+    fn create_statement(&self) -> String {
+        let columns = match self {
             | Table::Activity => {
-                #[cfg(feature = "duckdb")]
-                {
-                    r#"
-                CREATE TABLE IF NOT EXISTS activity (
-                    id BIGINT PRIMARY KEY,
+                r#"
                     command TEXT NOT NULL,
                     executed_at TEXT NOT NULL,
                     user_path TEXT,
                     success INTEGER NOT NULL DEFAULT 1
-                )
                 "#
-                }
-                #[cfg(not(feature = "duckdb"))]
-                {
-                    r#"
-                CREATE TABLE IF NOT EXISTS activity (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    command TEXT NOT NULL,
-                    executed_at TEXT NOT NULL,
-                    user_path TEXT,
-                    success INTEGER NOT NULL DEFAULT 1
-                )
-                "#
-                }
             }
             | Table::Catalog => {
-                #[cfg(feature = "duckdb")]
-                {
-                    r#"
-                CREATE TABLE IF NOT EXISTS catalog (
-                    id BIGINT PRIMARY KEY,
+                r#"
                     bucket_name TEXT NOT NULL,
                     bucket_url TEXT NOT NULL,
                     identifier TEXT NOT NULL,
                     title TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     UNIQUE(bucket_name, identifier)
-                )
                 "#
-                }
-                #[cfg(not(feature = "duckdb"))]
-                {
-                    r#"
-                CREATE TABLE IF NOT EXISTS catalog (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    bucket_name TEXT NOT NULL,
-                    bucket_url TEXT NOT NULL,
-                    identifier TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    UNIQUE(bucket_name, identifier)
-                )
+            }
+            | Table::Licenses => {
+                r#"
+                    identifier TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    is_deprecated INTEGER NOT NULL,
+                    is_free_software INTEGER NOT NULL,
+                    is_open_source INTEGER NOT NULL
                 "#
-                }
             }
             | Table::LinkCache => {
-                #[cfg(feature = "duckdb")]
-                {
-                    r#"
-                CREATE TABLE IF NOT EXISTS link_cache (
-                    id BIGINT PRIMARY KEY,
+                r#"
                     url TEXT NOT NULL UNIQUE,
                     status_code INTEGER NOT NULL,
                     is_reachable INTEGER NOT NULL,
                     checked_at TEXT NOT NULL,
                     expires_at TEXT NOT NULL
-                )
                 "#
-                }
-                #[cfg(not(feature = "duckdb"))]
-                {
-                    r#"
-                CREATE TABLE IF NOT EXISTS link_cache (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    url TEXT NOT NULL UNIQUE,
-                    status_code INTEGER NOT NULL,
-                    is_reachable INTEGER NOT NULL,
-                    checked_at TEXT NOT NULL,
-                    expires_at TEXT NOT NULL
-                )
-                "#
-                }
             }
             | Table::ValidationHistory => {
-                #[cfg(feature = "duckdb")]
-                {
-                    r#"
-                CREATE TABLE IF NOT EXISTS validation_history (
-                    id BIGINT PRIMARY KEY,
+                r#"
                     path TEXT NOT NULL,
                     check_type TEXT NOT NULL,
                     success INTEGER NOT NULL,
                     message TEXT NOT NULL,
                     checked_at TEXT NOT NULL
-                )
                 "#
-                }
-                #[cfg(not(feature = "duckdb"))]
-                {
-                    r#"
-                CREATE TABLE IF NOT EXISTS validation_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    path TEXT NOT NULL,
-                    check_type TEXT NOT NULL,
-                    success INTEGER NOT NULL,
-                    message TEXT NOT NULL,
-                    checked_at TEXT NOT NULL
-                )
-                "#
-                }
             }
             | Table::ResearchActivityCache => {
-                #[cfg(feature = "duckdb")]
-                {
-                    r#"
-                CREATE TABLE IF NOT EXISTS research_activity_cache (
-                    id BIGINT PRIMARY KEY,
+                r#"
                     identifier TEXT NOT NULL UNIQUE,
                     source_bucket TEXT NOT NULL,
                     title TEXT NOT NULL,
                     downloaded_at TEXT NOT NULL,
                     file_path TEXT NOT NULL
-                )
                 "#
-                }
-                #[cfg(not(feature = "duckdb"))]
-                {
-                    r#"
-                CREATE TABLE IF NOT EXISTS research_activity_cache (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    identifier TEXT NOT NULL UNIQUE,
-                    source_bucket TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    downloaded_at TEXT NOT NULL,
-                    file_path TEXT NOT NULL
-                )
-                "#
-                }
             }
-        }
+        };
+
+        format!(
+            r#"
+                CREATE TABLE IF NOT EXISTS {} (
+                    {},
+                    {}
+                )
+                "#,
+            self.name(),
+            id_column_definition(),
+            columns.trim()
+        )
     }
     /// Returns the table name as a string
     fn name(&self) -> &'static str {
         match self {
             | Table::Activity => "activity",
             | Table::Catalog => "catalog",
+            | Table::Licenses => "licenses",
             | Table::LinkCache => "link_cache",
             | Table::ValidationHistory => "validation_history",
             | Table::ResearchActivityCache => "research_activity_cache",
@@ -514,6 +506,7 @@ impl TableSchemaProvider for Table {
         match self {
             | Table::Activity => print_rows::<ActivityRow>(self, path.as_ref()),
             | Table::Catalog => print_rows::<CatalogRow>(self, path.as_ref()),
+            | Table::Licenses => print_rows::<LicenseRow>(self, path.as_ref()),
             | Table::LinkCache => print_rows::<LinkCacheRow>(self, path.as_ref()),
             | Table::ValidationHistory => print_rows::<ValidationRow>(self, path.as_ref()),
             | Table::ResearchActivityCache => print_rows::<ResearchActivityCacheRow>(self, path.as_ref()),
@@ -588,6 +581,35 @@ impl Row for CatalogRow {
             | Ok((bucket_name, bucket_url, identifier, title)) => match self.next_row_id(conn) {
                 | Ok(id) => {
                     let params = backend::params![id, bucket_name, bucket_url, identifier, title, updated_at];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl Row for LicenseRow {
+    fn table(&self) -> Table {
+        Table::Licenses
+    }
+    fn insert(self, conn: &Connection) -> DatabaseResult<usize> {
+        let Self {
+            identifier,
+            name,
+            is_deprecated,
+            is_free_software,
+            is_open_source,
+            ..
+        } = self.clone();
+        let required = required5(identifier, name, is_deprecated, is_free_software, is_open_source);
+        match required {
+            | Ok((identifier, name, is_deprecated, is_free_software, is_open_source)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, identifier, name, is_deprecated as i32, is_free_software as i32, is_open_source as i32];
                     execute_insert(&self, conn, params)
                 }
                 | Err(why) => Err(why),
@@ -735,4 +757,14 @@ fn write_optional_timestamp(f: &mut fmt::Formatter<'_>, label: &str, value: Opti
         | Some(value) => write!(f, ", {label}: {}", value.format("%Y-%m-%d %H:%M:%S")),
         | None => Ok(()),
     }
+}
+
+#[cfg(feature = "duckdb")]
+fn id_column_definition() -> &'static str {
+    "id BIGINT PRIMARY KEY"
+}
+
+#[cfg(not(feature = "duckdb"))]
+fn id_column_definition() -> &'static str {
+    "id INTEGER PRIMARY KEY AUTOINCREMENT"
 }

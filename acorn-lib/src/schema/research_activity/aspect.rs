@@ -17,7 +17,7 @@
 use crate::schema::namespaces::{codemeta, schema_org};
 use crate::schema::prompt::Model;
 use crate::schema::TechnologyReadinessLevel;
-use crate::util::{License, LinkedData, Resource};
+use crate::util::{LinkedData, Resource};
 use bon::Builder;
 use derive_more::Display;
 use schemars::JsonSchema;
@@ -237,7 +237,8 @@ pub struct DataDescription {
     /// Replaces ADEPT concept of "openness"
     pub availability: Option<Availability>,
     /// License that governs use of data
-    pub license: Option<License>,
+    // TODO: validate with is_license
+    pub license: Option<String>,
     /// Modality of data
     pub modality: Option<Modality>,
     /// Quality of data

@@ -292,17 +292,6 @@ fn test_git_branch() {
     assert!(git_branch_name().is_some());
 }
 #[test]
-fn test_license() {
-    assert_eq!(License::from("MIT".to_string()), License::Mit);
-    assert_eq!(License::from("MIT"), License::Mit);
-    assert!(License::from("MIT").is_open_source());
-    assert!(License::from("BSD-3-Clause").is_open_source());
-    assert!(!License::from("Proprietary").is_open_source());
-    assert!(!License::from("Not-a-real-license").is_open_source());
-    assert_eq!(License::from_technology("apptainer"), Some(License::Bsd3Clause));
-    assert!(License::from_technology("not-a-real-technology").is_none());
-}
-#[test]
 fn test_mimetype() {
     let mime = MimeType::from("a.cff");
     assert_eq!(mime, MimeType::Yaml);

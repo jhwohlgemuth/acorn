@@ -10,9 +10,9 @@ use crate::prelude::{Error, PathBuf};
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
+use crate::util::current_date;
 #[cfg(feature = "std")]
 use crate::util::Label;
-use crate::util::{current_date, License};
 use bon::Builder;
 use derive_more::Display;
 use schemars::{schema_for, JsonSchema};
@@ -693,7 +693,8 @@ pub struct MetadataIdentifier {
     /// The licence, or licence waiver, under which the RAiD metadata record associated with this Identifier has been issued
     ///
     /// <div class="warning">Only supports CC-0 (?)</div>
-    pub license: License,
+    // TODO: validate with is_license
+    pub license: String,
     /// Version number of the RAiD
     #[validate(range(min = 0))]
     pub version: u32,
@@ -1093,7 +1094,7 @@ impl From<ResearchActivity> for Metadata {
                 id: ror_id,
                 schema_uri: Some(DEFAULT_ROR_SCHEMA_URI.to_string()),
             },
-            license: License::CreativeCommons,
+            license: "CC0-1.0".to_string(),
             version: 1,
         };
         let access = Access {

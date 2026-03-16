@@ -4,61 +4,119 @@
 //!
 //! See `https://spdx.org/rdf/terms/` for SPDX RDF terms.
 use crate::io::api::{self, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
+use crate::io::database::schema::{LicenseRow, Table};
+use crate::io::database::{Database, DatabasePersistence, DatabaseResult, Operations};
+use crate::schema::validate::{is_list_url, is_semantic_version};
+use color_eyre::eyre::Report;
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
-/// Struct for SPDX license data
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+/// SPDX license metadata
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
-pub struct License {
-    /// Reference to the HTML format for the license file
-    pub reference: String,
-    /// True if the entire license is deprecated
-    /// ### Note
-    /// This isn't actually the best name for this particular field
-    pub is_deprecated_license_id: bool,
-    /// URL to a JSON file containing the license detailed information
-    pub details_url: String,
-    /// Deprecated - this field is generated and is no longer in use
-    pub reference_number: u32,
+pub struct LicenseMetadata {
+    /// SPDX license identifier
+    pub license_id: String,
     /// Name of the license
     pub name: String,
+    /// URL to a JSON file containing the license detailed information
+    #[validate(url)]
+    pub details_url: String,
+    /// Reference to the HTML format for the license file
+    #[validate(url)]
+    pub reference: String,
+    /// Deprecated - this field is generated and is no longer in use
+    pub reference_number: u32,
     /// Cross reference URL(s) pointing to additional copies of the license
+    #[validate(custom(function = "is_list_url"))]
     pub see_also: Vec<String>,
-    /// True if the license is approved by the Open Source Initiative (OSI)
-    pub is_osi_approved: bool,
-    /// True if the license is considered free software
-    #[serde(default)]
-    pub is_fs_libre: bool,
+    /// Specifies whether the license is deprecated
+    /// ### Note
+    /// This isn't actually the best name for this particular field
+    #[serde(rename = "isDeprecatedLicenseId")]
+    pub is_deprecated: bool,
+    /// Specifies whether the License is listed as free by the Free Software Foundation (FSF)
+    ///
+    /// See <https://www.fsf.org/licensing/compliance> for more information
+    #[serde(default, rename = "isFsfLibre")]
+    pub is_free_software: bool,
+    /// Specifies whether the license is approved by the Open Source Initiative (OSI)
+    #[serde(rename = "isOsiApproved")]
+    pub is_osi: bool,
 }
 /// Struct for SPDX license list data
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
-pub struct Licenses {
+#[derive(Default)]
+pub struct LicensesResponse {
     /// Version of the SPDX License List
-    pub license_list_version: String,
+    #[validate(custom(function = "is_semantic_version"))]
+    pub license_list_version: Option<String>,
     /// Licenses
-    pub licenses: Vec<License>,
+    #[validate(nested)]
+    pub licenses: Vec<LicenseMetadata>,
 }
-impl License {
-    /// Check if the license is OSI approved
-    pub fn is_open_source(&self) -> bool {
-        self.is_osi_approved
+impl From<LicenseMetadata> for LicenseRow {
+    fn from(meta: LicenseMetadata) -> Self {
+        let LicenseMetadata {
+            license_id,
+            name,
+            is_deprecated,
+            is_free_software,
+            is_osi,
+            ..
+        } = meta;
+        LicenseRow::init()
+            .identifier(license_id)
+            .name(name)
+            .is_deprecated(is_deprecated)
+            .is_free_software(is_free_software)
+            .is_open_source(is_osi)
+            .build()
     }
 }
-impl Licenses {
-    /// Download SPDX license data from homepage
+impl LicenseMetadata {
+    /// Check if the license is OSI approved
+    pub fn is_open_source(&self) -> bool {
+        self.is_osi
+    }
+}
+impl DatabasePersistence for LicensesResponse {
+    /// Persist SPDX license data to local database
     /// ### Example
     /// ```ignore
+    /// use acorn::io::api::spdx;
+    /// use acorn::io::database::schema::Table;
+    /// use acorn::io::database::{Database, Operations};
     ///
-    /// let result = spdx::Licenses::download().await;
+    /// let licenses = spdx::download().await.ok().unwrap();
+    /// let database = Database::<Table>::from_path(database_path.clone());
+    /// let _ = database.persist(Some(licenses));
     /// ```
-    pub async fn download() -> Result<Self, String> {
-        match INCLUDED_ENDPOINTS.find_by_name("spdx") {
-            | Some(endpoint) => {
-                let response = endpoint.invoke("licenses", None).await;
-                endpoint.handle::<api::spdx::Licenses>(response)
-            }
-            | None => Err("No SPDX endpoint found".into()),
+    fn persist(self, database: Database<Table>) -> DatabaseResult<usize> {
+        let Self { licenses, .. } = self;
+        licenses
+            .iter()
+            .cloned()
+            .map(|item| database.insert(LicenseRow::from(item)))
+            .collect::<Result<Vec<_>, _>>()
+            .map(|rows| rows.into_iter().sum())
+            .map_err(Report::msg)
+    }
+}
+/// Download SPDX license data from homepage
+/// ### Example
+/// ```ignore
+/// use acorn::io::api::spdx;
+///
+/// let result = spdx::download().await;
+/// ```
+pub async fn download() -> Result<LicensesResponse, String> {
+    match INCLUDED_ENDPOINTS.find_by_name("spdx") {
+        | Some(endpoint) => {
+            let response = endpoint.invoke("licenses", None).await;
+            endpoint.handle::<api::spdx::LicensesResponse>(response)
         }
+        | None => Err("No SPDX endpoint found".into()),
     }
 }

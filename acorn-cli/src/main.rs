@@ -244,7 +244,7 @@ async fn main() -> Void {
             verbose,
             ..
         }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose, &offline).await,
-        | Some(Commands::Gather { path, ignore, verbose, .. }) => commands::gather::run(path, ignore, &offline, verbose).await,
+        | Some(Commands::Gather { path, ignore, verbose, .. }) => commands::gather::run(path, ignore, &offline, &database_path, verbose).await,
         | Some(Commands::Link {
             path,
             branch,

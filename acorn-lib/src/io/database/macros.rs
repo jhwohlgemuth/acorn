@@ -128,6 +128,30 @@ macro_rules! define_required_fn {
             }
         }
     };
+    (5, $fn_name:ident, $A:ident, $a:ident, $B:ident, $b:ident, $C:ident, $c:ident, $D:ident, $d:ident, $E:ident, $e:ident) => {
+        fn $fn_name<$A, $B, $C, $D, $E>(
+            $a: Option<$A>,
+            $b: Option<$B>,
+            $c: Option<$C>,
+            $d: Option<$D>,
+            $e: Option<$E>,
+        ) -> crate::io::database::DatabaseResult<($A, $B, $C, $D, $E)> {
+            match (
+                $a.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($a))),
+                $b.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($b))),
+                $c.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($c))),
+                $d.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($d))),
+                $e.ok_or_else(|| color_eyre::eyre::eyre!("Failed to insert: {} is required", stringify!($e))),
+            ) {
+                | (Ok($a), Ok($b), Ok($c), Ok($d), Ok($e)) => Ok(($a, $b, $c, $d, $e)),
+                | (Err(why), _, _, _, _) => Err(why),
+                | (_, Err(why), _, _, _) => Err(why),
+                | (_, _, Err(why), _, _) => Err(why),
+                | (_, _, _, Err(why), _) => Err(why),
+                | (_, _, _, _, Err(why)) => Err(why),
+            }
+        }
+    };
 }
 
 pub(crate) use build_query;
