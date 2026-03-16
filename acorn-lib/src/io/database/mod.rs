@@ -28,6 +28,13 @@ pub type QueryParams = backend::ParamsFromIter<Vec<Box<dyn backend::ToSql>>>;
 pub type SelectQuery = (String, QueryParams);
 /// Trait for objects that can be persisted in a database
 pub trait DatabasePersistence {
+    /// Download data to be saved in database
+    fn download(self) -> DatabaseResult<Self>
+    where
+        Self: Sized,
+    {
+        unimplemented!()
+    }
     /// Persist data to database
     fn persist(self, database: Database<Table>) -> DatabaseResult<usize>;
 }

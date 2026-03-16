@@ -3,11 +3,11 @@
 //! See `https://github.com/spdx/license-list-data/blob/main/accessingLicenses.md` for more information on the SPDX license list and how to access it.
 //!
 //! See `https://spdx.org/rdf/terms/` for SPDX RDF terms.
-use crate::io::api::{self, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
+use crate::io::api::{self, ApiResult, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
 use crate::io::database::schema::{LicenseRow, Table};
 use crate::io::database::{Database, DatabasePersistence, DatabaseResult, Operations};
 use crate::schema::validate::{is_list_url, is_semantic_version};
-use color_eyre::eyre::Report;
+use color_eyre::eyre::{eyre, Report};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
@@ -111,12 +111,12 @@ impl DatabasePersistence for LicensesResponse {
 ///
 /// let result = spdx::download().await;
 /// ```
-pub async fn download() -> Result<LicensesResponse, String> {
+pub async fn download() -> ApiResult<LicensesResponse> {
     match INCLUDED_ENDPOINTS.find_by_name("spdx") {
         | Some(endpoint) => {
             let response = endpoint.invoke("licenses", None).await;
             endpoint.handle::<api::spdx::LicensesResponse>(response)
         }
-        | None => Err("No SPDX endpoint found".into()),
+        | None => Err(eyre!("No SPDX endpoint found")),
     }
 }

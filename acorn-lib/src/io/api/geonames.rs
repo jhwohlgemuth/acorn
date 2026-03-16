@@ -1,8 +1,9 @@
 //! Module for downloading, parsing, and using GeoNames data
 //!
 //! See [Geonames web services documentation](https://www.geonames.org/export/web-services.html) for more information
-use crate::io::api::{RemoteResource, Searchable, TextResponse, INCLUDED_ENDPOINTS};
+use crate::io::api::{ApiResult, RemoteResource, Searchable, TextResponse, INCLUDED_ENDPOINTS};
 use bon::Builder;
+use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -159,14 +160,14 @@ impl SearchResponse {
     }
 }
 /// Pull GeoNames country data from the API and parse it into structured data
-pub async fn countries() -> Result<Countries, String> {
+pub async fn countries() -> ApiResult<Countries> {
     let name = "GeoNames";
     match INCLUDED_ENDPOINTS.find_by_name(name) {
         | Some(endpoint) => {
             let response = endpoint.invoke("countries", None).await;
             endpoint.handle::<TextResponse>(response).map(|text| text.parse())
         }
-        | None => Err(format!("{name} endpoint not found")),
+        | None => Err(eyre!("{name} endpoint not found")),
     }
 }
 /// Isolate languages data from GeoNames country data for use in other contexts

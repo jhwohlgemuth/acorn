@@ -21,10 +21,11 @@
 //!
 //! println!("ROR REST API is healthy: {}", api::ror::is_healthy().await);
 //! ```
-use crate::io::api::{Param, RemoteResource, Searchable, TextResponse, INCLUDED_ENDPOINTS};
+use crate::io::api::{ApiResult, Param, RemoteResource, Searchable, TextResponse, INCLUDED_ENDPOINTS};
 use crate::param;
 use crate::schema::pid::{PersistentIdentifierParse, ROR};
 use bon::Builder;
+use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -383,9 +384,9 @@ pub async fn is_healthy() -> bool {
 /// use acorn_lib::io::api::ror::{self, SingleRecord};
 ///
 /// let identifier = "01qz5mb56";
-/// let result: Result<SingleRecord, String> = ror::record(identifier).await;
+/// let result: ApiResult<SingleRecord> = ror::record(identifier).await;
 /// ```
-pub async fn record(identifier: impl ToString) -> Result<SingleRecord, String> {
+pub async fn record(identifier: impl ToString) -> ApiResult<SingleRecord> {
     let value = identifier.to_string();
     if ROR::is_valid(&value) {
         let name = "ROR";
@@ -397,10 +398,10 @@ pub async fn record(identifier: impl ToString) -> Result<SingleRecord, String> {
                 let response = endpoint.invoke(action, data).await;
                 endpoint.handle::<SingleRecord>(response)
             }
-            | None => Err(format!("{name} API endpoint not found")),
+            | None => Err(eyre!("{name} API endpoint not found")),
         }
     } else {
-        Err(format!("Invalid ROR identifier: {}", &value))
+        Err(eyre!("Invalid ROR identifier: {}", &value))
     }
 }
 /// Search the ROR API with given query parameters and output fields
@@ -414,9 +415,9 @@ pub async fn record(identifier: impl ToString) -> Result<SingleRecord, String> {
 ///     param!(FieldList, "query", "Oak Ridge"),
 ///     param!(QueryPair, "filter", ("status", "inactive")),
 /// ];
-/// let result: Result<SearchResponse, String> = ror::search(params).await;
+/// let result: ApiResult<SearchResponse> = ror::search(params).await;
 /// ```
-pub async fn search(params: Vec<Param>) -> Result<SearchResponse, String> {
+pub async fn search(params: Vec<Param>) -> ApiResult<SearchResponse> {
     let name = "ROR";
     let action = "search";
     let data = Some(params);
@@ -425,11 +426,11 @@ pub async fn search(params: Vec<Param>) -> Result<SearchResponse, String> {
             let response = endpoint.invoke(action, data).await;
             endpoint.handle::<SearchResponse>(response)
         }
-        | None => Err(format!("{name} API endpoint not found")),
+        | None => Err(eyre!("{name} API endpoint not found")),
     }
 }
 /// Get status of ROR API
-pub async fn status() -> Result<StatusResponse, String> {
+pub async fn status() -> ApiResult<StatusResponse> {
     let name = "ROR";
     let action = "status";
     let data = None;
@@ -438,6 +439,6 @@ pub async fn status() -> Result<StatusResponse, String> {
             let response = endpoint.invoke(action, data).await;
             endpoint.handle::<StatusResponse>(response)
         }
-        | None => Err(format!("{name} API endpoint not found")),
+        | None => Err(eyre!("{name} API endpoint not found")),
     }
 }

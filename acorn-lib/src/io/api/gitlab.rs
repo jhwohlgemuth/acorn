@@ -2,9 +2,10 @@
 //!
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
-use crate::io::api::{EmptyField, RemoteResource, Searchable, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::api::{ApiResult, EmptyField, RemoteResource, Searchable, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::config::{RunnerStatus, RunnerType};
 use crate::param;
+use color_eyre::eyre::eyre;
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -511,7 +512,7 @@ impl ValueValidator for PaginationField {
     }
 }
 /// Get descendant groups of a group by identifier
-pub async fn groups(identifier: impl Into<String>, token: impl Into<String>) -> Result<GroupsResponse, String> {
+pub async fn groups(identifier: impl Into<String>, token: impl Into<String>) -> ApiResult<GroupsResponse> {
     let name = "GitLab";
     let action = "groups";
     match INCLUDED_ENDPOINTS.find_by_name(name) {
@@ -525,11 +526,11 @@ pub async fn groups(identifier: impl Into<String>, token: impl Into<String>) -> 
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<GroupsResponse>(response)
         }
-        | None => Err(format!("{name} API endpoint not found")),
+        | None => Err(eyre!("{name} API endpoint not found")),
     }
 }
 /// Get runner details by identifier
-pub async fn runner(identifier: impl Into<String>, token: impl Into<String>) -> Result<RunnerDetails, String> {
+pub async fn runner(identifier: impl Into<String>, token: impl Into<String>) -> ApiResult<RunnerDetails> {
     let name = "GitLab";
     let action = "runners";
     match INCLUDED_ENDPOINTS.find_by_name(name) {
@@ -542,11 +543,11 @@ pub async fn runner(identifier: impl Into<String>, token: impl Into<String>) -> 
             dbg!(&response);
             endpoint.handle::<RunnerDetails>(response)
         }
-        | None => Err(format!("{name} API endpoint not found")),
+        | None => Err(eyre!("{name} API endpoint not found")),
     }
 }
 /// Get runners visible to user associated with given token
-pub async fn runners(token: impl Into<String>) -> Result<RunnersResponse, String> {
+pub async fn runners(token: impl Into<String>) -> ApiResult<RunnersResponse> {
     let name = "GitLab";
     let action = "runners";
     match INCLUDED_ENDPOINTS.find_by_name(name) {
@@ -555,6 +556,6 @@ pub async fn runners(token: impl Into<String>) -> Result<RunnersResponse, String
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<RunnersResponse>(response)
         }
-        | None => Err(format!("{name} API endpoint not found")),
+        | None => Err(eyre!("{name} API endpoint not found")),
     }
 }

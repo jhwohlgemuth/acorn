@@ -11,6 +11,7 @@ use crate::util::{detect_json, detect_xml, Constant};
 use crate::{Location, Repository, Scheme};
 use async_trait::async_trait;
 use bon::Builder;
+use color_eyre::eyre::{eyre, Report, Result};
 use core::fmt;
 use derive_more::Display;
 use lazy_static::lazy_static;
@@ -35,7 +36,8 @@ lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
     pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = Constant::json::<ApplicationConfiguration>("application").endpoints.unwrap_or_default();
 }
-
+/// Utility type alias for API operation results
+pub type ApiResult<T> = Result<T, Report>;
 /// Helper trait for converting parameter collections into HTTP request body
 pub trait IntoBody {
     /// Convert this value into a `serde_json::Value` for request body, using only body-style parameters.
@@ -67,7 +69,7 @@ pub trait RemoteResource {
         Q: QueryField + ValueValidator,
         F: QueryField;
     /// Handle a response from an endpoint request
-    fn handle<R>(&self, response: Result<ResponseContent, Error>) -> Result<R, String>
+    fn handle<R>(&self, response: Result<ResponseContent, Error>) -> ApiResult<R>
     where
         R: for<'de> Deserialize<'de>;
     /// Send data to the endpoint and receive a response asynchronously
@@ -533,7 +535,7 @@ impl RemoteResource for Endpoint {
         context.insert("base", &self.base());
         context
     }
-    fn handle<R>(&self, response: Result<ResponseContent, Error>) -> Result<R, String>
+    fn handle<R>(&self, response: Result<ResponseContent, Error>) -> ApiResult<R>
     where
         R: for<'de> Deserialize<'de>,
     {
@@ -543,10 +545,10 @@ impl RemoteResource for Endpoint {
                 | ResponseContent::Xml(content) => parse_xml(&content),
                 | ResponseContent::Raw(content) => {
                     let raw = TextResponse { content };
-                    serde_json::to_string(&raw).map_err(|e| e.to_string()).and_then(|json| parse_json(&json))
+                    serde_json::to_string(&raw).map_err(|e| eyre!(e)).and_then(|json| parse_json(&json))
                 }
             },
-            | Err(e) => Err(e.to_string()),
+            | Err(e) => Err(eyre!(e)),
         }
     }
     /// Invoke an endpoint resource asynchronously with data and receive a response using [`EmptyField`] as the default query and field types.
@@ -558,7 +560,7 @@ impl RemoteResource for Endpoint {
     ///         let response = endpoint.invoke("status", None).await;
     ///         endpoint.handle::<api::TextResponse>(response)
     ///     }
-    ///     | None => Err("No ROR endpoint found".into()),
+    ///     | None => Err(eyre!("No ROR endpoint found")),
     /// };
     /// println!("ROR Status: {text:#?}");
     /// ```
@@ -584,7 +586,7 @@ impl RemoteResource for Endpoint {
     ///         let response = endpoint.invoke_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data)).await;
     ///         endpoint.handle::<api::orcid::SearchResponse>(response)
     ///     }
-    ///     | None => Err("No ORCiD endpoint found".into()),
+    ///     | None => Err(eyre!("No ORCiD endpoint found")),
     /// };
     /// println!("ORCiD Search Response: {text:#?}");
     /// ```
@@ -735,22 +737,22 @@ pub(crate) fn param_from_query_fields<T: QueryField>(key: &str, separator: &str,
         ))
     }
 }
-pub(crate) fn parse_json<R>(content: &str) -> Result<R, String>
+pub(crate) fn parse_json<R>(content: &str) -> ApiResult<R>
 where
     R: for<'de> Deserialize<'de>,
 {
     match serde_json::from_str::<R>(content) {
         | Ok(response) => Ok(response),
-        | Err(why) => Err(why.to_string()),
+        | Err(why) => Err(eyre!(why)),
     }
 }
-pub(crate) fn parse_xml<R>(content: &str) -> Result<R, String>
+pub(crate) fn parse_xml<R>(content: &str) -> ApiResult<R>
 where
     R: for<'de> Deserialize<'de>,
 {
     match quick_xml::de::from_str::<R>(content) {
         | Ok(response) => Ok(response),
-        | Err(why) => Err(why.to_string()),
+        | Err(why) => Err(eyre!(why)),
     }
 }
 /// Construct a query string for an endpoint API query from a list of field-value pairs, a list of fields, and a list of fields with boosted relevance.

@@ -26,9 +26,10 @@
 //! ];
 //! println!("ORCiD Search Response: {:#?}", api::orcid::search(params).await);
 //! ```
-use crate::io::api::{self, RemoteResource, Searchable, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::api::{self, ApiResult, RemoteResource, Searchable, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::schema::validate::{is_orcid, is_ror};
 use bon::Builder;
+use color_eyre::eyre::eyre;
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -297,7 +298,7 @@ pub fn query_string(query_pairs: Vec<(&str, &str)>, field_list: Vec<&str>, query
 /// ];
 /// let result: Result<SearchResponse, String> = orcid::search(params).await;
 /// ```
-pub async fn search(params: Vec<api::Param>) -> Result<SearchResponse, String> {
+pub async fn search(params: Vec<api::Param>) -> ApiResult<SearchResponse> {
     let name = "ORCiD";
     let action = "search";
     let data = Some(params);
@@ -306,11 +307,11 @@ pub async fn search(params: Vec<api::Param>) -> Result<SearchResponse, String> {
             let response = endpoint.invoke_with::<SearchField, OutputColumn>(action, data).await;
             endpoint.handle::<SearchResponse>(response)
         }
-        | None => Err(format!("{name} API endpoint not found")),
+        | None => Err(eyre!("{name} API endpoint not found")),
     }
 }
 /// Get status of ORCiD API
-pub async fn status() -> Result<StatusResponse, String> {
+pub async fn status() -> ApiResult<StatusResponse> {
     let name = "ORCiD";
     let action = "status";
     let data = None;
@@ -319,6 +320,6 @@ pub async fn status() -> Result<StatusResponse, String> {
             let response = endpoint.invoke(action, data).await;
             endpoint.handle::<StatusResponse>(response)
         }
-        | None => Err(format!("{name} API endpoint not found")),
+        | None => Err(eyre!("{name} API endpoint not found")),
     }
 }
