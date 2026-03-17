@@ -33,6 +33,8 @@ use core::time::Duration;
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
 use fancy_regex::Regex;
+use futures::stream::{self, StreamExt};
+use futures::Future;
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
@@ -1044,6 +1046,59 @@ where
     progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
     progress.finish_with_message(finish_message(count));
     results
+}
+/// Collect the results of a given async operation over a set of items with a progress bar
+///
+/// ### Parameters
+/// - `items`: The items to process
+/// - `message`: Progress bar message during processing  
+/// - `operation`: An async closure that processes each item
+/// - `finish_message`: A function that generates the completion message
+/// - `buffer_size`: Maximum number of concurrent async operations (default: 10)
+///
+/// ### Example
+/// ```ignore
+/// let results = with_progress_bar_async(
+///     items,
+///     "Downloading files",
+///     |item| async move { download_file(item).await },
+///     |count| format!("Downloaded {count} files"),
+///     5,  // buffer_size
+/// ).await?;
+/// ```
+// TODO: Clean up this function and conflate with with_progress_bar
+pub async fn with_progress_bar_async<T, F, Fut>(
+    items: Vec<T>,
+    message: &str,
+    operation: F,
+    finish_message: impl FnOnce(usize) -> String,
+    buffer_size: usize,
+) -> ApiResult<usize>
+where
+    F: Fn(T) -> Fut,
+    Fut: Future<Output = ApiResult<()>>,
+{
+    let count = items.len();
+    let progress = ProgressBar::new(count as u64);
+    progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+    progress.set_message(message.to_string());
+    let results = stream::iter(items)
+        .map(|item| {
+            let progress = progress.clone();
+            let operation = &operation;
+            async move {
+                let result = operation(item).await;
+                progress.inc(1);
+                result
+            }
+        })
+        .buffer_unordered(buffer_size)
+        .collect::<Vec<_>>()
+        .await;
+    progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
+    progress.finish_with_message(finish_message(count));
+    let success_count = results.into_iter().filter(|result| result.is_ok()).count();
+    Ok(success_count)
 }
 /// Writes the given content to a file at the given path.
 ///
