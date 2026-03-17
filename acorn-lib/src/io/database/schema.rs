@@ -4,9 +4,11 @@ use super::backend::{self, BackendRow, Connection, Params};
 use super::{Database, Row, SelectQuery, TableSchemaProvider};
 use crate::io::database::macros::{build_query, define_required_fn};
 use crate::io::ApiResult;
+use crate::io::api::{self, DatabasePersistence};
 use crate::prelude::PathBuf;
 use crate::util::{print_values_as_table, Label};
 use acorn_macros::DatabaseRow;
+use async_trait::async_trait;
 use bon::Builder;
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::eyre;
@@ -394,6 +396,7 @@ impl fmt::Display for ValidationRow {
         .and_then(|_| write_optional_timestamp(f, "checked_at", self.checked_at.as_ref()))
     }
 }
+#[async_trait]
 impl TableSchemaProvider for Table {
     fn all() -> &'static [Self] {
         &[
@@ -485,6 +488,16 @@ impl TableSchemaProvider for Table {
             | Table::LinkCache => "link_cache",
             | Table::ValidationHistory => "validation_history",
             | Table::ResearchActivityCache => "research_activity_cache",
+        }
+    }
+    async fn populate(&self) -> ApiResult<usize> {
+        println!("POPULATING {} TABLE", self.name().to_uppercase());
+        match &self {
+            | Table::Licenses => {
+                let response = api::spdx::download().await?;
+                response.persist(Database::<Self>::from_path(None)).await
+            }
+            | _ => Ok(0),
         }
     }
     /// Print all table rows

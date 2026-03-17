@@ -3,9 +3,9 @@
 //! See `https://github.com/spdx/license-list-data/blob/main/accessingLicenses.md` for more information on the SPDX license list and how to access it.
 //!
 //! See `https://spdx.org/rdf/terms/` for SPDX RDF terms.
-use crate::io::api::{self, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
+use crate::io::api::{self, DatabasePersistence, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
 use crate::io::database::schema::{LicenseRow, Table};
-use crate::io::database::{Database, DatabasePersistence, Operations};
+use crate::io::database::{Database, Operations};
 use crate::io::ApiResult;
 use crate::schema::validate::{is_list_url, is_semantic_version};
 use async_trait::async_trait;
@@ -85,10 +85,6 @@ impl LicenseMetadata {
 }
 #[async_trait]
 impl DatabasePersistence for LicensesResponse {
-    /// Download SPDX license data
-    async fn download(self) -> ApiResult<Self> {
-        download().await
-    }
     /// Persist SPDX license data to local database
     /// ### Example
     /// ```ignore

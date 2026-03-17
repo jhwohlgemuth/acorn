@@ -2,7 +2,8 @@
 //!
 //! This module provides a lazily initialized, process-global database connection
 //! guarded by a mutex and a helper to execute callbacks against that connection.
-use crate::io::{api, ApiResult};
+use crate::io::ApiResult;
+use crate::io::api::DatabasePersistence;
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
 use crate::util::constants::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ORGANIZATION, QUALIFIER};
 use crate::util::Label;
@@ -34,19 +35,6 @@ pub enum PersistStatus {
     /// Table already contained data, no action taken.
     AlreadyExists,
 }
-/// Trait for objects that can be persisted in a database
-#[async_trait]
-pub trait DatabasePersistence {
-    /// Download data to be saved in database
-    async fn download(self) -> ApiResult<Self>
-    where
-        Self: Sized,
-    {
-        unimplemented!()
-    }
-    /// Persist data to database
-    async fn persist(self, database: Database<Table>) -> ApiResult<usize>;
-}
 /// Write and access data in a database
 #[async_trait]
 pub trait Operations {
@@ -61,7 +49,7 @@ pub trait Operations {
     /// Download and persist data for a table if the table is empty.
     /// Returns `PersistStatus::Downloaded(n)` if data was downloaded and persisted,
     /// or `PersistStatus::AlreadyExists` if the table already contained data.
-    async fn get_or_download(&self, table: Table) -> ApiResult<PersistStatus>;
+    async fn populate(&self, table: impl TableSchemaProvider + Send) -> ApiResult<PersistStatus>;
     /// Select a value from the database
     fn select<T, P>(&self, value: P) -> ApiResult<Option<T>>
     where
@@ -116,6 +104,7 @@ pub trait RowMetadata {
         Self: Sized;
 }
 /// Table schema provider for database operations
+#[async_trait]
 pub trait TableSchemaProvider: Copy + Into<Table> + 'static {
     /// Returns all variants for the table type.
     fn all() -> &'static [Self];
@@ -123,6 +112,8 @@ pub trait TableSchemaProvider: Copy + Into<Table> + 'static {
     fn create_statement(&self) -> String;
     /// Returns the table name as a string
     fn name(&self) -> &'static str;
+    /// Populate the table with data (typically downloaded use API module)
+    async fn populate(&self) -> ApiResult<usize>;
     /// Print all table rows
     fn print(self, path: Option<PathBuf>);
     /// Get table rows
@@ -173,24 +164,10 @@ where
             | None => Err(eyre!("Failed to persist data")),
         }
     }
-    async fn get_or_download(&self, table: Table) -> ApiResult<PersistStatus> {
+    async fn populate(&self, table: impl TableSchemaProvider + Send) -> ApiResult<PersistStatus> {
         match self.row_count(table) {
             | Ok(count) if count > 0 => Ok(PersistStatus::AlreadyExists),
-            | Ok(_) => {
-                println!("DOWNLOADING SPDX DATA");
-                let database = Database::<Table>::from_path(self.path.clone());
-                // TODO: Clean this up and refactor into Table impls
-                match table {
-                    | Table::Licenses => match api::spdx::download().await {
-                        | Ok(data) => match data.persist(database).await {
-                            | Ok(rows) => Ok(PersistStatus::Downloaded(rows)),
-                            | Err(why) => Err(why),
-                        },
-                        | Err(why) => Err(why),
-                    },
-                    | _ => Err(eyre!("No download handler configured for table — {}", table.name())),
-                }
-            }
+            | Ok(_) => table.into().populate().await.map(PersistStatus::Downloaded),
             | Err(why) => Err(why),
         }
     }

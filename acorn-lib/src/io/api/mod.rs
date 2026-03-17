@@ -4,6 +4,7 @@
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
 use crate::io::config::ApplicationConfiguration;
 use crate::io::{get, post, put, ApiResult};
+use crate::io::database::{Database, schema::Table};
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::util::{detect_json, detect_xml, Constant};
 use crate::{Location, Repository, Scheme};
@@ -33,6 +34,12 @@ pub mod spdx;
 lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
     pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = Constant::json::<ApplicationConfiguration>("application").endpoints.unwrap_or_default();
+}
+/// Trait for objects that can be persisted in a database
+#[async_trait]
+pub trait DatabasePersistence {
+    /// Persist data to database
+    async fn persist(self, database: Database<Table>) -> ApiResult<usize>;
 }
 /// Helper trait for converting parameter collections into HTTP request body
 pub trait IntoBody {
