@@ -13,15 +13,14 @@ pub async fn run(
     database_path: &Option<PathBuf>,
     _verbose: &Verbosity,
 ) -> Result<(), Report> {
-    let countries = api::geonames::countries().await;
-    println!("Countries: {:#?}", countries);
-    println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
-    println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
-    println!("ROR API is healthy: {}", api::ror::is_healthy().await);
-    let licenses = api::spdx::download().await.ok();
+    // let countries = api::geonames::countries().await;
+    // println!("Countries: {:#?}", countries);
+    // println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
+    // println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
+    // println!("ROR API is healthy: {}", api::ror::is_healthy().await);
     let database = Database::<Table>::from_path(database_path.clone());
-    let inserted = database.persist(licenses).await;
-    dbg!(&inserted);
+    let status = database.get_or_download(Table::Licenses).await?;
+    println!("SPDX License status: {:?}", status);
     // gitlab_example().await;
     // orcid_example().await;
     // ror_example().await;

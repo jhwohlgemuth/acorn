@@ -2,7 +2,7 @@
 //!
 //! This module provides a lazily initialized, process-global database connection
 //! guarded by a mutex and a helper to execute callbacks against that connection.
-use crate::io::ApiResult;
+use crate::io::{api, ApiResult};
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
 use crate::util::constants::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ORGANIZATION, QUALIFIER};
 use crate::util::Label;
@@ -26,6 +26,14 @@ static CONNECTION: OnceLock<Mutex<Connection>> = OnceLock::new();
 pub type QueryParams = backend::ParamsFromIter<Vec<Box<dyn backend::ToSql>>>;
 /// SQL query string paired with its bound parameters.
 pub type SelectQuery = (String, QueryParams);
+/// Result of a persist operation indicating whether data was downloaded or already existed.
+#[derive(Clone, Debug)]
+pub enum PersistStatus {
+    /// Data was downloaded and persisted (contains row count).
+    Downloaded(usize),
+    /// Table already contained data, no action taken.
+    AlreadyExists,
+}
 /// Trait for objects that can be persisted in a database
 #[async_trait]
 pub trait DatabasePersistence {
@@ -50,6 +58,10 @@ pub trait Operations {
     async fn persist<P>(&self, data: Option<P>) -> ApiResult<usize>
     where
         P: DatabasePersistence + Send;
+    /// Download and persist data for a table if the table is empty.
+    /// Returns `PersistStatus::Downloaded(n)` if data was downloaded and persisted,
+    /// or `PersistStatus::AlreadyExists` if the table already contained data.
+    async fn get_or_download(&self, table: Table) -> ApiResult<PersistStatus>;
     /// Select a value from the database
     fn select<T, P>(&self, value: P) -> ApiResult<Option<T>>
     where
@@ -161,6 +173,27 @@ where
             | None => Err(eyre!("Failed to persist data")),
         }
     }
+    async fn get_or_download(&self, table: Table) -> ApiResult<PersistStatus> {
+        match self.row_count(table) {
+            | Ok(count) if count > 0 => Ok(PersistStatus::AlreadyExists),
+            | Ok(_) => {
+                println!("DOWNLOADING SPDX DATA");
+                let database = Database::<Table>::from_path(self.path.clone());
+                // TODO: Clean this up and refactor into Table impls
+                match table {
+                    | Table::Licenses => match api::spdx::download().await {
+                        | Ok(data) => match data.persist(database).await {
+                            | Ok(rows) => Ok(PersistStatus::Downloaded(rows)),
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    },
+                    | _ => Err(eyre!("No download handler configured for table — {}", table.name())),
+                }
+            }
+            | Err(why) => Err(why),
+        }
+    }
     fn select<T, P>(&self, _value: P) -> ApiResult<Option<T>>
     where
         T: Into<Table>,
@@ -257,6 +290,14 @@ where
         self.with_connection(|conn| {
             conn.execute(&sql, params![cutoff])
                 .map_err(|why| eyre!("Failed to clean up {} — {why}", table.name()))
+        })
+    }
+    /// Count rows in a table.
+    pub fn row_count(&self, table: impl Into<Table>) -> ApiResult<usize> {
+        let name = table.into().name();
+        self.with_connection(|conn| {
+            conn.query_row(&format!("SELECT COUNT(*) FROM {}", name), params![], |row| row.get(0))
+                .map_err(|why| eyre!("Failed to count rows in {} — {why}", name))
         })
     }
     /// Keep only the most recent `limit` rows using an id/order column pair.
