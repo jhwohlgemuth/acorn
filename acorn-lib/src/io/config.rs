@@ -391,10 +391,9 @@ impl Bucket {
             .collect::<Vec<String>>();
         let total_data: usize = count_json_files(paths.clone());
         let total_images: usize = count_image_files(paths.clone());
-        let message = operations_complete_message(self.name, total_data, total_images);
+        let repository = self.code_repository.clone();
         let progress = ProgressBar::new(paths.len() as u64);
         progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-        let repository = self.code_repository.clone();
         stream::iter(paths)
             .map(|path| {
                 let output = output.clone();
@@ -413,11 +412,11 @@ impl Bucket {
                                         let _ = io::copy(&mut content, &mut file);
                                     }
                                     | Err(why) => {
-                                        error!(path, "=> {} Convert to bytes - {why}", Label::fail());
+                                        error!(path, "=> {} Convert to bytes — {why}", Label::fail());
                                     }
                                 },
                                 | Err(why) => {
-                                    error!(path, "=> {} Download file - {why}", Label::fail());
+                                    error!(path, "=> {} Download file — {why}", Label::fail());
                                 }
                             }
                         }
@@ -428,6 +427,7 @@ impl Bucket {
             .buffer_unordered(buffer_size)
             .collect::<Vec<()>>()
             .await;
+        let message = operations_complete_message(self.name, total_data, total_images);
         progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
         progress.finish_with_message(message);
         total_data + total_images

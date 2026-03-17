@@ -34,6 +34,7 @@ use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
 use fancy_regex::Regex;
 use glob::glob;
+use indicatif::{ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
 use itertools::Itertools;
 use reqwest::header::USER_AGENT;
@@ -1012,6 +1013,37 @@ where
         | Err(_) => path.into(),
     };
     result.display().to_string()
+}
+/// Collect the results of a given operation over a set of items with a progress bar
+///
+/// ### Example
+/// ```ignore
+/// let results = with_progress_bar(
+///     items,
+///     "Processing items",
+///     |count| format!("Finished processing {} items", count),
+///     |item| Ok(item * 2),
+/// ).unwrap();
+/// ```
+pub fn with_progress_bar<T, U, F>(items: Vec<T>, message: &str, mut operation: F, finish_message: impl FnOnce(usize) -> String) -> ApiResult<Vec<U>>
+where
+    F: FnMut(T) -> ApiResult<U>,
+{
+    let count = items.len();
+    let progress = ProgressBar::new(count as u64);
+    progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+    progress.set_message(message.to_string());
+    let results = items
+        .into_iter()
+        .map(|item| {
+            let result = operation(item);
+            progress.inc(1);
+            result
+        })
+        .collect::<ApiResult<Vec<_>>>();
+    progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
+    progress.finish_with_message(finish_message(count));
+    results
 }
 /// Writes the given content to a file at the given path.
 ///

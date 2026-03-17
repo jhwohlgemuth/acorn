@@ -6,8 +6,9 @@
 use crate::io::api::{self, DatabasePersistence, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
 use crate::io::database::schema::{LicenseRow, Table};
 use crate::io::database::{Database, Operations};
-use crate::io::ApiResult;
+use crate::io::{with_progress_bar, ApiResult};
 use crate::schema::validate::{is_list_url, is_semantic_version};
+use crate::util::Label;
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Report};
 use serde::{Deserialize, Serialize};
@@ -98,11 +99,10 @@ impl DatabasePersistence for LicensesResponse {
     /// ```
     async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
         let Self { licenses, .. } = self;
-        licenses
-            .iter()
-            .cloned()
-            .map(|item| database.insert(LicenseRow::from(item)))
-            .collect::<ApiResult<Vec<_>>>()
+        let message = "Saving SPDX licenses to local database";
+        let finish = |count| format!("  {}Saved metadata for {count} SPDX licenses", Label::CHECKMARK);
+        let operation = |item| database.insert(LicenseRow::from(item));
+        with_progress_bar(licenses, message, operation, finish)
             .map(|rows| rows.into_iter().sum())
             .map_err(Report::msg)
     }

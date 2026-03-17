@@ -2,9 +2,9 @@
 //!
 use super::backend::{self, BackendRow, Connection, Params};
 use super::{Database, Row, SelectQuery, TableSchemaProvider};
+use crate::io::api::{self, DatabasePersistence};
 use crate::io::database::macros::{build_query, define_required_fn};
 use crate::io::ApiResult;
-use crate::io::api::{self, DatabasePersistence};
 use crate::prelude::PathBuf;
 use crate::util::{print_values_as_table, Label};
 use acorn_macros::DatabaseRow;
@@ -13,6 +13,7 @@ use bon::Builder;
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::eyre;
 use core::fmt;
+use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 
 define_required_fn!(1, required1, A, a);
@@ -491,13 +492,21 @@ impl TableSchemaProvider for Table {
         }
     }
     async fn populate(&self) -> ApiResult<usize> {
-        println!("POPULATING {} TABLE", self.name().to_uppercase());
         match &self {
             | Table::Licenses => {
-                let response = api::spdx::download().await?;
-                response.persist(Database::<Self>::from_path(None)).await
+                let progress = ProgressBar::new_spinner();
+                progress.set_style(ProgressStyle::with_template("{spinner:.green} {msg}").unwrap());
+                progress.set_message("Downloading SPDX license data...");
+                progress.enable_steady_tick(core::time::Duration::from_millis(120));
+                let response = api::spdx::download().await;
+                let message = format!("{}SPDX metadata download complete", Label::CHECKMARK);
+                progress.finish_with_message(message);
+                match response {
+                    | Ok(data) => data.persist(Database::<Self>::from_path(None)).await,
+                    | Err(why) => Err(eyre!("Failed to download SPDX license data: {why}")),
+                }
             }
-            | _ => Ok(0),
+            | _ => unimplemented!("populate() not implemented for {} table", self.name()),
         }
     }
     /// Print all table rows

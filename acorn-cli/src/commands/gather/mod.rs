@@ -19,8 +19,7 @@ pub async fn run(
     // println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
     // println!("ROR API is healthy: {}", api::ror::is_healthy().await);
     let database = Database::<Table>::from_path(database_path.clone());
-    let status = database.populate(Table::Licenses).await?;
-    println!("SPDX License status: {status:?}");
+    let _ = database.populate(Table::Licenses).await?;
     // gitlab_example().await;
     // orcid_example().await;
     // ror_example().await;

@@ -3,8 +3,8 @@
 //! Interact with RESTful APIs, handling requests and responses, authentication, and data serialization.
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
 use crate::io::config::ApplicationConfiguration;
+use crate::io::database::{schema::Table, Database};
 use crate::io::{get, post, put, ApiResult};
-use crate::io::database::{Database, schema::Table};
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::util::{detect_json, detect_xml, Constant};
 use crate::{Location, Repository, Scheme};
