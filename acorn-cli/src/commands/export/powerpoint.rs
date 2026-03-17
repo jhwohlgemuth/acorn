@@ -3,7 +3,7 @@
 //! This module generates PPTX output by copying slide templates, updating
 //! OOXML relationships, and interpolating Research Activity data.
 use crate::cli::CommandLineOptions;
-use acorn::io::{archive, extract_zip, read_file, write_file, InputOutput, ApiResult};
+use acorn::io::{archive, extract_zip, read_file, write_file, ApiResult, InputOutput};
 use acorn::powerpoint::ooxml::{Relationship, Relationships};
 use acorn::powerpoint::{interpolate_values, read_xml_rel};
 use acorn::prelude::{copy, create_dir_all, exit, Path, PathBuf};

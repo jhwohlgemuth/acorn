@@ -1,7 +1,7 @@
 //! Module for downloading, parsing, and using GeoNames data
 //!
 //! See [Geonames web services documentation](https://www.geonames.org/export/web-services.html) for more information
-use crate::io::api::{RemoteResource, ApiResult, Searchable, TextResponse, INCLUDED_ENDPOINTS};
+use crate::io::api::{ApiResult, RemoteResource, Searchable, TextResponse, INCLUDED_ENDPOINTS};
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};

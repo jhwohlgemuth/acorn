@@ -8,6 +8,7 @@ use crate::io::database::schema::{LicenseRow, Table};
 use crate::io::database::{Database, DatabasePersistence, Operations};
 use crate::io::ApiResult;
 use crate::schema::validate::{is_list_url, is_semantic_version};
+use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Report};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
@@ -82,7 +83,12 @@ impl LicenseMetadata {
         self.is_osi
     }
 }
+#[async_trait]
 impl DatabasePersistence for LicensesResponse {
+    /// Download SPDX license data
+    async fn download(self) -> ApiResult<Self> {
+        download().await
+    }
     /// Persist SPDX license data to local database
     /// ### Example
     /// ```ignore
@@ -94,7 +100,7 @@ impl DatabasePersistence for LicensesResponse {
     /// let database = Database::<Table>::from_path(database_path.clone());
     /// let _ = database.persist(Some(licenses));
     /// ```
-    fn persist(self, database: Database<Table>) -> ApiResult<usize> {
+    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
         let Self { licenses, .. } = self;
         licenses
             .iter()

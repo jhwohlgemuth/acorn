@@ -6,6 +6,7 @@ use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
 use crate::util::constants::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ORGANIZATION, QUALIFIER};
 use crate::util::Label;
+use async_trait::async_trait;
 use backend::{params, BackendRow, Connection, Params};
 use chrono::{Duration, Utc};
 use color_eyre::eyre::eyre;
@@ -26,27 +27,29 @@ pub type QueryParams = backend::ParamsFromIter<Vec<Box<dyn backend::ToSql>>>;
 /// SQL query string paired with its bound parameters.
 pub type SelectQuery = (String, QueryParams);
 /// Trait for objects that can be persisted in a database
+#[async_trait]
 pub trait DatabasePersistence {
     /// Download data to be saved in database
-    fn download(self) -> ApiResult<Self>
+    async fn download(self) -> ApiResult<Self>
     where
         Self: Sized,
     {
         unimplemented!()
     }
     /// Persist data to database
-    fn persist(self, database: Database<Table>) -> ApiResult<usize>;
+    async fn persist(self, database: Database<Table>) -> ApiResult<usize>;
 }
 /// Write and access data in a database
+#[async_trait]
 pub trait Operations {
     /// Insert a value (row) into the database
     fn insert<R>(&self, value: R) -> ApiResult<usize>
     where
         R: Row;
     /// Save data to database
-    fn persist<P>(&self, data: Option<P>) -> ApiResult<usize>
+    async fn persist<P>(&self, data: Option<P>) -> ApiResult<usize>
     where
-        P: DatabasePersistence;
+        P: DatabasePersistence + Send;
     /// Select a value from the database
     fn select<T, P>(&self, value: P) -> ApiResult<Option<T>>
     where
@@ -136,9 +139,10 @@ where
         }
     }
 }
+#[async_trait]
 impl<S> Operations for Database<S>
 where
-    S: TableSchemaProvider,
+    S: TableSchemaProvider + Sync,
 {
     fn insert<R>(&self, value: R) -> ApiResult<usize>
     where
@@ -147,13 +151,13 @@ where
         let row: R = value;
         self.with_connection(|conn| row.insert(conn))
     }
-    fn persist<P>(&self, data: Option<P>) -> ApiResult<usize>
+    async fn persist<P>(&self, data: Option<P>) -> ApiResult<usize>
     where
-        P: DatabasePersistence,
+        P: DatabasePersistence + Send,
     {
         let database = Database::<Table>::from_path(self.path.clone());
         match data {
-            | Some(rows) => rows.persist(database),
+            | Some(rows) => rows.persist(database).await,
             | None => Err(eyre!("Failed to persist data")),
         }
     }

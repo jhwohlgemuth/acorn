@@ -20,7 +20,7 @@ pub async fn run(
     println!("ROR API is healthy: {}", api::ror::is_healthy().await);
     let licenses = api::spdx::download().await.ok();
     let database = Database::<Table>::from_path(database_path.clone());
-    let inserted = database.persist(licenses);
+    let inserted = database.persist(licenses).await;
     dbg!(&inserted);
     // gitlab_example().await;
     // orcid_example().await;
