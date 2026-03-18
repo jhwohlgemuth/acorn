@@ -3,3 +3,5 @@ match_arm_leading_pipes = "Always"
 max_width = 150
 # normalize_comments = true
 # where_single_line = true
+# unstable_features = true
+# blank_lines_upper_bound = 0
