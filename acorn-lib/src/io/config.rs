@@ -8,7 +8,7 @@ use crate::io::api::github::{TreeEntry as GithubTreeEntry, TreeResponse as Githu
 use crate::io::api::gitlab::{TreeEntry as GitlabTreeEntry, TreeResponse as GitlabTreeResponse};
 use crate::io::api::Endpoint;
 use crate::io::ApiResult;
-use crate::io::{files_all, get, parent, read_file, write_file, FromPath, InputOutput};
+use crate::io::{files_all, get, parent, read_file, with_progress_bar, write_file, FromPath, InputOutput};
 use crate::prelude::{self, create_dir_all, exit, io, Cursor, File, PathBuf};
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
@@ -17,7 +17,6 @@ use color_eyre::eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
 use futures::future::join_all;
-use futures::stream::{self, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -328,27 +327,27 @@ impl Bucket {
     /// ### Notes
     /// - Ignores files listed in [`IGNORE`]
     /// - Only copies files from local repositories
+    // TODO: Refactor to return ApiResult<usize>
     pub fn copy_files(self: Bucket, output: PathBuf) -> usize {
-        if self.code_repository.clone().is_local() {
-            let location = self.code_repository.clone().location();
-            let bucket_root = match location.uri() {
+        let Bucket { name, code_repository, .. } = self.clone();
+        if code_repository.clone().is_local() {
+            let uri = code_repository.clone().location().uri();
+            let bucket_root = match uri {
                 | Some(value) => PathBuf::from(value.path().to_string()).to_absolute_string(),
                 | None => {
                     unimplemented!()
                 }
             };
-            let paths = files_all(PathBuf::from(bucket_root.clone()), None)
+            let items = files_all(PathBuf::from(bucket_root.clone()), None)
                 .into_iter()
                 .map(|x| x.display().to_string())
                 .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
                 .filter(|path| PathBuf::from(path).is_file())
                 .collect::<Vec<String>>();
-            let total_data: usize = count_json_files(paths.clone());
-            let total_images: usize = count_image_files(paths.clone());
-            let message = operations_complete_message(self.name, total_data, total_images);
-            let progress = ProgressBar::new(paths.len() as u64);
-            paths.par_iter().for_each(|path| {
-                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+            // TODO: Refactor to use with_progress_bar and async file copying for consistency with download_files
+            let progress = ProgressBar::new(items.len() as u64);
+            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+            items.par_iter().for_each(|path| {
                 progress.set_message(format!("Copying {path}"));
                 let relative = path.strip_prefix(&format!("{}/", bucket_root.trim_end_matches("/"))).unwrap();
                 let parent_path = PathBuf::from(relative).parent().unwrap().to_path_buf();
@@ -368,8 +367,11 @@ impl Bucket {
                     }
                 }
             });
+            let total_data: usize = count_json_files(&items);
+            let total_images: usize = count_image_files(&items);
+            let finish_message = operations_complete_message(name, total_data, total_images);
             progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
-            progress.finish_with_message(message);
+            progress.finish_with_message(finish_message);
             total_data + total_images
         } else {
             0
@@ -380,56 +382,58 @@ impl Bucket {
     /// Ignores files listed in [`IGNORE`]
     ///
     /// Downloads files concurrently using buffered streams
+    // TODO: Refactor to return ApiResult<usize>
     pub async fn download_files(self: Bucket, output: PathBuf, threads: usize) -> usize {
-        let buffer_size: usize = if threads > 0 { threads } else { 10 };
-        let paths = self
+        let Bucket { name, code_repository, .. } = self.clone();
+        let items = self
             .clone()
             .file_paths("")
             .await
             .into_iter()
             .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
             .collect::<Vec<String>>();
-        let total_data: usize = count_json_files(paths.clone());
-        let total_images: usize = count_image_files(paths.clone());
-        let repository = self.code_repository.clone();
-        let progress = ProgressBar::new(paths.len() as u64);
-        progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-        stream::iter(paths)
-            .map(|path| {
-                let output = output.clone();
-                let repository = repository.clone();
-                let progress = progress.clone();
-                async move {
-                    progress.set_message(format!("Downloading {path}"));
-                    let folder = format!("{}/{}", output.display(), parent(path.clone()).display());
-                    create_dir_all(folder.clone()).unwrap();
-                    if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
-                        if let Some(url) = repository.raw_url(path.to_string()) {
-                            match get(url).send().await {
-                                | Ok(response) => match response.bytes().await {
-                                    | Ok(bytes) => {
-                                        let mut content = Cursor::new(bytes);
-                                        let _ = io::copy(&mut content, &mut file);
-                                    }
-                                    | Err(why) => {
-                                        error!(path, "=> {} Convert to bytes — {why}", Label::fail());
-                                    }
-                                },
-                                | Err(why) => {
-                                    error!(path, "=> {} Download file — {why}", Label::fail());
+        let message: fn(&String) -> String = |path| format!("Downloading {path}");
+        let operation = move |path: String| {
+            let output = output.clone();
+            let repository = code_repository.clone();
+            async move {
+                let folder = format!("{}/{}", output.display(), parent(path.clone()).display());
+                match create_dir_all(folder.clone()) {
+                    | Ok(_) => {}
+                    | Err(why) => {
+                        error!(path, "=> {} Create output folder — {why}", Label::fail());
+                    }
+                }
+                if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
+                    if let Some(url) = repository.raw_url(path.to_string()) {
+                        match get(url).send().await {
+                            | Ok(response) => match response.bytes().await {
+                                | Ok(bytes) => {
+                                    let mut content = Cursor::new(bytes);
+                                    let _ = io::copy(&mut content, &mut file);
                                 }
+                                | Err(why) => {
+                                    error!(path, "=> {} Convert to bytes — {why}", Label::fail());
+                                }
+                            },
+                            | Err(why) => {
+                                error!(path, "=> {} Download file — {why}", Label::fail());
                             }
                         }
-                    };
-                    progress.inc(1);
+                    }
                 }
-            })
-            .buffer_unordered(buffer_size)
-            .collect::<Vec<()>>()
-            .await;
-        let message = operations_complete_message(self.name, total_data, total_images);
-        progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
-        progress.finish_with_message(message);
+                Ok(())
+            }
+        };
+        let total_data: usize = count_json_files(&items);
+        let total_images: usize = count_image_files(&items);
+        let finish_message = |_| operations_complete_message(name, total_data, total_images);
+        match with_progress_bar(items, message, operation, finish_message, Some(threads)).await {
+            | Ok(_) => {}
+            | Err(why) => {
+                error!("=> {} Download files with progress bar - {why}", Label::fail());
+            }
+        }
         total_data + total_images
     }
     async fn file_paths(self: Bucket, directory: &str) -> Vec<String> {
@@ -539,11 +543,11 @@ impl From<&str> for RunnerType {
         }
     }
 }
-fn count_json_files(paths: Vec<String>) -> usize {
+fn count_json_files(paths: &Vec<String>) -> usize {
     paths.clone().into_iter().filter(|path| path.to_lowercase().ends_with(".json")).count()
 }
-fn count_image_files(paths: Vec<String>) -> usize {
-    paths.into_iter().filter(has_image_extension).count()
+fn count_image_files(paths: &Vec<String>) -> usize {
+    paths.clone().into_iter().filter(has_image_extension).count()
 }
 fn operations_complete_message(name: Option<String>, json_count: usize, image_count: usize) -> String {
     let total = json_count + image_count;

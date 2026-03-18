@@ -155,7 +155,7 @@ pub struct Arguments {
     /// Limit number of threads used by rayon for parallel processing
     ///
     /// See Rayon documentation for more information
-    #[arg(default_value_t, short, long, value_name = "N", help_heading = "FLAGS")]
+    #[arg(default_value_t = 10, short, long, value_name = "N", help_heading = "FLAGS")]
     pub threads: usize,
     /// Clear cache data from database (link_cache, validation_history, research_activity_cache tables)
     #[arg(long = "clear-cache", value_name = "BOOL", help_heading = "FLAGS")]

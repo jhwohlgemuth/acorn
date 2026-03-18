@@ -1029,7 +1029,7 @@ where
     F: Fn(T) -> Fut,
     Fut: Future<Output = ApiResult<U>>,
 {
-    let concurrency = buffer_size.unwrap_or(1);
+    let concurrency = buffer_size.unwrap_or(10).max(1);
     let count = items.len();
     let progress = ProgressBar::new(count as u64);
     progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());

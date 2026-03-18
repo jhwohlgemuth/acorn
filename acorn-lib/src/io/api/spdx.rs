@@ -100,9 +100,9 @@ impl DatabasePersistence for LicensesResponse {
     async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
         let Self { licenses, .. } = self;
         let message: fn(&LicenseMetadata) -> String = |item| format!("Saving \"{}\" license metadata", item.license_id);
-        let finish = |count| format!("  {}Saved metadata for {count} SPDX licenses", Label::CHECKMARK);
         let operation = |item| async { database.insert(LicenseRow::from(item)) };
-        with_progress_bar(licenses, message, operation, finish, Some(10))
+        let finish = |count| format!("  {}Saved metadata for {count} SPDX licenses", Label::CHECKMARK);
+        with_progress_bar(licenses, message, operation, finish, None)
             .await
             .map(|counts| counts.into_iter().sum())
             .map_err(Report::msg)
