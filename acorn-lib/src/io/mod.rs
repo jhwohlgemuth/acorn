@@ -1016,99 +1016,53 @@ where
     };
     result.display().to_string()
 }
-/// Collect the results of a given operation over a set of items with a progress bar
-///
-/// ### Example
-/// ```ignore
-/// let results = with_progress_bar(
-///     items,
-///     "Processing items",
-///     |count| format!("Finished processing {} items", count),
-///     |item| Ok(item * 2),
-/// ).unwrap();
-/// ```
-pub fn with_progress_bar<T, U, F>(items: Vec<T>, message: &str, mut operation: F, finish_message: impl FnOnce(usize) -> String) -> ApiResult<Vec<U>>
+/// Process a collection of data items with or without progress indication
+pub async fn with_progress_bar<T, U, M, F, Fut>(
+    items: Vec<T>,
+    message: M,
+    operation: F,
+    finish_message: impl FnOnce(usize) -> String,
+    buffer_size: Option<usize>,
+) -> ApiResult<Vec<U>>
 where
-    F: FnMut(T) -> ApiResult<U>,
+    M: for<'a> Fn(&'a T) -> String,
+    F: Fn(T) -> Fut,
+    Fut: Future<Output = ApiResult<U>>,
 {
+    let concurrency = buffer_size.unwrap_or(1);
     let count = items.len();
     let progress = ProgressBar::new(count as u64);
     progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-    progress.set_message(message.to_string());
-    let results = items
-        .into_iter()
+    let output = stream::iter(items)
         .map(|item| {
-            let result = operation(item);
+            let msg = message(&item);
+            let future = operation(item);
+            async move {
+                let result = future.await;
+                (msg, result)
+            }
+        })
+        .buffer_unordered(concurrency)
+        .map(|(msg, result)| {
+            progress.set_message(msg);
             progress.inc(1);
             result
         })
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
         .collect::<ApiResult<Vec<_>>>();
     progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
     progress.finish_with_message(finish_message(count));
-    results
+    output
 }
-/// Collect the results of a given async operation over a set of items with a progress bar
-///
-/// ### Parameters
-/// - `items`: The items to process
-/// - `message`: Progress bar message during processing  
-/// - `operation`: An async closure that processes each item
-/// - `finish_message`: A function that generates the completion message
-/// - `buffer_size`: Maximum number of concurrent async operations (default: 10)
-///
-/// ### Example
-/// ```ignore
-/// let results = with_progress_bar_async(
-///     items,
-///     "Downloading files",
-///     |item| async move { download_file(item).await },
-///     |count| format!("Downloaded {count} files"),
-///     5,  // buffer_size
-/// ).await?;
-/// ```
-// TODO: Clean up this function and conflate with with_progress_bar
-pub async fn with_progress_bar_async<T, F, Fut>(
-    items: Vec<T>,
-    message: &str,
-    operation: F,
-    finish_message: impl FnOnce(usize) -> String,
-    buffer_size: usize,
-) -> ApiResult<usize>
-where
-    F: Fn(T) -> Fut,
-    Fut: Future<Output = ApiResult<()>>,
-{
-    let count = items.len();
-    let progress = ProgressBar::new(count as u64);
-    progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-    progress.set_message(message.to_string());
-    let results = stream::iter(items)
-        .map(|item| {
-            let progress = progress.clone();
-            let operation = &operation;
-            async move {
-                let result = operation(item).await;
-                progress.inc(1);
-                result
-            }
-        })
-        .buffer_unordered(buffer_size)
-        .collect::<Vec<_>>()
-        .await;
-    progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
-    progress.finish_with_message(finish_message(count));
-    let success_count = results.into_iter().filter(|result| result.is_ok()).count();
-    Ok(success_count)
-}
-/// Writes the given content to a file at the given path.
+/// Writes the given content to a file at the given path
 ///
 /// # Arguments
-///
 /// * `path` - A `PathBuf` or string slice containing the path to the file to be written.
 /// * `content` - A `String` containing the content to be written to the file.
 ///
-/// # Return
-///
+/// # Returns
 /// A `Result` containing a unit value if the file is written successfully, or an
 /// `eyre::Report` otherwise.
 pub fn write_file<P>(path: P, content: String) -> ApiResult<()>

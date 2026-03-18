@@ -99,11 +99,12 @@ impl DatabasePersistence for LicensesResponse {
     /// ```
     async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
         let Self { licenses, .. } = self;
-        let message = "Saving SPDX licenses to local database";
+        let message: fn(&LicenseMetadata) -> String = |item| format!("Saving \"{}\" license metadata", item.license_id);
         let finish = |count| format!("  {}Saved metadata for {count} SPDX licenses", Label::CHECKMARK);
-        let operation = |item| database.insert(LicenseRow::from(item));
-        with_progress_bar(licenses, message, operation, finish)
-            .map(|rows| rows.into_iter().sum())
+        let operation = |item| async { database.insert(LicenseRow::from(item)) };
+        with_progress_bar(licenses, message, operation, finish, Some(10))
+            .await
+            .map(|counts| counts.into_iter().sum())
             .map_err(Report::msg)
     }
 }
