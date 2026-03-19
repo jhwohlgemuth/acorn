@@ -21,7 +21,7 @@
 //!
 use crate::cmd;
 use crate::prelude::CommandOutput;
-use crate::prelude::{canonicalize, create_dir_all, io, var, write, BufReader, File, PathBuf, Read, Write};
+use crate::prelude::{canonicalize, create_dir_all, io, var, write, BufReader, Cursor, File, PathBuf, Read, Write};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, Permissions, PermissionsExt};
 use crate::util::constants::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
@@ -1069,10 +1069,34 @@ pub fn write_file<P>(path: P, content: String) -> ApiResult<()>
 where
     P: Into<PathBuf>,
 {
-    match write(path.into(), content.as_bytes()) {
-        | Ok(_) => Ok(()),
-        | Err(why) => Err(eyre!("Failed to write file - {why}")),
-    }
+    write(path.into(), content.as_bytes())
+        .map(|_| ())
+        .map_err(|why| eyre!("Failed to write file - {why}"))
+}
+/// Writes bytes to a file at the given path, creating parent directories as needed
+///
+/// # Arguments
+/// * `path` - The output file path
+/// * `get_bytes` - An async closure/future that returns the bytes to write
+///
+/// # Returns
+/// A `Result` containing a unit value if the file is written successfully, or an
+/// `eyre::Report` otherwise.
+pub async fn write_file_bytes<P, F, Fut, E>(path: P, get_bytes: F) -> ApiResult<()>
+where
+    P: Into<PathBuf>,
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = Result<Vec<u8>, E>>,
+    E: Into<Report>,
+{
+    let path = path.into();
+    let folder = path.parent().unwrap().display().to_string();
+    create_dir_all(folder.clone()).map_err(|why| eyre!("Failed to create output folder — {why}"))?;
+    let mut file = File::create(&path).map_err(|why| eyre!("Failed to create output file — {why}"))?;
+    let bytes = get_bytes().await.map_err(Into::into)?;
+    let mut content = Cursor::new(bytes);
+    io::copy(&mut content, &mut file).map_err(|why| eyre!("Failed to write bytes — {why}"))?;
+    Ok(())
 }
 
 #[cfg(test)]

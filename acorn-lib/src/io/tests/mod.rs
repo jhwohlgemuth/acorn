@@ -4,9 +4,10 @@ use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::config::{ApplicationConfiguration, Bucket};
 use crate::io::{
     archive, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_git_command_result,
-    filter_ignored, image_paths, read_file, read_large_file, InputOutput,
+    filter_ignored, image_paths, read_file, read_large_file, write_file_bytes, InputOutput,
 };
 use crate::{Location, Repository, Scheme};
+use color_eyre::Report;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -452,4 +453,28 @@ fn test_read_file_large_content() {
     let content = read_file(path.clone()).unwrap();
     assert_eq!(content, expected);
     remove_file(path).unwrap();
+}
+#[tokio::test]
+async fn test_write_file_bytes_creates_parent_and_writes_content() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = std::env::temp_dir().join(format!("acorn-write-file-bytes-{stamp}"));
+    let path = dir.join("nested").join("output.bin");
+    let expected = b"acorn-bytes".to_vec();
+    let result = write_file_bytes(path.clone(), || async { Ok::<Vec<u8>, Report>(expected.clone()) }).await;
+    assert!(result.is_ok());
+    assert!(path.exists());
+    assert_eq!(std::fs::read(path.clone()).unwrap(), expected);
+    remove_dir_all(dir).unwrap();
+}
+#[tokio::test]
+async fn test_write_file_bytes_propagates_get_bytes_error() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = std::env::temp_dir().join(format!("acorn-write-file-bytes-error-{stamp}"));
+    let path = dir.join("nested").join("output.bin");
+    let result = write_file_bytes(path.clone(), || async { Err::<Vec<u8>, Report>(Report::msg("byte source failure")) }).await;
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().to_string(), "byte source failure");
+    assert!(path.exists());
+    assert_eq!(std::fs::metadata(path.clone()).unwrap().len(), 0);
+    remove_dir_all(dir).unwrap();
 }

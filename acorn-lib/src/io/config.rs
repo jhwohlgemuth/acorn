@@ -8,8 +8,8 @@ use crate::io::api::github::{TreeEntry as GithubTreeEntry, TreeResponse as Githu
 use crate::io::api::gitlab::{TreeEntry as GitlabTreeEntry, TreeResponse as GitlabTreeResponse};
 use crate::io::api::Endpoint;
 use crate::io::ApiResult;
-use crate::io::{files_all, get, parent, read_file, with_progress_bar, write_file, FromPath, InputOutput};
-use crate::prelude::{self, create_dir_all, exit, io, Cursor, File, PathBuf};
+use crate::io::{files_all, get, read_file, with_progress_bar, write_file, write_file_bytes, FromPath, InputOutput};
+use crate::prelude::{self, exit, PathBuf};
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
@@ -17,15 +17,14 @@ use color_eyre::eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
 use futures::future::join_all;
-use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::header::{HeaderMap, USER_AGENT};
 use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, warn};
 
+const FIRST_PAGE: u32 = 1;
 const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
 
 /// Runner status for CI/CD pipelines
@@ -327,8 +326,7 @@ impl Bucket {
     /// ### Notes
     /// - Ignores files listed in [`IGNORE`]
     /// - Only copies files from local repositories
-    // TODO: Refactor to return ApiResult<usize>
-    pub fn copy_files(self: Bucket, output: PathBuf) -> usize {
+    pub async fn copy_files(self: Bucket, output: PathBuf, threads: usize) -> ApiResult<usize> {
         let Bucket { name, code_repository, .. } = self.clone();
         if code_repository.clone().is_local() {
             let uri = code_repository.clone().location().uri();
@@ -344,37 +342,30 @@ impl Bucket {
                 .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
                 .filter(|path| PathBuf::from(path).is_file())
                 .collect::<Vec<String>>();
-            // TODO: Refactor to use with_progress_bar and async file copying for consistency with download_files
-            let progress = ProgressBar::new(items.len() as u64);
-            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-            items.par_iter().for_each(|path| {
-                progress.set_message(format!("Copying {path}"));
-                let relative = path.strip_prefix(&format!("{}/", bucket_root.trim_end_matches("/"))).unwrap();
-                let parent_path = PathBuf::from(relative).parent().unwrap().to_path_buf();
-                let output_filepath = output.join(relative);
-                let folder = format!("{}/{}", output.display(), parent_path.display());
-                let _ = create_dir_all(folder.clone());
-                if let Ok(mut file) = File::create(output_filepath) {
-                    match prelude::read(path.clone()) {
-                        | Ok(bytes) => {
-                            let mut content = Cursor::new(bytes);
-                            let _ = io::copy(&mut content, &mut file);
-                            progress.inc(1);
-                        }
-                        | Err(why) => {
-                            error!(path, "=> {} Read file as bytes - {why}", Label::fail());
-                        }
-                    }
+            let message: fn(&String) -> String = |path| format!("Copying {path}");
+            let bucket_root_clone = bucket_root.clone();
+            let output_clone = output.clone();
+            let operation = move |path: String| {
+                let bucket_root = bucket_root_clone.clone();
+                let output = output_clone.clone();
+                async move {
+                    let relative = path.strip_prefix(&format!("{}/", bucket_root.trim_end_matches("/"))).unwrap();
+                    let output_filepath = output.join(relative);
+                    write_file_bytes(output_filepath, || async { prelude::read(path.clone()) }).await
                 }
-            });
+            };
             let total_data: usize = count_json_files(&items);
             let total_images: usize = count_image_files(&items);
-            let finish_message = operations_complete_message(name, total_data, total_images);
-            progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
-            progress.finish_with_message(finish_message);
-            total_data + total_images
+            let finish_message = |_| operations_complete_message(name, total_data, total_images);
+            match with_progress_bar(items, message, operation, finish_message, Some(threads)).await {
+                | Ok(_) => Ok(total_data + total_images),
+                | Err(why) => {
+                    error!("=> {} Copy files with progress bar - {why}", Label::fail());
+                    Err(why)
+                }
+            }
         } else {
-            0
+            Ok(0)
         }
     }
     /// Download files from bucket to local directory
@@ -382,8 +373,7 @@ impl Bucket {
     /// Ignores files listed in [`IGNORE`]
     ///
     /// Downloads files concurrently using buffered streams
-    // TODO: Refactor to return ApiResult<usize>
-    pub async fn download_files(self: Bucket, output: PathBuf, threads: usize) -> usize {
+    pub async fn download_files(self: Bucket, output: PathBuf, threads: usize) -> ApiResult<usize> {
         let Bucket { name, code_repository, .. } = self.clone();
         let items = self
             .clone()
@@ -397,47 +387,34 @@ impl Bucket {
             let output = output.clone();
             let repository = code_repository.clone();
             async move {
-                let folder = format!("{}/{}", output.display(), parent(path.clone()).display());
-                match create_dir_all(folder.clone()) {
-                    | Ok(_) => {}
-                    | Err(why) => {
-                        error!(path, "=> {} Create output folder — {why}", Label::fail());
-                    }
-                }
-                if let Ok(mut file) = File::create(format!("{}/{}", output.display(), path)) {
-                    if let Some(url) = repository.raw_url(path.to_string()) {
-                        match get(url).send().await {
-                            | Ok(response) => match response.bytes().await {
-                                | Ok(bytes) => {
-                                    let mut content = Cursor::new(bytes);
-                                    let _ = io::copy(&mut content, &mut file);
-                                }
-                                | Err(why) => {
-                                    error!(path, "=> {} Convert to bytes — {why}", Label::fail());
-                                }
-                            },
-                            | Err(why) => {
-                                error!(path, "=> {} Download file — {why}", Label::fail());
-                            }
-                        }
-                    }
-                }
-                Ok(())
+                let output_filepath = format!("{}/{}", output.display(), path);
+                let url = repository
+                    .raw_url(path.clone())
+                    .ok_or_else(|| eyre!("Failed to build raw URL for repository path"))?;
+                write_file_bytes(output_filepath, || async move {
+                    get(url)
+                        .send()
+                        .await?
+                        .bytes()
+                        .await
+                        .map(|b| b.to_vec())
+                        .map_err(|why| eyre!("Failed to download file — {why}"))
+                })
+                .await
             }
         };
         let total_data: usize = count_json_files(&items);
         let total_images: usize = count_image_files(&items);
         let finish_message = |_| operations_complete_message(name, total_data, total_images);
         match with_progress_bar(items, message, operation, finish_message, Some(threads)).await {
-            | Ok(_) => {}
+            | Ok(_) => Ok(total_data + total_images),
             | Err(why) => {
                 error!("=> {} Download files with progress bar - {why}", Label::fail());
+                Err(why)
             }
         }
-        total_data + total_images
     }
     async fn file_paths(self: Bucket, directory: &str) -> Vec<String> {
-        const FIRST_PAGE: Option<u32> = Some(1);
         fn page_count(response: &Response) -> u32 {
             fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
                 match headers.get(key) {
@@ -452,9 +429,11 @@ impl Bucket {
             let headers = response.headers();
             parse_header(headers, "x-total-pages")
         }
-        match self.code_repository {
+        let Bucket { code_repository, name, .. } = self.clone();
+        let bucket_name = name.clone().unwrap_or_else(|| "Bucket".to_string()).to_uppercase();
+        match &code_repository {
             | Repository::Git { .. } => {
-                let path = match self.code_repository.clone().location().uri() {
+                let path = match code_repository.clone().location().uri() {
                     | Some(value) => PathBuf::from(value.path().to_string()),
                     | None => {
                         unimplemented!()
@@ -466,26 +445,23 @@ impl Bucket {
                 | Ok(response) if response.status().is_success() => Bucket::parse_github_response(response).await,
                 | Ok(_) | Err(_) => {
                     let url = self.tree_url(directory, None);
-                    let name = self.name.unwrap_or_else(|| "Bucket".to_string());
                     debug!(url, "=> {}", Label::using());
-                    error!("=> {} Get file paths for {} bucket", Label::fail(), name.to_uppercase().red());
+                    error!("=> {} Get file paths for {} bucket", Label::fail(), bucket_name.red());
                     vec![]
                 }
             },
-            | Repository::GitLab { .. } => match self.tree(directory, FIRST_PAGE).await {
+            | Repository::GitLab { .. } => match self.tree(directory, Some(FIRST_PAGE)).await {
                 | Ok(response) if response.status().is_success() => {
-                    let start = FIRST_PAGE.unwrap_or_default();
+                    let start = FIRST_PAGE;
                     let end = page_count(&response);
                     let tasks = (start..=end).map(|page| self.clone().file_paths_for_page(directory, Some(page)));
                     let paths = join_all(tasks).await.into_iter().flatten().collect::<Vec<String>>();
-                    trace!("{:#?}", response);
                     paths
                 }
                 | Ok(_) | Err(_) => {
-                    let url = self.tree_url(directory, FIRST_PAGE);
-                    let name = self.name.unwrap_or_else(|| "Bucket".to_string());
+                    let url = self.tree_url(directory, Some(FIRST_PAGE));
                     debug!(url, "=> {}", Label::using());
-                    error!("=> {} Get file paths for {} bucket", Label::fail(), name.to_uppercase().red());
+                    error!("=> {} Get file paths for {} bucket", Label::fail(), bucket_name.red());
                     vec![]
                 }
             },
@@ -495,7 +471,7 @@ impl Bucket {
         match self.tree(directory, page).await {
             | Ok(response) if response.status().is_success() => Bucket::parse_gitlab_response(response).await,
             | Ok(_) | Err(_) => {
-                let url = self.tree_url(directory, Some(1));
+                let url = self.tree_url(directory, Some(FIRST_PAGE));
                 error!(url, page, "=> {} Failed to get paths", Label::fail());
                 vec![]
             }

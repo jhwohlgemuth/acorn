@@ -28,11 +28,27 @@ pub async fn run(
                 if let Some(buckets) = content.buckets {
                     for bucket in buckets {
                         if let Some(path) = output.clone() {
-                            total += if *offline || bucket.clone().code_repository.is_local() {
-                                bucket.copy_files(path)
+                            if *offline || bucket.clone().code_repository.is_local() {
+                                match bucket.copy_files(path, threads).await {
+                                    | Ok(count) => {
+                                        total += count;
+                                    }
+                                    | Err(why) => {
+                                        error!("=> {} Copy data — {why}", Label::fail());
+                                        return Err(why);
+                                    }
+                                }
                             } else {
-                                bucket.download_files(path, threads).await
-                            };
+                                match bucket.download_files(path, threads).await {
+                                    | Ok(count) => {
+                                        total += count;
+                                    }
+                                    | Err(why) => {
+                                        error!("=> {} Download data — {why}", Label::fail());
+                                        return Err(why);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -48,7 +64,7 @@ pub async fn run(
                 }
             }
             | Err(why) => {
-                error!("=> {} Download data - {why}", Label::fail());
+                error!("=> {} Download data — {why}", Label::fail());
                 let activity = ActivityRow::init()
                     .command("download")
                     .executed_at(chrono::Utc::now())
@@ -63,11 +79,27 @@ pub async fn run(
         let mut total: usize = 0;
         let bucket = Bucket::from(value.as_ref());
         if let Some(path) = output.clone() {
-            total += if *offline || bucket.clone().code_repository.is_local() {
-                bucket.copy_files(path.clone())
+            if *offline || bucket.clone().code_repository.is_local() {
+                match bucket.copy_files(path.clone(), threads).await {
+                    | Ok(count) => {
+                        total += count;
+                    }
+                    | Err(why) => {
+                        error!("=> {} Copy data — {why}", Label::fail());
+                        return Err(why);
+                    }
+                }
             } else {
-                bucket.download_files(path.clone(), threads).await
-            };
+                match bucket.download_files(path.clone(), threads).await {
+                    | Ok(count) => {
+                        total += count;
+                    }
+                    | Err(why) => {
+                        error!("=> {} Download data — {why}", Label::fail());
+                        return Err(why);
+                    }
+                }
+            }
             println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             let activity = ActivityRow::init()
                 .command("download")
