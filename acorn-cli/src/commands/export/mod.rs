@@ -109,6 +109,7 @@ pub async fn run(
             }
             #[cfg(not(feature = "pdf"))]
             {
+                use color_eyre::eyre::eyre;
                 Err(eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
             }
         }
