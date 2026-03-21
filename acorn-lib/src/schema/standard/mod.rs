@@ -4,6 +4,7 @@
 //! standards including [DataCite](https://datacite.org/) and
 //! [OpenDataSoft](https://www.opendatasoft.com/) (ODS).
 
+pub mod cff;
 pub mod datacite;
 pub mod dublin_core;
 pub mod invenio;
