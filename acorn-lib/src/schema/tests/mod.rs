@@ -268,6 +268,31 @@ fn test_fuzzy_matching_sponsors() {
     );
     assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
 }
+
+#[test]
+fn test_scalar_enum_validation_helpers() {
+    assert!(IntegerOrString::Number(42).validate().is_ok());
+    assert!(IntegerOrString::Text("42".to_string()).validate().is_ok());
+    assert!(NumberOrString::Number(42.5).validate().is_ok());
+    assert!(NumberOrString::Text("42.5".to_string()).validate().is_ok());
+    assert!(YearValue::Number(2025).validate().is_ok());
+    assert!(YearValue::Text("2025".to_string()).validate().is_ok());
+    let valid_month_values = [
+        MonthValue::Number(1),
+        MonthValue::Number(12),
+        MonthValue::Text("1".to_string()),
+        MonthValue::Text("12".to_string()),
+    ];
+    valid_month_values
+        .iter()
+        .for_each(|value| assert!(value.validate().is_ok(), "expected valid month value: {value:?}"));
+
+    let invalid_month_values = [MonthValue::Number(0), MonthValue::Text("13".to_string())];
+    invalid_month_values.iter().for_each(|value| {
+        let errors = value.validate().expect_err("expected invalid month value to fail validation");
+        assert!(errors.errors().contains_key("month"));
+    });
+}
 #[test]
 fn test_fuzzy_matching_techology() {
     let name = "technology".to_string();
@@ -378,6 +403,27 @@ fn test_organization_graph() {
         division.nearest(OrganizationType::Directorate).unwrap().name,
         "Neutron Sciences Directorate"
     );
+}
+#[test]
+fn test_validate_postal_code() {
+    let valid_values = [
+        PostalCode::Number(37830),
+        PostalCode::Text("SW1A 1AA".to_string()),
+        PostalCode::Text("75008".to_string()),
+    ];
+    valid_values
+        .iter()
+        .for_each(|value| assert!(value.validate().is_ok(), "expected postal code to be valid: {value:?}"));
+    let invalid_values = [
+        PostalCode::Number(-1),
+        PostalCode::Text("   ".to_string()),
+        PostalCode::Text("123456789012345678901".to_string()),
+        PostalCode::Text("12_345".to_string()),
+    ];
+    invalid_values.iter().for_each(|value| {
+        let errors = value.validate().expect_err("expected postal code to fail validation");
+        assert!(errors.errors().contains_key("postal_code"));
+    });
 }
 #[test]
 fn test_read() {

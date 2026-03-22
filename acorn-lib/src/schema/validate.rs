@@ -9,8 +9,11 @@ use crate::util::SemanticVersion;
 use crate::{method_validator, regex_validator};
 use chrono::{DateTime, Datelike, NaiveDate, SecondsFormat, Utc};
 use convert_case::{Case, Casing};
+use core::iter::once;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use uriparse::URI;
-use validator::ValidationError;
+use validator::{Validate, ValidationError, ValidationErrors};
 
 method_validator!(is_ark, "ARK");
 method_validator!(is_doi, "DOI");
@@ -26,6 +29,55 @@ regex_validator!(
     "Provide path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension"
 );
 regex_validator!(is_date, RE_ISO_8601_DATE, "date", "Provide valid ISO 8601 date (e.g., YYYY-MM-DD)");
+/// Integer-or-string value used by selected schema fields.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum IntegerOrString {
+    /// Integer representation.
+    Number(i64),
+    /// String representation.
+    Text(String),
+}
+
+/// Month value represented as integer or string.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum MonthValue {
+    /// Integer representation in range 1-12.
+    Number(u8),
+    /// String representation such as "1" through "12".
+    Text(String),
+}
+
+/// Number-or-string value used by selected schema fields.
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum NumberOrString {
+    /// Numeric representation.
+    Number(f64),
+    /// String representation.
+    Text(String),
+}
+
+/// Year value represented as text or integer.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum YearValue {
+    /// Numeric year representation.
+    Number(i64),
+    /// String year representation.
+    Text(String),
+}
+
+/// Postal code represented as either text or integer.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum PostalCode {
+    /// Numeric postal code.
+    Number(i64),
+    /// String postal code.
+    Text(String),
+}
 /// Format a phone number into a standard format
 /// ### Note
 /// > Output format is `000.000.0000`
@@ -254,4 +306,81 @@ pub fn is_year(value: impl ToString) -> Result<(), ValidationError> {
 fn is_viable_year(year: i32) -> bool {
     let now: DateTime<Utc> = Utc::now();
     year <= now.year()
+}
+
+impl Validate for IntegerOrString {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        Ok(())
+    }
+}
+
+impl Validate for NumberOrString {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        Ok(())
+    }
+}
+
+impl Validate for MonthValue {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let to_validation_errors = |why: ValidationError| {
+            once(why).fold(ValidationErrors::new(), |mut acc, err| {
+                acc.add("month", err);
+                acc
+            })
+        };
+        let valid = match self {
+            | Self::Number(value) => (1..=12).contains(value),
+            | Self::Text(value) => matches!(value.as_str(), "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "11" | "12"),
+        };
+        match valid {
+            | true => Ok(()),
+            | false => Err(to_validation_errors(
+                ValidationError::new("range").with_message("Month should be an integer 1-12 or a string value from \"1\" to \"12\"".into()),
+            )),
+        }
+    }
+}
+
+impl Validate for YearValue {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let to_validation_errors = |why: ValidationError| {
+            once(why).fold(ValidationErrors::new(), |mut acc, err| {
+                acc.add("year", err);
+                acc
+            })
+        };
+        match self {
+            | Self::Number(value) => is_year(*value).map_err(to_validation_errors),
+            | Self::Text(value) => is_year(value).map_err(to_validation_errors),
+        }
+    }
+}
+
+impl Validate for PostalCode {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let to_validation_errors = |why: ValidationError| {
+            once(why).fold(ValidationErrors::new(), |mut acc, err| {
+                acc.add("postal_code", err);
+                acc
+            })
+        };
+        let valid = match self {
+            | Self::Number(value) => *value >= 0,
+            | Self::Text(value) => {
+                let trimmed = value.trim();
+                !trimmed.is_empty()
+                    && trimmed.len() <= 20
+                    && trimmed
+                        .chars()
+                        .all(|character| character.is_alphanumeric() || character == ' ' || character == '-')
+            }
+        };
+        match valid {
+            | true => Ok(()),
+            | false => Err(to_validation_errors(ValidationError::new("format").with_message(
+                "Postal code should be a non-negative integer or a non-empty string up to 20 characters using letters, digits, spaces, or hyphens"
+                    .into(),
+            ))),
+        }
+    }
 }

@@ -1,4 +1,5 @@
-use crate::schema::standard::cff::{Agent, Cff, CffType, IdentifierType, License, PostalCode, ReferenceType, YearValue};
+use crate::schema::standard::cff::{Agent, Cff, CffType, IdentifierType, License, ReferenceType};
+use crate::schema::validate::{PostalCode, YearValue};
 
 const MINIMAL_YAML: &str = r#"
 authors:
@@ -16,7 +17,7 @@ const TYPICAL_JSON: &str = r#"
       "family-names": "Druskat",
       "given-names": "Stephan",
       "orcid": "https://orcid.org/1234-5678-9101-1121",
-      "post-code": "40210"
+      "postal-code": "40210"
     }
   ],
   "cff-version": "1.2.0",
@@ -41,7 +42,7 @@ const TYPICAL_JSON: &str = r#"
       {
         "family-names": "Druskat",
         "given-names": "Stephan",
-        "post-code": 12345
+        "postal-code": 12345
       }
     ],
     "title": "Software paper about My Research Software",
@@ -105,7 +106,7 @@ fn test_cff_typical_json_round_trip() {
     assert_eq!(preferred.kind, ReferenceType::Article);
     assert_eq!(preferred.year, Some(YearValue::Number(2021)));
     match &preferred.authors[0] {
-        | Agent::Person(person) => assert_eq!(person.post_code, Some(PostalCode::Number(12345))),
+        | Agent::Person(person) => assert_eq!(person.postal_code, Some(PostalCode::Number(12345))),
         | Agent::Entity(_) => panic!("expected preferred-citation author to be a person"),
     }
     let reference = parsed
