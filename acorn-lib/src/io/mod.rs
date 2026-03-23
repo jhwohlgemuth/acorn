@@ -81,6 +81,10 @@ pub trait FromPath {
 pub trait InputOutput: Sized {
     /// Read data from specified file path
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self>;
+    /// Read data as CFF from specified path
+    fn read_cff(_path: impl Into<PathBuf>) -> ApiResult<Self> {
+        Err(eyre!("CFF read not implemented for this type"))
+    }
     /// Read data from specified JSON file path
     fn read_json(path: PathBuf) -> ApiResult<Self>;
     /// Read data as Markdown from specified path
@@ -91,6 +95,10 @@ pub trait InputOutput: Sized {
     fn read_yaml(path: PathBuf) -> ApiResult<Self>;
     /// Write data to specified path
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
+    /// Write data as CFF to specified path
+    fn write_cff(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
+        Err(eyre!("CFF write not implemented for this type"))
+    }
     /// Write data as JSON to specified path
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
     /// Write data as Markdown (MD) to specified path

@@ -592,6 +592,7 @@ where
         let name = value.to_string().to_lowercase();
         match file_extension(name) {
             | Some(value) => match value.as_str() {
+                | "cff" => MimeType::Cff,
                 | "csv" => MimeType::Csv,
                 | "jpg" | "jpeg" => MimeType::Jpeg,
                 | "json" => MimeType::Json,
@@ -604,7 +605,7 @@ where
                 | "svg" => MimeType::Svg,
                 | "toml" => MimeType::Toml,
                 | "txt" => MimeType::Text,
-                | "yml" | "yaml" | "cff" => MimeType::Yaml,
+                | "yml" | "yaml" => MimeType::Yaml,
                 | _ => MimeType::Unknown,
             },
             | None => MimeType::Unknown,

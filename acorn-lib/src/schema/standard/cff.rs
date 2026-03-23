@@ -520,6 +520,33 @@ pub struct Reference {
     #[validate(nested)]
     pub year_original: Option<YearValue>,
 }
+impl Default for Cff {
+    fn default() -> Self {
+        Self {
+            abstract_text: None,
+            authors: Vec::new(),
+            cff_version: "1.2.0".to_string(),
+            commit: None,
+            contact: None,
+            date_released: None,
+            doi: None,
+            identifiers: None,
+            keywords: None,
+            license: None,
+            license_url: None,
+            message: "If you use this software, please cite it using the metadata provided in this file.".to_string(),
+            preferred_citation: None,
+            references: None,
+            repository: None,
+            repository_artifact: None,
+            repository_code: None,
+            title: String::new(),
+            kind: None,
+            url: None,
+            version: None,
+        }
+    }
+}
 impl Validate for Agent {
     fn validate(&self) -> Result<(), ValidationErrors> {
         match self {

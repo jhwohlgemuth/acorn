@@ -52,6 +52,38 @@ pub async fn run(
                 .and_then(|_| Bag::verify(destination.clone()))
                 .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
         }
+        | FileFormat::Cff => {
+            let from_options = paths_from_options(path, &Some(options.clone())).await;
+            let (skipped, paths): (Vec<_>, Vec<_>) = from_options
+                .iter()
+                .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
+            skipped.iter().for_each(|path| {
+                skip!("{} is already in {} format", path.display(), extension);
+            });
+            let count = paths.len() as u64;
+            let progress = ProgressBar::new(count);
+            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+            for path in &paths {
+                progress.set_message(format!("Generating {} for {}", extension.clone(), path.display()));
+                let output = path.with_file_name("CITATION").with_extension(extension.clone());
+                match ResearchActivity::read(path) {
+                    | Ok(data) => match data.write(output) {
+                        | Ok(_) => {}
+                        | Err(_) => {
+                            exit(exitcode::UNAVAILABLE);
+                        }
+                    },
+                    | Err(why) => {
+                        fail!("Read research activity data - {}", why);
+                        exit(exitcode::DATAERR);
+                    }
+                };
+                progress.inc(1);
+            }
+            progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
+            info!("=> {} Exported {count} {} file{}", Label::pass(), extension, suffix(count));
+            Ok(())
+        }
         | FileFormat::Json => {
             let from_options = paths_from_options(path, &Some(options.clone())).await;
             let (skipped, paths): (Vec<_>, Vec<_>) = from_options

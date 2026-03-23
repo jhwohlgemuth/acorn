@@ -1,6 +1,7 @@
 use crate::io::InputOutput;
 use crate::prelude::PathBuf;
 use crate::schema::research_activity::*;
+use crate::schema::standard::cff::{Agent, Cff};
 use crate::schema::*;
 use pretty_assertions::assert_eq;
 
@@ -77,6 +78,23 @@ Focus of the research
     let data = ResearchActivity::default();
     let actual = data.to_markdown().replace("\r\n", "\n");
     assert_eq!(actual, expected);
+}
+#[test]
+fn test_research_activity_into_cff() {
+    let rad = ResearchActivity::default();
+    let cff: Cff = rad.into();
+    assert_eq!(cff.title, "Research Activity Title");
+    assert_eq!(cff.abstract_text, Some("Purpose of the research".to_string()));
+    assert_eq!(cff.cff_version, "1.2.0");
+    assert!(matches!(&cff.authors[0], Agent::Person(_)));
+    assert!(matches!(&cff.contact.as_ref().unwrap()[0], Agent::Person(_)));
+    assert_eq!(cff.doi, None);
+    assert_eq!(cff.keywords, None);
+    let rad_with_doi = ResearchActivity::init()
+        .meta(ResearchActivityMetadata::init().doi(vec!["10.1000/xyz123".to_string()]).build())
+        .build();
+    let cff_with_doi: Cff = rad_with_doi.into();
+    assert_eq!(cff_with_doi.doi, Some("10.1000/xyz123".to_string()));
 }
 #[test]
 fn test_research_activity_format() {

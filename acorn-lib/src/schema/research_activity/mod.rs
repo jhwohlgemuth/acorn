@@ -10,6 +10,7 @@ use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutpu
 use crate::prelude::PathBuf;
 use crate::schema::namespaces::{codemeta, dcat, schema_org};
 use crate::schema::pid::PersistentIdentifierConvert;
+use crate::schema::standard::cff::{Agent, Cff, Person};
 use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
 use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website};
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
@@ -487,6 +488,7 @@ impl InputOutput for ResearchActivity {
         let output = path.into();
         let mime = MimeType::from_path(output.clone());
         match mime {
+            | MimeType::Cff => self.write_cff(output),
             | MimeType::Json => self.write_json(output),
             | MimeType::Markdown => self.write_markdown(output),
             | MimeType::Yaml => self.write_yaml(output),
@@ -494,6 +496,13 @@ impl InputOutput for ResearchActivity {
                 unimplemented!("Unsupported research activity data file extension for writing")
             }
         }
+    }
+    fn write_cff(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("cff");
+        let data: Cff = self.into();
+        serde_yml::to_string(&data)
+            .map_err(|why| eyre!("Failed to serialize RAD CITATION.cff — {why}"))
+            .and_then(|content| write_file(output, content))
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("json");
@@ -571,6 +580,58 @@ impl ResearchActivity {
             ..self
         }
         .format()
+    }
+}
+impl From<&ResearchActivity> for Cff {
+    fn from(rad: &ResearchActivity) -> Self {
+        let sections = rad.sections.clone();
+        let contact = rad.contact.clone();
+        let meta = rad.meta.clone();
+        let title = rad.title.clone();
+        let ContactPoint {
+            given_name,
+            family_name,
+            identifier: orcid,
+            email,
+            organization,
+            affiliation,
+            ..
+        } = contact;
+        let person_affiliation = affiliation.or(if organization.is_empty() { None } else { Some(organization) });
+        let person = Agent::Person(Person {
+            given_names: Some(given_name),
+            family_names: Some(family_name),
+            orcid,
+            email: Some(email),
+            affiliation: person_affiliation,
+            address: None,
+            alias: None,
+            city: None,
+            country: None,
+            fax: None,
+            name_particle: None,
+            name_suffix: None,
+            postal_code: None,
+            region: None,
+            tel: None,
+            website: None,
+        });
+        let keywords = if meta.keywords.is_empty() { None } else { Some(meta.keywords) };
+        let doi = meta.doi.and_then(|dois| dois.into_iter().next());
+        Cff {
+            abstract_text: Some(sections.mission),
+            authors: vec![person.clone()],
+            contact: Some(vec![person]),
+            keywords,
+            doi,
+            title,
+            ..Cff::default()
+        }
+    }
+}
+impl From<ResearchActivity> for Cff {
+    fn from(rad: ResearchActivity) -> Self {
+        Cff::from(&rad)
     }
 }
 impl ToMarkdown for ResearchActivity {

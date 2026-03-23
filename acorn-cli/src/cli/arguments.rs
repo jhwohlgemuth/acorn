@@ -39,6 +39,8 @@ pub enum FileFormat {
     Pdf,
     #[display("BagIt")]
     Bag,
+    #[display("CFF")]
+    Cff,
     #[display("JSON")]
     Json,
     #[display("MD")]
@@ -106,6 +108,7 @@ impl From<FileFormat> for MimeType {
         match format {
             | FileFormat::Pdf => MimeType::Pdf,
             | FileFormat::Bag => MimeType::Zip,
+            | FileFormat::Cff => MimeType::Cff,
             | FileFormat::Json => MimeType::Json,
             | FileFormat::Markdown => MimeType::Markdown,
             | FileFormat::Powerpoint => MimeType::Powerpoint,
