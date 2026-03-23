@@ -11,7 +11,6 @@ use validator::{Validate, ValidationErrors};
 
 /// Collection of CFF records.
 pub type Catalog = Vec<Cff>;
-
 /// Author or contact actor represented as person or entity.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(untagged)]

@@ -677,7 +677,8 @@ impl Organization {
     }
     /// Returns a list of all organizations, loaded from the organization.json asset file
     pub fn load() -> Vec<Organization> {
-        serde_json::from_str(&Constant::from_asset("organization.json")).unwrap()
+        let content = Constant::from_asset("organization.json").unwrap_or_default();
+        serde_json::from_str(&content).unwrap()
     }
     /// Finds the first organization in the hierarchy with the given label.
     pub fn member(self, label: &str) -> Option<Organization> {

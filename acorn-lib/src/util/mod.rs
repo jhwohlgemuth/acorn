@@ -332,20 +332,17 @@ pub struct SemanticVersion {
 }
 impl Constant {
     /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
-    pub fn from_asset(file_name: &str) -> String {
-        match Constant::get(file_name) {
-            | Some(value) => String::from_utf8_lossy(value.data.as_ref()).into(),
-            | None => {
-                fail!("Import Constant asset ({})", file_name);
-                "".to_string()
-            }
+    pub fn from_asset(file_name: &str) -> Option<String> {
+        match Self::get(file_name) {
+            | Some(value) => Some(String::from_utf8_lossy(value.data.as_ref()).into()),
+            | None => None,
         }
     }
     /// Returns an iterator over the last values of each row in the given file.
     ///
     /// If a row is empty, an empty string is returned.
     pub fn last_values(file_name: &str) -> impl Iterator<Item = String> {
-        Constant::csv(file_name)
+        Self::csv(file_name)
             .into_iter()
             .map(|x| match x.last() {
                 | Some(value) => value.to_string(),
@@ -355,7 +352,9 @@ impl Constant {
     }
     /// Reads a file from the asset folder and returns its contents as an iterator over individual lines.
     pub fn read_lines(file_name: &str) -> Vec<String> {
-        Constant::from_asset(file_name).lines().map(String::from).collect()
+        Self::from_asset(file_name)
+            .map(|value| value.lines().map(String::from).collect())
+            .unwrap_or_default()
     }
     /// Reads a CSV file from the asset folder and returns its contents as a `Vec` of `Vec<String>`,
     /// where each inner vector represents a row and each string within the inner vector represents a cell value.
@@ -363,7 +362,7 @@ impl Constant {
     /// # Arguments
     /// * `file_name` - A string slice representing the name of the CSV file (without extension)
     pub fn csv(file_name: impl AsRef<str>) -> Vec<Vec<String>> {
-        Constant::read_lines(format!("{}.csv", file_name.as_ref()).as_str())
+        Self::read_lines(format!("{}.csv", file_name.as_ref()).as_str())
             .into_iter()
             .map(|x| x.split(",").map(String::from).collect())
             .collect()
@@ -376,9 +375,9 @@ impl Constant {
     where
         T: Default + serde::de::DeserializeOwned,
     {
-        let text = Constant::from_asset(format!("{}.json", file_name.as_ref()).as_str());
-        let content: T = serde_json::from_str(&text).unwrap_or_default();
-        content
+        Self::from_asset(format!("{}.json", file_name.as_ref()).as_str())
+            .map(|text| serde_json::from_str(&text).unwrap_or_default())
+            .unwrap_or_default()
     }
 }
 impl Label {

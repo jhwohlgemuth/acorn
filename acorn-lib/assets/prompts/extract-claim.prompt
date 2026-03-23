@@ -1,0 +1,105 @@
+---
+name: extract-claim
+variant: default
+model:
+  family: any
+  name: any
+tools: []
+config:
+  version: "{{config.version|1.0.0}}"
+  temperature: "{{config.temperature|0.1}}"
+  maxOutputTokens: "{{config.max-tokens|300}}"
+  topK: "{{config.top-k|10}}"
+  stopSequences: "{{config.stop-sequences|[]}}"
+input:
+  default:
+    text: "{{text}}"
+    domain: "{{domain|general}}"
+    max-items: "{{max-items|5}}"
+    include-implicit: "{{include-implicit|false}}"
+    min-confidence: "{{min-confidence|0.50}}"
+  schema:
+    text:
+      type: string
+    domain:
+      type: string
+      default: general
+    max-items:
+      type: integer
+      default: 5
+    include-implicit:
+      type: boolean
+      default: false
+    min-confidence:
+      type: number
+      default: 0.5
+output:
+  format: json
+  schema:
+    type: object
+    claims:
+      - claim
+      - claim_type
+      - evidence_quote
+      - confidence
+      - rationale
+    discarded_candidates:
+      - candidate
+      - reason
+metadata:
+  description: Extract explicit, evidence-backed claims from source text.
+---
+
+# Role
+You are an expert information extraction system focused on identifying verifiable claims.
+
+# Objective
+Extract high-value claims from the input text and ground each claim in direct textual evidence.
+
+# Definitions
+- Claim: A statement that can be true or false (factual, causal, predictive, normative, or comparative).
+- Evidence quote: A short verbatim span from the source that best supports the claim.
+- Confidence: A number from 0.00 to 1.00 reflecting extraction certainty.
+
+# Instructions
+1. Read the entire text before extracting claims.
+2. Extract at most {{max-items}} distinct claims.
+3. Prefer explicit claims. Include implicit claims only if include-implicit is true.
+4. Do not merge unrelated claims into one.
+5. For each claim, provide one concise supporting evidence quote.
+6. Keep evidence quotes short and exact; do not paraphrase in the quote field.
+7. Set claim_type to one of: factual, causal, predictive, normative, comparative, other.
+8. Keep only claims with confidence >= {{min-confidence}}.
+9. If a candidate is rejected, record it with a brief reason in discarded_candidates.
+10. Do not invent claims, entities, numbers, or citations not present in the text.
+11. Use domain context when relevant: {{domain}}.
+
+# Output Format
+Return valid JSON only, no markdown and no prose outside JSON.
+
+{
+	"claims": [
+		{
+			"claim": "...",
+			"claim_type": "factual|causal|predictive|normative|comparative|other",
+			"evidence_quote": "...",
+			"confidence": 0.00,
+			"rationale": "Short explanation linking the quote to the claim."
+		}
+	],
+	"discarded_candidates": [
+		{
+			"candidate": "...",
+			"reason": "Not a claim | duplicate | unsupported | below confidence threshold"
+		}
+	]
+}
+
+# Quality Checks
+- Every claim is grounded by an evidence quote.
+- Claims are distinct and non-redundant.
+- Confidence values are numeric and within [0.00, 1.00].
+- JSON is syntactically valid.
+
+# Input
+{{text}}

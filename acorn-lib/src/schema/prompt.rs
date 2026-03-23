@@ -3,10 +3,62 @@
 //! Aims to support Google [dotprompt](https://github.com/google/dotprompt) and [agent skills](https://agentskills.io/specification) specificaitons
 use crate::util::SemanticVersion;
 use bon::Builder;
+use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
+/// Prompt configuration
+#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[builder(start_fn = init)]
+pub struct Configuration {
+    /// Audience profile for output adaptation
+    pub audience: Option<String>,
+    /// Domain context (e.g., legal, medical, scientific)
+    pub domain: Option<String>,
+    /// Formality preference
+    pub formality: Option<String>,
+    /// Include back translation when supported
+    pub include_back_translation: Option<bool>,
+    /// Include implicit inferences when supported
+    pub include_implicit: Option<bool>,
+    /// Include quote snippets when supported
+    pub include_quotes: Option<bool>,
+    /// Preserve named entities
+    pub keep_entities: Option<bool>,
+    /// Target language for translation tasks
+    pub language: Option<String>,
+    /// Target locale variant (e.g., es-MX, pt-BR)
+    pub locale: Option<String>,
+    /// Generic limit for item counts (e.g., claims, bullets)
+    pub max_items: Option<u32>,
+    /// Maximum number of tokens to allow in context
+    #[builder(default = 300)]
+    pub max_tokens: u32,
+    /// Word budget
+    pub max_words: Option<u32>,
+    /// Minimum confidence threshold
+    pub min_confidence: Option<f32>,
+    /// Preserve structural layout such as bullets and numbering
+    pub preserve_layout: Option<bool>,
+    /// Specific strings that signal the model to halt generation
+    #[builder(default = Vec::new())]
+    pub stop_sequences: Vec<String>,
+    /// Style preference (e.g., neutral, formal)
+    pub style: Option<String>,
+    /// Hyperparameter that controls the randomness and creativity of the model output
+    #[builder(default = 0.1)]
+    pub temperature: f32,
+    /// Source text to process
+    pub text: Option<String>,
+    /// Sampling parameter that limits token selection to the K most probable
+    #[builder(default = 10)]
+    pub top_k: u32,
+    /// Prompt version
+    #[builder(default)]
+    pub version: SemanticVersion,
+}
 /// YAML compliant prompt file front matter
 /// ### Notes
 /// - Opencode only supports `name`, `description`, `license`, `compatibility`, and `metadata`
@@ -22,7 +74,7 @@ pub struct FrontMatter {
     #[builder(default = String::new())]
     pub description: String,
     /// Prompt configuration
-    pub config: Option<PromptConfiguration>,
+    pub config: Option<Configuration>,
     /// SPDX license identifier for the prompt (could also specify path to LICENSE file)
     // TODO: validate with is_license
     pub license: Option<String>,
@@ -67,34 +119,28 @@ pub enum Model {
     /// Large language model useful for natural language processing, generative AI, etc.
     LLM(LanguageModelDetails),
 }
-/// Prompt configuration
-#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-#[builder(start_fn = init)]
-pub struct PromptConfiguration {
-    /// Prompt version
-    #[builder(default)]
-    pub version: SemanticVersion,
-    /// Hyperparameter that controls the randomness and creativity of the model output
-    #[builder(default = 0.1)]
-    pub temperature: f32,
-    /// Maximum number of tokens to allow in context
-    #[builder(default = 300)]
-    pub max_tokens: u32,
-    /// Sampling parameter that limits token selection to the K most probable
-    #[builder(default = 10)]
-    pub top_k: u32,
-    /// Specific strings that signal the model to halt generation
-    #[builder(default = Vec::new())]
-    pub stop_sequences: Vec<String>,
-}
+/// Struct for using and sharing prompt templates
+///
+/// See <https://git.sr.ht/~pyrossh/rust-embed>
+#[derive(Embed)]
+#[folder = "assets/prompts/"]
+pub struct PromptTemplate;
 impl Default for FrontMatter {
     fn default() -> Self {
         FrontMatter::init().build()
     }
 }
-impl Default for PromptConfiguration {
+impl Default for Configuration {
     fn default() -> Self {
-        PromptConfiguration::init().build()
+        Configuration::init().build()
+    }
+}
+impl PromptTemplate {
+    /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
+    pub fn from_asset(file_name: &str) -> Option<String> {
+        match Self::get(file_name) {
+            | Some(value) => Some(String::from_utf8_lossy(value.data.as_ref()).into()),
+            | None => None,
+        }
     }
 }
