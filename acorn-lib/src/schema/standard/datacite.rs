@@ -4,8 +4,12 @@
 //! DOI records, creators, contributors, related identifiers, funding
 //! references, geolocation, rights, and other metadata properties
 use super::ods;
+#[cfg(feature = "std")]
+use crate::io::License;
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::validate::{is_doi, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
+#[cfg(not(feature = "std"))]
+use crate::util::License;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -988,9 +992,9 @@ pub struct Rights {
     #[serde(rename = "rightsURI", alias = "@rightsURI")]
     pub rights_uri: Option<String>,
     /// Rights identifier (e.g., CC-BY-4.0)
-    // TODO: Add validation for licenses using SPDX
+    #[validate(nested)]
     #[serde(rename = "rightsIdentifier", alias = "@rightsIdentifier")]
-    pub rights_identifier: Option<String>,
+    pub rights_identifier: Option<License>,
     /// Rights identifier scheme (e.g., SPDX)
     #[serde(rename = "rightsIdentifierScheme", alias = "@rightsIdentifierScheme")]
     pub rights_identifier_scheme: Option<String>,

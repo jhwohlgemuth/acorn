@@ -551,7 +551,31 @@ fn test_is_kebabcase() {
     }
 }
 #[test]
-fn test_is_list_url() {
+fn test_is_commit() {
+    let valid = [
+        "a1b2c3d",
+        "A1B2C3D4",
+        "0123456789abcdef0123456789abcdef01234567",
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    ];
+    let invalid = [
+        "",
+        "123456",
+        "xyzxyzx",
+        "g123456",
+        "123456 ",
+        "12345-678",
+        "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef0",
+    ];
+    for x in valid.iter() {
+        assert!(is_commit(x).is_ok(), "=> [REASON] \"{x}\" is NOT a valid commit hash");
+    }
+    for x in invalid.iter() {
+        assert!(is_commit(x).is_err(), "=> [REASON] \"{x}\" IS a valid commit hash");
+    }
+}
+#[test]
+fn test_is_urls() {
     let valid = [
         "http://www.example.com".to_string(),
         "https://example.com".to_string(),
@@ -565,8 +589,8 @@ fn test_is_list_url() {
         "https://example.com#foo bar".to_string(),
         "https//example.com:1337#foo?bar".to_string(),
     ];
-    assert!(is_list_url(&valid).is_ok());
-    assert!(is_list_url(&invalid).is_err());
+    assert!(is_urls(&valid).is_ok());
+    assert!(is_urls(&invalid).is_err());
 }
 #[test]
 fn test_is_orcid() {

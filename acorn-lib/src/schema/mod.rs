@@ -41,6 +41,7 @@ use validator::Validate;
 pub mod graph;
 pub mod namespaces;
 pub mod pid;
+#[cfg(feature = "std")]
 pub mod prompt;
 pub mod research_activity;
 pub mod standard;

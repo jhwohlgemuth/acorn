@@ -1,74 +1,70 @@
 //! Module with data model and utilities for parsing and working with CITATION File Format (CFF) files
 //!
 //! See <https://github.com/citation-file-format/citation-file-format/blob/main/schema-guide.md> for more information on the CFF schema.
+#[cfg(feature = "std")]
+use crate::io::License;
 use crate::schema::validate::{
-    is_date, is_doi, is_isbn, is_orcid, is_phone_number, is_semantic_version, IntegerOrString, MonthValue, NumberOrString, PostalCode, YearValue,
+    is_commit, is_country_code, is_date, is_doi, is_isbn, is_orcid, is_phone_number, is_semantic_version, is_states, IntegerOrString, MonthValue,
+    NumberOrString, PostalCode, YearValue,
 };
+#[cfg(not(feature = "std"))]
+use crate::util::License;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use validator::{Validate, ValidationErrors};
 
-/// Collection of CFF records.
+/// Collection of CFF records
 pub type Catalog = Vec<Cff>;
-/// Author or contact actor represented as person or entity.
+/// Author or contact actor represented as person or entity
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum Agent {
-    /// Collective entity representation.
+    /// Collective entity representation
     Entity(Entity),
-    /// Individual person representation.
+    /// Individual person representation
     Person(Person),
 }
-/// Primary work type in the CFF root object.
+/// Primary work type in the CFF root object
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CffType {
-    /// Dataset output.
+    /// Dataset output
     Dataset,
-    /// Software output.
+    /// Software output
     Software,
 }
 /// Identifier type for CFF identifier objects.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum IdentifierType {
-    /// Digital Object Identifier.
+    /// Digital Object Identifier
     Doi,
-    /// Any other identifier namespace.
+    /// Any other identifier namespace
     Other,
-    /// Software Heritage identifier.
+    /// Software Heritage identifier
     Swh,
-    /// URL identifier.
+    /// URL identifier
     Url,
 }
-/// Root-level or reference-level license declaration.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(untagged)]
-pub enum License {
-    /// Multiple SPDX identifiers interpreted as OR.
-    Multiple(Vec<String>),
-    /// Single SPDX identifier.
-    Single(String),
-}
-/// Publication status value for a CFF reference.
+/// Publication status value for a CFF reference
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PublicationStatus {
     /// Abstract.
     Abstract,
-    /// Advance online publication.
+    /// Advance online publication
     AdvanceOnline,
-    /// In preparation.
+    /// In preparation
     InPreparation,
-    /// In press.
+    /// In press
     InPress,
-    /// Preprint.
+    /// Preprint
     Preprint,
-    /// Submitted.
+    /// Submitted
     Submitted,
 }
-/// Reference type enumeration from CFF 1.2.
+/// Reference type enumeration from CFF 1.2
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ReferenceType {
@@ -167,7 +163,7 @@ pub enum ReferenceType {
     /// Website
     Website,
 }
-/// Top-level Citation File Format (CFF) record.
+/// Top-level Citation File Format (CFF) record
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Validate)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
@@ -231,58 +227,61 @@ pub struct Cff {
     #[validate(custom(function = "is_semantic_version"))]
     pub version: Option<String>,
 }
-/// Organization, team, or other non-person entity metadata used in CFF.
+/// Organization, team, or other non-person entity metadata used in CFF
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Validate)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Entity {
-    /// Street or postal address.
+    /// Street or postal address
     pub address: Option<String>,
-    /// Alias or abbreviation.
+    /// Alias or abbreviation
     pub alias: Option<String>,
-    /// City name.
+    /// City name
     pub city: Option<String>,
-    /// ISO 3166-1 alpha-2 country code.
+    /// ISO 3166-1 alpha-2 country code
+    #[validate(custom(function = "is_country_code"))]
     pub country: Option<String>,
-    /// Optional end date when the entity is time-bound.
+    /// Optional end date when the entity is time-bound
+    #[validate(custom(function = "is_date"))]
     pub date_end: Option<String>,
-    /// Optional start date when the entity is time-bound.
+    /// Optional start date when the entity is time-bound
+    #[validate(custom(function = "is_date"))]
     pub date_start: Option<String>,
-    /// Email address.
+    /// Email address
     #[validate(email)]
     pub email: Option<String>,
-    /// Fax number.
+    /// Fax number
     pub fax: Option<String>,
-    /// Free-form location details.
+    /// Free-form location details
     pub location: Option<String>,
-    /// Entity display name.
+    /// Entity display name
     pub name: String,
-    /// ORCID URI.
+    /// ORCID URI
     #[validate(custom(function = "is_orcid"))]
     pub orcid: Option<String>,
-    /// Postal code value.
+    /// Postal code value
     #[validate(nested)]
     pub postal_code: Option<PostalCode>,
-    /// Region/state/province.
+    /// Region/state/province
     pub region: Option<String>,
-    /// Telephone number.
+    /// Telephone number
     #[validate(custom(function = "is_phone_number"))]
     pub tel: Option<String>,
-    /// Website URL.
+    /// Website URL
     #[validate(url)]
     pub website: Option<String>,
 }
-/// Identifier object used in root records and references.
+/// Identifier object used in root records and references
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Validate)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Identifier {
-    /// Optional note describing this specific identifier.
+    /// Optional note describing this specific identifier
     pub description: Option<String>,
-    /// Identifier category.
+    /// Identifier category
     #[serde(rename = "type")]
     pub kind: IdentifierType,
-    /// Identifier value.
+    /// Identifier value
     pub value: String,
 }
 /// Individual person metadata used in CFF.
@@ -290,41 +289,42 @@ pub struct Identifier {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Validate)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Person {
-    /// Street or postal address.
+    /// Street or postal address
     pub address: Option<String>,
-    /// Affiliation of the person.
+    /// Affiliation of the person
     pub affiliation: Option<String>,
-    /// Alias or handle.
+    /// Alias or handle
     pub alias: Option<String>,
-    /// City name.
+    /// City name
     pub city: Option<String>,
-    /// ISO 3166-1 alpha-2 country code.
+    /// ISO 3166-1 alpha-2 country code
+    #[validate(custom(function = "is_country_code"))]
     pub country: Option<String>,
-    /// Email address.
+    /// Email address
     #[validate(email)]
     pub email: Option<String>,
-    /// Family names.
+    /// Family names
     pub family_names: Option<String>,
-    /// Fax number.
+    /// Fax number
     pub fax: Option<String>,
-    /// Given names.
+    /// Given names
     pub given_names: Option<String>,
-    /// Name particle such as "von".
+    /// Name particle such as "von"
     pub name_particle: Option<String>,
-    /// Name suffix such as "Jr.".
+    /// Name suffix such as "Jr."
     pub name_suffix: Option<String>,
-    /// ORCID URI.
+    /// ORCID URI
     #[validate(custom(function = "is_orcid"))]
     pub orcid: Option<String>,
-    /// Postal code value.
+    /// Postal code value
     #[validate(nested)]
     pub postal_code: Option<PostalCode>,
-    /// Region/state/province.
+    /// Region/state/province
     pub region: Option<String>,
-    /// Telephone number.
+    /// Telephone number
     #[validate(custom(function = "is_phone_number"))]
     pub tel: Option<String>,
-    /// Website URL.
+    /// Website URL
     #[validate(url)]
     pub website: Option<String>,
 }
@@ -333,62 +333,62 @@ pub struct Person {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Validate)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Reference {
-    /// Abbreviation of the referenced work.
+    /// Abbreviation of the referenced work
     pub abbreviation: Option<String>,
-    /// Work abstract or synopsis.
+    /// Work abstract or synopsis
     #[serde(rename = "abstract")]
     pub abstract_text: Option<String>,
-    /// Authors of the related work.
+    /// Authors of the related work
     #[validate(nested)]
     pub authors: Vec<Agent>,
-    /// DOI of a collection containing the work.
+    /// DOI of a collection containing the work
     #[validate(custom(function = "is_doi"))]
     pub collection_doi: Option<String>,
-    /// Title of a collection or proceedings.
+    /// Title of a collection or proceedings
     pub collection_title: Option<String>,
-    /// Type of collection containing the work.
+    /// Type of collection containing the work
     pub collection_type: Option<String>,
-    /// Commit hash or revision number.
-    // TODO: Create is_commit
+    /// Commit hash or revision number
+    #[validate(custom(function = "is_commit"))]
     pub commit: Option<String>,
-    /// Conference where the work was presented.
+    /// Conference where the work was presented
     #[validate(nested)]
     pub conference: Option<Entity>,
-    /// Contact person(s) or entity(ies) for the work.
+    /// Contact person(s) or entity(ies) for the work
     #[validate(nested)]
     pub contact: Option<Vec<Agent>>,
-    /// Copyright information.
+    /// Copyright information
     pub copyright: Option<String>,
-    /// Data type of a dataset.
+    /// Data type of a dataset
     pub data_type: Option<String>,
-    /// Name of the database storing or serving the work.
+    /// Name of the database storing or serving the work
     pub database: Option<String>,
-    /// Provider of the database storing or serving the work.
+    /// Provider of the database storing or serving the work
     pub database_provider: Option<Entity>,
-    /// Date the work was accessed.
+    /// Date the work was accessed
     #[validate(custom(function = "is_date"))]
     pub date_accessed: Option<String>,
-    /// Date the work was downloaded.
+    /// Date the work was downloaded
     #[validate(custom(function = "is_date"))]
     pub date_downloaded: Option<String>,
-    /// Date the work was published.
+    /// Date the work was published
     #[validate(custom(function = "is_date"))]
     pub date_published: Option<String>,
-    /// Date the work was released.
+    /// Date the work was released
     #[validate(custom(function = "is_date"))]
     pub date_released: Option<String>,
     /// Department where the work was produced
     // TODO: Map to research_activity::contact::organization
     pub department: Option<String>,
-    /// DOI of the related work.
+    /// DOI of the related work
     #[validate(custom(function = "is_doi"))]
     pub doi: Option<String>,
-    /// Edition of the work.
+    /// Edition of the work
     pub edition: Option<String>,
-    /// Editors of the work.
+    /// Editors of the work
     #[validate(nested)]
     pub editors: Option<Vec<Agent>>,
-    /// Editors of the series containing the work.
+    /// Editors of the series containing the work
     #[validate(nested)]
     pub editors_series: Option<Vec<Agent>>,
     /// End page of the work
@@ -444,7 +444,10 @@ pub struct Reference {
     /// Publication month
     #[validate(nested)]
     pub month: Option<MonthValue>,
-    /// NIHMS identifier
+    /// NIHMS identifier (NIHMSID)
+    /// ### Note
+    /// NIHMSID is a preliminary article identifier that applies only to manuscripts deposited through the NIH (National Institutes of Health) Manuscript Submission (NIHMS) system
+    /// <div class="warning">NIHMSIDs do not have a public schema and are not validated</div>
     pub nihmsid: Option<String>,
     /// Notes pertaining to the work
     pub notes: Option<String>,
@@ -455,7 +458,7 @@ pub struct Reference {
     /// Number of pages of the work
     pub pages: Option<IntegerOrString>,
     /// States for which a patent is granted
-    // TODO: Create is_state (two-character string)
+    #[validate(custom(function = "is_states"))]
     pub patent_states: Option<Vec<String>>,
     /// PMCID identifier
     pub pmcid: Option<String>,
@@ -474,7 +477,9 @@ pub struct Reference {
     /// Source code repository URL
     #[validate(url)]
     pub repository_code: Option<String>,
-    /// Scope note describing how the reference applies
+    /// Scope note describing how the reference applies (e.g., the section of the work it adheres to)
+    /// ### Example
+    /// `"Supplement 2: Additional material"`
     pub scope: Option<String>,
     /// Referenced section of the work
     #[validate(nested)]
@@ -521,10 +526,5 @@ impl Validate for Agent {
             | Self::Entity(value) => value.validate(),
             | Self::Person(value) => value.validate(),
         }
-    }
-}
-impl Validate for License {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        Ok(())
     }
 }

@@ -7,7 +7,7 @@ use crate::io::api::{self, DatabasePersistence, RemoteResource, Searchable, INCL
 use crate::io::database::schema::{LicenseRow, Table};
 use crate::io::database::{Database, Operations};
 use crate::io::{with_progress_bar, ApiResult};
-use crate::schema::validate::{is_list_url, is_semantic_version};
+use crate::schema::validate::{is_semantic_version, is_urls};
 use crate::util::Label;
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Report};
@@ -31,7 +31,7 @@ pub struct LicenseMetadata {
     /// Deprecated - this field is generated and is no longer in use
     pub reference_number: u32,
     /// Cross reference URL(s) pointing to additional copies of the license
-    #[validate(custom(function = "is_list_url"))]
+    #[validate(custom(function = "is_urls"))]
     pub see_also: Vec<String>,
     /// Specifies whether the license is deprecated
     /// ### Note

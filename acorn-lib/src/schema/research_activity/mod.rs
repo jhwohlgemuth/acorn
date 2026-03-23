@@ -10,7 +10,7 @@ use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutpu
 use crate::prelude::PathBuf;
 use crate::schema::namespaces::{codemeta, dcat, schema_org};
 use crate::schema::pid::PersistentIdentifierConvert;
-use crate::schema::validate::{is_doi, is_kebabcase, is_list_url, is_ror};
+use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
 use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website};
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
 use crate::util::constants::{
@@ -192,7 +192,7 @@ pub struct ResearchActivityMetadata {
     #[serde(default)]
     pub patents: Option<Vec<String>>,
     /// URL(s) of internet location where associated publication(s) can be found
-    #[validate(custom(function = "is_list_url"))]
+    #[validate(custom(function = "is_urls"))]
     #[serde(default)]
     pub publications: Option<Vec<String>>,
     /// Research Activity Identifier (RAiD)

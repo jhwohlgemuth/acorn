@@ -2,11 +2,15 @@
 //!
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 //!
+#[cfg(feature = "std")]
+use crate::io::License;
 use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::schema::standard::datacite::GeoLocationPoint;
 use crate::util::constants::{RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_PHONE, RE_RAID, RE_UNIX_EPOCH};
+#[cfg(not(feature = "std"))]
+use crate::util::License;
 use crate::util::SemanticVersion;
-use crate::{method_validator, regex_validator};
+use crate::{list_validator, method_validator, regex_validator};
 use chrono::{DateTime, Datelike, NaiveDate, SecondsFormat, Utc};
 use convert_case::{Case, Casing};
 use core::iter::once;
@@ -29,6 +33,20 @@ regex_validator!(
     "Provide path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension"
 );
 regex_validator!(is_date, RE_ISO_8601_DATE, "date", "Provide valid ISO 8601 date (e.g., YYYY-MM-DD)");
+list_validator!(
+    /// Custom validator function for validating list of state abbreviations
+    is_states,
+    is_state,
+    "state",
+    "Every state should be valid"
+);
+list_validator!(
+    /// Custom validator function for validating list of URLs
+    is_urls,
+    is_url,
+    "url",
+    "Every URL should be valid"
+);
 /// Integer-or-string value used by selected schema fields.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(untagged)]
@@ -158,22 +176,23 @@ pub fn format_timestamp(value: &str) -> String {
         .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Micros, false))
         .unwrap_or_else(|_| value.to_string())
 }
-/// Check if value is a valid RFC3339 timestamp (ISO 8601 compliant)
-/// ### Examples
-/// - `2026-03-12T15:04:05Z`
-/// - `2026-03-12T15:04:05+00:00`
-pub fn is_rfc3339(value: impl ToString) -> Result<(), ValidationError> {
-    const CODE: &str = "date";
-    const MESSAGE: &str = "Provide valid RFC 3339 timestamp (ISO 8601 compliant)";
+/// Check if value is a valid commit hash
+pub fn is_commit(value: &str) -> Result<(), ValidationError> {
+    const CODE: &str = "commit";
+    const MESSAGE: &str = "Provide valid commit hash (7-64 hexadecimal characters)";
+    let valid = (7..=64).contains(&value.len()) && value.chars().all(|character| character.is_ascii_hexdigit());
+    match valid {
+        | true => Ok(()),
+        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    }
+}
+/// Check if value is a valid ISO 3166-1 alpha-2 country code
+pub fn is_country_code(value: impl ToString) -> Result<(), ValidationError> {
+    const CODE: &str = "country_code";
+    const MESSAGE: &str = "Provide valid ISO 3166-1 alpha-2 country code";
     let x = value.to_string();
-    let is_rfc3339 = DateTime::parse_from_rfc3339(&x).is_ok();
-    let is_date = NaiveDate::parse_from_str(&x, "%Y-%m-%d").is_ok();
-    let is_supported_date_value = |value: &str| DateTime::parse_from_rfc3339(value).is_ok() || NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok();
-    let is_date_interval = x
-        .split_once('/')
-        .map(|(start, end)| is_supported_date_value(start) && is_supported_date_value(end))
-        .unwrap_or(false);
-    match is_rfc3339 || is_date || is_date_interval {
+    let valid = x.len() == 2 && x.chars().all(|c| c.is_ascii_alphabetic());
+    match valid {
         | true => Ok(()),
         | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
@@ -188,18 +207,15 @@ pub fn is_kebabcase(value: &str) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new(CODE).with_message(message.into())),
     }
 }
-/// Custom validator function for validating list of URLs
-pub fn is_list_url(value: &[String]) -> Result<(), ValidationError> {
+/// Check if value is a valid URL
+pub fn is_url(value: impl ToString) -> Result<(), ValidationError> {
     const CODE: &str = "url";
-    value
-        .iter()
-        .position(|x| URI::try_from(x.as_str()).is_err())
-        .map(|index| {
-            let mut err = ValidationError::new(CODE).with_message("Every URL should be valid".to_string().into());
-            err.add_param("index".into(), &index);
-            err
-        })
-        .map_or(Ok(()), Err)
+    const MESSAGE: &str = "Provide valid URL";
+    let x = value.to_string();
+    match URI::try_from(x.as_str()) {
+        | Ok(_) => Ok(()),
+        | Err(_) => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    }
 }
 /// Check if value is a valid latitude
 pub fn is_latitude<T>(value: T) -> Result<(), ValidationError>
@@ -213,6 +229,17 @@ where
         | Some(_) => Ok(()),
         | None => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
+}
+/// Check if value is a valid license
+/// ### Note
+/// Value is validated against local database
+#[cfg(feature = "std")]
+pub fn is_license(_value: &str) -> Result<(), ValidationError> {
+    Ok(())
+}
+#[cfg(not(feature = "std"))]
+pub fn is_license(_value: &str) -> Result<(), ValidationError> {
+    Ok(())
 }
 /// Check if value is a valid longitude
 pub fn is_longitude<T>(value: T) -> Result<(), ValidationError>
@@ -266,6 +293,26 @@ pub fn is_polygon(value: &[GeoLocationPoint]) -> Result<(), ValidationError> {
         | _ => Ok(()),
     }
 }
+/// Check if value is a valid RFC3339 timestamp (ISO 8601 compliant)
+/// ### Examples
+/// - `2026-03-12T15:04:05Z`
+/// - `2026-03-12T15:04:05+00:00`
+pub fn is_rfc3339(value: impl ToString) -> Result<(), ValidationError> {
+    const CODE: &str = "date";
+    const MESSAGE: &str = "Provide valid RFC 3339 timestamp (ISO 8601 compliant)";
+    let x = value.to_string();
+    let is_rfc3339 = DateTime::parse_from_rfc3339(&x).is_ok();
+    let is_date = NaiveDate::parse_from_str(&x, "%Y-%m-%d").is_ok();
+    let is_supported_date_value = |value: &str| DateTime::parse_from_rfc3339(value).is_ok() || NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok();
+    let is_date_interval = x
+        .split_once('/')
+        .map(|(start, end)| is_supported_date_value(start) && is_supported_date_value(end))
+        .unwrap_or(false);
+    match is_rfc3339 || is_date || is_date_interval {
+        | true => Ok(()),
+        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    }
+}
 /// Check if value is a valid semantic version (e.g., 1.2.3)
 ///
 /// See [`crate::util::SemanticVersion`]
@@ -274,6 +321,17 @@ pub fn is_semantic_version(value: &str) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Provide valid semantic version (e.g., 1.2.3)";
     let parsed = SemanticVersion::from(value);
     match parsed.to_string().starts_with(value) {
+        | true => Ok(()),
+        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    }
+}
+/// Check if value is a valid state abbreviation (or Canada)
+pub fn is_state(value: impl ToString) -> Result<(), ValidationError> {
+    const CODE: &str = "state";
+    const MESSAGE: &str = "Provide valid US state or Canadian province abbreviation (e.g., CA, NY, ON)";
+    let x = value.to_string();
+    let valid = x.len() == 2 && x.chars().all(|c| c.is_ascii_alphabetic());
+    match valid {
         | true => Ok(()),
         | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
@@ -307,19 +365,33 @@ fn is_viable_year(year: i32) -> bool {
     let now: DateTime<Utc> = Utc::now();
     year <= now.year()
 }
-
 impl Validate for IntegerOrString {
     fn validate(&self) -> Result<(), ValidationErrors> {
         Ok(())
     }
 }
-
-impl Validate for NumberOrString {
+impl Validate for License {
     fn validate(&self) -> Result<(), ValidationErrors> {
-        Ok(())
+        let to_validation_errors = |why: ValidationError| {
+            once(why).fold(ValidationErrors::new(), |mut acc, err| {
+                acc.add("license", err);
+                acc
+            })
+        };
+        #[cfg(feature = "std")]
+        {
+            let invalid = match self {
+                | License::Single(value) => is_license(value).err(),
+                | License::Multiple(values) => values.iter().find_map(|value| is_license(value).err()),
+            };
+            invalid.map_or(Ok(()), |why| Err(to_validation_errors(why)))
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            is_license(&self.to_string()).map_err(to_validation_errors)
+        }
     }
 }
-
 impl Validate for MonthValue {
     fn validate(&self) -> Result<(), ValidationErrors> {
         let to_validation_errors = |why: ValidationError| {
@@ -340,7 +412,11 @@ impl Validate for MonthValue {
         }
     }
 }
-
+impl Validate for NumberOrString {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        Ok(())
+    }
+}
 impl Validate for YearValue {
     fn validate(&self) -> Result<(), ValidationErrors> {
         let to_validation_errors = |why: ValidationError| {
@@ -355,7 +431,6 @@ impl Validate for YearValue {
         }
     }
 }
-
 impl Validate for PostalCode {
     fn validate(&self) -> Result<(), ValidationErrors> {
         let to_validation_errors = |why: ValidationError| {

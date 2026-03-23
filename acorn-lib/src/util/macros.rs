@@ -373,3 +373,59 @@ macro_rules! regex_validator {
         }
     };
 }
+/// Generate a list validator function from an existing scalar validator function
+///
+/// Creates a public function `fn(value: &[String]) -> Result<(), ValidationError>` that
+/// validates each value with the provided scalar validator and returns the first indexed error.
+///
+/// # Syntax
+/// ```ignore
+/// list_validator!(
+///     /// Doc comment
+///     list_function_name,
+///     scalar_function_name,
+///     "error_code",
+///     "Error message"
+/// );
+///
+/// list_validator!(
+///     /// Doc comment
+///     list_function_name,
+///     scalar_function_name,
+///     "error_code"
+/// );
+/// ```
+#[macro_export]
+macro_rules! list_validator {
+    ($(#[$meta:meta])* $fn_name:ident, $validator:ident, $code:literal, $message:literal) => {
+        #[doc = concat!("Check if all values are valid ", $code, " entries")]
+        $(#[$meta])*
+        pub fn $fn_name(value: &[String]) -> Result<(), ::validator::ValidationError> {
+            value
+                .iter()
+                .position(|x| $validator(x).is_err())
+                .map(|index| {
+                    let mut err = ::validator::ValidationError::new($code).with_message($message.to_string().into());
+                    err.add_param("index".into(), &index);
+                    err
+                })
+                .map_or(Ok(()), Err)
+        }
+    };
+    ($(#[$meta:meta])* $fn_name:ident, $validator:ident, $code:literal) => {
+        #[doc = concat!("Check if all values are valid ", $code, " entries")]
+        $(#[$meta])*
+        pub fn $fn_name(value: &[String]) -> Result<(), ::validator::ValidationError> {
+            value
+                .iter()
+                .position(|x| $validator(x).is_err())
+                .map(|index| {
+                    let mut err = ::validator::ValidationError::new($code)
+                        .with_message(concat!("Every ", $code, " should be valid").to_string().into());
+                    err.add_param("index".into(), &index);
+                    err
+                })
+                .map_or(Ok(()), Err)
+        }
+    };
+}

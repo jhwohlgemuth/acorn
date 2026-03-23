@@ -1,6 +1,7 @@
 //! Structured model for working with prompt files (body text and front-matter metadata)
 //!
 //! Aims to support Google [dotprompt](https://github.com/google/dotprompt) and [agent skills](https://agentskills.io/specification) specificaitons
+use crate::io::License;
 use crate::util::SemanticVersion;
 use bon::Builder;
 use rust_embed::Embed;
@@ -77,7 +78,7 @@ pub struct FrontMatter {
     pub config: Option<Configuration>,
     /// SPDX license identifier for the prompt (could also specify path to LICENSE file)
     // TODO: validate with is_license
-    pub license: Option<String>,
+    pub license: Option<License>,
     /// Intended product, system, packages, network access, etc.
     pub compatibility: Option<String>,
     /// Model used to generate prompt

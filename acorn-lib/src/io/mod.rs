@@ -41,7 +41,8 @@ use is_executable::IsExecutable;
 use itertools::Itertools;
 use reqwest::header::USER_AGENT;
 use ring::digest::{Context, SHA256};
-use serde::Deserialize;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, trace, warn};
 use which::which;
@@ -146,6 +147,15 @@ pub struct GitlabMergeRequestDiffResponse {
     // renamed_file: bool,
     // deleted_file: bool,
     // generated_file: bool,
+}
+/// Root-level or reference-level license declaration.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum License {
+    /// Multiple SPDX identifiers interpreted as OR.
+    Multiple(Vec<String>),
+    /// Single SPDX identifier.
+    Single(String),
 }
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);

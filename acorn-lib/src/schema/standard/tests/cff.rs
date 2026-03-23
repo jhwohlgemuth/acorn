@@ -1,4 +1,5 @@
-use crate::schema::standard::cff::{Agent, Cff, CffType, IdentifierType, License, ReferenceType};
+use crate::io::License;
+use crate::schema::standard::cff::{Agent, Cff, CffType, IdentifierType, ReferenceType};
 use crate::schema::validate::{PostalCode, YearValue};
 
 const MINIMAL_YAML: &str = r#"
