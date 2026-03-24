@@ -21,7 +21,7 @@
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn::io::database::{backend, schema::Table, Database};
+use acorn::io::database::{backend, schema::Table, Database, Operations};
 use acorn::prelude::env;
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
@@ -30,6 +30,8 @@ use acorn::util::Label;
 use clap::{crate_version, Parser};
 use color_eyre::eyre;
 use dotenvy::dotenv;
+use futures::future::ready;
+use futures::TryFutureExt;
 use owo_colors::OwoColorize;
 use std::process::exit;
 use tracing::info;
@@ -171,14 +173,17 @@ async fn main() -> Void {
                 }
             }
         }
-        database.migrate().and_then(|_| {
+        ready(database.migrate().and_then(|_| {
             if !no_clear_cache {
                 if let Err(why) = database.cleanup_expired_cache() {
                     info!("Cache cleanup warning — {why}");
                 }
             }
             database.with_connection(|_| Ok(())).map(|_| ())
-        })
+        }))
+        .and_then(|_| database.populate(Table::Licenses))
+        .await
+        .map(|_| ())
     };
     if let Err(why) = database_initialization {
         eprintln!("=> {} Failed to initialize database — {why}", Label::fail());

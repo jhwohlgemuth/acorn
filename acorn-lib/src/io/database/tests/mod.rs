@@ -70,6 +70,17 @@ fn test_row_table_implementation() {
     assert_eq!(ResearchActivityCacheRow::default().table(), Table::ResearchActivityCache);
 }
 #[test]
+fn test_table_from_str() {
+    assert_eq!(Table::from("activity"), Table::Activity);
+    assert_eq!(Table::from("catalog"), Table::Catalog);
+    assert_eq!(Table::from("licenses"), Table::Licenses);
+    assert_eq!(Table::from("license"), Table::Licenses);
+    assert_eq!(Table::from("link_cache"), Table::LinkCache);
+    assert_eq!(Table::from("validation_history"), Table::ValidationHistory);
+    assert_eq!(Table::from("research_activity_cache"), Table::ResearchActivityCache);
+    assert_eq!(Table::from("unknown-table"), Table::Activity);
+}
+#[test]
 fn test_build_query_with_all_none_fields() {
     // Test that when all fields are None, we get base query with ORDER BY
     let row = ActivityRow::default();

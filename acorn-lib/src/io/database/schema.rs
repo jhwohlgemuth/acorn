@@ -143,6 +143,20 @@ pub struct ValidationRow {
     /// When the validation was performed
     pub checked_at: Option<DateTime<Utc>>,
 }
+impl From<&str> for Table {
+    fn from(value: &str) -> Self {
+        let normalized = value.trim().to_ascii_lowercase();
+        match normalized.as_str() {
+            | "activity" => Self::Activity,
+            | "catalog" => Self::Catalog,
+            | "licenses" | "license" => Self::Licenses,
+            | "link_cache" | "linkcache" => Self::LinkCache,
+            | "validation_history" | "validationhistory" => Self::ValidationHistory,
+            | "research_activity_cache" | "researchactivitycache" => Self::ResearchActivityCache,
+            | _ => Self::Activity,
+        }
+    }
+}
 impl From<&BackendRow<'_>> for ActivityRow {
     fn from(row: &BackendRow<'_>) -> Self {
         ActivityRow {

@@ -18,7 +18,7 @@ pub async fn run(
     // println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
     // println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
     // println!("ROR API is healthy: {}", api::ror::is_healthy().await);
-    let database = Database::<Table>::from_path(database_path.clone());
+    let database: Database<Table> = Database::<Table>::from_path(database_path.clone());
     let _ = database.populate(Table::Licenses).await?;
     // gitlab_example().await;
     // orcid_example().await;
