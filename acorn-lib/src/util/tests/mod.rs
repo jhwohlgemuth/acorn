@@ -294,7 +294,7 @@ fn test_git_branch() {
 #[test]
 fn test_mimetype() {
     let mime = MimeType::from("a.cff");
-    assert_eq!(mime, MimeType::Yaml);
+    assert_eq!(mime, MimeType::Cff);
     let mime = MimeType::from("a.txt");
     assert_eq!(mime, MimeType::Text);
     let mime = MimeType::from("font.otf".to_string());

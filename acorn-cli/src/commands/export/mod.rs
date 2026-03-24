@@ -1,7 +1,7 @@
 use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::io::bagit::{Bag, BagInfo, Save};
-use acorn::io::{folder_size, FromPath, InputOutput};
+use acorn::io::{folder_size, with_progress_bar, FromPath, InputOutput};
 use acorn::prelude::{exit, remove_dir_all, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{current_date, format_bytes, suffix, Label, MimeType};
@@ -119,25 +119,39 @@ pub async fn run(
         | FileFormat::Pdf => {
             #[cfg(feature = "pdf")]
             {
-                let paths = paths_from_options(path, &Some(options)).await;
+                use acorn::util::StringConversion;
+
+                let items = paths_from_options(path, &Some(options)).await;
                 let playwright = Playwright::initialize().await.unwrap();
-                playwright.install_chromium().unwrap(); // Install browsers
+                playwright.install_chromium().unwrap();
                 let chromium = playwright.chromium();
                 let browser = chromium.launcher().headless(true).launch().await.unwrap();
                 let context = browser.context_builder().build().await.unwrap();
                 let page = context.new_page().await.unwrap();
-                let progress = ProgressBar::new(paths.len() as u64);
-                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
-                for path in &paths {
-                    progress.set_message(format!("Generating PDF for {}", path.display()));
-                    let pdf_options = CommandLineOptions::init().path(path.clone()).maybe_output(output.clone()).build();
-                    pdf::create(&page, pdf_options).await;
-                    progress.inc(1);
+                let page = &page;
+                let count = items.len();
+                let progress = with_progress_bar(
+                    items,
+                    |path| format!("Generating PDF for {}", path.file_name_with_parent()),
+                    |path| async move {
+                        let pdf_options = CommandLineOptions::init().path(path.clone()).maybe_output(output.clone()).build();
+                        pdf::create(page, pdf_options).await;
+                        Ok(())
+                    },
+                    |_| format!("{}Done", Label::CHECKMARK),
+                    Some(1),
+                );
+                match progress.await {
+                    | Ok(_) => {
+                        info!("=> {} Exported {} PDF{}", Label::pass(), count, suffix(count));
+                        let _close = page.close(Some(false)).await;
+                        Ok(())
+                    }
+                    | Err(why) => {
+                        fail!("Generate PDF - {}", why);
+                        exit(exitcode::DATAERR);
+                    }
                 }
-                progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                info!("=> {} Exported {} PDF{}", Label::pass(), paths.len(), suffix(paths.len()));
-                let _close = page.close(Some(false)).await;
-                Ok(())
             }
             #[cfg(not(feature = "pdf"))]
             {
