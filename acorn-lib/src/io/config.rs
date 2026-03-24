@@ -520,10 +520,10 @@ impl From<&str> for RunnerType {
     }
 }
 fn count_json_files(paths: &[String]) -> usize {
-    paths.iter().filter(|&path| path.to_lowercase().ends_with(".json")).cloned().count()
+    paths.iter().filter(|&path| path.to_lowercase().ends_with(".json")).count()
 }
 fn count_image_files(paths: &[String]) -> usize {
-    paths.iter().filter(|&x| has_image_extension(x)).cloned().count()
+    paths.iter().filter(|&x| has_image_extension(x)).count()
 }
 fn operations_complete_message(name: Option<String>, json_count: usize, image_count: usize) -> String {
     let total = json_count + image_count;

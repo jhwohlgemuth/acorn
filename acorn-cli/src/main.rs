@@ -127,62 +127,62 @@ async fn main() -> Void {
         cache_ttl,
         ..
     } = args;
-    if let Some(selected) = database_backend {
-        env::set_var(backend::ENV_DATABASE_BACKEND, selected.to_string());
-    }
-    if let Err(why) = backend::validate_backend_selection() {
-        eprintln!("=> {} {why}", Label::fail());
+    if no_local_database && (reset_database || clear_cache) {
+        eprintln!("{} Cannot use --reset-database or --clear-cache with --no-local-database", Label::fail());
         exit(exitcode::USAGE);
     }
-    let database = Database::<Table>::from_path(database_path.clone());
     if let Some(ttl) = cache_ttl {
         env::set_var(ENV_CACHE_TTL, ttl.to_string());
     }
-    if reset_database {
-        if no_local_database {
-            eprintln!("{} Cannot use --reset-database with --no-local-database", Label::fail());
-            exit(exitcode::USAGE);
-        }
-        match database.reset() {
-            | Ok(count) => {
-                info!("{} Reset database - cleared {count} entries from all tables", Label::pass());
-            }
-            | Err(why) => {
-                eprintln!("=> {} Failed to clear all data: {why}", Label::fail());
-                exit(exitcode::SOFTWARE);
-            }
-        }
+    if threads > 0 {
+        info!("{} {} threads", Label::using(), threads.cyan().bold());
+        rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
     }
-    if clear_cache {
-        if no_local_database {
-            eprintln!("=> {} Cannot use --clear-cache with --no-local-database", Label::fail());
-            exit(exitcode::USAGE);
-        }
-        match database.clear_cache() {
-            | Ok(count) => {
-                info!("{} Cleared {count} entries from cache tables", Label::pass());
-            }
-            | Err(why) => {
-                eprintln!("=> {} Failed to clear cache: {why}", Label::fail());
-                exit(exitcode::SOFTWARE);
-            }
-        }
-    }
-    let _database_initialization = if no_local_database {
+    let database_initialization = if no_local_database {
         Ok(())
     } else {
+        if let Some(selected) = database_backend {
+            env::set_var(backend::ENV_DATABASE_BACKEND, selected.to_string());
+        }
+        if let Err(why) = backend::validate_backend_selection() {
+            eprintln!("=> {} {why}", Label::fail());
+            exit(exitcode::USAGE);
+        }
+        let database = Database::<Table>::from_path(database_path.clone());
+        if reset_database {
+            match database.reset() {
+                | Ok(count) => {
+                    info!("{} Reset database - cleared {count} entries from all tables", Label::pass());
+                }
+                | Err(why) => {
+                    eprintln!("=> {} Failed to clear all data — {why}", Label::fail());
+                    exit(exitcode::SOFTWARE);
+                }
+            }
+        }
+        if clear_cache {
+            match database.clear_cache() {
+                | Ok(count) => {
+                    info!("{} Cleared {count} entries from cache tables", Label::pass());
+                }
+                | Err(why) => {
+                    eprintln!("=> {} Failed to clear cache — {why}", Label::fail());
+                    exit(exitcode::SOFTWARE);
+                }
+            }
+        }
         database.migrate().and_then(|_| {
             if !no_clear_cache {
                 if let Err(why) = database.cleanup_expired_cache() {
-                    info!("Cache cleanup warning: {why}");
+                    info!("Cache cleanup warning — {why}");
                 }
             }
             database.with_connection(|_| Ok(())).map(|_| ())
         })
     };
-    if threads > 0 {
-        info!("{} {} threads", Label::using(), threads.cyan().bold());
-        rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
+    if let Err(why) = database_initialization {
+        eprintln!("=> {} Failed to initialize database — {why}", Label::fail());
+        exit(exitcode::SOFTWARE);
     }
     match &args.command {
         | Some(Commands::Check {
