@@ -101,7 +101,7 @@ impl DatabasePersistence for LicensesResponse {
         let Self { licenses, .. } = self;
         let message: fn(&LicenseMetadata) -> String = |item| format!("Saving \"{}\" license metadata", item.license_id);
         let operation = |item| async { database.insert(LicenseRow::from(item)) };
-        let finish = |count| format!("  {}Saved metadata for {count} SPDX licenses", Label::CHECKMARK);
+        let finish = |count| format!("{}Saved metadata for {count} SPDX licenses", Label::CHECKMARK);
         with_progress_bar(licenses, message, operation, finish, None)
             .await
             .map(|counts| counts.into_iter().sum())

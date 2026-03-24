@@ -1070,7 +1070,7 @@ where
         .await
         .into_iter()
         .collect::<ApiResult<Vec<_>>>();
-    progress.set_style(ProgressStyle::with_template("{msg}").unwrap());
+    progress.set_style(ProgressStyle::with_template("  {msg}").unwrap());
     progress.finish_with_message(finish_message(count));
     output
 }

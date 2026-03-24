@@ -129,7 +129,6 @@ pub async fn run(
                 let context = browser.context_builder().build().await.unwrap();
                 let page = context.new_page().await.unwrap();
                 let page = &page;
-                let count = items.len();
                 let progress = with_progress_bar(
                     items,
                     |path| format!("Generating PDF for {}", path.file_name_with_parent()),
@@ -138,12 +137,14 @@ pub async fn run(
                         pdf::create(page, pdf_options).await;
                         Ok(())
                     },
-                    |_| format!("{}Done", Label::CHECKMARK),
+                    |count| {
+                        let suffix = suffix(count);
+                        format!("{}Done! Exported {count} PDF{suffix}", Label::CHECKMARK)
+                    },
                     Some(1),
                 );
                 match progress.await {
                     | Ok(_) => {
-                        info!("=> {} Exported {} PDF{}", Label::pass(), count, suffix(count));
                         let _close = page.close(Some(false)).await;
                         Ok(())
                     }

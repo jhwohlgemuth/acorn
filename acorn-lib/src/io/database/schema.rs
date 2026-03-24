@@ -517,7 +517,7 @@ impl TableSchemaProvider for Table {
                 progress.finish_with_message(message);
                 match response {
                     | Ok(data) => data.persist(Database::<Self>::from_path(None)).await,
-                    | Err(why) => Err(eyre!("Failed to download SPDX license data: {why}")),
+                    | Err(why) => Err(eyre!("Failed to download SPDX license data — {why}")),
                 }
             }
             | _ => unimplemented!("populate() not implemented for {} table", self.name()),

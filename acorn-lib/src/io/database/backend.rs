@@ -8,6 +8,8 @@ use color_eyre::eyre::eyre;
 
 /// Environment variable used to select a database backend at runtime.
 pub const ENV_DATABASE_BACKEND: &str = "ACORN_DATABASE_BACKEND";
+/// Environment variable used to override database path at runtime.
+pub const ENV_DATABASE_PATH: &str = "ACORN_DATABASE_PATH";
 /// SQLite backend value.
 pub const BACKEND_SQLITE: &str = "sqlite";
 /// DuckDB backend value.

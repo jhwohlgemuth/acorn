@@ -143,6 +143,9 @@ async fn main() -> Void {
     let database_initialization = if no_local_database {
         Ok(())
     } else {
+        if let Some(path) = database_path.as_ref() {
+            env::set_var(backend::ENV_DATABASE_PATH, path.as_os_str());
+        }
         if let Some(selected) = database_backend {
             env::set_var(backend::ENV_DATABASE_BACKEND, selected.to_string());
         }
