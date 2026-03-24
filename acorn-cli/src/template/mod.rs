@@ -187,7 +187,7 @@ impl Convert for ResearchActivity {
         let head = HtmlHead { stylesheet: "project.css" };
         let footer = HtmlFooter { label };
         let folder = label.folder();
-        let path = format!("{folder}/header.jpg");
+        let path = format!("fact-sheet/{folder}/header.jpg");
         let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
         let graphic = meta.clone().first_image_content_url();
         let caption = meta.clone().first_image_caption();
