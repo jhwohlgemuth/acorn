@@ -42,6 +42,20 @@ pub async fn run(
         .build();
     let extension = format.to_string();
     match format {
+        | FileFormat::Cff => {
+            export_convert(
+                path,
+                options,
+                format,
+                &extension,
+                |p, ext| p.with_file_name("CITATION").with_extension(ext),
+                threads,
+            )
+            .await
+        }
+        | FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml => {
+            export_convert(path, options, format, &extension, |p, ext| p.with_extension(ext), threads).await
+        }
         | FileFormat::Bag => {
             let base = path.clone().unwrap().display().to_string();
             let date = current_date();
@@ -53,106 +67,6 @@ pub async fn run(
             bag.save(destination.clone())
                 .and_then(|_| Bag::verify(destination.clone()))
                 .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
-        }
-        | FileFormat::Cff => {
-            let from_options = paths_from_options(path, &Some(options.clone())).await;
-            let (skipped, paths): (Vec<_>, Vec<_>) = from_options
-                .iter()
-                .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
-            skipped.iter().for_each(|path| {
-                skip!("{} is already in {} format", path.display(), format);
-            });
-            let mut seen = HashSet::new();
-            let items: Vec<_> = paths
-                .into_iter()
-                .filter(|&p| seen.insert(p.with_file_name("CITATION").with_extension(&extension)))
-                .cloned()
-                .collect();
-            let count = items.len() as u64;
-            let progress = with_progress(
-                items,
-                |item| format!("Generating {} for {}", extension.clone(), item.display()),
-                |item| {
-                    let ext = extension.clone();
-                    async move {
-                        let output = item.with_file_name("CITATION").with_extension(ext);
-                        match ResearchActivity::read(&item) {
-                            | Ok(data) => match data.write(output) {
-                                | Ok(_) => Ok(()),
-                                | Err(_) => {
-                                    exit(exitcode::UNAVAILABLE);
-                                }
-                            },
-                            | Err(why) => {
-                                fail!("Read research activity data — {}", why);
-                                exit(exitcode::DATAERR);
-                            }
-                        }
-                    }
-                },
-                |count| format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count)),
-                Some(threads),
-            );
-            match progress.await {
-                | Ok(_) => {
-                    info!("=> {} Exported {} {format} file{}", Label::pass(), count.green(), suffix(count));
-                    Ok(())
-                }
-                | Err(why) => {
-                    fail!("Generate {} - {}", format, why);
-                    exit(exitcode::DATAERR);
-                }
-            }
-        }
-        | FileFormat::Json => {
-            let from_options = paths_from_options(path, &Some(options.clone())).await;
-            let (skipped, paths): (Vec<_>, Vec<_>) = from_options
-                .iter()
-                .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
-            skipped.iter().for_each(|path| {
-                skip!("{} is already in {} format", path.display(), extension);
-            });
-            let mut seen = HashSet::new();
-            let items: Vec<_> = paths
-                .into_iter()
-                .filter(|&p| seen.insert(p.with_extension(&extension)))
-                .cloned()
-                .collect();
-            let count = items.len() as u64;
-            let progress = with_progress(
-                items,
-                |item| format!("Generating {} for {}", extension.clone(), item.display()),
-                |item| {
-                    let ext = extension.clone();
-                    async move {
-                        let output = item.with_extension(ext);
-                        match ResearchActivity::read(&item) {
-                            | Ok(data) => match data.write(output) {
-                                | Ok(_) => Ok(()),
-                                | Err(_) => {
-                                    exit(exitcode::UNAVAILABLE);
-                                }
-                            },
-                            | Err(why) => {
-                                fail!("Read research activity data — {}", why);
-                                exit(exitcode::DATAERR);
-                            }
-                        }
-                    }
-                },
-                |count| format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count)),
-                Some(threads),
-            );
-            match progress.await {
-                | Ok(_) => {
-                    info!("=> {} Exported {} {format} file{}", Label::pass(), count.green(), suffix(count));
-                    Ok(())
-                }
-                | Err(why) => {
-                    fail!("Generate {} - {}", format, why);
-                    exit(exitcode::DATAERR);
-                }
-            }
         }
         | FileFormat::Pdf => {
             #[cfg(feature = "pdf")]
@@ -195,56 +109,6 @@ pub async fn run(
                 Err(eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
             }
         }
-        | FileFormat::Markdown => {
-            let from_options = paths_from_options(path, &Some(options.clone())).await;
-            let (skipped, paths): (Vec<_>, Vec<_>) = from_options
-                .iter()
-                .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
-            skipped.iter().for_each(|path| {
-                skip!("{} is already in {} format", path.display(), format);
-            });
-            let mut seen = HashSet::new();
-            let items: Vec<_> = paths
-                .into_iter()
-                .filter(|&p| seen.insert(p.with_extension(&extension)))
-                .cloned()
-                .collect();
-            let count = items.len() as u64;
-            let progress = with_progress(
-                items,
-                |item| format!("Generating {format} for {}", item.display()),
-                |item| {
-                    let ext = extension.clone();
-                    async move {
-                        let output = item.with_extension(ext);
-                        match ResearchActivity::read(&item) {
-                            | Ok(data) => match data.write(output) {
-                                | Ok(_) => Ok(()),
-                                | Err(_) => {
-                                    exit(exitcode::UNAVAILABLE);
-                                }
-                            },
-                            | Err(why) => {
-                                fail!("Read research activity data — {}", why);
-                                exit(exitcode::DATAERR);
-                            }
-                        }
-                    }
-                },
-                |count| format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count)),
-                Some(threads),
-            );
-            match progress.await {
-                | Ok(_) => {
-                    info!("=> {} Exported {} {format} file{}", Label::pass(), count.green(), suffix(count));
-                    Ok(())
-                }
-                | Err(why) => {
-                    fail!("Generate {} - {}", format, why);
-                    exit(exitcode::DATAERR);
-                }
-            }
-        }
         | FileFormat::Powerpoint => {
             let paths = paths_from_options(path, &Some(options.clone())).await;
             let options = CommandLineOptions::init()
@@ -272,55 +136,59 @@ pub async fn run(
             }
             Ok(())
         }
-        | FileFormat::Yaml => {
-            let from_options = paths_from_options(path, &Some(options.clone())).await;
-            let (skipped, paths): (Vec<_>, Vec<_>) = from_options
-                .iter()
-                .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
-            skipped.iter().for_each(|path| {
-                skip!("{} is already in {format} format", path.display());
-            });
-            let mut seen = HashSet::new();
-            let items: Vec<_> = paths
-                .into_iter()
-                .filter(|&p| seen.insert(p.with_extension(&extension)))
-                .cloned()
-                .collect();
-            let count = items.len() as u64;
-            let progress = with_progress(
-                items,
-                |item| format!("Generating {format} for {}", item.display()),
-                |item| {
-                    let ext = extension.clone();
-                    async move {
-                        let output = item.with_extension(ext);
-                        match ResearchActivity::read(&item) {
-                            | Ok(data) => match data.write(output) {
-                                | Ok(_) => Ok(()),
-                                | Err(_) => {
-                                    exit(exitcode::UNAVAILABLE);
-                                }
-                            },
-                            | Err(why) => {
-                                fail!("Read research activity data — {}", why);
-                                exit(exitcode::DATAERR);
-                            }
+    }
+}
+async fn export_convert(
+    path: &Option<PathBuf>,
+    options: CommandLineOptions,
+    format: &FileFormat,
+    extension: &str,
+    output_path: fn(&PathBuf, &str) -> PathBuf,
+    threads: usize,
+) -> Result<(), Report> {
+    let from_options = paths_from_options(path, &Some(options)).await;
+    let (skipped, paths): (Vec<_>, Vec<_>) = from_options
+        .iter()
+        .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
+    skipped.iter().for_each(|path| {
+        skip!("{} is already in {format} format", path.display());
+    });
+    let mut seen = HashSet::new();
+    let items: Vec<_> = paths.into_iter().filter(|&p| seen.insert(output_path(p, extension))).cloned().collect();
+    let count = items.len() as u64;
+    let ext = extension.to_owned();
+    let progress = with_progress(
+        items,
+        |item| format!("Generating {format} for {}", item.display()),
+        |item| {
+            let ext = ext.clone();
+            async move {
+                let output = output_path(&item, &ext);
+                match ResearchActivity::read(&item) {
+                    | Ok(data) => match data.write(output) {
+                        | Ok(_) => Ok(()),
+                        | Err(_) => {
+                            exit(exitcode::UNAVAILABLE);
                         }
+                    },
+                    | Err(why) => {
+                        fail!("Read research activity data — {}", why);
+                        exit(exitcode::DATAERR);
                     }
-                },
-                |count| format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count)),
-                Some(threads),
-            );
-            match progress.await {
-                | Ok(_) => {
-                    info!("=> {} Exported {} {format} file{}", Label::pass(), count.green(), suffix(count));
-                    Ok(())
-                }
-                | Err(why) => {
-                    fail!("Generate {} - {}", format, why);
-                    exit(exitcode::DATAERR);
                 }
             }
+        },
+        |count| format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count)),
+        Some(threads),
+    );
+    match progress.await {
+        | Ok(_) => {
+            info!("=> {} Exported {} {format} file{}", Label::pass(), count.green(), suffix(count));
+            Ok(())
+        }
+        | Err(why) => {
+            fail!("Generate {} - {}", format, why);
+            exit(exitcode::DATAERR);
         }
     }
 }
