@@ -241,7 +241,7 @@ async fn main() -> Void {
             combine,
             merge_request,
             ..
-        }) => commands::export::run(output, path, branch, commit, format, reference, combine, merge_request, &offline).await,
+        }) => commands::export::run(output, path, branch, commit, format, reference, combine, merge_request, &offline, threads).await,
         | Some(Commands::Format {
             path,
             branch,

@@ -1074,6 +1074,21 @@ where
     progress.finish_with_message(finish_message(count));
     output
 }
+/// Process a collection of data items with progress indication.
+pub async fn with_progress<T, U, M, F, Fut>(
+    items: Vec<T>,
+    message: M,
+    operation: F,
+    finish_message: impl FnOnce(usize) -> String,
+    buffer_size: Option<usize>,
+) -> ApiResult<Vec<U>>
+where
+    M: for<'a> Fn(&'a T) -> String,
+    F: Fn(T) -> Fut,
+    Fut: Future<Output = ApiResult<U>>,
+{
+    with_progress_bar(items, message, operation, finish_message, buffer_size).await
+}
 /// Writes the given content to a file at the given path
 ///
 /// # Arguments
