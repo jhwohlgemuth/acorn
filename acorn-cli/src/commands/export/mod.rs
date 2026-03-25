@@ -116,25 +116,34 @@ pub async fn run(
                 .maybe_output(output.clone())
                 .maybe_reference(reference.clone())
                 .build();
-            let count = if *combine { 1 } else { paths.len() as u64 };
-            let progress = ProgressBar::new(count);
-            progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
             if *combine {
+                let progress = ProgressBar::new(1);
+                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
                 progress.set_message("Generating combined PowerPoint artifact");
                 let _ = powerpoint::create(paths, Some(options));
                 progress.inc(1);
                 progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
                 info!("=> {} Exported combined PowerPoint file", Label::pass());
+                Ok(())
             } else {
-                for path in &paths {
-                    progress.set_message(format!("Generating PowerPoint for {}", path.display()));
-                    let _ = powerpoint::create(once(path.to_path_buf()), Some(options.clone()));
-                    progress.inc(1);
+                let progress = with_progress(
+                    paths,
+                    |path| format!("Generating PowerPoint for {}", path.display()),
+                    |path| {
+                        let options = options.clone();
+                        async move { powerpoint::create(once(path), Some(options)).map(|_| ()) }
+                    },
+                    |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),
+                    Some(1),
+                );
+                match progress.await {
+                    | Ok(_) => Ok(()),
+                    | Err(why) => {
+                        fail!("Generate PowerPoint — {}", why);
+                        exit(exitcode::DATAERR);
+                    }
                 }
-                progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                info!("=> {} Exported {} PowerPoint file{}", Label::pass(), count.green(), suffix(count));
             }
-            Ok(())
         }
     }
 }
