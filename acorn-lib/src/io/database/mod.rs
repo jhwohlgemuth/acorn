@@ -257,7 +257,10 @@ where
         let table = table.into();
         self.with_connection(|conn| {
             conn.execute(&format!("DELETE FROM {}", table.name()), params![])
-                .map_err(|why| eyre!("Failed to clear {} — {why}", table.name()))
+                .or_else(|error| match &error {
+                    | backend::Error::SqliteFailure(_, Some(msg)) if msg.contains("no such table") => Ok(0),
+                    | _ => Err(eyre!("Failed to clear {} — {error}", table.name())),
+                })
         })
     }
     /// Delete rows where a timestamp/text column is older than a cutoff value.
@@ -265,8 +268,10 @@ where
         let table = table.into();
         let sql = format!("DELETE FROM {} WHERE {} < ?", table.name(), column);
         self.with_connection(|conn| {
-            conn.execute(&sql, params![cutoff])
-                .map_err(|why| eyre!("Failed to clean up {} — {why}", table.name()))
+            conn.execute(&sql, params![cutoff]).or_else(|error| match &error {
+                | backend::Error::SqliteFailure(_, Some(msg)) if msg.contains("no such table") => Ok(0),
+                | _ => Err(eyre!("Failed to clean up {} — {error}", table.name())),
+            })
         })
     }
     /// Count rows in a table.

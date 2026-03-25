@@ -16,9 +16,9 @@ pub const BACKEND_SQLITE: &str = "sqlite";
 pub const BACKEND_DUCKDB: &str = "duckdb";
 
 #[cfg(feature = "duckdb")]
-pub use duckdb::{params, params_from_iter, Connection, Params, ParamsFromIter, Row as BackendRow, ToSql};
+pub use duckdb::{params, params_from_iter, Connection, Error, Params, ParamsFromIter, Row as BackendRow, ToSql};
 #[cfg(not(feature = "duckdb"))]
-pub use rusqlite::{params, params_from_iter, Connection, Params, ParamsFromIter, Row as BackendRow, ToSql};
+pub use rusqlite::{params, params_from_iter, Connection, Error, Params, ParamsFromIter, Row as BackendRow, ToSql};
 
 /// Returns the backend compiled into this binary.
 pub fn backend() -> &'static str {
