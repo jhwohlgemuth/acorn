@@ -2,13 +2,13 @@
 //!
 //! This module contains schema implementations for established metadata
 //! standards including [DataCite](https://datacite.org/) and
-//! [OpenDataSoft](https://www.opendatasoft.com/) (ODS).
+//! [HuWise](https://www.opendatasoft.com/) (HuWise).
 
 pub mod cff;
 pub mod datacite;
 pub mod dublin_core;
+pub mod huwise;
 pub mod invenio;
-pub mod ods;
 
 #[cfg(test)]
 mod tests;

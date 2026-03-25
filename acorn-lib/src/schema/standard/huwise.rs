@@ -1,11 +1,11 @@
-//! OpenDataSoft (ODS) dataset schema models
+//! HuWise dataset schema models
 //!
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
 
-/// Collection of ODS datasets
+/// Collection of HuWise datasets
 pub type Catalog = Vec<Dataset>;
 /// Dublin Core type enumeration
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -24,7 +24,7 @@ pub struct CustomTemplate {
     #[serde(rename = "source-of-data")]
     pub source_of_data: Option<String>,
 }
-/// Top-level dataset container from ODS exports
+/// Top-level dataset container from HuWise exports
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Dataset {

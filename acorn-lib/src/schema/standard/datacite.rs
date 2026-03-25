@@ -3,7 +3,7 @@
 //! These types model the DataCite Metadata Schema 4.6 structure, including
 //! DOI records, creators, contributors, related identifiers, funding
 //! references, geolocation, rights, and other metadata properties
-use super::ods;
+use super::huwise;
 #[cfg(feature = "std")]
 use crate::io::License;
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
@@ -1077,8 +1077,8 @@ impl core::fmt::Display for GeoLocationPoint {
         write!(f, "({longitude}, {latitude})")
     }
 }
-impl From<ods::Dataset> for Record {
-    fn from(dataset: ods::Dataset) -> Self {
+impl From<huwise::Dataset> for Record {
+    fn from(dataset: huwise::Dataset) -> Self {
         let mut titles = None;
         let mut language = None;
         if let Some(ref meta) = dataset.metas.r#default {
@@ -1121,8 +1121,8 @@ impl From<ods::Dataset> for Record {
         }
     }
 }
-/// Convert an ODS catalog into a DataCite catalog
-pub fn from_ods(catalog: ods::Catalog) -> Catalog {
+/// Convert a HuWise catalog into a DataCite catalog
+pub fn from_huwise(catalog: huwise::Catalog) -> Catalog {
     catalog.into_iter().map(Record::from).collect()
 }
 fn default_identifier_type() -> String {
