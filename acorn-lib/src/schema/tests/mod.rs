@@ -422,7 +422,22 @@ async fn test_is_license() {
         assert!(is_license("").is_err());
     });
 }
-
+#[test]
+#[ignore = "requires isolated process (run with cargo nextest)"]
+fn test_is_license_invalid_database_path() {
+    let dir = std::env::temp_dir().join("acorn_test_invalid_db");
+    std::fs::create_dir_all(&dir).expect("failed to create temp dir");
+    let corrupt_db = dir.join("corrupt.db");
+    std::fs::write(&corrupt_db, b"not a sqlite database").expect("failed to write corrupt db");
+    let path_string = corrupt_db.to_string_lossy().to_string();
+    temp_env::with_vars([(ENV_DATABASE_PATH, Some(path_string.as_str()))], || {
+        let result = is_license("MIT");
+        assert!(result.is_err());
+        let why = result.unwrap_err();
+        assert_eq!(why.message.as_deref(), Some("Failed to access local database for license validation"));
+    });
+    std::fs::remove_dir_all(&dir).ok();
+}
 #[test]
 fn test_is_license_missing_database_path_env() {
     temp_env::with_vars([(ENV_DATABASE_PATH, None::<&str>)], || {
