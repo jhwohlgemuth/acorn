@@ -6,6 +6,10 @@ use serde_with::skip_serializing_none;
 
 /// Trait for parsing GeoNames country data
 pub trait GeonamesParser {
+    /// Isolate country codes from GeoNames country data for use in other contexts
+    ///
+    /// Returns a sorted list of unique country code tags from ISO-3166-1
+    fn country_codes(format: CodeFormat) -> Vec<String>;
     /// Parse GeoNames country TSV text response, removing comments and returning structured rows.
     ///
     /// Lines beginning with `#` are treated as comments and skipped. The first non-comment
@@ -16,12 +20,20 @@ pub trait GeonamesParser {
     /// Isolate languages data from GeoNames country data for use in other contexts
     ///
     /// Returns a sorted list of unique language tags from ISO-639-(1|2|3)
-    fn languages() -> Vec<String>;
+    fn languages(format: CodeFormat) -> Vec<String>;
 }
 /// Wrapper type for a list of GeoNames countries
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(transparent)]
 pub struct Countries(pub Vec<Country>);
+/// Selects code format to extract (either alpha-2 or alpha-3).
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub enum CodeFormat {
+    /// Two-letter code (e.g., `US` for countries, `en` for languages).
+    Alpha2,
+    /// Three-letter or longer code (e.g., `USA` for countries, `eng` or `en-US` for languages).
+    Alpha3,
+}
 /// Represents a single GeoNames country row parsed from a TSV file.
 ///
 /// The fields map directly to the columns in the GeoNames `countryInfo.txt`/TSV export.
@@ -124,16 +136,37 @@ impl From<String> for Countries {
     }
 }
 impl GeonamesParser for Constant {
+    fn country_codes(format: CodeFormat) -> Vec<String> {
+        let data = Self::country_data();
+        country_codes(data, format)
+    }
     fn country_data() -> Countries {
         let text = Self::from_asset("geonames.tsv").unwrap_or_default();
         parse(&text)
     }
-    fn languages() -> Vec<String> {
+    fn languages(format: CodeFormat) -> Vec<String> {
         let data = Self::country_data();
-        languages(data)
+        languages(data, format)
     }
 }
-fn languages(data: Countries) -> Vec<String> {
+fn country_codes(data: Countries, format: CodeFormat) -> Vec<String> {
+    let mut codes = data
+        .0
+        .into_iter()
+        .map(|country: Country| {
+            let code = match format {
+                | CodeFormat::Alpha2 => country.iso,
+                | CodeFormat::Alpha3 => country.iso3,
+            };
+            code.trim().to_lowercase()
+        })
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<String>>();
+    codes.sort();
+    codes.dedup();
+    codes
+}
+fn languages(data: Countries, format: CodeFormat) -> Vec<String> {
     let mut languages = data
         .0
         .into_iter()
@@ -141,9 +174,13 @@ fn languages(data: Countries) -> Vec<String> {
             country
                 .languages
                 .into_iter()
-                .map(|value| value.trim().to_string())
+                .map(|value| value.trim().to_lowercase())
                 .filter(|value| !value.is_empty())
                 .collect::<Vec<String>>()
+        })
+        .filter(|value| match format {
+            | CodeFormat::Alpha2 => value.len() == 2,
+            | CodeFormat::Alpha3 => value.contains('-'),
         })
         .collect::<Vec<String>>();
     languages.sort();

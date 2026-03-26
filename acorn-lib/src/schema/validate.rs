@@ -4,9 +4,11 @@
 //!
 #[cfg(feature = "std")]
 use crate::io::License;
+use crate::schema::geonames::{CodeFormat, GeonamesParser};
 use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::schema::standard::datacite::GeoLocationPoint;
 use crate::util::constants::{RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_PHONE, RE_RAID, RE_UNIX_EPOCH};
+use crate::util::Constant;
 #[cfg(not(feature = "std"))]
 use crate::util::License;
 use crate::util::SemanticVersion;
@@ -186,12 +188,45 @@ pub fn is_commit(value: &str) -> Result<(), ValidationError> {
         | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
 }
-/// Check if value is a valid ISO 3166-1 alpha-2 country code
+/// Check if value is a valid ISO 3166 country code
+///
+/// ISO 3166 is the International Standard for country codes and codes for their subdivisions
+///
+/// See <https://www.iso.org/iso-3166-country-codes.html> for more information
 pub fn is_country_code(value: impl ToString) -> Result<(), ValidationError> {
     const CODE: &str = "country_code";
     const MESSAGE: &str = "Provide valid ISO 3166-1 alpha-2 country code";
     let x = value.to_string();
-    let valid = x.len() == 2 && x.chars().all(|c| c.is_ascii_alphabetic());
+    let valid = x.len() == 2 && Constant::country_codes(CodeFormat::Alpha2).contains(&x.to_lowercase());
+    match valid {
+        | true => Ok(()),
+        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    }
+}
+/// Check if value is a valid ISO 639 language code (two-letter code with optional region subtag, e.g., "en" or "en-US")
+///
+/// ISO 639 is the internationally recognized code for the representation of the world's languages and language groups
+///
+/// See <https://www.iso.org/iso-639-language-code> for more information
+pub fn is_iso_639_language_code(value: &str) -> Result<(), ValidationError> {
+    const CODE: &str = "language";
+    const MESSAGE: &str = "Provide valid ISO 639 language code";
+    let candidate = value.to_lowercase();
+    let valid = Constant::languages(CodeFormat::Alpha2).contains(&candidate) || Constant::languages(CodeFormat::Alpha3).contains(&candidate);
+    match valid {
+        | true => Ok(()),
+        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    }
+}
+/// Check if value is a valid ISO 639-1 language code (two-letter code only, e.g., 'en', 'fr', etc.)
+///
+/// ISO 639 is the internationally recognized code for the representation of the world's languages and language groups
+///
+/// See <https://www.iso.org/iso-639-language-code> for more information
+pub fn is_iso_639_1_language_code(value: &str) -> Result<(), ValidationError> {
+    const CODE: &str = "language";
+    const MESSAGE: &str = "Provide valid ISO 639-1 language code (two-letter code only)";
+    let valid = value.len() == 2 && Constant::languages(CodeFormat::Alpha2).contains(&value.to_lowercase());
     match valid {
         | true => Ok(()),
         | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
@@ -205,16 +240,6 @@ pub fn is_kebabcase(value: &str) -> Result<(), ValidationError> {
     match valid.eq(&value) {
         | true => Ok(()),
         | _ => Err(ValidationError::new(CODE).with_message(message.into())),
-    }
-}
-/// Check if value is a valid URL
-pub fn is_url(value: impl ToString) -> Result<(), ValidationError> {
-    const CODE: &str = "url";
-    const MESSAGE: &str = "Provide valid URL";
-    let x = value.to_string();
-    match URI::try_from(x.as_str()) {
-        | Ok(_) => Ok(()),
-        | Err(_) => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid latitude
@@ -343,6 +368,16 @@ pub fn is_unix_epoch(value: usize) -> Result<(), ValidationError> {
     match RE_UNIX_EPOCH.is_match(&value.to_string()) {
         | Ok(value) if value => Ok(()),
         | _ => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    }
+}
+/// Check if value is a valid URL
+pub fn is_url(value: impl ToString) -> Result<(), ValidationError> {
+    const CODE: &str = "url";
+    const MESSAGE: &str = "Provide valid URL";
+    let x = value.to_string();
+    match URI::try_from(x.as_str()) {
+        | Ok(_) => Ok(()),
+        | Err(_) => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid ISO 8601 year (e.g., YYYY)

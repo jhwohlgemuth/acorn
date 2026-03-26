@@ -7,7 +7,7 @@ use super::huwise;
 #[cfg(feature = "std")]
 use crate::io::License;
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
-use crate::schema::validate::{is_doi, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
+use crate::schema::validate::{is_doi, is_iso_639_1_language_code, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
 #[cfg(not(feature = "std"))]
 use crate::util::License;
 use schemars::JsonSchema;
@@ -509,6 +509,7 @@ pub struct Attributes {
     #[validate(nested)]
     pub dates: Option<Vec<Date>>,
     /// Language code (property 9)
+    #[validate(custom(function = "is_iso_639_1_language_code"))]
     pub language: Option<String>,
     /// Alternate identifiers (property 11)
     #[serde(rename = "alternateIdentifiers")]
@@ -654,7 +655,7 @@ pub struct Description {
     #[serde(rename = "descriptionType", alias = "@descriptionType")]
     pub description_type: Option<DescriptionType>,
     /// Description language
-    // TODO: Add validation using GeoNames language codes
+    #[validate(custom(function = "is_iso_639_1_language_code"))]
     pub language: Option<String>,
 }
 /// Container for `<descriptions>` XML element
@@ -939,7 +940,7 @@ pub struct Resource {
     #[validate(nested)]
     pub dates: Option<Dates>,
     /// Language code (property 9)
-    // TODO: Add validation for language using GeoNames data
+    #[validate(custom(function = "is_iso_639_1_language_code"))]
     pub language: Option<String>,
     /// Related identifiers (property 12)
     #[serde(rename = "relatedIdentifiers")]
@@ -1024,7 +1025,7 @@ pub struct Subject {
     #[serde(alias = "$text")]
     pub subject: String,
     /// Subject language
-    // TODO: Add validation for language using GeoNames data
+    #[validate(custom(function = "is_iso_639_1_language_code"))]
     pub language: Option<String>,
     /// Subject scheme
     #[serde(rename = "subjectScheme", alias = "@subjectScheme")]

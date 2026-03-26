@@ -1,4 +1,4 @@
-use crate::schema::geonames::{Country, GeonamesParser};
+use crate::schema::geonames::{CodeFormat, Country, GeonamesParser};
 use crate::schema::research_activity::*;
 use crate::schema::validate::*;
 use crate::schema::*;
@@ -270,31 +270,6 @@ fn test_fuzzy_matching_sponsors() {
     );
     assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
 }
-
-#[test]
-fn test_scalar_enum_validation_helpers() {
-    assert!(IntegerOrString::Number(42).validate().is_ok());
-    assert!(IntegerOrString::Text("42".to_string()).validate().is_ok());
-    assert!(NumberOrString::Number(42.5).validate().is_ok());
-    assert!(NumberOrString::Text("42.5".to_string()).validate().is_ok());
-    assert!(YearValue::Number(2025).validate().is_ok());
-    assert!(YearValue::Text("2025".to_string()).validate().is_ok());
-    let valid_month_values = [
-        MonthValue::Number(1),
-        MonthValue::Number(12),
-        MonthValue::Text("1".to_string()),
-        MonthValue::Text("12".to_string()),
-    ];
-    valid_month_values
-        .iter()
-        .for_each(|value| assert!(value.validate().is_ok(), "expected valid month value: {value:?}"));
-
-    let invalid_month_values = [MonthValue::Number(0), MonthValue::Text("13".to_string())];
-    invalid_month_values.iter().for_each(|value| {
-        let errors = value.validate().expect_err("expected invalid month value to fail validation");
-        assert!(errors.errors().contains_key("month"));
-    });
-}
 #[test]
 fn test_fuzzy_matching_techology() {
     let name = "technology".to_string();
@@ -363,8 +338,54 @@ fn test_geonames() {
     assert!(countries.contains("fr"), "Expected to find France in GeoNames data");
     assert!(countries.contains("FRA"), "Expected to find France in GeoNames data");
     assert!(!countries.contains("XYZ"), "Expected not to find XYZ in GeoNames data");
-    let languages = Constant::languages();
-    assert!(!languages.contains(&"us-EN".to_string()));
+    let alpha2_codes = Constant::country_codes(CodeFormat::Alpha2);
+    assert!(alpha2_codes.contains(&"us".to_string()));
+    let alpha3_codes = Constant::country_codes(CodeFormat::Alpha3);
+    assert!(alpha3_codes.contains(&"usa".to_string()));
+    let alpha2_languages = Constant::languages(CodeFormat::Alpha2);
+    assert!(alpha2_languages.iter().all(|value| value.len() == 2));
+    let alpha3_languages = Constant::languages(CodeFormat::Alpha3);
+    assert!(alpha3_languages.iter().all(|value| value.contains('-')));
+}
+#[test]
+fn test_is_country_code() {
+    let valid_codes = ["US", "FR", "DE", "GB", "JP", "us", "fr", "de", "gb", "jp"];
+    for code in valid_codes.iter() {
+        assert!(
+            is_country_code(code).is_ok(),
+            "Expected {code} to be valid ISO 3166-1 alpha-2 country code"
+        );
+    }
+    let invalid_codes = [
+        "USA",  // 3 letters
+        "U",    // 1 letter
+        "U.S",  // 3 chars with dot
+        "US1",  // contains digit
+        "U-S",  // contains dash
+        "XX",   // invalid country code
+        "ZZ",   // invalid country code
+        "",     // empty
+        "U",    // single letter
+        "USa ", // 4 chars with space
+    ];
+    for code in invalid_codes.iter() {
+        assert!(
+            is_country_code(code).is_err(),
+            "Expected {code} to be invalid ISO 3166-1 alpha-2 country code"
+        );
+    }
+}
+#[test]
+fn test_is_iso_639_language_code_validation() {
+    assert!(is_iso_639_language_code("en").is_ok());
+    assert!(is_iso_639_language_code("EN").is_ok());
+    assert!(is_iso_639_language_code("en-US").is_ok());
+    assert!(is_iso_639_language_code("eng").is_err());
+    assert!(is_iso_639_language_code("zz-ZZ").is_err());
+    assert!(is_iso_639_1_language_code("en").is_ok());
+    assert!(is_iso_639_1_language_code("EN").is_ok());
+    assert!(is_iso_639_1_language_code("eng").is_err());
+    assert!(is_iso_639_1_language_code("zz").is_err());
 }
 #[test]
 fn test_is_latlon() {
@@ -691,6 +712,30 @@ fn test_is_attribute_ror_list() {
     assert!(is_attribute_ror_list(&valid).is_ok());
     let invalid = ["https://doi.org/10.1000/182".to_string()];
     assert!(is_attribute_ror_list(&invalid).is_err());
+}
+#[test]
+fn test_scalar_enum_validation_helpers() {
+    assert!(IntegerOrString::Number(42).validate().is_ok());
+    assert!(IntegerOrString::Text("42".to_string()).validate().is_ok());
+    assert!(NumberOrString::Number(42.5).validate().is_ok());
+    assert!(NumberOrString::Text("42.5".to_string()).validate().is_ok());
+    assert!(YearValue::Number(2025).validate().is_ok());
+    assert!(YearValue::Text("2025".to_string()).validate().is_ok());
+    let valid_month_values = [
+        MonthValue::Number(1),
+        MonthValue::Number(12),
+        MonthValue::Text("1".to_string()),
+        MonthValue::Text("12".to_string()),
+    ];
+    valid_month_values
+        .iter()
+        .for_each(|value| assert!(value.validate().is_ok(), "expected valid month value: {value:?}"));
+
+    let invalid_month_values = [MonthValue::Number(0), MonthValue::Text("13".to_string())];
+    invalid_month_values.iter().for_each(|value| {
+        let errors = value.validate().expect_err("expected invalid month value to fail validation");
+        assert!(errors.errors().contains_key("month"));
+    });
 }
 #[test]
 fn test_validate_is_unix_epoch() {
