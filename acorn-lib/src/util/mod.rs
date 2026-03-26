@@ -48,6 +48,23 @@ pub trait LinkedData {
     /// Add linked data (e.g., JSON-LD) context
     fn with_context(&self) -> Self;
 }
+/// Helper trait for searching lists of named elements
+pub trait Searchable<T> {
+    /// Check if a certain value is present in the list
+    /// ### Note
+    /// This method will differ greatly on the implementation and type of T
+    fn contains(&self, _value: &str) -> bool {
+        false
+    }
+    /// Filter list by ISO or ISO3 and return the first match
+    /// ### Note
+    /// This method is specific to the `Country` type in the GeoNames API, but is included in the trait for convenience and consistency with `find_by_name`
+    fn find_by_iso(&self, _value: impl Into<String>) -> Option<T> {
+        None
+    }
+    /// Filter list by name and return the first match
+    fn find_by_name(&self, value: impl Into<String>) -> Option<T>;
+}
 /// Trait for augmenting and formatting data for display
 pub trait StringConversion {
     /// Return a string representation of the file_name with its parent folder (or just the folder name if it is a folder)

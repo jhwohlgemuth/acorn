@@ -1,6 +1,8 @@
+use crate::schema::geonames::{Country, GeonamesParser};
 use crate::schema::research_activity::*;
 use crate::schema::validate::*;
 use crate::schema::*;
+use crate::util::{Constant, Searchable};
 use glob::glob;
 use pretty_assertions::assert_eq;
 
@@ -340,6 +342,29 @@ fn test_fuzzy_matching_techology() {
     assert_eq!(resolve_from_csv_asset(name.clone(), "airflow.apache.org".into()), Some("airflow".into()));
     assert_eq!(resolve_from_csv_asset(name.clone(), "foobarbaz".into()), None);
     assert_eq!(resolve_from_csv_asset(name.clone(), "".into()), None);
+}
+#[test]
+fn test_geonames() {
+    let countries = Constant::country_data();
+    assert!(!countries.is_empty(), "Expected at least one GeoNames row");
+    let us = countries.find_by_iso("US").expect("US row not found in GeoNames data");
+    let Country {
+        name,
+        top_level_domain,
+        population,
+        ..
+    } = us;
+    assert_eq!(name, "United States");
+    assert_eq!(top_level_domain, ".us");
+    assert!(population.unwrap_or(0) > 0);
+    assert_eq!(countries.find_by_name("Germany").unwrap().iso, "DE");
+    assert_eq!(countries.find_by_name("germany").unwrap().iso, "DE");
+    assert!(countries.contains("FR"), "Expected to find France in GeoNames data");
+    assert!(countries.contains("fr"), "Expected to find France in GeoNames data");
+    assert!(countries.contains("FRA"), "Expected to find France in GeoNames data");
+    assert!(!countries.contains("XYZ"), "Expected not to find XYZ in GeoNames data");
+    let languages = Constant::languages();
+    assert!(!languages.contains(&"us-EN".to_string()));
 }
 #[test]
 fn test_is_latlon() {

@@ -3,12 +3,12 @@
 //! See `https://github.com/spdx/license-list-data/blob/main/accessingLicenses.md` for more information on the SPDX license list and how to access it.
 //!
 //! See `https://spdx.org/rdf/terms/` for SPDX RDF terms.
-use crate::io::api::{self, DatabasePersistence, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
+use crate::io::api::{self, DatabasePersistence, RemoteResource, INCLUDED_ENDPOINTS};
 use crate::io::database::schema::{LicenseRow, Table};
 use crate::io::database::{Database, Operations};
 use crate::io::{with_progress, ApiResult, ProgressType};
 use crate::schema::validate::{is_semantic_version, is_urls};
-use crate::util::Label;
+use crate::util::{Label, Searchable};
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Report};
 use serde::{Deserialize, Serialize};

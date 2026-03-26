@@ -6,7 +6,7 @@ use crate::io::config::ApplicationConfiguration;
 use crate::io::database::{schema::Table, Database};
 use crate::io::{get, post, put, ApiResult};
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
-use crate::util::{detect_json, detect_xml, Constant};
+use crate::util::{detect_json, detect_xml, Constant, Searchable};
 use crate::{Location, Repository, Scheme};
 use async_trait::async_trait;
 use bon::Builder;
@@ -82,23 +82,6 @@ pub trait RemoteResource {
     where
         Q: QueryField + ValueValidator,
         F: QueryField;
-}
-/// Helper trait for searching lists of named API elements
-pub trait Searchable<T> {
-    /// Check if a certain value is present in the list
-    /// ### Note
-    /// This method will differ greatly on the implementation and type of T
-    fn contains(&self, _value: &str) -> bool {
-        false
-    }
-    /// Filter list by ISO or ISO3 and return the first match
-    ///### Note
-    /// This method is specific to the `Country` type in the GeoNames API, but is included in the trait for convenience and consistency with `find_by_name`
-    fn find_by_iso(&self, _value: impl Into<String>) -> Option<T> {
-        None
-    }
-    /// Filter list by name and return the first match
-    fn find_by_name(&self, value: impl Into<String>) -> Option<T>;
 }
 /// Trait to enable validation of field values
 pub trait ValueValidator {
@@ -573,7 +556,8 @@ impl RemoteResource for Endpoint {
     /// Invoke an endpoint resource asynchronously with data and receive a response using explicit query and field types.
     /// ### Example
     /// ```ignore
-    /// use acorn::io::api::{self, Searchable, INCLUDED_ENDPOINTS};
+    /// use acorn::io::api::{self, INCLUDED_ENDPOINTS};
+    /// use acorn::util::Searchable;
     ///
     /// let orcid = INCLUDED_ENDPOINTS.find_by_name("orcid");
     /// let text = match &orcid {

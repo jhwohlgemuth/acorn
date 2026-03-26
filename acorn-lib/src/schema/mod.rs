@@ -38,6 +38,7 @@ use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace};
 use validator::Validate;
 
+pub mod geonames;
 pub mod graph;
 pub mod namespaces;
 pub mod pid;

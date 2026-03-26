@@ -1,11 +1,11 @@
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
-    self, extract_template_keys, geonames, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, Resource, ResponseContent, Searchable,
-    INCLUDED_ENDPOINTS,
+    self, extract_template_keys, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,
 };
 use crate::io::read_file;
 use crate::param;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
+use crate::util::Searchable;
 use crate::{Location, Repository, Scheme};
 use std::path::PathBuf;
 
@@ -156,31 +156,6 @@ fn test_endpoint_parse() {
     assert!(status.database);
     assert!(!status.database_readonly);
     assert!(status.overall);
-}
-#[tokio::test]
-async fn test_geonames() {
-    let content = read_file(fixtures_dir().join("geonames.tsv")).expect("Failed to read TSV fixture");
-    let response = api::TextResponse { content };
-    let countries = response.parse();
-    assert!(!countries.is_empty(), "Expected at least one GeoNames row");
-    let us = countries.find_by_iso("US").expect("US row not found in GeoNames data");
-    let geonames::Country {
-        name,
-        top_level_domain,
-        population,
-        ..
-    } = us;
-    assert_eq!(name, "United States");
-    assert_eq!(top_level_domain, ".us");
-    assert!(population.unwrap_or(0) > 0);
-    assert_eq!(countries.find_by_name("Germany").unwrap().iso, "DE");
-    assert_eq!(countries.find_by_name("germany").unwrap().iso, "DE");
-    assert!(countries.contains("FR"), "Expected to find France in GeoNames data");
-    assert!(countries.contains("fr"), "Expected to find France in GeoNames data");
-    assert!(countries.contains("FRA"), "Expected to find France in GeoNames data");
-    assert!(!countries.contains("XYZ"), "Expected not to find XYZ in GeoNames data");
-    let languages = geonames::languages(Some(countries)).await;
-    assert!(!languages.contains(&"us-EN".to_string()));
 }
 #[test]
 fn test_extract_template_keys() {

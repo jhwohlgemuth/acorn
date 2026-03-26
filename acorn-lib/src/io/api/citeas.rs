@@ -2,9 +2,10 @@
 //! > CiteAs is a way to get the correct citation for diverse research products including, software, datasets, preprints, and traditional articles. By making it easier to cite software and other "alternative" scholarly products, we aim to help the creators of such products get full credit for their work.
 //!
 //! See <https://citeas.org/api> for more information
-use crate::io::api::{ApiResult, Param, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
+use crate::io::api::{ApiResult, Param, RemoteResource, INCLUDED_ENDPOINTS};
 use crate::param;
 use crate::schema::pid::DOI;
+use crate::util::Searchable;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};

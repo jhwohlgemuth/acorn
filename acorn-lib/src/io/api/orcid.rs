@@ -26,9 +26,10 @@
 //! ];
 //! println!("ORCiD Search Response: {:#?}", api::orcid::search(params).await);
 //! ```
-use crate::io::api::{self, RemoteResource, Searchable, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::api::{self, RemoteResource, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::ApiResult;
 use crate::schema::validate::{is_orcid, is_ror};
+use crate::util::Searchable;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;

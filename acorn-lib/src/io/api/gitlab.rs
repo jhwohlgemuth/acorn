@@ -2,10 +2,11 @@
 //!
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
-use crate::io::api::{EmptyField, RemoteResource, Searchable, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::api::{EmptyField, RemoteResource, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::config::{RunnerStatus, RunnerType};
 use crate::io::ApiResult;
 use crate::param;
+use crate::util::Searchable;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use serde::{Deserialize, Serialize};

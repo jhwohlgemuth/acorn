@@ -21,9 +21,10 @@
 //!
 //! println!("ROR REST API is healthy: {}", api::ror::is_healthy().await);
 //! ```
-use crate::io::api::{ApiResult, Param, RemoteResource, Searchable, TextResponse, INCLUDED_ENDPOINTS};
+use crate::io::api::{ApiResult, Param, RemoteResource, TextResponse, INCLUDED_ENDPOINTS};
 use crate::param;
 use crate::schema::pid::{PersistentIdentifierParse, ROR};
+use crate::util::Searchable;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
