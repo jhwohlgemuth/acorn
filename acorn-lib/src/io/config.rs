@@ -8,7 +8,7 @@ use crate::io::api::github::{TreeEntry as GithubTreeEntry, TreeResponse as Githu
 use crate::io::api::gitlab::{TreeEntry as GitlabTreeEntry, TreeResponse as GitlabTreeResponse};
 use crate::io::api::Endpoint;
 use crate::io::ApiResult;
-use crate::io::{files_all, get, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput};
+use crate::io::{files_all, get, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType};
 use crate::prelude::{self, exit, PathBuf};
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
@@ -357,7 +357,7 @@ impl Bucket {
             let total_data: usize = count_json_files(&items);
             let total_images: usize = count_image_files(&items);
             let finish_message = |_| operations_complete_message(name, total_data, total_images);
-            match with_progress(items, message, operation, finish_message, Some(threads)).await {
+            match with_progress(items, message, operation, finish_message, Some(threads), ProgressType::Bar).await {
                 | Ok(_) => Ok(total_data + total_images),
                 | Err(why) => {
                     error!("=> {} Copy files with progress bar - {why}", Label::fail());
@@ -406,7 +406,7 @@ impl Bucket {
         let total_data: usize = count_json_files(&items);
         let total_images: usize = count_image_files(&items);
         let finish_message = |_| operations_complete_message(name, total_data, total_images);
-        match with_progress(items, message, operation, finish_message, Some(threads)).await {
+        match with_progress(items, message, operation, finish_message, Some(threads), ProgressType::Bar).await {
             | Ok(_) => Ok(total_data + total_images),
             | Err(why) => {
                 error!("=> {} Download files with progress bar - {why}", Label::fail());

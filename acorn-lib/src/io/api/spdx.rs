@@ -6,7 +6,7 @@
 use crate::io::api::{self, DatabasePersistence, RemoteResource, Searchable, INCLUDED_ENDPOINTS};
 use crate::io::database::schema::{LicenseRow, Table};
 use crate::io::database::{Database, Operations};
-use crate::io::{with_progress_bar, ApiResult};
+use crate::io::{with_progress, ApiResult, ProgressType};
 use crate::schema::validate::{is_semantic_version, is_urls};
 use crate::util::Label;
 use async_trait::async_trait;
@@ -102,7 +102,7 @@ impl DatabasePersistence for LicensesResponse {
         let message: fn(&LicenseMetadata) -> String = |item| format!("Saving \"{}\" license metadata", item.license_id);
         let operation = |item| async { database.insert(LicenseRow::from(item)) };
         let finish = |count| format!("{}Saved metadata for {count} SPDX licenses", Label::CHECKMARK);
-        with_progress_bar(licenses, message, operation, finish, None)
+        with_progress(licenses, message, operation, finish, None, ProgressType::Bar)
             .await
             .map(|counts| counts.into_iter().sum())
             .map_err(Report::msg)

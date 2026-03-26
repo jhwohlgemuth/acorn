@@ -1,14 +1,13 @@
 use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::io::bagit::{Bag, BagInfo, Save};
-use acorn::io::{folder_size, with_progress, with_progress_bar, FromPath, InputOutput};
+use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, with_progress, FromPath, InputOutput, ProgressType};
 use acorn::prelude::{exit, remove_dir_all, HashSet, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{current_date, format_bytes, suffix, Label, MimeType};
+use acorn::util::{current_date, format_bytes, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
 use color_eyre::eyre::{Report, Result};
 use core::iter::once;
-use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 #[cfg(feature = "pdf")]
 use playwright::Playwright;
@@ -71,8 +70,6 @@ pub async fn run(
         | FileFormat::Pdf => {
             #[cfg(feature = "pdf")]
             {
-                use acorn::util::StringConversion;
-
                 let items = paths_from_options(path, &Some(options)).await;
                 let playwright = Playwright::initialize().await.unwrap();
                 playwright.install_chromium().unwrap();
@@ -81,7 +78,7 @@ pub async fn run(
                 let context = browser.context_builder().build().await.unwrap();
                 let page = context.new_page().await.unwrap();
                 let page = &page;
-                let progress = with_progress_bar(
+                let progress = with_progress(
                     items,
                     |path| format!("Generating PDF for {}", path.file_name_with_parent()),
                     |path| async move {
@@ -91,6 +88,7 @@ pub async fn run(
                     },
                     |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
                     Some(1),
+                    ProgressType::Bar,
                 );
                 match progress.await {
                     | Ok(_) => {
@@ -117,24 +115,23 @@ pub async fn run(
                 .maybe_reference(reference.clone())
                 .build();
             if *combine {
-                let progress = ProgressBar::new(1);
-                progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+                let progress = create_progress_bar(1, ProgressType::Spinner);
                 progress.set_message("Generating combined PowerPoint artifact");
                 let _ = powerpoint::create(paths, Some(options));
                 progress.inc(1);
-                progress.finish_with_message(format!("{}Done", Label::CHECKMARK));
-                info!("=> {} Exported combined PowerPoint file", Label::pass());
+                finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
                 Ok(())
             } else {
                 let progress = with_progress(
                     paths,
-                    |path| format!("Generating PowerPoint for {}", path.display()),
+                    |path| format!("Generating PowerPoint for {}", path.file_name_with_parent()),
                     |path| {
                         let options = options.clone();
                         async move { powerpoint::create(once(path), Some(options)).map(|_| ()) }
                     },
                     |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),
                     Some(1),
+                    ProgressType::Bar,
                 );
                 match progress.await {
                     | Ok(_) => Ok(()),
@@ -189,6 +186,7 @@ async fn export_convert(
         },
         |count| format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count)),
         Some(threads),
+        ProgressType::Bar,
     );
     match progress.await {
         | Ok(_) => {

@@ -165,6 +165,19 @@ pub enum License {
     /// Single SPDX identifier.
     Single(String),
 }
+/// Progress indicator types for with_progress
+#[derive(Clone, Copy, Debug, Default)]
+pub enum ProgressType {
+    /// Progress bar with spinner, count, and percentage indicator
+    #[default]
+    Bar,
+    /// Indeterminate spinner for unknown item counts
+    Spinner,
+    /// Simple counter showing position of total (e.g., "5 of 100")
+    Counter,
+    /// No progress output
+    Silent,
+}
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
 impl FromCommand for SemanticVersion {
@@ -223,6 +236,19 @@ impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
     }
     fn to_absolute_strings(&self) -> Vec<String> {
         self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_string()).collect()
+    }
+}
+impl ProgressType {
+    fn template(&self) -> Option<&'static str> {
+        match self {
+            | ProgressType::Bar => Some(Label::PROGRESS_BAR_TEMPLATE),
+            | ProgressType::Spinner => Some(Label::PROGRESS_SPINNER_TEMPLATE),
+            | ProgressType::Counter => Some(Label::PROGRESS_COUNTER_TEMPLATE),
+            | ProgressType::Silent => None,
+        }
+    }
+    fn is_indeterminate(&self) -> bool {
+        matches!(self, ProgressType::Spinner)
     }
 }
 impl StringConversion for PathBuf {
@@ -1034,13 +1060,57 @@ where
     };
     result.display().to_string()
 }
-/// Process a collection of data items with or without progress indication
-pub async fn with_progress_bar<T, U, M, F, Fut>(
+/// Creates a new progress bar with the specified count and progress type
+pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> ProgressBar {
+    let progress = if progress_type.is_indeterminate() {
+        ProgressBar::new_spinner()
+    } else {
+        ProgressBar::new(count as u64)
+    };
+    if let Some(template) = progress_type.template() {
+        progress.set_style(ProgressStyle::with_template(template).unwrap());
+    }
+    progress
+}
+/// Applies a new style template to an existing progress bar
+pub fn apply_progress_style(progress: &ProgressBar, template: &str) {
+    progress.set_style(ProgressStyle::with_template(template).unwrap());
+}
+/// Finishes a progress bar with a message, applying appropriate final style
+pub fn finish_progress_bar(progress: &ProgressBar, message: String) {
+    progress.set_style(ProgressStyle::with_template("  {msg}").unwrap());
+    progress.finish_with_message(message);
+}
+/// Process a collection of data items with progress indication.
+///
+/// # Arguments
+///
+/// * `items` - Collection of items to process
+/// * `message` - Function to generate progress message for each item
+/// * `operation` - Async function to apply to each item
+/// * `finish_message` - Function to generate completion message
+/// * `buffer_size` - Concurrency level for parallel processing
+/// * `progress_type` - Type of progress indicator (Bar, Spinner, Counter, Silent)
+///
+/// # Example
+///
+/// ```ignore
+/// let result = with_progress(
+///     items,
+///     |item| format!("Processing {}", item),
+///     |item| async move { process(item) },
+///     |count| format!("Done! Processed {} items", count),
+///     Some(10),
+///     ProgressType::Bar,
+/// ).await;
+/// ```
+pub async fn with_progress<T, U, M, F, Fut>(
     items: Vec<T>,
     message: M,
     operation: F,
     finish_message: impl FnOnce(usize) -> String,
     buffer_size: Option<usize>,
+    progress_type: ProgressType,
 ) -> ApiResult<Vec<U>>
 where
     M: for<'a> Fn(&'a T) -> String,
@@ -1049,8 +1119,10 @@ where
 {
     let concurrency = buffer_size.unwrap_or(10).max(1);
     let count = items.len();
-    let progress = ProgressBar::new(count as u64);
-    progress.set_style(ProgressStyle::with_template(Label::PROGRESS_BAR_TEMPLATE).unwrap());
+    let progress = create_progress_bar(count, progress_type);
+    if matches!(progress_type, ProgressType::Spinner) {
+        progress.enable_steady_tick(Duration::from_millis(120));
+    }
     let output = stream::iter(items)
         .map(|item| {
             let msg = message(&item);
@@ -1070,24 +1142,11 @@ where
         .await
         .into_iter()
         .collect::<ApiResult<Vec<_>>>();
-    progress.set_style(ProgressStyle::with_template("  {msg}").unwrap());
-    progress.finish_with_message(finish_message(count));
+
+    if !matches!(progress_type, ProgressType::Silent) {
+        finish_progress_bar(&progress, finish_message(count));
+    }
     output
-}
-/// Process a collection of data items with progress indication.
-pub async fn with_progress<T, U, M, F, Fut>(
-    items: Vec<T>,
-    message: M,
-    operation: F,
-    finish_message: impl FnOnce(usize) -> String,
-    buffer_size: Option<usize>,
-) -> ApiResult<Vec<U>>
-where
-    M: for<'a> Fn(&'a T) -> String,
-    F: Fn(T) -> Fut,
-    Fut: Future<Output = ApiResult<U>>,
-{
-    with_progress_bar(items, message, operation, finish_message, buffer_size).await
 }
 /// Writes the given content to a file at the given path
 ///

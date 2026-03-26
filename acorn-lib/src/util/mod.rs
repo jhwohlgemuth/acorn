@@ -389,6 +389,10 @@ impl Label {
     ///
     /// See <https://docs.rs/indicatif/latest/indicatif/#templates>
     pub const PROGRESS_BAR_TEMPLATE: &str = "  {spinner:.green}{pos:>5} of{len:^5}[{bar:40.green}] {msg}";
+    /// Template string for progress spinner (indeterminate)
+    pub const PROGRESS_SPINNER_TEMPLATE: &str = "  {spinner:.green} {msg}";
+    /// Template string for progress counter (simple X of Y)
+    pub const PROGRESS_COUNTER_TEMPLATE: &str = "{pos:>5} of{len:^5} {msg}";
     /// "Dry run" label
     pub fn dry_run() -> Styled<&'static &'static str> {
         let style = Style::new().black().on_yellow();
