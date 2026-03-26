@@ -509,7 +509,6 @@ impl TableSchemaProvider for Table {
             | Table::Licenses => {
                 let progress = create_progress_bar(0, ProgressType::Spinner);
                 progress.set_message("Downloading SPDX license data...");
-                progress.enable_steady_tick(core::time::Duration::from_millis(120));
                 let response = api::spdx::download().await;
                 let message = format!("{}SPDX metadata download complete", Label::CHECKMARK);
                 finish_progress_bar(&progress, message);

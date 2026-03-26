@@ -1070,6 +1070,9 @@ pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> Progres
     if let Some(template) = progress_type.template() {
         progress.set_style(ProgressStyle::with_template(template).unwrap());
     }
+    if progress_type.is_indeterminate() {
+        progress.enable_steady_tick(Duration::from_millis(120));
+    }
     progress
 }
 /// Applies a new style template to an existing progress bar
