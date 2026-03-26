@@ -72,7 +72,7 @@ pub trait Row: RowMetadata {
     where
         Self: Sized;
     /// Selects rows from the database matching this row's field values.
-    fn select(&self) -> ApiResult<Vec<Self>>
+    fn select_all(&self, path: Option<PathBuf>) -> ApiResult<Vec<Self>>
     where
         Self: Sized,
         for<'row> Self: From<&'row BackendRow<'row>>,
@@ -82,7 +82,16 @@ pub trait Row: RowMetadata {
         let fields = <Self as RowMetadata>::fields().join(", ");
         let query = format!("SELECT {fields} FROM {name}");
         let (query, params) = self.build_select_query(&query);
-        table.rows(&query, params, None)
+        table.rows(&query, params, path.as_ref())
+    }
+    /// Selects the first row matching this row's filter values and predicate.
+    fn select<F>(&self, path: Option<PathBuf>, predicate: F) -> ApiResult<Option<Self>>
+    where
+        Self: Sized,
+        for<'row> Self: From<&'row BackendRow<'row>>,
+        F: Fn(&Self) -> bool,
+    {
+        self.select_all(path).map(|rows| rows.into_iter().find(predicate))
     }
     /// Builds a SQL SELECT query with optional WHERE/ORDER BY clauses.
     fn build_select_query(&self, base: &str) -> SelectQuery;

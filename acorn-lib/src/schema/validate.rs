@@ -3,10 +3,16 @@
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 //!
 #[cfg(feature = "std")]
+use crate::io::database::{schema::LicenseRow, Row};
+#[cfg(feature = "std")]
 use crate::io::License;
+#[cfg(feature = "std")]
+use crate::prelude::env;
 use crate::schema::geonames::{CodeFormat, GeonamesParser};
 use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::schema::standard::datacite::GeoLocationPoint;
+#[cfg(feature = "std")]
+use crate::util::constants::ENV_DATABASE_PATH;
 use crate::util::constants::{RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_PHONE, RE_RAID, RE_UNIX_EPOCH};
 use crate::util::Constant;
 #[cfg(not(feature = "std"))]
@@ -259,12 +265,42 @@ where
 /// ### Note
 /// Value is validated against local database
 #[cfg(feature = "std")]
-pub fn is_license(_value: &str) -> Result<(), ValidationError> {
-    Ok(())
+pub fn is_license(value: &str) -> Result<(), ValidationError> {
+    const CODE: &str = "license";
+    const MESSAGE: &str = "Provide valid SPDX license identifier";
+    let normalized = value.trim().to_ascii_lowercase();
+    let predicate = |row: &LicenseRow| {
+        let LicenseRow { identifier, name, .. } = row;
+        let is_valid_identifier = identifier.as_ref().map(|id| id.eq_ignore_ascii_case(&normalized)).unwrap_or(false);
+        let is_valid_name = name.as_ref().map(|name| name.eq_ignore_ascii_case(&normalized)).unwrap_or(false);
+        is_valid_identifier || is_valid_name
+    };
+    if normalized.is_empty() {
+        Err(ValidationError::new(CODE).with_message(format!("{MESSAGE} (cannot be empty)").into()))
+    } else {
+        match env::var(ENV_DATABASE_PATH) {
+            | Ok(path) => {
+                let exists = LicenseRow::default().select(Some(path.into()), predicate).map(|row| row.is_some());
+                match exists {
+                    | Ok(true) => Ok(()),
+                    | Ok(false) => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+                    | Err(_) => Err(ValidationError::new(CODE).with_message("Failed to access local database for license validation".into())),
+                }
+            }
+            | Err(_) => Err(ValidationError::new(CODE).with_message("Failed to access local database for license validation".into())),
+        }
+    }
 }
 #[cfg(not(feature = "std"))]
-pub fn is_license(_value: &str) -> Result<(), ValidationError> {
-    Ok(())
+pub fn is_license(value: &str) -> Result<(), ValidationError> {
+    const CODE: &str = "license";
+    const MESSAGE: &str = "Provide valid SPDX license identifier";
+    let value = value.trim();
+    if value.is_empty() {
+        Err(ValidationError::new(CODE).with_message(format!("{MESSAGE} (cannot be empty)").into()))
+    } else {
+        Ok(())
+    }
 }
 /// Check if value is a valid longitude
 pub fn is_longitude<T>(value: T) -> Result<(), ValidationError>

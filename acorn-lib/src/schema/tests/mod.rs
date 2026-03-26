@@ -2,6 +2,7 @@ use crate::schema::geonames::{CodeFormat, Country, GeonamesParser};
 use crate::schema::research_activity::*;
 use crate::schema::validate::*;
 use crate::schema::*;
+use crate::util::constants::ENV_DATABASE_PATH;
 use crate::util::{Constant, Searchable};
 use glob::glob;
 use pretty_assertions::assert_eq;
@@ -406,6 +407,27 @@ fn test_is_latlon() {
     for x in invalid_longitude.iter() {
         assert!(is_longitude(*x).is_err(), "=> [REASON] \"{x}\" IS a valid longitude value");
     }
+}
+#[tokio::test]
+async fn test_is_license() {
+    let path = crate::test_utils::temp_database_with_licenses()
+        .await
+        .expect("failed to initialize temporary test database");
+    let path_string = path.to_string_lossy().to_string();
+    temp_env::with_vars([(ENV_DATABASE_PATH, Some(path_string.as_str()))], || {
+        assert!(is_license("MIT").is_ok());
+        assert!(is_license("mit").is_ok());
+        assert!(is_license("MIT License").is_ok());
+        assert!(is_license("Not-A-Real-License").is_err());
+        assert!(is_license("").is_err());
+    });
+}
+
+#[test]
+fn test_is_license_missing_database_path_env() {
+    temp_env::with_vars([(ENV_DATABASE_PATH, None::<&str>)], || {
+        assert!(is_license("MIT").is_err());
+    });
 }
 #[test]
 fn test_organization() {

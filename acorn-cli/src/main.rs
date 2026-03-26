@@ -25,7 +25,7 @@ use acorn::io::database::{backend, schema::Table, Database, Operations};
 use acorn::prelude::env;
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::constants::ENV_CACHE_TTL;
+use acorn::util::constants::{ENV_CACHE_TTL, ENV_DATABASE_BACKEND, ENV_DATABASE_PATH};
 use acorn::util::Label;
 use clap::{crate_version, Parser};
 use color_eyre::eyre;
@@ -144,10 +144,10 @@ async fn main() -> Void {
         Ok(())
     } else {
         if let Some(path) = database_path.as_ref() {
-            env::set_var(backend::ENV_DATABASE_PATH, path.as_os_str());
+            env::set_var(ENV_DATABASE_PATH, path.as_os_str());
         }
         if let Some(selected) = database_backend {
-            env::set_var(backend::ENV_DATABASE_BACKEND, selected.to_string());
+            env::set_var(ENV_DATABASE_BACKEND, selected.to_string());
         }
         if let Err(why) = backend::validate_backend_selection() {
             eprintln!("=> {} {why}", Label::fail());

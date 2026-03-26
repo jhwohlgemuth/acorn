@@ -1,6 +1,6 @@
-use acorn::io::database::backend::ENV_DATABASE_BACKEND;
 use acorn::io::{files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored};
 use acorn::prelude::PathBuf;
+use acorn::util::constants::ENV_DATABASE_BACKEND;
 use bon::Builder;
 use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
