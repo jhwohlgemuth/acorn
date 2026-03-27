@@ -19,7 +19,7 @@ use crate::util::constants::{
     MAX_LENGTH_SECTION_MISSION,
 };
 use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
-use crate::util::{frontmatter_and_body, LinkedData, ToMarkdown};
+use crate::util::{frontmatter_and_body, LinkedData, ToMarkdown, ToProse};
 #[cfg(feature = "std")]
 use crate::util::{Constant, Label};
 #[cfg(feature = "std")]
@@ -527,38 +527,6 @@ impl ResearchActivity {
     pub fn new() -> Self {
         ResearchActivity::default()
     }
-    /// Returns prose content suitable for static analysis (e.g., Vale)
-    ///
-    /// Includes title, subtitle, sections, and websites — excludes frontmatter and contact info.
-    pub fn to_prose(&self) -> String {
-        let websites = self
-            .meta
-            .websites
-            .clone()
-            .unwrap_or_default()
-            .into_iter()
-            .map(|website| website.to_markdown())
-            .collect::<Vec<String>>()
-            .join("\n");
-        let sections = self.sections.to_markdown();
-        match &self.subtitle {
-            | Some(subtitle) => format!(
-                r#"# {title}
-> {subtitle}
-{sections}
-
-{websites}"#,
-                title = self.title
-            ),
-            | None => format!(
-                r#"# {title}
-{sections}
-
-{websites}"#,
-                title = self.title
-            ),
-        }
-    }
     /// Print research activity schema as JSON schema
     pub fn to_schema() {
         let schema = schema_for!(ResearchActivity);
@@ -698,6 +666,37 @@ classification: {classification}
 {sections}
 
 {contact}"#
+            ),
+        }
+    }
+}
+impl ToProse for ResearchActivity {
+    fn to_prose(&self) -> String {
+        let websites = self
+            .meta
+            .websites
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|website| website.to_markdown())
+            .collect::<Vec<String>>()
+            .join("\n");
+        let sections = self.sections.to_markdown();
+        match &self.subtitle {
+            | Some(subtitle) => format!(
+                r#"# {title}
+> {subtitle}
+{sections}
+
+{websites}"#,
+                title = self.title
+            ),
+            | None => format!(
+                r#"# {title}
+{sections}
+
+{websites}"#,
+                title = self.title
             ),
         }
     }

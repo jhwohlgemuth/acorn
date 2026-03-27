@@ -13,7 +13,7 @@ use crate::util::constants::{
     APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
     VALE_RELEASES_URL, VALE_VERSION,
 };
-use crate::util::{Constant, Label, SemanticVersion, StringConversion, ToMarkdown};
+use crate::util::{Constant, Label, SemanticVersion, StringConversion, ToMarkdown, ToProse};
 use crate::{cmd, skip};
 use crate::{Location, Repository};
 use async_trait::async_trait;

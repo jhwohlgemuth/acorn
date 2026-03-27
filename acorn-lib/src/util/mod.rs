@@ -87,6 +87,11 @@ pub trait ToMarkdown {
     /// Convert `self` to Markdown format string
     fn to_markdown(&self) -> String;
 }
+/// Format data structures as prose suitable for static analysis
+pub trait ToProse {
+    /// Convert `self` to prose format string
+    fn to_prose(&self) -> String;
+}
 /// Trait for converting a vector of non-string values to a vector of strings
 pub trait ToStrings {
     /// Convert a vector of string slices to a vector of string values of paths
