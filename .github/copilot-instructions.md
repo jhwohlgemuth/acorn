@@ -72,7 +72,7 @@
 ### Installation
 ```bash
 # Windows
-./setup.bat  # Configures OpenSSL
+./scripts/setup.bat  # Configures OpenSSL
 
 # All platforms
 cargo install cargo-nextest cargo-tarpaulin cargo-audit cargo-auditable
@@ -99,7 +99,6 @@ cargo install cargo-nextest cargo-tarpaulin cargo-audit cargo-auditable
 ### Struct Validation
 - Use `#[validate]` from `validator` crate
 - Nested validation via `#[validate(nested)]`
-- Custom validators: `validate_attribute_doi()`, `validate_attribute_ror_list()`
 - String trimming: `#[serde(deserialize_with = "string_trim")]`
 
 ### Clap CLI Arguments
