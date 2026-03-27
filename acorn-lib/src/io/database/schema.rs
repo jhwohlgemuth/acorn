@@ -521,6 +521,12 @@ impl TableSchemaProvider for Table {
         }
     }
     /// Print all table rows
+    /// ### Example
+    /// ```ignore
+    /// use acorn::io::database::{TableSchemaProvider, schema::Table};
+    ///
+    /// Table::Activity.print(database_path.clone());
+    /// ```
     fn print(self, path: Option<PathBuf>) {
         fn print_rows<R>(table: Table, path: Option<&PathBuf>)
         where

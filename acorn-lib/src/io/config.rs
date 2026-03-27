@@ -326,7 +326,7 @@ impl Bucket {
     /// ### Notes
     /// - Ignores files listed in [`IGNORE`]
     /// - Only copies files from local repositories
-    pub async fn copy_files(self: Bucket, output: PathBuf, threads: usize) -> ApiResult<usize> {
+    pub async fn copy_files(self: Bucket, output: PathBuf, threads: usize, quiet: bool) -> ApiResult<usize> {
         let Bucket { name, code_repository, .. } = self.clone();
         if code_repository.clone().is_local() {
             let uri = code_repository.clone().location().uri();
@@ -357,7 +357,11 @@ impl Bucket {
             let total_data: usize = count_json_files(&items);
             let total_images: usize = count_image_files(&items);
             let finish_message = |_| operations_complete_message(name, total_data, total_images);
-            match with_progress(items, message, operation, finish_message, Some(threads), ProgressType::Bar).await {
+            let progress_type = match quiet {
+                | true => ProgressType::Silent,
+                | false => ProgressType::Bar,
+            };
+            match with_progress(items, message, operation, finish_message, Some(threads), progress_type).await {
                 | Ok(_) => Ok(total_data + total_images),
                 | Err(why) => {
                     error!("=> {} Copy files with progress bar - {why}", Label::fail());
@@ -373,7 +377,7 @@ impl Bucket {
     /// Ignores files listed in [`IGNORE`]
     ///
     /// Downloads files concurrently using buffered streams
-    pub async fn download_files(self: Bucket, output: PathBuf, threads: usize) -> ApiResult<usize> {
+    pub async fn download_files(self: Bucket, output: PathBuf, threads: usize, quiet: bool) -> ApiResult<usize> {
         let Bucket { name, code_repository, .. } = self.clone();
         let items = self
             .clone()
@@ -406,7 +410,11 @@ impl Bucket {
         let total_data: usize = count_json_files(&items);
         let total_images: usize = count_image_files(&items);
         let finish_message = |_| operations_complete_message(name, total_data, total_images);
-        match with_progress(items, message, operation, finish_message, Some(threads), ProgressType::Bar).await {
+        let progress_type = match quiet {
+            | true => ProgressType::Silent,
+            | false => ProgressType::Bar,
+        };
+        match with_progress(items, message, operation, finish_message, Some(threads), progress_type).await {
             | Ok(_) => Ok(total_data + total_images),
             | Err(why) => {
                 error!("=> {} Download files with progress bar - {why}", Label::fail());

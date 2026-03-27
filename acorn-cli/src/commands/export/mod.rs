@@ -6,6 +6,7 @@ use acorn::prelude::{exit, remove_dir_all, HashSet, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{current_date, format_bytes, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
+use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 use core::iter::once;
 use owo_colors::OwoColorize;
@@ -29,7 +30,12 @@ pub async fn run(
     merge_request: &bool,
     offline: &bool,
     threads: usize,
+    verbose: &Verbosity,
 ) -> Result<(), Report> {
+    let progress_type = match verbose.is_silent() {
+        | true => ProgressType::Silent,
+        | false => ProgressType::Bar,
+    };
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
         unimplemented!("Offline mode is not implemented yet");
@@ -49,11 +55,12 @@ pub async fn run(
                 &extension,
                 |p, ext| p.with_file_name("CITATION").with_extension(ext),
                 threads,
+                progress_type,
             )
             .await
         }
         | FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml => {
-            export_convert(path, options, format, &extension, |p, ext| p.with_extension(ext), threads).await
+            export_convert(path, options, format, &extension, |p, ext| p.with_extension(ext), threads, progress_type).await
         }
         | FileFormat::Bag => {
             let base = path.clone().unwrap().display().to_string();
@@ -88,7 +95,7 @@ pub async fn run(
                     },
                     |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
                     Some(1),
-                    ProgressType::Bar,
+                    progress_type,
                 );
                 match progress.await {
                     | Ok(_) => {
@@ -115,7 +122,13 @@ pub async fn run(
                 .maybe_reference(reference.clone())
                 .build();
             if *combine {
-                let progress = create_progress_bar(1, ProgressType::Spinner);
+                let progress = create_progress_bar(
+                    1,
+                    match progress_type {
+                        | ProgressType::Silent => ProgressType::Silent,
+                        | _ => ProgressType::Spinner,
+                    },
+                );
                 progress.set_message("Generating combined PowerPoint artifact");
                 let _ = powerpoint::create(paths, Some(options));
                 progress.inc(1);
@@ -131,7 +144,7 @@ pub async fn run(
                     },
                     |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),
                     Some(1),
-                    ProgressType::Bar,
+                    progress_type,
                 );
                 match progress.await {
                     | Ok(_) => Ok(()),
@@ -151,6 +164,7 @@ async fn export_convert(
     extension: &str,
     output_path: fn(&PathBuf, &str) -> PathBuf,
     threads: usize,
+    progress_type: ProgressType,
 ) -> Result<(), Report> {
     let from_options = paths_from_options(path, &Some(options)).await;
     let (skipped, paths): (Vec<_>, Vec<_>) = from_options
@@ -186,7 +200,7 @@ async fn export_convert(
         },
         |count| format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count)),
         Some(threads),
-        ProgressType::Bar,
+        progress_type,
     );
     match progress.await {
         | Ok(_) => {

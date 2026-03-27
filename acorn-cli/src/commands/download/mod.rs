@@ -1,9 +1,10 @@
 use acorn::io::config::{ApplicationConfiguration, Bucket};
 use acorn::io::database::schema::{ActivityRow, Table};
-use acorn::io::database::{Database, Operations, TableSchemaProvider};
+use acorn::io::database::{Database, Operations};
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
 use acorn::util::{suffix, Label, StringConversion};
+use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
 use std::process::exit;
@@ -16,8 +17,10 @@ pub async fn run(
     offline: &bool,
     database_path: &Option<PathBuf>,
     threads: usize,
+    verbose: &Verbosity,
 ) -> Result<(), Report> {
-    if *offline {
+    let quiet = verbose.is_silent();
+    if *offline && !quiet {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
     let database = Database::<Table>::from_path(database_path.clone());
@@ -29,7 +32,7 @@ pub async fn run(
                     for bucket in buckets {
                         if let Some(path) = output.clone() {
                             if *offline || bucket.clone().code_repository.is_local() {
-                                match bucket.copy_files(path, threads).await {
+                                match bucket.copy_files(path, threads, quiet).await {
                                     | Ok(count) => {
                                         total += count;
                                     }
@@ -39,7 +42,7 @@ pub async fn run(
                                     }
                                 }
                             } else {
-                                match bucket.download_files(path, threads).await {
+                                match bucket.download_files(path, threads, quiet).await {
                                     | Ok(count) => {
                                         total += count;
                                     }
@@ -52,7 +55,6 @@ pub async fn run(
                         }
                     }
                 }
-                println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
                 if let Some(path) = output {
                     let activity = ActivityRow::init()
                         .command("download")
@@ -61,6 +63,9 @@ pub async fn run(
                         .success(true)
                         .build();
                     let _ = database.insert(activity);
+                }
+                if !quiet {
+                    println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
                 }
             }
             | Err(why) => {
@@ -80,7 +85,7 @@ pub async fn run(
         let bucket = Bucket::from(value.as_ref());
         if let Some(path) = output.clone() {
             if *offline || bucket.clone().code_repository.is_local() {
-                match bucket.copy_files(path.clone(), threads).await {
+                match bucket.copy_files(path.clone(), threads, quiet).await {
                     | Ok(count) => {
                         total += count;
                     }
@@ -90,7 +95,7 @@ pub async fn run(
                     }
                 }
             } else {
-                match bucket.download_files(path.clone(), threads).await {
+                match bucket.download_files(path.clone(), threads, quiet).await {
                     | Ok(count) => {
                         total += count;
                     }
@@ -100,7 +105,6 @@ pub async fn run(
                     }
                 }
             }
-            println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             let activity = ActivityRow::init()
                 .command("download")
                 .executed_at(chrono::Utc::now())
@@ -108,8 +112,13 @@ pub async fn run(
                 .success(true)
                 .build();
             let _ = database.insert(activity);
+            if !quiet {
+                println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
+            }
         }
     }
-    Table::Activity.print(database_path.clone());
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

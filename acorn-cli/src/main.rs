@@ -228,9 +228,13 @@ async fn main() -> Void {
             .await
         }
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline).await,
-        | Some(Commands::Download { config, url, output, .. }) => {
-            commands::download::run(config, url, output, &offline, &database_path, threads).await
-        }
+        | Some(Commands::Download {
+            config,
+            url,
+            output,
+            verbose,
+            ..
+        }) => commands::download::run(config, url, output, &offline, &database_path, threads, verbose).await,
         | Some(Commands::Export {
             output,
             path,
@@ -240,8 +244,24 @@ async fn main() -> Void {
             reference,
             combine,
             merge_request,
+            verbose,
             ..
-        }) => commands::export::run(output, path, branch, commit, format, reference, combine, merge_request, &offline, threads).await,
+        }) => {
+            commands::export::run(
+                output,
+                path,
+                branch,
+                commit,
+                format,
+                reference,
+                combine,
+                merge_request,
+                &offline,
+                threads,
+                verbose,
+            )
+            .await
+        }
         | Some(Commands::Format {
             path,
             branch,

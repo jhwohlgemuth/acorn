@@ -17,8 +17,13 @@ use crate::cli::arguments::FileFormat;
 use crate::commands::export::run;
 use crate::test_utils::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::prelude::{copy, create_dir_all, PathBuf};
+use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 use std::fs;
+
+fn silent() -> Verbosity {
+    Verbosity::new(0, 1)
+}
 
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 4;
@@ -49,6 +54,7 @@ async fn test_export_bag_format() -> Result<()> {
         &false,
         &OFFLINE,
         TEST_THREADS,
+        &silent(),
     )
     .await;
     let _ = result;
@@ -84,6 +90,7 @@ async fn test_export_powerpoint_format() -> Result<()> {
         &false,
         &OFFLINE,
         TEST_THREADS,
+        &silent(),
     )
     .await;
     assert!(result.is_ok(), "Export to PowerPoint format should succeed");
@@ -118,6 +125,7 @@ async fn test_export_pdf_format() -> Result<()> {
         &false,
         &OFFLINE,
         TEST_THREADS,
+        &silent(),
     )
     .await;
     Ok(())
@@ -145,6 +153,7 @@ async fn test_export_json_format() -> Result<()> {
         &false,
         &OFFLINE,
         TEST_THREADS,
+        &silent(),
     )
     .await;
     assert!(result.is_ok(), "Export to JSON format should succeed");
@@ -173,6 +182,7 @@ async fn test_export_yaml_format() -> Result<()> {
         &false,
         &OFFLINE,
         TEST_THREADS,
+        &silent(),
     )
     .await;
     assert!(result.is_ok(), "Export to YAML format should succeed");
@@ -201,6 +211,7 @@ async fn test_export_markdown_format() -> Result<()> {
         &false,
         &OFFLINE,
         TEST_THREADS,
+        &silent(),
     )
     .await;
     assert!(result.is_ok(), "Export to Markdown format should succeed");
@@ -245,6 +256,7 @@ async fn test_export_with_combine_flag() -> Result<()> {
         &false,
         &OFFLINE,
         TEST_THREADS,
+        &silent(),
     )
     .await;
     assert!(result.is_ok(), "Export with combine flag should succeed");

@@ -1062,18 +1062,21 @@ where
 }
 /// Creates a new progress bar with the specified count and progress type
 pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> ProgressBar {
-    let progress = if progress_type.is_indeterminate() {
-        ProgressBar::new_spinner()
+    if matches!(progress_type, ProgressType::Silent) {
+        ProgressBar::hidden()
     } else {
-        ProgressBar::new(count as u64)
-    };
-    if let Some(template) = progress_type.template() {
-        progress.set_style(ProgressStyle::with_template(template).unwrap());
+        let progress = if progress_type.is_indeterminate() {
+            let spinner = ProgressBar::new_spinner();
+            spinner.enable_steady_tick(Duration::from_millis(120));
+            spinner
+        } else {
+            ProgressBar::new(count as u64)
+        };
+        if let Some(template) = progress_type.template() {
+            progress.set_style(ProgressStyle::with_template(template).unwrap());
+        }
+        progress
     }
-    if progress_type.is_indeterminate() {
-        progress.enable_steady_tick(Duration::from_millis(120));
-    }
-    progress
 }
 /// Applies a new style template to an existing progress bar
 pub fn apply_progress_style(progress: &ProgressBar, template: &str) {
