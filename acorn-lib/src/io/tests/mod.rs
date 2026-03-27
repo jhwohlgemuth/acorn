@@ -4,7 +4,7 @@ use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::config::{ApplicationConfiguration, Bucket};
 use crate::io::{
     archive, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_git_command_result,
-    filter_ignored, image_paths, read_file, read_large_file, write_file_bytes, InputOutput,
+    filter_ignored, image_paths, read_file, read_large_file, uri_to_path, write_file_bytes, InputOutput,
 };
 use crate::{Location, Repository, Scheme};
 use color_eyre::Report;
@@ -340,9 +340,18 @@ fn test_checksum() {
     assert!(result.is_none());
 }
 #[test]
+fn test_uri_to_path() {
+    let plain = PathBuf::from("some/relative/path");
+    assert_eq!(uri_to_path(plain.clone()), plain);
+    #[cfg(not(windows))]
+    assert_eq!(uri_to_path(PathBuf::from("file:///absolute/path")), PathBuf::from("/absolute/path"));
+    #[cfg(windows)]
+    assert_eq!(uri_to_path(PathBuf::from("file:///C:/absolute/path")), PathBuf::from("C:/absolute/path"));
+}
+#[test]
 fn test_files_all() {
     let extensions = Some(vec!["json"]);
-    let files = files_all(fixtures_dir().join("glob"), extensions.clone());
+    let files = files_all(fixtures_dir().join("glob"), extensions);
     assert_eq!(files.len(), 3);
     let files = files_all(fixtures_dir().join("glob"), Some(vec!["jpg"]));
     assert_eq!(files.len(), 1);
@@ -350,6 +359,20 @@ fn test_files_all() {
     let files = files_all(fixtures_dir().join("glob"), None);
     assert_eq!(files.len(), 8);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.json");
+}
+#[cfg(not(windows))]
+#[test]
+fn test_files_all_with_uri() {
+    let uri = PathBuf::from(format!("file:///{}", fixtures_dir().join("glob").to_string_lossy()));
+    let files = files_all(uri, Some(vec!["json"]));
+    assert_eq!(files.len(), 3);
+}
+#[cfg(windows)]
+#[test]
+fn test_files_all_with_uri() {
+    let uri = PathBuf::from(format!("file:///{}", fixtures_dir().join("glob").to_string_lossy().replace('\\', "/")));
+    let files = files_all(uri, Some(vec!["json"]));
+    assert_eq!(files.len(), 3);
 }
 #[test]
 fn test_files_from_git() {

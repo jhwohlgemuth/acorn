@@ -513,14 +513,13 @@ where
 /// Returns a vector of `PathBuf` containing all files in a directory that match at least one of the given extensions.
 ///
 /// # Arguments
-///
-/// * `path` - A `PathBuf` to the directory to search.
+/// * `path` - A `PathBuf` to the directory to search — also accepts URI format paths (e.g., `"file:///path/to/directory"`).
 /// * `extensions` - An `Option` containing a list of string slice(s) representing the file extension(s) to search for.
 ///
 /// # Returns
-///
 /// A `Vec` containing `PathBuf` values of all files in the given directory that match at least one of the given extensions.
 pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+    let path = uri_to_path(path);
     fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
     }
@@ -1059,6 +1058,28 @@ where
         | Err(_) => path.into(),
     };
     result.display().to_string()
+}
+/// Converts a `file://` URI to a [`PathBuf`].
+///
+/// If the input does not start with `file://`, it is returned unchanged.
+pub fn uri_to_path<P>(path: P) -> PathBuf
+where
+    P: Into<PathBuf>,
+{
+    let value: PathBuf = path.into();
+    let s = value.to_string_lossy().into_owned();
+    s.strip_prefix("file://")
+        .map(|stripped| {
+            #[cfg(windows)]
+            let normalized = match stripped.get(1..3) {
+                Some(drive) if drive.contains(':') => &stripped[1..],
+                _ => stripped,
+            };
+            #[cfg(not(windows))]
+            let normalized = stripped;
+            PathBuf::from(normalized)
+        })
+        .unwrap_or(value)
 }
 /// Creates a new progress bar with the specified count and progress type
 pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> ProgressBar {
