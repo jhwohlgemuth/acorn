@@ -205,3 +205,38 @@ fn test_is_attribute_impact() {
     ])
     .is_ok());
 }
+#[test]
+fn test_to_prose() {
+    let default = ResearchActivity::default();
+    let prose = default.to_prose();
+    assert!(prose.starts_with("# Research Activity Title"));
+    assert!(prose.contains("## Mission"));
+    assert!(prose.contains("## Challenge"));
+    assert!(prose.contains("## Approach"));
+    assert!(prose.contains("## Impact"));
+    assert!(!prose.contains("---"));
+    assert!(!prose.contains("classification"));
+    assert!(!prose.contains("@"));
+    insta::assert_snapshot!("to_prose_default", prose);
+    let with_subtitle = ResearchActivity::init()
+        .title("Test Title".to_string())
+        .subtitle("A subtitle".to_string())
+        .build();
+    let prose = with_subtitle.to_prose();
+    assert!(prose.contains("# Test Title"));
+    assert!(prose.contains("> A subtitle"));
+    insta::assert_snapshot!("to_prose_with_subtitle", prose);
+    let with_websites = ResearchActivity::init()
+        .meta(
+            ResearchActivityMetadata::init()
+                .websites(vec![Website {
+                    description: "Example".to_string(),
+                    url: "https://example.com".to_string(),
+                }])
+                .build(),
+        )
+        .build();
+    let prose = with_websites.to_prose();
+    assert!(prose.contains("example.com"));
+    insta::assert_snapshot!("to_prose_with_websites", prose);
+}

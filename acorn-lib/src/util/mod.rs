@@ -357,14 +357,20 @@ impl Constant {
     }
     /// Returns an iterator over the last values of each row in the given file.
     ///
-    /// If a row is empty, an empty string is returned.
+    /// If a row is empty, it is skipped.
     pub fn last_values(file_name: &str) -> impl Iterator<Item = String> {
         Self::csv(file_name)
             .into_iter()
-            .map(|x| match x.last() {
-                | Some(value) => value.to_string(),
-                | None => "".to_string(),
-            })
+            .filter_map(|x| x.last().cloned())
+            .filter(|x| !x.is_empty())
+    }
+    /// Returns an iterator over the values at the given column index for each row in the given file.
+    ///
+    /// If a row does not have a value at the given index, it is skipped.
+    pub fn nth_values(file_name: &str, column: usize) -> impl Iterator<Item = String> {
+        Self::csv(file_name)
+            .into_iter()
+            .filter_map(move |x| x.get(column).cloned())
             .filter(|x| !x.is_empty())
     }
     /// Reads a file from the asset folder and returns its contents as an iterator over individual lines.

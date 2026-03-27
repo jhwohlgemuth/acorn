@@ -797,7 +797,7 @@ impl ToMarkdown for ContactPoint {
             r#"## Contact
 - Role: {role}
 - Name: {given_name} {family_name}
-- Email: [{email}](mailto:{email})
+- email: [{email}](mailto:{email})
 - Telephone: {telephone}
 "#
         )

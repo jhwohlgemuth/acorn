@@ -156,8 +156,9 @@ impl Analysis for ResearchActivity {
                     async move {
                         match ResearchActivity::read(&path) {
                             | Ok(data) => {
-                                let identifier = data.clone().meta.identifier.to_lowercase();
-                                vale.run(identifier, data.to_markdown(), Some("JSON".into())).await
+                                let identifier = data.meta.identifier.to_lowercase();
+                                let content = data.to_prose();
+                                vale.run(identifier, content, Some("JSON".into())).await
                             }
                             | Err(why) => {
                                 error!("=> {} Read research activity data - {why}", Label::fail());
@@ -536,8 +537,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     | Err(why) => error!(directory = parent, "=> {} Create - {why}", Label::fail()),
                 }
                 let acronyms = Constant::last_values("acronyms");
-                let partners = Constant::last_values("partners");
-                let sponsors = Constant::last_values("sponsors");
+                let partners = Constant::nth_values("partners", 1);
+                let sponsors = Constant::nth_values("sponsors", 1);
                 let abbreviations = Organization::alternative_names();
                 let words = Constant::read_lines("accept.txt");
                 let accept_content = acronyms

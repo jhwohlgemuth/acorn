@@ -1,0 +1,9 @@
+---
+source: acorn-lib/src/util/tests/mod.rs
+expression: "first_column[..5].join(\"\\n\")"
+---
+airflow
+angular
+apptainer
+astro
+c#
