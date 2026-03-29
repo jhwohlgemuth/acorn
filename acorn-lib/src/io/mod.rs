@@ -103,7 +103,7 @@ pub trait InputOutput: Sized {
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
     /// Write data as Markdown (MD) to specified path
     fn write_markdown(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
-        Ok(())
+        Err(eyre!("Markdown write not implemented for this type"))
     }
     /// Write data as YAML to specified path
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
@@ -1072,8 +1072,8 @@ where
         .map(|stripped| {
             #[cfg(windows)]
             let normalized = match stripped.get(1..3) {
-                Some(drive) if drive.contains(':') => &stripped[1..],
-                _ => stripped,
+                | Some(drive) if drive.contains(':') => &stripped[1..],
+                | _ => stripped,
             };
             #[cfg(not(windows))]
             let normalized = stripped;

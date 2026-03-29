@@ -72,7 +72,7 @@ Focus of the research
 ## Contact
 - Role: Researcher
 - Name: First Last
-- Email: [first_last@example.com](mailto:first_last@example.com)
+- email: [first_last@example.com](mailto:first_last@example.com)
 - Telephone: 123-456-7890
 "#;
     let data = ResearchActivity::default();

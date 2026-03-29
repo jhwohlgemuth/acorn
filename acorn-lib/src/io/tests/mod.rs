@@ -121,7 +121,7 @@ fn test_bucket() {
             location: Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string()),
         },
     };
-    assert_eq!(bucket.domain(), "code.ornl.gov".to_string());
+    assert_eq!(bucket.domain().unwrap(), "code.ornl.gov".to_string());
     let bucket: Bucket = Bucket {
         name: Some("nssd".to_string()),
         description: Some("Bucket for NSSD".to_string()),
@@ -129,7 +129,7 @@ fn test_bucket() {
             location: Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string()),
         },
     };
-    assert_eq!(bucket.domain(), "code.ornl.gov".to_string());
+    assert_eq!(bucket.domain().unwrap(), "code.ornl.gov".to_string());
 }
 #[test]
 fn test_gitlab_tree_entry() {

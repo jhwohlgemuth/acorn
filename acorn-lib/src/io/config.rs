@@ -4,8 +4,8 @@
 //!
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
-use crate::io::api::github::{TreeEntry as GithubTreeEntry, TreeResponse as GithubTreeResponse};
-use crate::io::api::gitlab::{TreeEntry as GitlabTreeEntry, TreeResponse as GitlabTreeResponse};
+use crate::io::api::github;
+use crate::io::api::gitlab;
 use crate::io::api::Endpoint;
 use crate::io::ApiResult;
 use crate::io::{files_all, get, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType};
@@ -16,15 +16,11 @@ use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
-use futures::future::join_all;
 use owo_colors::OwoColorize;
-use reqwest::header::HeaderMap;
-use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use tracing::{debug, error, warn};
+use tracing::error;
 
-const FIRST_PAGE: u32 = 1;
 const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
 
 /// Runner status for CI/CD pipelines
@@ -142,25 +138,22 @@ pub struct Runner {
 }
 impl ApplicationConfiguration {
     /// Parse ACORN configuration in JSON or YAML format
-    pub fn parse(content: impl AsRef<str>) -> Option<Self> {
+    pub fn parse(content: impl AsRef<str>) -> ApiResult<Self> {
         let content = content.as_ref();
-        let data = if detect_json(content) {
+        let result = if detect_json(content) {
             match Self::parse_json(content) {
-                | Ok(value) => Some(value),
-                | Err(_) => None,
+                | Ok(value) => Ok(value),
+                | Err(why) => Err(eyre!("Failed to parse ACORN configuration JSON — {why}")),
             }
         } else {
             match Self::parse_yaml(content) {
-                | Ok(value) => Some(value),
-                | Err(_) => None,
+                | Ok(value) => Ok(value),
+                | Err(why) => Err(eyre!("Failed to parse ACORN configuration YAML — {why}")),
             }
         };
-        if let Some(data) = data {
-            debug!("=> {} Parse ACORN configuration = {:#?}", Label::using(), data.dimmed());
-            Some(data)
-        } else {
-            error!("=> {} Parse ACORN configuration", Label::fail());
-            None
+        match result {
+            | Ok(data) => Ok(data),
+            | Err(why) => Err(why),
         }
     }
     fn parse_json(content: impl AsRef<str>) -> serde_json::Result<Self> {
@@ -227,96 +220,21 @@ impl InputOutput for ApplicationConfiguration {
     }
 }
 impl Bucket {
-    /// Parse GitHub tree entries
-    async fn parse_github_response(response: Response) -> Vec<String> {
-        let content = response.text().await.unwrap_or_default();
-        let data: serde_json::Result<GithubTreeResponse> = serde_json::from_str(&content);
-        match data {
-            | Ok(GithubTreeResponse { tree, .. }) => {
-                debug!("=> {} {} Tree entries", Label::found(), tree.len());
-                tree.into_iter().filter(GithubTreeEntry::is_blob).map(GithubTreeEntry::path).collect()
-            }
-            | Err(why) => {
-                error!("=> {} Process tree entries — {why}", Label::fail());
-                vec![]
-            }
-        }
-    }
-    /// Parse GitLab tree entries
-    async fn parse_gitlab_response(response: Response) -> Vec<String> {
-        let content = response.text().await.unwrap_or_default();
-        let data: serde_json::Result<GitlabTreeResponse> = serde_json::from_str(&content);
-        match data {
-            | Ok(entries) => {
-                debug!("=> {} {} Tree entries", Label::found(), entries.len());
-                entries.into_iter().filter(GitlabTreeEntry::is_blob).map(GitlabTreeEntry::path).collect()
-            }
-            | Err(why) => {
-                error!("=> {} Process tree entries — {why}", Label::fail());
-                vec![]
-            }
-        }
-    }
     /// Get hosting domain from bucket struct
-    pub(crate) fn domain(&self) -> String {
-        match &self.code_repository {
-            | Repository::GitHub { location } => match location.uri() {
-                | Some(uri) => match uri.scheme() {
-                    | uriparse::Scheme::HTTPS => uri.host().unwrap().to_string(),
-                    | _ => todo!("Add support for file:///"),
-                },
-                | None => todo!("Handle invalid GitHub URI"),
+    pub(crate) fn domain(&self) -> ApiResult<String> {
+        let location = match &self.code_repository {
+            | Repository::GitHub { location } | Repository::GitLab { location, .. } => location,
+            | Repository::Git { .. } => return Err(eyre!("Domain is unsupported for generic Git repositories")),
+        };
+        match location.uri() {
+            | Some(uri) => match uri.scheme() {
+                | uriparse::Scheme::HTTPS => uri
+                    .host()
+                    .map(|value| value.to_string())
+                    .ok_or_else(|| eyre!("Failed to parse repository host from URI")),
+                | _ => Err(eyre!("Unsupported repository URI scheme")),
             },
-            | Repository::GitLab { location, .. } => match location.uri() {
-                | Some(uri) => match uri.scheme() {
-                    | uriparse::Scheme::HTTPS => uri.host().unwrap().to_string(),
-                    | _ => todo!("Add support for file:///"),
-                },
-                | None => todo!("Handle invalid GitLab URI"),
-            },
-            | Repository::Git { .. } => todo!("Add support for generic repositories"),
-        }
-    }
-    async fn tree(&self, directory: &str, page: Option<u32>) -> ApiResult<Response> {
-        let url = self.tree_url(directory, page);
-        get(url.unwrap_or_default())
-            .send()
-            .await
-            .map_err(|why| eyre!("Failed to send HTTP request — {why}"))
-    }
-    fn tree_url(&self, directory: &str, page: Option<u32>) -> Option<String> {
-        match &self.code_repository {
-            | Repository::Git { .. } => None,
-            | Repository::GitHub { location } => {
-                let parsed = match location.uri() {
-                    | Some(value) => value,
-                    | None => {
-                        warn!("=> {} Parse GitHub URI", Label::fail());
-                        return None;
-                    }
-                };
-                let path = parsed.path();
-                let url = format!("https://api.{}/repos{}/git/trees/main?recursive=1", self.domain(), path);
-                debug!(url = url.as_str(), "=> {}", Label::using());
-                Some(url)
-            }
-            | Repository::GitLab { .. } => {
-                if let Some(id) = &self.code_repository.id() {
-                    let per_page = 100;
-                    let url = format!(
-                        "https://{}/api/v4/projects/{}/repository/tree?&per_page={}&page={}&recursive=true&path= {}",
-                        self.domain(),
-                        id,
-                        per_page,
-                        page.unwrap_or_default(),
-                        directory
-                    );
-                    debug!(url = url.as_str(), "=> {}", Label::using());
-                    Some(url)
-                } else {
-                    None
-                }
-            }
+            | None => Err(eyre!("Failed to parse repository URI")),
         }
     }
     /// Copy files from (local) bucket to local directory
@@ -376,13 +294,16 @@ impl Bucket {
     /// Downloads files concurrently using buffered streams
     pub async fn download_files(self: Bucket, output: PathBuf, threads: usize, quiet: bool) -> ApiResult<usize> {
         let Bucket { name, code_repository, .. } = self.clone();
-        let items = self
-            .clone()
-            .file_paths("")
-            .await
-            .into_iter()
-            .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
-            .collect::<Vec<String>>();
+        let items = match self.clone().file_paths("").await {
+            | Ok(paths) => paths
+                .into_iter()
+                .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
+                .collect::<Vec<String>>(),
+            | Err(why) => {
+                error!("=> {} Get file paths for download - {why}", Label::fail());
+                return Err(why);
+            }
+        };
         let message: fn(&String) -> String = |path| format!("Downloading {path}");
         let operation = move |path: String| {
             let output = output.clone();
@@ -413,27 +334,10 @@ impl Bucket {
         };
         match with_progress(items, message, operation, finish_message, Some(threads), progress_type).await {
             | Ok(_) => Ok(total_data + total_images),
-            | Err(why) => {
-                error!("=> {} Download files with progress bar - {why}", Label::fail());
-                Err(why)
-            }
+            | Err(why) => Err(why),
         }
     }
-    async fn file_paths(self: Bucket, directory: &str) -> Vec<String> {
-        fn page_count(response: &Response) -> u32 {
-            fn parse_header(headers: &HeaderMap, key: &str) -> u32 {
-                match headers.get(key) {
-                    | Some(val) if !val.is_empty() => {
-                        let value = val.to_str().unwrap().parse::<u32>().unwrap();
-                        debug!("=> {} {} = {}", Label::using(), key, value);
-                        value
-                    }
-                    | Some(_) | None => 0,
-                }
-            }
-            let headers = response.headers();
-            parse_header(headers, "x-total-pages")
-        }
+    async fn file_paths(self: Bucket, directory: &str) -> ApiResult<Vec<String>> {
         let Bucket { code_repository, name, .. } = self.clone();
         let bucket_name = name.clone().unwrap_or_else(|| "Bucket".to_string()).to_uppercase();
         match &code_repository {
@@ -444,42 +348,47 @@ impl Bucket {
                         unimplemented!()
                     }
                 };
-                files_all(path, None).into_iter().map(|x| x.display().to_string()).collect()
+                Ok(files_all(path, None).into_iter().map(|x| x.display().to_string()).collect())
             }
-            | Repository::GitHub { .. } => match self.tree(directory, None).await {
-                | Ok(response) if response.status().is_success() => Bucket::parse_github_response(response).await,
-                | Ok(_) | Err(_) => {
-                    let url = self.tree_url(directory, None);
-                    debug!(url, "=> {}", Label::using());
-                    error!("=> {} Get file paths for {} bucket", Label::fail(), bucket_name.red());
-                    vec![]
-                }
-            },
-            | Repository::GitLab { .. } => match self.tree(directory, Some(FIRST_PAGE)).await {
-                | Ok(response) if response.status().is_success() => {
-                    let start = FIRST_PAGE;
-                    let end = page_count(&response);
-                    let tasks = (start..=end).map(|page| self.clone().file_paths_for_page(directory, Some(page)));
-                    let paths = join_all(tasks).await.into_iter().flatten().collect::<Vec<String>>();
-                    paths
-                }
-                | Ok(_) | Err(_) => {
-                    let url = self.tree_url(directory, Some(FIRST_PAGE));
-                    debug!(url, "=> {}", Label::using());
-                    error!("=> {} Get file paths for {} bucket", Label::fail(), bucket_name.red());
-                    vec![]
-                }
-            },
-        }
-    }
-    async fn file_paths_for_page(self: Bucket, directory: &str, page: Option<u32>) -> Vec<String> {
-        match self.tree(directory, page).await {
-            | Ok(response) if response.status().is_success() => Bucket::parse_gitlab_response(response).await,
-            | Ok(_) | Err(_) => {
-                let url = self.tree_url(directory, Some(FIRST_PAGE));
-                error!(url, page, "=> {} Failed to get paths", Label::fail());
-                vec![]
+            | Repository::GitHub { location } => {
+                let path = match location.uri() {
+                    | Some(uri) => uri.path().to_string(),
+                    | None => return Err(eyre!("Failed to parse GitHub URI for {bucket_name} bucket")),
+                };
+                let host = match self.domain() {
+                    | Ok(value) => value,
+                    | Err(why) => return Err(why),
+                };
+                let endpoint = github::endpoint_for(format!("api.{}", host));
+                github::tree_paths(&endpoint, path, "main")
+                    .await
+                    .map_err(|why| eyre!("Failed to get file paths for {bucket_name} bucket - {why}"))
             }
+            | Repository::GitLab { .. } => match self.code_repository.id() {
+                | Some(id) => {
+                    let host = match self.domain() {
+                        | Ok(value) => value,
+                        | Err(why) => return Err(why),
+                    };
+                    let endpoint = gitlab::endpoint_for(host);
+                    let mut page = 1_u32;
+                    let mut all_paths: Vec<String> = vec![];
+                    loop {
+                        match gitlab::tree_paths(&endpoint, id.to_string(), directory, page).await {
+                            | Ok(paths) if paths.is_empty() => break,
+                            | Ok(paths) => {
+                                all_paths.extend(paths);
+                                page += 1;
+                            }
+                            | Err(why) => {
+                                return Err::<Vec<String>, _>(why);
+                            }
+                        }
+                    }
+                    Ok(all_paths)
+                }
+                | None => Err(eyre!("Missing GitLab project id for {bucket_name} bucket")),
+            },
         }
     }
 }
@@ -568,4 +477,51 @@ fn operations_complete_message(name: Option<String>, json_count: usize, image_co
 #[allow(clippy::ptr_arg)]
 fn has_image_extension(path: &String) -> bool {
     path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_count_image_files_counts_supported_extensions() {
+        let paths = vec![
+            "content/plot.png".to_string(),
+            "content/photo.jpg".to_string(),
+            "content/photo.jpeg".to_string(),
+            "content/index.json".to_string(),
+        ];
+        assert_eq!(count_image_files(&paths), 2);
+    }
+    #[test]
+    fn test_count_json_files_counts_case_insensitive_json_paths() {
+        let paths = vec![
+            "content/index.json".to_string(),
+            "content/README.md".to_string(),
+            "content/data.JSON".to_string(),
+        ];
+        assert_eq!(count_json_files(&paths), 2);
+    }
+    #[test]
+    fn test_has_image_extension_matches_png_and_jpg() {
+        assert!(has_image_extension(&"image.png".to_string()));
+        assert!(has_image_extension(&"photo.JPG".to_string()));
+        assert!(!has_image_extension(&"graphic.jpeg".to_string()));
+    }
+    #[test]
+    fn test_operations_complete_message_includes_bucket_name_and_guidance() {
+        let message = operations_complete_message(Some("acorn".to_string()), 2, 1);
+        assert!(message.contains("Obtained"));
+        assert!(message.contains("ACORN"));
+        assert!(message.contains(" bucket"));
+        assert!(message.contains("data file"));
+        assert!(message.contains("image"));
+        assert!(message.contains("Do you need to add some images?"));
+    }
+    #[test]
+    fn test_operations_complete_message_uses_url_placeholder_without_name() {
+        let message = operations_complete_message(None, 0, 0);
+        assert!(message.contains("Obtained"));
+        assert!(message.contains("<URL>"));
+    }
 }

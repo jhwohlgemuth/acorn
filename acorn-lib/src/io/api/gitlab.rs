@@ -2,7 +2,7 @@
 //!
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
-use crate::io::api::{EmptyField, RemoteResource, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::api::{EmptyField, Endpoint, RemoteResource, Resource, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::config::{RunnerStatus, RunnerType};
 use crate::io::ApiResult;
 use crate::param;
@@ -559,5 +559,47 @@ pub async fn runners(token: impl Into<String>) -> ApiResult<RunnersResponse> {
             endpoint.handle::<RunnersResponse>(response)
         }
         | None => Err(eyre!("{name} API endpoint not found")),
+    }
+}
+/// Construct an [`Endpoint`] for any GitLab host with the repository tree resource registered
+pub(crate) fn endpoint_for(host: impl Into<String>) -> Endpoint {
+    let tree = Resource::init()
+        .name("tree")
+        .method("get")
+        .template("{{ base }}/projects/{{ identifier }}/repository/tree{{ query }}")
+        .build();
+    Endpoint::at(host).root("api/v4").resources(vec![tree]).build()
+}
+/// Fetch one page of repository tree blob paths for a GitLab project
+pub(crate) async fn tree_paths(
+    endpoint: &Endpoint,
+    identifier: impl Into<String>,
+    directory: impl Into<String>,
+    page: u32,
+) -> ApiResult<Vec<String>> {
+    let params = vec![
+        param!(TemplateValue, "identifier", &identifier.into()),
+        param!(KeyValuePair, "per_page", "100"),
+        param!(KeyValuePair, "page", &page.to_string()),
+        param!(KeyValuePair, "recursive", "true"),
+        param!(KeyValuePair, "path", &directory.into()),
+    ];
+    let response = endpoint.invoke("tree", Some(params)).await;
+    endpoint
+        .handle::<TreeResponse>(response)
+        .map(|entries| entries.into_iter().filter(|e| e.is_blob()).map(|e| e.path()).collect())
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_endpoint_for_base_url() {
+        let endpoint = endpoint_for("code.ornl.gov");
+        assert_eq!(endpoint.base(), "https://code.ornl.gov/api/v4");
+    }
+    #[test]
+    fn test_endpoint_for_has_tree_resource() {
+        let endpoint = endpoint_for("code.ornl.gov");
+        assert!(endpoint.resources.iter().any(|r| r.name == "tree"));
     }
 }

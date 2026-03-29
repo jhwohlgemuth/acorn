@@ -1,6 +1,9 @@
 //! Module for interacting with GitHub API
 //!
-use crate::io::api::TreeEntryType;
+use crate::io::api::{Endpoint, RemoteResource, Resource, TreeEntryType};
+use crate::io::ApiResult;
+use crate::param;
+use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 /// Struct for [GitHub] tree entry
@@ -70,5 +73,132 @@ impl TreeEntry {
     /// Whether tree entry is a blob
     pub fn is_blob(&self) -> bool {
         self.entry_type.eq(&TreeEntryType::Blob)
+    }
+}
+/// Construct an [`Endpoint`] for any GitHub API host with the repository tree resource registered
+pub(crate) fn endpoint_for(host: impl Into<String>) -> Endpoint {
+    let tree = Resource::init()
+        .name("tree")
+        .method("get")
+        .template("{{ base }}/repos{{ path }}/git/trees/{{ branch }}{{ query }}")
+        .build();
+    Endpoint::at(host).resources(vec![tree]).build()
+}
+/// Fetch repository tree blob paths for a GitHub repository and branch
+pub(crate) async fn tree_paths(endpoint: &Endpoint, path: impl Into<String>, branch: impl Into<String>) -> ApiResult<Vec<String>> {
+    let path = path.into();
+    let branch = branch.into();
+    let recursive_response = match fetch_tree(endpoint, path.as_str(), branch.as_str(), true).await {
+        | Ok(data) => data,
+        | Err(why) => return Err(why),
+    };
+    if !recursive_response.truncated {
+        let (paths, _) = collect_tree(recursive_response.tree, "");
+        return Ok(paths);
+    }
+    let root_response = match fetch_tree(endpoint, path.as_str(), branch.as_str(), false).await {
+        | Ok(data) if !data.truncated => data,
+        | Ok(_) => return Err(eyre!("Failed to fetch complete GitHub tree for {path}")),
+        | Err(why) => return Err(why),
+    };
+    let (mut all_paths, mut pending) = collect_tree(root_response.tree, "");
+    while let Some((sha, prefix)) = pending.pop() {
+        let subtree_response = match fetch_tree(endpoint, path.as_str(), sha.as_str(), false).await {
+            | Ok(data) if !data.truncated => data,
+            | Ok(_) => return Err(eyre!("Failed to fetch complete GitHub tree for {path} at subtree {prefix}")),
+            | Err(why) => return Err(why),
+        };
+        let (paths, subtrees) = collect_tree(subtree_response.tree, prefix.as_str());
+        all_paths.extend(paths);
+        pending.extend(subtrees);
+    }
+    Ok(all_paths)
+}
+fn path_for(prefix: &str, path: &str) -> String {
+    if prefix.is_empty() {
+        path.to_string()
+    } else {
+        format!("{prefix}/{path}")
+    }
+}
+fn collect_tree(entries: Vec<TreeEntry>, prefix: &str) -> (Vec<String>, Vec<(String, String)>) {
+    entries.into_iter().fold((vec![], vec![]), |(mut paths, mut pending), entry| {
+        let is_blob = entry.is_blob();
+        let TreeEntry { path, sha, .. } = entry;
+        let full_path = path_for(prefix, path.as_str());
+        if is_blob {
+            paths.push(full_path);
+        } else {
+            pending.push((sha, full_path));
+        }
+        (paths, pending)
+    })
+}
+async fn fetch_tree(endpoint: &Endpoint, path: &str, branch: &str, recursive: bool) -> ApiResult<TreeResponse> {
+    let params = match recursive {
+        | true => vec![
+            param!(TemplateValue, "path", path),
+            param!(TemplateValue, "branch", branch),
+            param!(KeyValuePair, "recursive", "1"),
+        ],
+        | false => vec![param!(TemplateValue, "path", path), param!(TemplateValue, "branch", branch)],
+    };
+    let response = endpoint.invoke("tree", Some(params)).await;
+    endpoint.handle::<TreeResponse>(response)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_endpoint_for() {
+        let endpoint = endpoint_for("api.github.com");
+        assert_eq!(endpoint.base(), "https://api.github.com");
+        let endpoint = endpoint_for("api.github.com");
+        assert!(endpoint.resources.iter().any(|r| r.name == "tree"));
+    }
+    #[test]
+    fn test_path_for() {
+        assert_eq!(path_for("", "README.md"), "README.md");
+        assert_eq!(path_for("content", "index.json"), "content/index.json");
+    }
+    #[test]
+    fn test_collect_tree_partitions_paths_and_subtrees() {
+        let entries = vec![
+            TreeEntry {
+                path: "README.md".to_string(),
+                mode: "100644".to_string(),
+                entry_type: TreeEntryType::Blob,
+                sha: "blob-sha".to_string(),
+                size: Some(10),
+                url: "https://example.invalid/blob".to_string(),
+            },
+            TreeEntry {
+                path: "content".to_string(),
+                mode: "040000".to_string(),
+                entry_type: TreeEntryType::Tree,
+                sha: "tree-sha".to_string(),
+                size: None,
+                url: "https://example.invalid/tree".to_string(),
+            },
+        ];
+        let (paths, pending) = collect_tree(entries, "");
+        assert_eq!(paths, vec!["README.md".to_string()]);
+        assert_eq!(pending, vec![("tree-sha".to_string(), "content".to_string())]);
+    }
+    #[test]
+    fn test_collect_tree_prefixes_nested_entries() {
+        let entries = vec![TreeEntry {
+            path: "index.json".to_string(),
+            mode: "100644".to_string(),
+            entry_type: TreeEntryType::Blob,
+            sha: "blob-sha".to_string(),
+            size: Some(10),
+            url: "https://example.invalid/blob".to_string(),
+        }];
+        let (paths, pending) = collect_tree(entries, "content");
+        assert_eq!(paths, vec!["content/index.json".to_string()]);
+        assert!(pending.is_empty());
     }
 }
