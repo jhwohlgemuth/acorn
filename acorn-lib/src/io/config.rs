@@ -18,8 +18,8 @@ use core::fmt::Debug;
 use derive_more::Display;
 use futures::future::join_all;
 use owo_colors::OwoColorize;
-use reqwest::header::{HeaderMap, USER_AGENT};
-use reqwest::{Client, Response};
+use reqwest::header::HeaderMap;
+use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::{debug, error, warn};
@@ -279,10 +279,7 @@ impl Bucket {
     }
     async fn tree(&self, directory: &str, page: Option<u32>) -> ApiResult<Response> {
         let url = self.tree_url(directory, page);
-        let client = Client::new();
-        client
-            .get(url.unwrap_or_default())
-            .header(USER_AGENT, "rust-web-api-client")
+        get(url.unwrap_or_default())
             .send()
             .await
             .map_err(|why| eyre!("Failed to send HTTP request — {why}"))
