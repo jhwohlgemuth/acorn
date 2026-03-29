@@ -129,26 +129,28 @@ impl Check {
         }
     }
     /// Fancy output in contrast with more compressed output of Display impl
-    pub fn report(self) {
-        match self.category {
+    pub fn report(&self) {
+        let Check {
+            category,
+            context,
+            errors,
+            severity,
+            status_code,
+            success,
+            uri,
+            message,
+            ..
+        } = self.clone();
+        match &category {
             | CheckCategory::Link => {
-                let Check {
-                    context,
-                    message,
-                    severity,
-                    success,
-                    uri,
-                    status_code,
-                    ..
-                } = self.clone();
-                let title = context.unwrap_or_else(|| "index.json".to_string());
+                let title = context.clone().unwrap_or_else(|| "index.json".to_string());
                 let kind: ReportKind<'static> = severity.clone().into();
-                let code = match status_code.clone() {
+                let code = match status_code.as_ref() {
                     | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
                     | None | Some(_) => "".to_string(),
                 };
                 if !success {
-                    let text = match uri {
+                    let text = match uri.as_ref() {
                         | Some(uri) => uri.trim().to_string(),
                         | None => "No URL".to_string(),
                     };
@@ -160,105 +162,88 @@ impl Check {
                         .with_label(
                             ariadne::Label::new((&title, span))
                                 .with_message(format!("{}{code}", message.italic()))
-                                .with_color(severity.into()),
+                                .with_color(severity.clone().into()),
                         )
                         .finish()
                         .print((&title, source));
                 }
             }
-            | CheckCategory::Prose => {
-                let Check {
-                    context, errors, message, ..
-                } = self;
-                match &errors {
-                    | Some(ErrorKind::Vale(values)) => {
-                        let title = self.uri.unwrap_or("index.json".to_string());
-                        if let Some(text) = &context {
-                            values.iter().enumerate().for_each(|(index, item)| {
-                                let ValeOutputItem {
-                                    check,
-                                    line,
-                                    message,
-                                    severity,
-                                    span,
-                                    ..
-                                } = item;
-                                let source = Source::from(text.clone());
-                                let _ = Report::build(severity.into(), (&title, 1..=1))
-                                    .with_code(index)
-                                    .with_config(Config::default().with_compact(false))
-                                    .with_message(check)
-                                    .with_label(
-                                        ariadne::Label::new((&title, highlighted_span(source.clone(), span, *line)))
-                                            .with_message(message.italic())
-                                            .with_color(severity.into()),
-                                    )
-                                    .finish()
-                                    .print((&title, source));
-                            });
-                        }
-                    }
-                    | None | Some(_) => {
-                        let message = format!("=> {} {} has {}", Label::pass(), message.underline(), "no prose issues".green());
-                        info!("{}", message);
-                    }
-                }
-            }
-            | CheckCategory::Readability => {
-                let Check {
-                    context,
-                    errors,
-                    message,
-                    severity,
-                    ..
-                } = self;
-                match errors {
-                    | Some(ErrorKind::Readability((index, readability_type))) => {
-                        let kind: ReportKind<'static> = severity.clone().into();
-                        let title = message.clone();
-                        let threshold = context.unwrap_or_default();
-                        let metric = readability_type.to_string().to_uppercase();
-                        let source_text =
-                            format!("Text was analyzed for readability using the {metric} metric. It has a score of {index} which is > {threshold}.");
-                        let source = Source::from(source_text.clone());
-                        let index_text = index.to_string();
-                        let start = source_text.find(index_text.as_str()).unwrap_or_default();
-                        let end = start + index_text.len().saturating_sub(1);
-                        let _ = Report::build(kind, (&title, 1..=1))
-                            .with_config(Config::default().with_compact(false))
-                            .with_message("Readability")
-                            .with_label(
-                                ariadne::Label::new((&title, start..=end))
-                                    .with_message("Simplify language for a general audience".to_string().italic())
-                                    .with_color(severity.into()),
-                            )
-                            .finish()
-                            .print((&title, source));
-                    }
-                    | None | Some(_) => {
-                        if let Some(value) = context {
-                            info!(
-                                "=> {} {} has {} {}",
-                                Label::pass(),
+            | CheckCategory::Prose => match &errors {
+                | Some(ErrorKind::Vale(values)) => {
+                    let title = uri.clone().unwrap_or("index.json".to_string());
+                    if let Some(text) = &context {
+                        values.iter().enumerate().for_each(|(index, item)| {
+                            let ValeOutputItem {
+                                check,
+                                line,
                                 message,
-                                "no readability issues".green().bold(),
-                                value.dimmed()
-                            );
-                        } else {
-                            info!("=> {} {} has {}", Label::pass(), message, "no readability issues".green().bold(),);
-                        }
+                                severity,
+                                span,
+                                ..
+                            } = item;
+                            let source = Source::from(text.clone());
+                            let _ = Report::build(severity.into(), (&title, 1..=1))
+                                .with_code(index)
+                                .with_config(Config::default().with_compact(false))
+                                .with_message(check)
+                                .with_label(
+                                    ariadne::Label::new((&title, highlighted_span(source.clone(), span, *line)))
+                                        .with_message(message.italic())
+                                        .with_color(severity.into()),
+                                )
+                                .finish()
+                                .print((&title, source));
+                        });
                     }
                 }
-            }
+                | None | Some(_) => {
+                    let message = format!("=> {} {} has {}", Label::pass(), message.underline(), "no prose issues".green());
+                    info!("{}", message);
+                }
+            },
+            | CheckCategory::Readability => match &errors {
+                | Some(ErrorKind::Readability((index, readability_type))) => {
+                    let kind: ReportKind<'static> = severity.clone().into();
+                    let title = message.clone();
+                    let threshold = context.clone().unwrap_or_default();
+                    let metric = readability_type.to_string().to_uppercase();
+                    let source_text =
+                        format!("Text was analyzed for readability using the {metric} metric. It has a score of {index} which is > {threshold}.");
+                    let source = Source::from(source_text.clone());
+                    let index_text = index.to_string();
+                    let start = source_text.find(index_text.as_str()).unwrap_or_default();
+                    let end = start + index_text.len().saturating_sub(1);
+                    let _ = Report::build(kind, (&title, 1..=1))
+                        .with_config(Config::default().with_compact(false))
+                        .with_message("Readability")
+                        .with_label(
+                            ariadne::Label::new((&title, start..=end))
+                                .with_message("Simplify language for a general audience".to_string().italic())
+                                .with_color(severity.clone().into()),
+                        )
+                        .finish()
+                        .print((&title, source));
+                }
+                | None | Some(_) => {
+                    if let Some(value) = &context {
+                        info!(
+                            "=> {} {} has {} {}",
+                            Label::pass(),
+                            message,
+                            "no readability issues".green().bold(),
+                            value.dimmed()
+                        );
+                    } else {
+                        info!("=> {} {} has {}", Label::pass(), message, "no readability issues".green().bold(),);
+                    }
+                }
+            },
             | CheckCategory::Schema => {
-                let Check { errors, message: prefix, .. } = self.clone();
-                let severity = self.severity.clone();
                 let report_kind: ReportKind<'static> = severity.clone().into();
-                let uri = self.clone().uri.unwrap();
-                let title = uri;
+                let title = uri.clone().unwrap();
                 match &errors {
                     | Some(ErrorKind::Validator(validator_kind)) => {
-                        process(&prefix, validator_kind.clone())
+                        process(&message, validator_kind.clone())
                             .iter()
                             .enumerate()
                             .for_each(|(index, (code, path, message, params))| {

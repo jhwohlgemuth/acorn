@@ -14,13 +14,6 @@ use tracing::debug;
 
 const READABILITY_METRIC: &str = "READABILITY_METRIC";
 
-fn count(issues: Vec<Check>) -> usize {
-    issues
-        .into_iter()
-        .filter(|Check { success, .. }| !success)
-        .map(|issue| issue.issue_count())
-        .sum()
-}
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     path: &Option<PathBuf>,
@@ -53,63 +46,41 @@ pub async fn run(
     let CommandLineOptions { exit_on_first_error, .. } = options;
     let paths = paths_from_options(path, &Some(options)).await;
     let is_offline = *offline || *disable_website_checks;
-    let schema_issues = if skip.contains(&CheckCategory::Schema) {
+    let schema_checks = if skip.contains(&CheckCategory::Schema) {
         skip!("Schema validation");
         vec![]
     } else {
-        let results = ResearchActivity::check(paths.clone());
-        let issues = count(results.clone());
-        if issues > 0 && exit_on_first_error {
-            if not_quiet {
-                fail!("ACORN found {} schema validation errors", issues);
-                results.iter().for_each(|issue| issue.clone().report());
-            }
-            exit(exitcode::DATAERR);
-        }
-        results
+        process_checks(
+            ResearchActivity::check(paths.clone()),
+            "schema validation errors",
+            exit_on_first_error,
+            not_quiet,
+        )
     };
-    let prose_issues = if skip.contains(&CheckCategory::Prose) {
+    let prose_checks = if skip.contains(&CheckCategory::Prose) {
         skip!("Prose analysis");
         vec![]
     } else {
-        let results = ResearchActivity::prose_analysis(paths.clone(), *offline, *skip_verify_checksum).await;
-        let issues = count(results.clone());
-        if issues > 0 && exit_on_first_error {
-            if not_quiet {
-                fail!("ACORN found {} prose issues", issues);
-                results.iter().for_each(|issue| issue.clone().report());
-            }
-            exit(exitcode::DATAERR);
-        }
-        results
+        process_checks(
+            ResearchActivity::prose_analysis(paths.clone(), *offline, *skip_verify_checksum).await,
+            "prose issues",
+            exit_on_first_error,
+            not_quiet,
+        )
     };
-    let readability_issues = if skip.contains(&CheckCategory::Readability) {
+    let readability_checks = if skip.contains(&CheckCategory::Readability) {
         skip!("Readability analysis");
         vec![]
     } else {
-        let metric_value_from_cli = ReadabilityType::from_string(&readability_metric.to_string());
-        let metric = match dotenv() {
-            | Ok(_) => match dotenvy::var(READABILITY_METRIC) {
-                | Ok(value) if !value.is_empty() => {
-                    debug!(value, "=> {} Readability metric from .env", Label::using());
-                    ReadabilityType::from_string(&value)
-                }
-                | _ => metric_value_from_cli,
-            },
-            | _ => metric_value_from_cli,
-        };
-        let results = ResearchActivity::readability_analysis(paths.clone(), metric);
-        let issues = count(results.clone());
-        if issues > 0 && exit_on_first_error {
-            if not_quiet {
-                fail!("ACORN found {} readability issues", issues);
-                results.iter().for_each(|issue| issue.clone().report());
-            }
-            exit(exitcode::DATAERR);
-        }
-        results
+        let readabilty_type = resolve_readability_metric(readability_metric);
+        process_checks(
+            ResearchActivity::readability_analysis(paths.clone(), readabilty_type),
+            "readability issues",
+            exit_on_first_error,
+            not_quiet,
+        )
     };
-    let conventions_issues = if skip.contains(&CheckCategory::Conventions) {
+    let convention_checks = if skip.contains(&CheckCategory::Conventions) {
         skip!("Conventions validation");
         vec![]
     } else {
@@ -118,11 +89,11 @@ pub async fn run(
     let website_checks = ResearchActivity::check_websites(paths.clone(), is_offline).await;
     let all_issues = vec![]
         .into_iter()
-        .chain(schema_issues.clone())
-        .chain(prose_issues.clone())
-        .chain(readability_issues.clone())
-        .chain(conventions_issues.clone())
-        .chain(website_checks.clone())
+        .chain(schema_checks)
+        .chain(prose_checks)
+        .chain(readability_checks)
+        .chain(convention_checks)
+        .chain(website_checks)
         .filter(|Check { success, .. }| !success)
         .collect::<Vec<Check>>();
     if not_quiet {
@@ -135,14 +106,21 @@ pub async fn run(
             print_summary(&all_issues);
         }
     }
-    if !(*no_fail || *terse) {
+    if !all_issues.is_empty() && !(*no_fail || *terse) {
         exit(exitcode::DATAERR);
     }
     Ok(())
 }
+fn count_failed_issues(issues: &[Check]) -> usize {
+    issues
+        .iter()
+        .filter(|Check { success, .. }| !success)
+        .map(|issue| issue.issue_count())
+        .sum()
+}
 fn print_detailed(issues: &[Check]) {
     issues.iter().for_each(|issue| {
-        issue.clone().report();
+        issue.report();
     });
 }
 fn print_compact(issues: &[Check]) {
@@ -154,6 +132,30 @@ fn print_summary(issues: &[Check]) {
     let headers = vec!["Issue Type", "Issue Count"];
     let rows = summary(issues.to_vec());
     print_values_as_table::<String>(headers, rows, None);
+}
+fn process_checks(results: Vec<Check>, issue_label: &str, exit_on_first_error: bool, not_quiet: bool) -> Vec<Check> {
+    let issue_count = count_failed_issues(&results);
+    if issue_count > 0 && exit_on_first_error {
+        if not_quiet {
+            fail!("ACORN found {} {}", issue_count, issue_label);
+            results.iter().for_each(Check::report);
+        }
+        exit(exitcode::DATAERR);
+    }
+    results
+}
+fn resolve_readability_metric(readability_metric: &ReadabilityTypeArgument) -> ReadabilityType {
+    let metric_from_cli = ReadabilityType::from_string(&readability_metric.to_string());
+    match dotenv() {
+        | Ok(_) => match dotenvy::var(READABILITY_METRIC) {
+            | Ok(value) if !value.is_empty() => {
+                debug!(value, "=> {} Readability metric from .env", Label::using());
+                ReadabilityType::from_string(&value)
+            }
+            | _ => metric_from_cli,
+        },
+        | _ => metric_from_cli,
+    }
 }
 
 #[cfg(test)]
