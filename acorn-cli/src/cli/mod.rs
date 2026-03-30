@@ -37,9 +37,6 @@ pub struct CommandLineOptions {
     ///
     /// e.g. reference.pptx for exporting RAD to PowerPoint
     pub reference: Option<PathBuf>,
-    /// Flag used to indicate if a single error should cause the process to exit
-    #[builder(default)]
-    pub exit_on_first_error: bool,
     /// Flag used to indicate if changed files should be obtained from a merge request
     #[builder(default)]
     pub merge_request: bool,

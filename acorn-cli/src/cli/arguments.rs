@@ -15,8 +15,8 @@ pub enum DatabaseBackend {
 /// Categories available when analyzing ("checking") research activity data
 #[derive(Clone, Debug, PartialEq, PartialOrd, ValueEnum)]
 pub enum CheckCategory {
-    Conventions,
     Prose,
+    Quality,
     Readability,
     Schema,
 }

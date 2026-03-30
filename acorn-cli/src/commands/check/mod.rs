@@ -1,7 +1,7 @@
 use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument};
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{summary, Analysis, Check, Validation};
+use acorn::analyzer::{summary, Analysis, Check, CheckOptions, Validation};
 use acorn::prelude::PathBuf;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{print_values_as_table, Label};
@@ -12,7 +12,7 @@ use dotenvy::dotenv;
 use std::process::exit;
 use tracing::debug;
 
-const READABILITY_METRIC: &str = "READABILITY_METRIC";
+const ENV_READABILITY_METRIC: &str = "READABILITY_METRIC";
 
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -36,24 +36,27 @@ pub async fn run(
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
-    let options = CommandLineOptions::init()
+    let cli_options = CommandLineOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
         .maybe_ignore(ignore.clone())
-        .exit_on_first_error(*exit_on_first_error)
         .merge_request(*merge_request)
         .build();
-    let CommandLineOptions { exit_on_first_error, .. } = options;
-    let paths = paths_from_options(path, &Some(options)).await;
-    let is_offline = *offline || *disable_website_checks;
+    let check_options = CheckOptions::init()
+        .exit_on_first_error(*exit_on_first_error)
+        .offline(*offline)
+        .skip_verify_checksum(*skip_verify_checksum)
+        .readability_metric(resolve_readability_metric(readability_metric))
+        .build();
+    let paths = paths_from_options(path, &Some(cli_options)).await;
     let schema_checks = if skip.contains(&CheckCategory::Schema) {
         skip!("Schema validation");
         vec![]
     } else {
         process_checks(
-            ResearchActivity::check(paths.clone()),
+            ResearchActivity::check_schema(paths.clone()),
             "schema validation errors",
-            exit_on_first_error,
+            *exit_on_first_error,
             not_quiet,
         )
     };
@@ -62,9 +65,9 @@ pub async fn run(
         vec![]
     } else {
         process_checks(
-            ResearchActivity::check_prose(paths.clone(), *offline, *skip_verify_checksum).await,
+            ResearchActivity::check_prose(paths.clone(), Some(&check_options)).await,
             "prose issues",
-            exit_on_first_error,
+            *exit_on_first_error,
             not_quiet,
         )
     };
@@ -72,27 +75,31 @@ pub async fn run(
         skip!("Readability analysis");
         vec![]
     } else {
-        let readabilty_type = resolve_readability_metric(readability_metric);
         process_checks(
-            ResearchActivity::check_readability(paths.clone(), readabilty_type),
+            ResearchActivity::check_readability(paths.clone(), Some(&check_options)),
             "readability issues",
-            exit_on_first_error,
+            *exit_on_first_error,
             not_quiet,
         )
     };
-    let convention_checks = if skip.contains(&CheckCategory::Conventions) {
-        skip!("Conventions validation");
+    let quality_checks = if skip.contains(&CheckCategory::Quality) {
+        skip!("Quality control and data consistency checks");
         vec![]
     } else {
         vec![]
     };
-    let website_checks = ResearchActivity::check_websites(paths.clone(), is_offline).await;
+    let website_checks = if *offline || *disable_website_checks {
+        skip!("Website checks");
+        vec![]
+    } else {
+        ResearchActivity::check_websites(paths.clone(), None).await
+    };
     let all_issues = vec![]
         .into_iter()
         .chain(schema_checks)
         .chain(prose_checks)
         .chain(readability_checks)
-        .chain(convention_checks)
+        .chain(quality_checks)
         .chain(website_checks)
         .filter(|Check { success, .. }| !success)
         .collect::<Vec<Check>>();
@@ -106,7 +113,7 @@ pub async fn run(
             print_summary(&all_issues);
         }
     }
-    if !all_issues.is_empty() && !(*no_fail || *terse) {
+    if !(all_issues.is_empty() || *no_fail) {
         exit(exitcode::DATAERR);
     }
     Ok(())
@@ -147,7 +154,7 @@ fn process_checks(results: Vec<Check>, issue_label: &str, exit_on_first_error: b
 fn resolve_readability_metric(readability_metric: &ReadabilityTypeArgument) -> ReadabilityType {
     let metric_from_cli = ReadabilityType::from_string(&readability_metric.to_string());
     match dotenv() {
-        | Ok(_) => match dotenvy::var(READABILITY_METRIC) {
+        | Ok(_) => match dotenvy::var(ENV_READABILITY_METRIC) {
             | Ok(value) if !value.is_empty() => {
                 debug!(value, "=> {} Readability metric from .env", Label::using());
                 ReadabilityType::from_string(&value)

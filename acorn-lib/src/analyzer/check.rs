@@ -3,7 +3,8 @@
 use super::error::{process, ErrorCode, ErrorKind};
 #[cfg(feature = "analysis")]
 use super::to_dataframe;
-use super::vale::{ValeOutputItem, ValeOutputItemSeverity};
+use super::vale::{ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
+use super::ReadabilityType;
 use ariadne::{Color, Config, Report, ReportKind, Source};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -38,6 +39,9 @@ pub enum CheckCategory {
     /// Static analysis of prose
     #[display("prose")]
     Prose,
+    /// Quality control and data consistency check
+    #[display("quality")]
+    Quality,
     /// Readability check using one of several metrics
     #[display("readability")]
     Readability,
@@ -83,6 +87,25 @@ pub struct Check {
     #[builder(default = "".to_string())]
     pub message: String,
 }
+
+/// Data structure for passing options to check processing functions
+#[derive(Builder, Clone, Debug, Default)]
+#[builder(start_fn = init, on(String, into), on(ReadabilityType, into))]
+pub struct CheckOptions {
+    /// Flag used to indicate if a single error should cause the process to exit
+    #[builder(default = false)]
+    pub exit_on_first_error: bool,
+    /// Whether or not to run in offline mode (i.e., skip website checks)
+    #[builder(default = false)]
+    pub offline: bool,
+    /// Readability metric to use for readability checks
+    pub readability_metric: ReadabilityType,
+    /// Whether or not to skip checksum verification for prose analysis
+    #[builder(default = false)]
+    pub skip_verify_checksum: bool,
+    /// Vale configuration options
+    pub vale_config: Option<ValeConfig>,
+}
 impl Check {
     /// Recursively count validation errors from a given ValidationErrorsKind
     pub fn count_validation_errors(kind: &ValidationErrorsKind) -> usize {
@@ -104,7 +127,7 @@ impl Check {
     /// Returns the number of errors
     pub fn issue_count(&self) -> usize {
         match self.category {
-            | CheckCategory::Link => 1,
+            | CheckCategory::Link | CheckCategory::Quality | CheckCategory::Readability => 1,
             | CheckCategory::Prose => {
                 if let Some(kind) = &self.errors {
                     match kind {
@@ -115,7 +138,6 @@ impl Check {
                     0
                 }
             }
-            | CheckCategory::Readability => 1,
             | CheckCategory::Schema => {
                 if let Some(kind) = &self.errors {
                     match kind {
@@ -201,6 +223,7 @@ impl Check {
                     info!("{}", message);
                 }
             },
+            | CheckCategory::Quality => unimplemented!(),
             | CheckCategory::Readability => match &errors {
                 | Some(ErrorKind::Readability((index, readability_type))) => {
                     let kind: ReportKind<'static> = severity.clone().into();
@@ -363,6 +386,7 @@ impl fmt::Display for Check {
                 }
                 | None | Some(_) => write!(f, ""),
             },
+            | CheckCategory::Quality => unimplemented!(),
             | CheckCategory::Readability => {
                 let Check {
                     context,

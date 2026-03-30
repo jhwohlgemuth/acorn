@@ -3,13 +3,14 @@
 //! Provides programmtic access to the [Vale prose analyzer](https://vale.sh/) - an open-source, command-line tool that brings your editorial style guide to life.
 //!
 use crate::prelude::PathBuf;
+use crate::util::constants::{APPLICATION, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION};
 use crate::util::{Label, SemanticVersion};
 use ariadne::{Color, ReportKind};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::{error, trace};
 
 /// Vale output severity
 ///
@@ -127,6 +128,20 @@ impl ValeOutput {
         } else {
             vec![]
         }
+    }
+}
+impl Default for ValeConfig {
+    fn default() -> Self {
+        fn to_string(values: Vec<&str>) -> Vec<String> {
+            values.iter().map(|s| s.to_string()).collect()
+        }
+        let config = ValeConfig::init()
+            .packages(to_string(ENABLED_VALE_PACKAGES.to_vec()))
+            .vocabularies(to_string(vec![&ORGANIZATION.to_uppercase(), APPLICATION]))
+            .disabled(to_string(DISABLED_VALE_RULES.to_vec()))
+            .build();
+        trace!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
+        config
     }
 }
 impl ValeOutputItemSeverity {

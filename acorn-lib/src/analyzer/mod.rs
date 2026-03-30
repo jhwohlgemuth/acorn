@@ -9,10 +9,7 @@ use crate::io::{get, InputOutput};
 use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, PathBuf};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{Organization, ProgrammingLanguage, Website};
-use crate::util::constants::{
-    APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION,
-    VALE_RELEASES_URL, VALE_VERSION,
-};
+use crate::util::constants::{APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{Constant, Label, SemanticVersion, StringConversion, ToMarkdown, ToProse};
 use crate::{cmd, skip};
 use crate::{Location, Repository};
@@ -31,7 +28,7 @@ use polars::datatypes::PlSmallStr;
 use polars::prelude::{DataFrame, PolarsResult};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tar::Archive;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 use validator::Validate;
 use validator::ValidationErrorsKind;
 use which::which;
@@ -43,7 +40,9 @@ pub mod vale;
 
 #[cfg(feature = "analysis")]
 pub use check::{checks_to_dataframe, IntoRow};
-pub use check::{highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, Check, CheckCategory, CheckSeverity};
+pub use check::{
+    highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, Check, CheckCategory, CheckOptions, CheckSeverity,
+};
 
 use error::ErrorKind;
 use readability::ReadabilityType;
@@ -53,13 +52,13 @@ use vale::{Vale, ValeConfig};
 #[async_trait]
 pub trait Analysis {
     /// Perform analysis of prose
-    async fn check_prose(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check>;
+    async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
+    /// Perform quality checks and verify data consistency
+    fn check_quality(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
     /// Calculate readability using a given metric
-    fn check_readability<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
-    where
-        R: Into<ReadabilityType>;
+    fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
     /// Check if URLs links are valid and readable
-    async fn check_websites(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check>;
+    async fn check_websites(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
 }
 /// Trait for static analyzers (e.g. Vale)
 #[async_trait]
@@ -92,8 +91,6 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
 /// Trait for static analyzer configuration (e.g. .vale.ini)
 #[async_trait]
 pub trait StaticAnalyzerConfig {
-    /// Get default configuration
-    fn default() -> Self;
     /// Convert to INI
     async fn ini(self) -> Ini;
     /// Save configuration
@@ -104,22 +101,29 @@ pub trait StaticAnalyzerConfig {
 /// Trait for schema validation
 pub trait Validation {
     /// Execute validation checks for a given item
-    fn check(paths: Vec<PathBuf>) -> Vec<Check>;
+    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check>;
     /// Get validation issues for a given item
     fn validation_issues(self) -> Vec<Check>;
 }
 #[async_trait]
 impl Analysis for ResearchActivity {
-    async fn check_prose(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
-        // Create and save Vale config asynchronously
-        let config = ValeConfig::default().save().await;
-        let vale = Vale::resolve(config, is_offline, skip_verify_checksum).await;
-        match vale.clone().sync(is_offline).await {
+    async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
+        let defaults = CheckOptions::default();
+        let options = options.unwrap_or(&defaults);
+        let CheckOptions {
+            offline,
+            skip_verify_checksum,
+            vale_config,
+            ..
+        } = options.clone();
+        let config = vale_config.unwrap_or_default().save().await;
+        let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
+        match vale.clone().sync(offline).await {
             | Ok(_) => {
                 let results = paths.into_iter().map(|path| {
                     let vale = vale.clone();
                     async move {
-                        match ResearchActivity::read(&path) {
+                        match Self::read(&path) {
                             | Ok(data) => {
                                 let identifier = data.meta.identifier.to_lowercase();
                                 let content = data.to_prose();
@@ -148,14 +152,30 @@ impl Analysis for ResearchActivity {
             }
         }
     }
-    fn check_readability<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
-    where
-        R: Into<ReadabilityType>,
-    {
-        let rtype = readability_type.into();
+    fn check_quality(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
-            .map(|path| match ResearchActivity::read(path) {
+            .map(|path| match Self::read(path) {
+                | Ok(_) => Check::init().category(CheckCategory::Quality).success(true).build(),
+                | Err(why) => {
+                    Check::init()
+                        .category(CheckCategory::Quality)
+                        .success(false)
+                        .severity(CheckSeverity::Error)
+                        .message("Cannot read research activity data")
+                        .context(why.to_string())
+                        .build()
+                }
+            })
+            .collect()
+    }
+    fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
+        let defaults = CheckOptions::default();
+        let options = options.unwrap_or(&defaults);
+        let rtype = options.readability_metric;
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
                 | Ok(data) => {
                     let index = rtype.calculate(&data.to_markdown());
                     let maximum = match rtype.maximum_allowed_from_env() {
@@ -199,26 +219,25 @@ impl Analysis for ResearchActivity {
     }
     /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
     #[cfg(feature = "std")]
-    async fn check_websites(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
+    async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
         let futures = paths.into_iter().map(|path| async move {
-            match ResearchActivity::read(&path) {
+            match Self::read(&path) {
                 | Ok(data) => {
-                    let issues = if is_offline {
-                        vec![]
-                    } else {
-                        let dois = match data.clone().meta.doi {
-                            | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
-                            | None => vec![],
-                        };
-                        let websites = match data.clone().meta.websites {
-                            | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
-                            | None => vec![],
-                        };
-                        let links: Vec<String> = dois.into_iter().chain(websites).chain([data.clone().contact.url]).collect();
-                        let link_futures = links.into_iter().map(|url| link_check(Some(url)));
-                        join_all(link_futures).await
+                    let dois = match data.clone().meta.doi {
+                        | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
+                        | None => vec![],
                     };
-                    issues.into_iter().map(|check| check.with_context(path.file_name_with_parent())).collect()
+                    let websites = match data.clone().meta.websites {
+                        | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
+                        | None => vec![],
+                    };
+                    let links: Vec<String> = dois.into_iter().chain(websites).chain([data.clone().contact.url]).collect();
+                    let link_futures = links.into_iter().map(|url| link_check(Some(url)));
+                    join_all(link_futures)
+                        .await
+                        .into_iter()
+                        .map(|check| check.with_context(path.file_name_with_parent()))
+                        .collect()
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
@@ -603,18 +622,6 @@ impl StaticAnalyzer<ValeConfig> for Vale {
 }
 #[async_trait]
 impl StaticAnalyzerConfig for ValeConfig {
-    fn default() -> Self {
-        fn to_string(values: Vec<&str>) -> Vec<String> {
-            values.iter().map(|s| s.to_string()).collect()
-        }
-        let config = ValeConfig::init()
-            .packages(to_string(ENABLED_VALE_PACKAGES.to_vec()))
-            .vocabularies(to_string(vec![&ORGANIZATION.to_uppercase(), APPLICATION]))
-            .disabled(to_string(DISABLED_VALE_RULES.to_vec()))
-            .build();
-        trace!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
-        config
-    }
     async fn ini(self) -> Ini {
         let ValeConfig {
             packages,
@@ -670,7 +677,7 @@ impl StaticAnalyzerConfig for ValeConfig {
 }
 impl Validation for ResearchActivity {
     /// Checks a list of research activity files
-    fn check(paths: Vec<PathBuf>) -> Vec<Check> {
+    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
         paths
             .par_iter()
             .flat_map(|path| match ResearchActivity::read(path) {
