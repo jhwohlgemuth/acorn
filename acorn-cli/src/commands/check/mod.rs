@@ -62,7 +62,7 @@ pub async fn run(
         vec![]
     } else {
         process_checks(
-            ResearchActivity::prose_analysis(paths.clone(), *offline, *skip_verify_checksum).await,
+            ResearchActivity::check_prose(paths.clone(), *offline, *skip_verify_checksum).await,
             "prose issues",
             exit_on_first_error,
             not_quiet,
@@ -74,7 +74,7 @@ pub async fn run(
     } else {
         let readabilty_type = resolve_readability_metric(readability_metric);
         process_checks(
-            ResearchActivity::readability_analysis(paths.clone(), readabilty_type),
+            ResearchActivity::check_readability(paths.clone(), readabilty_type),
             "readability issues",
             exit_on_first_error,
             not_quiet,

@@ -49,7 +49,7 @@ pub mod standard;
 pub mod validate;
 
 use graph::{node_from_label, node_name, node_parent};
-use namespaces::schema_org;
+use namespaces::{bibo, foaf, schema_org};
 use validate::{has_image_extension, is_orcid, is_phone_number};
 
 /// ## Keywords
@@ -625,12 +625,12 @@ impl Default for ContactPointContext {
     fn default() -> Self {
         Self::init()
             .job_title(schema_org("jobTitle"))
-            .given_name(schema_org("givenName"))
-            .family_name(schema_org("familyName"))
-            .identifier("https://orcid.org")
-            .email(schema_org("email"))
+            .given_name(foaf("givenName"))
+            .family_name(foaf("familyName"))
+            .identifier(bibo("identifier"))
+            .email(foaf("mbox"))
             .telephone(schema_org("telephone"))
-            .url(schema_org("url"))
+            .url(foaf("workInfoHomepage"))
             .organization(schema_org("worksFor"))
             .affiliation(schema_org("affiliation"))
             .build()

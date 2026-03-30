@@ -8,7 +8,7 @@ use crate::io::ApiResult;
 use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
-use crate::schema::namespaces::{codemeta, dcat, schema_org};
+use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org};
 use crate::schema::pid::PersistentIdentifierConvert;
 use crate::schema::standard::cff::{Agent, Cff, Person};
 use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
@@ -373,7 +373,7 @@ impl Default for ResearchActivityContext {
     fn default() -> Self {
         ResearchActivityContext::init()
             .meta(schema_org("CreativeWork"))
-            .title(schema_org("title"))
+            .title(dcterms("title"))
             .subtitle(schema_org("alternativeHeadline"))
             .sections(schema_org("CreativeWork"))
             .contact(dcat("contactPoint"))
@@ -394,7 +394,7 @@ impl Default for ResearchActivityMetadataContext {
             .draft(schema_org("Boolean"))
             .status(schema_org("DefinedTerm"))
             .identifier(codemeta("identifier"))
-            .doi("https://doi.org")
+            .doi(bibo("doi"))
             .raid("https://raid.org")
             .ror("https://ror.org")
             .additional_type(schema_org("additionalType"))

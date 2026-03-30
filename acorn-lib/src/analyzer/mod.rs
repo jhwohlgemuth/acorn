@@ -53,9 +53,9 @@ use vale::{Vale, ValeConfig};
 #[async_trait]
 pub trait Analysis {
     /// Perform analysis of prose
-    async fn prose_analysis(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check>;
+    async fn check_prose(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check>;
     /// Calculate readability using a given metric
-    fn readability_analysis<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
+    fn check_readability<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
     where
         R: Into<ReadabilityType>;
     /// Check if URLs links are valid and readable
@@ -110,42 +110,7 @@ pub trait Validation {
 }
 #[async_trait]
 impl Analysis for ResearchActivity {
-    /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
-    #[cfg(feature = "std")]
-    async fn check_websites(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
-        let futures = paths.into_iter().map(|path| async move {
-            match ResearchActivity::read(&path) {
-                | Ok(data) => {
-                    let issues = if is_offline {
-                        vec![]
-                    } else {
-                        let dois = match data.clone().meta.doi {
-                            | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
-                            | None => vec![],
-                        };
-                        let websites = match data.clone().meta.websites {
-                            | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
-                            | None => vec![],
-                        };
-                        let links: Vec<String> = dois.into_iter().chain(websites).chain([data.clone().contact.url]).collect();
-                        let link_futures = links.into_iter().map(|url| link_check(Some(url)));
-                        join_all(link_futures).await
-                    };
-                    issues.into_iter().map(|check| check.with_context(path.file_name_with_parent())).collect()
-                }
-                | Err(why) => {
-                    error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
-                    vec![Check::init()
-                        .category(CheckCategory::Schema)
-                        .success(false)
-                        .severity(CheckSeverity::Error)
-                        .build()]
-                }
-            }
-        });
-        join_all(futures).await.into_iter().flatten().collect()
-    }
-    async fn prose_analysis(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
+    async fn check_prose(paths: Vec<PathBuf>, is_offline: bool, skip_verify_checksum: bool) -> Vec<Check> {
         // Create and save Vale config asynchronously
         let config = ValeConfig::default().save().await;
         let vale = Vale::resolve(config, is_offline, skip_verify_checksum).await;
@@ -183,7 +148,7 @@ impl Analysis for ResearchActivity {
             }
         }
     }
-    fn readability_analysis<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
+    fn check_readability<R>(paths: Vec<PathBuf>, readability_type: R) -> Vec<Check>
     where
         R: Into<ReadabilityType>,
     {
@@ -231,6 +196,41 @@ impl Analysis for ResearchActivity {
                 }
             })
             .collect::<Vec<Check>>()
+    }
+    /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
+    #[cfg(feature = "std")]
+    async fn check_websites(paths: Vec<PathBuf>, is_offline: bool) -> Vec<Check> {
+        let futures = paths.into_iter().map(|path| async move {
+            match ResearchActivity::read(&path) {
+                | Ok(data) => {
+                    let issues = if is_offline {
+                        vec![]
+                    } else {
+                        let dois = match data.clone().meta.doi {
+                            | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
+                            | None => vec![],
+                        };
+                        let websites = match data.clone().meta.websites {
+                            | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
+                            | None => vec![],
+                        };
+                        let links: Vec<String> = dois.into_iter().chain(websites).chain([data.clone().contact.url]).collect();
+                        let link_futures = links.into_iter().map(|url| link_check(Some(url)));
+                        join_all(link_futures).await
+                    };
+                    issues.into_iter().map(|check| check.with_context(path.file_name_with_parent())).collect()
+                }
+                | Err(why) => {
+                    error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
+                    vec![Check::init()
+                        .category(CheckCategory::Schema)
+                        .success(false)
+                        .severity(CheckSeverity::Error)
+                        .build()]
+                }
+            }
+        });
+        join_all(futures).await.into_iter().flatten().collect()
     }
 }
 #[async_trait]
