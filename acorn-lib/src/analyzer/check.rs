@@ -89,8 +89,9 @@ pub struct Check {
 }
 
 /// Data structure for passing options to check processing functions
-#[derive(Builder, Clone, Debug, Default)]
+#[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into), on(ReadabilityType, into))]
+#[derive(Default)]
 pub struct CheckOptions {
     /// Flag used to indicate if a single error should cause the process to exit
     #[builder(default = false)]

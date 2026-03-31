@@ -108,14 +108,12 @@ pub trait Validation {
 #[async_trait]
 impl Analysis for ResearchActivity {
     async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
-        let defaults = CheckOptions::default();
-        let options = options.unwrap_or(&defaults);
         let CheckOptions {
             offline,
             skip_verify_checksum,
             vale_config,
             ..
-        } = options.clone();
+        } = options.cloned().unwrap_or_default();
         let config = vale_config.unwrap_or_default().save().await;
         let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
         match vale.clone().sync(offline).await {
@@ -157,15 +155,13 @@ impl Analysis for ResearchActivity {
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => Check::init().category(CheckCategory::Quality).success(true).build(),
-                | Err(why) => {
-                    Check::init()
-                        .category(CheckCategory::Quality)
-                        .success(false)
-                        .severity(CheckSeverity::Error)
-                        .message("Cannot read research activity data")
-                        .context(why.to_string())
-                        .build()
-                }
+                | Err(why) => Check::init()
+                    .category(CheckCategory::Quality)
+                    .success(false)
+                    .severity(CheckSeverity::Error)
+                    .message("Cannot read research activity data")
+                    .context(why.to_string())
+                    .build(),
             })
             .collect()
     }
