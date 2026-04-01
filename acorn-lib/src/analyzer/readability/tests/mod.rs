@@ -1,6 +1,7 @@
 use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::readability::*;
-use crate::analyzer::{checks_to_dataframe, Check, CheckCategory};
+use crate::analyzer::{checks_to_dataframe, CheckCategory};
+use crate::check_ok;
 use crate::io::read_file;
 use crate::prelude::PathBuf;
 #[cfg(test)]
@@ -11,7 +12,7 @@ const FIXTURES: &str = "../tests/fixtures";
 
 #[test]
 fn test_checks_to_dataframe() {
-    let check = Check::init().category(CheckCategory::Prose).success(true).build();
+    let check = check_ok!(CheckCategory::Prose);
     let checks = vec![check.clone(), check.clone(), check];
     let df = checks_to_dataframe(checks.clone());
     let reason = "Failed to convert checks to dataframe";

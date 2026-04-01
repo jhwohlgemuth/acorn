@@ -1,9 +1,10 @@
 use crate::analyzer::error::ErrorCode;
 use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
 use crate::analyzer::{
-    checks_to_dataframe, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, Check, CheckCategory, CheckSeverity,
+    checks_to_dataframe, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, CheckCategory, CheckSeverity,
 };
 use crate::prelude::{HashMap, PathBuf};
+use crate::{check, check_ok};
 use ariadne::Color;
 use ariadne::ReportKind;
 use ariadne::Source;
@@ -11,7 +12,7 @@ use serde_json::Value;
 
 #[test]
 fn test_checks_to_dataframe() {
-    let check = Check::init().category(CheckCategory::Prose).success(true).build();
+    let check = check_ok!(CheckCategory::Prose);
     let checks = vec![check.clone(), check.clone(), check];
     let df = checks_to_dataframe(checks.clone());
     let reason = "Failed to convert checks to dataframe";
@@ -363,7 +364,7 @@ fn test_vale_output_severity_colored() {
 }
 #[test]
 fn test_check_severity_default() {
-    let check = Check::init().category(CheckCategory::Prose).success(true).build();
+    let check = check_ok!(CheckCategory::Prose);
     assert_eq!(check.severity, CheckSeverity::Error);
 }
 #[test]
@@ -403,12 +404,12 @@ fn test_check_severity_to_ariadne_report_kind_matrix() {
 }
 #[test]
 fn test_with_context_and_with_uri_preserve_severity() {
-    let check = Check::init()
-        .category(CheckCategory::Link)
-        .success(false)
-        .severity(CheckSeverity::Warning)
-        .message("link check")
-        .build();
+    let check = check!(
+      CheckCategory::Link,
+      false,
+      severity: CheckSeverity::Warning,
+      message: "link check"
+    );
     let with_context = check.clone().with_context("content/index.json".to_string());
     let with_uri = check.with_uri("https://example.org".to_string());
     assert_eq!(with_context.severity, CheckSeverity::Warning);

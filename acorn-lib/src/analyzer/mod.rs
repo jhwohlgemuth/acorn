@@ -11,6 +11,7 @@ use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::{APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{Constant, Label, SemanticVersion, StringConversion, ToMarkdown, ToProse};
+use crate::{check, check_err, check_ok};
 use crate::{cmd, skip};
 use crate::{Location, Repository};
 use async_trait::async_trait;
@@ -129,11 +130,7 @@ impl Analysis for ResearchActivity {
                             }
                             | Err(why) => {
                                 error!("=> {} Read research activity data - {why}", Label::fail());
-                                Check::init()
-                                    .category(CheckCategory::Prose)
-                                    .success(false)
-                                    .severity(CheckSeverity::Error)
-                                    .build()
+                                check_err!(CheckCategory::Prose)
                             }
                         }
                     }
@@ -142,11 +139,7 @@ impl Analysis for ResearchActivity {
             }
             | Err(why) => {
                 error!("=> {} Vale sync - {why}", Label::fail());
-                vec![Check::init()
-                    .category(CheckCategory::Prose)
-                    .success(false)
-                    .severity(CheckSeverity::Error)
-                    .build()]
+                vec![check_err!(CheckCategory::Prose)]
             }
         }
     }
@@ -154,14 +147,12 @@ impl Analysis for ResearchActivity {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
-                | Ok(_) => Check::init().category(CheckCategory::Quality).success(true).build(),
-                | Err(why) => Check::init()
-                    .category(CheckCategory::Quality)
-                    .success(false)
-                    .severity(CheckSeverity::Error)
-                    .message("Cannot read research activity data")
-                    .context(why.to_string())
-                    .build(),
+                | Ok(_) => check_ok!(CheckCategory::Quality),
+                | Err(why) => check_err!(
+                    CheckCategory::Quality,
+                    message: "Cannot read research activity data",
+                    context: why.to_string()
+                ),
             })
             .collect()
     }
@@ -184,31 +175,26 @@ impl Analysis for ResearchActivity {
                     debug!(value = index, "=> {} Readability index", Label::using());
                     if index > maximum {
                         let errors = ErrorKind::Readability((index, rtype));
-                        Check::init()
-                            .category(CheckCategory::Readability)
-                            .success(false)
-                            .severity(CheckSeverity::Warning)
-                            .message(path.file_name_with_parent())
-                            .errors(errors)
-                            .context(maximum.to_string())
-                            .build()
+                        check!(
+                            CheckCategory::Readability,
+                            false,
+                            severity: CheckSeverity::Warning,
+                            message: path.file_name_with_parent(),
+                            errors: errors,
+                            context: maximum.to_string()
+                        )
                     } else {
                         let score = format!("({} = {}/{})", rtype.to_string().to_uppercase(), index, maximum);
-                        Check::init()
-                            .category(CheckCategory::Readability)
-                            .success(true)
-                            .message(path.file_name_with_parent())
-                            .context(score)
-                            .build()
+                        check_ok!(
+                            CheckCategory::Readability,
+                            message: path.file_name_with_parent(),
+                            context: score
+                        )
                     }
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data - {why}", Label::fail());
-                    Check::init()
-                        .category(CheckCategory::Readability)
-                        .success(false)
-                        .severity(CheckSeverity::Error)
-                        .build()
+                    check_err!(CheckCategory::Readability)
                 }
             })
             .collect::<Vec<Check>>()
@@ -237,11 +223,7 @@ impl Analysis for ResearchActivity {
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
-                    vec![Check::init()
-                        .category(CheckCategory::Schema)
-                        .success(false)
-                        .severity(CheckSeverity::Error)
-                        .build()]
+                    vec![crate::check_err!(CheckCategory::Schema)]
                 }
             }
         });
@@ -345,7 +327,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         }
                         let parsed = ValeOutput::parse(&output.stdout(), path.clone());
                         if parsed.is_empty() {
-                            Check::init().category(CheckCategory::Prose).success(true).message(id).build()
+                            crate::check_ok!(CheckCategory::Prose, message: id)
                         } else {
                             let severity = parsed
                                 .iter()
@@ -353,15 +335,15 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                                 .max_by_key(severity_rank)
                                 .map(CheckSeverity::from)
                                 .unwrap_or_default();
-                            Check::init()
-                                .category(CheckCategory::Prose)
-                                .success(false)
-                                .severity(severity)
-                                .message(id)
-                                .errors(ErrorKind::Vale(parsed))
-                                .context(content)
-                                .uri(path.file_name_with_parent())
-                                .build()
+                            crate::check!(
+                                CheckCategory::Prose,
+                                false,
+                                severity: severity,
+                                message: id,
+                                errors: ErrorKind::Vale(parsed),
+                                context: content,
+                                uri: path.file_name_with_parent()
+                            )
                         }
                     }
                     | Ok(output) => {
@@ -372,33 +354,18 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                             why
                         };
                         error!("=> {} Analyze - {}", Label::fail(), message);
-                        Check::init()
-                            .category(CheckCategory::Prose)
-                            .success(false)
-                            .severity(CheckSeverity::Error)
-                            .message(id)
-                            .build()
+                        crate::check_err!(CheckCategory::Prose, message: id)
                     }
                     | Err(why) => {
                         error!("=> {} Analyze - {}", Label::fail(), why);
-                        Check::init()
-                            .category(CheckCategory::Prose)
-                            .success(false)
-                            .severity(CheckSeverity::Error)
-                            .message(id)
-                            .build()
+                        crate::check_err!(CheckCategory::Prose, message: id)
                     }
                 }
             }
             | None => {
                 let title = self.clone().command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
-                Check::init()
-                    .category(CheckCategory::Prose)
-                    .success(false)
-                    .severity(CheckSeverity::Error)
-                    .message(id)
-                    .build()
+                crate::check_err!(CheckCategory::Prose, message: id)
             }
         }
     }
@@ -687,11 +654,7 @@ impl Validation for ResearchActivity {
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
-                    vec![Check::init()
-                        .category(CheckCategory::Schema)
-                        .success(false)
-                        .severity(CheckSeverity::Error)
-                        .build()]
+                    vec![crate::check_err!(CheckCategory::Schema)]
                 }
             })
             .collect()
@@ -701,12 +664,10 @@ impl Validation for ResearchActivity {
             .err()
             .into_iter()
             .map(|err| {
-                Check::init()
-                    .category(CheckCategory::Schema)
-                    .success(false)
-                    .severity(CheckSeverity::Error)
-                    .errors(ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(err))))
-                    .build()
+                check_err!(
+                    CheckCategory::Schema,
+                    errors: ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(err)))
+                )
             })
             .collect()
     }
@@ -717,71 +678,76 @@ pub fn convert_lychee_response(value: Response) -> Check {
     let url = value.source().to_string();
     debug!(url, "=> {} Response: {:#?}", Label::using(), body.dimmed().cyan());
     let status_code = value.status().code().map(|c| c.to_string()).unwrap_or_default();
-    let check = match value.status() {
-        | Status::Ok(_) | Status::Redirected(_, _) => Check::init()
-            .category(CheckCategory::Link)
-            .success(true)
-            .severity(CheckSeverity::Suggestion)
-            .status_code(status_code.clone())
-            .message("Has no HTTP errors"),
+    match value.status() {
+        | Status::Ok(_) | Status::Redirected(_, _) => check!(
+            CheckCategory::Link,
+            true,
+            severity: CheckSeverity::Suggestion,
+            status_code: status_code.clone(),
+            message: "Has no HTTP errors"
+        ),
         | Status::Cached(status) => match status {
-            | CacheStatus::Ok(_) => Check::init()
-                .category(CheckCategory::Link)
-                .success(true)
-                .severity(CheckSeverity::Suggestion)
-                .status_code(status_code.clone())
-                .message("Has no HTTP errors"),
-            | CacheStatus::Error(Some(_)) => Check::init()
-                .category(CheckCategory::Link)
-                .success(false)
-                .severity(CheckSeverity::Error)
-                .status_code(status_code.clone())
-                .message("Has cached HTTP errors"),
-            | CacheStatus::Unsupported => Check::init()
-                .category(CheckCategory::Link)
-                .success(false)
-                .severity(CheckSeverity::Warning)
-                .status_code(status_code.clone())
-                .message("Unsupported cached response"),
-            | _ => Check::init()
-                .category(CheckCategory::Link)
-                .success(true)
-                .severity(CheckSeverity::Suggestion)
-                .status_code(status_code.clone())
-                .message("Ignored or otherwise successful (cached response)"),
+            | CacheStatus::Ok(_) => check!(
+                CheckCategory::Link,
+                true,
+                severity: CheckSeverity::Suggestion,
+                status_code: status_code.clone(),
+                message: "Has no HTTP errors"
+            ),
+            | CacheStatus::Error(Some(_)) => check_err!(
+                CheckCategory::Link,
+                status_code: status_code.clone(),
+                message: "Has cached HTTP errors"
+            ),
+            | CacheStatus::Unsupported => check!(
+                CheckCategory::Link,
+                false,
+                severity: CheckSeverity::Warning,
+                status_code: status_code.clone(),
+                message: "Unsupported cached response"
+            ),
+            | _ => check!(
+                CheckCategory::Link,
+                true,
+                severity: CheckSeverity::Suggestion,
+                status_code: status_code.clone(),
+                message: "Ignored or otherwise successful (cached response)"
+            ),
         },
-        | Status::Error(_) => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .severity(CheckSeverity::Error)
-            .status_code(status_code.clone())
-            .message("Has HTTP errors"),
-        | Status::Unsupported(why) => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .severity(CheckSeverity::Warning)
-            .status_code(status_code.clone())
-            .message(format!("Unsupported HTTP response - {why}")),
-        | Status::UnknownStatusCode(_) => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .severity(CheckSeverity::Warning)
-            .status_code(status_code.clone())
-            .message("Unknown HTTP response"),
-        | Status::Timeout(_) => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .severity(CheckSeverity::Warning)
-            .status_code(status_code.clone())
-            .message("HTTP timeout"),
-        | _ => Check::init()
-            .category(CheckCategory::Link)
-            .success(true)
-            .severity(CheckSeverity::Suggestion)
-            .status_code(status_code.clone())
-            .message("Ignored or otherwise successful"),
-    };
-    check.build()
+        | Status::Error(_) => check_err!(
+            CheckCategory::Link,
+            status_code: status_code.clone(),
+            message: "Has HTTP errors"
+        ),
+        | Status::Unsupported(why) => check!(
+            CheckCategory::Link,
+            false,
+            severity: CheckSeverity::Warning,
+            status_code: status_code.clone(),
+            message: format!("Unsupported HTTP response - {why}")
+        ),
+        | Status::UnknownStatusCode(_) => check!(
+            CheckCategory::Link,
+            false,
+            severity: CheckSeverity::Warning,
+            status_code: status_code.clone(),
+            message: "Unknown HTTP response"
+        ),
+        | Status::Timeout(_) => check!(
+            CheckCategory::Link,
+            false,
+            severity: CheckSeverity::Warning,
+            status_code: status_code.clone(),
+            message: "HTTP timeout"
+        ),
+        | _ => check!(
+            CheckCategory::Link,
+            true,
+            severity: CheckSeverity::Suggestion,
+            status_code: status_code.clone(),
+            message: "Ignored or otherwise successful"
+        ),
+    }
 }
 /// Perform link check on given URL using Lychee
 pub async fn link_check(uri: Option<String>) -> Check {
@@ -790,21 +756,10 @@ pub async fn link_check(uri: Option<String>) -> Check {
             let result = lychee_lib::check(value.as_str()).await;
             match result {
                 | Ok(response) => convert_lychee_response(response).with_uri(value),
-                | Err(_) => Check::init()
-                    .category(CheckCategory::Link)
-                    .success(false)
-                    .severity(CheckSeverity::Error)
-                    .uri(value)
-                    .message("Unreachable")
-                    .build(),
+                | Err(_) => check_err!(CheckCategory::Link, uri: value, message: "Unreachable"),
             }
         }
-        | None => Check::init()
-            .category(CheckCategory::Link)
-            .success(false)
-            .severity(CheckSeverity::Error)
-            .message("Missing URL")
-            .build(),
+        | None => check_err!(CheckCategory::Link, message: "Missing URL"),
     }
 }
 /// Prints `text` to stdout using syntax highlighting for the specified `syntax`.

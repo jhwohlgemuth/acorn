@@ -5,6 +5,9 @@ use super::error::{process, ErrorCode, ErrorKind};
 use super::to_dataframe;
 use super::vale::{ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
 use super::ReadabilityType;
+use crate::check;
+use crate::prelude::HashMap;
+use crate::util::{Label, ToMarkdown};
 use ariadne::{Color, Config, Report, ReportKind, Source};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -18,9 +21,6 @@ use polars::prelude::{AnyValue, DataFrame, PolarsResult};
 use serde_json::Value;
 use tracing::info;
 use validator::ValidationErrorsKind;
-
-use crate::prelude::HashMap;
-use crate::util::{Label, ToMarkdown};
 
 /// Trait for converting to a ([Polars]) row
 ///
@@ -310,28 +310,28 @@ impl Check {
     }
     /// Returns a new LinkCheckResult with the given context
     pub fn with_context(self, value: String) -> Self {
-        Check::init()
-            .category(self.category)
-            .context(value)
-            .success(self.success)
-            .severity(self.severity)
-            .maybe_uri(self.uri)
-            .message(self.message)
-            .maybe_status_code(self.status_code)
-            .maybe_errors(self.errors)
-            .build()
+        check!(
+            self.category,
+            self.success,
+            context: value,
+            severity: self.severity,
+            maybe_uri: self.uri,
+            message: self.message,
+            maybe_status_code: self.status_code,
+            maybe_errors: self.errors
+        )
     }
     /// Returns a new LinkCheckResult with the given URL
     pub fn with_uri(self, value: String) -> Self {
-        Check::init()
-            .category(self.category)
-            .success(self.success)
-            .severity(self.severity)
-            .uri(value)
-            .message(self.message)
-            .maybe_status_code(self.status_code)
-            .maybe_errors(self.errors)
-            .build()
+        check!(
+            self.category,
+            self.success,
+            severity: self.severity,
+            uri: value,
+            message: self.message,
+            maybe_status_code: self.status_code,
+            maybe_errors: self.errors
+        )
     }
 }
 impl fmt::Display for Check {
