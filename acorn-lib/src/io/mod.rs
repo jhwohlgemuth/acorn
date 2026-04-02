@@ -53,6 +53,8 @@ pub mod api;
 pub mod bagit;
 pub mod config;
 pub mod database;
+#[cfg(feature = "agentic")]
+pub mod mcp;
 
 /// See recommendation at <https://support.datacite.org/docs/api#api-versions>
 #[cfg(feature = "std")]
