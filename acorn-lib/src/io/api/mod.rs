@@ -4,17 +4,20 @@
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
 use crate::io::config::ApplicationConfiguration;
 use crate::io::database::{schema::Table, Database};
-use crate::io::{get, post, put, ApiResult};
+use crate::io::http::HttpMethod;
+use crate::io::http::{get, post, put};
+use crate::io::ApiResult;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::util::{detect_json, detect_xml, Constant, Searchable};
 use crate::{Location, Repository, Scheme};
 use async_trait::async_trait;
+use axum::http::header::{HeaderName, HeaderValue};
+use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use derive_more::Display;
 use lazy_static::lazy_static;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::collections::HashSet;
@@ -48,7 +51,7 @@ pub trait IntoBody {
 }
 /// Helper trait for converting parameter collections into HTTP headers
 pub trait IntoHeaders {
-    /// Convert this value into a `reqwest::HeaderMap`, using only header-style parameters.
+    /// Convert this value into a `HeaderMap`, using only header-style parameters
     fn into_headers(self) -> HeaderMap;
 }
 /// Helper trait combining common bounds for API query field types
@@ -104,22 +107,6 @@ pub enum AuthenticationScheme {
     OAuth2,
     /// Custom authentication scheme
     Custom(String),
-}
-/// HTTP methods supported for API requests
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum HttpMethod {
-    /// Retrieve data from a server without modifying it — safe and idempotent
-    #[default]
-    Get,
-    /// Submit data to create a new resource or process information — not idempotent
-    Post,
-    /// Replace all current representations of the target resource with the uploaded content — idempotent
-    Put,
-    /// Apply partial modifications to a resource — not necessarily idempotent
-    Patch,
-    /// Delete a specified resource — idempotent
-    Delete,
 }
 /// Describes the location/type of a parameter for an API resource
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -304,18 +291,6 @@ impl fmt::Display for TextResponse {
 impl Default for Endpoint {
     fn default() -> Self {
         Endpoint::at("https://example.com").build()
-    }
-}
-impl From<&str> for HttpMethod {
-    fn from(value: &str) -> Self {
-        match value.to_uppercase().as_str() {
-            | "GET" => HttpMethod::Get,
-            | "POST" => HttpMethod::Post,
-            | "PUT" => HttpMethod::Put,
-            | "PATCH" => HttpMethod::Patch,
-            | "DELETE" => HttpMethod::Delete,
-            | _ => HttpMethod::Get,
-        }
     }
 }
 impl<'a> From<URI<'a>> for Endpoint {

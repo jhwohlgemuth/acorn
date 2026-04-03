@@ -26,7 +26,7 @@ pub mod util;
 #[cfg(feature = "std")]
 use crate::analyzer::{link_check, Check};
 #[cfg(feature = "std")]
-use crate::io::get;
+use crate::io::http::get;
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
 use crate::util::Label;

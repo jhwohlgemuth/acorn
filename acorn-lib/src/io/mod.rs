@@ -39,7 +39,6 @@ use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
 use itertools::Itertools;
-use reqwest::header::USER_AGENT;
 use ring::digest::{Context, SHA256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -53,14 +52,9 @@ pub mod api;
 pub mod bagit;
 pub mod config;
 pub mod database;
+pub mod http;
 #[cfg(feature = "agentic")]
 pub mod mcp;
-
-/// See recommendation at <https://support.datacite.org/docs/api#api-versions>
-#[cfg(feature = "std")]
-const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), " (https://acorn.ornl.gov; mailto:research@ornl.gov)");
-#[cfg(not(feature = "std"))]
-const ACORN_USER_AGENT: &str = "ACORN (https://acorn.ornl.gov; mailto:research@ornl.gov)";
 
 /// Utility type alias for database and API operation results
 pub type ApiResult<T> = Result<T, Report>;
@@ -389,14 +383,12 @@ where
 {
     let url_string: String = url.into();
     let dest: PathBuf = destination.clone().into();
-    let client = reqwest::Client::new();
-    let response = client.get(url_string.clone()).header(USER_AGENT, ACORN_USER_AGENT).send();
     let filename = PathBuf::from(url_string.clone()).file_name().unwrap().to_str().unwrap().to_string();
-    match response.await {
+    match http::get(url_string.clone()).send().await {
         | Ok(data) => match data.bytes().await {
             | Ok(content) => {
                 let output = dest.clone().join(filename.clone());
-                match write(output.clone(), content.as_ref()) {
+                match write(output.clone(), content.as_slice()) {
                     | Ok(_) => {
                         debug!(filename, "=> {} Downloaded", Label::output());
                         Ok(output)
@@ -646,7 +638,7 @@ pub async fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> V
     let merge_request_iid = var("CI_MERGE_REQUEST_IID").unwrap_or_default();
     let path = format!("/projects/{project_id}/merge_requests/{merge_request_iid}/diffs");
     let url = format!("{root}{path}");
-    match get(url).send().await {
+    match http::get(url).send().await {
         | Ok(response) => {
             let content: serde_json::Result<Vec<GitlabMergeRequestDiffResponse>> = response.text().await.map_or_else(
                 |_| Err(serde_json::Error::io(io::Error::other("Failed to read response text"))),
@@ -824,64 +816,6 @@ where
     };
     debug!("=> {} {binary:#?}", Label::using());
     binary.is_executable()
-}
-/// Create a configured async HTTP client with proxy support and appropriate timeouts
-fn create_http_client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .connect_timeout(Duration::from_secs(10))
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new())
-}
-/// Create a configured HTTP client with proxy support and appropriate timeouts
-fn create_sync_http_client() -> reqwest::blocking::Client {
-    reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .connect_timeout(Duration::from_secs(10))
-        .build()
-        .unwrap_or_else(|_| reqwest::blocking::Client::new())
-}
-/// Utility method to employ best practices when using a Reqwest client to make async HTTP GET requests.
-pub fn get<U>(url: U) -> reqwest::RequestBuilder
-where
-    U: reqwest::IntoUrl,
-{
-    create_http_client().get(url).header(USER_AGENT, ACORN_USER_AGENT)
-}
-/// Utility method to employ best practices when using a Reqwest client to make async HTTP POST requests.
-pub fn post<U>(url: U) -> reqwest::RequestBuilder
-where
-    U: reqwest::IntoUrl,
-{
-    create_http_client().post(url).header(USER_AGENT, ACORN_USER_AGENT)
-}
-/// Utility method to employ best practices when using a Reqwest client to make async HTTP PUT requests.
-pub fn put<U>(url: U) -> reqwest::RequestBuilder
-where
-    U: reqwest::IntoUrl,
-{
-    create_http_client().put(url).header(USER_AGENT, ACORN_USER_AGENT)
-}
-/// Utility method to employ best practices when using a Reqwest client to make HTTP GET requests.
-pub fn sync_get<U>(url: U) -> reqwest::blocking::RequestBuilder
-where
-    U: reqwest::IntoUrl,
-{
-    create_sync_http_client().get(url).header(USER_AGENT, ACORN_USER_AGENT)
-}
-/// Utility method to employ best practices when using a Reqwest client to make HTTP POST requests.
-pub fn sync_post<U>(url: U) -> reqwest::blocking::RequestBuilder
-where
-    U: reqwest::IntoUrl,
-{
-    create_sync_http_client().post(url).header(USER_AGENT, ACORN_USER_AGENT)
-}
-/// Utility method to employ best practices when using a Reqwest client to make HTTP PUT requests.
-pub fn sync_put<U>(url: U) -> reqwest::blocking::RequestBuilder
-where
-    U: reqwest::IntoUrl,
-{
-    create_sync_http_client().put(url).header(USER_AGENT, ACORN_USER_AGENT)
 }
 /// Returns a string containing the file name with its parent directory.
 ///

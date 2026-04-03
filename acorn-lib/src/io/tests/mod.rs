@@ -2,6 +2,8 @@ use crate::io::api::gitlab::TreeEntry;
 use crate::io::api::TreeEntryType;
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::config::{ApplicationConfiguration, Bucket};
+use crate::io::http::policy::{http_timeout_layer, shared_http_policy};
+use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_git_command_result,
     filter_ignored, image_paths, read_file, read_large_file, uri_to_path, write_file_bytes, InputOutput,
@@ -500,4 +502,33 @@ async fn test_write_file_bytes_propagates_get_bytes_error() {
     assert!(path.exists());
     assert_eq!(std::fs::metadata(path.clone()).unwrap().len(), 0);
     remove_dir_all(dir).unwrap();
+}
+#[test]
+fn test_should_retry_get_for_retryable_status_codes() {
+    assert!(should_retry(&HttpMethod::Get, Some(408)));
+    assert!(should_retry(&HttpMethod::Get, Some(429)));
+    assert!(should_retry(&HttpMethod::Get, Some(500)));
+    assert!(should_retry(&HttpMethod::Get, Some(503)));
+}
+#[test]
+fn test_shared_http_policy_defaults() {
+    let policy = shared_http_policy();
+    assert_eq!(policy.timeout.as_secs(), 30);
+    assert_eq!(policy.max_retries, 2);
+    assert_eq!(policy.max_attempts(), 3);
+}
+#[test]
+fn test_shared_http_timeout_layer_constructs() {
+    let _layer = http_timeout_layer();
+}
+#[test]
+fn test_should_retry_get_for_transport_failure() {
+    assert!(should_retry(&HttpMethod::Get, None));
+}
+#[test]
+fn test_should_not_retry_non_idempotent_or_non_retryable_status() {
+    assert!(!should_retry(&HttpMethod::Post, Some(500)));
+    assert!(!should_retry(&HttpMethod::Put, Some(503)));
+    assert!(!should_retry(&HttpMethod::Get, Some(200)));
+    assert!(!should_retry(&HttpMethod::Get, Some(404)));
 }

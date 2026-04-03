@@ -7,8 +7,9 @@
 use crate::io::api::github;
 use crate::io::api::gitlab;
 use crate::io::api::Endpoint;
+use crate::io::http::get;
 use crate::io::ApiResult;
-use crate::io::{files_all, get, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType};
+use crate::io::{files_all, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType};
 use crate::prelude::{self, exit, PathBuf};
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};

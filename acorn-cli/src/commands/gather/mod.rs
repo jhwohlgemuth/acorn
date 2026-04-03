@@ -11,9 +11,9 @@ pub async fn run(
     _database_path: &Option<PathBuf>,
     _verbose: &Verbosity,
 ) -> Result<(), Report> {
-    // println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
-    // println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
-    // println!("ROR API is healthy: {}", api::ror::is_healthy().await);
+    println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
+    println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
+    println!("ROR API is healthy: {}", api::ror::is_healthy().await);
     // gitlab_example().await;
     // orcid_example().await;
     // ror_example().await;

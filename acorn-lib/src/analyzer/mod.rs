@@ -3,9 +3,10 @@
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
 use crate::analyzer::vale::{ValeOutput, ValeOutputItemSeverity};
-use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder, ApiResult};
 #[cfg(feature = "std")]
-use crate::io::{get, InputOutput};
+use crate::io::http::get;
+use crate::io::InputOutput;
+use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder, ApiResult};
 use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, PathBuf};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{Organization, ProgrammingLanguage, Website};
