@@ -10,6 +10,8 @@ use tower::ServiceBuilder;
 pub struct HttpPolicy {
     /// Per-request middleware timeout.
     pub timeout: Duration,
+    /// TCP connection timeout.
+    pub connect_timeout: Duration,
     /// Number of retry attempts after the first request.
     pub max_retries: usize,
 }
@@ -23,6 +25,7 @@ impl Default for HttpPolicy {
     fn default() -> Self {
         Self {
             timeout: Duration::from_secs(30),
+            connect_timeout: Duration::from_secs(10),
             max_retries: 2,
         }
     }
@@ -42,11 +45,12 @@ pub fn shared_http_policy() -> HttpPolicy {
 /// Returns true when a request should be retried for the given method and status.
 pub fn should_retry(method: &HttpMethod, status_code: Option<u16>) -> bool {
     if !matches!(method, HttpMethod::Get) {
-        return false;
-    }
-    match status_code {
-        | Some(code) if code == 408 || code == 429 || code >= 500 => true,
-        | Some(_) => false,
-        | None => true,
+        false
+    } else {
+        match status_code {
+            | Some(code) if code == 408 || code == 429 || code >= 500 => true,
+            | Some(_) => false,
+            | None => true,
+        }
     }
 }
