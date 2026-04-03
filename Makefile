@@ -18,6 +18,9 @@ audit:
 		--ignore RUSTSEC-2024-0388 \
 		--ignore RUSTSEC-2024-0436
 
+bench: lint
+	@cargo test bench --release --package acorn-lib
+
 book:
 	@mdbook clean docs
 	@mdbook build docs

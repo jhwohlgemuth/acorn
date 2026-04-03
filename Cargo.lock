@@ -126,6 +126,7 @@ dependencies = [
  "urlencoding",
  "validator",
  "which",
+ "zench",
  "zip 6.0.0",
 ]
 
@@ -8352,6 +8353,12 @@ dependencies = [
  "syn 2.0.108",
  "synstructure",
 ]
+
+[[package]]
+name = "zench"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6034dadc90e31135a6e956ad36b9e527226a91aeef84f97ba742c34168b9038"
 
 [[package]]
 name = "zerocopy"

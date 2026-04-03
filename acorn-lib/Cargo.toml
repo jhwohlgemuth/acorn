@@ -95,6 +95,7 @@ mockall = "0.14.0"
 pretty_assertions = "1.4.1"
 similar-asserts = "1.7.0"
 temp-env = "0.3.6"
+zench = "0.2.0"
 
 [features]
 agentic = ["dep:axum", "dep:rmcp", "dep:tower"]

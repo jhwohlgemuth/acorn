@@ -7,6 +7,7 @@ use crate::prelude::PathBuf;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use zench::{bench, bx};
 
 const FIXTURES: &str = "../tests/fixtures";
 
@@ -176,4 +177,34 @@ fn test_smog() {
     assert_eq!(3.13, smog(text));
     let text = "The alacritous brown fox jumps over the lethargic dog.";
     assert_eq!(11.21, smog(text));
+}
+#[test]
+fn bench_readability() {
+    let short = "The quick brown fox jumps over the lazy dog.";
+    let medium = "The alacritous brown fox jumps over the lethargic dog. ".repeat(128);
+    bench!(
+        "word_count short" => bx(word_count(bx(short))),
+        "syllable_count short" => bx(syllable_count(bx(short))),
+        "ari short" => bx(automated_readability_index(bx(short))),
+        "syllable_count medium" => bx(syllable_count(bx(medium.as_str()))),
+        "ari medium" => bx(automated_readability_index(bx(medium.as_str()))),
+    );
+}
+#[test]
+fn bench_readability_heavy_paths() {
+    let corpus = match read_file(PathBuf::from(FIXTURES).join("words.csv")) {
+        | Ok(content) => content
+            .lines()
+            .filter_map(|line| line.split(',').next())
+            .collect::<Vec<&str>>()
+            .join(" "),
+        | Err(_) => "The alacritous brown fox jumps over the lethargic dog. ".repeat(512),
+    };
+    let large = format!("{} {}", corpus, corpus);
+    bench!(
+        "syllable_count large" => bx(syllable_count(bx(large.as_str()))),
+        "complex_word_count large" => bx(complex_word_count(bx(large.as_str()))),
+        "smog large" => bx(smog(bx(large.as_str()))),
+        "fkgl large" => bx(flesch_kincaid_grade_level(bx(large.as_str()))),
+    );
 }
