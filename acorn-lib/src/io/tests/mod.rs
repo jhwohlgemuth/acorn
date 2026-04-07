@@ -524,42 +524,24 @@ fn test_shared_http_timeout_layer_constructs() {
 }
 #[test]
 fn test_env_var_is_truthy() {
-    temp_env::with_vars(
-        [(ENV_NO_LOCAL_DATABASE, Some(" true "))],
-        || {
-            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
-        },
-    );
-    temp_env::with_vars(
-        [(ENV_NO_LOCAL_DATABASE, Some("ON"))],
-        || {
-            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
-        },
-    );
-    temp_env::with_vars(
-        [(ENV_NO_LOCAL_DATABASE, Some("1"))],
-        || {
-            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
-        },
-    );
-    temp_env::with_vars(
-        [(ENV_NO_LOCAL_DATABASE, Some("false"))],
-        || {
-            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
-        },
-    );
-    temp_env::with_vars(
-        [(ENV_NO_LOCAL_DATABASE, Some("0"))],
-        || {
-            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
-        },
-    );
-    temp_env::with_vars(
-        [(ENV_NO_LOCAL_DATABASE, None::<&str>)],
-        || {
-            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), None);
-        },
-    );
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some(" true "))], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+    });
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("ON"))], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+    });
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("1"))], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+    });
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("false"))], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
+    });
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("0"))], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
+    });
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, None::<&str>)], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), None);
+    });
 }
 #[test]
 fn test_should_retry_get_for_transport_failure() {
