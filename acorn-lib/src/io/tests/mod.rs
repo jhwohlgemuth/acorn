@@ -5,9 +5,10 @@ use crate::io::config::{ApplicationConfiguration, Bucket};
 use crate::io::http::policy::{http_timeout_layer, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
-    archive, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_git_command_result,
-    filter_ignored, image_paths, read_file, read_large_file, uri_to_path, write_file_bytes, InputOutput,
+    archive, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request,
+    filter_git_command_result, filter_ignored, image_paths, read_file, read_large_file, uri_to_path, write_file_bytes, InputOutput,
 };
+use crate::util::constants::ENV_NO_LOCAL_DATABASE;
 use crate::{Location, Repository, Scheme};
 use color_eyre::Report;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
@@ -520,6 +521,45 @@ fn test_shared_http_policy_defaults() {
 #[test]
 fn test_shared_http_timeout_layer_constructs() {
     let _layer = http_timeout_layer();
+}
+#[test]
+fn test_env_var_is_truthy() {
+    temp_env::with_vars(
+        [(ENV_NO_LOCAL_DATABASE, Some(" true "))],
+        || {
+            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+        },
+    );
+    temp_env::with_vars(
+        [(ENV_NO_LOCAL_DATABASE, Some("ON"))],
+        || {
+            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+        },
+    );
+    temp_env::with_vars(
+        [(ENV_NO_LOCAL_DATABASE, Some("1"))],
+        || {
+            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+        },
+    );
+    temp_env::with_vars(
+        [(ENV_NO_LOCAL_DATABASE, Some("false"))],
+        || {
+            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
+        },
+    );
+    temp_env::with_vars(
+        [(ENV_NO_LOCAL_DATABASE, Some("0"))],
+        || {
+            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
+        },
+    );
+    temp_env::with_vars(
+        [(ENV_NO_LOCAL_DATABASE, None::<&str>)],
+        || {
+            assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), None);
+        },
+    );
 }
 #[test]
 fn test_should_retry_get_for_transport_failure() {

@@ -193,11 +193,7 @@ fn bench_readability() {
 #[test]
 fn bench_readability_heavy_paths() {
     let corpus = match read_file(PathBuf::from(FIXTURES).join("words.csv")) {
-        | Ok(content) => content
-            .lines()
-            .filter_map(|line| line.split(',').next())
-            .collect::<Vec<&str>>()
-            .join(" "),
+        | Ok(content) => content.lines().filter_map(|line| line.split(',').next()).collect::<Vec<&str>>().join(" "),
         | Err(_) => "The alacritous brown fox jumps over the lethargic dog. ".repeat(512),
     };
     let large = format!("{} {}", corpus, corpus);

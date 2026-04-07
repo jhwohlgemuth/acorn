@@ -401,6 +401,18 @@ where
         | Err(_) => Err(eyre!("Failed to download {url_string}")),
     }
 }
+/// Returns whether an environment variable is set to a truthy value.
+///
+/// Recognized truthy values are `1`, `true`, `yes`, and `on`, matched case-insensitively.
+/// Returns `None` when the variable is not set.
+pub fn env_var_is_truthy(name: impl AsRef<str>) -> Option<bool> {
+    var(name.as_ref()).ok().map(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
 /// Extract zip archive
 /// ### Note
 /// If `destination` is not provided, the extracted files will be saved in a folder named "extract" an OS-specific cache location.

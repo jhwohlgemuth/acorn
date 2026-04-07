@@ -22,10 +22,11 @@
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::io::database::{backend, schema::Table, Database, Operations};
+use acorn::io::env_var_is_truthy;
 use acorn::prelude::env;
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::constants::{ENV_CACHE_TTL, ENV_DATABASE_BACKEND, ENV_DATABASE_PATH};
+use acorn::util::constants::{ENV_CACHE_TTL, ENV_DATABASE_BACKEND, ENV_DATABASE_PATH, ENV_NO_LOCAL_DATABASE};
 use acorn::util::Label;
 use clap::{crate_version, Parser};
 use color_eyre::eyre;
@@ -120,7 +121,7 @@ async fn main() -> Void {
     let Arguments {
         offline,
         threads,
-        no_local_database,
+        no_local_database: no_local_database_flag,
         database_backend,
         database_path,
         clear_cache,
@@ -129,6 +130,7 @@ async fn main() -> Void {
         cache_ttl,
         ..
     } = args;
+    let no_local_database = no_local_database_flag || env_var_is_truthy(ENV_NO_LOCAL_DATABASE).unwrap_or(false);
     if no_local_database && (reset_database || clear_cache) {
         eprintln!("{} Cannot use --reset-database or --clear-cache with --no-local-database", Label::fail());
         exit(exitcode::USAGE);
