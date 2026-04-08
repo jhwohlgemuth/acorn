@@ -207,6 +207,7 @@ async fn main() -> Void {
             skip_verify_checksum,
             no_fail,
             terse,
+            standard,
             readability_metric,
             verbose,
             ..
@@ -224,6 +225,7 @@ async fn main() -> Void {
                 &offline,
                 no_fail,
                 terse,
+                standard,
                 readability_metric,
                 verbose,
             )

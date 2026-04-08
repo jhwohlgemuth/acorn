@@ -43,7 +43,7 @@ pub mod vale;
 #[cfg(feature = "analysis")]
 pub use check::{checks_to_dataframe, IntoRow};
 pub use check::{
-    highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, Check, CheckCategory, CheckOptions, CheckSeverity,
+    highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, Check, CheckCategory, CheckOptions, CheckSeverity, Standard,
 };
 
 use error::ErrorKind;

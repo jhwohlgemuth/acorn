@@ -87,6 +87,26 @@ pub enum Size {
     #[display("standard")]
     Standard,
 }
+/// Metadata standard to use when processing research activity data
+#[derive(Clone, Copy, Debug, Default, Display, ValueEnum)]
+pub enum Standard {
+    /// Research Activity Data Schema (RADS)
+    #[default]
+    #[display("rads")]
+    Rads,
+    /// HUBwise
+    #[display("huwise")]
+    Huwise,
+    /// DataCite
+    #[display("datacite")]
+    Datacite,
+    /// InvenioRDM
+    #[display("invenio")]
+    Invenio,
+    /// Dublin Core Metadata Initiative (DCMI)
+    #[display("dcmi")]
+    Dcmi,
+}
 /// Target artifact types available when exporting research activity data using acorn
 ///
 /// Used primarily by ACORN CLI

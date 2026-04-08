@@ -1,4 +1,4 @@
-use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument};
+use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument, Standard};
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{summary, Analysis, Check, CheckOptions, Validation};
@@ -28,6 +28,7 @@ pub async fn run(
     offline: &bool,
     no_fail: &bool,
     terse: &bool,
+    standard: &Standard,
     readability_metric: &ReadabilityTypeArgument,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
@@ -49,60 +50,10 @@ pub async fn run(
         .readability_metric(resolve_readability_metric(readability_metric))
         .build();
     let paths = paths_from_options(path, &Some(cli_options)).await;
-    let schema_checks = if skip.contains(&CheckCategory::Schema) {
-        skip!("Schema validation");
-        vec![]
-    } else {
-        process_checks(
-            ResearchActivity::check_schema(paths.clone()),
-            "schema validation errors",
-            *exit_on_first_error,
-            not_quiet,
-        )
+    let all_issues = match standard {
+        | Standard::Rads => collect_checks::<ResearchActivity>(paths, skip, &check_options, *disable_website_checks, not_quiet).await,
+        | _ => unimplemented!("Research Activity Data Schema (RADS) is the only standard currently supported for checks"),
     };
-    let prose_checks = if skip.contains(&CheckCategory::Prose) {
-        skip!("Prose analysis");
-        vec![]
-    } else {
-        process_checks(
-            ResearchActivity::check_prose(paths.clone(), Some(&check_options)).await,
-            "prose issues",
-            *exit_on_first_error,
-            not_quiet,
-        )
-    };
-    let readability_checks = if skip.contains(&CheckCategory::Readability) {
-        skip!("Readability analysis");
-        vec![]
-    } else {
-        process_checks(
-            ResearchActivity::check_readability(paths.clone(), Some(&check_options)),
-            "readability issues",
-            *exit_on_first_error,
-            not_quiet,
-        )
-    };
-    let quality_checks = if skip.contains(&CheckCategory::Quality) {
-        skip!("Quality control and data consistency checks");
-        vec![]
-    } else {
-        vec![]
-    };
-    let website_checks = if *offline || *disable_website_checks {
-        skip!("Website checks");
-        vec![]
-    } else {
-        ResearchActivity::check_websites(paths.clone(), None).await
-    };
-    let all_issues = vec![]
-        .into_iter()
-        .chain(schema_checks)
-        .chain(prose_checks)
-        .chain(readability_checks)
-        .chain(quality_checks)
-        .chain(website_checks)
-        .filter(|Check { success, .. }| !success)
-        .collect::<Vec<Check>>();
     if not_quiet {
         if *terse {
             print_compact(&all_issues);
@@ -118,12 +69,85 @@ pub async fn run(
     }
     Ok(())
 }
-fn count_failed_issues(issues: &[Check]) -> usize {
-    issues
-        .iter()
+async fn collect_checks<T: Analysis + Validation>(
+    paths: Vec<PathBuf>,
+    skip: &[CheckCategory],
+    options: &CheckOptions,
+    disable_website_checks: bool,
+    not_quiet: bool,
+) -> Vec<Check> {
+    fn process_checks(results: Vec<Check>, issue_label: &str, exit_on_first_error: bool, not_quiet: bool) -> Vec<Check> {
+        fn count_failed_issues(issues: &[Check]) -> usize {
+            issues
+                .iter()
+                .filter(|Check { success, .. }| !success)
+                .map(|issue| issue.issue_count())
+                .sum()
+        }
+        let issue_count = count_failed_issues(&results);
+        if issue_count > 0 && exit_on_first_error {
+            if not_quiet {
+                fail!("ACORN found {} {}", issue_count, issue_label);
+                results.iter().for_each(Check::report);
+            }
+            exit(exitcode::DATAERR);
+        }
+        results
+    }
+    let schema_checks = if skip.contains(&CheckCategory::Schema) {
+        skip!("Schema validation");
+        vec![]
+    } else {
+        process_checks(
+            T::check_schema(paths.clone()),
+            "schema validation errors",
+            options.exit_on_first_error,
+            not_quiet,
+        )
+    };
+    let prose_checks = if skip.contains(&CheckCategory::Prose) {
+        skip!("Prose analysis");
+        vec![]
+    } else {
+        process_checks(
+            T::check_prose(paths.clone(), Some(options)).await,
+            "prose issues",
+            options.exit_on_first_error,
+            not_quiet,
+        )
+    };
+    let readability_checks = if skip.contains(&CheckCategory::Readability) {
+        skip!("Readability analysis");
+        vec![]
+    } else {
+        process_checks(
+            T::check_readability(paths.clone(), Some(options)),
+            "readability issues",
+            options.exit_on_first_error,
+            not_quiet,
+        )
+    };
+    let quality_checks = if skip.contains(&CheckCategory::Quality) {
+        skip!("Quality control and data consistency checks");
+        vec![]
+    } else {
+        vec![]
+    };
+    let website_checks = if options.offline || disable_website_checks {
+        skip!("Website checks");
+        vec![]
+    } else {
+        T::check_websites(paths.clone(), None).await
+    };
+    vec![]
+        .into_iter()
+        .chain(schema_checks)
+        .chain(prose_checks)
+        .chain(readability_checks)
+        .chain(quality_checks)
+        .chain(website_checks)
         .filter(|Check { success, .. }| !success)
-        .map(|issue| issue.issue_count())
-        .sum()
+        .collect()
 }
 fn print_detailed(issues: &[Check]) {
     issues.iter().for_each(|issue| {
@@ -139,17 +163,6 @@ fn print_summary(issues: &[Check]) {
     let headers = vec!["Issue Type", "Issue Count"];
     let rows = summary(issues.to_vec());
     print_values_as_table::<String>(headers, rows, None);
-}
-fn process_checks(results: Vec<Check>, issue_label: &str, exit_on_first_error: bool, not_quiet: bool) -> Vec<Check> {
-    let issue_count = count_failed_issues(&results);
-    if issue_count > 0 && exit_on_first_error {
-        if not_quiet {
-            fail!("ACORN found {} {}", issue_count, issue_label);
-            results.iter().for_each(Check::report);
-        }
-        exit(exitcode::DATAERR);
-    }
-    results
 }
 fn resolve_readability_metric(readability_metric: &ReadabilityTypeArgument) -> ReadabilityType {
     let metric_from_cli = ReadabilityType::from_string(&readability_metric.to_string());

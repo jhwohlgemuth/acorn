@@ -30,6 +30,26 @@ pub trait IntoRow<'a> {
     /// Convert to a (Polars) row
     fn to_row<T>(self) -> Row<'a>;
 }
+/// Metadata standard used to gate processing behavior within commands
+#[derive(Clone, Copy, Debug, Default, Display, PartialEq, Eq)]
+pub enum Standard {
+    /// Research Activity Data (RAD)
+    #[default]
+    #[display("research-activity-data")]
+    ResearchActivityData,
+    /// HUBwise
+    #[display("huwise")]
+    Huwise,
+    /// DataCite
+    #[display("datacite")]
+    Datacite,
+    /// InvenioRDM
+    #[display("invenio")]
+    Invenio,
+    /// Dublin Core
+    #[display("dublin-core")]
+    DublinCore,
+}
 /// Various check categories available for validating research activity data
 #[derive(Clone, Debug, Display, PartialEq)]
 pub enum CheckCategory {

@@ -10,7 +10,7 @@ use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
 
 pub mod arguments;
-use arguments::{CheckCategory, DatabaseBackend, Diagnostic, FileFormat, ReadabilityTypeArgument};
+use arguments::{CheckCategory, DatabaseBackend, Diagnostic, FileFormat, ReadabilityTypeArgument, Standard};
 
 const PRIMARY_COLOR: u8 = 135;
 const STYLES: Styles = Styles::styled()
@@ -247,7 +247,7 @@ pub enum Commands {
         #[arg(default_value_t, short, long = "readability-test", value_name = "METRIC", help_heading = "OPTIONS")]
         readability_metric: ReadabilityTypeArgument,
         /// Skip one or more available quality check categories
-        #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+        #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
         skip: Vec<CheckCategory>,
         /// Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose)
         /// > CAUTION: Use at your own risk
@@ -263,6 +263,9 @@ pub enum Commands {
         /// Use compact output format instead of detailed output
         #[arg(short = 't', long, value_name = "BOOL", help_heading = "FLAGS")]
         terse: bool,
+        /// Metadata standard to validate against
+        #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
+        standard: Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -379,6 +382,9 @@ pub enum Commands {
         /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
         reference: Option<PathBuf>,
+        /// Metadata standard to validate against
+        #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
+        standard: Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -421,6 +427,9 @@ pub enum Commands {
         /// Format files that were changed in a given merge request (Gitlab) or pull request (GitHub)
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,
+        /// Metadata standard to validate against
+        #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
+        standard: Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -443,6 +452,9 @@ pub enum Commands {
         /// Example: --ignore "[/]valid.json$"
         #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
         ignore: Option<String>,
+        /// Metadata standard to validate against
+        #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
+        standard: Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -476,6 +488,9 @@ pub enum Commands {
         /// Processes files that were changed in a given merge request (Gitlab) or pull request (GitHub)
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,
+        /// Metadata standard to validate against
+        #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
+        standard: Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },

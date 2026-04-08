@@ -8,7 +8,7 @@
 //! - Terse output mode
 //!
 //! All tests run in offline mode to avoid network dependencies.
-use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument};
+use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument, Standard};
 use crate::commands::check::run;
 use crate::test_utils::fixture_path;
 use clap_verbosity_flag::Verbosity;
@@ -32,6 +32,7 @@ async fn test_check_valid_project() -> Result<()> {
         &OFFLINE,
         &true,
         &false,
+        &Standard::default(),
         &ReadabilityTypeArgument::Fkgl,
         &Verbosity::new(0, 1),
     )
@@ -55,6 +56,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         &OFFLINE,
         &true,
         &false,
+        &Standard::default(),
         &ReadabilityTypeArgument::Fkgl,
         &Verbosity::new(0, 1),
     )
@@ -78,6 +80,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &OFFLINE,
         &true,
         &false,
+        &Standard::default(),
         &ReadabilityTypeArgument::Fkgl,
         &Verbosity::new(0, 1),
     )
@@ -101,6 +104,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &OFFLINE,
         &true,
         &false,
+        &Standard::default(),
         &ReadabilityTypeArgument::Fkgl,
         &Verbosity::new(0, 1),
     )
@@ -126,6 +130,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &OFFLINE,
             &true,
             &false,
+            &Standard::default(),
             &metric,
             &Verbosity::new(0, 1),
         )
@@ -150,6 +155,7 @@ async fn test_check_terse_mode() -> Result<()> {
         &OFFLINE,
         &true,
         &true, // terse mode
+        &Standard::default(),
         &ReadabilityTypeArgument::Fkgl,
         &Verbosity::new(0, 1),
     )
