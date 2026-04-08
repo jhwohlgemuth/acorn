@@ -2,6 +2,7 @@
 use crate::io::database::{schema::Table, Database, Operations};
 use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, PathBuf};
+use chrono::Utc;
 use core::time::Duration;
 use std::time::SystemTime;
 
@@ -25,4 +26,13 @@ pub async fn temp_database_with_licenses() -> ApiResult<PathBuf> {
     database.migrate()?;
     let _ = database.populate(Table::Licenses).await?;
     Ok(path)
+}
+/// Build a unique path under `target/test_artifacts`.
+pub fn unique_path(name: &str, extension: &str) -> PathBuf {
+    let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or_default();
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("target")
+        .join("test_artifacts")
+        .join(format!("{name}-{timestamp}.{extension}"))
 }

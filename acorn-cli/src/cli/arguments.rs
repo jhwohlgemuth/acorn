@@ -94,6 +94,9 @@ pub enum Standard {
     #[default]
     #[display("rads")]
     Rads,
+    /// Citation file format (CFF)
+    #[display("cff")]
+    Cff,
     /// HUBwise
     #[display("huwise")]
     Huwise,

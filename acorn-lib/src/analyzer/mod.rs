@@ -9,6 +9,7 @@ use crate::io::InputOutput;
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder, ApiResult};
 use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, PathBuf};
 use crate::schema::research_activity::ResearchActivity;
+use crate::schema::standard::cff::{Cff, IdentifierType};
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::{APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{Constant, Label, SemanticVersion, StringConversion, ToMarkdown, ToProse};
@@ -224,7 +225,167 @@ impl Analysis for ResearchActivity {
                 }
                 | Err(why) => {
                     error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
-                    vec![crate::check_err!(CheckCategory::Schema)]
+                    vec![check_err!(CheckCategory::Schema)]
+                }
+            }
+        });
+        join_all(futures).await.into_iter().flatten().collect()
+    }
+}
+#[async_trait]
+impl Analysis for Cff {
+    async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
+        let CheckOptions {
+            offline,
+            skip_verify_checksum,
+            vale_config,
+            ..
+        } = options.cloned().unwrap_or_default();
+        let config = vale_config.unwrap_or_default().save().await;
+        let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
+        match vale.clone().sync(offline).await {
+            | Ok(_) => {
+                let results = paths.into_iter().map(|path| {
+                    let vale = vale.clone();
+                    async move {
+                        match Self::read(&path) {
+                            | Ok(data) => {
+                                let identifier = path
+                                    .file_stem()
+                                    .and_then(|value| value.to_str())
+                                    .unwrap_or(data.title.as_str())
+                                    .to_lowercase();
+                                let content = data.to_prose();
+                                vale.run(identifier, content, Some("JSON".into())).await
+                            }
+                            | Err(why) => {
+                                error!("=> {} Read CFF data — {why}", Label::fail());
+                                check_err!(CheckCategory::Prose)
+                            }
+                        }
+                    }
+                });
+                join_all(results).await
+            }
+            | Err(why) => {
+                error!("=> {} Vale sync — {why}", Label::fail());
+                vec![check_err!(CheckCategory::Prose)]
+            }
+        }
+    }
+    fn check_quality(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
+                | Ok(_) => check_ok!(CheckCategory::Quality),
+                | Err(why) => check_err!(
+                    CheckCategory::Quality,
+                    message: "Cannot read CFF data",
+                    context: why.to_string()
+                ),
+            })
+            .collect()
+    }
+    fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
+        let options = options.cloned().unwrap_or_default();
+        let rtype = options.readability_metric;
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
+                | Ok(data) => {
+                    let index = rtype.calculate(&data.to_markdown());
+                    let maximum = match rtype.maximum_allowed_from_env() {
+                        | Some(value) => {
+                            debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
+                            value
+                        }
+                        | None => rtype.maximum_allowed(),
+                    };
+                    debug!(value = index, "=> {} Readability index", Label::using());
+                    if index > maximum {
+                        let errors = ErrorKind::Readability((index, rtype));
+                        check!(
+                            CheckCategory::Readability,
+                            false,
+                            severity: CheckSeverity::Warning,
+                            message: path.file_name_with_parent(),
+                            errors: errors,
+                            context: maximum.to_string()
+                        )
+                    } else {
+                        let score = format!("({} = {}/{})", rtype.to_string().to_uppercase(), index, maximum);
+                        check_ok!(
+                            CheckCategory::Readability,
+                            message: path.file_name_with_parent(),
+                            context: score
+                        )
+                    }
+                }
+                | Err(why) => {
+                    error!("=> {} Read CFF data — {why}", Label::fail());
+                    check_err!(CheckCategory::Readability)
+                }
+            })
+            .collect::<Vec<Check>>()
+    }
+    #[cfg(feature = "std")]
+    async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
+        // TODO: Add to PersistentIdentifier trait
+        fn to_url(value: String) -> String {
+            if value.starts_with("http://") || value.starts_with("https://") {
+                value
+            } else {
+                format!("https://doi.org/{value}")
+            }
+        }
+        fn links_from_cff(data: Cff) -> Vec<String> {
+            let root_doi = data.doi.into_iter().map(to_url);
+            let root_urls = [
+                data.url,
+                data.license_url,
+                data.repository,
+                data.repository_artifact,
+                data.repository_code,
+            ]
+            .into_iter()
+            .flatten();
+            let identifiers = data
+                .identifiers
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|identifier| match identifier.kind {
+                    | IdentifierType::Doi => Some(to_url(identifier.value)),
+                    | IdentifierType::Url => Some(identifier.value),
+                    | _ => None,
+                });
+            let references = data.references.unwrap_or_default().into_iter().flat_map(|reference| {
+                let dois = reference.doi.into_iter().chain(reference.collection_doi).map(to_url);
+                let urls = [
+                    reference.url,
+                    reference.license_url,
+                    reference.repository,
+                    reference.repository_artifact,
+                    reference.repository_code,
+                ]
+                .into_iter()
+                .flatten();
+                dois.chain(urls).collect::<Vec<String>>()
+            });
+            root_doi.chain(root_urls).chain(identifiers).chain(references).collect()
+        }
+        let futures = paths.into_iter().map(|path| async move {
+            match Self::read(&path) {
+                | Ok(data) => {
+                    let link_futures = links_from_cff(data).into_iter().map(|url| link_check(Some(url)));
+                    join_all(link_futures)
+                        .await
+                        .into_iter()
+                        .map(|check| check.with_context(path.file_name_with_parent()))
+                        .collect()
+                }
+                | Err(why) => {
+                    error!("=> {} Read CFF data at {} - {why}", Label::fail(), path.display());
+                    vec![check_err!(CheckCategory::Schema)]
                 }
             }
         });
@@ -328,7 +489,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         }
                         let parsed = ValeOutput::parse(&output.stdout(), path.clone());
                         if parsed.is_empty() {
-                            crate::check_ok!(CheckCategory::Prose, message: id)
+                            check_ok!(CheckCategory::Prose, message: id)
                         } else {
                             let severity = parsed
                                 .iter()
@@ -336,7 +497,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                                 .max_by_key(severity_rank)
                                 .map(CheckSeverity::from)
                                 .unwrap_or_default();
-                            crate::check!(
+                            check!(
                                 CheckCategory::Prose,
                                 false,
                                 severity: severity,
@@ -355,18 +516,18 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                             why
                         };
                         error!("=> {} Analyze - {}", Label::fail(), message);
-                        crate::check_err!(CheckCategory::Prose, message: id)
+                        check_err!(CheckCategory::Prose, message: id)
                     }
                     | Err(why) => {
                         error!("=> {} Analyze - {}", Label::fail(), why);
-                        crate::check_err!(CheckCategory::Prose, message: id)
+                        check_err!(CheckCategory::Prose, message: id)
                     }
                 }
             }
             | None => {
                 let title = self.clone().command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
-                crate::check_err!(CheckCategory::Prose, message: id)
+                check_err!(CheckCategory::Prose, message: id)
             }
         }
     }
@@ -622,14 +783,14 @@ impl StaticAnalyzerConfig for ValeConfig {
         let parent = path.parent().unwrap().to_path_buf();
         match create_dir_all(parent.clone()) {
             | Ok(_) => {}
-            | Err(why) => error!(directory = parent.to_absolute_string(), "=> {} Create - {why}", Label::fail()),
+            | Err(why) => error!(directory = parent.to_absolute_string(), "=> {} Create — {why}", Label::fail()),
         }
         match self.clone().ini().await.write_to_file(path.clone()) {
             | Ok(_) => {
                 debug!(path = path.to_absolute_string(), "=> {} Saved configuration", Label::using());
             }
             | Err(why) => {
-                error!("=> {} Save configuration - {why}", Label::fail());
+                error!("=> {} Save configuration — {why}", Label::fail());
             }
         }
         self
@@ -654,8 +815,41 @@ impl Validation for ResearchActivity {
                         .collect::<Vec<_>>()
                 }
                 | Err(why) => {
-                    error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
-                    vec![crate::check_err!(CheckCategory::Schema)]
+                    error!("=> {} Read research activity data at {} — {why}", Label::fail(), path.display());
+                    vec![check_err!(CheckCategory::Schema)]
+                }
+            })
+            .collect()
+    }
+    fn validation_issues(self) -> Vec<Check> {
+        self.validate()
+            .err()
+            .into_iter()
+            .map(|err| {
+                check_err!(
+                    CheckCategory::Schema,
+                    errors: ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(err)))
+                )
+            })
+            .collect()
+    }
+}
+impl Validation for Cff {
+    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .flat_map(|path| match Cff::read(path) {
+                | Ok(data) => {
+                    let uri = path.file_name_with_parent();
+                    data.clone()
+                        .validation_issues()
+                        .into_iter()
+                        .map(|issue| issue.with_uri(uri.clone()))
+                        .collect::<Vec<_>>()
+                }
+                | Err(why) => {
+                    error!("=> {} Read CFF data at {} — {why}", Label::fail(), path.display());
+                    vec![check_err!(CheckCategory::Schema)]
                 }
             })
             .collect()

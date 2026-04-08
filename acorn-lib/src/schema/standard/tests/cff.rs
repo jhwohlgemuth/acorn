@@ -1,6 +1,9 @@
+use crate::io::InputOutput;
 use crate::io::License;
 use crate::schema::standard::cff::{Agent, Cff, CffType, IdentifierType, ReferenceType};
 use crate::schema::validate::{PostalCode, YearValue};
+use crate::test_utils::unique_path;
+use crate::util::{ToMarkdown, ToProse};
 
 const MINIMAL_YAML: &str = r#"
 authors:
@@ -132,4 +135,60 @@ fn test_cff_enum_round_trip_values() {
     assert_eq!(reference_type_json, "\"conference-paper\"");
     let round_trip_reference_type: ReferenceType = serde_json::from_str(&reference_type_json).expect("failed to deserialize ReferenceType");
     assert_eq!(round_trip_reference_type, ReferenceType::ConferencePaper);
+}
+
+#[test]
+fn test_cff_to_prose_and_markdown_include_primary_fields() {
+    let cff = Cff {
+        title: "My Research Software".to_string(),
+        message: "Please cite this work".to_string(),
+        abstract_text: Some("A compact abstract".to_string()),
+        keywords: Some(vec!["research".to_string(), "software".to_string()]),
+        ..Cff::default()
+    };
+    let prose = cff.to_prose();
+    let markdown = cff.to_markdown();
+    assert!(prose.contains("My Research Software"));
+    assert!(prose.contains("Please cite this work"));
+    assert!(prose.contains("Keywords: research, software"));
+    assert!(markdown.contains("title: My Research Software"));
+    assert!(markdown.contains("message: Please cite this work"));
+}
+
+#[test]
+fn test_cff_input_output_read_and_write_yaml() {
+    let output = unique_path("cff-io-yaml", "yaml");
+    if let Some(parent) = output.parent() {
+        std::fs::create_dir_all(parent).expect("failed to create test_artifacts directory");
+    }
+    let cff = Cff {
+        title: "Roundtrip YAML".to_string(),
+        message: "Message".to_string(),
+        cff_version: "1.2.0".to_string(),
+        ..Cff::default()
+    };
+    cff.write_yaml(output.clone()).expect("failed to write CFF yaml");
+    let read_back = Cff::read_yaml(output.clone()).expect("failed to read CFF yaml");
+    assert_eq!(read_back.title, "Roundtrip YAML");
+    assert_eq!(read_back.message, "Message");
+    let _cleanup = std::fs::remove_file(output);
+}
+
+#[test]
+fn test_cff_input_output_read_and_write_json() {
+    let output = unique_path("cff-io-json", "json");
+    if let Some(parent) = output.parent() {
+        std::fs::create_dir_all(parent).expect("failed to create test_artifacts directory");
+    }
+    let cff = Cff {
+        title: "Roundtrip JSON".to_string(),
+        message: "Message".to_string(),
+        cff_version: "1.2.0".to_string(),
+        ..Cff::default()
+    };
+    cff.write_json(output.clone()).expect("failed to write CFF json");
+    let read_back = Cff::read_json(output.clone()).expect("failed to read CFF json");
+    assert_eq!(read_back.title, "Roundtrip JSON");
+    assert_eq!(read_back.message, "Message");
+    let _cleanup = std::fs::remove_file(output);
 }

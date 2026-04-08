@@ -3,13 +3,66 @@ use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, 
 use crate::analyzer::{
     checks_to_dataframe, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, CheckCategory, CheckSeverity,
 };
-use crate::prelude::{HashMap, PathBuf};
+use crate::analyzer::{Analysis, Validation};
+use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
+use crate::schema::standard::cff::Cff;
+use crate::test_utils::unique_path;
 use crate::{check, check_ok};
 use ariadne::Color;
 use ariadne::ReportKind;
 use ariadne::Source;
 use serde_json::Value;
 
+#[test]
+fn test_cff_validation_issues_invalid_doi() {
+    let cff = Cff {
+        title: "Invalid DOI".to_string(),
+        message: "Message".to_string(),
+        doi: Some("not-a-doi".to_string()),
+        ..Cff::default()
+    };
+    let issues = cff.validation_issues();
+    assert!(!issues.is_empty());
+    assert_eq!(issues[0].category, CheckCategory::Schema);
+}
+#[test]
+fn test_cff_check_schema_returns_errors_for_invalid_file() {
+    let path = unique_path("cff-schema-invalid", "cff");
+    if let Some(parent) = path.parent() {
+        create_dir_all(parent).expect("failed to create test_artifacts directory");
+    }
+    let cff = Cff {
+        title: "Invalid DOI".to_string(),
+        message: "Message".to_string(),
+        doi: Some("not-a-doi".to_string()),
+        ..Cff::default()
+    };
+    let yaml = serde_yml::to_string(&cff).expect("failed to serialize CFF fixture");
+    write(path.clone(), yaml).expect("failed to write CFF fixture");
+    let checks = Cff::check_schema(vec![path.clone()]);
+    assert!(!checks.is_empty());
+    assert!(checks.iter().any(|check| check.category == CheckCategory::Schema));
+    let _cleanup = remove_file(path);
+}
+#[test]
+fn test_cff_check_quality_returns_ok_for_readable_file() {
+    let path = unique_path("cff-quality-valid", "cff");
+    if let Some(parent) = path.parent() {
+        create_dir_all(parent).expect("failed to create test_artifacts directory");
+    }
+    let cff = Cff {
+        title: "Valid CFF".to_string(),
+        message: "Message".to_string(),
+        ..Cff::default()
+    };
+    let yaml = serde_yml::to_string(&cff).expect("failed to serialize CFF fixture");
+    write(path.clone(), yaml).expect("failed to write CFF fixture");
+    let checks = Cff::check_quality(vec![path.clone()], None);
+    assert_eq!(checks.len(), 1);
+    assert!(checks[0].success);
+    assert_eq!(checks[0].category, CheckCategory::Quality);
+    let _cleanup = remove_file(path);
+}
 #[test]
 fn test_checks_to_dataframe() {
     let check = check_ok!(CheckCategory::Prose);
@@ -146,7 +199,6 @@ fn test_parse_vale_output() {
     let parsed: Vec<ValeOutputItem> = ValeOutput::parse(data, PathBuf::from(path));
     assert_eq!(parsed.len(), 3);
 }
-
 #[test]
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 fn test_preprocess_vale_output_unix() {

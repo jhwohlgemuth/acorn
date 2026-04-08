@@ -2,13 +2,20 @@
 //!
 //! See <https://github.com/citation-file-format/citation-file-format/blob/main/schema-guide.md> for more information on the CFF schema.
 #[cfg(feature = "std")]
-use crate::io::License;
+use crate::io::{read_file, write_file, ApiResult, InputOutput, License};
+#[cfg(feature = "std")]
+use crate::prelude::PathBuf;
 use crate::schema::validate::{
     is_commit, is_country_code, is_date, is_doi, is_isbn, is_orcid, is_phone_number, is_semantic_version, is_states, IntegerOrString, MonthValue,
     NumberOrString, PostalCode, YearValue,
 };
 #[cfg(not(feature = "std"))]
 use crate::util::License;
+#[cfg(feature = "std")]
+use crate::util::MimeType;
+use crate::util::{ToMarkdown, ToProse};
+#[cfg(feature = "std")]
+use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -545,6 +552,90 @@ impl Default for Cff {
             url: None,
             version: None,
         }
+    }
+}
+impl ToMarkdown for Cff {
+    fn to_markdown(&self) -> String {
+        serde_yml::to_string(self).unwrap_or_default()
+    }
+}
+impl ToProse for Cff {
+    fn to_prose(&self) -> String {
+        let keywords = self.keywords.clone().unwrap_or_default().join(", ");
+        let references = self
+            .references
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|reference| format!("- {}", reference.title))
+            .collect::<Vec<String>>()
+            .join("\n");
+        [
+            Some(format!("# {}", self.title)),
+            self.abstract_text.clone(),
+            Some(self.message.clone()),
+            if keywords.is_empty() {
+                None
+            } else {
+                Some(format!("Keywords: {keywords}"))
+            },
+            if references.is_empty() {
+                None
+            } else {
+                Some(format!("References:\n{references}"))
+            },
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<String>>()
+        .join("\n\n")
+    }
+}
+#[cfg(feature = "std")]
+impl InputOutput for Cff {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Cff> {
+        let source = path.into();
+        match MimeType::from(source.display().to_string()) {
+            | MimeType::Cff | MimeType::Yaml => Cff::read_yaml(source),
+            | MimeType::Json => Cff::read_json(source),
+            | _ => Err(eyre!("Unsupported CFF data file extension")),
+        }
+    }
+    fn read_cff(path: impl Into<PathBuf>) -> ApiResult<Cff> {
+        Cff::read_yaml(path.into())
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Cff> {
+        read_file(path.clone()).and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to parse JSON CFF — {why}")))
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Cff> {
+        read_file(path.clone()).and_then(|content| serde_yml::from_str(&content).map_err(|why| eyre!("Failed to parse YAML CFF — {why}")))
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from(output.display().to_string()) {
+            | MimeType::Cff => self.write_cff(output),
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported CFF data file extension for writing")),
+        }
+    }
+    fn write_cff(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("cff");
+        serde_yml::to_string(self)
+            .map_err(|why| eyre!("Failed to serialize CFF — {why}"))
+            .and_then(|content| write_file(output, content))
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("json");
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!("Failed to serialize JSON CFF — {why}"))
+            .and_then(|content| write_file(output, content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("yaml");
+        serde_yml::to_string(self)
+            .map_err(|why| eyre!("Failed to serialize YAML CFF — {why}"))
+            .and_then(|content| write_file(output, content))
     }
 }
 impl Validate for Agent {
