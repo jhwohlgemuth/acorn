@@ -1,13 +1,14 @@
 //! Check result types and helpers for analyzer output.
 
 use super::error::{process, ErrorCode, ErrorKind};
+use super::readability::ReadabilityType;
 #[cfg(feature = "analysis")]
 use super::to_dataframe;
 use super::vale::{ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
-use super::ReadabilityType;
-use crate::check;
-use crate::prelude::HashMap;
-use crate::util::{Label, ToMarkdown};
+use crate::io::InputOutput;
+use crate::prelude::{HashMap, PathBuf};
+use crate::util::{Label, StringConversion, ToMarkdown, ToProse};
+use crate::{check, check_err, check_ok};
 use ariadne::{Color, Config, Report, ReportKind, Source};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -18,8 +19,9 @@ use derive_more::Display;
 use polars::frame::row::Row;
 #[cfg(feature = "analysis")]
 use polars::prelude::{AnyValue, DataFrame, PolarsResult};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde_json::Value;
-use tracing::info;
+use tracing::{debug, info};
 use validator::ValidationErrorsKind;
 
 /// Trait for converting to a ([Polars]) row
@@ -506,6 +508,47 @@ impl<'a> IntoRow<'a> for Check {
         ];
         Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
     }
+}
+pub(super) fn check_readability_for<T>(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>
+where
+    T: InputOutput + ToProse,
+{
+    let CheckOptions { readability_metric, .. } = options.cloned().unwrap_or_default();
+    paths
+        .par_iter()
+        .map(|path| match T::read(path) {
+            | Ok(data) => {
+                let index = readability_metric.calculate(&data.to_prose());
+                let maximum = match readability_metric.maximum_allowed_from_env() {
+                    | Some(value) => {
+                        debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
+                        value
+                    }
+                    | None => readability_metric.maximum_allowed(),
+                };
+                debug!(value = index, "=> {} Readability index", Label::using());
+                if index > maximum {
+                    let errors = ErrorKind::Readability((index, readability_metric));
+                    check!(
+                        CheckCategory::Readability,
+                        false,
+                        severity: CheckSeverity::Warning,
+                        message: path.file_name_with_parent(),
+                        errors: errors,
+                        context: maximum.to_string()
+                    )
+                } else {
+                    let score = format!("({} = {}/{})", readability_metric.to_string().to_uppercase(), index, maximum);
+                    check_ok!(
+                        CheckCategory::Readability,
+                        message: path.file_name_with_parent(),
+                        context: score
+                    )
+                }
+            }
+            | Err(_why) => check_err!(CheckCategory::Readability),
+        })
+        .collect::<Vec<Check>>()
 }
 /// Convert vector of [`Check`] values to a Polars [DataFrame]
 #[cfg(feature = "analysis")]

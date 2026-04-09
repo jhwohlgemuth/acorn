@@ -48,8 +48,8 @@ pub use check::{
     highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, Check, CheckCategory, CheckOptions, CheckSeverity, Standard,
 };
 
+use check::check_readability_for;
 use error::ErrorKind;
-use readability::ReadabilityType;
 use vale::{Vale, ValeConfig};
 
 /// Trait for adding analysis capabilities
@@ -164,45 +164,7 @@ impl Analysis for Cff {
             .collect()
     }
     fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
-        let CheckOptions { readability_metric, .. } = options.cloned().unwrap_or_default();
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let index = readability_metric.calculate(&data.to_prose());
-                    let maximum = match readability_metric.maximum_allowed_from_env() {
-                        | Some(value) => {
-                            debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
-                            value
-                        }
-                        | None => readability_metric.maximum_allowed(),
-                    };
-                    debug!(value = index, "=> {} Readability index", Label::using());
-                    if index > maximum {
-                        let errors = ErrorKind::Readability((index, readability_metric));
-                        check!(
-                            CheckCategory::Readability,
-                            false,
-                            severity: CheckSeverity::Warning,
-                            message: path.file_name_with_parent(),
-                            errors: errors,
-                            context: maximum.to_string()
-                        )
-                    } else {
-                        let score = format!("({} = {}/{})", readability_metric.to_string().to_uppercase(), index, maximum);
-                        check_ok!(
-                            CheckCategory::Readability,
-                            message: path.file_name_with_parent(),
-                            context: score
-                        )
-                    }
-                }
-                | Err(why) => {
-                    error!("=> {} Read CFF data — {why}", Label::fail());
-                    check_err!(CheckCategory::Readability)
-                }
-            })
-            .collect::<Vec<Check>>()
+        check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
     async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
@@ -322,47 +284,7 @@ impl Analysis for ResearchActivity {
             .collect()
     }
     fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
-        let defaults = CheckOptions::default();
-        let options = options.unwrap_or(&defaults);
-        let rtype = options.readability_metric;
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let index = rtype.calculate(&data.to_prose());
-                    let maximum = match rtype.maximum_allowed_from_env() {
-                        | Some(value) => {
-                            debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
-                            value
-                        }
-                        | None => rtype.maximum_allowed(),
-                    };
-                    debug!(value = index, "=> {} Readability index", Label::using());
-                    if index > maximum {
-                        let errors = ErrorKind::Readability((index, rtype));
-                        check!(
-                            CheckCategory::Readability,
-                            false,
-                            severity: CheckSeverity::Warning,
-                            message: path.file_name_with_parent(),
-                            errors: errors,
-                            context: maximum.to_string()
-                        )
-                    } else {
-                        let score = format!("({} = {}/{})", rtype.to_string().to_uppercase(), index, maximum);
-                        check_ok!(
-                            CheckCategory::Readability,
-                            message: path.file_name_with_parent(),
-                            context: score
-                        )
-                    }
-                }
-                | Err(why) => {
-                    error!("=> {} Read research activity data — {why}", Label::fail());
-                    check_err!(CheckCategory::Readability)
-                }
-            })
-            .collect::<Vec<Check>>()
+        check_readability_for::<Self>(paths, options)
     }
     /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
     #[cfg(feature = "std")]

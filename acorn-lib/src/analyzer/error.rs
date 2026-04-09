@@ -1,6 +1,6 @@
 //! Error module for handling check errors
 //!
-use super::ReadabilityType;
+use super::readability::ReadabilityType;
 use crate::analyzer::vale::ValeOutputItem;
 use crate::prelude::HashMap;
 use core::fmt;
