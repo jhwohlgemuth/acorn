@@ -67,6 +67,10 @@ pub trait PersistentIdentifier: fmt::Display {
     fn check_digit(&self) -> Option<Vec<char>> {
         None
     }
+    /// Get fully resolved URL of the PID with its schema URI
+    fn url(&self) -> String {
+        String::new()
+    }
 }
 /// Add coercion to persistent identifier (PID) functionality to string values
 pub trait PersistentIdentifierConvert<T: AsRef<str>> {
@@ -578,6 +582,16 @@ impl PersistentIdentifier for DOI {
             Some(postprocess(result))
         } else {
             None
+        }
+    }
+    fn url(&self) -> String {
+        let identifier = self.identifier();
+        if identifier.is_empty() {
+            String::new()
+        } else {
+            let uri = self.schema_uri();
+            let schema = if uri.is_empty() { "https://doi.org" } else { &uri };
+            format!("{}/{}", schema, identifier)
         }
     }
 }

@@ -97,18 +97,21 @@ pub enum Standard {
     /// Citation file format (CFF)
     #[display("cff")]
     Cff,
-    /// HUBwise
-    #[display("huwise")]
-    Huwise,
     /// DataCite
     #[display("datacite")]
     Datacite,
-    /// InvenioRDM
-    #[display("invenio")]
-    Invenio,
+    /// Data Catalog (DCAT)
+    #[display("dcat")]
+    Dcat,
     /// Dublin Core Metadata Initiative (DCMI)
     #[display("dcmi")]
     Dcmi,
+    /// InvenioRDM
+    #[display("invenio")]
+    Invenio,
+    /// Huwise
+    #[display("huwise")]
+    Huwise,
 }
 /// Target artifact types available when exporting research activity data using acorn
 ///

@@ -8,11 +8,12 @@ use crate::io::http::get;
 use crate::io::InputOutput;
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder, ApiResult};
 use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, PathBuf};
+use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
 use crate::schema::research_activity::ResearchActivity;
-use crate::schema::standard::cff::{Cff, IdentifierType};
+use crate::schema::standard::cff::{Cff, Identifier, IdentifierType, Reference};
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::{APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
-use crate::util::{Constant, Label, SemanticVersion, StringConversion, ToMarkdown, ToProse};
+use crate::util::{Constant, Label, SemanticVersion, StringConversion, ToProse};
 use crate::{check, check_err, check_ok};
 use crate::{cmd, skip};
 use crate::{Location, Repository};
@@ -109,130 +110,6 @@ pub trait Validation {
     fn validation_issues(self) -> Vec<Check>;
 }
 #[async_trait]
-impl Analysis for ResearchActivity {
-    async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
-        let CheckOptions {
-            offline,
-            skip_verify_checksum,
-            vale_config,
-            ..
-        } = options.cloned().unwrap_or_default();
-        let config = vale_config.unwrap_or_default().save().await;
-        let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
-        match vale.clone().sync(offline).await {
-            | Ok(_) => {
-                let results = paths.into_iter().map(|path| {
-                    let vale = vale.clone();
-                    async move {
-                        match Self::read(&path) {
-                            | Ok(data) => {
-                                let identifier = data.meta.identifier.to_lowercase();
-                                let content = data.to_prose();
-                                vale.run(identifier, content, Some("JSON".into())).await
-                            }
-                            | Err(why) => {
-                                error!("=> {} Read research activity data - {why}", Label::fail());
-                                check_err!(CheckCategory::Prose)
-                            }
-                        }
-                    }
-                });
-                join_all(results).await
-            }
-            | Err(why) => {
-                error!("=> {} Vale sync - {why}", Label::fail());
-                vec![check_err!(CheckCategory::Prose)]
-            }
-        }
-    }
-    fn check_quality(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(
-                    CheckCategory::Quality,
-                    message: "Cannot read research activity data",
-                    context: why.to_string()
-                ),
-            })
-            .collect()
-    }
-    fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
-        let defaults = CheckOptions::default();
-        let options = options.unwrap_or(&defaults);
-        let rtype = options.readability_metric;
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let index = rtype.calculate(&data.to_markdown());
-                    let maximum = match rtype.maximum_allowed_from_env() {
-                        | Some(value) => {
-                            debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
-                            value
-                        }
-                        | None => rtype.maximum_allowed(),
-                    };
-                    debug!(value = index, "=> {} Readability index", Label::using());
-                    if index > maximum {
-                        let errors = ErrorKind::Readability((index, rtype));
-                        check!(
-                            CheckCategory::Readability,
-                            false,
-                            severity: CheckSeverity::Warning,
-                            message: path.file_name_with_parent(),
-                            errors: errors,
-                            context: maximum.to_string()
-                        )
-                    } else {
-                        let score = format!("({} = {}/{})", rtype.to_string().to_uppercase(), index, maximum);
-                        check_ok!(
-                            CheckCategory::Readability,
-                            message: path.file_name_with_parent(),
-                            context: score
-                        )
-                    }
-                }
-                | Err(why) => {
-                    error!("=> {} Read research activity data - {why}", Label::fail());
-                    check_err!(CheckCategory::Readability)
-                }
-            })
-            .collect::<Vec<Check>>()
-    }
-    /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
-    #[cfg(feature = "std")]
-    async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
-        let futures = paths.into_iter().map(|path| async move {
-            match Self::read(&path) {
-                | Ok(data) => {
-                    let dois = match data.clone().meta.doi {
-                        | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
-                        | None => vec![],
-                    };
-                    let websites = match data.clone().meta.websites {
-                        | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
-                        | None => vec![],
-                    };
-                    let links: Vec<String> = dois.into_iter().chain(websites).chain([data.clone().contact.url]).collect();
-                    let link_futures = links.into_iter().map(|url| link_check(Some(url)));
-                    join_all(link_futures)
-                        .await
-                        .into_iter()
-                        .map(|check| check.with_context(path.file_name_with_parent()))
-                        .collect()
-                }
-                | Err(why) => {
-                    error!("=> {} Read research activity data at {} - {why}", Label::fail(), path.display());
-                    vec![check_err!(CheckCategory::Schema)]
-                }
-            }
-        });
-        join_all(futures).await.into_iter().flatten().collect()
-    }
-}
-#[async_trait]
 impl Analysis for Cff {
     async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
         let CheckOptions {
@@ -287,13 +164,172 @@ impl Analysis for Cff {
             .collect()
     }
     fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
-        let options = options.cloned().unwrap_or_default();
+        let CheckOptions { readability_metric, .. } = options.cloned().unwrap_or_default();
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
+                | Ok(data) => {
+                    let index = readability_metric.calculate(&data.to_prose());
+                    let maximum = match readability_metric.maximum_allowed_from_env() {
+                        | Some(value) => {
+                            debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
+                            value
+                        }
+                        | None => readability_metric.maximum_allowed(),
+                    };
+                    debug!(value = index, "=> {} Readability index", Label::using());
+                    if index > maximum {
+                        let errors = ErrorKind::Readability((index, readability_metric));
+                        check!(
+                            CheckCategory::Readability,
+                            false,
+                            severity: CheckSeverity::Warning,
+                            message: path.file_name_with_parent(),
+                            errors: errors,
+                            context: maximum.to_string()
+                        )
+                    } else {
+                        let score = format!("({} = {}/{})", readability_metric.to_string().to_uppercase(), index, maximum);
+                        check_ok!(
+                            CheckCategory::Readability,
+                            message: path.file_name_with_parent(),
+                            context: score
+                        )
+                    }
+                }
+                | Err(why) => {
+                    error!("=> {} Read CFF data — {why}", Label::fail());
+                    check_err!(CheckCategory::Readability)
+                }
+            })
+            .collect::<Vec<Check>>()
+    }
+    #[cfg(feature = "std")]
+    async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
+        fn links(data: Cff) -> Vec<String> {
+            let Cff {
+                doi,
+                identifiers,
+                license_url,
+                references,
+                repository,
+                repository_artifact,
+                repository_code,
+                url,
+                ..
+            } = data.clone();
+            let root_urls = [url, license_url, repository, repository_artifact, repository_code].into_iter().flatten();
+            let identifiers = identifiers
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|Identifier { kind, value, .. }| match kind {
+                    | IdentifierType::Doi => Some(DOI::from_string(value).url()),
+                    | IdentifierType::Url => Some(value),
+                    | _ => None,
+                });
+            let references = references.unwrap_or_default().into_iter().flat_map(|data| {
+                let Reference {
+                    doi,
+                    collection_doi,
+                    license_url,
+                    repository,
+                    repository_artifact,
+                    repository_code,
+                    url,
+                    ..
+                } = data.clone();
+                let urls = [url, license_url, repository, repository_artifact, repository_code].into_iter().flatten();
+                doi.into_iter()
+                    .chain(collection_doi)
+                    .map(|value| DOI::from_string(value).url())
+                    .chain(urls)
+                    .collect::<Vec<String>>()
+            });
+            doi.into_iter()
+                .map(|value| DOI::from_string(value).url())
+                .chain(root_urls)
+                .chain(identifiers)
+                .chain(references)
+                .collect()
+        }
+        let futures = paths.into_iter().map(|path| async move {
+            match Self::read(&path) {
+                | Ok(data) => {
+                    let link_futures = links(data).into_iter().map(|url| link_check(Some(url)));
+                    join_all(link_futures)
+                        .await
+                        .into_iter()
+                        .map(|check| check.with_context(path.file_name_with_parent()))
+                        .collect()
+                }
+                | Err(why) => {
+                    error!("=> {} Read CFF data at {} — {why}", Label::fail(), path.display());
+                    vec![check_err!(CheckCategory::Schema)]
+                }
+            }
+        });
+        join_all(futures).await.into_iter().flatten().collect()
+    }
+}
+#[async_trait]
+impl Analysis for ResearchActivity {
+    async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
+        let CheckOptions {
+            offline,
+            skip_verify_checksum,
+            vale_config,
+            ..
+        } = options.cloned().unwrap_or_default();
+        let config = vale_config.unwrap_or_default().save().await;
+        let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
+        match vale.clone().sync(offline).await {
+            | Ok(_) => {
+                let results = paths.into_iter().map(|path| {
+                    let vale = vale.clone();
+                    async move {
+                        match Self::read(&path) {
+                            | Ok(data) => {
+                                let identifier = data.meta.identifier.to_lowercase();
+                                let content = data.to_prose();
+                                vale.run(identifier, content, Some("JSON".into())).await
+                            }
+                            | Err(why) => {
+                                error!("=> {} Read research activity data — {why}", Label::fail());
+                                check_err!(CheckCategory::Prose)
+                            }
+                        }
+                    }
+                });
+                join_all(results).await
+            }
+            | Err(why) => {
+                error!("=> {} Vale sync — {why}", Label::fail());
+                vec![check_err!(CheckCategory::Prose)]
+            }
+        }
+    }
+    fn check_quality(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
+                | Ok(_) => check_ok!(CheckCategory::Quality),
+                | Err(why) => check_err!(
+                    CheckCategory::Quality,
+                    message: "Cannot read research activity data",
+                    context: why.to_string()
+                ),
+            })
+            .collect()
+    }
+    fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
+        let defaults = CheckOptions::default();
+        let options = options.unwrap_or(&defaults);
         let rtype = options.readability_metric;
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(data) => {
-                    let index = rtype.calculate(&data.to_markdown());
+                    let index = rtype.calculate(&data.to_prose());
                     let maximum = match rtype.maximum_allowed_from_env() {
                         | Some(value) => {
                             debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
@@ -322,61 +358,28 @@ impl Analysis for Cff {
                     }
                 }
                 | Err(why) => {
-                    error!("=> {} Read CFF data — {why}", Label::fail());
+                    error!("=> {} Read research activity data — {why}", Label::fail());
                     check_err!(CheckCategory::Readability)
                 }
             })
             .collect::<Vec<Check>>()
     }
+    /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
     #[cfg(feature = "std")]
     async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
-        // TODO: Add to PersistentIdentifier trait
-        fn to_url(value: String) -> String {
-            if value.starts_with("http://") || value.starts_with("https://") {
-                value
-            } else {
-                format!("https://doi.org/{value}")
-            }
-        }
-        fn links_from_cff(data: Cff) -> Vec<String> {
-            let root_doi = data.doi.into_iter().map(to_url);
-            let root_urls = [
-                data.url,
-                data.license_url,
-                data.repository,
-                data.repository_artifact,
-                data.repository_code,
-            ]
-            .into_iter()
-            .flatten();
-            let identifiers = data
-                .identifiers
-                .unwrap_or_default()
-                .into_iter()
-                .filter_map(|identifier| match identifier.kind {
-                    | IdentifierType::Doi => Some(to_url(identifier.value)),
-                    | IdentifierType::Url => Some(identifier.value),
-                    | _ => None,
-                });
-            let references = data.references.unwrap_or_default().into_iter().flat_map(|reference| {
-                let dois = reference.doi.into_iter().chain(reference.collection_doi).map(to_url);
-                let urls = [
-                    reference.url,
-                    reference.license_url,
-                    reference.repository,
-                    reference.repository_artifact,
-                    reference.repository_code,
-                ]
-                .into_iter()
-                .flatten();
-                dois.chain(urls).collect::<Vec<String>>()
-            });
-            root_doi.chain(root_urls).chain(identifiers).chain(references).collect()
-        }
         let futures = paths.into_iter().map(|path| async move {
             match Self::read(&path) {
                 | Ok(data) => {
-                    let link_futures = links_from_cff(data).into_iter().map(|url| link_check(Some(url)));
+                    let dois = match data.clone().meta.doi {
+                        | Some(values) => values.into_iter().map(|doi| format!("https://doi.org/{doi}")).collect(),
+                        | None => vec![],
+                    };
+                    let websites = match data.clone().meta.websites {
+                        | Some(values) => values.into_iter().map(|Website { url, .. }| url).collect(),
+                        | None => vec![],
+                    };
+                    let links: Vec<String> = dois.into_iter().chain(websites).chain([data.clone().contact.url]).collect();
+                    let link_futures = links.into_iter().map(|url| link_check(Some(url)));
                     join_all(link_futures)
                         .await
                         .into_iter()
@@ -384,7 +387,7 @@ impl Analysis for Cff {
                         .collect()
                 }
                 | Err(why) => {
-                    error!("=> {} Read CFF data at {} - {why}", Label::fail(), path.display());
+                    error!("=> {} Read research activity data at {} — {why}", Label::fail(), path.display());
                     vec![check_err!(CheckCategory::Schema)]
                 }
             }
@@ -434,7 +437,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         let root = standard_project_folder("check", None).join(&id);
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
-            | Err(why) => error!(path = root.clone().to_absolute_string(), "=> {} Create - {why}", Label::fail()),
+            | Err(why) => error!(path = root.clone().to_absolute_string(), "=> {} Create — {why}", Label::fail()),
         }
         let path = root.join("index.json");
         match write(&path, content.as_bytes()) {
@@ -800,12 +803,11 @@ impl StaticAnalyzerConfig for ValeConfig {
         self
     }
 }
-impl Validation for ResearchActivity {
-    /// Checks a list of research activity files
+impl Validation for Cff {
     fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
         paths
             .par_iter()
-            .flat_map(|path| match ResearchActivity::read(path) {
+            .flat_map(|path| match Cff::read(path) {
                 | Ok(data) => {
                     let uri = path.file_name_with_parent();
                     data.clone()
@@ -815,7 +817,7 @@ impl Validation for ResearchActivity {
                         .collect::<Vec<_>>()
                 }
                 | Err(why) => {
-                    error!("=> {} Read research activity data at {} — {why}", Label::fail(), path.display());
+                    error!("=> {} Read CFF data at {} — {why}", Label::fail(), path.display());
                     vec![check_err!(CheckCategory::Schema)]
                 }
             })
@@ -834,11 +836,11 @@ impl Validation for ResearchActivity {
             .collect()
     }
 }
-impl Validation for Cff {
+impl Validation for ResearchActivity {
     fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
         paths
             .par_iter()
-            .flat_map(|path| match Cff::read(path) {
+            .flat_map(|path| match ResearchActivity::read(path) {
                 | Ok(data) => {
                     let uri = path.file_name_with_parent();
                     data.clone()
@@ -848,7 +850,7 @@ impl Validation for Cff {
                         .collect::<Vec<_>>()
                 }
                 | Err(why) => {
-                    error!("=> {} Read CFF data at {} — {why}", Label::fail(), path.display());
+                    error!("=> {} Read research activity data at {} — {why}", Label::fail(), path.display());
                     vec![check_err!(CheckCategory::Schema)]
                 }
             })

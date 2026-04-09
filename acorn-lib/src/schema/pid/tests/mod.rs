@@ -126,6 +126,10 @@ fn test_doi() {
     assert_eq!(results[0].to_string(), "10.11578/dc.20250604.1");
     assert_eq!(results[1].to_string(), "10.11578/dc.20250604.1");
     assert_eq!(results[2].to_string(), "10.11578/dc.20250604.1");
+    let valid = "10.11578/dc.20250604.1";
+    assert!(valid.is_pid(PID::DOI));
+    assert!(valid.is_doi());
+    assert_eq!(valid.format_as(PID::DOI), "10.11578/dc.20250604.1");
 }
 #[test]
 fn test_doi_struct() {
@@ -141,6 +145,17 @@ fn test_doi_struct() {
     assert_eq!(DOI::format(valid), "10.1000/182");
     assert_eq!(DOI::format("10.1000/182"), "10.1000/182");
     assert_eq!(DOI::format("invalid DOI value"), "");
+}
+#[test]
+fn test_doi_url() {
+    let doi = DOI::from_string("https://doi.org/10.1000/182");
+    assert_eq!(doi.url(), "https://doi.org/10.1000/182");
+    let doi = DOI::from_string("10.1000/182");
+    assert_eq!(doi.url(), "https://doi.org/10.1000/182");
+    let doi = DOI::from_string("https://doi.org/10.11578/dc.20250604.1");
+    assert_eq!(doi.url(), "https://doi.org/10.11578/dc.20250604.1");
+    let empty_doi = DOI::new();
+    assert_eq!(empty_doi.url(), "");
 }
 #[test]
 fn test_isbn() {

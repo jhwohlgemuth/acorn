@@ -37,23 +37,29 @@ pub enum Standard {
     #[default]
     #[display("research-activity-data")]
     ResearchActivityData,
-    /// HUBwise
-    #[display("huwise")]
-    Huwise,
+    /// Citation File Format (CFF)
+    #[display("citation-file-format")]
+    CitationFileFormat,
     /// DataCite
     #[display("datacite")]
     Datacite,
-    /// InvenioRDM
-    #[display("invenio")]
-    Invenio,
+    /// Data Catalog (DCAT)
+    #[display("dcat")]
+    Dcat,
     /// Dublin Core
     #[display("dublin-core")]
     DublinCore,
+    /// HUBwise
+    #[display("huwise")]
+    Huwise,
+    /// InvenioRDM
+    #[display("invenio")]
+    Invenio,
 }
 /// Various check categories available for validating research activity data
 #[derive(Clone, Debug, Display, PartialEq)]
 pub enum CheckCategory {
-    /// Website avaialability check
+    /// Website availability check
     #[display("link")]
     Link,
     /// Static analysis of prose
