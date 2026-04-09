@@ -4,6 +4,7 @@ use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{summary, Analysis, Check, CheckOptions, Validation};
 use acorn::prelude::PathBuf;
 use acorn::schema::research_activity::ResearchActivity;
+use acorn::schema::standard::cff::Cff;
 use acorn::util::{print_values_as_table, Label};
 use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
@@ -51,8 +52,9 @@ pub async fn run(
         .build();
     let paths = paths_from_options(path, &Some(cli_options)).await;
     let all_issues = match standard {
+        | Standard::Cff => collect_checks::<Cff>(paths, skip, &check_options, *disable_website_checks, not_quiet).await,
         | Standard::Rads => collect_checks::<ResearchActivity>(paths, skip, &check_options, *disable_website_checks, not_quiet).await,
-        | _ => unimplemented!("Research Activity Data Schema (RADS) is the only standard currently supported for checks"),
+        | _ => unimplemented!(),
     };
     if not_quiet {
         if *terse {

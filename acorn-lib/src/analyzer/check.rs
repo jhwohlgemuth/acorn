@@ -205,8 +205,9 @@ impl Check {
                         | Some(uri) => uri.trim().to_string(),
                         | None => "No URL".to_string(),
                     };
-                    let span = 0..=(text.len() - 1);
-                    let source = Source::from(text.clone());
+                    let source_text = if text.is_empty() { " ".to_string() } else { text.clone() };
+                    let source = Source::from(source_text.clone());
+                    let span = 0..=source_text.len().saturating_sub(1);
                     let _ = Report::build(kind, (&title, 1..=1))
                         .with_config(Config::default().with_compact(false))
                         .with_message("Website")
@@ -311,10 +312,11 @@ impl Check {
                                     | Some(value) => value.to_string(),
                                     | None => "".to_string(),
                                 };
-                                let source = Source::from(text);
+                                let source_text = if text.is_empty() { " ".to_string() } else { text.clone() };
+                                let source = Source::from(source_text.clone());
                                 let span = match highlighted_span_from_params(source.clone(), code.clone(), params.clone()) {
                                     | Some(span) => span,
-                                    | None => 0..=(source.text().len() - 1),
+                                    | None => 0..=source_text.len().saturating_sub(1),
                                 };
                                 let _ = Report::build(report_kind, (&title, 1..=1))
                                     .with_code(index)

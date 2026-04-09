@@ -35,6 +35,7 @@ mathematica,programming_language::Mathematica,Mathematica,https://www.wolfram.co
 matlab,---,MathWorks MATLAB,https://www.latex-project.org/,Proprietary,false
 matplotlib,---,Matplotlib,https://matplotlib.org/,PSF-based,true
 mysql,database::Mysql,MySQL,https://www.mysql.com/,GPL-2.0-only,true
+nanopublication,data_format::Nanopublication,Nanopublication,https://nanopub.net/,MIT,true
 neo4j,database::Neo4j,Neo4j Community,https://github.com/neo4j/neo4j/,GPL-3.0-only,true
 nix,---,Nix,https://nixos.org/,LGPL-2.1-only,true
 node,programming_language::Nodejs,NodeJS,https://nodejs.org/,MIT,true
@@ -43,6 +44,7 @@ octave,programming_language::Octave,GNU Octave,https://octave.org/,GPL-3.0-or-la
 open mpi,---,Open MPI,https://www.open-mpi.org/,BSD-3-Clause,true
 opensearch,---,OpenSearch,https://opensearch.org/,Apache-2.0,true
 openshift,---,Red Hat OpenShift,https://www.redhat.com/en/technologies/cloud-computing/openshift/,Apache-2.0,true
+owl,data_format::Owl,Web Ontology Language,https://www.w3.org/TR/owl2-overview/,W3C,true
 pandas,---,Pandas,https://pandas.pydata.org/,BSD-3-Clause,true
 parquet,data_format::Parquet,Apache Parquet,https://parquet.apache.org/,Apache-2.0,true
 perl,programming_language::Perl,Perl,https://www.perl.org/,GPL-1.0-or-later,true
@@ -57,6 +59,7 @@ python,programming_language::Python,py,https://www.python.org/,PSF-2.0,true
 pytorch,,PyTorch,https://pytorch.org/,BSD-3-Clause,true
 r,programming_language::R_language,R,https://www.r-project.org/,GPL-3.0-only,true
 rasterio,---,Rasterio,https://github.com/rasterio/rasterio/,BSD-3-Clause,true
+rdf,data_format::Rdf,Resource Description Framework,https://www.w3.org/RDF/,W3C,true
 react,---,ReactJS,https://react.dev/,MIT,true
 redis,database::Redis,Redis Open Source,https://redis.io/,Proprietary,true
 rocq,programming_language::Rocq,ROCQ Prover,https://rocq-prover.org/,LGPL-2.1-only,true

@@ -1,0 +1,57 @@
+cff-version: 1.2.0
+title: ACORN
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Jason
+    family-names: Wohlgemuth
+    email: wohlgemuthjh@ornl.gov
+    affiliation: Oak Ridge National Laboratory
+    orcid: 'https://orcid.org/0000-0002-2057-9115'
+  - given-names: Audrey
+    family-names: Carson
+    email: invalid email
+    affiliation: Oak Ridge National Laboratory
+    orcid: 'https://orcid.org/0009-0005-5568-6526'
+identifiers:
+  - type: doi
+    value: 10.11578/dc.20250604.1
+    description: >-
+      Accessible Content Optimization for Research Needs
+      (ACORN)
+  - type: doi
+    value: invalid value
+    description: >-
+      Inserted for testing
+repository-code: 'https://code.ornl.gov/research-enablement/acorn'
+url: 'https://research.ornl'
+repository: 'https://acorn.ornl.gov'
+repository-artifact: 'https://code.ornl.gov/research-enablement/acorn/-/releases'
+abstract: >-
+  ACORN is a CLI application that provides a structure for
+  Research Activity Data (RAD) and enables adding linked
+  data context and transforming RAD into a knowledge graph
+  that is amenable to automated reasoning and artifct
+  generation (e.g., PDF, PPTX, etc.)
+
+
+  ACORN employs a set of automated processes for informing
+  and/or enforcing defined content schemas to create
+  standardized and highly structured data. Because of its
+  standardized data source, ACORN easily applies computer
+  automation to generate communication assets such as PDF fact sheets,
+  PowerPoint presentations, and web pages. Built using the
+  memory-safe Rust programming language, ACORN is portable
+  and accessible for use on any Windows, Mac, or Linux
+  machine.
+keywords:
+  - research
+  - schema
+  - ontology
+  - automation
+  - analysis-ready-data
+  - knowledge-graph
+  - nanopublications
+license: MIT

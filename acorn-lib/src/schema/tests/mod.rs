@@ -435,13 +435,17 @@ fn test_is_license_invalid_database_path() {
         assert!(result.is_err());
         let why = result.unwrap_err();
         assert_eq!(why.message.as_deref(), Some("Failed to access local database for license validation"));
+        assert_eq!(why.params.get("value").and_then(|value| value.as_str()), Some("MIT"));
     });
     std::fs::remove_dir_all(&dir).ok();
 }
 #[test]
 fn test_is_license_missing_database_path_env() {
     temp_env::with_vars([(ENV_DATABASE_PATH, None::<&str>)], || {
-        assert!(is_license("MIT").is_err());
+        let result = is_license("MIT");
+        assert!(result.is_err());
+        let why = result.unwrap_err();
+        assert_eq!(why.params.get("value").and_then(|value| value.as_str()), Some("MIT"));
     });
 }
 #[test]

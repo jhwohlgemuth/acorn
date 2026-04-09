@@ -268,7 +268,13 @@ where
 pub fn is_license(value: &str) -> Result<(), ValidationError> {
     const CODE: &str = "license";
     const MESSAGE: &str = "Provide valid SPDX license identifier";
-    let normalized = value.trim().to_ascii_lowercase();
+    let candidate = value.trim().to_string();
+    let normalized = candidate.to_ascii_lowercase();
+    let validation_error = |message: String| {
+        let mut why = ValidationError::new(CODE).with_message(message.into());
+        why.add_param("value".into(), &candidate);
+        why
+    };
     let predicate = |row: &LicenseRow| {
         let LicenseRow { identifier, name, .. } = row;
         let is_valid_identifier = identifier.as_ref().map(|id| id.eq_ignore_ascii_case(&normalized)).unwrap_or(false);
@@ -276,18 +282,18 @@ pub fn is_license(value: &str) -> Result<(), ValidationError> {
         is_valid_identifier || is_valid_name
     };
     if normalized.is_empty() {
-        Err(ValidationError::new(CODE).with_message(format!("{MESSAGE} (cannot be empty)").into()))
+        Err(validation_error(format!("{MESSAGE} (cannot be empty)")))
     } else {
         match env::var(ENV_DATABASE_PATH) {
             | Ok(path) => {
                 let exists = LicenseRow::default().select(Some(path.into()), predicate).map(|row| row.is_some());
                 match exists {
                     | Ok(true) => Ok(()),
-                    | Ok(false) => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
-                    | Err(_) => Err(ValidationError::new(CODE).with_message("Failed to access local database for license validation".into())),
+                    | Ok(false) => Err(validation_error(MESSAGE.to_string())),
+                    | Err(_) => Err(validation_error("Failed to access local database for license validation".to_string())),
                 }
             }
-            | Err(_) => Err(ValidationError::new(CODE).with_message("Failed to access local database for license validation".into())),
+            | Err(_) => Err(validation_error("Failed to access local database for license validation".to_string())),
         }
     }
 }

@@ -1,7 +1,8 @@
 use crate::analyzer::error::ErrorCode;
+use crate::analyzer::error::ErrorKind;
 use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
 use crate::analyzer::{
-    checks_to_dataframe, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, CheckCategory, CheckSeverity,
+    checks_to_dataframe, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, Check, CheckCategory, CheckSeverity,
 };
 use crate::analyzer::{Analysis, Validation};
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
@@ -12,6 +13,7 @@ use ariadne::Color;
 use ariadne::ReportKind;
 use ariadne::Source;
 use serde_json::Value;
+use validator::{ValidationError, ValidationErrors, ValidationErrorsKind};
 
 #[test]
 fn test_cff_validation_issues_invalid_doi() {
@@ -453,6 +455,24 @@ fn test_check_severity_to_ariadne_report_kind_matrix() {
         }
         | _ => panic!("Suggestion severity should map to custom report kind"),
     }
+}
+#[test]
+fn test_report_schema_with_missing_value_param_does_not_panic() {
+    let mut validation_errors = ValidationErrors::new();
+    let mut error = ValidationError::new("license");
+    error.params.clear();
+    validation_errors.add("license", error);
+    let issue = Check {
+        category: CheckCategory::Schema,
+        context: None,
+        success: false,
+        severity: CheckSeverity::Error,
+        status_code: None,
+        errors: Some(ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(validation_errors)))),
+        uri: Some("fixtures/CITATION.cff".to_string()),
+        message: "".to_string(),
+    };
+    issue.report();
 }
 #[test]
 fn test_with_context_and_with_uri_preserve_severity() {

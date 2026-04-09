@@ -561,34 +561,11 @@ impl ToMarkdown for Cff {
 }
 impl ToProse for Cff {
     fn to_prose(&self) -> String {
-        let keywords = self.keywords.clone().unwrap_or_default().join(", ");
-        let references = self
-            .references
-            .clone()
-            .unwrap_or_default()
+        [Some(format!("# {}", self.title)), self.abstract_text.clone(), Some(self.message.clone())]
             .into_iter()
-            .map(|reference| format!("- {}", reference.title))
+            .flatten()
             .collect::<Vec<String>>()
-            .join("\n");
-        [
-            Some(format!("# {}", self.title)),
-            self.abstract_text.clone(),
-            Some(self.message.clone()),
-            if keywords.is_empty() {
-                None
-            } else {
-                Some(format!("Keywords: {keywords}"))
-            },
-            if references.is_empty() {
-                None
-            } else {
-                Some(format!("References:\n{references}"))
-            },
-        ]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<String>>()
-        .join("\n\n")
+            .join("\n\n")
     }
 }
 #[cfg(feature = "std")]

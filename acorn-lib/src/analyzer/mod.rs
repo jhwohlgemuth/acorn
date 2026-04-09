@@ -78,7 +78,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Resolve analyzer
     async fn resolve(_config: Config, _is_offline: bool, _skip_verify_checksum: bool) -> Self;
     /// Run analyzer on content
-    async fn run(&self, id: String, content: String, output: Option<String>) -> Check;
+    async fn run(&self, path: PathBuf, content: String, output: Option<String>) -> Check;
     /// Perform sync operation (only applies to Vale)
     async fn sync(self, is_offline: bool) -> ApiResult<()>;
     /// Set binary
@@ -127,13 +127,10 @@ impl Analysis for Cff {
                     async move {
                         match Self::read(&path) {
                             | Ok(data) => {
-                                let identifier = path
-                                    .file_stem()
-                                    .and_then(|value| value.to_str())
-                                    .unwrap_or(data.title.as_str())
-                                    .to_lowercase();
+                                let identifier = path.file_name_with_parent();
+                                let output = standard_project_folder("check", None).join(identifier);
                                 let content = data.to_prose();
-                                vale.run(identifier, content, Some("JSON".into())).await
+                                vale.run(output, content, Some("JSON".into())).await
                             }
                             | Err(why) => {
                                 error!("=> {} Read CFF data — {why}", Label::fail());
@@ -252,8 +249,9 @@ impl Analysis for ResearchActivity {
                         match Self::read(&path) {
                             | Ok(data) => {
                                 let identifier = data.meta.identifier.to_lowercase();
+                                let output = standard_project_folder("check", None).join(identifier).join("index.json");
                                 let content = data.to_prose();
-                                vale.run(identifier, content, Some("JSON".into())).await
+                                vale.run(output, content, Some("JSON".into())).await
                             }
                             | Err(why) => {
                                 error!("=> {} Read research activity data — {why}", Label::fail());
@@ -355,13 +353,15 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         vale
     }
-    async fn run(&self, id: String, content: String, output: Option<String>) -> Check {
-        let root = standard_project_folder("check", None).join(&id);
+    async fn run(&self, path: PathBuf, content: String, output_format: Option<String>) -> Check {
+        let root = path
+            .parent()
+            .map(|value| value.to_path_buf())
+            .unwrap_or_else(|| standard_project_folder("check", None));
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
             | Err(why) => error!(path = root.clone().to_absolute_string(), "=> {} Create — {why}", Label::fail()),
         }
-        let path = root.join("index.json");
         match write(&path, content.as_bytes()) {
             | Ok(_) => {}
             | Err(why) => panic!("=> {} Write file {} - {why}", Label::fail(), path.display()),
@@ -373,9 +373,10 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 &PathBuf::from("./.vale/vale")
             }
         };
+        let message = path.file_name_with_parent();
         match &self.config {
             | Some(config) => {
-                let result = match output {
+                let result = match output_format {
                     | Some(value) => cmd!(
                         binary.to_absolute_string(),
                         [
@@ -414,7 +415,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         }
                         let parsed = ValeOutput::parse(&output.stdout(), path.clone());
                         if parsed.is_empty() {
-                            check_ok!(CheckCategory::Prose, message: id)
+                            check_ok!(CheckCategory::Prose, message: message)
                         } else {
                             let severity = parsed
                                 .iter()
@@ -426,10 +427,10 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                                 CheckCategory::Prose,
                                 false,
                                 severity: severity,
-                                message: id,
+                                message: &message,
                                 errors: ErrorKind::Vale(parsed),
                                 context: content,
-                                uri: path.file_name_with_parent()
+                                uri: &message
                             )
                         }
                     }
@@ -441,18 +442,18 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                             why
                         };
                         error!("=> {} Analyze - {}", Label::fail(), message);
-                        check_err!(CheckCategory::Prose, message: id)
+                        check_err!(CheckCategory::Prose, message: message)
                     }
                     | Err(why) => {
                         error!("=> {} Analyze - {}", Label::fail(), why);
-                        check_err!(CheckCategory::Prose, message: id)
+                        check_err!(CheckCategory::Prose, message: message)
                     }
                 }
             }
             | None => {
                 let title = self.clone().command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
-                check_err!(CheckCategory::Prose, message: id)
+                check_err!(CheckCategory::Prose, message: message)
             }
         }
     }
@@ -729,7 +730,7 @@ impl Validation for Cff {
     fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
         paths
             .par_iter()
-            .flat_map(|path| match Cff::read(path) {
+            .flat_map(|path| match Self::read(path) {
                 | Ok(data) => {
                     let uri = path.file_name_with_parent();
                     data.clone()
@@ -762,7 +763,7 @@ impl Validation for ResearchActivity {
     fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
         paths
             .par_iter()
-            .flat_map(|path| match ResearchActivity::read(path) {
+            .flat_map(|path| match Self::read(path) {
                 | Ok(data) => {
                     let uri = path.file_name_with_parent();
                     data.clone()

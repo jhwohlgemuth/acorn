@@ -39,12 +39,13 @@ pub const CUSTOM_VALE_PACKAGE_NAME: &str = "Science";
 /// Enabled Vale packages
 pub const ENABLED_VALE_PACKAGES: [&str; 4] = ["Google", "proselint", "write-good", "Joblint"];
 /// Disabled Vale rules
-pub const DISABLED_VALE_RULES: [&str; 14] = [
+pub const DISABLED_VALE_RULES: [&str; 15] = [
     "Vale.Terms",
     "Google.EmDash",
     "Google.Contractions",
     "Google.GenderBias",
     "Google.Headings",
+    "Google.Latin",
     "Google.Parens",
     "Google.Quotes",
     "Google.We",
