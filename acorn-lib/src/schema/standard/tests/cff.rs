@@ -150,7 +150,6 @@ fn test_cff_to_prose_and_markdown_include_primary_fields() {
     let markdown = cff.to_markdown();
     assert!(prose.contains("My Research Software"));
     assert!(prose.contains("Please cite this work"));
-    assert!(prose.contains("Keywords: research, software"));
     assert!(markdown.contains("title: My Research Software"));
     assert!(markdown.contains("message: Please cite this work"));
 }

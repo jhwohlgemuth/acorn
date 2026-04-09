@@ -4,7 +4,7 @@ use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, 
 use crate::analyzer::{
     checks_to_dataframe, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, Check, CheckCategory, CheckSeverity,
 };
-use crate::analyzer::{Analysis, Validation};
+use crate::analyzer::{collect_validation_checks, Analysis};
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
 use crate::test_utils::unique_path;
@@ -23,7 +23,7 @@ fn test_cff_validation_issues_invalid_doi() {
         doi: Some("not-a-doi".to_string()),
         ..Cff::default()
     };
-    let issues = cff.validation_issues();
+    let issues = collect_validation_checks(cff);
     assert!(!issues.is_empty());
     assert_eq!(issues[0].category, CheckCategory::Schema);
 }

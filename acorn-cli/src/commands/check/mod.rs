@@ -1,7 +1,7 @@
 use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument, Standard};
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{summary, Analysis, Check, CheckOptions, Validation};
+use acorn::analyzer::{summary, Analysis, Check, CheckOptions};
 use acorn::prelude::PathBuf;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
@@ -71,7 +71,7 @@ pub async fn run(
     }
     Ok(())
 }
-async fn collect_checks<T: Analysis + Validation>(
+async fn collect_checks<T: Analysis>(
     paths: Vec<PathBuf>,
     skip: &[CheckCategory],
     options: &CheckOptions,

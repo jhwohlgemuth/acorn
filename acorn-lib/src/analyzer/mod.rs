@@ -61,6 +61,8 @@ pub trait Analysis {
     fn check_quality(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
     /// Calculate readability using a given metric
     fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
+    /// Execute validation checks for a given item
+    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check>;
     /// Check if URLs links are valid and readable
     async fn check_websites(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
 }
@@ -101,13 +103,6 @@ pub trait StaticAnalyzerConfig {
     async fn save(self) -> Self;
     /// Set parent path of configuration
     fn with_path(self, path: PathBuf) -> Self;
-}
-/// Trait for schema validation
-pub trait Validation {
-    /// Execute validation checks for a given item
-    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check>;
-    /// Get validation issues for a given item
-    fn validation_issues(self) -> Vec<Check>;
 }
 #[async_trait]
 impl Analysis for Cff {
@@ -162,6 +157,24 @@ impl Analysis for Cff {
     }
     fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
+    }
+    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .flat_map(|path| match Self::read(path) {
+                | Ok(data) => {
+                    let uri = path.file_name_with_parent();
+                    collect_validation_checks(data.clone())
+                        .into_iter()
+                        .map(|issue| issue.with_uri(uri.clone()))
+                        .collect::<Vec<_>>()
+                }
+                | Err(why) => {
+                    error!("=> {} Read CFF data at {} — {why}", Label::fail(), path.display());
+                    vec![check_err!(CheckCategory::Schema)]
+                }
+            })
+            .collect()
     }
     #[cfg(feature = "std")]
     async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
@@ -284,6 +297,24 @@ impl Analysis for ResearchActivity {
     fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
+    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .flat_map(|path| match Self::read(path) {
+                | Ok(data) => {
+                    let uri = path.file_name_with_parent();
+                    collect_validation_checks(data.clone())
+                        .into_iter()
+                        .map(|issue| issue.with_uri(uri.clone()))
+                        .collect::<Vec<_>>()
+                }
+                | Err(why) => {
+                    error!("=> {} Read research activity data at {} — {why}", Label::fail(), path.display());
+                    vec![check_err!(CheckCategory::Schema)]
+                }
+            })
+            .collect()
+    }
     /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
     #[cfg(feature = "std")]
     async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
@@ -390,10 +421,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 ];
                 let result = match output_format {
                     | Some(value) => {
-                        let args = args
-                            .into_iter()
-                            .chain(["--output".to_string(), value])
-                            .collect::<Vec<String>>();
+                        let args = args.into_iter().chain(["--output".to_string(), value]).collect::<Vec<String>>();
                         cmd!(binary_path, args)
                     }
                     | None => cmd!(binary_path, args),
@@ -720,74 +748,24 @@ impl StaticAnalyzerConfig for ValeConfig {
         self
     }
 }
-impl Validation for Cff {
-    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .flat_map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let uri = path.file_name_with_parent();
-                    data.clone()
-                        .validation_issues()
-                        .into_iter()
-                        .map(|issue| issue.with_uri(uri.clone()))
-                        .collect::<Vec<_>>()
-                }
-                | Err(why) => {
-                    error!("=> {} Read CFF data at {} — {why}", Label::fail(), path.display());
-                    vec![check_err!(CheckCategory::Schema)]
-                }
-            })
-            .collect()
-    }
-    fn validation_issues(self) -> Vec<Check> {
-        self.validate()
-            .err()
-            .into_iter()
-            .map(|err| {
-                check_err!(
-                    CheckCategory::Schema,
-                    errors: ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(err)))
-                )
-            })
-            .collect()
-    }
-}
-impl Validation for ResearchActivity {
-    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .flat_map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let uri = path.file_name_with_parent();
-                    data.clone()
-                        .validation_issues()
-                        .into_iter()
-                        .map(|issue| issue.with_uri(uri.clone()))
-                        .collect::<Vec<_>>()
-                }
-                | Err(why) => {
-                    error!("=> {} Read research activity data at {} — {why}", Label::fail(), path.display());
-                    vec![check_err!(CheckCategory::Schema)]
-                }
-            })
-            .collect()
-    }
-    fn validation_issues(self) -> Vec<Check> {
-        self.validate()
-            .err()
-            .into_iter()
-            .map(|err| {
-                check_err!(
-                    CheckCategory::Schema,
-                    errors: ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(err)))
-                )
-            })
-            .collect()
-    }
+pub(crate) fn collect_validation_checks<T>(value: T) -> Vec<Check>
+where
+    T: Validate,
+{
+    value
+        .validate()
+        .err()
+        .into_iter()
+        .map(|err| {
+            check_err!(
+                CheckCategory::Schema,
+                errors: ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(err)))
+            )
+        })
+        .collect()
 }
 /// Convert Lychee response to [`Check`]
-pub fn convert_lychee_response(value: Response) -> Check {
+pub(crate) fn convert_lychee_response(value: Response) -> Check {
     let body = value.body().to_string();
     let url = value.source().to_string();
     debug!(url, "=> {} Response: {:#?}", Label::using(), body.dimmed().cyan());
