@@ -376,33 +376,27 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         let message = path.file_name_with_parent();
         match &self.config {
             | Some(config) => {
+                let binary_path = binary.to_absolute_string();
+                let config_path = config.clone().path.to_absolute_string();
+                let path_string = path.clone().to_absolute_string();
+                let args = [
+                    "--no-exit".to_string(),
+                    "--no-wrap".to_string(),
+                    "--ext".to_string(),
+                    ".md".to_string(),
+                    "--config".to_string(),
+                    config_path,
+                    path_string,
+                ];
                 let result = match output_format {
-                    | Some(value) => cmd!(
-                        binary.to_absolute_string(),
-                        [
-                            "--no-wrap",
-                            "--config",
-                            &config.clone().path.to_absolute_string(),
-                            "--output",
-                            value.as_str(),
-                            &path.clone().to_absolute_string(),
-                            "--ext",
-                            ".md",
-                            "--no-exit"
-                        ]
-                    ),
-                    | None => cmd!(
-                        binary.to_absolute_string(),
-                        [
-                            "--no-wrap",
-                            "--config",
-                            &config.clone().path.to_absolute_string(),
-                            &path.clone().to_absolute_string(),
-                            "--ext",
-                            ".md",
-                            "--no-exit"
-                        ]
-                    ),
+                    | Some(value) => {
+                        let args = args
+                            .into_iter()
+                            .chain(["--output".to_string(), value])
+                            .collect::<Vec<String>>();
+                        cmd!(binary_path, args)
+                    }
+                    | None => cmd!(binary_path, args),
                 };
                 match result {
                     | Ok(output) if output.status.success() => {
