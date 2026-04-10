@@ -10,7 +10,7 @@ use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutpu
 use crate::prelude::PathBuf;
 use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::pid::PersistentIdentifierConvert;
-use crate::schema::standard::cff::{Agent, Cff, Person};
+use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
 use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
 use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website};
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
@@ -197,6 +197,7 @@ pub struct ResearchActivityMetadata {
     #[serde(default)]
     pub publications: Option<Vec<String>>,
     /// Research Activity Identifier (RAiD)
+    #[validate(custom(function = "is_attribute_doi_list"))]
     #[serde(default)]
     pub raid: Option<Vec<String>>,
     /// Research Organization Registry
@@ -617,13 +618,32 @@ impl From<&ResearchActivity> for Cff {
             website: None,
         });
         let keywords = if meta.keywords.is_empty() { None } else { Some(meta.keywords) };
-        let doi = meta.doi.and_then(|dois| dois.into_iter().next());
+        let (doi, identifiers) = match meta.doi {
+            | Some(dois) => match dois.as_slice() {
+                | [single] => (Some(single.clone()), None),
+                | [] => (None, None),
+                | _ => (
+                    None,
+                    Some(
+                        dois.into_iter()
+                            .map(|value| Identifier {
+                                description: None,
+                                kind: IdentifierType::Doi,
+                                value,
+                            })
+                            .collect(),
+                    ),
+                ),
+            },
+            | None => (None, None),
+        };
         Cff {
             abstract_text: Some(sections.mission),
             authors: vec![person.clone()],
             contact: Some(vec![person]),
             keywords,
             doi,
+            identifiers,
             title,
             ..Cff::default()
         }

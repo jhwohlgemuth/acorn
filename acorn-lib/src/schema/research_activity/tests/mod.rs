@@ -1,7 +1,7 @@
 use crate::io::InputOutput;
 use crate::prelude::PathBuf;
 use crate::schema::research_activity::*;
-use crate::schema::standard::cff::{Agent, Cff};
+use crate::schema::standard::cff::{Agent, Cff, IdentifierType};
 use crate::schema::*;
 use pretty_assertions::assert_eq;
 
@@ -95,6 +95,33 @@ fn test_research_activity_into_cff() {
         .build();
     let cff_with_doi: Cff = rad_with_doi.into();
     assert_eq!(cff_with_doi.doi, Some("10.1000/xyz123".to_string()));
+
+    let rad_with_multiple_dois = ResearchActivity::init()
+        .meta(
+            ResearchActivityMetadata::init()
+                .doi(vec!["10.1000/xyz123".to_string(), "10.1000/xyz456".to_string()])
+                .build(),
+        )
+        .build();
+    let cff_with_multiple_dois: Cff = rad_with_multiple_dois.into();
+    assert_eq!(cff_with_multiple_dois.doi, None);
+    assert_eq!(cff_with_multiple_dois.identifiers.as_ref().map(Vec::len), Some(2));
+    let identifier_values = cff_with_multiple_dois
+        .identifiers
+        .as_ref()
+        .expect("identifiers should exist")
+        .iter()
+        .map(|value| value.value.clone())
+        .collect::<Vec<_>>();
+    let identifier_types = cff_with_multiple_dois
+        .identifiers
+        .as_ref()
+        .expect("identifiers should exist")
+        .iter()
+        .map(|value| value.kind.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(identifier_values, vec!["10.1000/xyz123".to_string(), "10.1000/xyz456".to_string()]);
+    assert_eq!(identifier_types, vec![IdentifierType::Doi, IdentifierType::Doi]);
 }
 #[test]
 fn test_research_activity_format() {
