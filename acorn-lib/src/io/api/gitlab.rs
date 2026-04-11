@@ -6,7 +6,9 @@ use crate::io::api::{EmptyField, Endpoint, RemoteResource, Resource, TreeEntryTy
 use crate::io::config::{RunnerStatus, RunnerType};
 use crate::io::ApiResult;
 use crate::param;
+use crate::prelude::var;
 use crate::util::Searchable;
+use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use serde::{Deserialize, Serialize};
@@ -236,6 +238,18 @@ pub struct GroupDetails {
     /// Duo core features enabled flag
     pub duo_core_features_enabled: Option<bool>,
 }
+/// Options for GitLab API requests
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = with_token, on(String, into))]
+pub struct Options {
+    /// Authentication token
+    #[builder(start_fn)]
+    pub token: String,
+    /// Project or group identifier
+    pub identifier: Option<String>,
+    /// Internal resource identifier (e.g., merge request IID)
+    pub internal_identifier: Option<String>,
+}
 /// GitLab API response for runner details
 /// ### Example JSON response
 /// ```json
@@ -428,6 +442,26 @@ pub struct UserDetails {
     #[serde(rename = "web_url")]
     pub url: String,
 }
+impl Options {
+    /// Build options from common GitLab CI environment variables.
+    ///
+    /// - `GITLAB_TOKEN` -> `token` (defaults to empty string when unset)
+    /// - `CI_PROJECT_ID` -> `identifier`
+    /// - `CI_MERGE_REQUEST_IID` -> `internal_identifier`
+    pub fn from_env() -> Self {
+        let _ = dotenvy::from_filename(".env");
+        Self {
+            token: var("GITLAB_TOKEN").unwrap_or_default(),
+            identifier: var("CI_PROJECT_ID").ok(),
+            internal_identifier: var("CI_MERGE_REQUEST_IID").ok(),
+        }
+    }
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self::from_env()
+    }
+}
 impl fmt::Display for PaginationField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
@@ -513,15 +547,44 @@ impl ValueValidator for PaginationField {
         }
     }
 }
+/// Add a comment to a merge request using project identifier and merge request IID
+///
+/// When used in CI environment, the project identifier can be obtained from the `CI_PROJECT_ID` environment variable and the merge request IID can be obtained from the `CI_MERGE_REQUEST_IID` environment variable.
+/// The GitLab token must be provided in the `GITLAB_TOKEN` environment variable.
+pub async fn add_comment(options: Options, text: impl Into<String>) -> ApiResult<EmptyField> {
+    let name = "GitLab";
+    let action = "add-comment";
+    match INCLUDED_ENDPOINTS.find_by_name(name) {
+        | Some(endpoint) => {
+            let Options {
+                token,
+                identifier,
+                internal_identifier,
+            } = options;
+            let body = text.into();
+            let params = vec![
+                param!(Header, "PRIVATE-TOKEN", &token),
+                param!(Body, "body", &body),
+                param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
+                param!(TemplateValue, "internal_identifier", &internal_identifier.unwrap_or_default()),
+            ];
+            let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+            print!("response: {response:#?}");
+            endpoint.handle::<EmptyField>(response)
+        }
+        | None => Err(eyre!("{name} API endpoint not found")),
+    }
+}
 /// Get descendant groups of a group by identifier
-pub async fn groups(identifier: impl Into<String>, token: impl Into<String>) -> ApiResult<GroupsResponse> {
+pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
     let name = "GitLab";
     let action = "groups";
     match INCLUDED_ENDPOINTS.find_by_name(name) {
         | Some(endpoint) => {
+            let Options { token, identifier, .. } = options;
             let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &token.into()),
-                param!(TemplateValue, "identifier", &identifier.into()),
+                param!(Header, "PRIVATE-TOKEN", &token),
+                param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
                 param!(FieldList, "page", "1"),
                 param!(KeyValuePair, "per_page", "100"),
             ];
@@ -532,14 +595,15 @@ pub async fn groups(identifier: impl Into<String>, token: impl Into<String>) -> 
     }
 }
 /// Get runner details by identifier
-pub async fn runner(identifier: impl Into<String>, token: impl Into<String>) -> ApiResult<RunnerDetails> {
+pub async fn runner(options: Options) -> ApiResult<RunnerDetails> {
     let name = "GitLab";
     let action = "runners";
     match INCLUDED_ENDPOINTS.find_by_name(name) {
         | Some(endpoint) => {
+            let Options { token, identifier, .. } = options;
             let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &token.into()),
-                param!(TemplateValue, "identifier", &identifier.into()),
+                param!(Header, "PRIVATE-TOKEN", &token),
+                param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
             ];
             let response = endpoint.invoke(action, Some(params)).await;
             dbg!(&response);
@@ -549,12 +613,12 @@ pub async fn runner(identifier: impl Into<String>, token: impl Into<String>) -> 
     }
 }
 /// Get runners visible to user associated with given token
-pub async fn runners(token: impl Into<String>) -> ApiResult<RunnersResponse> {
+pub async fn runners(options: Options) -> ApiResult<RunnersResponse> {
     let name = "GitLab";
     let action = "runners";
     match INCLUDED_ENDPOINTS.find_by_name(name) {
         | Some(endpoint) => {
-            let params = vec![param!(Header, "PRIVATE-TOKEN", &token.into())];
+            let params = vec![param!(Header, "PRIVATE-TOKEN", &options.token)];
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<RunnersResponse>(response)
         }
@@ -592,6 +656,8 @@ pub(crate) async fn tree_paths(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::io::api::IntoBody;
+
     #[test]
     fn test_endpoint_for_base_url() {
         let endpoint = endpoint_for("code.ornl.gov");
@@ -601,5 +667,10 @@ mod tests {
     fn test_endpoint_for_has_tree_resource() {
         let endpoint = endpoint_for("code.ornl.gov");
         assert!(endpoint.resources.iter().any(|r| r.name == "tree"));
+    }
+    #[test]
+    fn test_add_comment_payload_uses_body_field() {
+        let payload = vec![param!(Body, "body", "This is a test comment!!!")].into_body();
+        assert_eq!(payload, serde_json::json!({ "body": "This is a test comment!!!" }));
     }
 }

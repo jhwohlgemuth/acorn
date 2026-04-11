@@ -44,6 +44,11 @@
             "root": "api/v4",
             "resources": [
                 {
+                    "name": "add-comment",
+                    "method": "post",
+                    "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/notes"
+                },
+                {
                     "name": "group",
                     "method": "get",
                     "template": "{{ base }}/groups/{{ identifier }}{{ query }}"

@@ -1,3 +1,4 @@
+use acorn::io::api::gitlab;
 use acorn::io::api::{self};
 use acorn::param;
 use acorn::prelude::PathBuf;
@@ -14,6 +15,9 @@ pub async fn run(
     println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
     println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
     println!("ROR API is healthy: {}", api::ror::is_healthy().await);
+    let options = gitlab::Options::from_env();
+    let text = "I made another comment!!!";
+    let _ = gitlab::add_comment(options, text).await;
     // gitlab_example().await;
     // orcid_example().await;
     // ror_example().await;
@@ -27,9 +31,15 @@ async fn gitlab_example() {
             let project = "34619";
             let group = "24758";
             println!("GitLab Token: {}", token);
-            println!("Runners: {:#?}", api::gitlab::runners(&token).await);
-            println!("Runner: {:#?}", api::gitlab::runner(project, &token).await);
-            println!("Groups: {:#?}", api::gitlab::groups(group, &token).await);
+            println!("Runners: {:#?}", gitlab::runners(gitlab::Options::with_token(&token).build()).await);
+            println!(
+                "Runner: {:#?}",
+                gitlab::runner(gitlab::Options::with_token(&token).identifier(project).build()).await
+            );
+            println!(
+                "Groups: {:#?}",
+                gitlab::groups(gitlab::Options::with_token(&token).identifier(group).build()).await
+            );
         }
         | Err(_) => println!("GitLab Token not found in environment variables"),
     }
