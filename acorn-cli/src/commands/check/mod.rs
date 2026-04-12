@@ -52,8 +52,8 @@ pub async fn run(
         .build();
     let paths = paths_from_options(path, &Some(cli_options)).await;
     let all_issues = match standard {
-        | Standard::Cff => collect_checks::<Cff>(paths, skip, &check_options, *disable_website_checks, not_quiet).await,
-        | Standard::Rads => collect_checks::<ResearchActivity>(paths, skip, &check_options, *disable_website_checks, not_quiet).await,
+        | Standard::Cff => collect_checks::<Cff>(paths.clone(), skip, &check_options, *disable_website_checks, not_quiet).await,
+        | Standard::Rads => collect_checks::<ResearchActivity>(paths.clone(), skip, &check_options, *disable_website_checks, not_quiet).await,
         | _ => unimplemented!(),
     };
     if not_quiet {
@@ -63,7 +63,7 @@ pub async fn run(
             print_detailed(&all_issues);
         }
         if !(*no_fail || *terse) {
-            print_summary(&all_issues);
+            print_summary(&all_issues, &paths);
         }
     }
     if !(all_issues.is_empty() || *no_fail) {
@@ -161,9 +161,14 @@ fn print_compact(issues: &[Check]) {
         println!("{issue}");
     });
 }
-fn print_summary(issues: &[Check]) {
-    let headers = vec!["Issue Type", "Issue Count"];
-    let rows = summary(issues.to_vec());
+fn print_summary(issues: &[Check], paths: &[PathBuf]) {
+    let file_count = paths.len();
+    let headers = vec!["Item", "Count"];
+    let rows = (file_count > 1)
+        .then(|| vec!["Files checked".to_string(), file_count.to_string()])
+        .into_iter()
+        .chain(summary(issues.to_vec()))
+        .collect();
     print_values_as_table::<String>(headers, rows, None);
 }
 fn resolve_readability_metric(readability_metric: &ReadabilityTypeArgument) -> ReadabilityType {

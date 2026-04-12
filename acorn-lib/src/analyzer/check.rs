@@ -12,6 +12,7 @@ use crate::{check, check_err, check_ok};
 use ariadne::{Color, Config, Report, ReportKind, Source};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
+use convert_case::{Case, Casing};
 use core::fmt;
 use core::ops::RangeInclusive;
 use derive_more::Display;
@@ -630,7 +631,7 @@ pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
             .map(|issue| issue.issue_count())
             .sum::<usize>()
             .to_string();
-        vec![category.to_string(), count]
+        vec![format!("{} issues found", category.to_string().to_case(Case::Title)), count]
     })
     .collect::<Vec<_>>()
 }
