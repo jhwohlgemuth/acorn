@@ -8,6 +8,7 @@ use color_eyre::eyre::{Report, Result};
 pub async fn run(
     _path: &Option<PathBuf>,
     _ignore: &Option<String>,
+    _merge_request: &bool,
     _offline: &bool,
     _database_path: &Option<PathBuf>,
     _verbose: &Verbosity,

@@ -209,7 +209,7 @@ pub enum Commands {
         next_help_heading = "FLAGS",
         override_usage = "acorn check [OPTIONS] [FLAGS] <PATH>"
     )]
-    #[command(aliases = ["lint"])]
+    #[command(visible_alias = "lint")]
     Check {
         /// Path to check
         #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
@@ -312,7 +312,7 @@ pub enum Commands {
     ///     $> acorn download --config /path/to/.acorn.yml --output /path/to/output
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
-    #[command(aliases = ["fetch"])]
+    #[command(visible_alias = "fetch")]
     Download {
         /// Bucket repository URL
         #[arg(value_name = "URL", required = false, value_hint = ValueHint::Url, help_heading = "ARGS")]
@@ -401,7 +401,7 @@ pub enum Commands {
     ///     $> acorn format --commit HEAD
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
-    #[command(aliases = ["fmt"])]
+    #[command(visible_alias = "fmt")]
     Format {
         /// Path to look for files to format
         #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
@@ -438,7 +438,7 @@ pub enum Commands {
     ///     $> acorn gather /path/to/data/
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
-    #[command(aliases = ["harvest"])]
+    #[command(visible_alias = "harvest")]
     Gather {
         /// Path to look for files to process
         #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
@@ -452,6 +452,9 @@ pub enum Commands {
         /// Example: --ignore "[/]valid.json$"
         #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
         ignore: Option<String>,
+        /// Process files that were changed in a given merge request (GitLab) or pull request (GitHub)
+        #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
+        merge_request: bool,
         /// Metadata standard to validate against
         #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
         standard: Standard,
