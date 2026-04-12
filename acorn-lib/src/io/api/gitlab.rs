@@ -11,6 +11,7 @@ use crate::util::Searchable;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
+use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -40,6 +41,15 @@ pub enum GroupVisibility {
     Internal,
     /// Private visibility
     Private,
+}
+/// GitLab emoji shortcodes
+///
+/// See <https://www.webfx.com/tools/emoji-cheat-sheet/> for full list of supported emoji shortcodes
+#[derive(Clone, Debug, Display, Serialize, Deserialize)]
+pub enum Emoji {
+    /// :seedling: 🌱
+    #[display(":seedling:")]
+    Seedling,
 }
 /// Pagination list parameters
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -238,6 +248,79 @@ pub struct GroupDetails {
     /// Duo core features enabled flag
     pub duo_core_features_enabled: Option<bool>,
 }
+/// GitLab API response for creating a merge request comment
+/// ### Example JSON response
+/// ```json
+/// {
+///     "id": 1774626,
+///     "type": null,
+///     "body": "comment text",
+///     "author": {
+///         "id": 4862,
+///         "username": "o9w",
+///         "public_email": "wohlgemuthjh@ornl.gov",
+///         "name": "Wohlgemuth, Jason",
+///         "state": "active",
+///         "locked": false,
+///         "avatar_url": "https://code.ornl.gov/uploads/-/system/user/avatar/4862/avatar.png",
+///         "web_url": "https://code.ornl.gov/o9w"
+///     },
+///     "created_at": "2026-04-11T22:47:15.052Z",
+///     "updated_at": "2026-04-11T22:47:15.052Z",
+///     "system": false,
+///     "noteable_id": 116322,
+///     "noteable_type": "MergeRequest",
+///     "project_id": 16689,
+///     "resolvable": false,
+///     "confidential": false,
+///     "internal": false,
+///     "imported": false,
+///     "imported_from": "none",
+///     "noteable_iid": 11,
+///     "commands_changes": {}
+/// }
+///
+/// ```
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MergeRequestNoteResponse {
+    /// Numeric ID of the note
+    #[serde(rename = "id")]
+    pub identifier: u64,
+    /// Optional note type
+    #[serde(rename = "type")]
+    pub note_type: Option<String>,
+    /// Comment body text
+    pub body: String,
+    /// Author details
+    pub author: UserDetails,
+    /// Creation timestamp in ISO-8601 format
+    pub created_at: String,
+    /// Last update timestamp in ISO-8601 format
+    pub updated_at: String,
+    /// Whether this is a system note
+    pub system: bool,
+    /// Numeric identifier of associated noteable object
+    pub noteable_id: u64,
+    /// Internal identifier (IID) of associated noteable object
+    pub noteable_iid: u64,
+    /// Type of associated noteable object
+    pub noteable_type: String,
+    /// Numeric project identifier
+    pub project_id: u64,
+    /// Whether the note is resolvable
+    pub resolvable: bool,
+    /// Whether the note is confidential
+    pub confidential: bool,
+    /// Whether the note is internal
+    pub internal: bool,
+    /// Whether the note was imported
+    pub imported: bool,
+    /// Source from which note was imported
+    pub imported_from: String,
+    /// Parsed quick action command changes
+    pub commands_changes: serde_json::Value,
+}
 /// Options for GitLab API requests
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = with_token, on(String, into))]
@@ -249,6 +332,8 @@ pub struct Options {
     pub identifier: Option<String>,
     /// Internal resource identifier (e.g., merge request IID)
     pub internal_identifier: Option<String>,
+    /// Request body payload
+    pub body: Option<String>,
 }
 /// GitLab API response for runner details
 /// ### Example JSON response
@@ -444,16 +529,32 @@ pub struct UserDetails {
 }
 impl Options {
     /// Build options from common GitLab CI environment variables.
-    ///
-    /// - `GITLAB_TOKEN` -> `token` (defaults to empty string when unset)
+    /// - `CI_JOB_TOKEN` -> `token` (defaults to empty string when unset)
     /// - `CI_PROJECT_ID` -> `identifier`
     /// - `CI_MERGE_REQUEST_IID` -> `internal_identifier`
+    ///
+    /// See <https://docs.gitlab.com/ci/variables/predefined_variables> for more information on available GitLab CI environment variables
     pub fn from_env() -> Self {
         let _ = dotenvy::from_filename(".env");
         Self {
-            token: var("GITLAB_TOKEN").unwrap_or_default(),
+            token: var("CI_JOB_TOKEN").unwrap_or_default(),
             identifier: var("CI_PROJECT_ID").ok(),
             internal_identifier: var("CI_MERGE_REQUEST_IID").ok(),
+            body: None,
+        }
+    }
+    /// Return a copy of options with request body payload set
+    pub fn with_body(self, body: impl Into<String>) -> Self {
+        Self {
+            body: Some(body.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with project or group identifier set
+    pub fn with_identifier(self, identifier: impl Into<String>) -> Self {
+        Self {
+            identifier: Some(identifier.into()),
+            ..self
         }
     }
 }
@@ -547,34 +648,6 @@ impl ValueValidator for PaginationField {
         }
     }
 }
-/// Add a comment to a merge request using project identifier and merge request IID
-///
-/// When used in CI environment, the project identifier can be obtained from the `CI_PROJECT_ID` environment variable and the merge request IID can be obtained from the `CI_MERGE_REQUEST_IID` environment variable.
-/// The GitLab token must be provided in the `GITLAB_TOKEN` environment variable.
-pub async fn add_comment(options: Options, text: impl Into<String>) -> ApiResult<EmptyField> {
-    let name = "GitLab";
-    let action = "add-comment";
-    match INCLUDED_ENDPOINTS.find_by_name(name) {
-        | Some(endpoint) => {
-            let Options {
-                token,
-                identifier,
-                internal_identifier,
-            } = options;
-            let body = text.into();
-            let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &token),
-                param!(Body, "body", &body),
-                param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
-                param!(TemplateValue, "internal_identifier", &internal_identifier.unwrap_or_default()),
-            ];
-            let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
-            print!("response: {response:#?}");
-            endpoint.handle::<EmptyField>(response)
-        }
-        | None => Err(eyre!("{name} API endpoint not found")),
-    }
-}
 /// Get descendant groups of a group by identifier
 pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
     let name = "GitLab";
@@ -594,6 +667,36 @@ pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
         | None => Err(eyre!("{name} API endpoint not found")),
     }
 }
+/// Add a note (comment) to a merge request using project identifier and merge request IID
+///
+/// When used in CI environment, the project identifier can be obtained from the `CI_PROJECT_ID` environment variable and the merge request IID can be obtained from the `CI_MERGE_REQUEST_IID` environment variable.
+/// The GitLab token must be provided in the `CI_JOB_TOKEN` environment variable.
+///
+/// See <https://docs.gitlab.com/api/notes/#create-a-merge-request-note> for more information on this API endpoint and required parameters
+pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteResponse> {
+    let name = "GitLab";
+    let action = "merge-request-note";
+    match INCLUDED_ENDPOINTS.find_by_name(name) {
+        | Some(endpoint) => {
+            let Options {
+                token,
+                identifier,
+                internal_identifier,
+                body,
+            } = options;
+            let body = body.unwrap_or_default();
+            let params = vec![
+                param!(Header, "PRIVATE-TOKEN", &token),
+                param!(Body, "body", &body),
+                param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
+                param!(TemplateValue, "internal_identifier", &internal_identifier.unwrap_or_default()),
+            ];
+            let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+            endpoint.handle::<MergeRequestNoteResponse>(response)
+        }
+        | None => Err(eyre!("{name} API endpoint not found")),
+    }
+}
 /// Get runner details by identifier
 pub async fn runner(options: Options) -> ApiResult<RunnerDetails> {
     let name = "GitLab";
@@ -606,7 +709,6 @@ pub async fn runner(options: Options) -> ApiResult<RunnerDetails> {
                 param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
             ];
             let response = endpoint.invoke(action, Some(params)).await;
-            dbg!(&response);
             endpoint.handle::<RunnerDetails>(response)
         }
         | None => Err(eyre!("{name} API endpoint not found")),

@@ -44,11 +44,6 @@
             "root": "api/v4",
             "resources": [
                 {
-                    "name": "add-comment",
-                    "method": "post",
-                    "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/notes"
-                },
-                {
                     "name": "group",
                     "method": "get",
                     "template": "{{ base }}/groups/{{ identifier }}{{ query }}"
@@ -62,6 +57,11 @@
                     "name": "jobs",
                     "method": "get",
                     "template": "{{ base }}/runners/{{ identifier }}/jobs{{ query }}"
+                },
+                {
+                    "name": "merge-request-note",
+                    "method": "post",
+                    "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/notes"
                 },
                 {
                     "name": "merge-requests",
@@ -82,6 +82,11 @@
                     "name": "runners",
                     "method": "get",
                     "template": "{{ base }}/runners/{{ identifier }}{{ query }}"
+                },
+                {
+                    "name": "runner-create",
+                    "method": "post",
+                    "template": "{{ base }}/runners{{ query }}"
                 },
                 {
                     "name": "tags",

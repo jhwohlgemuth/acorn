@@ -15,34 +15,38 @@ pub async fn run(
     println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
     println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
     println!("ROR API is healthy: {}", api::ror::is_healthy().await);
-    let options = gitlab::Options::from_env();
-    let text = "I made another comment!!!";
-    let _ = gitlab::add_comment(options, text).await;
+    gitlab_merge_request_note_example().await;
     // gitlab_example().await;
     // orcid_example().await;
     // ror_example().await;
     Ok(())
 }
 #[allow(dead_code)]
+async fn gitlab_merge_request_note_example() {
+    let comment = r#"# :seedling: Test Comment
+> Here is a quote from @o9w
+
+Here is a list
+- one
+- two
+- three
+
+( o 0 )
+    "#;
+    let options = gitlab::Options::from_env().with_body(comment);
+    let response = gitlab::merge_request_note(options).await;
+    println!("Merge Request Note Response: {:#?}", response);
+}
+#[allow(dead_code)]
 async fn gitlab_example() {
-    let _ = dotenvy::from_filename(".env");
-    match std::env::var("GITLAB_TOKEN") {
-        | Ok(token) => {
-            let project = "34619";
-            let group = "24758";
-            println!("GitLab Token: {}", token);
-            println!("Runners: {:#?}", gitlab::runners(gitlab::Options::with_token(&token).build()).await);
-            println!(
-                "Runner: {:#?}",
-                gitlab::runner(gitlab::Options::with_token(&token).identifier(project).build()).await
-            );
-            println!(
-                "Groups: {:#?}",
-                gitlab::groups(gitlab::Options::with_token(&token).identifier(group).build()).await
-            );
-        }
-        | Err(_) => println!("GitLab Token not found in environment variables"),
-    }
+    let project = "34619";
+    let group = "24758";
+    let options = gitlab::Options::from_env();
+    println!("Runners: {:#?}", gitlab::runners(options.clone()).await);
+    let options = options.clone().with_identifier(project);
+    println!("Runner: {:#?}", gitlab::runner(options.clone()).await);
+    let options = options.with_identifier(group);
+    println!("Groups: {:#?}", gitlab::groups(options).await);
 }
 #[allow(dead_code)]
 async fn orcid_example() {
