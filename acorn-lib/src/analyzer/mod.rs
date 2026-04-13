@@ -43,7 +43,7 @@ pub mod readability;
 pub mod vale;
 
 #[cfg(feature = "analysis")]
-pub use check::{checks_to_dataframe, IntoRow};
+pub use check::{checks_to_csv, checks_to_dataframe, IntoRow};
 pub use check::{
     highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, Check, CheckCategory, CheckOptions, CheckSeverity, Standard,
 };
@@ -449,7 +449,6 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                                 CheckCategory::Prose,
                                 false,
                                 severity: severity,
-                                message: &message,
                                 errors: ErrorKind::Vale(parsed),
                                 context: content,
                                 uri: &message

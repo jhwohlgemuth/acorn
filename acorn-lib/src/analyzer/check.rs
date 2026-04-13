@@ -6,6 +6,8 @@ use super::readability::ReadabilityType;
 use super::to_dataframe;
 use super::vale::{ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
 use crate::io::InputOutput;
+#[cfg(feature = "analysis")]
+use crate::prelude::Cursor;
 use crate::prelude::{HashMap, PathBuf};
 use crate::util::{Label, StringConversion, ToMarkdown, ToProse};
 use crate::{check, check_err, check_ok};
@@ -17,9 +19,11 @@ use core::fmt;
 use core::ops::RangeInclusive;
 use derive_more::Display;
 #[cfg(feature = "analysis")]
-use polars::frame::row::Row;
-#[cfg(feature = "analysis")]
-use polars::prelude::{AnyValue, DataFrame, PolarsResult};
+use polars::{
+    frame::row::Row,
+    io::csv::write::CsvWriter,
+    prelude::{AnyValue, DataFrame, PolarsResult, SerWriter},
+};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde_json::Value;
 use tracing::{debug, info};
@@ -258,8 +262,8 @@ impl Check {
             | CheckCategory::Readability => match &errors {
                 | Some(ErrorKind::Readability((index, readability_type))) => {
                     let kind: ReportKind<'static> = severity.clone().into();
-                    let title = message.clone();
-                    let threshold = context.clone().unwrap_or_default();
+                    let title = uri.as_deref().unwrap_or_default();
+                    let threshold = context.as_deref().unwrap_or_default();
                     let metric = readability_type.to_string().to_uppercase();
                     let source_text =
                         format!("Text was analyzed for readability using the {metric} metric. It has a score of {index} which is > {threshold}.");
@@ -279,16 +283,16 @@ impl Check {
                         .print((&title, source));
                 }
                 | None | Some(_) => {
+                    let title = uri.as_deref().unwrap_or_default();
                     if let Some(value) = &context {
                         info!(
-                            "=> {} {} has {} {}",
+                            "=> {} {title} has {} {}",
                             Label::pass(),
-                            message,
                             "no readability issues".green().bold(),
                             value.dimmed()
                         );
                     } else {
-                        info!("=> {} {} has {}", Label::pass(), message, "no readability issues".green().bold(),);
+                        info!("=> {} {title} has {}", Label::pass(), "no readability issues".green().bold(),);
                     }
                 }
             },
@@ -420,12 +424,7 @@ impl fmt::Display for Check {
             },
             | CheckCategory::Quality => unimplemented!(),
             | CheckCategory::Readability => {
-                let Check {
-                    context,
-                    errors,
-                    message: path,
-                    ..
-                } = self;
+                let Check { context, errors, uri, .. } = self;
                 match &errors {
                     | Some(ErrorKind::Readability(values)) => {
                         let (index, readability_type) = values;
@@ -437,7 +436,7 @@ impl fmt::Display for Check {
                             index.to_string().red().bold(),
                             "type=".dimmed(),
                             "path=".dimmed(),
-                            path.dimmed(),
+                            uri.as_deref().unwrap_or_default().dimmed(),
                         );
                         f.write_fmt(format_args!("{}", format_row("".to_string(), severity, details)))
                     }
@@ -536,7 +535,7 @@ where
                         CheckCategory::Readability,
                         false,
                         severity: CheckSeverity::Warning,
-                        message: path.file_name_with_parent(),
+                        uri: path.file_name_with_parent(),
                         errors: errors,
                         context: maximum.to_string()
                     )
@@ -544,7 +543,7 @@ where
                     let score = format!("({} = {}/{})", readability_metric.to_string().to_uppercase(), index, maximum);
                     check_ok!(
                         CheckCategory::Readability,
-                        message: path.file_name_with_parent(),
+                        uri: path.file_name_with_parent(),
                         context: score
                     )
                 }
@@ -558,6 +557,14 @@ where
 pub fn checks_to_dataframe(values: Vec<Check>) -> PolarsResult<DataFrame> {
     let names = ["success", "category", "message", "uri", "status_code", "context"];
     to_dataframe::<Check, _, &str>(values, names)
+}
+/// Convert vector of [`Check`] values to a CSV string
+#[cfg(feature = "analysis")]
+pub fn checks_to_csv(values: &[Check]) -> PolarsResult<String> {
+    let mut dataframe = checks_to_dataframe(values.to_vec())?;
+    let mut buf = Cursor::new(Vec::new());
+    CsvWriter::new(&mut buf).finish(&mut dataframe)?;
+    Ok(String::from_utf8_lossy(&buf.into_inner()).into_owned())
 }
 /// Calculate a highlighted byte span for a single line in a source report.
 pub fn highlighted_span(source: Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
