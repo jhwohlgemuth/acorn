@@ -199,15 +199,15 @@ impl Check {
         } = self.clone();
         match &category {
             | CheckCategory::Link => {
-                let title = context.clone().unwrap_or_else(|| "index.json".to_string());
+                let title = uri.clone().unwrap_or_else(|| "index.json".to_string());
                 let kind: ReportKind<'static> = severity.clone().into();
                 let code = match status_code.as_ref() {
                     | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
                     | None | Some(_) => "".to_string(),
                 };
                 if !success {
-                    let text = match uri.as_ref() {
-                        | Some(uri) => uri.trim().to_string(),
+                    let text = match context.as_ref() {
+                        | Some(value) => value.trim().to_string(),
                         | None => "No URL".to_string(),
                     };
                     let source_text = if text.is_empty() { " ".to_string() } else { text.clone() };
@@ -364,6 +364,7 @@ impl Check {
             severity: self.severity,
             uri: value,
             message: self.message,
+            maybe_context: self.context,
             maybe_status_code: self.status_code,
             maybe_errors: self.errors
         )
@@ -384,7 +385,7 @@ impl fmt::Display for Check {
             | CheckCategory::Link => {
                 let Check {
                     severity,
-                    uri,
+                    context,
                     status_code,
                     message,
                     ..
@@ -393,12 +394,12 @@ impl fmt::Display for Check {
                     | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
                     | None | Some(_) => "".to_string(),
                 };
-                let uri = uri
+                let context = context
                     .as_ref()
                     .map(|value| value.to_string().underline().italic().to_string())
                     .unwrap_or_else(|| "Missing".to_string());
                 let severity = severity_colored(severity);
-                let details = format!("{uri} {}{code}", message.dimmed());
+                let details = format!("{context} {}{code}", message.dimmed());
                 write!(f, "{}", format_row("".to_string(), severity, details))
             }
             | CheckCategory::Prose => match &self.errors {
@@ -415,7 +416,7 @@ impl fmt::Display for Check {
                         } = item;
                         let location = format!("Line {}, Character {}", line, span[0]);
                         let severity = CheckSeverity::from(severity.clone());
-                        let details = format!("{} {}", message, check.dimmed());
+                        let details = format!("{} {}{}", message, "rule=".dimmed(), check.dimmed());
                         f.write_fmt(format_args!("{}", format_row(location, severity_colored(&severity), details)))
                             .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
                     })
@@ -494,6 +495,7 @@ impl<'a> IntoRow<'a> for Check {
         let Self {
             success,
             category,
+            severity,
             message,
             uri,
             status_code,
@@ -501,8 +503,9 @@ impl<'a> IntoRow<'a> for Check {
             ..
         } = self;
         let data = [
-            if success { "pass" } else { "fail" },
+            &success.to_string(),
             &category.to_string(),
+            &severity.to_string(),
             &message,
             &uri.unwrap_or_default(),
             &status_code.unwrap_or_default(),
@@ -554,17 +557,23 @@ where
 }
 /// Convert vector of [`Check`] values to a Polars [DataFrame]
 #[cfg(feature = "analysis")]
-pub fn checks_to_dataframe(values: Vec<Check>) -> PolarsResult<DataFrame> {
-    let names = ["success", "category", "message", "uri", "status_code", "context"];
-    to_dataframe::<Check, _, &str>(values, names)
+pub fn checks_to_dataframe(values: &[Check]) -> PolarsResult<DataFrame> {
+    let names = ["success", "category", "severity", "message", "uri", "status_code", "context"];
+    to_dataframe::<Check, _, &str>(values.to_vec(), names)
 }
 /// Convert vector of [`Check`] values to a CSV string
 #[cfg(feature = "analysis")]
 pub fn checks_to_csv(values: &[Check]) -> PolarsResult<String> {
-    let mut dataframe = checks_to_dataframe(values.to_vec())?;
-    let mut buf = Cursor::new(Vec::new());
-    CsvWriter::new(&mut buf).finish(&mut dataframe)?;
-    Ok(String::from_utf8_lossy(&buf.into_inner()).into_owned())
+    match checks_to_dataframe(values) {
+        | Ok(mut dataframe) => {
+            let mut buf = Cursor::new(Vec::new());
+            match CsvWriter::new(&mut buf).finish(&mut dataframe) {
+                | Ok(_) => Ok(String::from_utf8_lossy(&buf.into_inner()).into_owned()),
+                | Err(why) => Err(why),
+            }
+        }
+        | Err(why) => Err(why),
+    }
 }
 /// Calculate a highlighted byte span for a single line in a source report.
 pub fn highlighted_span(source: Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {

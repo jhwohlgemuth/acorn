@@ -2,7 +2,7 @@
 //!
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
-use crate::analyzer::vale::{ValeOutput, ValeOutputItemSeverity};
+use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 #[cfg(feature = "std")]
 use crate::io::http::get;
 use crate::io::InputOutput;
@@ -80,7 +80,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Resolve analyzer
     async fn resolve(_config: Config, _is_offline: bool, _skip_verify_checksum: bool) -> Self;
     /// Run analyzer on content
-    async fn run(&self, path: PathBuf, content: String, output: Option<String>) -> Check;
+    async fn run(&self, path: PathBuf, content: String, output: Option<String>) -> Vec<Check>;
     /// Perform sync operation (only applies to Vale)
     async fn sync(self, is_offline: bool) -> ApiResult<()>;
     /// Set binary
@@ -129,12 +129,12 @@ impl Analysis for Cff {
                             }
                             | Err(why) => {
                                 error!("=> {} Read CFF data — {why}", Label::fail());
-                                check_err!(CheckCategory::Prose)
+                                vec![check_err!(CheckCategory::Prose)]
                             }
                         }
                     }
                 });
-                join_all(results).await
+                join_all(results).await.into_iter().flatten().collect()
             }
             | Err(why) => {
                 error!("=> {} Vale sync — {why}", Label::fail());
@@ -231,7 +231,7 @@ impl Analysis for Cff {
                     join_all(link_futures)
                         .await
                         .into_iter()
-                        .map(|check| check.with_context(path.file_name_with_parent()))
+                        .map(|check| check.with_uri(path.file_name_with_parent()))
                         .collect()
                 }
                 | Err(why) => {
@@ -268,12 +268,12 @@ impl Analysis for ResearchActivity {
                             }
                             | Err(why) => {
                                 error!("=> {} Read research activity data — {why}", Label::fail());
-                                check_err!(CheckCategory::Prose)
+                                vec![check_err!(CheckCategory::Prose)]
                             }
                         }
                     }
                 });
-                join_all(results).await
+                join_all(results).await.into_iter().flatten().collect()
             }
             | Err(why) => {
                 error!("=> {} Vale sync — {why}", Label::fail());
@@ -334,7 +334,7 @@ impl Analysis for ResearchActivity {
                     join_all(link_futures)
                         .await
                         .into_iter()
-                        .map(|check| check.with_context(path.file_name_with_parent()))
+                        .map(|check| check.with_uri(path.file_name_with_parent()))
                         .collect()
                 }
                 | Err(why) => {
@@ -384,7 +384,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         vale
     }
-    async fn run(&self, path: PathBuf, content: String, output_format: Option<String>) -> Check {
+    async fn run(&self, path: PathBuf, content: String, output_format: Option<String>) -> Vec<Check> {
         let root = path
             .parent()
             .map(|value| value.to_path_buf())
@@ -404,7 +404,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 &PathBuf::from("./.vale/vale")
             }
         };
-        let message = path.file_name_with_parent();
+        let uri = path.file_name_with_parent();
         match &self.config {
             | Some(config) => {
                 let binary_path = binary.to_absolute_string();
@@ -428,31 +428,25 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 };
                 match result {
                     | Ok(output) if output.status.success() => {
-                        fn severity_rank(value: &ValeOutputItemSeverity) -> u8 {
-                            match value {
-                                | ValeOutputItemSeverity::Error => 2,
-                                | ValeOutputItemSeverity::Suggestion => 0,
-                                | ValeOutputItemSeverity::Warning => 1,
-                            }
-                        }
                         let parsed = ValeOutput::parse(&output.stdout(), path.clone());
                         if parsed.is_empty() {
-                            check_ok!(CheckCategory::Prose, message: message)
+                            vec![check_ok!(CheckCategory::Prose, uri: uri)]
                         } else {
-                            let severity = parsed
-                                .iter()
-                                .map(|item| item.severity.clone())
-                                .max_by_key(severity_rank)
-                                .map(CheckSeverity::from)
-                                .unwrap_or_default();
-                            check!(
-                                CheckCategory::Prose,
-                                false,
-                                severity: severity,
-                                errors: ErrorKind::Vale(parsed),
-                                context: content,
-                                uri: &message
-                            )
+                            parsed
+                                .into_iter()
+                                .map(|item| {
+                                    let ValeOutputItem { message, severity, .. } = item.clone();
+                                    check!(
+                                        CheckCategory::Prose,
+                                        false,
+                                        severity: severity.into(),
+                                        errors: ErrorKind::Vale(vec![item.clone()]),
+                                        context: content.clone(),
+                                        message: message,
+                                        uri: uri.clone()
+                                    )
+                                })
+                                .collect()
                         }
                     }
                     | Ok(output) => {
@@ -463,18 +457,18 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                             why
                         };
                         error!("=> {} Analyze - {}", Label::fail(), message);
-                        check_err!(CheckCategory::Prose, message: message)
+                        vec![check_err!(CheckCategory::Prose, message: message)]
                     }
                     | Err(why) => {
                         error!("=> {} Analyze - {}", Label::fail(), why);
-                        check_err!(CheckCategory::Prose, message: message)
+                        vec![check_err!(CheckCategory::Prose, uri: uri)]
                     }
                 }
             }
             | None => {
                 let title = self.clone().command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
-                check_err!(CheckCategory::Prose, message: message)
+                vec![check_err!(CheckCategory::Prose, message: uri)]
             }
         }
     }
@@ -844,10 +838,11 @@ pub(crate) fn convert_lychee_response(value: Response) -> Check {
 pub async fn link_check(uri: Option<String>) -> Check {
     match uri {
         | Some(value) => {
+            let context = value.clone();
             let result = lychee_lib::check(value.as_str()).await;
             match result {
-                | Ok(response) => convert_lychee_response(response).with_uri(value),
-                | Err(_) => check_err!(CheckCategory::Link, uri: value, message: "Unreachable"),
+                | Ok(response) => convert_lychee_response(response).with_context(context),
+                | Err(_) => check_err!(CheckCategory::Link, context: context, message: "Unreachable"),
             }
         }
         | None => check_err!(CheckCategory::Link, message: "Missing URL"),

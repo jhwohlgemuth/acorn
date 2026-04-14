@@ -15,9 +15,9 @@ const FIXTURES: &str = "../tests/fixtures";
 fn test_checks_to_dataframe() {
     let check = check_ok!(CheckCategory::Prose);
     let checks = vec![check.clone(), check.clone(), check];
-    let df = checks_to_dataframe(checks.clone());
+    let df = checks_to_dataframe(&checks);
     let reason = "Failed to convert checks to dataframe";
-    assert_eq!(df.expect(reason).shape(), (checks.len(), 6));
+    assert_eq!(df.expect(reason).shape(), (checks.len(), 7));
 }
 #[test]
 fn test_readability_type() {
