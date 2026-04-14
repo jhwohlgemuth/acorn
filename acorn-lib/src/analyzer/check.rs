@@ -1,6 +1,6 @@
 //! Check result types and helpers for analyzer output.
 
-use super::error::{process, ErrorCode, ErrorKind};
+use super::error::{process, ErrorCode, ErrorKind, Location};
 use super::readability::ReadabilityType;
 #[cfg(feature = "analysis")]
 use super::to_dataframe;
@@ -102,6 +102,8 @@ pub enum CheckSeverity {
 pub struct Check {
     /// Check category
     pub category: CheckCategory,
+    /// Unified issue location for checks (prose location or schema path)
+    pub locator: Option<String>,
     /// Textual context of check (e.g., paragraph where prose issues were found)
     pub context: Option<String>,
     /// Whether or not the check was successful
@@ -120,7 +122,6 @@ pub struct Check {
     #[builder(default = "".to_string())]
     pub message: String,
 }
-
 /// Data structure for passing options to check processing functions
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into), on(ReadabilityType, into))]
@@ -304,7 +305,7 @@ impl Check {
                             let locator = issue.locator();
                             let source_text = issue.source_text();
                             let source = Source::from(source_text.clone());
-                            let span = match highlighted_span_from_params(&source, issue.code(), issue.params()) {
+                            let span = match highlighted_span_from_params(&source, &issue.code, &issue.params) {
                                 | Some(span) => span,
                                 | None => 0..=source_text.len().saturating_sub(1),
                             };
@@ -314,7 +315,7 @@ impl Check {
                                 .with_message(locator)
                                 .with_label(
                                     ariadne::Label::new((&title, span))
-                                        .with_message(issue.message().italic())
+                                        .with_message(issue.message.italic())
                                         .with_color(severity.clone().into()),
                                 )
                                 .finish()
@@ -334,6 +335,7 @@ impl Check {
             self.category,
             self.success,
             context: value,
+            maybe_locator: self.locator,
             severity: self.severity,
             maybe_uri: self.uri,
             message: self.message,
@@ -347,6 +349,7 @@ impl Check {
             self.category,
             self.success,
             severity: self.severity,
+            maybe_locator: self.locator,
             uri: value,
             message: self.message,
             maybe_context: self.context,
@@ -392,14 +395,9 @@ impl fmt::Display for Check {
                     let last = values.len().saturating_sub(1);
                     values.iter().enumerate().try_for_each(|(index, item)| {
                         let ValeOutputItem {
-                            check,
-                            line,
-                            message,
-                            severity,
-                            span,
-                            ..
+                            check, message, severity, ..
                         } = item;
-                        let location = format!("Line {}, Character {}", line, span[0]);
+                        let location = item.locator();
                         let severity = CheckSeverity::from(severity.clone());
                         let details = format!("{} {}{}", message, "rule=".dimmed(), check.dimmed());
                         f.write_fmt(format_args!("{}", format_row(location, severity_colored(&severity), details)))
@@ -436,13 +434,8 @@ impl fmt::Display for Check {
                     let rows = process(&prefix, kind.clone());
                     let last = rows.len().saturating_sub(1);
                     rows.iter().enumerate().try_for_each(|(index, issue)| {
-                        let field = issue.path().unwrap_or_default().to_string();
-                        let details = format!(
-                            "{} {}{}",
-                            issue.message(),
-                            "code=".dimmed(),
-                            issue.code().to_string().to_uppercase().dimmed()
-                        );
+                        let field = issue.path.clone().unwrap_or_default();
+                        let details = format!("{} {}{}", issue.message, "code=".dimmed(), issue.code.to_string().to_uppercase().dimmed());
                         f.write_fmt(format_args!("{}", format_row(field, severity.clone(), details)))
                             .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
                     })
@@ -487,6 +480,7 @@ impl<'a> IntoRow<'a> for Check {
             category,
             severity,
             message,
+            locator,
             uri,
             status_code,
             context,
@@ -496,8 +490,9 @@ impl<'a> IntoRow<'a> for Check {
             &success.to_string(),
             &category.to_string(),
             &severity.to_string(),
-            &message,
             &uri.unwrap_or_default(),
+            &locator.unwrap_or_default(),
+            &message,
             &status_code.unwrap_or_default(),
             &context.unwrap_or_default(),
         ];
@@ -548,7 +543,7 @@ where
 /// Convert vector of [`Check`] values to a Polars [DataFrame]
 #[cfg(feature = "analysis")]
 pub fn checks_to_dataframe(values: &[Check]) -> PolarsResult<DataFrame> {
-    let names = ["success", "category", "severity", "message", "uri", "status_code", "context"];
+    let names = ["success", "category", "severity", "uri", "locator", "message", "status_code", "context"];
     to_dataframe::<Check, _, &str>(values.to_vec(), names)
 }
 /// Convert vector of [`Check`] values to a CSV string

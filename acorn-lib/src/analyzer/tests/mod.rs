@@ -71,7 +71,7 @@ fn test_checks_to_dataframe() {
     let checks = vec![check.clone(), check.clone(), check];
     let df = checks_to_dataframe(&checks);
     let reason = "Failed to convert checks to dataframe";
-    assert_eq!(df.expect(reason).shape(), (checks.len(), 7));
+    assert_eq!(df.expect(reason).shape(), (checks.len(), 8));
 }
 #[test]
 fn test_highlighted_span() {
@@ -464,6 +464,7 @@ fn test_report_schema_with_missing_value_param_does_not_panic() {
     validation_errors.add("license", error);
     let issue = Check {
         category: CheckCategory::Schema,
+        locator: None,
         context: None,
         success: false,
         severity: CheckSeverity::Error,

@@ -2,6 +2,7 @@
 //!
 //! Provides programmtic access to the [Vale prose analyzer](https://vale.sh/) - an open-source, command-line tool that brings your editorial style guide to life.
 //!
+use crate::analyzer::error::Location;
 use crate::prelude::PathBuf;
 use crate::util::constants::{APPLICATION, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION};
 use crate::util::{Label, SemanticVersion};
@@ -172,6 +173,18 @@ impl From<&ValeOutputItemSeverity> for ReportKind<'_> {
         }
     }
 }
+impl Location for ValeOutputItem {
+    fn locator(&self) -> String {
+        let character = self.span.first().copied().unwrap_or_default();
+        format!("Line {}, Character {}", self.line, character)
+    }
+    fn source_text(&self) -> String {
+        match self.word_match.is_empty() {
+            | true => " ".to_string(),
+            | false => self.word_match.clone(),
+        }
+    }
+}
 /// Preprocess Vale output
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 pub(crate) fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
@@ -185,4 +198,46 @@ pub(crate) fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
     let normalized = output.replace("\\\\", "/");
     // Then handle the extended-length path prefix and replace the full path
     normalized.replace(&format!("//?/{}", input), "items").replace(&input, "items")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Location, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
+
+    #[test]
+    fn vale_output_item_location_matches_prose_display_format() {
+        let item = ValeOutputItem {
+            action: ValeOutputItemAction {
+                name: "replace".to_string(),
+                params: None,
+            },
+            check: "Vale.Spelling".to_string(),
+            description: "".to_string(),
+            line: 17,
+            link: "".to_string(),
+            message: "Did you really mean 'Indexable'?".to_string(),
+            severity: ValeOutputItemSeverity::Error,
+            span: vec![23, 31],
+            word_match: "Indexable".to_string(),
+        };
+        assert_eq!(item.locator(), "Line 17, Character 23");
+    }
+    #[test]
+    fn vale_output_item_source_text_uses_word_match() {
+        let item = ValeOutputItem {
+            action: ValeOutputItemAction {
+                name: "replace".to_string(),
+                params: None,
+            },
+            check: "Science.use-instead".to_string(),
+            description: "".to_string(),
+            line: 19,
+            link: "".to_string(),
+            message: "Use 'geospatial' instead of 'geo-spatial'.".to_string(),
+            severity: ValeOutputItemSeverity::Error,
+            span: vec![36, 46],
+            word_match: "geo-spatial".to_string(),
+        };
+        assert_eq!(item.source_text(), "geo-spatial");
+    }
 }
