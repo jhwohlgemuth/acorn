@@ -78,7 +78,7 @@ fn test_highlighted_span() {
     let source = Source::from(String::from("line one\nline two\nline three"));
     let span = &[1, 5];
     let line_number = 2;
-    let result = highlighted_span(source, span, line_number);
+    let result = highlighted_span(&source, span, line_number);
     assert_eq!(result, 9..=13);
 }
 #[test]
@@ -89,7 +89,7 @@ fn test_highlighted_span_for_array() {
     let mut params: HashMap<String, Value> = HashMap::new();
     params.insert("index".to_string(), Value::Number(index.into()));
     params.insert("value".to_string(), value);
-    let result = highlighted_span_for_array(source.clone(), params);
+    let result = highlighted_span_for_array(&source, &params);
     assert!(result.is_some());
     let span = result.unwrap();
     assert!(*span.start() < source.text().len());
@@ -101,7 +101,7 @@ fn test_highlighted_span_from_params_length() {
     let code = ErrorCode::Length;
     let mut params: HashMap<String, Value> = HashMap::new();
     params.insert("max".to_string(), Value::Number(10.into()));
-    let result = highlighted_span_from_params(source.clone(), code, params);
+    let result = highlighted_span_from_params(&source, &code, &params);
     assert!(result.is_some());
     let span = result.unwrap();
     assert!(span.contains(&(source.text().len() - 2)));
@@ -115,7 +115,7 @@ fn test_highlighted_span_from_params_section() {
     let mut params: HashMap<String, Value> = HashMap::new();
     params.insert("index".to_string(), Value::Number(index.into()));
     params.insert("value".to_string(), value);
-    let result = highlighted_span_from_params(source, code, params);
+    let result = highlighted_span_from_params(&source, &code, &params);
     assert!(result.is_some());
 }
 #[test]
@@ -127,7 +127,7 @@ fn test_highlighted_span_from_params_with_index() {
     let mut params: HashMap<String, Value> = HashMap::new();
     params.insert("index".to_string(), Value::Number(index.into()));
     params.insert("value".to_string(), value);
-    let result = highlighted_span_from_params(source, code, params);
+    let result = highlighted_span_from_params(&source, &code, &params);
     assert!(result.is_some());
 }
 #[test]
@@ -135,7 +135,7 @@ fn test_highlighted_span_from_params_no_match() {
     let source = Source::from(String::from("{\"key\": \"value\"}"));
     let code = ErrorCode::Date;
     let params: HashMap<String, Value> = HashMap::new();
-    let result = highlighted_span_from_params(source, code, params);
+    let result = highlighted_span_from_params(&source, &code, &params);
     assert!(result.is_none());
 }
 #[test]

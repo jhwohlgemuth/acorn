@@ -3,15 +3,12 @@
 use super::readability::ReadabilityType;
 use crate::analyzer::vale::ValeOutputItem;
 use crate::prelude::HashMap;
+use crate::util::ToMarkdown;
 use core::fmt;
 use derive_more::Display;
 use serde_json::Value;
 use validator::{ValidationError, ValidationErrorsKind};
 
-/// Flattened schema validation issue tuple.
-///
-/// Tuple fields are `(code, path, message, params)`.
-pub type ValidationIssue = (ErrorCode, Option<String>, String, HashMap<String, Value>);
 /// Augmented list of validator crate error codes, with custom codes for ACORN-specific validation errors
 #[derive(Clone, Debug, Display)]
 #[display(rename_all = "lowercase")]
@@ -75,6 +72,14 @@ pub enum ErrorKind {
     /// [validator crate]: https://crates.io/crates/validator
     Validator(ValidationErrorsKind),
 }
+/// Flattened schema validation issue.
+#[derive(Clone, Debug)]
+pub struct ValidationIssue {
+    code: ErrorCode,
+    path: Option<String>,
+    message: String,
+    params: HashMap<String, Value>,
+}
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:#?}", self)
@@ -118,6 +123,50 @@ impl ErrorKind {
         }
     }
 }
+impl ValidationIssue {
+    /// Create a new flattened validation issue
+    pub fn new(code: ErrorCode, path: Option<String>, message: String, params: HashMap<String, Value>) -> Self {
+        Self { code, path, message, params }
+    }
+    /// Return issue code
+    pub fn code(&self) -> &ErrorCode {
+        &self.code
+    }
+    /// Return issue path
+    pub fn path(&self) -> Option<&str> {
+        self.path.as_deref()
+    }
+    /// Return issue message
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+    /// Return issue parameters
+    pub fn params(&self) -> &HashMap<String, Value> {
+        &self.params
+    }
+    /// Return title-friendly locator — "where to find the issue"
+    pub fn locator(&self) -> String {
+        match self.path() {
+            | Some(value) => match self.params().get("index") {
+                | Some(Value::Number(index)) => format!("{}[{}]", value, index),
+                | None | Some(_) => value.to_string(),
+            },
+            | None => self.code().to_string().to_uppercase(),
+        }
+    }
+    /// Return issue source text used by schema highlighting
+    pub fn source_text(&self) -> String {
+        match self.params().get("value") {
+            | Some(Value::Array(items)) => items
+                .iter()
+                .map(|item| item.to_string())
+                .collect::<Vec<String>>()
+                .to_markdown(),
+            | Some(value) => value.to_string(),
+            | None => " ".to_string(),
+        }
+    }
+}
 /// Process validator errors into a more manageable form
 pub fn process(path: &str, kind: ValidationErrorsKind) -> Vec<ValidationIssue> {
     match kind {
@@ -132,7 +181,7 @@ pub fn process(path: &str, kind: ValidationErrorsKind) -> Vec<ValidationIssue> {
                         .into_iter()
                         .map(|(key, value)| (key.to_string(), value))
                         .collect::<HashMap<String, Value>>();
-                    (ErrorCode::from(code.as_ref()), path, message, params)
+                    ValidationIssue::new(ErrorCode::from(code.as_ref()), path, message, params)
                 })
                 .collect::<Vec<ValidationIssue>>();
             result
@@ -165,7 +214,11 @@ pub fn process(path: &str, kind: ValidationErrorsKind) -> Vec<ValidationIssue> {
 #[cfg(test)]
 mod tests {
     use super::{process, ErrorCode, ErrorKind};
+    use crate::analyzer::error::ValidationIssue;
+    use crate::prelude::HashMap;
+    use serde_json::Value;
     use validator::{Validate, ValidationErrorsKind};
+    
     #[derive(Validate)]
     struct FieldModel {
         #[validate(length(min = 3, max = 3))]
@@ -197,13 +250,13 @@ mod tests {
         let errors = value.validate().expect_err("expected validation failure");
         let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
         assert_eq!(issues.len(), 1);
-        let (code, path, message, params) = &issues[0];
-        assert!(matches!(code, ErrorCode::Length));
-        assert_eq!(path.as_deref(), Some("name"));
-        assert_eq!(message, "length");
-        assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("x")));
-        assert_eq!(params.get("min").and_then(|v| v.as_i64()), Some(3));
-        assert_eq!(params.get("max").and_then(|v| v.as_i64()), Some(3));
+        let issue = &issues[0];
+        assert!(matches!(issue.code(), ErrorCode::Length));
+        assert_eq!(issue.path(), Some("name"));
+        assert_eq!(issue.message(), "length");
+        assert_eq!(issue.params().get("value").map(|v| v.as_str()), Some(Some("x")));
+        assert_eq!(issue.params().get("min").and_then(|v| v.as_i64()), Some(3));
+        assert_eq!(issue.params().get("max").and_then(|v| v.as_i64()), Some(3));
     }
     #[test]
     fn process_returns_nested_struct_path() {
@@ -215,10 +268,10 @@ mod tests {
         let errors = value.validate().expect_err("expected validation failure");
         let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
         assert_eq!(issues.len(), 1);
-        let (code, path, _message, params) = &issues[0];
-        assert!(matches!(code, ErrorCode::Email));
-        assert_eq!(path.as_deref(), Some("child.email"));
-        assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
+        let issue = &issues[0];
+        assert!(matches!(issue.code(), ErrorCode::Email));
+        assert_eq!(issue.path(), Some("child.email"));
+        assert_eq!(issue.params().get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
     }
     #[test]
     fn process_returns_nested_list_index_path() {
@@ -235,10 +288,10 @@ mod tests {
         let errors = value.validate().expect_err("expected validation failure");
         let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
         assert_eq!(issues.len(), 1);
-        let (code, path, _message, params) = &issues[0];
-        assert!(matches!(code, ErrorCode::Email));
-        assert_eq!(path.as_deref(), Some("children[1].email"));
-        assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("invalid")));
+        let issue = &issues[0];
+        assert!(matches!(issue.code(), ErrorCode::Email));
+        assert_eq!(issue.path(), Some("children[1].email"));
+        assert_eq!(issue.params().get("value").map(|v| v.as_str()), Some(Some("invalid")));
     }
     #[test]
     fn process_returns_none_path_for_root_field_errors() {
@@ -254,12 +307,12 @@ mod tests {
             .expect("expected field-level validation errors for name");
         let issues = process("", ValidationErrorsKind::Field(field_errors));
         assert_eq!(issues.len(), 1);
-        let (code, path, message, params) = &issues[0];
-        assert!(matches!(code, ErrorCode::Length));
-        assert_eq!(*path, None);
-        assert_eq!(message, "length");
-        assert_eq!(params.get("value").map(|v| v.as_str()), Some(Some("x")));
-        assert_eq!(params.get("min").and_then(|v| v.as_i64()), Some(3));
+        let issue = &issues[0];
+        assert!(matches!(issue.code(), ErrorCode::Length));
+        assert_eq!(issue.path(), None);
+        assert_eq!(issue.message(), "length");
+        assert_eq!(issue.params().get("value").map(|v| v.as_str()), Some(Some("x")));
+        assert_eq!(issue.params().get("min").and_then(|v| v.as_i64()), Some(3));
     }
     #[test]
     fn process_serializes_array_param_values() {
@@ -269,12 +322,12 @@ mod tests {
         let errors = value.validate().expect_err("expected validation failure");
         let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
         assert_eq!(issues.len(), 1);
-        let (code, path, message, params) = &issues[0];
-        assert!(matches!(code, ErrorCode::Length));
-        assert_eq!(path.as_deref(), Some("tags"));
-        assert_eq!(message, "length");
+        let issue = &issues[0];
+        assert!(matches!(issue.code(), ErrorCode::Length));
+        assert_eq!(issue.path(), Some("tags"));
+        assert_eq!(issue.message(), "length");
         assert_eq!(
-            params.get("value").and_then(|v| v.as_array()).map(|items| {
+            issue.params().get("value").and_then(|v| v.as_array()).map(|items| {
                 items
                     .iter()
                     .filter_map(|item| item.as_str())
@@ -283,6 +336,15 @@ mod tests {
             }),
             Some(vec!["one".to_string(), "two".to_string()])
         );
-        assert_eq!(params.get("min").and_then(|v| v.as_i64()), Some(3));
+        assert_eq!(issue.params().get("min").and_then(|v| v.as_i64()), Some(3));
+    }
+    #[test]
+    fn source_text_formats_array_values_as_markdown_list() {
+        let mut params: HashMap<String, Value> = HashMap::new();
+        params.insert("value".to_string(), serde_json::json!(["alpha", "beta"]));
+        let issue = ValidationIssue::new(ErrorCode::Section, Some("sections.impact".to_string()), "section".to_string(), params);
+        let source = issue.source_text();
+        assert!(source.contains("- \"alpha\""));
+        assert!(source.contains("- \"beta\""));
     }
 }

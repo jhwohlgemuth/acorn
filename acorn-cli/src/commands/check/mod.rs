@@ -66,6 +66,8 @@ pub async fn run(
             print_summary(&all_issues, &paths);
         }
     }
+    let result = acorn::analyzer::checks_to_dataframe(&all_issues);
+    dbg!(&result);
     if !(all_issues.is_empty() || *no_fail) {
         exit(exitcode::DATAERR);
     }

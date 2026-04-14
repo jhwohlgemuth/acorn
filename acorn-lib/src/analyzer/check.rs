@@ -9,7 +9,7 @@ use crate::io::InputOutput;
 #[cfg(feature = "analysis")]
 use crate::prelude::Cursor;
 use crate::prelude::{HashMap, PathBuf};
-use crate::util::{Label, StringConversion, ToMarkdown, ToProse};
+use crate::util::{Label, StringConversion, ToProse};
 use crate::{check, check_err, check_ok};
 use ariadne::{Color, Config, Report, ReportKind, Source};
 use bon::Builder;
@@ -244,7 +244,7 @@ impl Check {
                                 .with_config(Config::default().with_compact(false))
                                 .with_message(check)
                                 .with_label(
-                                    ariadne::Label::new((&title, highlighted_span(source.clone(), span, *line)))
+                                    ariadne::Label::new((&title, highlighted_span(&source, span, *line)))
                                         .with_message(message.italic())
                                         .with_color(severity.into()),
                                 )
@@ -297,44 +297,29 @@ impl Check {
                 }
             },
             | CheckCategory::Schema => {
-                let report_kind: ReportKind<'static> = severity.clone().into();
-                let title = uri.clone().unwrap();
+                let title = uri.clone().unwrap_or_default();
                 match &errors {
                     | Some(ErrorKind::Validator(validator_kind)) => {
-                        process(&message, validator_kind.clone())
-                            .iter()
-                            .enumerate()
-                            .for_each(|(index, (code, path, message, params))| {
-                                let title_message = match path {
-                                    | Some(value) => match params.get("index") {
-                                        | Some(Value::Number(index)) => format!("{}[{}]", value, index),
-                                        | None | Some(_) => value.to_string(),
-                                    },
-                                    | None => code.to_string().to_uppercase(),
-                                };
-                                let text = match params.get("value") {
-                                    | Some(Value::Array(items)) => items.iter().map(|item| item.to_string()).collect::<Vec<_>>().to_markdown(),
-                                    | Some(value) => value.to_string(),
-                                    | None => "".to_string(),
-                                };
-                                let source_text = if text.is_empty() { " ".to_string() } else { text.clone() };
-                                let source = Source::from(source_text.clone());
-                                let span = match highlighted_span_from_params(source.clone(), code.clone(), params.clone()) {
-                                    | Some(span) => span,
-                                    | None => 0..=source_text.len().saturating_sub(1),
-                                };
-                                let _ = Report::build(report_kind, (&title, 1..=1))
-                                    .with_code(index)
-                                    .with_config(Config::default().with_compact(false))
-                                    .with_message(title_message)
-                                    .with_label(
-                                        ariadne::Label::new((&title, span))
-                                            .with_message(message.italic())
-                                            .with_color(severity.clone().into()),
-                                    )
-                                    .finish()
-                                    .print((&title, source));
-                            });
+                        process(&message, validator_kind.clone()).iter().enumerate().for_each(|(index, issue)| {
+                            let locator = issue.locator();
+                            let source_text = issue.source_text();
+                            let source = Source::from(source_text.clone());
+                            let span = match highlighted_span_from_params(&source, issue.code(), issue.params()) {
+                                | Some(span) => span,
+                                | None => 0..=source_text.len().saturating_sub(1),
+                            };
+                            let _ = Report::build(severity.clone().into(), (&title, 1..=1))
+                                .with_code(index)
+                                .with_config(Config::default().with_compact(false))
+                                .with_message(locator)
+                                .with_label(
+                                    ariadne::Label::new((&title, span))
+                                        .with_message(issue.message().italic())
+                                        .with_color(severity.clone().into()),
+                                )
+                                .finish()
+                                .print((&title, source));
+                        });
                     }
                     | None | Some(_) => {
                         info!("=> {} {title} has {}", Label::pass(), "no schema validation issues".green().bold());
@@ -450,9 +435,14 @@ impl fmt::Display for Check {
                     let severity = severity_colored(&self.severity);
                     let rows = process(&prefix, kind.clone());
                     let last = rows.len().saturating_sub(1);
-                    rows.iter().enumerate().try_for_each(|(index, (code, path, message, _params))| {
-                        let field = path.clone().unwrap_or_default();
-                        let details = format!("{message} {}{}", "code=".dimmed(), code.to_string().to_uppercase().dimmed());
+                    rows.iter().enumerate().try_for_each(|(index, issue)| {
+                        let field = issue.path().unwrap_or_default().to_string();
+                        let details = format!(
+                            "{} {}{}",
+                            issue.message(),
+                            "code=".dimmed(),
+                            issue.code().to_string().to_uppercase().dimmed()
+                        );
                         f.write_fmt(format_args!("{}", format_row(field, severity.clone(), details)))
                             .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
                     })
@@ -576,7 +566,7 @@ pub fn checks_to_csv(values: &[Check]) -> PolarsResult<String> {
     }
 }
 /// Calculate a highlighted byte span for a single line in a source report.
-pub fn highlighted_span(source: Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
+pub fn highlighted_span(source: &Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
     let selected = (line_number as usize) - 1;
     let begin = source.lines().take(selected).fold((span[0] - 1) as usize, |acc, line| acc + line.len());
     let character_count = (span[1] as usize) - (span[0] as usize);
@@ -584,7 +574,7 @@ pub fn highlighted_span(source: Source, span: &[u32], line_number: u32) -> Range
     begin..=end
 }
 /// Calculate a highlighted span for an indexed value in an array-like source.
-pub fn highlighted_span_for_array(source: Source, params: HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
+pub fn highlighted_span_for_array(source: &Source, params: &HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
     match params.get("index") {
         | Some(Value::Number(index)) => match index.as_u64() {
             | Some(index) => match params.get("value") {
@@ -593,7 +583,7 @@ pub fn highlighted_span_for_array(source: Source, params: HashMap<String, Value>
                     let end = (value[index as usize].to_string().len() + 1) as u32;
                     let span = &[4, end];
                     let line = (index + PADDING) as u32;
-                    Some(highlighted_span(source.clone(), span, line))
+                    Some(highlighted_span(source, span, line))
                 }
                 | Some(_) | None => None,
             },
@@ -603,7 +593,7 @@ pub fn highlighted_span_for_array(source: Source, params: HashMap<String, Value>
     }
 }
 /// Select a highlighted span based on validator error code and parameters.
-pub fn highlighted_span_from_params(source: Source, code: ErrorCode, params: HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
+pub fn highlighted_span_from_params(source: &Source, code: &ErrorCode, params: &HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
     match code {
         | ErrorCode::Latitude => {
             // TODO: Implement highlighting for latitude errors
@@ -620,11 +610,11 @@ pub fn highlighted_span_from_params(source: Source, code: ErrorCode, params: Has
             // TODO: Implement highlighting for longitude errors
             None
         }
-        | ErrorCode::Section => match highlighted_span_for_array(source.clone(), params.clone()) {
+        | ErrorCode::Section => match highlighted_span_for_array(source, params) {
             | Some(span) => Some(span),
             | None => None,
         },
-        | _ if params.get("index").is_some() => match highlighted_span_for_array(source.clone(), params.clone()) {
+        | _ if params.get("index").is_some() => match highlighted_span_for_array(source, params) {
             | Some(span) => Some(span),
             | None => None,
         },
