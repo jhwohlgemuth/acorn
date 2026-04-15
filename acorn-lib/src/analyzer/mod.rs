@@ -229,7 +229,7 @@ impl Analysis for Cff {
         let futures = paths.into_iter().map(|path| async move {
             match Self::read(&path) {
                 | Ok(data) => {
-                    let link_futures = links(data).into_iter().map(|url| link_check(Some(url)));
+                    let link_futures = links(data).into_iter().map(|url| link_check(Some(url), None));
                     join_all(link_futures)
                         .await
                         .into_iter()
@@ -332,7 +332,7 @@ impl Analysis for ResearchActivity {
                         | None => vec![],
                     };
                     let links: Vec<String> = dois.into_iter().chain(websites).chain([data.clone().contact.url]).collect();
-                    let link_futures = links.into_iter().map(|url| link_check(Some(url)));
+                    let link_futures = links.into_iter().map(|url| link_check(Some(url), None));
                     join_all(link_futures)
                         .await
                         .into_iter()
@@ -851,17 +851,17 @@ pub(crate) fn convert_lychee_response(value: Response) -> Check {
     }
 }
 /// Perform link check on given URL using Lychee
-pub async fn link_check(uri: Option<String>) -> Check {
+pub async fn link_check(uri: Option<String>, locator: Option<String>) -> Check {
     match uri {
         | Some(value) => {
             let context = value.clone();
             let result = lychee_lib::check(value.as_str()).await;
             match result {
-                | Ok(response) => convert_lychee_response(response).with_context(context),
-                | Err(_) => check_err!(CheckCategory::Link, context: context, message: "Unreachable"),
+                | Ok(response) => convert_lychee_response(response).with_context(context).with_locator(locator),
+                | Err(_) => check_err!(CheckCategory::Link, context: context, message: "Unreachable").with_locator(locator),
             }
         }
-        | None => check_err!(CheckCategory::Link, message: "Missing URL"),
+        | None => check_err!(CheckCategory::Link, message: "Missing URL").with_locator(locator),
     }
 }
 /// Prints `text` to stdout using syntax highlighting for the specified `syntax`.

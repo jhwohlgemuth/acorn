@@ -263,17 +263,14 @@ impl Check {
             },
             | CheckCategory::Quality => unimplemented!(),
             | CheckCategory::Readability => match &errors {
-                | Some(ErrorKind::Readability((readability_index, readability_type))) => {
+                | Some(ErrorKind::Readability((_readability_index, readability_type))) => {
                     let kind: ReportKind<'static> = severity.clone().into();
                     let title = uri.as_deref().unwrap_or_default();
-                    let threshold = context.as_deref().unwrap_or_default();
                     let metric = readability_type.to_string().to_uppercase();
-                    let source_text =
-                        format!("Text was analyzed for readability using the {metric} metric. It has a score of {readability_index} which is > {threshold}.");
+                    let source_text = format!("Prose was analyzed for readability using the {metric} metric ({message})");
                     let source = Source::from(source_text.clone());
-                    let index_text = readability_index.to_string();
-                    let start = source_text.find(index_text.as_str()).unwrap_or_default();
-                    let end = start + index_text.len().saturating_sub(1);
+                    let start = source_text.find(&message).unwrap_or_default();
+                    let end = start + message.len().saturating_sub(1);
                     let _ = Report::build(kind, (&title, 1..=1))
                         .with_code(index)
                         .with_config(Config::default().with_compact(false))
@@ -347,6 +344,20 @@ impl Check {
             maybe_errors: self.errors
         )
     }
+    /// Returns a new LinkCheckResult with the given locator
+    pub fn with_locator(self, value: Option<String>) -> Self {
+        check!(
+            self.category,
+            self.success,
+            severity: self.severity,
+            maybe_uri: self.uri,
+            maybe_context: self.context,
+            maybe_locator: value,
+            message: self.message,
+            maybe_status_code: self.status_code,
+            maybe_errors: self.errors
+        )
+    }
     /// Returns a new LinkCheckResult with the given URL
     pub fn with_uri(self, value: String) -> Self {
         check!(
@@ -407,21 +418,13 @@ impl fmt::Display for Check {
             },
             | CheckCategory::Quality => unimplemented!(),
             | CheckCategory::Readability => {
-                let Check { context, errors, uri, .. } = self;
+                let Check {
+                    errors, message, severity, ..
+                } = self;
                 match &errors {
-                    | Some(ErrorKind::Readability(values)) => {
-                        let (index, readability_type) = values;
-                        let rtype = readability_type.to_string().to_uppercase().dimmed().to_string();
-                        let max = context.as_deref().unwrap_or("").cyan().to_string();
-                        let severity = self.severity.colored();
-                        let details = format!(
-                            "Simplify language for a general audience ({} should be < {max}) {}{rtype} {}{}",
-                            index.to_string().red().bold(),
-                            "type=".dimmed(),
-                            "path=".dimmed(),
-                            uri.as_deref().unwrap_or_default().dimmed(),
-                        );
-                        f.write_fmt(format_args!("{}", format_row("".to_string(), severity, details)))
+                    | Some(ErrorKind::Readability((_readability_index, _readability_type))) => {
+                        let details = format!("Simplify language for a general audience {}", message.dimmed());
+                        f.write_fmt(format_args!("{}", format_row("".to_string(), severity.colored(), details)))
                     }
                     | None | Some(_) => write!(f, ""),
                 }
@@ -523,7 +526,8 @@ where
         .par_iter()
         .map(|path| match T::read(path) {
             | Ok(data) => {
-                let index = readability_metric.calculate(&data.to_prose());
+                let content = data.to_prose();
+                let calculated_index = readability_metric.calculate(&content);
                 let maximum = match readability_metric.maximum_allowed_from_env() {
                     | Some(value) => {
                         debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
@@ -531,23 +535,25 @@ where
                     }
                     | None => readability_metric.maximum_allowed(),
                 };
-                debug!(value = index, "=> {} Readability index", Label::using());
-                if index > maximum {
-                    let errors = ErrorKind::Readability((index, readability_metric));
+                debug!(value = calculated_index, "=> {} Readability index", Label::using());
+                let score = format!("{} = {calculated_index}/{maximum}", readability_metric.to_string().to_uppercase());
+                if calculated_index > maximum {
+                    let errors = ErrorKind::Readability((calculated_index, readability_metric));
                     check!(
                         CheckCategory::Readability,
                         false,
                         severity: CheckSeverity::Warning,
                         uri: path.file_name_with_parent(),
                         errors: errors,
-                        context: maximum.to_string()
+                        message: score,
+                        context: content
                     )
                 } else {
-                    let score = format!("({} = {}/{})", readability_metric.to_string().to_uppercase(), index, maximum);
                     check_ok!(
                         CheckCategory::Readability,
                         uri: path.file_name_with_parent(),
-                        context: score
+                        message: score,
+                        context: content
                     )
                 }
             }
