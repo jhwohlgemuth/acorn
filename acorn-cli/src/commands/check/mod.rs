@@ -147,9 +147,9 @@ async fn collect_checks<T: Analysis>(
         .into_iter()
         .chain(schema_checks)
         .chain(prose_checks)
+        .chain(website_checks)
         .chain(readability_checks)
         .chain(quality_checks)
-        .chain(website_checks)
         .filter(|Check { success, .. }| !success)
         .collect()
 }
