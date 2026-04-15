@@ -13,7 +13,7 @@ use ariadne::Color;
 use ariadne::ReportKind;
 use ariadne::Source;
 use serde_json::Value;
-use validator::{ValidationError, ValidationErrors, ValidationErrorsKind};
+use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
 
 #[test]
 fn test_cff_validation_issues_invalid_doi() {
@@ -487,4 +487,35 @@ fn test_with_context_and_with_uri_preserve_severity() {
     let with_uri = check.with_uri("https://example.org".to_string());
     assert_eq!(with_context.severity, CheckSeverity::Warning);
     assert_eq!(with_uri.severity, CheckSeverity::Warning);
+}
+#[test]
+fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
+    #[derive(Validate)]
+    struct ChildModel {
+        #[validate(email)]
+        email: String,
+    }
+    #[derive(Validate)]
+    struct ParentListModel {
+        #[validate(nested)]
+        children: Vec<ChildModel>,
+    }
+    let value = ParentListModel {
+        children: vec![
+            ChildModel {
+                email: "valid@example.com".to_string(),
+            },
+            ChildModel {
+                email: "invalid".to_string(),
+            },
+        ],
+    };
+    let checks = collect_validation_checks(value);
+    assert_eq!(checks.len(), 1);
+    let rendered = format!("{}", checks[0]);
+    assert!(
+        rendered.contains("children[1].email"),
+        "expected nested indexed path in display output: {rendered}"
+    );
+    assert!(rendered.contains("EMAIL"), "expected EMAIL code in display output: {rendered}");
 }

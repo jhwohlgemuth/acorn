@@ -189,6 +189,7 @@ impl Check {
     pub fn report(&self) {
         let Check {
             category,
+            locator,
             context,
             errors,
             severity,
@@ -301,7 +302,8 @@ impl Check {
                 let title = uri.clone().unwrap_or_default();
                 match &errors {
                     | Some(ErrorKind::Validator(validator_kind)) => {
-                        process(&message, validator_kind.clone()).iter().enumerate().for_each(|(index, issue)| {
+                        let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(&message);
+                        process(prefix, validator_kind).iter().enumerate().for_each(|(index, issue)| {
                             let locator = issue.locator();
                             let source_text = issue.source_text();
                             let source = Source::from(source_text.clone());
@@ -364,11 +366,6 @@ impl fmt::Display for Check {
         const COL_ONE_WIDTH: usize = 25;
         const COL_TWO_WIDTH: usize = 29;
         let format_row = |first: String, second: String, third: String| format!("{INDENT}{first:<COL_ONE_WIDTH$} {second:<COL_TWO_WIDTH$} {third}");
-        let severity_colored = |severity: &CheckSeverity| match severity {
-            | CheckSeverity::Error => severity.to_string().red().bold().to_string(),
-            | CheckSeverity::Suggestion => severity.to_string().blue().bold().to_string(),
-            | CheckSeverity::Warning => severity.to_string().yellow().bold().to_string(),
-        };
         match self.category {
             | CheckCategory::Link => {
                 let Check {
@@ -386,7 +383,7 @@ impl fmt::Display for Check {
                     .as_ref()
                     .map(|value| value.to_string().underline().italic().to_string())
                     .unwrap_or_else(|| "Missing".to_string());
-                let severity = severity_colored(severity);
+                let severity = severity.colored();
                 let details = format!("{context} {}{code}", message.dimmed());
                 write!(f, "{}", format_row("".to_string(), severity, details))
             }
@@ -400,7 +397,7 @@ impl fmt::Display for Check {
                         let location = item.locator();
                         let severity = CheckSeverity::from(severity.clone());
                         let details = format!("{} {}{}", message, "rule=".dimmed(), check.dimmed());
-                        f.write_fmt(format_args!("{}", format_row(location, severity_colored(&severity), details)))
+                        f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
                             .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
                     })
                 }
@@ -414,7 +411,7 @@ impl fmt::Display for Check {
                         let (index, readability_type) = values;
                         let rtype = readability_type.to_string().to_uppercase().dimmed().to_string();
                         let max = context.as_deref().unwrap_or("").cyan().to_string();
-                        let severity = severity_colored(&self.severity);
+                        let severity = self.severity.colored();
                         let details = format!(
                             "Simplify language for a general audience ({} should be < {max}) {}{rtype} {}{}",
                             index.to_string().red().bold(),
@@ -429,19 +426,35 @@ impl fmt::Display for Check {
             }
             | CheckCategory::Schema => match &self.errors {
                 | Some(ErrorKind::Validator(kind)) => {
-                    let Check { message: prefix, .. } = self.clone();
-                    let severity = severity_colored(&self.severity);
-                    let rows = process(&prefix, kind.clone());
+                    let Check {
+                        context,
+                        locator,
+                        message,
+                        severity,
+                        ..
+                    } = self;
+                    let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(message.as_str());
+                    let rows = process(prefix, kind);
                     let last = rows.len().saturating_sub(1);
                     rows.iter().enumerate().try_for_each(|(index, issue)| {
-                        let field = issue.path.clone().unwrap_or_default();
+                        let location = issue.locator();
                         let details = format!("{} {}{}", issue.message, "code=".dimmed(), issue.code.to_string().to_uppercase().dimmed());
-                        f.write_fmt(format_args!("{}", format_row(field, severity.clone(), details)))
+                        f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
                             .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
                     })
                 }
                 | None | Some(_) => write!(f, ""),
             },
+        }
+    }
+}
+impl CheckSeverity {
+    /// Returns a colored string representation of the severity level
+    pub fn colored(&self) -> String {
+        match self {
+            | Self::Error => self.to_string().red().bold().to_string(),
+            | Self::Suggestion => self.to_string().blue().bold().to_string(),
+            | Self::Warning => self.to_string().yellow().bold().to_string(),
         }
     }
 }

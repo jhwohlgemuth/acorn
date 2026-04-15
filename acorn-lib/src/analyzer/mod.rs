@@ -51,7 +51,7 @@ pub use check::{
 };
 
 use check::check_readability_for;
-use error::ErrorKind;
+use error::{process, ErrorKind};
 use vale::{Vale, ValeConfig};
 
 /// Trait for adding analysis capabilities
@@ -752,11 +752,24 @@ where
         .validate()
         .err()
         .into_iter()
-        .map(|err| {
-            check_err!(
-                CheckCategory::Schema,
-                errors: ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(err)))
-            )
+        .flat_map(|err| {
+            let kind = ValidationErrorsKind::Struct(Box::new(err));
+            process("", &kind).into_iter().map(|issue| {
+                let validator_error = validator::ValidationError {
+                    code: issue.code.to_string().into(),
+                    message: Some(issue.message.clone().into()),
+                    params: issue.params.clone().into_iter().map(|(key, value)| (key.into(), value)).collect(),
+                };
+                let errors = ValidationErrorsKind::Field(vec![validator_error]);
+                let prefix = issue.path.clone().unwrap_or_else(|| issue.locator());
+                check_err!(
+                    CheckCategory::Schema,
+                    locator: issue.locator(),
+                    context: prefix,
+                    message: issue.message,
+                    errors: ErrorKind::Validator(errors)
+                )
+            })
         })
         .collect()
 }

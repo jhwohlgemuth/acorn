@@ -116,7 +116,7 @@ impl From<&str> for ErrorCode {
             | "raid" | "raìd" => Self::Raid,
             | "range" => Self::Range,
             | "ror" => Self::Ror,
-            | "sections.approach" | "sections.areas" | "sections.capabilities" | "sections.impact" => Self::Section,
+            | "section" | "sections.approach" | "sections.areas" | "sections.capabilities" | "sections.impact" => Self::Section,
             | "url" | "urls" => Self::Url,
             | "year" => Self::Year,
             | _ => Self::Other,
@@ -127,7 +127,7 @@ impl ErrorKind {
     /// Process errors to a list of `(code, path, message, params)` tuples.
     pub fn process(self, prefix: &str) -> Vec<ValidatorIssue> {
         match self {
-            | ErrorKind::Validator(kind) => process(prefix, kind),
+            | ErrorKind::Validator(kind) => process(prefix, &kind),
             | _ => vec![],
         }
     }
@@ -153,13 +153,13 @@ impl Location for ValidatorIssue {
     }
 }
 /// Process validator errors into a more manageable form
-pub fn process(path: &str, kind: ValidationErrorsKind) -> Vec<ValidatorIssue> {
+pub fn process(path: &str, kind: &ValidationErrorsKind) -> Vec<ValidatorIssue> {
     match kind {
         | ValidationErrorsKind::Field(errors) => {
             let result = errors
-                .into_iter()
+                .iter()
                 .map(|error| {
-                    let ValidationError { code, message, params } = error;
+                    let ValidationError { code, message, params } = error.clone();
                     let path = if path.is_empty() { None } else { Some(path.to_string()) };
                     let message = message.map(|m| m.to_string()).unwrap_or_else(|| code.to_string());
                     let params = params
@@ -178,22 +178,23 @@ pub fn process(path: &str, kind: ValidationErrorsKind) -> Vec<ValidatorIssue> {
         }
         | ValidationErrorsKind::Struct(errors) => {
             let result: Vec<ValidatorIssue> = errors
+                .clone()
                 .into_errors()
                 .into_iter()
                 .flat_map(|(field, kind)| {
                     let prefix = if path.is_empty() { "".to_string() } else { format!("{path}.") };
-                    process(&format!("{prefix}{field}"), kind)
+                    process(&format!("{prefix}{field}"), &kind)
                 })
                 .collect();
             result
         }
         | ValidationErrorsKind::List(errors) => {
             let result: Vec<ValidatorIssue> = errors
-                .into_iter()
+                .iter()
                 .flat_map(|(index, error)| {
                     let prefix = if path.is_empty() { "".to_string() } else { path.to_string() };
-                    let kind = ValidationErrorsKind::Struct(error);
-                    process(&format!("{prefix}[{index}]"), kind)
+                    let kind = ValidationErrorsKind::Struct(error.clone());
+                    process(&format!("{prefix}[{index}]"), &kind)
                 })
                 .collect();
             result
@@ -295,7 +296,8 @@ mod tests {
                 | _ => None,
             })
             .expect("expected field-level validation errors for name");
-        let issues = process("", ValidationErrorsKind::Field(field_errors));
+        let kind = ValidationErrorsKind::Field(field_errors);
+        let issues = process("", &kind);
         assert_eq!(issues.len(), 1);
         let issue = &issues[0];
         assert!(matches!(issue.code, ErrorCode::Length));
