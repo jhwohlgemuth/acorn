@@ -9,13 +9,13 @@ use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::io::http::get;
 use crate::io::InputOutput;
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder, ApiResult};
-use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, PathBuf};
+use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, Path, PathBuf};
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::standard::cff::{Cff, Identifier, IdentifierType, Reference};
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::{APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
-use crate::util::{Constant, Label, SemanticVersion, StringConversion, ToProse};
+use crate::util::{Constant, Label, SemanticVersion, StringConversion};
 use crate::{check, check_err, check_ok};
 use crate::{cmd, skip};
 use crate::{Location, Repository};
@@ -45,29 +45,16 @@ pub mod readability;
 pub mod vale;
 
 #[cfg(feature = "analysis")]
-pub use check::{checks_to_csv, checks_to_dataframe, IntoRow};
+pub use check::{checks_to_csv, checks_to_dataframe, Analysis, IntoRow};
 pub use check::{
     highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, Check, CheckCategory, CheckOptions, CheckSeverity, Standard,
 };
 
-use check::check_readability_for;
+#[cfg(feature = "analysis")]
+use check::{check_prose_for, check_readability_for};
 use error::{process, ErrorKind};
 use vale::{Vale, ValeConfig};
 
-/// Trait for adding analysis capabilities
-#[async_trait]
-pub trait Analysis {
-    /// Perform analysis of prose
-    async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
-    /// Perform quality checks and verify data consistency
-    fn check_quality(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
-    /// Calculate readability using a given metric
-    fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
-    /// Execute validation checks for a given item
-    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check>;
-    /// Check if URLs links are valid and readable
-    async fn check_websites(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
-}
 /// Trait for static analyzers (e.g. Vale)
 #[async_trait]
 pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
@@ -108,41 +95,11 @@ pub trait StaticAnalyzerConfig {
 }
 #[async_trait]
 impl Analysis for Cff {
+    fn standard() -> Standard {
+        Standard::CitationFileFormat
+    }
     async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
-        let CheckOptions {
-            offline,
-            skip_verify_checksum,
-            vale_config,
-            ..
-        } = options.cloned().unwrap_or_default();
-        let config = vale_config.unwrap_or_default().save().await;
-        let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
-        match vale.clone().sync(offline).await {
-            | Ok(_) => {
-                let results = paths.into_iter().map(|path| {
-                    let vale = vale.clone();
-                    async move {
-                        match Self::read(&path) {
-                            | Ok(data) => {
-                                let identifier = path.file_name_with_parent();
-                                let output = standard_project_folder("check", None).join(identifier);
-                                let content = data.to_prose();
-                                vale.run(output, content, Some("JSON".into())).await
-                            }
-                            | Err(why) => {
-                                error!("=> {} Read CFF data — {why}", Label::fail());
-                                vec![check_err!(CheckCategory::Prose)]
-                            }
-                        }
-                    }
-                });
-                join_all(results).await.into_iter().flatten().collect()
-            }
-            | Err(why) => {
-                error!("=> {} Vale sync — {why}", Label::fail());
-                vec![check_err!(CheckCategory::Prose)]
-            }
-        }
+        check_prose_for::<Self>(paths, options).await
     }
     fn check_quality(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
@@ -265,44 +222,17 @@ impl Analysis for Cff {
         });
         join_all(futures).await.into_iter().flatten().collect()
     }
+    fn prose_output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
 }
 #[async_trait]
 impl Analysis for ResearchActivity {
+    fn standard() -> Standard {
+        Standard::ResearchActivityData
+    }
     async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
-        let CheckOptions {
-            offline,
-            skip_verify_checksum,
-            vale_config,
-            ..
-        } = options.cloned().unwrap_or_default();
-        let config = vale_config.unwrap_or_default().save().await;
-        let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
-        match vale.clone().sync(offline).await {
-            | Ok(_) => {
-                let results = paths.into_iter().map(|path| {
-                    let vale = vale.clone();
-                    async move {
-                        match Self::read(&path) {
-                            | Ok(data) => {
-                                let identifier = data.meta.identifier.to_lowercase();
-                                let output = standard_project_folder("check", None).join(identifier).join("index.json");
-                                let content = data.to_prose();
-                                vale.run(output, content, Some("JSON".into())).await
-                            }
-                            | Err(why) => {
-                                error!("=> {} Read research activity data — {why}", Label::fail());
-                                vec![check_err!(CheckCategory::Prose)]
-                            }
-                        }
-                    }
-                });
-                join_all(results).await.into_iter().flatten().collect()
-            }
-            | Err(why) => {
-                error!("=> {} Vale sync — {why}", Label::fail());
-                vec![check_err!(CheckCategory::Prose)]
-            }
-        }
+        check_prose_for::<Self>(paths, options).await
     }
     fn check_quality(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
@@ -338,7 +268,6 @@ impl Analysis for ResearchActivity {
             })
             .collect()
     }
-    /// Checks links associated with research activity (DOIs, websites, contact URL) for availability and readability
     #[cfg(feature = "std")]
     async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
         let futures = paths.into_iter().map(|path| async move {
@@ -375,6 +304,11 @@ impl Analysis for ResearchActivity {
             }
         });
         join_all(futures).await.into_iter().flatten().collect()
+    }
+    fn prose_output_path(_path: &Path, data: &Self) -> PathBuf {
+        standard_project_folder("check", None)
+            .join(data.meta.identifier.to_lowercase())
+            .join("index.json")
     }
 }
 #[async_trait]

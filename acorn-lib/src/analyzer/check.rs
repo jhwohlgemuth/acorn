@@ -2,22 +2,24 @@
 
 use super::error::{process, ErrorCode, ErrorKind, Location};
 use super::readability::ReadabilityType;
+use super::vale::{Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
 #[cfg(feature = "analysis")]
-use super::to_dataframe;
-use super::vale::{ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
+use super::{to_dataframe, StaticAnalyzer, StaticAnalyzerConfig};
 use crate::io::InputOutput;
 #[cfg(feature = "analysis")]
 use crate::prelude::Cursor;
-use crate::prelude::{HashMap, PathBuf};
+use crate::prelude::{HashMap, Path, PathBuf};
 use crate::util::{Label, StringConversion, ToProse};
 use crate::{check, check_err, check_ok};
 use ariadne::{Color, Config, Report, ReportKind, Source};
+use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
 use core::fmt;
 use core::ops::RangeInclusive;
 use derive_more::Display;
+use futures::future::join_all;
 #[cfg(feature = "analysis")]
 use polars::{
     frame::row::Row,
@@ -26,9 +28,28 @@ use polars::{
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde_json::Value;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use validator::ValidationErrorsKind;
 
+/// Trait for adding analysis capabilities
+#[cfg(feature = "analysis")]
+#[async_trait]
+pub trait Analysis {
+    /// Perform analysis of prose
+    async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
+    /// Perform quality checks and verify data consistency
+    fn check_quality(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
+    /// Calculate readability using a given metric
+    fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
+    /// Execute validation checks for a given item
+    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check>;
+    /// Check if URLs links are valid and readable
+    async fn check_websites(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
+    /// Returns the metadata standard represented by the implementing type.
+    fn standard() -> Standard;
+    /// Returns the output path used for Vale analysis artifacts.
+    fn prose_output_path(path: &Path, data: &Self) -> PathBuf;
+}
 /// Trait for converting to a ([Polars]) row
 ///
 /// [Polars]: https://docs.rs/polars/latest/polars/
@@ -515,6 +536,44 @@ impl<'a> IntoRow<'a> for Check {
             &context.unwrap_or_default(),
         ];
         Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
+    }
+}
+pub(crate) async fn check_prose_for<T>(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>
+where
+    T: Analysis + InputOutput + ToProse,
+{
+    let CheckOptions {
+        offline,
+        skip_verify_checksum,
+        vale_config,
+        ..
+    } = options.cloned().unwrap_or_default();
+    let config = vale_config.unwrap_or_default().save().await;
+    let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
+    match vale.clone().sync(offline).await {
+        | Ok(_) => {
+            let results = paths.into_iter().map(|path| {
+                let vale = vale.clone();
+                async move {
+                    match T::read(&path) {
+                        | Ok(data) => {
+                            let output = T::prose_output_path(&path, &data);
+                            let content = data.to_prose();
+                            vale.run(output, content, Some("JSON".into())).await
+                        }
+                        | Err(why) => {
+                            error!("=> {} Read {} data — {why}", Label::fail(), T::standard());
+                            vec![check_err!(CheckCategory::Prose)]
+                        }
+                    }
+                }
+            });
+            join_all(results).await.into_iter().flatten().collect()
+        }
+        | Err(why) => {
+            error!("=> {} Vale sync — {why}", Label::fail());
+            vec![check_err!(CheckCategory::Prose)]
+        }
     }
 }
 pub(super) fn check_readability_for<T>(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>
