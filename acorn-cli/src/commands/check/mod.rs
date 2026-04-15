@@ -66,8 +66,6 @@ pub async fn run(
             print_summary(&all_issues, &paths);
         }
     }
-    let result = acorn::analyzer::checks_to_dataframe(&all_issues);
-    dbg!(&result);
     if !(all_issues.is_empty() || *no_fail) {
         exit(exitcode::DATAERR);
     }
@@ -92,7 +90,7 @@ async fn collect_checks<T: Analysis>(
         if issue_count > 0 && exit_on_first_error {
             if not_quiet {
                 fail!("ACORN found {} {}", issue_count, issue_label);
-                results.iter().for_each(Check::report);
+                results.iter().enumerate().for_each(|(index, issue)| issue.report(index));
             }
             exit(exitcode::DATAERR);
         }
@@ -154,8 +152,8 @@ async fn collect_checks<T: Analysis>(
         .collect()
 }
 fn print_detailed(issues: &[Check]) {
-    issues.iter().for_each(|issue| {
-        issue.report();
+    issues.iter().enumerate().for_each(|(index, issue)| {
+        issue.report(index);
     });
 }
 fn print_compact(issues: &[Check]) {

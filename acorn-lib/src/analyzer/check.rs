@@ -186,7 +186,7 @@ impl Check {
         }
     }
     /// Fancy output in contrast with more compressed output of Display impl
-    pub fn report(&self) {
+    pub fn report(&self, index: usize) {
         let Check {
             category,
             locator,
@@ -216,6 +216,7 @@ impl Check {
                     let source = Source::from(source_text.clone());
                     let span = 0..=source_text.len().saturating_sub(1);
                     let _ = Report::build(kind, (&title, 1..=1))
+                        .with_code(index)
                         .with_config(Config::default().with_compact(false))
                         .with_message("Website")
                         .with_label(
@@ -231,7 +232,7 @@ impl Check {
                 | Some(ErrorKind::Vale(values)) => {
                     let title = uri.clone().unwrap_or("index.json".to_string());
                     if let Some(text) = &context {
-                        values.iter().enumerate().for_each(|(index, item)| {
+                        values.iter().enumerate().for_each(|(i, item)| {
                             let ValeOutputItem {
                                 check,
                                 line,
@@ -242,7 +243,7 @@ impl Check {
                             } = item;
                             let source = Source::from(text.clone());
                             let _ = Report::build(severity.into(), (&title, 1..=1))
-                                .with_code(index)
+                                .with_code(index + i)
                                 .with_config(Config::default().with_compact(false))
                                 .with_message(check)
                                 .with_label(
@@ -262,18 +263,19 @@ impl Check {
             },
             | CheckCategory::Quality => unimplemented!(),
             | CheckCategory::Readability => match &errors {
-                | Some(ErrorKind::Readability((index, readability_type))) => {
+                | Some(ErrorKind::Readability((readability_index, readability_type))) => {
                     let kind: ReportKind<'static> = severity.clone().into();
                     let title = uri.as_deref().unwrap_or_default();
                     let threshold = context.as_deref().unwrap_or_default();
                     let metric = readability_type.to_string().to_uppercase();
                     let source_text =
-                        format!("Text was analyzed for readability using the {metric} metric. It has a score of {index} which is > {threshold}.");
+                        format!("Text was analyzed for readability using the {metric} metric. It has a score of {readability_index} which is > {threshold}.");
                     let source = Source::from(source_text.clone());
-                    let index_text = index.to_string();
+                    let index_text = readability_index.to_string();
                     let start = source_text.find(index_text.as_str()).unwrap_or_default();
                     let end = start + index_text.len().saturating_sub(1);
                     let _ = Report::build(kind, (&title, 1..=1))
+                        .with_code(index)
                         .with_config(Config::default().with_compact(false))
                         .with_message("Readability")
                         .with_label(
@@ -303,7 +305,7 @@ impl Check {
                 match &errors {
                     | Some(ErrorKind::Validator(validator_kind)) => {
                         let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(&message);
-                        process(prefix, validator_kind).iter().enumerate().for_each(|(index, issue)| {
+                        process(prefix, validator_kind).iter().enumerate().for_each(|(issue_index, issue)| {
                             let locator = issue.locator();
                             let source_text = issue.source_text();
                             let source = Source::from(source_text.clone());
@@ -312,7 +314,7 @@ impl Check {
                                 | None => 0..=source_text.len().saturating_sub(1),
                             };
                             let _ = Report::build(severity.clone().into(), (&title, 1..=1))
-                                .with_code(index)
+                                .with_code(index + issue_index)
                                 .with_config(Config::default().with_compact(false))
                                 .with_message(locator)
                                 .with_label(

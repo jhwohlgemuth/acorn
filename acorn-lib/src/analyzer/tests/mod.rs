@@ -473,7 +473,7 @@ fn test_report_schema_with_missing_value_param_does_not_panic() {
         uri: Some("fixtures/CITATION.cff".to_string()),
         message: "".to_string(),
     };
-    issue.report();
+    issue.report(0);
 }
 #[test]
 fn test_with_context_and_with_uri_preserve_severity() {
