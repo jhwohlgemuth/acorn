@@ -9,6 +9,7 @@ use acorn::util::{print_values_as_table, Label};
 use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
+use color_eyre::owo_colors::OwoColorize;
 use dotenvy::dotenv;
 use std::process::exit;
 use tracing::debug;
@@ -92,7 +93,10 @@ async fn collect_checks<T: Analysis>(
         if issue_count > 0 && exit_on_first_error {
             if not_quiet {
                 fail!("ACORN found {} {}", issue_count, issue_label);
-                results.iter().enumerate().for_each(|(index, issue)| issue.report(index));
+                results
+                    .iter()
+                    .enumerate()
+                    .for_each(|(index, issue)| issue.clone().with_index(index).report());
             }
             exit(exitcode::DATAERR);
         }
@@ -155,12 +159,13 @@ async fn collect_checks<T: Analysis>(
 }
 fn print_detailed(issues: &[Check]) {
     issues.iter().enumerate().for_each(|(index, issue)| {
-        issue.report(index);
+        issue.clone().with_index(index).report();
     });
 }
 fn print_compact(issues: &[Check]) {
     issues.iter().for_each(|issue| {
-        println!("{issue}");
+        let uri = issue.clone().uri.unwrap_or_default();
+        println!("{issue}{}", format!(", path={uri}").dimmed());
     });
 }
 fn print_summary(issues: &[Check], paths: &[PathBuf]) {

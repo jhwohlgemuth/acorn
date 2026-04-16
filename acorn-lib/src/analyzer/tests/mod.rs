@@ -463,6 +463,7 @@ fn test_report_schema_with_missing_value_param_does_not_panic() {
     error.params.clear();
     validation_errors.add("license", error);
     let issue = Check {
+        index: 0,
         category: CheckCategory::Schema,
         locator: None,
         context: None,
@@ -473,7 +474,7 @@ fn test_report_schema_with_missing_value_param_does_not_panic() {
         uri: Some("fixtures/CITATION.cff".to_string()),
         message: "".to_string(),
     };
-    issue.report(0);
+    issue.report();
 }
 #[test]
 fn test_with_context_and_with_uri_preserve_severity() {

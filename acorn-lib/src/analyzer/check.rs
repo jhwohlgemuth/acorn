@@ -121,6 +121,9 @@ pub enum CheckSeverity {
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into))]
 pub struct Check {
+    /// Position of this issue in rendered output
+    #[builder(default = 0)]
+    pub index: usize,
     /// Check category
     pub category: CheckCategory,
     /// Unified issue location for checks (prose location or schema path)
@@ -207,7 +210,8 @@ impl Check {
         }
     }
     /// Fancy output in contrast with more compressed output of Display impl
-    pub fn report(&self, index: usize) {
+    pub fn report(&self) {
+        let index = self.index;
         let Check {
             category,
             locator,
@@ -353,45 +357,22 @@ impl Check {
     }
     /// Returns a new LinkCheckResult with the given context
     pub fn with_context(self, value: String) -> Self {
-        check!(
-            self.category,
-            self.success,
-            context: value,
-            maybe_locator: self.locator,
-            severity: self.severity,
-            maybe_uri: self.uri,
-            message: self.message,
-            maybe_status_code: self.status_code,
-            maybe_errors: self.errors
-        )
+        Self {
+            context: Some(value),
+            ..self
+        }
+    }
+    /// Returns a new LinkCheckResult with the given index
+    pub fn with_index(self, value: usize) -> Self {
+        Self { index: value, ..self }
     }
     /// Returns a new LinkCheckResult with the given locator
     pub fn with_locator(self, value: Option<String>) -> Self {
-        check!(
-            self.category,
-            self.success,
-            severity: self.severity,
-            maybe_uri: self.uri,
-            maybe_context: self.context,
-            maybe_locator: value,
-            message: self.message,
-            maybe_status_code: self.status_code,
-            maybe_errors: self.errors
-        )
+        Self { locator: value, ..self }
     }
     /// Returns a new LinkCheckResult with the given URL
     pub fn with_uri(self, value: String) -> Self {
-        check!(
-            self.category,
-            self.success,
-            severity: self.severity,
-            maybe_locator: self.locator,
-            uri: value,
-            message: self.message,
-            maybe_context: self.context,
-            maybe_status_code: self.status_code,
-            maybe_errors: self.errors
-        )
+        Self { uri: Some(value), ..self }
     }
 }
 impl fmt::Display for Check {
