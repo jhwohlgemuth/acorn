@@ -98,10 +98,10 @@ impl Analysis for Cff {
     fn standard() -> Standard {
         Standard::CitationFileFormat
     }
-    async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    fn check_quality(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
+    fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -114,10 +114,10 @@ impl Analysis for Cff {
             })
             .collect()
     }
-    fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
+    fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
-    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
+    fn check_schema(paths: &[PathBuf]) -> Vec<Check> {
         paths
             .par_iter()
             .flat_map(|path| match Self::read(path) {
@@ -136,87 +136,90 @@ impl Analysis for Cff {
             .collect()
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
-        let futures = paths.into_iter().map(|path| async move {
-            match Self::read(&path) {
-                | Ok(data) => {
-                    let Cff {
-                        identifiers,
-                        license_url,
-                        references,
-                        repository,
-                        repository_artifact,
-                        repository_code,
-                        url,
-                        ..
-                    } = data;
-                    let root_futures = vec![
-                        url.map(|u| link_check(Some(u), Some("url".into()))),
-                        license_url.map(|u| link_check(Some(u), Some("license_url".into()))),
-                        repository.map(|u| link_check(Some(u), Some("repository".into()))),
-                        repository_artifact.map(|u| link_check(Some(u), Some("repository_artifact".into()))),
-                        repository_code.map(|u| link_check(Some(u), Some("repository_code".into()))),
-                    ]
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>();
-                    let identifier_futures = identifiers
-                        .unwrap_or_default()
+    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        let futures = paths.iter().map(|path| {
+            let path = path.clone();
+            async move {
+                match Self::read(&path) {
+                    | Ok(data) => {
+                        let Cff {
+                            identifiers,
+                            license_url,
+                            references,
+                            repository,
+                            repository_artifact,
+                            repository_code,
+                            url,
+                            ..
+                        } = data;
+                        let root_futures = vec![
+                            url.map(|u| link_check(Some(u), Some("url".into()))),
+                            license_url.map(|u| link_check(Some(u), Some("license_url".into()))),
+                            repository.map(|u| link_check(Some(u), Some("repository".into()))),
+                            repository_artifact.map(|u| link_check(Some(u), Some("repository_artifact".into()))),
+                            repository_code.map(|u| link_check(Some(u), Some("repository_code".into()))),
+                        ]
                         .into_iter()
-                        .enumerate()
-                        .filter_map(|(i, Identifier { kind, value, .. })| match kind {
-                            | IdentifierType::Doi => {
-                                let maybe_doi = DOI::from_string(value.clone()).url();
-                                let maybe_url = if maybe_doi.is_empty() { Some(value) } else { Some(maybe_doi) };
-                                Some(link_check(maybe_url, Some(format!("identifiers[{i}].value"))))
-                            }
-                            | IdentifierType::Url => Some(link_check(Some(value), Some(format!("identifiers[{i}].value")))),
-                            | _ => None,
-                        })
+                        .flatten()
                         .collect::<Vec<_>>();
-                    let reference_futures = references
-                        .unwrap_or_default()
-                        .into_iter()
-                        .enumerate()
-                        .flat_map(
-                            |(
-                                i,
-                                Reference {
-                                    doi,
-                                    collection_doi,
-                                    license_url,
-                                    repository,
-                                    repository_artifact,
-                                    repository_code,
-                                    url,
-                                    ..
+                        let identifier_futures = identifiers
+                            .unwrap_or_default()
+                            .into_iter()
+                            .enumerate()
+                            .filter_map(|(i, Identifier { kind, value, .. })| match kind {
+                                | IdentifierType::Doi => {
+                                    let maybe_doi = DOI::from_string(value.clone()).url();
+                                    let maybe_url = if maybe_doi.is_empty() { Some(value) } else { Some(maybe_doi) };
+                                    Some(link_check(maybe_url, Some(format!("identifiers[{i}].value"))))
+                                }
+                                | IdentifierType::Url => Some(link_check(Some(value), Some(format!("identifiers[{i}].value")))),
+                                | _ => None,
+                            })
+                            .collect::<Vec<_>>();
+                        let reference_futures = references
+                            .unwrap_or_default()
+                            .into_iter()
+                            .enumerate()
+                            .flat_map(
+                                |(
+                                    i,
+                                    Reference {
+                                        doi,
+                                        collection_doi,
+                                        license_url,
+                                        repository,
+                                        repository_artifact,
+                                        repository_code,
+                                        url,
+                                        ..
+                                    },
+                                )| {
+                                    vec![
+                                        doi.map(|d| link_check(Some(DOI::from_string(d).url()), Some(format!("references[{i}].doi")))),
+                                        collection_doi
+                                            .map(|d| link_check(Some(DOI::from_string(d).url()), Some(format!("references[{i}].collection_doi")))),
+                                        url.map(|u| link_check(Some(u), Some(format!("references[{i}].url")))),
+                                        license_url.map(|u| link_check(Some(u), Some(format!("references[{i}].license_url")))),
+                                        repository.map(|u| link_check(Some(u), Some(format!("references[{i}].repository")))),
+                                        repository_artifact.map(|u| link_check(Some(u), Some(format!("references[{i}].repository_artifact")))),
+                                        repository_code.map(|u| link_check(Some(u), Some(format!("references[{i}].repository_code")))),
+                                    ]
+                                    .into_iter()
+                                    .flatten()
                                 },
-                            )| {
-                                vec![
-                                    doi.map(|d| link_check(Some(DOI::from_string(d).url()), Some(format!("references[{i}].doi")))),
-                                    collection_doi
-                                        .map(|d| link_check(Some(DOI::from_string(d).url()), Some(format!("references[{i}].collection_doi")))),
-                                    url.map(|u| link_check(Some(u), Some(format!("references[{i}].url")))),
-                                    license_url.map(|u| link_check(Some(u), Some(format!("references[{i}].license_url")))),
-                                    repository.map(|u| link_check(Some(u), Some(format!("references[{i}].repository")))),
-                                    repository_artifact.map(|u| link_check(Some(u), Some(format!("references[{i}].repository_artifact")))),
-                                    repository_code.map(|u| link_check(Some(u), Some(format!("references[{i}].repository_code")))),
-                                ]
-                                .into_iter()
-                                .flatten()
-                            },
-                        )
-                        .collect::<Vec<_>>();
-                    let futures: Vec<_> = root_futures.into_iter().chain(identifier_futures).chain(reference_futures).collect();
-                    join_all(futures)
-                        .await
-                        .into_iter()
-                        .map(|check| check.with_uri(path.file_name_with_parent()))
-                        .collect()
-                }
-                | Err(why) => {
-                    error!("=> {} Read CFF data at {} — {why}", Label::fail(), path.display());
-                    vec![check_err!(CheckCategory::Schema)]
+                            )
+                            .collect::<Vec<_>>();
+                        let futures: Vec<_> = root_futures.into_iter().chain(identifier_futures).chain(reference_futures).collect();
+                        join_all(futures)
+                            .await
+                            .into_iter()
+                            .map(|check| check.with_uri(path.file_name_with_parent()))
+                            .collect()
+                    }
+                    | Err(why) => {
+                        error!("=> {} Read CFF data at {} — {why}", Label::fail(), path.display());
+                        vec![check_err!(CheckCategory::Schema)]
+                    }
                 }
             }
         });
@@ -231,10 +234,10 @@ impl Analysis for ResearchActivity {
     fn standard() -> Standard {
         Standard::ResearchActivityData
     }
-    async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    fn check_quality(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
+    fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -247,10 +250,10 @@ impl Analysis for ResearchActivity {
             })
             .collect()
     }
-    fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check> {
+    fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
-    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check> {
+    fn check_schema(paths: &[PathBuf]) -> Vec<Check> {
         paths
             .par_iter()
             .flat_map(|path| match Self::read(path) {
@@ -269,37 +272,40 @@ impl Analysis for ResearchActivity {
             .collect()
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: Vec<PathBuf>, _options: Option<&CheckOptions>) -> Vec<Check> {
-        let futures = paths.into_iter().map(|path| async move {
-            match Self::read(&path) {
-                | Ok(data) => {
-                    let dois = match data.clone().meta.doi {
-                        | Some(values) => values
+    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        let futures = paths.iter().map(|path| {
+            let path = path.clone();
+            async move {
+                match Self::read(&path) {
+                    | Ok(data) => {
+                        let dois = match data.clone().meta.doi {
+                            | Some(values) => values
+                                .into_iter()
+                                .enumerate()
+                                .map(|(i, doi)| link_check(Some(format!("https://doi.org/{doi}")), Some(format!("meta.doi[{i}]"))))
+                                .collect::<Vec<_>>(),
+                            | None => vec![],
+                        };
+                        let websites = match data.clone().meta.websites {
+                            | Some(values) => values
+                                .into_iter()
+                                .enumerate()
+                                .map(|(i, Website { url, .. })| link_check(Some(url), Some(format!("meta.websites[{i}].url"))))
+                                .collect::<Vec<_>>(),
+                            | None => vec![],
+                        };
+                        let contact = [link_check(Some(data.clone().contact.url), Some("contact.url".into()))];
+                        let links: Vec<_> = [].into_iter().chain(dois).chain(websites).chain(contact).collect();
+                        join_all(links)
+                            .await
                             .into_iter()
-                            .enumerate()
-                            .map(|(i, doi)| link_check(Some(format!("https://doi.org/{doi}")), Some(format!("meta.doi[{i}]"))))
-                            .collect::<Vec<_>>(),
-                        | None => vec![],
-                    };
-                    let websites = match data.clone().meta.websites {
-                        | Some(values) => values
-                            .into_iter()
-                            .enumerate()
-                            .map(|(i, Website { url, .. })| link_check(Some(url), Some(format!("meta.websites[{i}].url"))))
-                            .collect::<Vec<_>>(),
-                        | None => vec![],
-                    };
-                    let contact = [link_check(Some(data.clone().contact.url), Some("contact.url".into()))];
-                    let links: Vec<_> = [].into_iter().chain(dois).chain(websites).chain(contact).collect();
-                    join_all(links)
-                        .await
-                        .into_iter()
-                        .map(|check| check.with_uri(path.file_name_with_parent()))
-                        .collect()
-                }
-                | Err(why) => {
-                    error!("=> {} Read research activity data at {} — {why}", Label::fail(), path.display());
-                    vec![check_err!(CheckCategory::Schema)]
+                            .map(|check| check.with_uri(path.file_name_with_parent()))
+                            .collect()
+                    }
+                    | Err(why) => {
+                        error!("=> {} Read research activity data at {} — {why}", Label::fail(), path.display());
+                        vec![check_err!(CheckCategory::Schema)]
+                    }
                 }
             }
         });
@@ -746,7 +752,7 @@ pub(crate) fn convert_lychee_response(value: Response) -> Check {
         | Status::Ok(_) | Status::Redirected(_, _) => check!(
             CheckCategory::Link,
             true,
-            severity: CheckSeverity::Suggestion,
+            severity: CheckSeverity::Info,
             status_code: status_code.clone(),
             message: "Has no HTTP errors"
         ),
@@ -754,7 +760,7 @@ pub(crate) fn convert_lychee_response(value: Response) -> Check {
             | CacheStatus::Ok(_) => check!(
                 CheckCategory::Link,
                 true,
-                severity: CheckSeverity::Suggestion,
+                severity: CheckSeverity::Info,
                 status_code: status_code.clone(),
                 message: "Has no HTTP errors"
             ),
@@ -788,7 +794,7 @@ pub(crate) fn convert_lychee_response(value: Response) -> Check {
             false,
             severity: CheckSeverity::Warning,
             status_code: status_code.clone(),
-            message: format!("Unsupported HTTP response - {why}")
+            message: format!("Unsupported HTTP response — {why}")
         ),
         | Status::UnknownStatusCode(_) => check!(
             CheckCategory::Link,

@@ -7,7 +7,7 @@ use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
 use acorn::util::{print_values_as_table, Label};
 use acorn::{fail, skip};
-use clap_verbosity_flag::Verbosity;
+use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
 use color_eyre::owo_colors::OwoColorize;
 use dotenvy::dotenv;
@@ -35,7 +35,6 @@ pub async fn run(
     verbose: &Verbosity,
 ) -> Result<(), Report> {
     let level = verbose.log_level();
-    let not_quiet = level.is_some();
     if *offline {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
@@ -60,11 +59,11 @@ pub async fn run(
         *standard
     };
     let all_issues = match inferred_standard {
-        | Standard::Cff => collect_checks::<Cff>(paths.clone(), skip, &check_options, *disable_website_checks, not_quiet).await,
-        | Standard::Rads => collect_checks::<ResearchActivity>(paths.clone(), skip, &check_options, *disable_website_checks, not_quiet).await,
+        | Standard::Cff => collect_failed_checks::<Cff>(&paths, skip, &check_options, *disable_website_checks, level).await,
+        | Standard::Rads => collect_failed_checks::<ResearchActivity>(&paths, skip, &check_options, *disable_website_checks, level).await,
         | _ => unimplemented!(),
     };
-    if not_quiet {
+    if level.is_some() {
         if *terse {
             print_compact(&all_issues);
         } else {
@@ -76,29 +75,26 @@ pub async fn run(
     }
     // let df = acorn::analyzer::checks_to_dataframe(&all_issues);
     // dbg!(df);
-    if !(all_issues.is_empty() || *no_fail) {
+    if !*no_fail && all_issues.iter().any(|Check { severity, .. }| severity.is_failure()) {
         exit(exitcode::DATAERR);
     }
     Ok(())
 }
-async fn collect_checks<T: Analysis>(
-    paths: Vec<PathBuf>,
+async fn collect_failed_checks<T: Analysis>(
+    paths: &[PathBuf],
     skip: &[CheckCategory],
     options: &CheckOptions,
     disable_website_checks: bool,
-    not_quiet: bool,
+    level: Option<Level>,
 ) -> Vec<Check> {
-    fn process_checks(results: Vec<Check>, issue_label: &str, exit_on_first_error: bool, not_quiet: bool) -> Vec<Check> {
-        fn count_failed_issues(issues: &[Check]) -> usize {
-            issues
-                .iter()
-                .filter(|Check { success, .. }| !success)
-                .map(|issue| issue.issue_count())
-                .sum()
-        }
-        let issue_count = count_failed_issues(&results);
-        if issue_count > 0 && exit_on_first_error {
-            if not_quiet {
+    let maybe_early_exit = |results: Vec<Check>, issue_label: &str, exit_on_first_error: bool| -> Vec<Check> {
+        let issue_count = results
+            .iter()
+            .filter(|Check { severity, .. }| severity.is_failure())
+            .map(|issue| issue.issue_count())
+            .sum::<usize>();
+        if exit_on_first_error && issue_count > 0 {
+            if level.is_some() {
                 fail!("ACORN found {} {}", issue_count, issue_label);
                 results
                     .iter()
@@ -108,38 +104,27 @@ async fn collect_checks<T: Analysis>(
             exit(exitcode::DATAERR);
         }
         results
-    }
+    };
     let schema_checks = if skip.contains(&CheckCategory::Schema) {
         skip!("Schema validation");
         vec![]
     } else {
-        process_checks(
-            T::check_schema(paths.clone()),
-            "schema validation errors",
-            options.exit_on_first_error,
-            not_quiet,
-        )
+        maybe_early_exit(T::check_schema(paths), "schema validation errors", options.exit_on_first_error)
     };
     let prose_checks = if skip.contains(&CheckCategory::Prose) {
         skip!("Prose analysis");
         vec![]
     } else {
-        process_checks(
-            T::check_prose(paths.clone(), Some(options)).await,
-            "prose issues",
-            options.exit_on_first_error,
-            not_quiet,
-        )
+        maybe_early_exit(T::check_prose(paths, Some(options)).await, "prose issues", options.exit_on_first_error)
     };
     let readability_checks = if skip.contains(&CheckCategory::Readability) {
         skip!("Readability analysis");
         vec![]
     } else {
-        process_checks(
-            T::check_readability(paths.clone(), Some(options)),
+        maybe_early_exit(
+            T::check_readability(paths, Some(options)),
             "readability issues",
             options.exit_on_first_error,
-            not_quiet,
         )
     };
     let quality_checks = if skip.contains(&CheckCategory::Quality) {
@@ -152,17 +137,20 @@ async fn collect_checks<T: Analysis>(
         skip!("Website checks");
         vec![]
     } else {
-        T::check_websites(paths.clone(), None).await
+        T::check_websites(paths, None).await
     };
-    vec![]
+    schema_checks
         .into_iter()
-        .chain(schema_checks)
         .chain(prose_checks)
         .chain(website_checks)
         .chain(readability_checks)
         .chain(quality_checks)
-        .filter(|Check { success, .. }| !success)
+        .filter(is_visible_at(level))
         .collect()
+}
+fn is_visible_at(level: Option<Level>) -> impl Fn(&Check) -> bool {
+    let threshold = level.map(|l| l as u8);
+    move |check: &Check| check.severity.is_visible_at(threshold)
 }
 fn print_detailed(issues: &[Check]) {
     issues.iter().enumerate().for_each(|(index, issue)| {

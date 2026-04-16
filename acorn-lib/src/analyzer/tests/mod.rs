@@ -41,7 +41,7 @@ fn test_cff_check_schema_returns_errors_for_invalid_file() {
     };
     let yaml = serde_yml::to_string(&cff).expect("failed to serialize CFF fixture");
     write(path.clone(), yaml).expect("failed to write CFF fixture");
-    let checks = Cff::check_schema(vec![path.clone()]);
+    let checks = Cff::check_schema(core::slice::from_ref(&path));
     assert!(!checks.is_empty());
     assert!(checks.iter().any(|check| check.category == CheckCategory::Schema));
     let _cleanup = remove_file(path);
@@ -59,7 +59,7 @@ fn test_cff_check_quality_returns_ok_for_readable_file() {
     };
     let yaml = serde_yml::to_string(&cff).expect("failed to serialize CFF fixture");
     write(path.clone(), yaml).expect("failed to write CFF fixture");
-    let checks = Cff::check_quality(vec![path.clone()], None);
+    let checks = Cff::check_quality(core::slice::from_ref(&path), None);
     assert_eq!(checks.len(), 1);
     assert!(checks[0].success);
     assert_eq!(checks[0].category, CheckCategory::Quality);
@@ -436,7 +436,7 @@ fn test_check_severity_from_vale_output_item_severity_matrix() {
 fn test_check_severity_to_ariadne_color_matrix() {
     let matrix = [
         (CheckSeverity::Error, Color::Red),
-        (CheckSeverity::Suggestion, Color::Blue),
+        (CheckSeverity::Suggestion, Color::Magenta),
         (CheckSeverity::Warning, Color::Yellow),
     ];
     matrix.into_iter().for_each(|(input, expected)| assert_eq!(Color::from(input), expected));
@@ -451,7 +451,7 @@ fn test_check_severity_to_ariadne_report_kind_matrix() {
     match suggestion_kind {
         | ReportKind::Custom(label, color) => {
             assert_eq!(label, "Suggestion");
-            assert_eq!(color, Color::Blue);
+            assert_eq!(color, Color::Magenta);
         }
         | _ => panic!("Suggestion severity should map to custom report kind"),
     }

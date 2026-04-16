@@ -36,15 +36,15 @@ use validator::ValidationErrorsKind;
 #[async_trait]
 pub trait Analysis {
     /// Perform analysis of prose
-    async fn check_prose(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
+    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Perform quality checks and verify data consistency
-    fn check_quality(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
+    fn check_quality(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Calculate readability using a given metric
-    fn check_readability(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
+    fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Execute validation checks for a given item
-    fn check_schema(paths: Vec<PathBuf>) -> Vec<Check>;
+    fn check_schema(paths: &[PathBuf]) -> Vec<Check>;
     /// Check if URLs links are valid and readable
-    async fn check_websites(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>;
+    async fn check_websites(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Returns the metadata standard represented by the implementing type.
     fn standard() -> Standard;
     /// Returns the output path used for Vale analysis artifacts.
@@ -110,6 +110,9 @@ pub enum CheckSeverity {
     #[default]
     #[display("error")]
     Error,
+    /// Informational message
+    #[display("info")]
+    Info,
     /// Advisory suggestion to improve content quality
     #[display("suggestion")]
     Suggestion,
@@ -219,7 +222,6 @@ impl Check {
             errors,
             severity,
             status_code,
-            success,
             uri,
             message,
             ..
@@ -232,26 +234,24 @@ impl Check {
                     | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
                     | None | Some(_) => "".to_string(),
                 };
-                if !success {
-                    let text = match context.as_ref() {
-                        | Some(value) => value.trim().to_string(),
-                        | None => "No URL".to_string(),
-                    };
-                    let source_text = if text.is_empty() { " ".to_string() } else { text.clone() };
-                    let source = Source::from(source_text.clone());
-                    let span = 0..=source_text.len().saturating_sub(1);
-                    let _ = Report::build(kind, (&title, 1..=1))
-                        .with_code(index)
-                        .with_config(Config::default().with_compact(false))
-                        .with_message("Website")
-                        .with_label(
-                            ariadne::Label::new((&title, span))
-                                .with_message(format!("{}{code}", message.italic()))
-                                .with_color(severity.clone().into()),
-                        )
-                        .finish()
-                        .print((&title, source));
-                }
+                let text = match context.as_ref() {
+                    | Some(value) => value.trim().to_string(),
+                    | None => "No URL".to_string(),
+                };
+                let source_text = if text.is_empty() { " ".to_string() } else { text.clone() };
+                let source = Source::from(source_text.clone());
+                let span = 0..=source_text.len().saturating_sub(1);
+                let _ = Report::build(kind, (&title, 1..=1))
+                    .with_code(index)
+                    .with_config(Config::default().with_compact(false))
+                    .with_message("Website")
+                    .with_label(
+                        ariadne::Label::new((&title, span))
+                            .with_message(format!("{}{code}", message.italic()))
+                            .with_color(severity.clone().into()),
+                    )
+                    .finish()
+                    .print((&title, source));
             }
             | CheckCategory::Prose => match &errors {
                 | Some(ErrorKind::Vale(values)) => {
@@ -460,8 +460,25 @@ impl CheckSeverity {
     pub fn colored(&self) -> String {
         match self {
             | Self::Error => self.to_string().red().bold().to_string(),
-            | Self::Suggestion => self.to_string().blue().bold().to_string(),
+            | Self::Info => self.to_string().cyan().bold().to_string(),
+            | Self::Suggestion => self.to_string().magenta().bold().to_string(),
             | Self::Warning => self.to_string().yellow().bold().to_string(),
+        }
+    }
+    /// Returns whether this severity should cause check failure.
+    pub fn is_failure(&self) -> bool {
+        matches!(self, Self::Error | Self::Warning)
+    }
+    /// Returns whether this severity level is visible at the given log level.
+    ///
+    /// - [`CheckSeverity::Error`] and [`CheckSeverity::Warning`] are always visible.
+    /// - [`CheckSeverity::Suggestion`] is visible at `warn` level and above.
+    /// - [`CheckSeverity::Info`] is visible at `info` level and above.
+    pub fn is_visible_at(&self, level: Option<u8>) -> bool {
+        match self {
+            | Self::Error | Self::Warning => true,
+            | Self::Suggestion => matches!(level, Some(2..=u8::MAX)),
+            | Self::Info => matches!(level, Some(3..=u8::MAX)),
         }
     }
 }
@@ -478,7 +495,8 @@ impl From<CheckSeverity> for Color {
     fn from(value: CheckSeverity) -> Self {
         match value {
             | CheckSeverity::Error => Color::Red,
-            | CheckSeverity::Suggestion => Color::Blue,
+            | CheckSeverity::Info => Color::Cyan,
+            | CheckSeverity::Suggestion => Color::Magenta,
             | CheckSeverity::Warning => Color::Yellow,
         }
     }
@@ -487,7 +505,8 @@ impl From<CheckSeverity> for ReportKind<'_> {
     fn from(value: CheckSeverity) -> Self {
         match value {
             | CheckSeverity::Error => ReportKind::Error,
-            | CheckSeverity::Suggestion => ReportKind::Custom("Suggestion", Color::Blue),
+            | CheckSeverity::Info => ReportKind::Custom("Info", Color::Cyan),
+            | CheckSeverity::Suggestion => ReportKind::Custom("Suggestion", Color::Magenta),
             | CheckSeverity::Warning => ReportKind::Warning,
         }
     }
@@ -496,7 +515,7 @@ impl From<CheckSeverity> for ReportKind<'_> {
 impl<'a> IntoRow<'a> for Check {
     fn to_row<Check>(self) -> Row<'a> {
         let Self {
-            success,
+            index,
             category,
             severity,
             message,
@@ -507,7 +526,7 @@ impl<'a> IntoRow<'a> for Check {
             ..
         } = self;
         let data = [
-            &success.to_string(),
+            &index.to_string(),
             &category.to_string(),
             &severity.to_string(),
             &uri.unwrap_or_default(),
@@ -519,7 +538,7 @@ impl<'a> IntoRow<'a> for Check {
         Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
     }
 }
-pub(crate) async fn check_prose_for<T>(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>
+pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>
 where
     T: Analysis + InputOutput + ToProse,
 {
@@ -533,8 +552,9 @@ where
     let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
     match vale.clone().sync(offline).await {
         | Ok(_) => {
-            let results = paths.into_iter().map(|path| {
+            let results = paths.iter().map(|path| {
                 let vale = vale.clone();
+                let path = path.clone();
                 async move {
                     match T::read(&path) {
                         | Ok(data) => {
@@ -557,7 +577,7 @@ where
         }
     }
 }
-pub(super) fn check_readability_for<T>(paths: Vec<PathBuf>, options: Option<&CheckOptions>) -> Vec<Check>
+pub(super) fn check_readability_for<T>(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>
 where
     T: InputOutput + ToProse,
 {
@@ -604,8 +624,15 @@ where
 /// Convert vector of [`Check`] values to a Polars [DataFrame]
 #[cfg(feature = "analysis")]
 pub fn checks_to_dataframe(values: &[Check]) -> PolarsResult<DataFrame> {
-    let names = ["success", "category", "severity", "uri", "locator", "message", "status_code", "context"];
-    to_dataframe::<Check, _, &str>(values.to_vec(), names)
+    let names = ["index", "category", "severity", "uri", "locator", "message", "status_code", "context"];
+    to_dataframe::<Check, _, &str>(
+        values
+            .iter()
+            .enumerate()
+            .map(|(index, check)| check.clone().with_index(index))
+            .collect::<Vec<_>>(),
+        names,
+    )
 }
 /// Convert vector of [`Check`] values to a CSV string
 #[cfg(feature = "analysis")]
