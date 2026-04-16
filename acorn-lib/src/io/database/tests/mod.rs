@@ -1,12 +1,41 @@
 use crate::io::database::backend::params;
 use crate::io::database::macros::build_query;
 use crate::io::database::schema::{ActivityRow, CatalogRow, LinkCacheRow, ResearchActivityCacheRow, Table, ValidationRow};
-use crate::io::database::{Database, Operations, Row, TableSchemaProvider};
+use crate::io::database::{resolve_database_path, Database, Operations, Row, TableSchemaProvider};
 use crate::prelude::PathBuf;
+use crate::util::constants::ENV_DATABASE_PATH;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+const TEST_ENV_DATABASE_PATH: &str = "target/test_artifacts/from-env-acorn.db";
 
 mod display_tests;
 
+#[test]
+fn test_activity_insert_round_trip_with_database_handle() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
+    let path = PathBuf::from(format!("target/test_artifacts/activity-{unique}.duckdb"));
+    let database = Database::<Table>::from_path(Some(path.clone()));
+    database.migrate().unwrap();
+    let activity = ActivityRow::init()
+        .command("download")
+        .user_path("target/test_artifacts")
+        .success(true)
+        .build();
+    let inserted = database.insert(activity);
+    assert!(inserted.is_ok(), "insert failed: {inserted:?}");
+    let rows = Table::Activity.rows::<ActivityRow, _>(
+        "SELECT id, command, executed_at, user_path, success FROM activity",
+        params![],
+        Some(&path),
+    );
+    assert!(rows.is_ok(), "select failed: {rows:?}");
+    let rows = rows.unwrap();
+    assert!(!rows.is_empty());
+    assert_eq!(rows[0].command.as_deref(), Some("download"));
+}
 #[test]
 fn test_activity_row_default() {
     let row = ActivityRow::default();
@@ -15,70 +44,6 @@ fn test_activity_row_default() {
     assert!(row.executed_at.is_none());
     assert!(row.user_path.is_none());
     assert!(row.success.is_none());
-}
-#[test]
-fn test_catalog_row_default() {
-    let row = CatalogRow::default();
-    assert!(row.id.is_none());
-    assert!(row.bucket_name.is_none());
-    assert!(row.bucket_url.is_none());
-    assert!(row.identifier.is_none());
-    assert!(row.title.is_none());
-    assert!(row.updated_at.is_none());
-}
-#[test]
-fn test_link_cache_row_default() {
-    let row = LinkCacheRow::default();
-    assert!(row.id.is_none());
-    assert!(row.url.is_none());
-    assert!(row.status_code.is_none());
-    assert!(row.is_reachable.is_none());
-    assert!(row.checked_at.is_none());
-    assert!(row.expires_at.is_none());
-}
-#[test]
-fn test_link_cache_row_is_expired() {
-    let row = LinkCacheRow::default();
-    assert!(row.is_expired());
-}
-#[test]
-fn test_research_activity_cache_row_default() {
-    let row = ResearchActivityCacheRow::default();
-    assert!(row.id.is_none());
-    assert!(row.identifier.is_none());
-    assert!(row.source_bucket.is_none());
-    assert!(row.title.is_none());
-    assert!(row.downloaded_at.is_none());
-    assert!(row.file_path.is_none());
-}
-#[test]
-fn test_validation_row_default() {
-    let row = ValidationRow::default();
-    assert!(row.id.is_none());
-    assert!(row.path.is_none());
-    assert!(row.check_type.is_none());
-    assert!(row.success.is_none());
-    assert!(row.message.is_none());
-    assert!(row.checked_at.is_none());
-}
-#[test]
-fn test_row_table_implementation() {
-    assert_eq!(ActivityRow::default().table(), Table::Activity);
-    assert_eq!(CatalogRow::default().table(), Table::Catalog);
-    assert_eq!(LinkCacheRow::default().table(), Table::LinkCache);
-    assert_eq!(ValidationRow::default().table(), Table::ValidationHistory);
-    assert_eq!(ResearchActivityCacheRow::default().table(), Table::ResearchActivityCache);
-}
-#[test]
-fn test_table_from_str() {
-    assert_eq!(Table::from("activity"), Table::Activity);
-    assert_eq!(Table::from("catalog"), Table::Catalog);
-    assert_eq!(Table::from("licenses"), Table::Licenses);
-    assert_eq!(Table::from("license"), Table::Licenses);
-    assert_eq!(Table::from("link_cache"), Table::LinkCache);
-    assert_eq!(Table::from("validation_history"), Table::ValidationHistory);
-    assert_eq!(Table::from("research_activity_cache"), Table::ResearchActivityCache);
-    assert_eq!(Table::from("unknown-table"), Table::Activity);
 }
 #[test]
 fn test_build_query_with_all_none_fields() {
@@ -160,28 +125,82 @@ fn test_build_query_empty_with_no_order_by() {
     assert!(params.is_empty());
 }
 #[test]
-fn test_activity_insert_round_trip_with_database_handle() {
-    let unique = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|value| value.as_nanos())
-        .unwrap_or_default();
-    let path = PathBuf::from(format!("target/test_artifacts/activity-{unique}.duckdb"));
-    let database = Database::<Table>::from_path(Some(path.clone()));
-    database.migrate().unwrap();
-    let activity = ActivityRow::init()
-        .command("download")
-        .user_path("target/test_artifacts")
-        .success(true)
-        .build();
-    let inserted = database.insert(activity);
-    assert!(inserted.is_ok(), "insert failed: {inserted:?}");
-    let rows = Table::Activity.rows::<ActivityRow, _>(
-        "SELECT id, command, executed_at, user_path, success FROM activity",
-        params![],
-        Some(&path),
-    );
-    assert!(rows.is_ok(), "select failed: {rows:?}");
-    let rows = rows.unwrap();
-    assert!(!rows.is_empty());
-    assert_eq!(rows[0].command.as_deref(), Some("download"));
+fn test_catalog_row_default() {
+    let row = CatalogRow::default();
+    assert!(row.id.is_none());
+    assert!(row.bucket_name.is_none());
+    assert!(row.bucket_url.is_none());
+    assert!(row.identifier.is_none());
+    assert!(row.title.is_none());
+    assert!(row.updated_at.is_none());
+}
+#[test]
+fn test_database_path_uses_explicit_argument_before_environment() {
+    let expected = PathBuf::from("target/test_artifacts/explicit-acorn.db");
+    let from_expected = temp_env::with_vars([(ENV_DATABASE_PATH, Some(TEST_ENV_DATABASE_PATH))], || {
+        resolve_database_path(Some(&expected)).unwrap()
+    });
+    assert_eq!(from_expected, expected);
+}
+#[test]
+fn test_database_path_uses_environment_when_argument_absent() {
+    let expected = PathBuf::from(TEST_ENV_DATABASE_PATH);
+    let from_env = temp_env::with_vars([(ENV_DATABASE_PATH, Some(TEST_ENV_DATABASE_PATH))], || {
+        resolve_database_path(None).unwrap()
+    });
+    assert_eq!(from_env, expected);
+}
+#[test]
+fn test_link_cache_row_default() {
+    let row = LinkCacheRow::default();
+    assert!(row.id.is_none());
+    assert!(row.url.is_none());
+    assert!(row.status_code.is_none());
+    assert!(row.is_reachable.is_none());
+    assert!(row.checked_at.is_none());
+    assert!(row.expires_at.is_none());
+}
+#[test]
+fn test_link_cache_row_is_expired() {
+    let row = LinkCacheRow::default();
+    assert!(row.is_expired());
+}
+#[test]
+fn test_research_activity_cache_row_default() {
+    let row = ResearchActivityCacheRow::default();
+    assert!(row.id.is_none());
+    assert!(row.identifier.is_none());
+    assert!(row.source_bucket.is_none());
+    assert!(row.title.is_none());
+    assert!(row.downloaded_at.is_none());
+    assert!(row.file_path.is_none());
+}
+#[test]
+fn test_row_table_implementation() {
+    assert_eq!(ActivityRow::default().table(), Table::Activity);
+    assert_eq!(CatalogRow::default().table(), Table::Catalog);
+    assert_eq!(LinkCacheRow::default().table(), Table::LinkCache);
+    assert_eq!(ValidationRow::default().table(), Table::ValidationHistory);
+    assert_eq!(ResearchActivityCacheRow::default().table(), Table::ResearchActivityCache);
+}
+#[test]
+fn test_table_from_str() {
+    assert_eq!(Table::from("activity"), Table::Activity);
+    assert_eq!(Table::from("catalog"), Table::Catalog);
+    assert_eq!(Table::from("licenses"), Table::Licenses);
+    assert_eq!(Table::from("license"), Table::Licenses);
+    assert_eq!(Table::from("link_cache"), Table::LinkCache);
+    assert_eq!(Table::from("validation_history"), Table::ValidationHistory);
+    assert_eq!(Table::from("research_activity_cache"), Table::ResearchActivityCache);
+    assert_eq!(Table::from("unknown-table"), Table::Activity);
+}
+#[test]
+fn test_validation_row_default() {
+    let row = ValidationRow::default();
+    assert!(row.id.is_none());
+    assert!(row.path.is_none());
+    assert!(row.check_type.is_none());
+    assert!(row.success.is_none());
+    assert!(row.message.is_none());
+    assert!(row.checked_at.is_none());
 }

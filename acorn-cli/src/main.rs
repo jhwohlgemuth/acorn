@@ -21,7 +21,7 @@
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn::io::database::{backend, schema::Table, Database, Operations};
+use acorn::io::database::{backend, resolve_database_path, schema::Table, Database, Operations};
 use acorn::io::env_var_is_truthy;
 use acorn::prelude::env;
 use acorn::schema::pid::raid::Metadata;
@@ -131,6 +131,7 @@ async fn main() -> Void {
         ..
     } = args;
     let no_local_database = no_local_database_flag || env_var_is_truthy(ENV_NO_LOCAL_DATABASE).unwrap_or(false);
+    let mut database_path = database_path;
     if no_local_database && (reset_database || clear_cache) {
         eprintln!("{} Cannot use --reset-database or --clear-cache with --no-local-database", Label::fail());
         exit(exitcode::USAGE);
@@ -145,8 +146,16 @@ async fn main() -> Void {
     let database_initialization = if no_local_database {
         Ok(())
     } else {
-        if let Some(path) = database_path.as_ref() {
-            env::set_var(ENV_DATABASE_PATH, path.as_os_str());
+        let resolved_database_path = match resolve_database_path(database_path.as_ref()) {
+            | Ok(path) => path,
+            | Err(why) => {
+                eprintln!("=> {} Failed to determine database path — {why}", Label::fail());
+                exit(exitcode::SOFTWARE);
+            }
+        };
+        env::set_var(ENV_DATABASE_PATH, resolved_database_path.as_os_str());
+        if database_path.is_none() {
+            database_path = Some(resolved_database_path);
         }
         if let Some(selected) = database_backend {
             env::set_var(ENV_DATABASE_BACKEND, selected.to_string());

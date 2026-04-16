@@ -5,7 +5,7 @@
 use crate::io::api::DatabasePersistence;
 use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
-use crate::util::constants::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ORGANIZATION, QUALIFIER};
+use crate::util::constants::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ENV_DATABASE_PATH, ORGANIZATION, QUALIFIER};
 use crate::util::Label;
 use async_trait::async_trait;
 use backend::{params, BackendRow, Connection, Params};
@@ -209,7 +209,7 @@ where
     fn db_connection(path: Option<&PathBuf>) -> ApiResult<&'static Mutex<Connection>> {
         match CONNECTION.get() {
             | Some(connection) => Ok(connection),
-            | None => database_path(path)
+            | None => resolve_database_path(path)
                 .and_then(|db_path| {
                     Connection::open(db_path)
                         .map(Mutex::new)
@@ -353,9 +353,16 @@ fn database_name() -> &'static str {
         "acorn.db"
     }
 }
-fn database_path(path: Option<&PathBuf>) -> ApiResult<PathBuf> {
+/// Resolve the effective database path from an explicit argument, environment variable, or project defaults.
+pub fn resolve_database_path(path: Option<&PathBuf>) -> ApiResult<PathBuf> {
+    let path = path.cloned().or_else(|| {
+        env::var(ENV_DATABASE_PATH)
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .map(PathBuf::from)
+    });
     match path {
-        | Some(path) => Ok(path.clone()),
+        | Some(path) => Ok(path),
         | None => ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
             .ok_or_else(|| eyre!("Failed to determine project directories"))
             .map(|directories| directories.cache_dir().join("database").join(database_name())),
