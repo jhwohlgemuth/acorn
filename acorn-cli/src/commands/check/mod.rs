@@ -2,7 +2,7 @@ use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument, Standard};
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{summary, Analysis, Check, CheckOptions};
-use acorn::prelude::PathBuf;
+use acorn::prelude::{HashSet, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
 use acorn::util::{print_values_as_table, Label};
@@ -12,7 +12,7 @@ use color_eyre::eyre::{Report, Result};
 use color_eyre::owo_colors::OwoColorize;
 use dotenvy::dotenv;
 use std::process::exit;
-use tracing::debug;
+use tracing::{debug, warn};
 
 const ENV_READABILITY_METRIC: &str = "READABILITY_METRIC";
 
@@ -52,7 +52,14 @@ pub async fn run(
         .readability_metric(resolve_readability_metric(readability_metric))
         .build();
     let paths = paths_from_options(path, &Some(cli_options)).await;
-    let all_issues = match standard {
+    let extensions = unique_file_extensions(&paths);
+    let inferred_standard = if extensions.len() == 1 && extensions.contains(&"cff".to_string()) {
+        warn!("=> {} Inferred standard (CFF)", Label::using());
+        Standard::Cff
+    } else {
+        *standard
+    };
+    let all_issues = match inferred_standard {
         | Standard::Cff => collect_checks::<Cff>(paths.clone(), skip, &check_options, *disable_website_checks, not_quiet).await,
         | Standard::Rads => collect_checks::<ResearchActivity>(paths.clone(), skip, &check_options, *disable_website_checks, not_quiet).await,
         | _ => unimplemented!(),
@@ -190,6 +197,16 @@ fn resolve_readability_metric(readability_metric: &ReadabilityTypeArgument) -> R
         },
         | _ => metric_from_cli,
     }
+}
+fn unique_file_extensions(paths: &[PathBuf]) -> Vec<String> {
+    let mut extensions = paths
+        .iter()
+        .filter_map(|path| path.extension().map(|extension| extension.to_string_lossy().to_lowercase()))
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    extensions.sort_unstable();
+    extensions
 }
 
 #[cfg(test)]

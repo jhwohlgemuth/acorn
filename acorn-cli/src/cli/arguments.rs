@@ -142,3 +142,16 @@ impl From<FileFormat> for MimeType {
         }
     }
 }
+impl From<FileFormat> for Standard {
+    fn from(format: FileFormat) -> Self {
+        match format {
+            | FileFormat::Cff => Standard::Cff,
+            | FileFormat::Bag
+            | FileFormat::Json
+            | FileFormat::Markdown
+            | FileFormat::Pdf
+            | FileFormat::Powerpoint
+            | FileFormat::Yaml => unimplemented!("Cannot infer standard for {format} file"),
+        }
+    }
+}
