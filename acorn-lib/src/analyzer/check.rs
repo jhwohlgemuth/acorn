@@ -468,7 +468,7 @@ impl CheckSeverity {
         match self {
             | Self::Error => self.to_string().red().bold().to_string(),
             | Self::Info => self.to_string().cyan().bold().to_string(),
-            | Self::Suggestion => self.to_string().magenta().bold().to_string(),
+            | Self::Suggestion => self.to_string().blue().bold().to_string(),
             | Self::Warning => self.to_string().yellow().bold().to_string(),
         }
     }
@@ -503,7 +503,7 @@ impl From<CheckSeverity> for Color {
         match value {
             | CheckSeverity::Error => Color::Red,
             | CheckSeverity::Info => Color::Cyan,
-            | CheckSeverity::Suggestion => Color::Magenta,
+            | CheckSeverity::Suggestion => Color::Blue,
             | CheckSeverity::Warning => Color::Yellow,
         }
     }
@@ -513,7 +513,7 @@ impl From<CheckSeverity> for ReportKind<'_> {
         match value {
             | CheckSeverity::Error => ReportKind::Error,
             | CheckSeverity::Info => ReportKind::Custom("Info", Color::Cyan),
-            | CheckSeverity::Suggestion => ReportKind::Custom("Suggestion", Color::Magenta),
+            | CheckSeverity::Suggestion => ReportKind::Custom("Suggestion", Color::Blue),
             | CheckSeverity::Warning => ReportKind::Warning,
         }
     }

@@ -436,7 +436,7 @@ fn test_check_severity_from_vale_output_item_severity_matrix() {
 fn test_check_severity_to_ariadne_color_matrix() {
     let matrix = [
         (CheckSeverity::Error, Color::Red),
-        (CheckSeverity::Suggestion, Color::Magenta),
+        (CheckSeverity::Suggestion, Color::Blue),
         (CheckSeverity::Warning, Color::Yellow),
     ];
     matrix.into_iter().for_each(|(input, expected)| assert_eq!(Color::from(input), expected));
@@ -451,7 +451,7 @@ fn test_check_severity_to_ariadne_report_kind_matrix() {
     match suggestion_kind {
         | ReportKind::Custom(label, color) => {
             assert_eq!(label, "Suggestion");
-            assert_eq!(color, Color::Magenta);
+            assert_eq!(color, Color::Blue);
         }
         | _ => panic!("Suggestion severity should map to custom report kind"),
     }
