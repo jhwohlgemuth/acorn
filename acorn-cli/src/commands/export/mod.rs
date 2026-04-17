@@ -28,15 +28,17 @@ pub async fn run(
     reference: &Option<PathBuf>,
     combine: &bool,
     merge_request: &bool,
+    raw: &bool,
     offline: &bool,
     threads: usize,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
-    let progress_type = match verbose.is_silent() {
+    let is_silent = verbose.is_silent();
+    let progress_type = match is_silent || *raw {
         | true => ProgressType::Silent,
         | false => ProgressType::Bar,
     };
-    if *offline {
+    if *offline && !is_silent {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
         unimplemented!("Offline mode is not implemented yet");
     }

@@ -21,7 +21,7 @@ pub async fn run(
     verbose: &Verbosity,
     offline: &bool,
 ) -> Result<(), Report> {
-    if *offline {
+    if *offline && !verbose.is_silent() {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
         unimplemented!("Offline mode is not implemented yet");
     }

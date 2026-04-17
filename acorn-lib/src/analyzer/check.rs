@@ -160,6 +160,9 @@ pub struct CheckOptions {
     /// Whether or not to run in offline mode (i.e., skip website checks)
     #[builder(default = false)]
     pub offline: bool,
+    /// Suppress stdout/stderr from external commands (e.g., Vale sync)
+    #[builder(default = false)]
+    pub quiet: bool,
     /// Readability metric to use for readability checks
     pub readability_metric: ReadabilityType,
     /// Whether or not to skip checksum verification for prose analysis
@@ -548,13 +551,14 @@ where
 {
     let CheckOptions {
         offline,
+        quiet,
         skip_verify_checksum,
         vale_config,
         ..
     } = options.cloned().unwrap_or_default();
     let config = vale_config.unwrap_or_default().save().await;
     let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
-    match vale.clone().sync(offline).await {
+    match vale.clone().sync(offline, quiet).await {
         | Ok(_) => {
             let results = paths.iter().map(|path| {
                 let vale = vale.clone();

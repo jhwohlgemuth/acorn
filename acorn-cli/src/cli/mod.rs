@@ -260,6 +260,9 @@ pub enum Commands {
         /// > CAUTION: Use at your own risk
         #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
         no_fail: bool,
+        /// Suppress output from external commands (e.g., Vale) while preserving ACORN output — useful for piping
+        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+        raw: bool,
         /// Use compact output format instead of detailed output
         #[arg(short = 't', long, value_name = "BOOL", help_heading = "FLAGS")]
         terse: bool,
@@ -382,6 +385,9 @@ pub enum Commands {
         /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
         reference: Option<PathBuf>,
+        /// Suppress output from external commands while preserving ACORN output — useful for piping
+        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+        raw: bool,
         /// Metadata standard to validate against
         #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
         standard: Standard,

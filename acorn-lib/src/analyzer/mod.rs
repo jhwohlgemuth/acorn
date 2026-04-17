@@ -9,7 +9,7 @@ use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::io::http::get;
 use crate::io::InputOutput;
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder, ApiResult};
-use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, Path, PathBuf};
+use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, Path, PathBuf, Stdio};
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::standard::cff::{Cff, Identifier, IdentifierType, Reference};
@@ -71,7 +71,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Run analyzer on content
     async fn run(&self, path: PathBuf, content: String, output: Option<String>) -> Vec<Check>;
     /// Perform sync operation (only applies to Vale)
-    async fn sync(self, is_offline: bool) -> ApiResult<()>;
+    async fn sync(self, is_offline: bool, quiet: bool) -> ApiResult<()>;
     /// Set binary
     fn with_binary<P>(self, path: P) -> Self
     where
@@ -560,14 +560,14 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 PathBuf::from(format!("{parent}/{command}"))
             }
             | _ => {
-                error!("=> {} {command} extract - Unsupported format", Label::fail());
+                error!("=> {} {command} extract — Unsupported format", Label::fail());
                 PathBuf::from(DEFAULT_VALE_ROOT).join(command)
             }
         }
     }
-    async fn sync(self, is_offline: bool) -> ApiResult<()> {
+    async fn sync(self, is_offline: bool, quiet: bool) -> ApiResult<()> {
         let command = self.clone().command();
-        let path = match self.binary {
+        let binary_path = match self.binary {
             | Some(value) => value,
             | None => {
                 error!("=> {} {} binary", Label::not_found(), command);
@@ -579,10 +579,18 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             skip!("Vale sync");
             Ok(())
         } else {
-            match Command::new(path.clone()).arg("--config").arg(config_path.clone()).arg("sync").status() {
-                | Ok(status) if status.success() => Ok(()),
-                | Ok(status) => Err(eyre!("Vale sync failed with status: {status}")),
-                | Err(why) => Err(eyre!("Vale sync failed - {why}")),
+            let pipe = || if quiet { Stdio::null() } else { Stdio::inherit() };
+            let status = Command::new(binary_path.clone())
+                .arg("--config")
+                .arg(config_path.clone())
+                .arg("sync")
+                .stdout(pipe())
+                .stderr(pipe())
+                .status();
+            match status {
+                | Ok(value) if value.success() => Ok(()),
+                | Ok(value) => Err(eyre!("Vale sync failed ({value})")),
+                | Err(why) => Err(eyre!("Vale sync failed — {why}")),
             }
         };
         match result {
@@ -607,17 +615,17 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     .join("\n");
                 match write(format!("{parent}/accept.txt"), accept_content.as_bytes()) {
                     | Ok(_) => {}
-                    | Err(why) => panic!("=> {} Write accept.txt - {why}", Label::fail()),
+                    | Err(why) => panic!("=> {} Write accept.txt — {why}", Label::fail()),
                 }
                 let reject_content = Constant::read_lines("reject.txt").join("\n");
                 match write(format!("{parent}/reject.txt"), reject_content.as_bytes()) {
                     | Ok(_) => {}
-                    | Err(why) => panic!("=> {} Write reject.txt - {why}", Label::fail()),
+                    | Err(why) => panic!("=> {} Write reject.txt — {why}", Label::fail()),
                 }
                 Ok(())
             }
             | Err(why) => {
-                error!(config = config_path.to_absolute_string(), "=> {} Vale sync - {why}", Label::fail());
+                error!(config = config_path.to_absolute_string(), "=> {} Vale sync — {why}", Label::fail());
                 Err(why)
             }
         }

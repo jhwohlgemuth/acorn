@@ -29,13 +29,15 @@ pub async fn run(
     skip_verify_checksum: &bool,
     offline: &bool,
     no_fail: &bool,
+    raw: &bool,
     terse: &bool,
     standard: &Standard,
     readability_metric: &ReadabilityTypeArgument,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
     let level = verbose.log_level();
-    if *offline {
+    let is_silent = verbose.is_silent();
+    if *offline && !is_silent {
         println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
     }
     let cli_options = CommandLineOptions::init()
@@ -47,6 +49,7 @@ pub async fn run(
     let check_options = CheckOptions::init()
         .exit_on_first_error(*exit_on_first_error)
         .offline(*offline)
+        .quiet(is_silent || *raw)
         .skip_verify_checksum(*skip_verify_checksum)
         .readability_metric(resolve_readability_metric(readability_metric))
         .build();
