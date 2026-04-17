@@ -6,7 +6,8 @@ use crate::io::http::policy::{http_timeout_layer, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request,
-    filter_git_command_result, filter_ignored, image_paths, read_file, read_large_file, uri_to_path, write_file_bytes, InputOutput,
+    filter_git_command_result, filter_ignored, image_paths, read_file, read_large_file, unique_file_extensions, uri_to_path, write_file_bytes,
+    InputOutput,
 };
 use crate::util::constants::ENV_NO_LOCAL_DATABASE;
 use crate::{Location, Repository, Scheme};
@@ -479,6 +480,17 @@ fn test_read_file_large_content() {
     let content = read_file(path.clone()).unwrap();
     assert_eq!(content, expected);
     remove_file(path).unwrap();
+}
+#[test]
+fn test_unique_file_extensions() {
+    let paths = vec![
+        PathBuf::from("project/index.json"),
+        PathBuf::from("project/data.yaml"),
+        PathBuf::from("project/about.JSON"),
+        PathBuf::from("project/readme"),
+    ];
+    let extensions = unique_file_extensions(&paths);
+    assert_eq!(extensions, vec!["json", "yaml"]);
 }
 #[tokio::test]
 async fn test_write_file_bytes_creates_parent_and_writes_content() {

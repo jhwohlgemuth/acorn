@@ -2,9 +2,11 @@ use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument, Standard};
 use crate::cli::{paths_from_options, CommandLineOptions};
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{summary, Analysis, Check, CheckOptions};
-use acorn::prelude::{HashSet, PathBuf};
+use acorn::io::unique_file_extensions;
+use acorn::prelude::PathBuf;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
+use acorn::util::constants::ENV_READABILITY_METRIC;
 use acorn::util::{print_values_as_table, Label};
 use acorn::{fail, skip};
 use clap_verbosity_flag::{log::Level, Verbosity};
@@ -13,8 +15,6 @@ use color_eyre::owo_colors::OwoColorize;
 use dotenvy::dotenv;
 use std::process::exit;
 use tracing::{debug, warn};
-
-const ENV_READABILITY_METRIC: &str = "READABILITY_METRIC";
 
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -139,18 +139,15 @@ async fn collect_failed_checks<T: Analysis>(
     } else {
         T::check_websites(paths, None).await
     };
+    let should_be_visible = Check::is_visible_at(level.map(|l| l as u8));
     schema_checks
         .into_iter()
         .chain(prose_checks)
         .chain(website_checks)
         .chain(readability_checks)
         .chain(quality_checks)
-        .filter(is_visible_at(level))
+        .filter(should_be_visible)
         .collect()
-}
-fn is_visible_at(level: Option<Level>) -> impl Fn(&Check) -> bool {
-    let threshold = level.map(|l| l as u8);
-    move |check: &Check| check.severity.is_visible_at(threshold)
 }
 fn print_detailed(issues: &[Check]) {
     issues.iter().enumerate().for_each(|(index, issue)| {
@@ -186,16 +183,5 @@ fn resolve_readability_metric(readability_metric: &ReadabilityTypeArgument) -> R
         | _ => metric_from_cli,
     }
 }
-fn unique_file_extensions(paths: &[PathBuf]) -> Vec<String> {
-    let mut extensions = paths
-        .iter()
-        .filter_map(|path| path.extension().map(|extension| extension.to_string_lossy().to_lowercase()))
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    extensions.sort_unstable();
-    extensions
-}
-
 #[cfg(test)]
 mod tests;

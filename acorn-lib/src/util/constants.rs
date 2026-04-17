@@ -73,6 +73,8 @@ pub const ENV_DATABASE_BACKEND: &str = "ACORN_DATABASE_BACKEND";
 pub const ENV_DATABASE_PATH: &str = "ACORN_DATABASE_PATH";
 /// Environment variable used to disable local database use at runtime.
 pub const ENV_NO_LOCAL_DATABASE: &str = "ACORN_NO_LOCAL_DATABASE";
+/// Environment variable used to select readability metric for readability checks at runtime.
+pub const ENV_READABILITY_METRIC: &str = "ACORN_READABILITY_METRIC";
 /// File size threshold in bytes for switching to large-file read strategy (100 MB).
 pub const LARGE_FILE_THRESHOLD_BYTES: u64 = 100 * 1024 * 1024;
 // Schema defaults

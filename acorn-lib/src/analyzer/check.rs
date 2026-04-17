@@ -186,6 +186,10 @@ impl Check {
                 .sum(),
         }
     }
+    /// Returns a function that filters checks based on the given log level threshold
+    pub fn is_visible_at(level: Option<u8>) -> impl Fn(&Check) -> bool {
+        move |check: &Check| check.severity.is_visible_at(level)
+    }
     /// Returns the number of errors
     pub fn issue_count(&self) -> usize {
         match self.category {

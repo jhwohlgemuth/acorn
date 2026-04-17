@@ -21,7 +21,7 @@
 //!
 use crate::cmd;
 use crate::prelude::CommandOutput;
-use crate::prelude::{canonicalize, create_dir_all, io, var, write, BufReader, Cursor, File, PathBuf, Read, Write};
+use crate::prelude::{canonicalize, create_dir_all, io, var, write, BufReader, Cursor, File, HashSet, PathBuf, Read, Write};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, Permissions, PermissionsExt};
 use crate::util::constants::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
@@ -1003,6 +1003,17 @@ where
         | Err(_) => path.into(),
     };
     result.display().to_string()
+}
+/// Returns a sorted list of unique lowercase file extensions from the given paths.
+pub fn unique_file_extensions(paths: &[PathBuf]) -> Vec<String> {
+    let mut extensions = paths
+        .iter()
+        .filter_map(|path| path.extension().map(|extension| extension.to_string_lossy().to_lowercase()))
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    extensions.sort_unstable();
+    extensions
 }
 /// Converts a `file://` URI to a [`PathBuf`].
 ///
