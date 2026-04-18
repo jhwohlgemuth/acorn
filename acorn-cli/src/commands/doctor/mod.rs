@@ -1,6 +1,6 @@
 use crate::cli::arguments::Diagnostic;
+use crate::commands::preflight;
 use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
-use acorn::util::Label;
 use color_eyre::eyre::{Report, Result};
 use tracing::warn;
 
@@ -9,10 +9,7 @@ fn should_run(checks: &[Diagnostic], diagnostic: Diagnostic) -> bool {
 }
 #[allow(clippy::too_many_arguments)]
 pub async fn run(fix: &bool, interactive: &bool, check: &[Diagnostic], offline: &bool) -> Result<(), Report> {
-    if *offline {
-        println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
-        unimplemented!("Offline mode is not implemented yet");
-    }
+    preflight(*offline, false, false, "doctor");
     if *fix {
         unimplemented!("Autofix is not implemented yet");
     }

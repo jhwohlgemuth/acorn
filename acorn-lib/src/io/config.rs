@@ -265,7 +265,11 @@ impl Bucket {
                 let bucket_root = bucket_root_clone.clone();
                 let output = output_clone.clone();
                 async move {
-                    let relative = path.strip_prefix(&format!("{}/", bucket_root.trim_end_matches("/"))).unwrap();
+                    let path_buf = PathBuf::from(&path);
+                    let relative = match path_buf.strip_prefix(PathBuf::from(&bucket_root)) {
+                        | Ok(rel) => rel.to_path_buf(),
+                        | Err(_) => return Err(eyre!("Failed to strip prefix {bucket_root} from {path}")),
+                    };
                     let output_filepath = output.join(relative);
                     write_file_bytes(output_filepath, || async { prelude::read(path.clone()) }).await
                 }

@@ -1,5 +1,6 @@
 use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument, Standard};
 use crate::cli::{paths_from_options, CommandLineOptions};
+use crate::commands::preflight;
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{summary, Analysis, Check, CheckOptions};
 use acorn::io::unique_file_extensions;
@@ -37,9 +38,7 @@ pub async fn run(
 ) -> Result<(), Report> {
     let level = verbose.log_level();
     let is_silent = verbose.is_silent();
-    if *offline && !is_silent {
-        println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
-    }
+    preflight(*offline, is_silent, true, "check");
     let cli_options = CommandLineOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())

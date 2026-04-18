@@ -528,6 +528,15 @@ impl ResearchActivity {
     pub fn new() -> Self {
         ResearchActivity::default()
     }
+    /// Serializes a research activity into a string for a supported mime type
+    #[cfg(feature = "std")]
+    pub fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
+        match mime {
+            | MimeType::Json => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON RAD — {why}")),
+            | MimeType::Yaml => serde_yml::to_string(self).map_err(|why| eyre!("Failed to serialize YAML RAD — {why}")),
+            | _ => Err(eyre!("Unsupported mime type for research activity serialization: {mime:?}")),
+        }
+    }
     /// Print research activity schema as JSON schema
     pub fn to_schema() {
         let schema = schema_for!(ResearchActivity);

@@ -1,3 +1,4 @@
+use crate::commands::preflight;
 use acorn::io::config::{ApplicationConfiguration, Bucket};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Operations};
@@ -20,9 +21,7 @@ pub async fn run(
     verbose: &Verbosity,
 ) -> Result<(), Report> {
     let quiet = verbose.is_silent();
-    if *offline && !quiet {
-        println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
-    }
+    preflight(*offline, quiet, true, "download");
     let database = Database::<Table>::from_path(database_path.clone());
     if let Some(path) = config {
         match ApplicationConfiguration::read(path.clone()) {

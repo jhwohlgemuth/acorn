@@ -1,4 +1,5 @@
 use crate::cli::{paths_from_options, CommandLineOptions};
+use crate::commands::preflight;
 use acorn::fail;
 use acorn::io::{FromPath, InputOutput};
 use acorn::prelude::{exit, write, PathBuf};
@@ -21,10 +22,7 @@ pub async fn run(
     verbose: &Verbosity,
     offline: &bool,
 ) -> Result<(), Report> {
-    if *offline && !verbose.is_silent() {
-        println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
-        unimplemented!("Offline mode is not implemented yet");
-    }
+    preflight(*offline, verbose.is_silent(), false, "format");
     let options = CommandLineOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
@@ -35,17 +33,21 @@ pub async fn run(
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
         | Ok(data) => {
             let mime = MimeType::from_path(path);
-            let old_content = match mime {
-                | MimeType::Json => serde_json::to_string_pretty(&data).unwrap(),
-                | MimeType::Yaml => serde_yml::to_string(&data).unwrap(),
-                | _ => unimplemented!("Unsupported file type"),
+            let old_content = match data.serialize_as(&mime) {
+                | Ok(content) => content,
+                | Err(why) => {
+                    fail!("Serialize original content - {}", why);
+                    exit(exitcode::UNAVAILABLE);
+                }
             };
             let context = Some(path.clone());
             let formatted = data.format_with(context);
-            let new_content = match mime {
-                | MimeType::Json => serde_json::to_string_pretty(&formatted).unwrap(),
-                | MimeType::Yaml => serde_yml::to_string(&formatted).unwrap(),
-                | _ => unimplemented!("Unsupported file type"),
+            let new_content = match formatted.serialize_as(&mime) {
+                | Ok(content) => content,
+                | Err(why) => {
+                    fail!("Serialize formatted content - {}", why);
+                    exit(exitcode::UNAVAILABLE);
+                }
             };
             if dry_run {
                 println!("{} Format {}", Label::dry_run(), path.clone().to_absolute_string().yellow());

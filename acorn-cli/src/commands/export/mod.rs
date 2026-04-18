@@ -1,5 +1,6 @@
 use crate::cli::arguments::FileFormat;
 use crate::cli::{paths_from_options, CommandLineOptions};
+use crate::commands::preflight;
 use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, with_progress, FromPath, InputOutput, ProgressType};
 use acorn::prelude::{exit, remove_dir_all, HashSet, PathBuf};
@@ -38,10 +39,7 @@ pub async fn run(
         | true => ProgressType::Silent,
         | false => ProgressType::Bar,
     };
-    if *offline && !is_silent {
-        println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
-        unimplemented!("Offline mode is not implemented yet");
-    }
+    preflight(*offline, is_silent, false, "export");
     let options = CommandLineOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())

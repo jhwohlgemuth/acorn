@@ -1002,7 +1002,10 @@ where
         | Ok(value) => value,
         | Err(_) => path.into(),
     };
-    result.display().to_string()
+    let s = result.display().to_string();
+    #[cfg(windows)]
+    let s = s.strip_prefix(r"\\?\").unwrap_or(&s).to_string();
+    s
 }
 /// Returns a sorted list of unique lowercase file extensions from the given paths.
 pub fn unique_file_extensions(paths: &[PathBuf]) -> Vec<String> {
