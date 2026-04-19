@@ -250,7 +250,6 @@ fn test_sample_text() {
     assert_eq!(4, sentence_count(text));
     // Expected Syllable count = 147 (per fleschkincaidcalculator.com)
     assert_eq!(148, syllable_count(text));
-    // Expected Complex word count = 22 (per fleschkincaidcalculator.com)
     assert_eq!(22, complex_word_count(text));
     // Expected FKGL = 13.3 (per fleschkincaidcalculator.com)
     assert_eq!(13.39, flesch_kincaid_grade_level(text));
