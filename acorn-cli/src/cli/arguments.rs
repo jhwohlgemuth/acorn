@@ -112,6 +112,9 @@ pub enum Standard {
     /// Huwise
     #[display("huwise")]
     Huwise,
+    /// Plain text (no schema structure)
+    #[display("text")]
+    Text,
 }
 /// Target artifact types available when exporting research activity data using acorn
 ///

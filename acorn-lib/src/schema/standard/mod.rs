@@ -9,6 +9,7 @@ pub mod datacite;
 pub mod dublin_core;
 pub mod huwise;
 pub mod invenio;
+pub mod text;
 
 #[cfg(test)]
 mod tests;

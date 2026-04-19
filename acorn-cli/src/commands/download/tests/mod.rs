@@ -45,8 +45,7 @@ async fn test_download_local_config_silent() -> Result<()> {
     let config_path = temp_dir.join("config.json");
     let bucket_path = fixture_path("data/bucket");
     let bucket_uri = format!("file:{}", bucket_path.display()).replace('\\', "/");
-    let config = fs::read_to_string(fixture_path("config/with_local_buckets.json"))?
-        .replace("file:./tests/fixtures/data/bucket/", &bucket_uri);
+    let config = fs::read_to_string(fixture_path("config/with_local_buckets.json"))?.replace("file:./tests/fixtures/data/bucket/", &bucket_uri);
     fs::write(&config_path, config)?;
     let verbose = Verbosity::new(0, 1);
     let result = run(

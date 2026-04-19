@@ -13,6 +13,7 @@ use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandO
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::standard::cff::{Cff, Identifier, IdentifierType, Reference};
+use crate::schema::standard::text::Text;
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::{APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{Constant, Label, SemanticVersion, StringConversion};
@@ -315,6 +316,41 @@ impl Analysis for ResearchActivity {
         standard_project_folder("check", None)
             .join(data.meta.identifier.to_lowercase())
             .join("index.json")
+    }
+}
+#[async_trait]
+impl Analysis for Text {
+    fn standard() -> Standard {
+        Standard::Text
+    }
+    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        check_prose_for::<Self>(paths, options).await
+    }
+    fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
+                | Ok(_) => check_ok!(CheckCategory::Quality),
+                | Err(why) => check_err!(
+                    CheckCategory::Quality,
+                    message: "Cannot read text data",
+                    context: why.to_string()
+                ),
+            })
+            .collect()
+    }
+    fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        check_readability_for::<Self>(paths, options)
+    }
+    fn check_schema(_paths: &[PathBuf]) -> Vec<Check> {
+        vec![]
+    }
+    #[cfg(feature = "std")]
+    async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        vec![]
+    }
+    fn prose_output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
 #[async_trait]

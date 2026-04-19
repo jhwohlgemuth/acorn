@@ -7,6 +7,7 @@ use acorn::io::unique_file_extensions;
 use acorn::prelude::PathBuf;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
+use acorn::schema::standard::text::Text;
 use acorn::util::constants::ENV_READABILITY_METRIC;
 use acorn::util::{print_values_as_table, Label};
 use acorn::{fail, skip};
@@ -57,12 +58,16 @@ pub async fn run(
     let inferred_standard = if extensions.len() == 1 && extensions.contains(&"cff".to_string()) {
         warn!("=> {} Inferred standard (CFF)", Label::using());
         Standard::Cff
+    } else if extensions.len() == 1 && extensions.contains(&"txt".to_string()) {
+        warn!("=> {} Inferred standard (Text)", Label::using());
+        Standard::Text
     } else {
         *standard
     };
     let all_issues = match inferred_standard {
         | Standard::Cff => collect_failed_checks::<Cff>(&paths, skip, &check_options, *disable_website_checks, level).await,
         | Standard::Rads => collect_failed_checks::<ResearchActivity>(&paths, skip, &check_options, *disable_website_checks, level).await,
+        | Standard::Text => collect_failed_checks::<Text>(&paths, skip, &check_options, *disable_website_checks, level).await,
         | _ => unimplemented!(),
     };
     if level.is_some() {

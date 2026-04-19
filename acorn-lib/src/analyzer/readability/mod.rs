@@ -16,7 +16,7 @@ pub mod constants;
 use constants::{
     DOUBLE, DOUBLE_SYLLABIC_FOUR, DOUBLE_SYLLABIC_ONE, DOUBLE_SYLLABIC_THREE, DOUBLE_SYLLABIC_TWO, IRREGULAR_NOUNS, IRREGULAR_NOUNS_INVERTED,
     NEED_TO_BE_FIXED, NON_ALPHABETIC, PLURAL_TO_SINGULAR, PROBLEMATIC_WORDS, SAME_SINGULAR_PLURAL, SINGLE, SINGLE_SYLLABIC_ONE, SINGLE_SYLLABIC_TWO,
-    TRIPLE, VOWEL,
+    TRIPLE, VOWEL, WORD_SYLLABLES,
 };
 
 /// Readability Type
@@ -160,7 +160,61 @@ pub fn long_word_count(text: &str) -> u32 {
 }
 /// Count the number of sentences in a given text
 pub fn sentence_count(text: &str) -> u32 {
-    text.split('.').filter(|s| !s.is_empty()).collect::<Vec<_>>().len() as u32
+    fn is_wrapper(character: char) -> bool {
+        matches!(character, ')' | ']' | '}' | '"' | '\'')
+    }
+    fn next_meaningful(chars: &[char], index: usize) -> Option<char> {
+        chars
+            .iter()
+            .skip(index + 1)
+            .copied()
+            .find(|character| !(character.is_whitespace() || is_wrapper(*character)))
+    }
+    fn previous_meaningful(chars: &[char], index: usize) -> Option<char> {
+        chars[..index]
+            .iter()
+            .rev()
+            .copied()
+            .find(|character| !(character.is_whitespace() || is_wrapper(*character)))
+    }
+    fn token_before(chars: &[char], index: usize) -> String {
+        chars[..index]
+            .iter()
+            .rev()
+            .take_while(|character| !character.is_whitespace())
+            .copied()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<String>()
+            .trim_matches(|character: char| !character.is_alphanumeric() && character != '.')
+            .to_lowercase()
+    }
+    fn suppresses_boundary(token: &str, next: Option<char>) -> bool {
+        matches!(token, "e.g" | "i.e")
+            || matches!(token, "mr" | "mrs" | "ms" | "dr" | "prof" | "sr" | "jr" | "vs" | "st")
+                && matches!(next, Some(value) if value.is_alphabetic())
+    }
+    let chars = text.chars().collect::<Vec<_>>();
+    chars
+        .iter()
+        .enumerate()
+        .filter(|(index, character)| match character {
+            | '!' | '?' => previous_meaningful(&chars, *index).is_some(),
+            | '.' => {
+                let previous = previous_meaningful(&chars, *index);
+                let next = next_meaningful(&chars, *index);
+                let token = token_before(&chars, *index);
+                !matches!(chars.get(index + 1), Some('.'))
+                    && !matches!(chars.get(index.wrapping_sub(1)), Some('.'))
+                    && !matches!((previous, next), (Some(left), Some(right)) if left.is_ascii_digit() && right.is_ascii_digit())
+                    && !matches!(next, Some(value) if value.is_ascii_lowercase())
+                    && !suppresses_boundary(&token, next)
+                    && previous.is_some()
+            }
+            | _ => false,
+        })
+        .count() as u32
 }
 /// Get list of words in a given text
 pub fn words(text: &str) -> Vec<String> {
@@ -318,6 +372,10 @@ pub fn singular_form(word: &str) -> String {
 pub fn syllable_count(text: &str) -> usize {
     fn syllables(word: String) -> usize {
         let singular = singular_form(&word);
+        let normalized = word.to_lowercase();
+        if let Some(value) = WORD_SYLLABLES.get(&normalized).or_else(|| WORD_SYLLABLES.get(&singular)) {
+            return *value;
+        }
         match word.as_str() {
             | "" => 0,
             | value if value.len() < 3 => 1,
@@ -339,7 +397,7 @@ pub fn syllable_count(text: &str) -> usize {
             },
             | _ => {
                 let mut count: isize = 0;
-                let mut input = word;
+                let mut input = word.to_lowercase();
                 count += 3 * TRIPLE.find_iter(&input).count() as isize;
                 input = TRIPLE.replace_all(&input, "").to_string();
                 count += 2 * DOUBLE.find_iter(&input).count() as isize;
@@ -353,7 +411,7 @@ pub fn syllable_count(text: &str) -> usize {
                 count += DOUBLE_SYLLABIC_THREE.find_iter(&input).count() as isize;
                 count += DOUBLE_SYLLABIC_FOUR.find_iter(&input).count() as isize;
                 count += VOWEL.split(&input).filter(|x| !x.as_ref().unwrap().is_empty()).count() as isize;
-                count as usize
+                count.max(1) as usize
             }
         }
     }

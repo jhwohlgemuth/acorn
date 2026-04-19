@@ -1,0 +1,15 @@
+ACORN is a CLI application that provides a structure for
+Research Activity Data (RAD) and enables adding linked
+data context and transforming RAD into a knowledge graph
+that is amenable to automated reasoning and artifct
+generation (e.g., PDF, PPTX, etc.)
+
+ACORN employs a set of automated processes for informing
+and/or enforcing defined content schemas to create
+standardized and highly structured data. Because of its
+standardized data source, ACORN easily applies computer
+automation to generate communication assets such as PDF fact sheets,
+PowerPoint presentations, and web pages. Built using the
+memory-safe Rust programming language, ACORN is portable
+and accessible for use on any Windows, Mac, or Linux
+machine.

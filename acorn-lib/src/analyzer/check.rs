@@ -83,6 +83,9 @@ pub enum Standard {
     /// InvenioRDM
     #[display("invenio")]
     Invenio,
+    /// Plain text
+    #[display("text")]
+    Text,
 }
 /// Various check categories available for validating research activity data
 #[derive(Clone, Debug, Display, PartialEq)]

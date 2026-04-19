@@ -2,14 +2,33 @@ use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::readability::*;
 use crate::analyzer::{checks_to_dataframe, CheckCategory};
 use crate::check_ok;
-use crate::io::read_file;
-use crate::prelude::PathBuf;
+use crate::util::Constant;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use zench::{bench, bx};
 
-const FIXTURES: &str = "../tests/fixtures";
+// Baseline with dictionary-backed lookup is above 0.90 on words.csv.
+// Keep this as a regression floor (not a quality target) so future changes do not
+// silently degrade broad-wordlist behavior.
+const MIN_ACCURACY: f64 = 1.0;
+const ACORN_SAMPLE_TEXT: &str = r#"
+ACORN is a CLI application that provides a structure for
+Research Activity Data (RAD) and enables adding linked
+data context and transforming RAD into a knowledge graph
+that is amenable to automated reasoning and artifct
+generation (e.g., PDF, PPTX, etc.)
+
+ACORN employs a set of automated processes for informing
+and/or enforcing defined content schemas to create
+standardized and highly structured data. Because of its
+standardized data source, ACORN easily applies computer
+automation to generate communication assets such as PDF fact sheets,
+PowerPoint presentations, and web pages. Built using the
+memory-safe Rust programming language, ACORN is portable
+and accessible for use on any Windows, Mac, or Linux
+machine.
+    "#;
 
 #[test]
 fn test_checks_to_dataframe() {
@@ -90,19 +109,66 @@ fn test_syllables_count_accented() {
     assert_eq!(2, syllable_count("Zoë"));
     assert_eq!(2, syllable_count("zoë"));
 }
+// | Capability | Example | Expected syllables |
+// |---|---|---|
+// | Empty input | "" | 0 |
+// | Single word baseline | "innovation" | 4 |
+// | Multi-word phrase aggregation | "quick brown fox" | 3 |
+// | Hyphen-aware tokenization | "good-natured" | 3 |
+// | Accent-aware normalization | "cafés" | 2 |
+// | Problematic-word dictionary | "queue" | 1 |
+// | Irregular plural handling | "radii" | 3 |
+#[test]
+fn test_syllable_count_use_cases() {
+    let cases = vec![
+        ("empty input", "", 0usize),
+        ("single word baseline", "innovation", 4usize),
+        ("multi-word phrase aggregation", "quick brown fox", 3usize),
+        ("hyphen-aware tokenization", "good-natured", 3usize),
+        ("accent-aware normalization", "cafés", 2usize),
+        ("problematic-word dictionary", "queue", 1usize),
+        ("irregular plural handling", "radii", 3usize),
+    ];
+    cases.into_iter().for_each(|(label, input, expected)| {
+        let actual = syllable_count(input);
+        assert_eq!(expected, actual, "=> [REASON] use case `{label}` failed for input `{input}`");
+    });
+}
 #[ignore] // Takes too long (less than 30 seconds)
 #[test]
 fn test_syllables_count_word_list() {
-    match read_file(PathBuf::from(FIXTURES).join("words.csv")) {
-        | Ok(content) => {
-            content.lines().map(String::from).collect::<Vec<String>>().par_iter().for_each(|x| {
-                let pair: Vec<String> = x.split(',').map(String::from).collect();
-                let word = &pair[0];
-                let count: usize = pair[1].parse().unwrap();
-                assert_eq!(count, syllable_count(word));
-            });
+    match Constant::from_asset("words.csv") {
+        | Some(content) => {
+            let rows = content.lines().filter(|line| !line.trim().is_empty()).collect::<Vec<&str>>();
+            let total = rows.len();
+            let mismatches = rows
+                .into_iter()
+                .filter_map(|line| {
+                    let pair = line.split_once(',');
+                    match pair {
+                        | Some((word, expected_raw)) => {
+                            let expected = expected_raw.parse::<usize>().expect("Invalid syllable count in words.csv");
+                            let actual = syllable_count(word);
+                            (expected != actual).then(|| (word.to_string(), expected, actual))
+                        }
+                        | None => Some((line.to_string(), usize::MAX, usize::MAX)),
+                    }
+                })
+                .collect::<Vec<(String, usize, usize)>>();
+            let mismatch_count = mismatches.len();
+            let accuracy = if total == 0 { 1.0 } else { 1.0 - (mismatch_count as f64 / total as f64) };
+            let sample = mismatches
+                .iter()
+                .take(10)
+                .map(|(word, expected, actual)| format!("{word}:{expected}->{actual}"))
+                .collect::<Vec<String>>()
+                .join(", ");
+            assert!(
+                accuracy >= MIN_ACCURACY,
+                "Syllable accuracy below threshold ({accuracy:.3} < {MIN_ACCURACY:.3}); mismatches={mismatch_count}/{total}; sample=[{sample}]"
+            );
         }
-        | Err(_) => {}
+        | None => {}
     }
 }
 #[test]
@@ -124,10 +190,36 @@ fn test_word_count() {
     let text = "The quick brown fox jumps over the lazy dog.";
     assert_eq!(9, word_count(text));
 }
+// | Case | Example | Expected |
+// |---|---|---|
+// | Empty/no terminator | "" / "No terminal punctuation here" | 0 |
+// | Basic punctuation | "One! Two? Three." | 3 |
+// | Abbreviations/decimals | "Dr. ..." / "i.e. ..." / "3.14." | sentence boundaries are preserved |
+// | Wrappers/ellipsis | "(go now!)." / "Wait..." | counts current tokenizer behavior |
 #[test]
 fn test_sentence_count() {
+    let text = "";
+    assert_eq!(0, sentence_count(text));
+    let text = "No terminal punctuation here";
+    assert_eq!(0, sentence_count(text));
     let text = "The quick brown fox jumps over the lazy dog.";
     assert_eq!(1, sentence_count(text));
+    let text = "One! Two? Three.";
+    assert_eq!(3, sentence_count(text));
+    let text = "Dr. Smith arrived. He left.";
+    assert_eq!(2, sentence_count(text));
+    let text = "Use i.e. precise wording. Keep it short.";
+    assert_eq!(2, sentence_count(text));
+    let text = "The value is 3.14. Next sentence.";
+    assert_eq!(2, sentence_count(text));
+    let text = "Wait... what happened? Fine.";
+    assert_eq!(2, sentence_count(text));
+    let text = "He said (go now!). Then left.";
+    assert_eq!(3, sentence_count(text));
+    let text = "Examples include e.g. common abbreviations, etc. They should not create extra sentences.";
+    assert_eq!(2, sentence_count(text));
+    let text = ACORN_SAMPLE_TEXT;
+    assert_eq!(4, sentence_count(text));
 }
 #[test]
 fn test_automated_readability_index() {
@@ -149,6 +241,8 @@ fn test_flesch_kincaid_grade_level() {
     assert_eq!(2.34, flesch_kincaid_grade_level(text));
     let text = "The alacritous brown fox jumps over the lethargic dog.";
     assert_eq!(7.59, flesch_kincaid_grade_level(text));
+    let text = ACORN_SAMPLE_TEXT;
+    assert_eq!(17.12, flesch_kincaid_grade_level(text));
 }
 #[test]
 fn test_flesch_reading_ease_score() {
@@ -192,9 +286,9 @@ fn bench_readability() {
 }
 #[test]
 fn bench_readability_heavy_paths() {
-    let corpus = match read_file(PathBuf::from(FIXTURES).join("words.csv")) {
-        | Ok(content) => content.lines().filter_map(|line| line.split(',').next()).collect::<Vec<&str>>().join(" "),
-        | Err(_) => "The alacritous brown fox jumps over the lethargic dog. ".repeat(512),
+    let corpus = match Constant::from_asset("words.csv") {
+        | Some(content) => content.lines().filter_map(|line| line.split(',').next()).collect::<Vec<&str>>().join(" "),
+        | None => "The alacritous brown fox jumps over the lethargic dog. ".repeat(512),
     };
     let large = format!("{} {}", corpus, corpus);
     bench!(

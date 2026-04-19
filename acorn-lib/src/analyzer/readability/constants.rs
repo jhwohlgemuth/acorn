@@ -2,6 +2,7 @@
 //!
 //! Used to inform and configure readability analysis
 use crate::prelude::HashMap;
+use crate::util::Constant;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
@@ -161,6 +162,16 @@ lazy_static! {
         ("yosemite", 4),
         ("zoë", 2),
     ].into_iter().collect();
+    /// Dictionary-backed syllable counts loaded from embedded `words.csv`.
+    pub static ref WORD_SYLLABLES: HashMap<String, usize> = Constant::csv("words")
+        .into_iter()
+        .filter_map(|row| {
+            match row.as_slice() {
+                | [word, count, ..] => count.parse::<usize>().ok().map(|value| (word.clone(), value)),
+                | _ => None,
+            }
+        })
+        .collect();
 }
 /// Plural to singular regex patterns
 pub const PLURAL_TO_SINGULAR: [(&str, &str); 28] = [
