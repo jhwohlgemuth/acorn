@@ -29,6 +29,13 @@ memory-safe Rust programming language, ACORN is portable
 and accessible for use on any Windows, Mac, or Linux
 machine.
     "#;
+// Source: https://fleschkincaidcalculator.com/
+const SAMPLE_TEXT: &str = r#"
+Crafting a compelling proposal for funding, whether it's a grant proposal for business proposal for funding, is critical to securing financial support.
+Clear, readable writing can set your proposal apart from the competition. One effective tool to ensure clarity is a Flesch Kincaid score checker.
+This blog post explores how to write a proposal for funding, including a sample skeleton for a business proposal for funding, and explains how to use 
+the Flesch Kincaid score checker to optimize readability for grant and business proposals.
+"#;
 
 #[test]
 fn test_checks_to_dataframe() {
@@ -89,6 +96,7 @@ fn test_syllable_count_simple() {
 }
 #[test]
 fn test_syllables_count_problematic() {
+    assert_eq!(3, syllable_count("business"));
     assert_eq!(1, syllable_count("queue"));
     assert_eq!(3, syllable_count("anyone"));
     assert_eq!(2, syllable_count("maybe"));
@@ -234,6 +242,26 @@ fn test_coleman_liau_index() {
     assert_eq!(3.78, coleman_liau_index(text));
     let text = "The alacritous brown fox jumps over the lethargic dog.";
     assert_eq!(10.31, coleman_liau_index(text));
+}
+#[test]
+fn test_sample_text() {
+    let text = SAMPLE_TEXT;
+    assert_eq!(84, word_count(text));
+    assert_eq!(4, sentence_count(text));
+    // Expected Syllable count = 147 (per fleschkincaidcalculator.com)
+    assert_eq!(148, syllable_count(text));
+    // Expected Complex word count = 22 (per fleschkincaidcalculator.com)
+    assert_eq!(22, complex_word_count(text));
+    // Expected FKGL = 13.3 (per fleschkincaidcalculator.com)
+    assert_eq!(13.39, flesch_kincaid_grade_level(text));
+    // Expected FRES = 37.0 (per fleschkincaidcalculator.com)
+    assert_eq!(36.46, flesch_reading_ease_score(text));
+    // Expected SMOG = 16.5 (per fleschkincaidcalculator.com)
+    assert_eq!(16.53, smog(text));
+    // Expected CLI = 14.6 (per fleschkincaidcalculator.com)
+    assert_eq!(13.94, coleman_liau_index(text));
+    // Expected ARI = 14.6 (per fleschkincaidcalculator.com)
+    assert_eq!(14.02, automated_readability_index(text));
 }
 #[test]
 fn test_flesch_kincaid_grade_level() {
