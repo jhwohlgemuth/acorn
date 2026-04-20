@@ -19,14 +19,16 @@ identifiers:
   - type: doi
     value: 10.11578/dc.20250604.1
     description: >-
-      Accessible Content Optimization for Research Needs
-      (ACORN)
+      Accessible Content Optimization for Research Needs (ACORN)
 repository-code: 'https://code.ornl.gov/research-enablement/acorn'
 url: 'https://research.ornl.gov'
 repository: 'https://acorn.ornl.gov'
 repository-artifact: 'https://code.ornl.gov/research-enablement/acorn/-/releases'
 abstract: >-
-  ACORN is a research multitool that helps create and action on research activity data (RAD). ACORN’s automated processes inform and enforce defined content structures to create standardized, highly structured data. With this data, ACORN applies computer automation to generate communication assets such as PDFs, presentations, and web pages. Built using the memory-safe Rust programming language, ACORN is portable and accessible for use on any Windows, Mac, or Linux machine.
+  ACORN is a research multi-tool that helps create and action on research activity data (RAD).
+  ACORN's automated processes inform and enforce defined content structures to create standardized, highly structured data.
+  With this data, ACORN applies computer automation to generate communication assets such as facts sheets, presentations, and web pages.
+  Built using the memory-safe Rust programming language, ACORN is portable and accessible for use on any Windows, Mac, or Linux machine.
 keywords:
   - research
   - schema
