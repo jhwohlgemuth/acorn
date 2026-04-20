@@ -204,8 +204,10 @@ impl Check {
                 if let Some(kind) = &self.errors {
                     match kind {
                         | ErrorKind::Vale(values) => values.len(),
-                        | _ => 0,
+                        | _ => 1,
                     }
+                } else if !self.message.is_empty() {
+                    1
                 } else {
                     0
                 }

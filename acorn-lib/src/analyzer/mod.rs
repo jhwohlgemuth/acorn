@@ -464,11 +464,11 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         } else {
                             why
                         };
-                        error!("=> {} Analyze - {}", Label::fail(), message);
+                        error!("=> {} Analyze with OK output — {message}", Label::fail());
                         vec![check_err!(CheckCategory::Prose, message: message)]
                     }
                     | Err(why) => {
-                        error!("=> {} Analyze - {}", Label::fail(), why);
+                        error!("=> {} Analyze — {why}", Label::fail());
                         vec![check_err!(CheckCategory::Prose, uri: uri)]
                     }
                 }
