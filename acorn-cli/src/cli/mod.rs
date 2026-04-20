@@ -231,15 +231,15 @@ pub enum Commands {
         /// Exit on first error
         #[arg(short, long = "exit-on-first-error", value_name = "BOOL", help_heading = "FLAGS")]
         exit_on_first_error: bool,
-        /// Regex pattern applied to absolute paths of files that determines whether they should be included in checking process
+        /// Regular expression pattern(s) applied to absolute paths of files to exclude from checking
         ///
         /// Only applies to `--path` values that point to a directory
         ///
         /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
         ///
-        /// Example: --ignore "[/]valid.json$"
-        #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
-        ignore: Option<String>,
+        /// Example: --ignore "[/]valid.json$,[/]draft.json$"
+        #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+        ignore: Vec<String>,
         /// Format files that were changed in a given merge request (Gitlab) or pull request (GitHub)
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,
@@ -323,6 +323,11 @@ pub enum Commands {
         /// Path to configuration file (alternative to URL argument)
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, conflicts_with = "url", help_heading = "OPTIONS")]
         config: Option<PathBuf>,
+        /// Regular expression pattern(s) to ignore while downloading
+        ///
+        /// Values augment built-in ignores and can be provided as a comma-separated list
+        #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+        ignore: Vec<String>,
         /// Path to output directory where the downloaded content should be saved
         #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
         output: Option<PathBuf>,
@@ -365,15 +370,15 @@ pub enum Commands {
         /// Export target file format
         #[arg(default_value_t, short, long, value_name = "FORMAT", help_heading = "OPTIONS")]
         format: FileFormat,
-        /// Regex pattern applied to absolute paths of files that determines whether they should be included in export process
+        /// Regular expression pattern(s) applied to absolute paths of files to exclude from export process
         ///
         /// Only applies to `--path` values that point to a directory
         ///
         /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
         ///
-        /// Example: --ignore "[/]valid.json$"
-        #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
-        ignore: Option<String>,
+        /// Example: --ignore "[/]valid.json$,[/]draft.json$"
+        #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+        ignore: Vec<String>,
         /// Export files that were changed in a given merge request (Gitlab) or pull request (GitHub)
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,

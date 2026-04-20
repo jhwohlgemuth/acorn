@@ -30,8 +30,9 @@ async fn test_download_local_url_silent() -> Result<()> {
     let output_dir = temp_dir.join("output");
     create_dir_all(&output_dir)?;
     let url = Some("file:./tests/fixtures/data/bucket/".to_string());
+    let ignore: Vec<String> = vec![];
     let verbose = Verbosity::new(0, 1);
-    let result = run(&None, &url, &Some(output_dir.clone()), &OFFLINE, &None, TEST_THREADS, &verbose).await;
+    let result = run(&None, &url, &ignore, &Some(output_dir.clone()), &OFFLINE, &None, TEST_THREADS, &verbose).await;
     assert!(result.is_ok(), "download from local URL should succeed");
     assert!(output_dir.exists(), "output directory should exist");
     Ok(())
@@ -47,10 +48,12 @@ async fn test_download_local_config_silent() -> Result<()> {
     let bucket_uri = format!("file:{}", bucket_path.display()).replace('\\', "/");
     let config = fs::read_to_string(fixture_path("config/with_local_buckets.json"))?.replace("file:./tests/fixtures/data/bucket/", &bucket_uri);
     fs::write(&config_path, config)?;
+    let ignore: Vec<String> = vec![];
     let verbose = Verbosity::new(0, 1);
     let result = run(
         &Some(config_path),
         &None,
+        &ignore,
         &Some(output_dir.clone()),
         &OFFLINE,
         &None,

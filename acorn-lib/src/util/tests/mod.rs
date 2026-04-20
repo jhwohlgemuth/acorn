@@ -421,6 +421,15 @@ fn test_regex_capture_lookup() {
     assert_eq!(lookup["day"], "30");
 }
 #[test]
+fn test_regex_join() {
+    assert_eq!(regex_join(&[]), None);
+    assert_eq!(regex_join(&["".to_string()]), None);
+    let patterns = vec!["\\.json$".to_string(), "^README".to_string()];
+    assert_eq!(regex_join(&patterns), Some("(?:\\.json$)|(?:^README)".to_string()));
+    let patterns = vec!["\\.json$".to_string(), "".to_string(), "^README".to_string()];
+    assert_eq!(regex_join(&patterns), Some("(?:\\.json$)|(?:^README)".to_string()));
+}
+#[test]
 fn test_semantic_version() {
     let version = SemanticVersion::from("3");
     assert_eq!(version.major, 3);

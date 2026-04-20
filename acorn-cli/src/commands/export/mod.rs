@@ -5,7 +5,7 @@ use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, with_progress, FromPath, InputOutput, ProgressType};
 use acorn::prelude::{exit, remove_dir_all, HashSet, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{current_date, format_bytes, suffix, Label, MimeType, StringConversion};
+use acorn::util::{current_date, format_bytes, regex_join, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
@@ -25,6 +25,7 @@ pub async fn run(
     path: &Option<PathBuf>,
     branch: &Option<String>,
     commit: &Option<String>,
+    ignore: &[String],
     format: &FileFormat,
     reference: &Option<PathBuf>,
     combine: &bool,
@@ -43,6 +44,7 @@ pub async fn run(
     let options = CommandLineOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
+        .maybe_ignore(regex_join(ignore))
         .merge_request(*merge_request)
         .build();
     let extension = format.to_string();

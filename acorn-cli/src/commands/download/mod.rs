@@ -11,9 +11,11 @@ use owo_colors::OwoColorize;
 use std::process::exit;
 use tracing::error;
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run(
     config: &Option<PathBuf>,
     url: &Option<String>,
+    ignore: &[String],
     output: &Option<PathBuf>,
     offline: &bool,
     database_path: &Option<PathBuf>,
@@ -31,7 +33,7 @@ pub async fn run(
                     for bucket in buckets {
                         if let Some(path) = output.clone() {
                             if *offline || bucket.clone().code_repository.is_local() {
-                                match bucket.copy_files(path, threads, quiet).await {
+                                match bucket.copy_files(path, threads, quiet, ignore).await {
                                     | Ok(count) => {
                                         total += count;
                                     }
@@ -41,7 +43,7 @@ pub async fn run(
                                     }
                                 }
                             } else {
-                                match bucket.download_files(path, threads, quiet).await {
+                                match bucket.download_files(path, threads, quiet, ignore).await {
                                     | Ok(count) => {
                                         total += count;
                                     }
@@ -84,7 +86,7 @@ pub async fn run(
         let bucket = Bucket::from(value.as_ref());
         if let Some(path) = output.clone() {
             if *offline || bucket.clone().code_repository.is_local() {
-                match bucket.copy_files(path.clone(), threads, quiet).await {
+                match bucket.copy_files(path.clone(), threads, quiet, ignore).await {
                     | Ok(count) => {
                         total += count;
                     }
@@ -94,7 +96,7 @@ pub async fn run(
                     }
                 }
             } else {
-                match bucket.download_files(path.clone(), threads, quiet).await {
+                match bucket.download_files(path.clone(), threads, quiet, ignore).await {
                     | Ok(count) => {
                         total += count;
                     }

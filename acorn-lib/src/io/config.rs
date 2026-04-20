@@ -17,6 +17,7 @@ use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt::Debug;
 use derive_more::Display;
+use fancy_regex::Regex;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -242,7 +243,7 @@ impl Bucket {
     /// ### Notes
     /// - Ignores files listed in [`IGNORE`]
     /// - Only copies files from local repositories
-    pub async fn copy_files(self: Bucket, output: PathBuf, threads: usize, quiet: bool) -> ApiResult<usize> {
+    pub async fn copy_files(self: Bucket, output: PathBuf, threads: usize, quiet: bool, ignore: &[String]) -> ApiResult<usize> {
         let Bucket { name, code_repository, .. } = self.clone();
         if code_repository.clone().is_local() {
             let uri = code_repository.clone().location().uri();
@@ -252,11 +253,17 @@ impl Bucket {
                     unimplemented!()
                 }
             };
-            let items = files_all(PathBuf::from(bucket_root.clone()), None)
+            let files = files_all(PathBuf::from(bucket_root.clone()), None)
                 .into_iter()
                 .map(|x| x.display().to_string())
-                .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
-                .filter(|path| PathBuf::from(path).is_file())
+                .collect::<Vec<String>>();
+            let items = files
+                .into_iter()
+                .filter_map(|path| match is_ignored_path(&path, ignore) {
+                    | true => None,
+                    | false if PathBuf::from(&path).is_file() => Some(path),
+                    | false => None,
+                })
                 .collect::<Vec<String>>();
             let message: fn(&String) -> String = |path| format!("Copying {path}");
             let bucket_root_clone = bucket_root.clone();
@@ -284,7 +291,7 @@ impl Bucket {
             match with_progress(items, message, operation, finish_message, Some(threads), progress_type).await {
                 | Ok(_) => Ok(total_data + total_images),
                 | Err(why) => {
-                    error!("=> {} Copy files with progress bar - {why}", Label::fail());
+                    error!("=> {} Copy files with progress bar — {why}", Label::fail());
                     Err(why)
                 }
             }
@@ -297,15 +304,12 @@ impl Bucket {
     /// Ignores files listed in [`IGNORE`]
     ///
     /// Downloads files concurrently using buffered streams
-    pub async fn download_files(self: Bucket, output: PathBuf, threads: usize, quiet: bool) -> ApiResult<usize> {
+    pub async fn download_files(self: Bucket, output: PathBuf, threads: usize, quiet: bool, ignore: &[String]) -> ApiResult<usize> {
         let Bucket { name, code_repository, .. } = self.clone();
         let items = match self.clone().file_paths("").await {
-            | Ok(paths) => paths
-                .into_iter()
-                .filter(|path| !IGNORE.iter().any(|x| path.ends_with(x)))
-                .collect::<Vec<String>>(),
+            | Ok(paths) => paths.into_iter().filter(|path| !is_ignored_path(path, ignore)).collect::<Vec<String>>(),
             | Err(why) => {
-                error!("=> {} Get file paths for download - {why}", Label::fail());
+                error!("=> {} Get file paths for download — {why}", Label::fail());
                 return Err(why);
             }
         };
@@ -317,17 +321,23 @@ impl Bucket {
                 let output_filepath = format!("{}/{}", output.display(), path);
                 let url = repository
                     .raw_url(path.clone())
-                    .ok_or_else(|| eyre!("Failed to build raw URL for repository path"))?;
-                write_file_bytes(output_filepath, || async move {
-                    get(url)
-                        .send()
-                        .await?
-                        .bytes()
+                    .ok_or_else(|| eyre!("Failed to build raw URL for repository path"));
+                match url {
+                    | Ok(url) => {
+                        write_file_bytes(output_filepath, || async move {
+                            match get(url).send().await {
+                                | Ok(response) => response
+                                    .bytes()
+                                    .await
+                                    .map(|b| b.to_vec())
+                                    .map_err(|why| eyre!("Failed to download file — {why}")),
+                                | Err(why) => Err(eyre!("Failed to download file — {why}")),
+                            }
+                        })
                         .await
-                        .map(|b| b.to_vec())
-                        .map_err(|why| eyre!("Failed to download file — {why}"))
-                })
-                .await
+                    }
+                    | Err(why) => Err(why),
+                }
             }
         };
         let total_data: usize = count_json_files(&items);
@@ -444,6 +454,17 @@ fn count_json_files(paths: &[String]) -> usize {
 fn count_image_files(paths: &[String]) -> usize {
     paths.iter().filter(|&x| has_image_extension(x)).count()
 }
+fn is_ignored_path(path: &str, ignore: &[String]) -> bool {
+    let is_builtin_ignored = IGNORE.iter().any(|value| path.ends_with(value));
+    let is_regex_ignored = ignore
+        .iter()
+        .filter_map(|pattern| match Regex::new(pattern) {
+            | Ok(value) => Some(value),
+            | Err(_) => None,
+        })
+        .any(|pattern| pattern.is_match(path).unwrap_or(false));
+    is_builtin_ignored || is_regex_ignored
+}
 fn operations_complete_message(name: Option<String>, json_count: usize, image_count: usize) -> String {
     let total = json_count + image_count;
     let message = if json_count != image_count {
@@ -512,6 +533,17 @@ mod tests {
         assert!(has_image_extension(&"image.png".to_string()));
         assert!(has_image_extension(&"photo.JPG".to_string()));
         assert!(!has_image_extension(&"graphic.jpeg".to_string()));
+    }
+    #[test]
+    fn test_is_ignored_path() {
+        let ignore = vec![r"\.jpeg$".to_string(), r"notes\.txt$".to_string()];
+        assert!(is_ignored_path("/tmp/photo.jpeg", &ignore));
+        assert!(is_ignored_path("/tmp/notes.txt", &ignore));
+        assert!(!is_ignored_path("/tmp/index.json", &ignore));
+        let ignore = vec!["[".to_string()];
+        assert!(!is_ignored_path("/tmp/index.json", &ignore));
+        let ignore: Vec<String> = vec![];
+        assert!(is_ignored_path("/tmp/README.md", &ignore));
     }
     #[test]
     fn test_operations_complete_message_includes_bucket_name_and_guidance() {

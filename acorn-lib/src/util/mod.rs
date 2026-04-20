@@ -1056,6 +1056,18 @@ where
     };
     lookup
 }
+/// Combine a list of regex patterns into a single alternation regex string.
+pub fn regex_join(patterns: &[String]) -> Option<String> {
+    let groups = patterns
+        .iter()
+        .filter(|pattern| !pattern.is_empty())
+        .map(|pattern| format!("(?:{pattern})"))
+        .collect::<Vec<String>>();
+    match groups.is_empty() {
+        | true => None,
+        | false => Some(groups.join("|")),
+    }
+}
 /// Converts the given string to snake case.
 /// ### Example
 /// ```rust

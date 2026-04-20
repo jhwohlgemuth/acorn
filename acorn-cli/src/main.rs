@@ -246,15 +246,17 @@ async fn main() -> Void {
         | Some(Commands::Download {
             config,
             url,
+            ignore,
             output,
             verbose,
             ..
-        }) => commands::download::run(config, url, output, &offline, &database_path, threads, verbose).await,
+        }) => commands::download::run(config, url, ignore, output, &offline, &database_path, threads, verbose).await,
         | Some(Commands::Export {
             output,
             path,
             branch,
             commit,
+            ignore,
             format,
             reference,
             combine,
@@ -268,6 +270,7 @@ async fn main() -> Void {
                 path,
                 branch,
                 commit,
+                ignore,
                 format,
                 reference,
                 combine,

@@ -9,7 +9,7 @@ use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
 use acorn::schema::standard::text::Text;
 use acorn::util::constants::ENV_READABILITY_METRIC;
-use acorn::util::{print_values_as_table, Label};
+use acorn::util::{print_values_as_table, regex_join, Label};
 use acorn::{fail, skip};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{Report, Result};
@@ -23,7 +23,7 @@ pub async fn run(
     path: &Option<PathBuf>,
     branch: &Option<String>,
     commit: &Option<String>,
-    ignore: &Option<String>,
+    ignore: &[String],
     skip: &[CheckCategory],
     disable_website_checks: &bool,
     exit_on_first_error: &bool,
@@ -43,7 +43,7 @@ pub async fn run(
     let cli_options = CommandLineOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
-        .maybe_ignore(ignore.clone())
+        .maybe_ignore(regex_join(ignore))
         .merge_request(*merge_request)
         .build();
     let check_options = CheckOptions::init()
