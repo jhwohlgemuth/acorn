@@ -1,5 +1,6 @@
+use crate::cli::CommandOptions;
 use crate::commands::preflight;
-use acorn::io::config::{ApplicationConfiguration, Bucket};
+use acorn::io::config::{ApplicationConfiguration, Bucket, BucketOptions};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Operations};
 use acorn::io::InputOutput;
@@ -17,14 +18,20 @@ pub async fn run(
     url: &Option<String>,
     ignore: &[String],
     output: &Option<PathBuf>,
-    offline: &bool,
     database_path: &Option<PathBuf>,
     threads: usize,
     verbose: &Verbosity,
+    offline: bool,
 ) -> Result<(), Report> {
     let quiet = verbose.is_silent();
-    preflight(*offline, quiet, true, "download");
+    preflight!(&CommandOptions::init()
+        .offline(offline)
+        .quiet(quiet)
+        .threads(threads)
+        .supported(true)
+        .build());
     let database = Database::<Table>::from_path(database_path.clone());
+    let options = BucketOptions::init().threads(threads).quiet(quiet).ignore(ignore.to_vec()).build();
     if let Some(path) = config {
         match ApplicationConfiguration::read(path.clone()) {
             | Ok(content) => {
@@ -32,8 +39,9 @@ pub async fn run(
                 if let Some(buckets) = content.buckets {
                     for bucket in buckets {
                         if let Some(path) = output.clone() {
-                            if *offline || bucket.clone().code_repository.is_local() {
-                                match bucket.copy_files(path, threads, quiet, ignore).await {
+                            let bucket_options = options.clone().with_output(path);
+                            if offline || bucket.code_repository.is_local() {
+                                match bucket.copy_files(&bucket_options).await {
                                     | Ok(count) => {
                                         total += count;
                                     }
@@ -43,7 +51,7 @@ pub async fn run(
                                     }
                                 }
                             } else {
-                                match bucket.download_files(path, threads, quiet, ignore).await {
+                                match bucket.download_files(&bucket_options).await {
                                     | Ok(count) => {
                                         total += count;
                                     }
@@ -85,8 +93,9 @@ pub async fn run(
         let mut total: usize = 0;
         let bucket = Bucket::from(value.as_ref());
         if let Some(path) = output.clone() {
-            if *offline || bucket.clone().code_repository.is_local() {
-                match bucket.copy_files(path.clone(), threads, quiet, ignore).await {
+            let bucket_options = options.clone().with_output(path.clone());
+            if offline || bucket.code_repository.is_local() {
+                match bucket.copy_files(&bucket_options).await {
                     | Ok(count) => {
                         total += count;
                     }
@@ -96,7 +105,7 @@ pub async fn run(
                     }
                 }
             } else {
-                match bucket.download_files(path.clone(), threads, quiet, ignore).await {
+                match bucket.download_files(&bucket_options).await {
                     | Ok(count) => {
                         total += count;
                     }

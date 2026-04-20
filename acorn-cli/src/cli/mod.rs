@@ -22,7 +22,7 @@ const STYLES: Styles = Styles::styled()
 /// Container struct for working with subcommand run functions
 #[derive(Builder, Clone, Debug, Default)]
 #[builder(start_fn = init)]
-pub struct CommandLineOptions {
+pub struct CommandOptions {
     /// Path to file or folder to be used for input
     pub path: Option<PathBuf>,
     /// Git branch name
@@ -40,6 +40,18 @@ pub struct CommandLineOptions {
     /// Flag used to indicate if changed files should be obtained from a merge request
     #[builder(default)]
     pub merge_request: bool,
+    /// Flag used to indicate if ACORN is running in offline mode
+    #[builder(default)]
+    pub offline: bool,
+    /// Flag used to suppress output
+    #[builder(default)]
+    pub quiet: bool,
+    /// Flag used to indicate if offline mode is supported for the command
+    #[builder(default)]
+    pub supported: bool,
+    /// Number of threads used for parallel processing
+    #[builder(default = 10)]
+    pub threads: usize,
 }
 /// Returns a vector of PathBuf from the given options
 ///
@@ -48,10 +60,10 @@ pub struct CommandLineOptions {
 /// If the options specify a branch, the files changed in the branch are returned.
 /// If none of the above options are set, the files in the given path are returned.
 /// If the options include an ignore regex, it is applied to the files returned.
-pub async fn paths_from_options(path: &Option<PathBuf>, options: &Option<CommandLineOptions>) -> Vec<PathBuf> {
+pub async fn paths_from_options(path: &Option<PathBuf>, options: &Option<CommandOptions>) -> Vec<PathBuf> {
     let extensions = Some(vec!["JSON", "YAML"]);
     match options {
-        | Some(CommandLineOptions {
+        | Some(CommandOptions {
             branch,
             commit,
             ignore,

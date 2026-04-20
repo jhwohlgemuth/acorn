@@ -54,9 +54,9 @@ async fn test_export_bag_format() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         TEST_THREADS,
         &silent(),
+        OFFLINE,
     )
     .await;
     let _ = result;
@@ -92,9 +92,9 @@ async fn test_export_powerpoint_format() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         TEST_THREADS,
         &silent(),
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "Export to PowerPoint format should succeed");
@@ -129,9 +129,9 @@ async fn test_export_pdf_format() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         TEST_THREADS,
         &silent(),
+        OFFLINE,
     )
     .await;
     Ok(())
@@ -159,9 +159,9 @@ async fn test_export_json_format() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         TEST_THREADS,
         &silent(),
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "Export to JSON format should succeed");
@@ -190,9 +190,9 @@ async fn test_export_yaml_format() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         TEST_THREADS,
         &silent(),
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "Export to YAML format should succeed");
@@ -221,9 +221,9 @@ async fn test_export_markdown_format() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         TEST_THREADS,
         &silent(),
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "Export to Markdown format should succeed");
@@ -268,9 +268,9 @@ async fn test_export_with_combine_flag() -> Result<()> {
         &true,
         &false,
         &false,
-        &OFFLINE,
         TEST_THREADS,
         &silent(),
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "Export with combine flag should succeed");

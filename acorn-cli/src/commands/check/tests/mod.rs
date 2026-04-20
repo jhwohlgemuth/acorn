@@ -29,13 +29,13 @@ async fn test_check_valid_project() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         &true,
         &false,
         &false,
         &Standard::default(),
         &ReadabilityTypeArgument::Fkgl,
         &Verbosity::new(0, 1),
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "Valid project should pass check");
@@ -54,13 +54,13 @@ async fn test_check_valid_highlight() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         &true,
         &false,
         &false,
         &Standard::default(),
         &ReadabilityTypeArgument::Fkgl,
         &Verbosity::new(0, 1),
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "Valid highlight should pass check");
@@ -79,13 +79,13 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         &true,
         &false,
         &false,
         &Standard::default(),
         &ReadabilityTypeArgument::Fkgl,
         &Verbosity::new(0, 1),
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "Check with no_fail should return Ok even with failures");
@@ -104,13 +104,13 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         &true,
         &false,
         &false,
         &Standard::default(),
         &ReadabilityTypeArgument::Fkgl,
         &Verbosity::new(0, 1),
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "Check with skip categories should succeed");
@@ -131,13 +131,13 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &false,
             &false,
             &false,
-            &OFFLINE,
             &true,
             &false,
             &false,
             &Standard::default(),
             &metric,
             &Verbosity::new(0, 1),
+            OFFLINE,
         )
         .await;
         assert!(result.is_ok(), "Check with {:?} metric should succeed", metric);
@@ -157,13 +157,13 @@ async fn test_check_terse_mode() -> Result<()> {
         &false,
         &false,
         &false,
-        &OFFLINE,
         &true,
         &false,
         &true, // terse mode
         &Standard::default(),
         &ReadabilityTypeArgument::Fkgl,
         &Verbosity::new(0, 1),
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "Check in terse mode should succeed");

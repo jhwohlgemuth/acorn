@@ -1,4 +1,4 @@
-use crate::cli::{paths_from_options, CommandLineOptions};
+use crate::cli::{paths_from_options, CommandOptions};
 use acorn::io::{FromPath, InputOutput};
 use acorn::prelude::{exit, write, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
@@ -18,7 +18,7 @@ pub async fn run(
     merge_request: bool,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
-    let options = CommandLineOptions::init()
+    let options = CommandOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
         .maybe_ignore(ignore.clone())

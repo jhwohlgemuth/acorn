@@ -1,5 +1,5 @@
 use crate::cli::arguments::FileFormat;
-use crate::cli::{paths_from_options, CommandLineOptions};
+use crate::cli::{paths_from_options, CommandOptions};
 use crate::commands::preflight;
 use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, with_progress, FromPath, InputOutput, ProgressType};
@@ -31,22 +31,25 @@ pub async fn run(
     combine: &bool,
     merge_request: &bool,
     raw: &bool,
-    offline: &bool,
     threads: usize,
     verbose: &Verbosity,
+    offline: bool,
 ) -> Result<(), Report> {
     let is_silent = verbose.is_silent();
     let progress_type = match is_silent || *raw {
         | true => ProgressType::Silent,
         | false => ProgressType::Bar,
     };
-    preflight(*offline, is_silent, false, "export");
-    let options = CommandLineOptions::init()
+    let options = CommandOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
         .maybe_ignore(regex_join(ignore))
         .merge_request(*merge_request)
+        .offline(offline)
+        .quiet(is_silent)
+        .threads(threads)
         .build();
+    preflight!(&options);
     let extension = format.to_string();
     match format {
         | FileFormat::Cff => {
@@ -56,13 +59,12 @@ pub async fn run(
                 format,
                 &extension,
                 |p, ext| p.with_file_name("CITATION").with_extension(ext),
-                threads,
                 progress_type,
             )
             .await
         }
         | FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml => {
-            export_convert(path, options, format, &extension, |p, ext| p.with_extension(ext), threads, progress_type).await
+            export_convert(path, options, format, &extension, |p, ext| p.with_extension(ext), progress_type).await
         }
         | FileFormat::Bag => {
             let base = path.clone().unwrap().display().to_string();
@@ -91,7 +93,7 @@ pub async fn run(
                     items,
                     |path| format!("Generating PDF for {}", path.file_name_with_parent()),
                     |path| async move {
-                        let pdf_options = CommandLineOptions::init().path(path.clone()).maybe_output(output.clone()).build();
+                        let pdf_options = CommandOptions::init().path(path.clone()).maybe_output(output.clone()).build();
                         pdf::create(page, pdf_options).await;
                         Ok(())
                     },
@@ -118,7 +120,7 @@ pub async fn run(
         }
         | FileFormat::Powerpoint => {
             let paths = paths_from_options(path, &Some(options.clone())).await;
-            let options = CommandLineOptions::init()
+            let options = CommandOptions::init()
                 .maybe_path(path.clone())
                 .maybe_output(output.clone())
                 .maybe_reference(reference.clone())
@@ -161,13 +163,13 @@ pub async fn run(
 }
 async fn export_convert(
     path: &Option<PathBuf>,
-    options: CommandLineOptions,
+    options: CommandOptions,
     format: &FileFormat,
     extension: &str,
     output_path: fn(&PathBuf, &str) -> PathBuf,
-    threads: usize,
     progress_type: ProgressType,
 ) -> Result<(), Report> {
+    let threads = options.threads;
     let from_options = paths_from_options(path, &Some(options)).await;
     let (skipped, paths): (Vec<_>, Vec<_>) = from_options
         .iter()

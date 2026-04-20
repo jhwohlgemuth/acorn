@@ -116,6 +116,22 @@ pub struct Bucket {
     #[serde(alias = "repository")]
     pub code_repository: Repository,
 }
+/// Options for bucket file operations (copy and download)
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init)]
+pub struct BucketOptions {
+    /// Path to output directory
+    pub output: Option<PathBuf>,
+    /// Number of threads used for parallel processing
+    #[builder(default = 10)]
+    pub threads: usize,
+    /// Suppress progress output
+    #[builder(default)]
+    pub quiet: bool,
+    /// Regex pattern(s) of files to ignore
+    #[builder(default)]
+    pub ignore: Vec<String>,
+}
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[builder(start_fn = at, on(String, into))]
 #[serde(rename_all = "camelCase")]
@@ -243,9 +259,16 @@ impl Bucket {
     /// ### Notes
     /// - Ignores files listed in [`IGNORE`]
     /// - Only copies files from local repositories
-    pub async fn copy_files(self: Bucket, output: PathBuf, threads: usize, quiet: bool, ignore: &[String]) -> ApiResult<usize> {
+    pub async fn copy_files(self: Bucket, options: &BucketOptions) -> ApiResult<usize> {
+        let BucketOptions {
+            output,
+            threads,
+            quiet,
+            ignore,
+        } = options.clone();
+        let output = output.unwrap_or_default();
         let Bucket { name, code_repository, .. } = self.clone();
-        if code_repository.clone().is_local() {
+        if code_repository.is_local() {
             let uri = code_repository.clone().location().uri();
             let bucket_root = match uri {
                 | Some(value) => PathBuf::from(value.path().to_string()).to_absolute_string(),
@@ -259,7 +282,7 @@ impl Bucket {
                 .collect::<Vec<String>>();
             let items = files
                 .into_iter()
-                .filter_map(|path| match is_ignored_path(&path, ignore) {
+                .filter_map(|path| match is_ignored_path(&path, &ignore) {
                     | true => None,
                     | false if PathBuf::from(&path).is_file() => Some(path),
                     | false => None,
@@ -304,10 +327,17 @@ impl Bucket {
     /// Ignores files listed in [`IGNORE`]
     ///
     /// Downloads files concurrently using buffered streams
-    pub async fn download_files(self: Bucket, output: PathBuf, threads: usize, quiet: bool, ignore: &[String]) -> ApiResult<usize> {
+    pub async fn download_files(self: Bucket, options: &BucketOptions) -> ApiResult<usize> {
+        let BucketOptions {
+            output,
+            threads,
+            quiet,
+            ignore,
+        } = options.clone();
+        let output = output.unwrap_or_default();
         let Bucket { name, code_repository, .. } = self.clone();
         let items = match self.clone().file_paths("").await {
-            | Ok(paths) => paths.into_iter().filter(|path| !is_ignored_path(path, ignore)).collect::<Vec<String>>(),
+            | Ok(paths) => paths.into_iter().filter(|path| !is_ignored_path(path, &ignore)).collect::<Vec<String>>(),
             | Err(why) => {
                 error!("=> {} Get file paths for download — {why}", Label::fail());
                 return Err(why);
@@ -435,6 +465,25 @@ impl From<&str> for Bucket {
             | None => {
                 exit(exitcode::DATAERR);
             }
+        }
+    }
+}
+impl Default for BucketOptions {
+    fn default() -> Self {
+        Self {
+            output: None,
+            threads: 10,
+            quiet: false,
+            ignore: Vec::new(),
+        }
+    }
+}
+impl BucketOptions {
+    /// Set the output path
+    pub fn with_output(self, output: impl Into<PathBuf>) -> Self {
+        Self {
+            output: Some(output.into()),
+            ..self
         }
     }
 }

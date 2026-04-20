@@ -1,5 +1,5 @@
 use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument, Standard};
-use crate::cli::{paths_from_options, CommandLineOptions};
+use crate::cli::{paths_from_options, CommandOptions};
 use crate::commands::preflight;
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{summary, Analysis, Check, CheckOptions};
@@ -29,31 +29,34 @@ pub async fn run(
     exit_on_first_error: &bool,
     merge_request: &bool,
     skip_verify_checksum: &bool,
-    offline: &bool,
     no_fail: &bool,
     raw: &bool,
     terse: &bool,
     standard: &Standard,
     readability_metric: &ReadabilityTypeArgument,
     verbose: &Verbosity,
+    offline: bool,
 ) -> Result<(), Report> {
     let level = verbose.log_level();
     let is_silent = verbose.is_silent();
-    preflight(*offline, is_silent, true, "check");
-    let cli_options = CommandLineOptions::init()
+    let options = CommandOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
         .maybe_ignore(regex_join(ignore))
         .merge_request(*merge_request)
+        .offline(offline)
+        .quiet(is_silent)
+        .supported(true)
         .build();
+    preflight!(&options);
     let check_options = CheckOptions::init()
         .exit_on_first_error(*exit_on_first_error)
-        .offline(*offline)
+        .offline(offline)
         .quiet(is_silent || *raw)
         .skip_verify_checksum(*skip_verify_checksum)
         .readability_metric(resolve_readability_metric(readability_metric))
         .build();
-    let paths = paths_from_options(path, &Some(cli_options)).await;
+    let paths = paths_from_options(path, &Some(options)).await;
     let extensions = unique_file_extensions(&paths);
     let inferred_standard = if extensions.len() == 1 && extensions.contains(&"cff".to_string()) {
         warn!("=> {} Inferred standard (CFF)", Label::using());

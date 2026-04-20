@@ -1,4 +1,5 @@
 use crate::cli::arguments::Diagnostic;
+use crate::cli::CommandOptions;
 use crate::commands::preflight;
 use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
 use color_eyre::eyre::{Report, Result};
@@ -8,8 +9,9 @@ fn should_run(checks: &[Diagnostic], diagnostic: Diagnostic) -> bool {
     [diagnostic, Diagnostic::All].iter().any(|&x| checks.contains(&x))
 }
 #[allow(clippy::too_many_arguments)]
-pub async fn run(fix: &bool, interactive: &bool, check: &[Diagnostic], offline: &bool) -> Result<(), Report> {
-    preflight(*offline, false, false, "doctor");
+pub async fn run(fix: &bool, interactive: &bool, check: &[Diagnostic], offline: bool) -> Result<(), Report> {
+    let options = CommandOptions::init().offline(offline).build();
+    preflight!(&options);
     if *fix {
         unimplemented!("Autofix is not implemented yet");
     }

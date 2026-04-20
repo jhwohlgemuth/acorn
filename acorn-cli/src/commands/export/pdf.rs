@@ -2,7 +2,7 @@
 //!
 //! This module renders Research Activity data to HTML and uses Playwright to
 //! generate a PDF output file.
-use crate::cli::CommandLineOptions;
+use crate::cli::CommandOptions;
 use crate::template::Convert;
 use acorn::io::InputOutput;
 use acorn::prelude::{absolute, create_dir_all, remove_file, File};
@@ -13,8 +13,8 @@ use std::process::exit;
 use tracing::{debug, error};
 
 /// Create PDF document from Research Activity data
-pub async fn create(page: &Page, options: CommandLineOptions) {
-    let CommandLineOptions { output, .. } = options;
+pub async fn create(page: &Page, options: CommandOptions) {
+    let CommandOptions { output, .. } = options;
     let path = match options.path {
         | Some(value) => value,
         | None => unimplemented!(),

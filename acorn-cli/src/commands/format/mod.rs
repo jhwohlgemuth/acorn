@@ -1,4 +1,4 @@
-use crate::cli::{paths_from_options, CommandLineOptions};
+use crate::cli::{paths_from_options, CommandOptions};
 use crate::commands::preflight;
 use acorn::fail;
 use acorn::io::{FromPath, InputOutput};
@@ -20,15 +20,17 @@ pub async fn run(
     dry_run: bool,
     merge_request: &bool,
     verbose: &Verbosity,
-    offline: &bool,
+    offline: bool,
 ) -> Result<(), Report> {
-    preflight(*offline, verbose.is_silent(), false, "format");
-    let options = CommandLineOptions::init()
+    let options = CommandOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
         .maybe_ignore(ignore.clone())
         .merge_request(*merge_request)
+        .offline(offline)
+        .quiet(verbose.is_silent())
         .build();
+    preflight!(&options);
     let paths = paths_from_options(path, &Some(options)).await;
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
         | Ok(data) => {

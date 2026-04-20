@@ -32,7 +32,7 @@ async fn test_download_local_url_silent() -> Result<()> {
     let url = Some("file:./tests/fixtures/data/bucket/".to_string());
     let ignore: Vec<String> = vec![];
     let verbose = Verbosity::new(0, 1);
-    let result = run(&None, &url, &ignore, &Some(output_dir.clone()), &OFFLINE, &None, TEST_THREADS, &verbose).await;
+    let result = run(&None, &url, &ignore, &Some(output_dir.clone()), &None, TEST_THREADS, &verbose, OFFLINE).await;
     assert!(result.is_ok(), "download from local URL should succeed");
     assert!(output_dir.exists(), "output directory should exist");
     Ok(())
@@ -55,10 +55,10 @@ async fn test_download_local_config_silent() -> Result<()> {
         &None,
         &ignore,
         &Some(output_dir.clone()),
-        &OFFLINE,
         &None,
         TEST_THREADS,
         &verbose,
+        OFFLINE,
     )
     .await;
     assert!(result.is_ok(), "download from local config should succeed");

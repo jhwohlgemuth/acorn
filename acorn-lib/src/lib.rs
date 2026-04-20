@@ -237,9 +237,9 @@ impl Location {
 }
 impl Repository {
     /// Return whether or not the associated URI for a repository is local (e.g., has "file" scheme)
-    pub fn is_local(self) -> bool {
+    pub fn is_local(&self) -> bool {
         let local_schemes = [Scheme::File];
-        local_schemes.contains(&self.location().scheme())
+        local_schemes.contains(&self.clone().location().scheme())
     }
     /// Get metadata for latest release of a Gitlab or GitHub repository
     #[cfg(feature = "std")]

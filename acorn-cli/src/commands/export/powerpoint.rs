@@ -2,7 +2,7 @@
 //!
 //! This module generates PPTX output by copying slide templates, updating
 //! OOXML relationships, and interpolating Research Activity data.
-use crate::cli::CommandLineOptions;
+use crate::cli::CommandOptions;
 use acorn::io::{archive, extract_zip, read_file, write_file, ApiResult, InputOutput};
 use acorn::powerpoint::ooxml::{Relationship, Relationships};
 use acorn::powerpoint::{interpolate_values, read_xml_rel};
@@ -100,8 +100,8 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
     copy(from, to)
 }
 /// Create PowerPoint presentation from Research Activity data
-pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandLineOptions>) -> ApiResult<PathBuf> {
-    let CommandLineOptions { output, path, reference, .. } = options.clone().unwrap();
+pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandOptions>) -> ApiResult<PathBuf> {
+    let CommandOptions { output, path, reference, .. } = options.clone().unwrap();
     let paths: Vec<PathBuf> = paths.into_iter().collect();
     let count = paths.clone().len();
     let research_activity_data = paths

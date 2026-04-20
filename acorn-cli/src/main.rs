@@ -232,17 +232,17 @@ async fn main() -> Void {
                 exit_on_first_error,
                 merge_request,
                 skip_verify_checksum,
-                &offline,
                 no_fail,
                 raw,
                 terse,
                 standard,
                 readability_metric,
                 verbose,
+                offline,
             )
             .await
         }
-        | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, &offline).await,
+        | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, offline).await,
         | Some(Commands::Download {
             config,
             url,
@@ -250,7 +250,7 @@ async fn main() -> Void {
             output,
             verbose,
             ..
-        }) => commands::download::run(config, url, ignore, output, &offline, &database_path, threads, verbose).await,
+        }) => commands::download::run(config, url, ignore, output, &database_path, threads, verbose, offline).await,
         | Some(Commands::Export {
             output,
             path,
@@ -276,9 +276,9 @@ async fn main() -> Void {
                 combine,
                 merge_request,
                 raw,
-                &offline,
                 threads,
                 verbose,
+                offline,
             )
             .await
         }
@@ -291,14 +291,14 @@ async fn main() -> Void {
             merge_request,
             verbose,
             ..
-        }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose, &offline).await,
+        }) => commands::format::run(path, branch, commit, ignore, *dry_run, merge_request, verbose, offline).await,
         | Some(Commands::Gather {
             path,
             ignore,
             merge_request,
             verbose,
             ..
-        }) => commands::gather::run(path, ignore, merge_request, &offline, &database_path, verbose).await,
+        }) => commands::gather::run(path, ignore, merge_request, &database_path, verbose, offline).await,
         | Some(Commands::Link {
             path,
             branch,

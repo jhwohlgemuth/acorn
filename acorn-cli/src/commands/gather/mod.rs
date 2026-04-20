@@ -1,3 +1,4 @@
+use crate::cli::CommandOptions;
 use crate::commands::preflight;
 use acorn::io::api::gitlab;
 use acorn::io::api::{self};
@@ -10,11 +11,12 @@ pub async fn run(
     _path: &Option<PathBuf>,
     _ignore: &Option<String>,
     _merge_request: &bool,
-    offline: &bool,
     _database_path: &Option<PathBuf>,
     verbose: &Verbosity,
+    offline: bool,
 ) -> Result<(), Report> {
-    preflight(*offline, verbose.is_silent(), false, "gather");
+    let options = CommandOptions::init().offline(offline).quiet(verbose.is_silent()).build();
+    preflight!(&options);
     println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
     println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
     println!("ROR API is healthy: {}", api::ror::is_healthy().await);
