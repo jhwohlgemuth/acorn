@@ -451,7 +451,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                                         locator: item.locator(),
                                         message: message,
                                         errors: ErrorKind::Vale(vec![item.clone()]),
-                                        context: content.clone(),
+                                        data: content.clone(),
                                     )
                                 })
                                 .collect()

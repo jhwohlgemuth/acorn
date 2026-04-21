@@ -8,7 +8,7 @@
 //! - Terse output mode
 //!
 //! All tests run in offline mode to avoid network dependencies.
-use crate::cli::arguments::{CheckCategory, ReadabilityTypeArgument, Standard};
+use crate::cli::arguments::{CheckCategoryArgument, ReadabilityTypeArgument, Standard};
 use crate::commands::check::run;
 use crate::test_utils::fixture_path;
 use clap_verbosity_flag::Verbosity;
@@ -26,6 +26,7 @@ async fn test_check_valid_project() -> Result<()> {
         &[],
         &[],
         &true,
+        &false,
         &false,
         &false,
         &false,
@@ -54,6 +55,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         &false,
         &false,
         &false,
+        &false,
         &true,
         &false,
         &false,
@@ -79,6 +81,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &false,
         &false,
         &false,
+        &false,
         &true,
         &false,
         &false,
@@ -99,8 +102,9 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &None,
         &None,
         &[],
-        &[CheckCategory::Prose, CheckCategory::Schema],
+        &[CheckCategoryArgument::Prose, CheckCategoryArgument::Schema],
         &true,
+        &false,
         &false,
         &false,
         &false,
@@ -131,6 +135,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &false,
             &false,
             &false,
+            &false,
             &true,
             &false,
             &false,
@@ -154,6 +159,7 @@ async fn test_check_terse_mode() -> Result<()> {
         &[],
         &[],
         &true,
+        &false,
         &false,
         &false,
         &false,

@@ -10,7 +10,7 @@ use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
 
 pub mod arguments;
-use arguments::{CheckCategory, DatabaseBackend, Diagnostic, FileFormat, ReadabilityTypeArgument, Standard};
+use arguments::{CheckCategoryArgument, DatabaseBackend, Diagnostic, FileFormat, ReadabilityTypeArgument, Standard};
 
 const PRIMARY_COLOR: u8 = 135;
 const STYLES: Styles = Styles::styled()
@@ -60,43 +60,33 @@ pub struct CommandOptions {
 /// If the options specify a branch, the files changed in the branch are returned.
 /// If none of the above options are set, the files in the given path are returned.
 /// If the options include an ignore regex, it is applied to the files returned.
-pub async fn paths_from_options(path: &Option<PathBuf>, options: &Option<CommandOptions>) -> Vec<PathBuf> {
+pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> Vec<PathBuf> {
     let extensions = Some(vec!["JSON", "YAML"]);
-    match options {
-        | Some(CommandOptions {
-            branch,
-            commit,
-            ignore,
-            merge_request,
-            ..
-        }) => {
-            let files = if *merge_request {
-                files_from_gitlab_merge_request(extensions).await
-            } else {
-                match commit {
-                    | Some(hash) => files_from_git_commit(hash, extensions),
-                    | None => match branch {
-                        | Some(name) => files_from_git_branch(name, extensions),
-                        | None => {
-                            let value = match path {
-                                | Some(x) => x.clone(),
-                                | None => PathBuf::from("."),
-                            };
-                            files_all(value, extensions)
-                        }
-                    },
+    let CommandOptions {
+        branch,
+        commit,
+        ignore,
+        merge_request,
+        ..
+    } = options;
+    let files = if *merge_request {
+        files_from_gitlab_merge_request(extensions).await
+    } else {
+        match commit {
+            | Some(hash) => files_from_git_commit(hash, extensions),
+            | None => match branch {
+                | Some(name) => files_from_git_branch(name, extensions),
+                | None => {
+                    let value = match path {
+                        | Some(x) => x.clone(),
+                        | None => PathBuf::from("."),
+                    };
+                    files_all(value, extensions)
                 }
-            };
-            filter_ignored(files, ignore.clone())
+            },
         }
-        | None => {
-            let value = match path {
-                | Some(x) => x.clone(),
-                | None => PathBuf::from("."),
-            };
-            files_all(value, extensions)
-        }
-    }
+    };
+    filter_ignored(files, ignore.clone())
 }
 /// "Plant an ACORN and grow your science"
 ///
@@ -240,6 +230,9 @@ pub enum Commands {
         /// Disable website checks that require internet connection
         #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
         disable_website_checks: bool,
+        /// Include all check results, including suggestions and info messages
+        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+        all: bool,
         /// Exit on first error
         #[arg(short, long = "exit-on-first-error", value_name = "BOOL", help_heading = "FLAGS")]
         exit_on_first_error: bool,
@@ -255,16 +248,6 @@ pub enum Commands {
         /// Format files that were changed in a given merge request (Gitlab) or pull request (GitHub)
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,
-        /// Readability test to use
-        #[arg(default_value_t, short, long = "readability-test", value_name = "METRIC", help_heading = "OPTIONS")]
-        readability_metric: ReadabilityTypeArgument,
-        /// Skip one or more available quality check categories
-        #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-        skip: Vec<CheckCategory>,
-        /// Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose)
-        /// > CAUTION: Use at your own risk
-        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
-        skip_verify_checksum: bool,
         /// Prevent `acorn check` from exiting with a non-zero exit code when errors are found
         ///
         /// Useful for certain scenarios such as debugging
@@ -275,12 +258,22 @@ pub enum Commands {
         /// Suppress output from external commands (e.g., Vale) while preserving ACORN output — useful for piping
         #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
         raw: bool,
-        /// Use compact output format instead of detailed output
-        #[arg(short = 't', long, value_name = "BOOL", help_heading = "FLAGS")]
-        terse: bool,
+        /// Readability test to use
+        #[arg(default_value_t, short, long = "readability-test", value_name = "METRIC", help_heading = "OPTIONS")]
+        readability_metric: ReadabilityTypeArgument,
+        /// Skip one or more available quality check categories
+        #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+        skip: Vec<CheckCategoryArgument>,
+        /// Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose)
+        /// > CAUTION: Use at your own risk
+        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+        skip_verify_checksum: bool,
         /// Metadata standard to validate against
         #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
         standard: Standard,
+        /// Use compact output format instead of detailed output
+        #[arg(short = 't', long, value_name = "BOOL", help_heading = "FLAGS")]
+        terse: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -401,14 +394,14 @@ pub enum Commands {
         /// Path to output directory where the export artifacts should be saved
         #[arg(default_value = "./export", short, long, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
         output: Option<PathBuf>,
+        /// Suppress output from external commands while preserving ACORN output — useful for piping
+        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+        raw: bool,
         /// Path to reference file to be used when exporting to PowerPoint
         ///
         /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
         reference: Option<PathBuf>,
-        /// Suppress output from external commands while preserving ACORN output — useful for piping
-        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
-        raw: bool,
         /// Metadata standard to validate against
         #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
         standard: Standard,

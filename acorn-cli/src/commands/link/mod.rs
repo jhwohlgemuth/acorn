@@ -1,4 +1,4 @@
-use crate::cli::{paths_from_options, CommandOptions};
+use crate::cli::{resolve_paths, CommandOptions};
 use acorn::io::{FromPath, InputOutput};
 use acorn::prelude::{exit, write, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
@@ -25,7 +25,7 @@ pub async fn run(
         .merge_request(merge_request)
         .build();
 
-    let paths = paths_from_options(path, &Some(options)).await;
+    let paths = resolve_paths(path, &options).await;
     paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
         | Ok(data) => {
             let mime = MimeType::from_path(path);

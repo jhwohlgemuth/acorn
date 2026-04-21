@@ -1,3 +1,4 @@
+use acorn::analyzer;
 use acorn::util::MimeType;
 use clap::ValueEnum;
 use derive_more::Display;
@@ -13,11 +14,17 @@ pub enum DatabaseBackend {
     Duckdb,
 }
 /// Categories available when analyzing ("checking") research activity data
-#[derive(Clone, Debug, PartialEq, PartialOrd, ValueEnum)]
-pub enum CheckCategory {
+#[derive(Clone, Debug, Display, PartialEq, PartialOrd, ValueEnum)]
+pub enum CheckCategoryArgument {
+    #[display("link")]
+    Link,
+    #[display("prose")]
     Prose,
+    #[display("quality")]
     Quality,
+    #[display("readability")]
     Readability,
+    #[display("schema")]
     Schema,
 }
 /// Categories available when performing system diagnostics before using ACORN
@@ -131,6 +138,17 @@ pub enum Target {
     /// Poster sized presentation format intended for large printing and presentation
     #[display("poster")]
     Poster,
+}
+impl From<analyzer::CheckCategory> for CheckCategoryArgument {
+    fn from(value: analyzer::CheckCategory) -> Self {
+        match value {
+            | analyzer::CheckCategory::Link => CheckCategoryArgument::Link,
+            | analyzer::CheckCategory::Prose => CheckCategoryArgument::Prose,
+            | analyzer::CheckCategory::Quality => CheckCategoryArgument::Quality,
+            | analyzer::CheckCategory::Readability => CheckCategoryArgument::Readability,
+            | analyzer::CheckCategory::Schema => CheckCategoryArgument::Schema,
+        }
+    }
 }
 impl From<FileFormat> for MimeType {
     fn from(format: FileFormat) -> Self {

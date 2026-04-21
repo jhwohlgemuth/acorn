@@ -1,5 +1,5 @@
 use crate::cli::arguments::FileFormat;
-use crate::cli::{paths_from_options, CommandOptions};
+use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, with_progress, FromPath, InputOutput, ProgressType};
@@ -81,7 +81,7 @@ pub async fn run(
         | FileFormat::Pdf => {
             #[cfg(feature = "pdf")]
             {
-                let items = paths_from_options(path, &Some(options)).await;
+                let items = resolve_paths(path, &options).await;
                 let playwright = Playwright::initialize().await.unwrap();
                 playwright.install_chromium().unwrap();
                 let chromium = playwright.chromium();
@@ -119,7 +119,7 @@ pub async fn run(
             }
         }
         | FileFormat::Powerpoint => {
-            let paths = paths_from_options(path, &Some(options.clone())).await;
+            let paths = resolve_paths(path, &options.clone()).await;
             let options = CommandOptions::init()
                 .maybe_path(path.clone())
                 .maybe_output(output.clone())
@@ -170,7 +170,7 @@ async fn export_convert(
     progress_type: ProgressType,
 ) -> Result<(), Report> {
     let threads = options.threads;
-    let from_options = paths_from_options(path, &Some(options)).await;
+    let from_options = resolve_paths(path, &options).await;
     let (skipped, paths): (Vec<_>, Vec<_>) = from_options
         .iter()
         .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));

@@ -35,6 +35,16 @@ use validator::ValidationErrorsKind;
 #[cfg(feature = "analysis")]
 #[async_trait]
 pub trait Analysis {
+    /// Run analysis for a given category
+    async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        match category {
+            | CheckCategory::Quality => Self::check_quality(paths, options),
+            | CheckCategory::Prose => Self::check_prose(paths, options).await,
+            | CheckCategory::Readability => Self::check_readability(paths, options),
+            | CheckCategory::Schema => Self::check_schema(paths),
+            | CheckCategory::Link => Self::check_websites(paths, options).await,
+        }
+    }
     /// Perform analysis of prose
     async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Perform quality checks and verify data consistency
@@ -136,6 +146,8 @@ pub struct Check {
     pub locator: Option<String>,
     /// Textual context of check (e.g., paragraph where prose issues were found)
     pub context: Option<String>,
+    /// Internal payload used by check-specific renderers (e.g., prose source text)
+    data: Option<String>,
     /// Whether or not the check was successful
     #[builder(default = false)]
     pub success: bool,
@@ -143,7 +155,7 @@ pub struct Check {
     #[builder(default)]
     pub severity: CheckSeverity,
     /// HTTP status code
-    pub status_code: Option<String>,
+    status_code: Option<String>,
     /// Errors and issues found during check
     pub errors: Option<ErrorKind>,
     /// Path of file being validated
@@ -157,6 +169,12 @@ pub struct Check {
 #[builder(start_fn = init, on(String, into), on(ReadabilityType, into))]
 #[derive(Default)]
 pub struct CheckOptions {
+    /// Include non-failure results such as suggestions and info messages
+    #[builder(default = false)]
+    pub all: bool,
+    /// Disable website checks that require internet access
+    #[builder(default = false)]
+    pub disable_website_checks: bool,
     /// Flag used to indicate if a single error should cause the process to exit
     #[builder(default = false)]
     pub exit_on_first_error: bool,
@@ -166,11 +184,20 @@ pub struct CheckOptions {
     /// Suppress stdout/stderr from external commands (e.g., Vale sync)
     #[builder(default = false)]
     pub quiet: bool,
+    /// Prevent non-zero exit behavior when failures are present
+    #[builder(default = false)]
+    pub no_fail: bool,
+    /// Categories of checks to skip during processing
+    #[builder(default)]
+    pub skip: Vec<String>,
     /// Readability metric to use for readability checks
     pub readability_metric: ReadabilityType,
     /// Whether or not to skip checksum verification for prose analysis
     #[builder(default = false)]
     pub skip_verify_checksum: bool,
+    /// Use compact output format instead of detailed output
+    #[builder(default = false)]
+    pub terse: bool,
     /// Vale configuration options
     pub vale_config: Option<ValeConfig>,
 }
@@ -231,6 +258,7 @@ impl Check {
             category,
             locator,
             context,
+            data,
             errors,
             severity,
             status_code,
@@ -268,7 +296,7 @@ impl Check {
             | CheckCategory::Prose => match &errors {
                 | Some(ErrorKind::Vale(values)) => {
                     let title = uri.clone().unwrap_or("index.json".to_string());
-                    if let Some(text) = &context {
+                    if let Some(text) = &data {
                         values.iter().enumerate().for_each(|(i, item)| {
                             let ValeOutputItem {
                                 check,
@@ -322,7 +350,7 @@ impl Check {
                 }
                 | None | Some(_) => {
                     let title = uri.as_deref().unwrap_or_default();
-                    if let Some(value) = &context {
+                    if let Some(value) = &data {
                         info!(
                             "=> {} {title} has {} {}",
                             Label::pass(),
@@ -373,6 +401,10 @@ impl Check {
             context: Some(value),
             ..self
         }
+    }
+    /// Returns a new check with renderer data attached.
+    pub fn with_data(self, value: String) -> Self {
+        Self { data: Some(value), ..self }
     }
     /// Returns a new LinkCheckResult with the given index
     pub fn with_index(self, value: usize) -> Self {
@@ -503,6 +535,23 @@ impl From<ValeOutputItemSeverity> for CheckSeverity {
         }
     }
 }
+impl From<String> for CheckCategory {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+impl From<&str> for CheckCategory {
+    fn from(value: &str) -> Self {
+        match value.trim().to_lowercase().as_str() {
+            | "link" => Self::Link,
+            | "prose" => Self::Prose,
+            | "quality" => Self::Quality,
+            | "readability" => Self::Readability,
+            | "schema" => Self::Schema,
+            | _ => panic!("Unsupported check category: {value}"),
+        }
+    }
+}
 impl From<CheckSeverity> for Color {
     fn from(value: CheckSeverity) -> Self {
         match value {
@@ -533,18 +582,16 @@ impl<'a> IntoRow<'a> for Check {
             message,
             locator,
             uri,
-            status_code,
             context,
             ..
         } = self;
         let data = [
             &index.to_string(),
-            &category.to_string(),
             &severity.to_string(),
+            &category.to_string(),
             &uri.unwrap_or_default(),
             &locator.unwrap_or_default(),
             &message,
-            &status_code.unwrap_or_default(),
             &context.unwrap_or_default(),
         ];
         Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
@@ -619,14 +666,14 @@ where
                         uri: path.file_name_with_parent(),
                         errors: errors,
                         message: score,
-                        context: content
+                        data: content
                     )
                 } else {
                     check_ok!(
                         CheckCategory::Readability,
                         uri: path.file_name_with_parent(),
                         message: score,
-                        context: content
+                        data: content
                     )
                 }
             }
@@ -637,7 +684,7 @@ where
 /// Convert vector of [`Check`] values to a Polars [DataFrame]
 #[cfg(feature = "analysis")]
 pub fn checks_to_dataframe(values: &[Check]) -> PolarsResult<DataFrame> {
-    let names = ["index", "category", "severity", "uri", "locator", "message", "status_code", "context"];
+    let names = ["index", "severity", "category", "uri", "locator", "message", "context"];
     to_dataframe::<Check, _, &str>(
         values
             .iter()
@@ -649,11 +696,11 @@ pub fn checks_to_dataframe(values: &[Check]) -> PolarsResult<DataFrame> {
 }
 /// Convert vector of [`Check`] values to a CSV string
 #[cfg(feature = "analysis")]
-pub fn checks_to_csv(values: &[Check]) -> PolarsResult<String> {
+pub fn checks_to_csv(values: &[Check], include_headers: bool) -> PolarsResult<String> {
     match checks_to_dataframe(values) {
         | Ok(mut dataframe) => {
             let mut buf = Cursor::new(Vec::new());
-            match CsvWriter::new(&mut buf).finish(&mut dataframe) {
+            match CsvWriter::new(&mut buf).include_header(include_headers).finish(&mut dataframe) {
                 | Ok(_) => Ok(String::from_utf8_lossy(&buf.into_inner()).into_owned()),
                 | Err(why) => Err(why),
             }

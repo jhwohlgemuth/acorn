@@ -462,18 +462,13 @@ fn test_report_schema_with_missing_value_param_does_not_panic() {
     let mut error = ValidationError::new("license");
     error.params.clear();
     validation_errors.add("license", error);
-    let issue = Check {
-        index: 0,
-        category: CheckCategory::Schema,
-        locator: None,
-        context: None,
-        success: false,
-        severity: CheckSeverity::Error,
-        status_code: None,
-        errors: Some(ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(validation_errors)))),
-        uri: Some("fixtures/CITATION.cff".to_string()),
-        message: "".to_string(),
-    };
+    let issue = Check::init()
+        .index(0)
+        .category(CheckCategory::Schema)
+        .severity(CheckSeverity::Error)
+        .errors(ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(validation_errors))))
+        .uri("fixtures/CITATION.cff")
+        .build();
     issue.report();
 }
 #[test]

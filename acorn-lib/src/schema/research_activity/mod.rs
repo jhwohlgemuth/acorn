@@ -713,17 +713,15 @@ impl ToProse for ResearchActivity {
         let sections = self.sections.to_markdown();
         match &self.subtitle {
             | Some(subtitle) => format!(
-                r#"# {title}
-> {subtitle}
+                r#"{title}
+{subtitle}
 {sections}
-
 {websites}"#,
                 title = self.title
             ),
             | None => format!(
-                r#"# {title}
+                r#"{title}
 {sections}
-
 {websites}"#,
                 title = self.title
             ),

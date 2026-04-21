@@ -561,7 +561,7 @@ impl ToMarkdown for Cff {
 }
 impl ToProse for Cff {
     fn to_prose(&self) -> String {
-        [Some(format!("# {}", self.title)), self.abstract_text.clone(), Some(self.message.clone())]
+        [Some(self.title.to_string()), self.abstract_text.clone(), Some(self.message.clone())]
             .into_iter()
             .flatten()
             .collect::<Vec<String>>()
