@@ -4,13 +4,15 @@ use acorn::io::config::{ApplicationConfiguration, Bucket, BucketOptions};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Operations};
 use acorn::io::InputOutput;
-use acorn::prelude::PathBuf;
+use acorn::prelude::{Path, PathBuf};
 use acorn::util::{suffix, Label, StringConversion};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 use owo_colors::OwoColorize;
 use std::process::exit;
 use tracing::error;
+
+const DEFAULT_CONFIG_FILENAMES: [&str; 3] = [".acorn.json", ".acorn.yaml", ".acorn.yml"];
 
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -32,7 +34,8 @@ pub async fn run(
         .build());
     let database = Database::<Table>::from_path(database_path.clone());
     let options = BucketOptions::init().threads(threads).quiet(quiet).ignore(ignore.to_vec()).build();
-    if let Some(path) = config {
+    let config = config.clone().or_else(|| resolve_default_config_path(&PathBuf::from(".")));
+    if let Some(path) = &config {
         match ApplicationConfiguration::read(path.clone()) {
             | Ok(content) => {
                 let mut total: usize = 0;
@@ -126,8 +129,22 @@ pub async fn run(
                 println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             }
         }
+    } else if !quiet {
+        println!(
+            "\n\n   => {} No URL or configuration file found. Provide a URL or create one of: {}\n",
+            Label::fail(),
+            DEFAULT_CONFIG_FILENAMES.join(", ")
+        );
+    } else {
+        error!("=> {} No URL or configuration file found for download command", Label::fail());
     }
     Ok(())
+}
+fn resolve_default_config_path(base: &Path) -> Option<PathBuf> {
+    DEFAULT_CONFIG_FILENAMES
+        .iter()
+        .map(|name| base.join(name))
+        .find(|candidate| candidate.exists())
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 //! Tests for the download command
 //!
 //! These tests validate local-bucket download execution with silent verbosity.
-use crate::commands::download::run;
+use super::{resolve_default_config_path, run};
 use crate::test_utils::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::prelude::{create_dir_all, PathBuf};
 use clap_verbosity_flag::Verbosity;
@@ -22,6 +22,23 @@ fn has_any_file(path: &PathBuf) -> bool {
             }),
         | Err(_) => false,
     }
+}
+#[test]
+fn test_resolve_default_config_path_prefers_standard_names() -> Result<()> {
+    let temp_dir = temp_test_dir("download_default_config_resolution");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let expected = temp_dir.join(".acorn.json");
+    fs::write(&expected, "{}")?;
+    let resolved = resolve_default_config_path(&temp_dir);
+    assert_eq!(resolved, Some(expected));
+    Ok(())
+}
+#[test]
+fn test_resolve_default_config_path_none_when_missing() {
+    let temp_dir = temp_test_dir("download_default_config_missing");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let resolved = resolve_default_config_path(&temp_dir);
+    assert!(resolved.is_none(), "resolver should return none when no default config files exist");
 }
 #[tokio::test]
 async fn test_download_local_url_silent() -> Result<()> {
