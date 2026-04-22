@@ -226,7 +226,7 @@ impl Analysis for Cff {
         });
         join_all(futures).await.into_iter().flatten().collect()
     }
-    fn prose_output_path(path: &Path, _data: &Self) -> PathBuf {
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
@@ -312,7 +312,7 @@ impl Analysis for ResearchActivity {
         });
         join_all(futures).await.into_iter().flatten().collect()
     }
-    fn prose_output_path(_path: &Path, data: &Self) -> PathBuf {
+    fn output_path(_path: &Path, data: &Self) -> PathBuf {
         standard_project_folder("check", None)
             .join(data.meta.identifier.to_lowercase())
             .join("index.json")
@@ -349,7 +349,7 @@ impl Analysis for Text {
     async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         vec![]
     }
-    fn prose_output_path(path: &Path, _data: &Self) -> PathBuf {
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }

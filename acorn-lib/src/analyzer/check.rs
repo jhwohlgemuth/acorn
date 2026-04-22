@@ -56,10 +56,10 @@ pub trait Analysis {
     async fn check_schema(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Check if URLs links are valid and readable
     async fn check_websites(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
+    /// Returns the output path used for Vale analysis artifacts.
+    fn output_path(path: &Path, data: &Self) -> PathBuf;
     /// Returns the metadata standard represented by the implementing type.
     fn standard() -> Standard;
-    /// Returns the output path used for Vale analysis artifacts.
-    fn prose_output_path(path: &Path, data: &Self) -> PathBuf;
 }
 /// Trait for converting to a ([Polars]) row
 ///
@@ -632,7 +632,7 @@ where
                 async move {
                     match T::read(&path) {
                         | Ok(data) => {
-                            let output = T::prose_output_path(&path, &data);
+                            let output = T::output_path(&path, &data);
                             let content = data.to_prose();
                             vale.run(output, content, Some("JSON".into())).await
                         }
