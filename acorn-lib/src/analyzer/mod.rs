@@ -102,7 +102,7 @@ impl Analysis for Cff {
     async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -115,10 +115,10 @@ impl Analysis for Cff {
             })
             .collect()
     }
-    fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
-    fn check_schema(paths: &[PathBuf]) -> Vec<Check> {
+    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
             .flat_map(|path| match Self::read(path) {
@@ -238,7 +238,7 @@ impl Analysis for ResearchActivity {
     async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -251,10 +251,10 @@ impl Analysis for ResearchActivity {
             })
             .collect()
     }
-    fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
-    fn check_schema(paths: &[PathBuf]) -> Vec<Check> {
+    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
             .flat_map(|path| match Self::read(path) {
@@ -326,7 +326,7 @@ impl Analysis for Text {
     async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -339,10 +339,10 @@ impl Analysis for Text {
             })
             .collect()
     }
-    fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
-    fn check_schema(_paths: &[PathBuf]) -> Vec<Check> {
+    async fn check_schema(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         vec![]
     }
     #[cfg(feature = "std")]

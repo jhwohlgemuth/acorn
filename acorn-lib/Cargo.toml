@@ -67,6 +67,7 @@ rusqlite = { workspace = true, features = ["bundled"], default-features = false 
 rust-embed = { workspace = true }
 rust-ini = { version = "0.21.3", default-features = false }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false}
+strum = { workspace = true }
 secrecy = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

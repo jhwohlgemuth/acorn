@@ -27,8 +27,8 @@ fn test_cff_validation_issues_invalid_doi() {
     assert!(!issues.is_empty());
     assert_eq!(issues[0].category, CheckCategory::Schema);
 }
-#[test]
-fn test_cff_check_schema_returns_errors_for_invalid_file() {
+#[tokio::test]
+async fn test_cff_check_schema_returns_errors_for_invalid_file() {
     let path = unique_path("cff-schema-invalid", "cff");
     if let Some(parent) = path.parent() {
         create_dir_all(parent).expect("failed to create test_artifacts directory");
@@ -41,13 +41,13 @@ fn test_cff_check_schema_returns_errors_for_invalid_file() {
     };
     let yaml = serde_yml::to_string(&cff).expect("failed to serialize CFF fixture");
     write(path.clone(), yaml).expect("failed to write CFF fixture");
-    let checks = Cff::check_schema(core::slice::from_ref(&path));
+    let checks = Cff::check_schema(core::slice::from_ref(&path), None).await;
     assert!(!checks.is_empty());
     assert!(checks.iter().any(|check| check.category == CheckCategory::Schema));
     let _cleanup = remove_file(path);
 }
-#[test]
-fn test_cff_check_quality_returns_ok_for_readable_file() {
+#[tokio::test]
+async fn test_cff_check_quality_returns_ok_for_readable_file() {
     let path = unique_path("cff-quality-valid", "cff");
     if let Some(parent) = path.parent() {
         create_dir_all(parent).expect("failed to create test_artifacts directory");
@@ -59,7 +59,7 @@ fn test_cff_check_quality_returns_ok_for_readable_file() {
     };
     let yaml = serde_yml::to_string(&cff).expect("failed to serialize CFF fixture");
     write(path.clone(), yaml).expect("failed to write CFF fixture");
-    let checks = Cff::check_quality(core::slice::from_ref(&path), None);
+    let checks = Cff::check_quality(core::slice::from_ref(&path), None).await;
     assert_eq!(checks.len(), 1);
     assert!(checks[0].success);
     assert_eq!(checks[0].category, CheckCategory::Quality);
@@ -71,7 +71,7 @@ fn test_checks_to_dataframe() {
     let checks = vec![check.clone(), check.clone(), check];
     let df = checks_to_dataframe(&checks);
     let reason = "Failed to convert checks to dataframe";
-    assert_eq!(df.expect(reason).shape(), (checks.len(), 8));
+    assert_eq!(df.expect(reason).shape(), (checks.len(), 7));
 }
 #[test]
 fn test_highlighted_span() {

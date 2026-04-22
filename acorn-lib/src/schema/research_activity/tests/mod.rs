@@ -236,7 +236,7 @@ fn test_is_attribute_impact() {
 fn test_to_prose() {
     let default = ResearchActivity::default();
     let prose = default.to_prose();
-    assert!(prose.starts_with("# Research Activity Title"));
+    assert!(prose.starts_with("Research Activity Title"));
     assert!(prose.contains("## Mission"));
     assert!(prose.contains("## Challenge"));
     assert!(prose.contains("## Approach"));
@@ -250,8 +250,8 @@ fn test_to_prose() {
         .subtitle("A subtitle".to_string())
         .build();
     let prose = with_subtitle.to_prose();
-    assert!(prose.contains("# Test Title"));
-    assert!(prose.contains("> A subtitle"));
+    assert!(prose.contains("Test Title"));
+    assert!(prose.contains("A subtitle"));
     insta::assert_snapshot!("to_prose_with_subtitle", prose);
     let with_websites = ResearchActivity::init()
         .meta(

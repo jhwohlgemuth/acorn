@@ -16,6 +16,9 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 use color_eyre::owo_colors::OwoColorize;
 use dotenvy::dotenv;
+use futures::stream::{self, StreamExt};
+use std::iter::once;
+use strum::IntoEnumIterator;
 use tracing::{debug, error, warn};
 
 #[allow(clippy::too_many_arguments)]
@@ -88,17 +91,31 @@ async fn collect(paths: &[PathBuf], check_options: &CheckOptions) -> Vec<Check> 
         | _ => unimplemented!(),
     }
 }
-async fn collect_checks_for<T: Analysis>(paths: &[PathBuf], options: &CheckOptions) -> Vec<Check> {
-    let is_skipped = |category: CheckCategory| -> bool { options.skip.iter().cloned().any(|value| CheckCategory::from(value) == category) };
-    let maybe_early_exit = |results: Vec<Check>, issue_label: &str, exit_on_first_error: bool| -> Vec<Check> {
+async fn collect_checks_for<T: Analysis + Send + Sync>(paths: &[PathBuf], options: &CheckOptions) -> Vec<Check> {
+    let CheckOptions {
+        disable_website_checks,
+        exit_on_first_error,
+        offline,
+        quiet,
+        skip,
+        ..
+    } = options.clone();
+    let skipped_categories: Vec<CheckCategory> = skip
+        .iter()
+        .map(CheckCategory::from)
+        .chain(once(CheckCategory::Quality)) // Quality checks are WIP
+        .chain((offline || disable_website_checks).then_some(CheckCategory::Link))
+        .collect();
+    let should_skip = |category: &CheckCategory| skipped_categories.contains(category);
+    let maybe_early_exit = |results: &[Check], category: &CheckCategory| {
         let issue_count = results
             .iter()
             .filter(|Check { severity, .. }| severity.is_failure())
             .map(|issue| issue.issue_count())
             .sum::<usize>();
         if exit_on_first_error && issue_count > 0 {
-            if !options.quiet {
-                fail!("ACORN found {} {}", issue_count, issue_label);
+            if !quiet {
+                fail!("ACORN found {} {}", issue_count, category);
                 results
                     .iter()
                     .enumerate()
@@ -106,45 +123,16 @@ async fn collect_checks_for<T: Analysis>(paths: &[PathBuf], options: &CheckOptio
             }
             exit(exitcode::DATAERR);
         }
-        results
     };
-    let schema_checks = if is_skipped(CheckCategory::Schema) {
-        skip!("{} checks", CheckCategory::Schema);
-        vec![]
-    } else {
-        maybe_early_exit(T::check_schema(paths), "schema", options.exit_on_first_error)
-    };
-    let prose_checks = if is_skipped(CheckCategory::Prose) {
-        skip!("{} checks", CheckCategory::Prose);
-        vec![]
-    } else {
-        maybe_early_exit(T::check_prose(paths, Some(options)).await, "prose", options.exit_on_first_error)
-    };
-    let readability_checks = if is_skipped(CheckCategory::Readability) {
-        skip!("{} checks", CheckCategory::Readability);
-        vec![]
-    } else {
-        maybe_early_exit(T::check_readability(paths, Some(options)), "readability", options.exit_on_first_error)
-    };
-    let quality_checks = if is_skipped(CheckCategory::Quality) {
-        skip!("{} checks", CheckCategory::Quality);
-        vec![]
-    } else {
-        vec![]
-    };
-    let website_checks = if is_skipped(CheckCategory::Link) || options.offline || options.disable_website_checks {
-        skip!("{} checks", CheckCategory::Link);
-        vec![]
-    } else {
-        T::check_websites(paths, None).await
-    };
-    schema_checks
-        .into_iter()
-        .chain(prose_checks)
-        .chain(website_checks)
-        .chain(readability_checks)
-        .chain(quality_checks)
-        .collect()
+    let (skipped, non_skipped): (Vec<CheckCategory>, Vec<CheckCategory>) = CheckCategory::iter().partition(should_skip);
+    skipped.iter().for_each(|category| skip!("{} checks", category));
+    stream::iter(non_skipped)
+        .fold(Vec::new(), |acc, category| async move {
+            let results = T::check(category.clone(), paths, Some(options)).await;
+            maybe_early_exit(&results, &category);
+            acc.into_iter().chain(results).collect()
+        })
+        .await
 }
 fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result<(), Report> {
     let CheckOptions { quiet, no_fail, terse, .. } = options.clone();

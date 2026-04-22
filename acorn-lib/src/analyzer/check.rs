@@ -28,6 +28,7 @@ use polars::{
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde_json::Value;
+use strum::EnumIter;
 use tracing::{debug, error, info};
 use validator::ValidationErrorsKind;
 
@@ -40,19 +41,19 @@ pub trait Analysis {
         match category {
             | CheckCategory::Link => Self::check_websites(paths, options).await,
             | CheckCategory::Prose => Self::check_prose(paths, options).await,
-            | CheckCategory::Quality => Self::check_quality(paths, options),
-            | CheckCategory::Readability => Self::check_readability(paths, options),
-            | CheckCategory::Schema => Self::check_schema(paths),
+            | CheckCategory::Quality => Self::check_quality(paths, options).await,
+            | CheckCategory::Readability => Self::check_readability(paths, options).await,
+            | CheckCategory::Schema => Self::check_schema(paths, options).await,
         }
     }
     /// Perform analysis of prose
     async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Perform quality checks and verify data consistency
-    fn check_quality(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
+    async fn check_quality(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Calculate readability using a given metric
-    fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
+    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Execute validation checks for a given item
-    fn check_schema(paths: &[PathBuf]) -> Vec<Check>;
+    async fn check_schema(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Check if URLs links are valid and readable
     async fn check_websites(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Returns the metadata standard represented by the implementing type.
@@ -98,8 +99,12 @@ pub enum Standard {
     Text,
 }
 /// Various check categories available for validating research activity data
-#[derive(Clone, Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Default, Display, EnumIter, PartialEq)]
 pub enum CheckCategory {
+    /// Schema validation check
+    #[default]
+    #[display("schema")]
+    Schema,
     /// Website availability check
     #[display("link")]
     Link,
@@ -112,9 +117,6 @@ pub enum CheckCategory {
     /// Readability check using one of several metrics
     #[display("readability")]
     Readability,
-    /// Schema validation check
-    #[display("schema")]
-    Schema,
 }
 /// Severity level of a check result
 #[derive(Clone, Debug, Default, Display, PartialEq)]
@@ -326,7 +328,7 @@ impl Check {
                     info!("{}", message);
                 }
             },
-            | CheckCategory::Quality => unimplemented!(),
+            | CheckCategory::Quality => {}
             | CheckCategory::Readability => match &errors {
                 | Some(ErrorKind::Readability((_readability_index, readability_type))) => {
                     let kind: ReportKind<'static> = severity.clone().into();
@@ -499,6 +501,35 @@ impl fmt::Display for Check {
         }
     }
 }
+
+impl CheckCategory {
+    /// Returns `true` if this category appears in the given list of category items
+    pub fn is_in(&self, items: &[String]) -> bool {
+        items.iter().any(|value| Self::from(value.as_str()) == *self)
+    }
+}
+impl From<String> for CheckCategory {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+impl From<&String> for CheckCategory {
+    fn from(value: &String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+impl From<&str> for CheckCategory {
+    fn from(value: &str) -> Self {
+        match value.trim().to_lowercase().as_str() {
+            | "link" => Self::Link,
+            | "prose" => Self::Prose,
+            | "quality" => Self::Quality,
+            | "readability" => Self::Readability,
+            | "schema" => Self::Schema,
+            | _ => CheckCategory::default(),
+        }
+    }
+}
 impl CheckSeverity {
     /// Returns a colored string representation of the severity level
     pub fn colored(&self) -> String {
@@ -532,23 +563,6 @@ impl From<ValeOutputItemSeverity> for CheckSeverity {
             | ValeOutputItemSeverity::Error => CheckSeverity::Error,
             | ValeOutputItemSeverity::Suggestion => CheckSeverity::Suggestion,
             | ValeOutputItemSeverity::Warning => CheckSeverity::Warning,
-        }
-    }
-}
-impl From<String> for CheckCategory {
-    fn from(value: String) -> Self {
-        Self::from(value.as_str())
-    }
-}
-impl From<&str> for CheckCategory {
-    fn from(value: &str) -> Self {
-        match value.trim().to_lowercase().as_str() {
-            | "link" => Self::Link,
-            | "prose" => Self::Prose,
-            | "quality" => Self::Quality,
-            | "readability" => Self::Readability,
-            | "schema" => Self::Schema,
-            | _ => panic!("Unsupported check category: {value}"),
         }
     }
 }

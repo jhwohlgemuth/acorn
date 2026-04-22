@@ -81,13 +81,29 @@ pub async fn run(
         | FileFormat::Pdf => {
             #[cfg(feature = "pdf")]
             {
+                use color_eyre::eyre::eyre;
                 let items = resolve_paths(path, &options).await;
-                let playwright = Playwright::initialize().await.unwrap();
-                playwright.install_chromium().unwrap();
+                let playwright = match Playwright::initialize().await {
+                    | Ok(playwright) => playwright,
+                    | Err(why) => return Err(eyre!("Failed to initialize Playwright — {why}")),
+                };
+                match playwright.install_chromium() {
+                    | Ok(_) => (),
+                    | Err(why) => return Err(eyre!("Failed to install Chromium for Playwright — {why}")),
+                };
                 let chromium = playwright.chromium();
-                let browser = chromium.launcher().headless(true).launch().await.unwrap();
-                let context = browser.context_builder().build().await.unwrap();
-                let page = context.new_page().await.unwrap();
+                let browser = match chromium.launcher().headless(true).launch().await {
+                    | Ok(browser) => browser,
+                    | Err(why) => return Err(eyre!("Failed to launch Chromium — {why}")),
+                };
+                let context = match browser.context_builder().build().await {
+                    | Ok(context) => context,
+                    | Err(why) => return Err(eyre!("Failed to create browser context — {why}")),
+                };
+                let page = match context.new_page().await {
+                    | Ok(page) => page,
+                    | Err(why) => return Err(eyre!("Failed to create browser page — {why}")),
+                };
                 let page = &page;
                 let progress = with_progress(
                     items,
