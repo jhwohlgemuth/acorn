@@ -38,11 +38,11 @@ pub trait Analysis {
     /// Run analysis for a given category
     async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         match category {
-            | CheckCategory::Quality => Self::check_quality(paths, options),
+            | CheckCategory::Link => Self::check_websites(paths, options).await,
             | CheckCategory::Prose => Self::check_prose(paths, options).await,
+            | CheckCategory::Quality => Self::check_quality(paths, options),
             | CheckCategory::Readability => Self::check_readability(paths, options),
             | CheckCategory::Schema => Self::check_schema(paths),
-            | CheckCategory::Link => Self::check_websites(paths, options).await,
         }
     }
     /// Perform analysis of prose

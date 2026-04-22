@@ -109,35 +109,31 @@ async fn collect_checks_for<T: Analysis>(paths: &[PathBuf], options: &CheckOptio
         results
     };
     let schema_checks = if is_skipped(CheckCategory::Schema) {
-        skip!("Schema validation");
+        skip!("{} checks", CheckCategory::Schema);
         vec![]
     } else {
-        maybe_early_exit(T::check_schema(paths), "schema validation errors", options.exit_on_first_error)
+        maybe_early_exit(T::check_schema(paths), "schema", options.exit_on_first_error)
     };
     let prose_checks = if is_skipped(CheckCategory::Prose) {
-        skip!("Prose analysis");
+        skip!("{} checks", CheckCategory::Prose);
         vec![]
     } else {
-        maybe_early_exit(T::check_prose(paths, Some(options)).await, "prose issues", options.exit_on_first_error)
+        maybe_early_exit(T::check_prose(paths, Some(options)).await, "prose", options.exit_on_first_error)
     };
     let readability_checks = if is_skipped(CheckCategory::Readability) {
-        skip!("Readability analysis");
+        skip!("{} checks", CheckCategory::Readability);
         vec![]
     } else {
-        maybe_early_exit(
-            T::check_readability(paths, Some(options)),
-            "readability issues",
-            options.exit_on_first_error,
-        )
+        maybe_early_exit(T::check_readability(paths, Some(options)), "readability", options.exit_on_first_error)
     };
     let quality_checks = if is_skipped(CheckCategory::Quality) {
-        skip!("Quality control and data consistency checks");
+        skip!("{} checks", CheckCategory::Quality);
         vec![]
     } else {
         vec![]
     };
-    let website_checks = if options.offline || options.disable_website_checks {
-        skip!("Website checks");
+    let website_checks = if is_skipped(CheckCategory::Link) || options.offline || options.disable_website_checks {
+        skip!("{} checks", CheckCategory::Link);
         vec![]
     } else {
         T::check_websites(paths, None).await
