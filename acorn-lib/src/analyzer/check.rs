@@ -794,7 +794,7 @@ pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
             .map(|issue| issue.issue_count())
             .sum::<usize>()
             .to_string();
-        vec![format!("{} issues found", category.to_string().to_case(Case::Title)), count]
+        vec![format!("{} items found", category.to_string().to_case(Case::Title)), count]
     })
     .collect::<Vec<_>>()
 }

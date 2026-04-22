@@ -65,26 +65,30 @@ pub async fn run(
         .readability_metric(resolve_readability_metric(readability_metric))
         .build();
     let paths = resolve_paths(path, &command_options).await;
-    let issues = collect(&paths, &options)
-        .await
-        .iter()
-        .filter(|issue| options.all || issue.severity.is_failure())
-        .cloned()
-        .collect::<Vec<Check>>();
+    let issues = filter_by_visibility(&collect(&paths, &options).await, options.all);
     handle(&issues, &paths, &options)
 }
+fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, options: &CheckOptions) -> Vec<Check> {
+    let CheckOptions {
+        all,
+        exit_on_first_error,
+        quiet,
+        terse,
+        ..
+    } = options.clone();
+    let filtered_results = filter_by_visibility(&results, all);
+    let issue_count = failure_count(&filtered_results);
+    if exit_on_first_error && issue_count > 0 {
+        if !quiet {
+            fail!("ACORN found {} {} issues", issue_count, category);
+            render(&filtered_results, terse);
+        }
+        exit(exitcode::DATAERR);
+    }
+    filtered_results
+}
 async fn collect(paths: &[PathBuf], check_options: &CheckOptions) -> Vec<Check> {
-    let extensions = unique_file_extensions(paths);
-    let inferred_standard = if extensions.len() == 1 && extensions.contains(&"cff".to_string()) {
-        warn!("=> {} Inferred standard (CFF)", Label::using());
-        Standard::Cff
-    } else if extensions.len() == 1 && extensions.contains(&"txt".to_string()) {
-        warn!("=> {} Inferred standard (Text)", Label::using());
-        Standard::Text
-    } else {
-        Standard::Rads
-    };
-    match inferred_standard {
+    match infer_standard(paths) {
         | Standard::Cff => collect_checks_for::<Cff>(paths, check_options).await,
         | Standard::Rads => collect_checks_for::<ResearchActivity>(paths, check_options).await,
         | Standard::Text => collect_checks_for::<Text>(paths, check_options).await,
@@ -92,61 +96,19 @@ async fn collect(paths: &[PathBuf], check_options: &CheckOptions) -> Vec<Check> 
     }
 }
 async fn collect_checks_for<T: Analysis + Send + Sync>(paths: &[PathBuf], options: &CheckOptions) -> Vec<Check> {
-    let CheckOptions {
-        disable_website_checks,
-        exit_on_first_error,
-        offline,
-        quiet,
-        skip,
-        ..
-    } = options.clone();
-    let skipped_categories: Vec<CheckCategory> = skip
-        .iter()
-        .map(CheckCategory::from)
-        .chain(once(CheckCategory::Quality)) // Quality checks are WIP
-        .chain((offline || disable_website_checks).then_some(CheckCategory::Link))
-        .collect();
-    let should_skip = |category: &CheckCategory| skipped_categories.contains(category);
-    let maybe_early_exit = |results: &[Check], category: &CheckCategory| {
-        let issue_count = results
-            .iter()
-            .filter(|Check { severity, .. }| severity.is_failure())
-            .map(|issue| issue.issue_count())
-            .sum::<usize>();
-        if exit_on_first_error && issue_count > 0 {
-            if !quiet {
-                fail!("ACORN found {} {}", issue_count, category);
-                results
-                    .iter()
-                    .enumerate()
-                    .for_each(|(index, issue)| issue.clone().with_index(index).report());
-            }
-            exit(exitcode::DATAERR);
-        }
-    };
-    let (skipped, non_skipped): (Vec<CheckCategory>, Vec<CheckCategory>) = CheckCategory::iter().partition(should_skip);
+    let skipped_categories = resolve_skipped_categories(options);
+    let (skipped, non_skipped): (Vec<CheckCategory>, Vec<CheckCategory>) = CheckCategory::iter().partition(|cat| skipped_categories.contains(cat));
     skipped.iter().for_each(|category| skip!("{} checks", category));
     stream::iter(non_skipped)
         .fold(Vec::new(), |acc, category| async move {
             let results = T::check(category.clone(), paths, Some(options)).await;
-            maybe_early_exit(&results, &category);
+            let results = apply_early_exit_policy(results, &category, options);
             acc.into_iter().chain(results).collect()
         })
         .await
 }
 fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result<(), Report> {
     let CheckOptions { quiet, no_fail, terse, .. } = options.clone();
-    let print_compact = || {
-        issues.iter().for_each(|issue| {
-            let uri = issue.clone().uri.unwrap_or_default();
-            println!("{issue}{}", format!(", path={uri}").dimmed());
-        });
-    };
-    let print_detailed = || {
-        issues.iter().enumerate().for_each(|(index, issue)| {
-            issue.clone().with_index(index).report();
-        });
-    };
     let print_summary = || {
         let file_count = paths.len();
         let headers = vec!["Item", "Count"];
@@ -158,11 +120,7 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
         print_values_as_table::<String>(headers, rows, None);
     };
     if !quiet {
-        if terse {
-            print_compact();
-        } else {
-            print_detailed();
-        }
+        render(issues, terse);
         if !(no_fail || terse) {
             print_summary();
         }
@@ -178,10 +136,51 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
                 Err(why.into())
             }
         }
-    } else if !no_fail && issues.iter().any(|Check { severity, .. }| severity.is_failure()) {
+    } else if !no_fail && has_failures(issues) {
         exit(exitcode::DATAERR)
     } else {
         Ok(())
+    }
+}
+fn failure_count(issues: &[Check]) -> usize {
+    issues
+        .iter()
+        .filter(|Check { severity, .. }| severity.is_failure())
+        .map(Check::issue_count)
+        .sum::<usize>()
+}
+fn filter_by_visibility(issues: &[Check], all: bool) -> Vec<Check> {
+    issues
+        .iter()
+        .filter(|issue| all || issue.severity.is_failure())
+        .cloned()
+        .collect::<Vec<Check>>()
+}
+fn has_failures(issues: &[Check]) -> bool {
+    issues.iter().any(|Check { severity, .. }| severity.is_failure())
+}
+fn infer_standard(paths: &[PathBuf]) -> Standard {
+    let extensions = unique_file_extensions(paths);
+    if extensions.len() == 1 && extensions.contains(&"cff".to_string()) {
+        warn!("=> {} Inferred standard (CFF)", Label::using());
+        Standard::Cff
+    } else if extensions.len() == 1 && extensions.contains(&"txt".to_string()) {
+        warn!("=> {} Inferred standard (Text)", Label::using());
+        Standard::Text
+    } else {
+        Standard::Rads
+    }
+}
+fn render(issues: &[Check], terse: bool) {
+    if terse {
+        issues.iter().for_each(|issue| {
+            let uri = issue.clone().uri.unwrap_or_default();
+            println!("{issue}{}", format!(", path={uri}").dimmed());
+        });
+    } else {
+        issues.iter().enumerate().for_each(|(index, issue)| {
+            issue.clone().with_index(index).report();
+        });
     }
 }
 fn resolve_readability_metric(readability_metric: &ReadabilityTypeArgument) -> ReadabilityType {
@@ -196,6 +195,19 @@ fn resolve_readability_metric(readability_metric: &ReadabilityTypeArgument) -> R
         },
         | _ => metric_from_cli,
     }
+}
+fn resolve_skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
+    let CheckOptions {
+        disable_website_checks,
+        offline,
+        skip,
+        ..
+    } = options.clone();
+    skip.iter()
+        .map(CheckCategory::from)
+        .chain(once(CheckCategory::Quality))
+        .chain((offline || disable_website_checks).then_some(CheckCategory::Link))
+        .collect()
 }
 #[cfg(test)]
 mod tests;
