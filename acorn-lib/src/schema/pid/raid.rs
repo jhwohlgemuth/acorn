@@ -4,13 +4,14 @@
 //!
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema raid`
 #[cfg(feature = "std")]
+use crate::io::current_date;
+#[cfg(feature = "std")]
 use crate::io::read_file;
 #[cfg(feature = "std")]
 use crate::prelude::{Error, PathBuf};
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
-use crate::util::current_date;
 #[cfg(feature = "std")]
 use crate::util::Label;
 use bon::Builder;
@@ -1009,6 +1010,7 @@ impl Metadata {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<ResearchActivity> for Metadata {
     fn from(activity: ResearchActivity) -> Self {
         let default_start_date = current_date();

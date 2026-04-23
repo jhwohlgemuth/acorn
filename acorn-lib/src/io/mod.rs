@@ -28,6 +28,7 @@ use crate::util::constants::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATI
 #[cfg(windows)]
 use crate::util::file_extension;
 use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, StringConversion, ToStrings};
+use chrono::Utc;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::time::Duration;
 use data_encoding::HEXUPPER;
@@ -362,6 +363,19 @@ where
             false
         }
     }
+}
+/// Returns the current date in ISO8601 format (YYYY-MM-DD).
+/// ### Examples
+/// ```rust
+/// use acorn::io::current_date;
+///
+/// let date = current_date();
+/// // Returns something like "2026-01-22"
+/// assert_eq!(date.len(), 10);
+/// assert!(date.contains("-"));
+/// ```
+pub fn current_date() -> String {
+    Utc::now().format("%Y-%m-%d").to_string()
 }
 /// Downloads a binary file from the given URL to the destination path.
 ///

@@ -140,12 +140,6 @@ fn test_cmd_error() {
     assert!(cmd!(sh "not-a-real-command-xyz arg").is_err());
 }
 #[test]
-fn test_current_date() {
-    let date = current_date();
-    assert_eq!(date.len(), 10);
-    assert_eq!(date.split("-").count(), 3);
-}
-#[test]
 fn test_last_values() {
     let values: Vec<String> = Constant::last_values("technology").collect();
     assert!(!values.is_empty());

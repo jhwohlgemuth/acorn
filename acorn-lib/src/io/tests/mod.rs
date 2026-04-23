@@ -5,9 +5,9 @@ use crate::io::config::{ApplicationConfiguration, Bucket};
 use crate::io::http::policy::{http_timeout_layer, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
-    archive, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request,
-    filter_git_command_result, filter_ignored, image_paths, read_file, read_large_file, unique_file_extensions, uri_to_path, write_file_bytes,
-    InputOutput,
+    archive, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
+    files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, image_paths, read_file, read_large_file, unique_file_extensions,
+    uri_to_path, write_file_bytes, InputOutput,
 };
 use crate::util::constants::ENV_NO_LOCAL_DATABASE;
 use crate::{Location, Repository, Scheme};
@@ -103,13 +103,6 @@ fn test_bucket_config_json() {
     assert_eq!(config.buckets.as_ref().map_or(0, |b| b.len()), 3);
 }
 #[test]
-fn test_config_with_endpoints() {
-    let path = fixtures_dir().join("config").join("with_endpoints.json");
-    let config = ApplicationConfiguration::read_json(path);
-    let endpoints = config.unwrap().endpoints.unwrap();
-    assert_eq!(endpoints[0].resources.len(), 2);
-}
-#[test]
 fn test_bucket_config_yaml() {
     let path = fixtures_dir().join("config").join("with_remote_buckets.yaml");
     let config = ApplicationConfiguration::read_yaml(path).unwrap();
@@ -134,6 +127,19 @@ fn test_bucket() {
         },
     };
     assert_eq!(bucket.domain().unwrap(), "code.ornl.gov".to_string());
+}
+#[test]
+fn test_config_with_endpoints() {
+    let path = fixtures_dir().join("config").join("with_endpoints.json");
+    let config = ApplicationConfiguration::read_json(path);
+    let endpoints = config.unwrap().endpoints.unwrap();
+    assert_eq!(endpoints[0].resources.len(), 2);
+}
+#[test]
+fn test_current_date() {
+    let date = current_date();
+    assert_eq!(date.len(), 10);
+    assert_eq!(date.split("-").count(), 3);
 }
 #[test]
 fn test_gitlab_tree_entry() {

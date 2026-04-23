@@ -44,7 +44,7 @@ fancy-regex = { workspace = true }
 flate2 = { version = "1.1.5", default-features = false }
 futures = { workspace = true }
 glob = { workspace = true }
-hashbrown = { version = "0.16.0", features = ["default-hasher", "serde"], default-features = false }
+hashbrown = { version = "0.17.0", features = ["default-hasher", "serde"], default-features = false }
 human-units = { version = "0.5.3", default-features = false }
 indicatif = { version = "0.18.2", default-features = false }
 is_executable = { version = "1.0.5", default-features = false }
@@ -56,7 +56,7 @@ nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-n
 owo-colors = { workspace = true }
 percy-dom = {version = "0.10.0", features = ["macro"], default-features = false }
 petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
-polars = { version = "0.51.0", features = ["lazy", "fmt_no_tty", "csv"], default-features = false, optional = true }
+polars = { version = "0.53.0", features = ["lazy", "fmt_no_tty", "csv"], default-features = false, optional = true }
 quick-xml = { version = "0.39.1", features = ["serialize"], default-features = false }
 rayon = { workspace = true }
 rmcp = { workspace = true, optional = true }
@@ -75,10 +75,10 @@ serde_repr = { workspace = true }
 serde_trim = { version = "1.1.0", default-features = false }
 serde_with = { version = "3.15.1", features = ["macros"], default-features = false }
 serde_yml = { workspace = true }
-similar = { version = "2.7.0", features = ["text"], default-features = false}
+similar = { version = "3.1.0", features = ["text"], default-features = false}
 sophia = { workspace = true }
 sysinfo = { version = "0.38.2", features = ["network", "system"], default-features = false}
-tar = { version = "0.4.44", default-features = false }
+tar = { version = "0.4.45", default-features = false }
 tera = { workspace = true }
 tokio = { version = "1.48.0", default-features = false, features = ["rt"], optional = true }
 tracing = { workspace = true }
@@ -88,24 +88,24 @@ urlencoding = { version = "2.1.3", default-features = false}
 exitcode = { version = "1.1.2", default-features = false }
 validator = { version = "0.20.0", features = ["derive"], default-features = false }
 which = { version = "8.0.0", features = ["real-sys"], default-features = false, optional = true }
-zip = { version = "6.0.0", features = ["deflate"], default-features = false }
+zip = { version = "8.5.1", features = ["deflate"], default-features = false }
 
 [dev-dependencies]
 insta = { workspace = true, features = ["json", "yaml"] }
 mockall = "0.14.0"
 pretty_assertions = "1.4.1"
-similar-asserts = "1.7.0"
+similar-asserts = "2.0.0"
 temp-env = "0.3.6"
 zench = "0.2.0"
 
 [features]
 agentic = ["dep:axum", "dep:rmcp", "dep:tower"]
-analysis = ["dep:bat", "dep:polars"]
+analysis = ["dep:bat", "dep:polars", "std"]
 default = ["analysis", "agentic", "std"]
 doctor = []
 duckdb = ["dep:duckdb"]
 powerpoint = []
-std = ["dep:axum", "dep:lychee-lib", "dep:reqwest", "dep:tokio", "dep:tower", "dep:which"]
+std = ["dep:axum", "dep:lychee-lib", "dep:reqwest", "dep:tokio", "dep:tower", "dep:which", "chrono/std", "chrono/clock"]
 
 [lints.rust]
 missing-docs = "deny"

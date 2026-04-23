@@ -910,7 +910,7 @@ where
 {
     let rows = values.into_iter().map(|value| value.to_row::<T>()).collect::<Vec<_>>();
     match DataFrame::from_rows(&rows) {
-        | Ok(mut df) => match df.set_column_names(names) {
+        | Ok(mut df) => match df.set_column_names(&names.into_iter().map(Into::into).collect::<Vec<PlSmallStr>>()) {
             | Ok(_) => Ok(df),
             | Err(why) => Err(why),
         },

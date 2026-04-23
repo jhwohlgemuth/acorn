@@ -21,7 +21,7 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 acorn-lib = { version = "0.1.30", path = "../acorn-lib", features = ["doctor", "powerpoint"] }
 bon = "3.3.2"
-chrono = { workspace = true }
+chrono = { workspace = true, features = ["std", "clock"] }
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
 clap-markdown = { version = "0.1.5" }
 clap-verbosity-flag = "3.0.2"

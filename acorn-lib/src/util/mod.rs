@@ -18,7 +18,6 @@
 use crate::prelude::HashMap;
 use crate::{fail, skip};
 use bon::Builder;
-use chrono::Utc;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::{ContentArrangement, Table};
@@ -826,19 +825,6 @@ fn crockford_digit(value: char) -> Option<u128> {
     };
     let byte = normalized as u8;
     CROCKFORD_BASE32_ALPHABET.iter().position(|&b| b == byte).map(|index| index as u128)
-}
-/// Returns the current date in ISO8601 format (YYYY-MM-DD).
-/// ### Examples
-/// ```rust
-/// use acorn::util::current_date;
-///
-/// let date = current_date();
-/// // Returns something like "2026-01-22"
-/// assert_eq!(date.len(), 10);
-/// assert!(date.contains("-"));
-/// ```
-pub fn current_date() -> String {
-    Utc::now().format("%Y-%m-%d").to_string()
 }
 /// Try to parse text as JSON and return `true` if successful, `false` otherwise
 pub fn detect_json(text: impl ToString) -> bool {
