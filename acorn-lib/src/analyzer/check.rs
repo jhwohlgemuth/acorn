@@ -286,7 +286,7 @@ impl Check {
                 let _ = Report::build(kind, (&title, 1..=1))
                     .with_code(index)
                     .with_config(Config::default().with_compact(false))
-                    .with_message("Website")
+                    .with_message(locator.unwrap_or("URL".to_string()))
                     .with_label(
                         ariadne::Label::new((&title, span))
                             .with_message(format!("{}{code}", message.italic()))
@@ -432,6 +432,7 @@ impl fmt::Display for Check {
                 let Check {
                     severity,
                     context,
+                    locator,
                     status_code,
                     message,
                     ..
@@ -446,7 +447,7 @@ impl fmt::Display for Check {
                     .unwrap_or_else(|| "Missing".to_string());
                 let severity = severity.colored();
                 let details = format!("{context} {}{code}", message.dimmed());
-                write!(f, "{}", format_row("".to_string(), severity, details))
+                write!(f, "{}", format_row(locator.clone().unwrap_or_default(), severity, details))
             }
             | CheckCategory::Prose => match &self.errors {
                 | Some(ErrorKind::Vale(values)) => {
