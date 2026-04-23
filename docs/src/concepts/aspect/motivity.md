@@ -1,7 +1,7 @@
 # 🦾 Motivity
 
 ## Discussion
-"Motivity" is a technology's ability to exert power over its environment. In the context of **ASPECT**, this involves how a given technology interacts with its environment and its degree of autonomy in performing tasks. As a model of interaction, motivity is built on [task classification](./task-classification.md) categories and is closely related to the [human-machine teaming level](./human-machine-teaming.md). Motivity can also be viewed in terms of data binding: no binding, one-way binding, and two-way binding.
+"Motivity" is a technology's ability to exert power over its environment. In the context of **ASPECT**, this involves how a given technology interacts with its environment and its degree of autonomy in performing tasks. As a model of interaction, motivity is closely related to the [human-machine teaming level](./human-machine-teaming.md). Motivity can also be viewed in terms of data binding: no binding, one-way binding, and two-way binding.
 
 Motivity is a somewhat uncommon word. It was chosen for the ASPECT framework in part because deliberate ambiguity can foster conceptual depth. Rarity minimizes external preconceptions, enabling custom meaning layering without the baggage of a widely used term.
 

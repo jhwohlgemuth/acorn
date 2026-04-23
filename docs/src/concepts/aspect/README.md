@@ -15,22 +15,22 @@ In the context of technology, AI/ML and automation are the same.
 <details>
   <summary>💼 <a href="./portability.md">Portability</a></summary>
 
-- Limited
-- Source
-- Containerized
-- Installer
-- Automated Installer
-- WebAssembly
+- Limited (0)
+- Source (1)
+- Containerized (2)
+- Installer (3)
+- Package manager (4)
+- WebAssembly (5)
 </details>
 <details>
   <summary>🤝 <a href="./autonomy.md">Autonomy</a></summary>
 
-- Manual
-- Machine-assisted
-- Human-as-primary
-- Machine-as-primary
-- Human-supervised
-- Machine-only
+- Manual (level 0)
+- Machine-assisted (level 1)
+- Human-as-primary (level 2)
+- Machine-as-primary (level 3)
+- Human-supervised (level 4)
+- Machine-only (level 5)
 </details>
 <details>
   <summary>📈 <a href="./maturity.md">Maturity</a></summary>
@@ -64,13 +64,6 @@ Maturity uses an augmented version of technology readiness levels (TRL) and incl
 - Neuromorphic
 - Other
 </details>
-<details>
-  <summary>🎯 <a href="./task-classification.md">Task Classification</a></summary>
-
-- Perceive
-- Reason
-- Project
-</details>
 
 ### Real-world Example
 The ASPECT framework can be applied in various scenarios
@@ -79,7 +72,6 @@ The ASPECT framework can be applied in various scenarios
     - 💼 ***Source*** (Level 1)
     - 🤝 ***Machine-assisted*** (Level 1)
     - 📈 ***Developed*** (<span title="Technology Readiness Level">TRL</span> 5)
-    - 🦾 ***Type 2***
-    - 💾 Trained on ***Real***, ***Unavailable***, ***Silver*** quality, ***Textual*** modality data
-    - 🖥️ ***GPU***
-    - 🎯 ***Perceive***, ***Reason***
+    - 🦾 ***Type 1A***
+    - 💾 Uses ***Real***, ***Unavailable***, ***Silver*** quality, ***Textual*** modality data
+    - 🖥️ Requires ***GPU***

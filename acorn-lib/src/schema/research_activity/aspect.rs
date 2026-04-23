@@ -156,34 +156,6 @@ pub enum SoftwarePortability {
     /// > Since every operating system comes with a web browser, his level represents the current apex of portability.
     WebAssembly = 5,
 }
-/// Tasks that can describe the capabilities of a given technology
-#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
-pub enum TaskType {
-    /// Reduce entropy of environment input and/or identify patterns in environment
-    /// ### Examples
-    /// > object detection and optical character recognition (OCR)
-    /// ### Note
-    /// > Research activity data with associated technology the implements the `Perceive` task type can only be present in Type-1A and Type-2 motivity aspects, but are not necessary to be present.
-    #[display("perceive")]
-    #[serde(alias = "perception")]
-    Perceive,
-    /// Apply internal model to external environment
-    /// ### Examples
-    /// > robot actuator control, code generation, and image optimization
-    /// ### Note
-    /// > Research activity data with associated technology the implements the `Project` task type can only be present in Type-1B and Type-2 motivity aspects, but are not necessary to be present.
-    #[display("project")]
-    #[serde(alias = "projection")]
-    Project,
-    /// Inference, pattern recognition, etc.
-    /// ## Examples
-    /// > image classification, most NLP tasks, and schema validation
-    /// ### Note
-    /// > Research activity data with associated technology the implements the `Reason` task type can be present in any motivity aspect, but are not necessary to be present.
-    #[display("reason")]
-    #[serde(alias = "infer", alias = "inference")]
-    Reason,
-}
 /// Model the "AI triad" of data, compute, and algorithms
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[builder(start_fn = init)]
@@ -208,9 +180,6 @@ pub struct AspectFramework {
     pub resources: Vec<Resource>,
     /// Technology maturity (e.g., technology readiness level)
     pub maturity: Option<TechnologyReadinessLevel>,
-    /// Tasks that best describe the capabilities of the associated technology
-    #[builder(default = Vec::new())]
-    pub task_type: Vec<TaskType>,
 }
 /// Linked data (e.g., JSON-LD) context for ASPECT information
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
@@ -222,7 +191,6 @@ pub struct AspectFrameworkContext {
     pub(crate) autonomy: String,
     pub(crate) resources: String,
     pub(crate) maturity: String,
-    pub(crate) task_type: String,
 }
 /// Common attributes of data
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
@@ -267,7 +235,6 @@ impl Default for AspectFrameworkContext {
             .autonomy(schema_org("DefinedTerm"))
             .resources(schema_org("DefinedTerm"))
             .maturity(schema_org("DefinedTerm"))
-            .task_type(schema_org("DefinedTerm"))
             .build()
     }
 }
