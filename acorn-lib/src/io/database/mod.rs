@@ -287,8 +287,9 @@ where
     pub fn row_count(&self, table: impl Into<Table>) -> ApiResult<usize> {
         let name = table.into().name();
         self.with_connection(|conn| {
-            conn.query_row(&format!("SELECT COUNT(*) FROM {}", name), params![], |row| row.get(0))
+            conn.query_row(&format!("SELECT COUNT(*) FROM {}", name), params![], |row| row.get::<_, i64>(0))
                 .map_err(|why| eyre!("Failed to count rows in {} — {why}", name))
+                .and_then(|count| usize::try_from(count).map_err(|why| eyre!("Failed to convert row count for {} — {why}", name)))
         })
     }
     /// Keep only the most recent `limit` rows using an id/order column pair.

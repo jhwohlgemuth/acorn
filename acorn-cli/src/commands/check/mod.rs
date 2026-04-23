@@ -15,9 +15,9 @@ use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 use color_eyre::owo_colors::OwoColorize;
+use core::iter::once;
 use dotenvy::dotenv;
 use futures::stream::{self, StreamExt};
-use std::iter::once;
 use strum::IntoEnumIterator;
 use tracing::{debug, error, warn};
 
