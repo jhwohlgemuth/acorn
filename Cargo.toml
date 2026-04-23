@@ -62,7 +62,7 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-indicatif = { version = "0.3.13", default-features = false }
 tracing-log = { version = "0.2.0", default-features = false }
 # Pinned to ensure colored ANSI output — https://github.com/tokio-rs/tracing/issues/3369
-tracing-subscriber = { version = "=0.3.19", features = [
+tracing-subscriber = { version = "0.3.23", features = [
   "ansi",
   "env-filter",
 ], default-features = false }

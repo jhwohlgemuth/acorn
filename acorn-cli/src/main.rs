@@ -89,6 +89,7 @@ async fn main() -> Void {
             let indicatif_layer = IndicatifLayer::new();
             let format = fmt::layer()
                 .with_ansi(true)
+                .with_ansi_sanitization(false)
                 .with_level(DISPLAY_LEVEL)
                 .with_line_number(DISPLAY_LINE_NUMBER)
                 .with_target(DISPLAY_TARGET)
@@ -113,6 +114,7 @@ async fn main() -> Void {
                 .without_time()
                 .compact();
             tracing_subscriber::fmt()
+                .with_ansi_sanitization(false)
                 .with_max_level(args.verbose.log_level_filter().as_trace())
                 .event_format(format)
                 .init();
