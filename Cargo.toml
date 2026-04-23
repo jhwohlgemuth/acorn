@@ -59,7 +59,7 @@ serde_repr = { version = "0.1", default-features = false }
 serde_yml = { version = "0.0.12", default-features = false }
 tera = { version = "1.20.0", default-features = false }
 tracing = { version = "0.1.40", default-features = false }
-tracing-indicatif = { version = "0.3.13", default-features = false }
+tracing-indicatif = { version = "0.3.14", default-features = false }
 tracing-log = { version = "0.2.0", default-features = false }
 # Pinned to ensure colored ANSI output — https://github.com/tokio-rs/tracing/issues/3369
 tracing-subscriber = { version = "0.3.23", features = [
