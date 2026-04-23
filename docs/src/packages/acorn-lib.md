@@ -3,6 +3,7 @@
 [<img alt="docs.rs" src="https://img.shields.io/docsrs/acorn-lib?style=for-the-badge&color=%2300662C&logo=rust" height="20">](https://docs.rs/acorn-lib)
 [<img alt="Size" src="https://img.shields.io/crates/size/acorn-lib?style=for-the-badge" height="20">](https://docs.rs/acorn-lib)
 [<img alt="Downloads" src="https://img.shields.io/crates/dr/acorn-lib?style=for-the-badge" height="20">](https://docs.rs/acorn-lib)
+[![dependency status](https://deps.rs/crate/acorn-lib/latest/status.svg?style=for-the-badge)](https://deps.rs/crate/acorn-lib/latest)
 
 The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `acorn-lib` library provides core functionalities for working with ACORN [schemas](../concepts/acorn.md), validating persistent identifiers[^pid], and generating artifacts.
 
@@ -10,7 +11,7 @@ The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `ac
 - Add `acorn-lib` as a dependency in your `Cargo.toml`[^version]
   ```toml
   [dependencies]
-  acorn-lib = "0.1.45"
+  acorn-lib = "0.1.52"
   ```  
 - Use `acorn-lib` functions in your Rust code
   ```rust
@@ -24,7 +25,7 @@ The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `ac
 - If you want to use the full capability of `acorn-lib` to build your own CLI app, be sure to include the following in your `Cargo.toml` to enable the `doctor` and `powerpoint` features[^features]
   ```toml
   [dependencies]
-  acorn-lib = { version = "0.1.45", features = ["doctor", "powerpoint"] }
+  acorn-lib = { version = "0.1.52", features = ["doctor", "powerpoint"] }
   ```
 
 
