@@ -8,14 +8,22 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 
 pub async fn run(
-    _path: &Option<PathBuf>,
-    _ignore: &Option<String>,
-    _merge_request: &bool,
+    path: &Option<PathBuf>,
+    filter: &Option<String>,
+    ignore: &Option<String>,
+    merge_request: &bool,
     _database_path: &Option<PathBuf>,
     verbose: &Verbosity,
     offline: bool,
 ) -> Result<(), Report> {
-    let options = CommandOptions::init().offline(offline).quiet(verbose.is_silent()).build();
+    let options = CommandOptions::init()
+        .maybe_path(path.clone())
+        .maybe_filter(filter.clone())
+        .maybe_ignore(ignore.clone())
+        .merge_request(*merge_request)
+        .offline(offline)
+        .quiet(verbose.is_silent())
+        .build();
     preflight!(&options);
     println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
     println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);

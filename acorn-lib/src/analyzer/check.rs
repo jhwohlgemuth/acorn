@@ -221,6 +221,10 @@ impl Check {
                 .sum(),
         }
     }
+    /// Returns whether this check represents a failure (not successful and severity warrants failure)
+    pub fn is_failure(&self) -> bool {
+        !self.success && self.severity.is_failure()
+    }
     /// Returns a function that filters checks based on the given log level threshold
     pub fn is_visible_at(level: Option<u8>) -> impl Fn(&Check) -> bool {
         move |check: &Check| check.severity.is_visible_at(level)
@@ -323,10 +327,7 @@ impl Check {
                         });
                     }
                 }
-                | None | Some(_) => {
-                    let message = format!("=> {} {} has {}", Label::pass(), message.underline(), "no prose issues".green());
-                    info!("{}", message);
-                }
+                | None | Some(_) => {}
             },
             | CheckCategory::Quality => {}
             | CheckCategory::Readability => match &errors {

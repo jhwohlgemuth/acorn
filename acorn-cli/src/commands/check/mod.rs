@@ -26,6 +26,7 @@ pub async fn run(
     path: &Option<PathBuf>,
     branch: &Option<String>,
     commit: &Option<String>,
+    filter: &[String],
     ignore: &[String],
     skip: &[CheckCategoryArgument],
     disable_website_checks: &bool,
@@ -45,6 +46,7 @@ pub async fn run(
     let command_options = CommandOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
+        .maybe_filter(regex_join(filter))
         .maybe_ignore(regex_join(ignore))
         .merge_request(*merge_request)
         .offline(offline)
@@ -121,7 +123,7 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
     };
     if !quiet {
         render(issues, terse);
-        if !(no_fail || terse) {
+        if !(no_fail || terse) && has_failures(issues) {
             print_summary();
         }
     }
@@ -145,19 +147,19 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
 fn failure_count(issues: &[Check]) -> usize {
     issues
         .iter()
-        .filter(|Check { severity, .. }| severity.is_failure())
+        .filter(|issue| issue.is_failure())
         .map(Check::issue_count)
         .sum::<usize>()
 }
 fn filter_by_visibility(issues: &[Check], all: bool) -> Vec<Check> {
     issues
         .iter()
-        .filter(|issue| all || issue.severity.is_failure())
+        .filter(|issue| all || issue.is_failure())
         .cloned()
         .collect::<Vec<Check>>()
 }
 fn has_failures(issues: &[Check]) -> bool {
-    issues.iter().any(|Check { severity, .. }| severity.is_failure())
+    issues.iter().any(Check::is_failure)
 }
 fn infer_standard(paths: &[PathBuf]) -> Standard {
     let extensions = unique_file_extensions(paths);

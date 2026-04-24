@@ -415,6 +415,12 @@ fn test_regex_capture_lookup() {
     assert_eq!(lookup["day"], "30");
 }
 #[test]
+fn test_regex_inverse() {
+    assert_eq!(regex_inverse("\\.json$"), "^(?!.*(?:\\.json$)).*$".to_string());
+    let joined = regex_join(&["\\.json$".to_string(), "^README".to_string()]).unwrap();
+    assert_eq!(regex_inverse(joined), "^(?!.*(?:(?:\\.json$)|(?:^README))).*$".to_string());
+}
+#[test]
 fn test_regex_join() {
     assert_eq!(regex_join(&[]), None);
     assert_eq!(regex_join(&["".to_string()]), None);

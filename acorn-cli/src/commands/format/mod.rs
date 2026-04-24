@@ -16,6 +16,7 @@ pub async fn run(
     path: &Option<PathBuf>,
     branch: &Option<String>,
     commit: &Option<String>,
+    filter: &Option<String>,
     ignore: &Option<String>,
     dry_run: bool,
     merge_request: &bool,
@@ -25,6 +26,7 @@ pub async fn run(
     let options = CommandOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
+        .maybe_filter(filter.clone())
         .maybe_ignore(ignore.clone())
         .merge_request(*merge_request)
         .offline(offline)

@@ -437,6 +437,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     | Ok(output) if output.status.success() => {
                         let parsed = ValeOutput::parse(&output.stdout(), path.clone());
                         if parsed.is_empty() {
+                            info!("=> {} {} has {}", Label::pass(), uri.underline(), "no prose issues".green());
                             vec![check_ok!(CheckCategory::Prose, uri: uri)]
                         } else {
                             parsed

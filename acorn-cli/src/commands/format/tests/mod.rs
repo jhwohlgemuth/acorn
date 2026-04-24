@@ -22,7 +22,7 @@ const OFFLINE: bool = false;
 #[tokio::test]
 async fn test_format_dry_run() -> Result<()> {
     let path = Some(fixture_path("data/format/unresolved_changes/index.json"));
-    let result = run(&path, &None, &None, &None, true, &false, &Verbosity::new(0, 0), OFFLINE).await;
+    let result = run(&path, &None, &None, &None, &None, true, &false, &Verbosity::new(0, 0), OFFLINE).await;
     assert!(result.is_ok(), "Format dry run should succeed");
     Ok(())
 }
@@ -35,7 +35,7 @@ async fn test_format_no_changes_needed() -> Result<()> {
     let dest_file = temp_dir.join("index.json");
     copy(&source, &dest_file)?;
     let path = Some(dest_file);
-    let result = run(&path, &None, &None, &None, false, &false, &Verbosity::new(0, 0), OFFLINE).await;
+    let result = run(&path, &None, &None, &None, &None, false, &false, &Verbosity::new(0, 0), OFFLINE).await;
     assert!(result.is_ok(), "Format with no changes should succeed");
     Ok(())
 }
@@ -48,7 +48,7 @@ async fn test_format_with_changes() -> Result<()> {
     let dest_file = temp_dir.join("index.json");
     copy(&source, &dest_file)?;
     let path = Some(dest_file.clone());
-    let result = run(&path, &None, &None, &None, false, &false, &Verbosity::new(0, 0), OFFLINE).await;
+    let result = run(&path, &None, &None, &None, &None, false, &false, &Verbosity::new(0, 0), OFFLINE).await;
     assert!(result.is_ok(), "Format with changes should succeed");
     let formatted_content = fs::read_to_string(&dest_file)?;
     let parsed: serde_json::Value = serde_json::from_str(&formatted_content)?;
@@ -65,7 +65,7 @@ async fn test_format_multiple_files() -> Result<()> {
         copy(&source, &dest_file)?;
     }
     let path = Some(temp_dir);
-    let result = run(&path, &None, &None, &None, false, &false, &Verbosity::new(0, 0), OFFLINE).await;
+    let result = run(&path, &None, &None, &None, &None, false, &false, &Verbosity::new(0, 0), OFFLINE).await;
     assert!(result.is_ok(), "Format multiple files should succeed");
     Ok(())
 }

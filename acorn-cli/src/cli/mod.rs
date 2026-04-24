@@ -1,13 +1,16 @@
 use acorn::io::{files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored};
 use acorn::prelude::PathBuf;
 use acorn::util::constants::{ENV_CACHE_TTL, ENV_DATABASE_BACKEND, ENV_DATABASE_PATH, ENV_NO_LOCAL_DATABASE};
+use acorn::util::{regex_inverse, regex_join};
 use bon::Builder;
+use fancy_regex::Regex;
 use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
     Styles,
 };
 use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
+use tracing::error;
 
 pub mod arguments;
 use arguments::{CheckCategoryArgument, DatabaseBackend, Diagnostic, FileFormat, ReadabilityTypeArgument, Standard};
@@ -29,6 +32,8 @@ pub struct CommandOptions {
     pub branch: Option<String>,
     /// Git commit hash
     pub commit: Option<String>,
+    /// Regex pattern of files to include at a given path desginated by `path`
+    pub filter: Option<String>,
     /// Regex pattern of files to ignore at a given path desginated by `path`
     pub ignore: Option<String>,
     /// Path to file or folder to be used for output
@@ -59,34 +64,73 @@ pub struct CommandOptions {
 /// If the options specify a commit, the files changed in the commit are returned.
 /// If the options specify a branch, the files changed in the branch are returned.
 /// If none of the above options are set, the files in the given path are returned.
+/// If the options include a filter regex, only matching files are returned.
 /// If the options include an ignore regex, it is applied to the files returned.
 pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> Vec<PathBuf> {
     let extensions = Some(vec!["JSON", "YAML"]);
     let CommandOptions {
         branch,
         commit,
+        filter,
         ignore,
         merge_request,
         ..
     } = options;
-    let files = if *merge_request {
-        files_from_gitlab_merge_request(extensions).await
+    let (files, local_base) = if *merge_request {
+        (files_from_gitlab_merge_request(extensions).await, None)
     } else {
         match commit {
-            | Some(hash) => files_from_git_commit(hash, extensions),
+            | Some(hash) => (files_from_git_commit(hash, extensions), None),
             | None => match branch {
-                | Some(name) => files_from_git_branch(name, extensions),
+                | Some(name) => (files_from_git_branch(name, extensions), None),
                 | None => {
                     let value = match path {
                         | Some(x) => x.clone(),
                         | None => PathBuf::from("."),
                     };
-                    files_all(value, extensions)
+                    (files_all(value.clone(), extensions), Some(value))
                 }
             },
         }
     };
-    filter_ignored(files, ignore.clone())
+    let patterns = vec![ignore.clone(), filter.clone().map(regex_inverse)]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    match regex_join(&patterns) {
+        | Some(pattern) => match local_base {
+            | Some(root) => filter_by_pattern(files, pattern, root),
+            | None => filter_ignored(files, Some(pattern)),
+        },
+        | None => files,
+    }
+}
+fn filter_by_pattern(paths: Vec<PathBuf>, pattern: String, root: PathBuf) -> Vec<PathBuf> {
+    let root = if root.is_file() {
+        root.parent().map(|value| value.to_path_buf()).unwrap_or(root)
+    } else {
+        root
+    };
+    let normalized_root = root.canonicalize().unwrap_or(root);
+    match Regex::new(&pattern) {
+        | Ok(re) => paths
+            .into_iter()
+            .filter(|path| {
+                let value = path
+                    .canonicalize()
+                    .unwrap_or_else(|_| path.clone())
+                    .strip_prefix(&normalized_root)
+                    .map(|relative| relative.to_string_lossy().to_string())
+                    .unwrap_or_else(|_| path.to_string_lossy().to_string())
+                    .replace('\\', "/");
+                !re.is_match(&value).unwrap_or(false)
+            })
+            .collect(),
+        | Err(why) => {
+            error!("=> Filter ignored - {why}");
+            vec![]
+        }
+    }
 }
 /// "Plant an ACORN and grow your science"
 ///
@@ -236,6 +280,11 @@ pub enum Commands {
         /// Exit on first error
         #[arg(short, long = "exit-on-first-error", value_name = "BOOL", help_heading = "FLAGS")]
         exit_on_first_error: bool,
+        /// Regular expression pattern(s) applied to absolute paths of files to include during checks
+        ///
+        /// Only files matching at least one pattern will be processed
+        #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+        filter: Vec<String>,
         /// Regular expression pattern(s) applied to absolute paths of files to exclude from checking
         ///
         /// Only applies to `--path` values that point to a directory
@@ -332,6 +381,11 @@ pub enum Commands {
         /// Path to configuration file (alternative to URL argument)
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, conflicts_with = "url", help_heading = "OPTIONS")]
         config: Option<PathBuf>,
+        /// Regular expression pattern(s) used to include files while downloading
+        ///
+        /// Only files matching at least one pattern will be processed
+        #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+        filter: Vec<String>,
         /// Regular expression pattern(s) to ignore while downloading
         ///
         /// Values augment built-in ignores and can be provided as a comma-separated list
@@ -379,6 +433,11 @@ pub enum Commands {
         /// Export target file format
         #[arg(default_value_t, short, long, value_name = "FORMAT", help_heading = "OPTIONS")]
         format: FileFormat,
+        /// Regular expression pattern(s) applied to absolute paths of files to include during export
+        ///
+        /// Only files matching at least one pattern will be processed
+        #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+        filter: Vec<String>,
         /// Regular expression pattern(s) applied to absolute paths of files to exclude from export process
         ///
         /// Only applies to `--path` values that point to a directory
@@ -435,6 +494,11 @@ pub enum Commands {
         /// Run format without making changes to target file(s). Will print a diff of changes.
         #[arg(short, long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
         dry_run: bool,
+        /// Regex pattern applied to absolute paths of files to include in formatting process
+        ///
+        /// Only files matching the pattern will be processed
+        #[arg(long, value_name = "REGEX", help_heading = "OPTIONS")]
+        filter: Option<String>,
         /// Regex pattern applied to absolute paths of files that determines whether they should be included in formatting process
         ///
         /// Only applies to path values that point to a directory
@@ -463,6 +527,11 @@ pub enum Commands {
         /// Path to look for files to process
         #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
         path: Option<PathBuf>,
+        /// Regex pattern applied to absolute paths of files to include in processing
+        ///
+        /// Only files matching the pattern will be processed
+        #[arg(long, value_name = "REGEX", help_heading = "OPTIONS")]
+        filter: Option<String>,
         /// Regex pattern applied to absolute paths of files that determines whether they should be included in processing
         ///
         /// Only applies to path values that point to a directory

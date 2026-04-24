@@ -1054,6 +1054,10 @@ pub fn regex_join(patterns: &[String]) -> Option<String> {
         | false => Some(groups.join("|")),
     }
 }
+/// Invert a regex pattern using negative lookahead so matches become exclusions.
+pub fn regex_inverse(pattern: impl AsRef<str>) -> String {
+    format!("^(?!.*(?:{})).*$", pattern.as_ref())
+}
 /// Converts the given string to snake case.
 /// ### Example
 /// ```rust

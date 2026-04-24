@@ -18,6 +18,7 @@ const DEFAULT_CONFIG_FILENAMES: [&str; 3] = [".acorn.json", ".acorn.yaml", ".aco
 pub async fn run(
     config: &Option<PathBuf>,
     url: &Option<String>,
+    filter: &[String],
     ignore: &[String],
     output: &Option<PathBuf>,
     database_path: &Option<PathBuf>,
@@ -33,7 +34,12 @@ pub async fn run(
         .supported(true)
         .build());
     let database = Database::<Table>::from_path(database_path.clone());
-    let options = BucketOptions::init().threads(threads).quiet(quiet).ignore(ignore.to_vec()).build();
+    let options = BucketOptions::init()
+        .filter(filter.to_vec())
+        .ignore(ignore.to_vec())
+        .quiet(quiet)
+        .threads(threads)
+        .build();
     let config = config.clone().or_else(|| resolve_default_config_path(&PathBuf::from(".")));
     if let Some(path) = &config {
         match ApplicationConfiguration::read(path.clone()) {

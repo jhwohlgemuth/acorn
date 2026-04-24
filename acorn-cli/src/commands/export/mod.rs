@@ -26,6 +26,7 @@ pub async fn run(
     path: &Option<PathBuf>,
     branch: &Option<String>,
     commit: &Option<String>,
+    filter: &[String],
     ignore: &[String],
     format: &FileFormat,
     reference: &Option<PathBuf>,
@@ -44,6 +45,7 @@ pub async fn run(
     let options = CommandOptions::init()
         .maybe_branch(branch.clone())
         .maybe_commit(commit.clone())
+        .maybe_filter(regex_join(filter))
         .maybe_ignore(regex_join(ignore))
         .merge_request(*merge_request)
         .offline(offline)

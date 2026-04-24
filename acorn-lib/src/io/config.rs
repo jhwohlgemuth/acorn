@@ -131,6 +131,9 @@ pub struct BucketOptions {
     /// Regex pattern(s) of files to ignore
     #[builder(default)]
     pub ignore: Vec<String>,
+    /// Regex pattern(s) of files to include
+    #[builder(default)]
+    pub filter: Vec<String>,
 }
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[builder(start_fn = at, on(String, into))]
@@ -265,6 +268,7 @@ impl Bucket {
             threads,
             quiet,
             ignore,
+            filter,
         } = options.clone();
         let output = output.unwrap_or_default();
         let Bucket { name, code_repository, .. } = self.clone();
@@ -282,11 +286,7 @@ impl Bucket {
                 .collect::<Vec<String>>();
             let items = files
                 .into_iter()
-                .filter_map(|path| match is_ignored_path(&path, &ignore) {
-                    | true => None,
-                    | false if PathBuf::from(&path).is_file() => Some(path),
-                    | false => None,
-                })
+                .filter(|path| !is_ignored_path(path, &ignore) && PathBuf::from(path).is_file() && is_filtered_path(path, &filter))
                 .collect::<Vec<String>>();
             let message: fn(&String) -> String = |path| format!("Copying {path}");
             let bucket_root_clone = bucket_root.clone();
@@ -332,12 +332,16 @@ impl Bucket {
             output,
             threads,
             quiet,
+            filter,
             ignore,
         } = options.clone();
         let output = output.unwrap_or_default();
         let Bucket { name, code_repository, .. } = self.clone();
         let items = match self.clone().file_paths("").await {
-            | Ok(paths) => paths.into_iter().filter(|path| !is_ignored_path(path, &ignore)).collect::<Vec<String>>(),
+            | Ok(paths) => paths
+                .into_iter()
+                .filter(|path| !is_ignored_path(path, &ignore) && is_filtered_path(path, &filter))
+                .collect::<Vec<String>>(),
             | Err(why) => {
                 error!("=> {} Get file paths for download — {why}", Label::fail());
                 return Err(why);
@@ -475,6 +479,7 @@ impl Default for BucketOptions {
             threads: 10,
             quiet: false,
             ignore: Vec::new(),
+            filter: Vec::new(),
         }
     }
 }
@@ -513,6 +518,15 @@ fn is_ignored_path(path: &str, ignore: &[String]) -> bool {
         })
         .any(|pattern| pattern.is_match(path).unwrap_or(false));
     is_builtin_ignored || is_regex_ignored
+}
+fn is_filtered_path(path: &str, filter: &[String]) -> bool {
+    filter.is_empty() || filter
+        .iter()
+        .filter_map(|pattern| match Regex::new(pattern) {
+            | Ok(value) => Some(value),
+            | Err(_) => None,
+        })
+        .any(|pattern| pattern.is_match(path).unwrap_or(false))
 }
 fn operations_complete_message(name: Option<String>, json_count: usize, image_count: usize) -> String {
     let total = json_count + image_count;
@@ -593,6 +607,17 @@ mod tests {
         assert!(!is_ignored_path("/tmp/index.json", &ignore));
         let ignore: Vec<String> = vec![];
         assert!(is_ignored_path("/tmp/README.md", &ignore));
+    }
+    #[test]
+    fn test_is_filtered_path() {
+        let filter = vec![r"\.json$".to_string(), r"img/".to_string()];
+        assert!(is_filtered_path("/tmp/data.json", &filter));
+        assert!(is_filtered_path("/tmp/img/photo.jpg", &filter));
+        assert!(!is_filtered_path("/tmp/README.md", &filter));
+        let filter = vec!["[".to_string()];
+        assert!(!is_filtered_path("/tmp/data.json", &filter));
+        let filter: Vec<String> = vec![];
+        assert!(is_filtered_path("/tmp/README.md", &filter));
     }
     #[test]
     fn test_operations_complete_message_includes_bucket_name_and_guidance() {
