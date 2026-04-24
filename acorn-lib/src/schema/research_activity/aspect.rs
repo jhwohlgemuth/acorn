@@ -156,6 +156,53 @@ pub enum SoftwarePortability {
     /// > Since every operating system comes with a web browser, his level represents the current apex of portability.
     WebAssembly = 5,
 }
+/// Level of machine assistance for a given software contribution
+///
+/// Derived from [Using AI to Contribute to Open Source](https://www.visidata.org/blog/2026/ai/), adapted to more general context of automation and HMT (see <`Autonomy`>).
+///
+/// ### Background
+/// The Visidata project decided to "..ask contributors to assess how much human effort vs AI went into their contribution."
+/// which was codified in "AI Levels", 0 - 10. The levels are primarily intended for use within commit messages and code contributions, but can be applied more generally and converted to <`Autonomy`> levels.
+/// > "At levels 4+, the model and version of AI used should be disclosed for each contribution. If committed by a bot account, the human operator of that account should be disclosed as well."
+#[derive(Clone, Debug, Default, Display, Deserialize_repr, Serialize_repr, PartialEq, PartialOrd, JsonSchema)]
+#[repr(u8)]
+#[serde(deny_unknown_fields)]
+pub enum VisidataMachineAssistanceLevel {
+    /// No machine assistance was utilized in the contribution
+    #[default]
+    #[display("Level 0: No Machine Assistance")]
+    NoMachineAssistance = 0,
+    /// Machine consulted for ideation only; all code was authored entirely by a human contributor
+    #[display("Level 1: Ideation Only")]
+    IdeationOnly = 1,
+    /// Human-authored code with minor machine assists (e.g., boilerplate, regex, LLM autocomplete, intellisense)
+    #[display("Level 2: Trivial Machine Assistance")]
+    Trivial = 2,
+    /// Human-authored code incorporating non-trivial machine-generated segments or algorithms of moderate complexity
+    #[display("Level 3: Non-Trivial Machine Assistance")]
+    NonTrivial = 3,
+    /// Human authored majority of code; machines directly created or edited auxiliary files (e.g., documentation, tests)
+    #[display("Level 4: Significant Machine Assistance")]
+    Significant = 4,
+    /// Machine generated majority of code; human reviewed every line with full comprehension
+    #[display("Level 5: Machine Generated, Human Verified")]
+    MachineGeneratedHumanVerified = 5,
+    /// Machine generated code with human oversight; human deferred some implementation judgement to the machine
+    #[display("Level 6: Machine Generated, Human Supervised")]
+    MachineGeneratedHumanSupervised = 6,
+    /// Human specified desired functionality at a high level; machines generated the implementation
+    #[display("Level 7: Human Specified, Machine Implemented")]
+    HumanSpecifiedMachineImplemented = 7,
+    /// Machines operated mostly autonomously; human provided basic validation and review
+    #[display("Level 8: Autonomous with Human Approval")]
+    AutonomousWithHumanApproval = 8,
+    /// Human initiated machine execution with no subsequent oversight or attention
+    #[display("Level 9: Autonomous without Oversight")]
+    AutonomousWithoutOversight = 9,
+    /// Machine acted autonomously without direct human instigation on the particular issue
+    #[display("Level 10: Unsolicited Machine Action")]
+    UnsolicitedMachineAction = 10,
+}
 /// Model the "AI triad" of data, compute, and algorithms
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[builder(start_fn = init)]
@@ -251,6 +298,24 @@ impl Default for DataDescriptionContext {
             .modality(schema_org("DefinedTerm"))
             .quality(schema_org("DefinedTerm"))
             .build()
+    }
+}
+impl From<VisidataMachineAssistanceLevel> for Autonomy {
+    fn from(level: VisidataMachineAssistanceLevel) -> Self {
+        match level {
+            | VisidataMachineAssistanceLevel::NoMachineAssistance | VisidataMachineAssistanceLevel::IdeationOnly => Autonomy::Manual,
+            | VisidataMachineAssistanceLevel::Trivial | VisidataMachineAssistanceLevel::NonTrivial => Autonomy::MachineAssisted,
+            | VisidataMachineAssistanceLevel::Significant => Autonomy::HumanPrimary,
+            | VisidataMachineAssistanceLevel::MachineGeneratedHumanVerified | VisidataMachineAssistanceLevel::MachineGeneratedHumanSupervised => {
+                Autonomy::MachinePrimary
+            }
+            | VisidataMachineAssistanceLevel::HumanSpecifiedMachineImplemented | VisidataMachineAssistanceLevel::AutonomousWithHumanApproval => {
+                Autonomy::HumanAware
+            }
+            | VisidataMachineAssistanceLevel::AutonomousWithoutOversight | VisidataMachineAssistanceLevel::UnsolicitedMachineAction => {
+                Autonomy::MachineOnly
+            }
+        }
     }
 }
 impl LinkedData for AspectFramework {
