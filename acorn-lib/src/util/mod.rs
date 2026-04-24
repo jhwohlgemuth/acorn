@@ -277,12 +277,34 @@ pub enum MimeType {
     Unknown,
 }
 /// Enumeration for hardware resources used by technology
-#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
 pub enum Resource {
     /// Central processing unit for "classical" computing
-    CPU,
+    CPU {
+        /// Instruction set architecture (e.g., x86_64, ARM, RISC-V)
+        architecture: Option<String>,
+        /// Number of physical cores required (if applicable)
+        cores: Option<u32>,
+        /// Minimum RAM in GB (if applicable)
+        memory: Option<u32>,
+        /// Number of threads required (if applicable)
+        threads: Option<u32>,
+        /// Hardware vendor (e.g., Intel, AMD, ARM)
+        vendor: Option<Vendor>,
+    },
     /// Graphics processing unit
-    GPU,
+    GPU {
+        /// GPU architecture (e.g., Ampere, Hopper, RDNA3)
+        architecture: Option<String>,
+        /// NVIDIA CUDA compute capability (e.g., 8.0 for A100)
+        compute_capability: Option<f32>,
+        /// Number of GPUs required (if applicable)
+        count: Option<u32>,
+        /// VRAM in GB (if applicable)
+        memory: Option<u32>,
+        /// Hardware vendor (e.g., NVIDIA, AMD, Intel)
+        vendor: Option<Vendor>,
+    },
     /// Tensor processing unit
     TPU,
     /// Neural processing unit
@@ -306,7 +328,35 @@ pub enum Resource {
     /// Quantum computing (e.g., NISQ, etc.)
     Quantum,
     /// Unknown, unspecified, or otherwise unclassified resource
-    Other,
+    Other(String),
+}
+/// Hardware vendor or manufacturer
+#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+pub enum Vendor {
+    /// Advanced Micro Devices
+    #[display("AMD")]
+    AMD,
+    /// Apple Inc.
+    #[display("Apple")]
+    Apple,
+    /// Arm Holdings
+    #[display("ARM")]
+    ARM,
+    /// Google LLC
+    #[display("Google")]
+    Google,
+    /// Intel Corporation
+    #[display("Intel")]
+    Intel,
+    /// NVIDIA Corporation
+    #[display("NVIDIA")]
+    NVIDIA,
+    /// Qualcomm Incorporated
+    #[display("Qualcomm")]
+    Qualcomm,
+    /// Other or unspecified vendor
+    #[display("{}", _0)]
+    Other(String),
 }
 /// Struct for using and sharing constants
 ///
@@ -674,6 +724,96 @@ impl MimeType {
             | _ => "unknown-file-type",
         }
         .to_string()
+    }
+}
+impl<'de> Deserialize<'de> for Resource {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        struct ResourceVisitor;
+        impl<'de> serde::de::Visitor<'de> for ResourceVisitor {
+            type Value = Resource;
+            fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                formatter.write_str(r#"a resource string (e.g. "CPU") or object (e.g. {"CPU": {...}})"#)
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Resource, E> {
+                match value {
+                    | "CPU" => Ok(Resource::CPU {
+                        architecture: None,
+                        cores: None,
+                        memory: None,
+                        threads: None,
+                        vendor: None,
+                    }),
+                    | "GPU" => Ok(Resource::GPU {
+                        architecture: None,
+                        compute_capability: None,
+                        count: None,
+                        memory: None,
+                        vendor: None,
+                    }),
+                    | "TPU" => Ok(Resource::TPU),
+                    | "NPU" => Ok(Resource::NPU),
+                    | "ASIC" => Ok(Resource::ASIC),
+                    | "DSP" => Ok(Resource::DSP),
+                    | "FPGA" => Ok(Resource::FPGA),
+                    | "Neuromorphic" => Ok(Resource::Neuromorphic),
+                    | "Quantum" => Ok(Resource::Quantum),
+                    | other => Ok(Resource::Other(other.to_string())),
+                }
+            }
+            fn visit_map<M: serde::de::MapAccess<'de>>(self, mut map: M) -> Result<Resource, M::Error> {
+                let tag: String = map.next_key()?.ok_or_else(|| serde::de::Error::custom("expected resource variant key"))?;
+                match tag.as_str() {
+                    | "CPU" => {
+                        #[derive(Deserialize)]
+                        struct F {
+                            architecture: Option<String>,
+                            cores: Option<u32>,
+                            memory: Option<u32>,
+                            threads: Option<u32>,
+                            vendor: Option<Vendor>,
+                        }
+                        let f: F = map.next_value()?;
+                        Ok(Resource::CPU {
+                            architecture: f.architecture,
+                            cores: f.cores,
+                            memory: f.memory,
+                            threads: f.threads,
+                            vendor: f.vendor,
+                        })
+                    }
+                    | "GPU" => {
+                        #[derive(Deserialize)]
+                        struct F {
+                            architecture: Option<String>,
+                            compute_capability: Option<f32>,
+                            count: Option<u32>,
+                            memory: Option<u32>,
+                            vendor: Option<Vendor>,
+                        }
+                        let f: F = map.next_value()?;
+                        Ok(Resource::GPU {
+                            architecture: f.architecture,
+                            compute_capability: f.compute_capability,
+                            count: f.count,
+                            memory: f.memory,
+                            vendor: f.vendor,
+                        })
+                    }
+                    | "TPU" | "NPU" | "ASIC" | "DSP" | "FPGA" | "Neuromorphic" | "Quantum" => {
+                        let _: serde::de::IgnoredAny = map.next_value()?;
+                        self.visit_str(&tag)
+                    }
+                    | other => {
+                        let _: serde::de::IgnoredAny = map.next_value()?;
+                        Ok(Resource::Other(other.to_string()))
+                    }
+                }
+            }
+        }
+        deserializer.deserialize_any(ResourceVisitor)
     }
 }
 impl Default for SemanticVersion {

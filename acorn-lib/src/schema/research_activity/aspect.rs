@@ -17,7 +17,7 @@
 use crate::schema::namespaces::{codemeta, schema_org};
 use crate::schema::prompt::Model;
 use crate::schema::TechnologyReadinessLevel;
-use crate::util::{LinkedData, Resource};
+use crate::util::LinkedData;
 use bon::Builder;
 use derive_more::Display;
 use schemars::JsonSchema;
@@ -222,9 +222,6 @@ pub struct AspectFramework {
     pub motivity: Option<Motivity>,
     /// Human-machine teaming level
     pub autonomy: Option<Autonomy>,
-    /// Hardware/compute resource requirements
-    #[builder(default = Vec::new())]
-    pub resources: Vec<Resource>,
     /// Technology maturity (e.g., technology readiness level)
     pub maturity: Option<TechnologyReadinessLevel>,
 }
@@ -236,7 +233,6 @@ pub struct AspectFrameworkContext {
     pub(crate) portability: String,
     pub(crate) motivity: String,
     pub(crate) autonomy: String,
-    pub(crate) resources: String,
     pub(crate) maturity: String,
 }
 /// Common attributes of data
@@ -280,7 +276,6 @@ impl Default for AspectFrameworkContext {
             .portability(schema_org("DefinedTerm"))
             .motivity(schema_org("DefinedTerm"))
             .autonomy(schema_org("DefinedTerm"))
-            .resources(schema_org("DefinedTerm"))
             .maturity(schema_org("DefinedTerm"))
             .build()
     }

@@ -3,6 +3,7 @@ use crate::prelude::PathBuf;
 use crate::schema::research_activity::*;
 use crate::schema::standard::cff::{Agent, Cff, IdentifierType};
 use crate::schema::*;
+use crate::util::{Resource, Vendor};
 use pretty_assertions::assert_eq;
 
 fn fixtures_dir() -> PathBuf {
@@ -266,4 +267,299 @@ fn test_to_prose() {
     let prose = with_websites.to_prose();
     assert!(prose.contains("example.com"));
     insta::assert_snapshot!("to_prose_with_websites", prose);
+}
+#[test]
+fn test_metadata_with_resources() {
+    let meta = ResearchActivityMetadata::init()
+        .identifier("gpu-project".to_string())
+        .resources(vec![
+            Resource::GPU {
+                architecture: Some("Ampere".to_string()),
+                compute_capability: Some(8.0),
+                count: Some(4),
+                memory: Some(80),
+                vendor: Some(Vendor::NVIDIA),
+            },
+            Resource::CPU {
+                architecture: Some("x86_64".to_string()),
+                cores: Some(32),
+                memory: Some(256),
+                threads: Some(64),
+                vendor: Some(Vendor::AMD),
+            },
+        ])
+        .build();
+    assert_eq!(meta.identifier, "gpu-project");
+    let resources = meta.resources.expect("resources should be present");
+    assert_eq!(resources.len(), 2);
+    assert!(matches!(
+        &resources[0],
+        Resource::GPU {
+            vendor: Some(Vendor::NVIDIA),
+            ..
+        }
+    ));
+    assert!(matches!(
+        &resources[1],
+        Resource::CPU {
+            vendor: Some(Vendor::AMD),
+            ..
+        }
+    ));
+}
+#[test]
+fn test_metadata_with_minimal_resources() {
+    let meta = ResearchActivityMetadata::init()
+        .identifier("quantum-project".to_string())
+        .resources(vec![Resource::Quantum, Resource::FPGA])
+        .build();
+    let resources = meta.resources.expect("resources should be present");
+    assert_eq!(resources.len(), 2);
+    assert!(matches!(resources[0], Resource::Quantum));
+    assert!(matches!(resources[1], Resource::FPGA));
+}
+#[test]
+fn test_metadata_without_resources() {
+    let meta = ResearchActivityMetadata::init().identifier("basic-project".to_string()).build();
+    assert!(meta.resources.is_none());
+}
+#[test]
+fn test_metadata_resources_roundtrip() {
+    let meta = ResearchActivityMetadata::init()
+        .identifier("roundtrip-test".to_string())
+        .resources(vec![Resource::GPU {
+            architecture: None,
+            compute_capability: None,
+            count: Some(1),
+            memory: Some(24),
+            vendor: Some(Vendor::Intel),
+        }])
+        .build();
+    let json = serde_json::to_string(&meta).expect("serialization should succeed");
+    let parsed: ResearchActivityMetadata = serde_json::from_str(&json).expect("deserialization should succeed");
+    let resources = parsed.resources.expect("resources should survive roundtrip");
+    assert_eq!(resources.len(), 1);
+    assert!(matches!(
+        &resources[0],
+        Resource::GPU {
+            count: Some(1),
+            memory: Some(24),
+            vendor: Some(Vendor::Intel),
+            ..
+        }
+    ));
+}
+#[test]
+fn test_deserialize_metadata_with_gpu_resources() {
+    let json = r#"{
+        "identifier": "ml-training",
+        "archive": false,
+        "draft": false,
+        "status": "active",
+        "keywords": [],
+        "technology": [],
+        "resources": [
+            {
+                "GPU": {
+                    "architecture": "Hopper",
+                    "compute_capability": 9.0,
+                    "count": 8,
+                    "memory": 80,
+                    "vendor": "NVIDIA"
+                }
+            }
+        ]
+    }"#;
+    let meta: ResearchActivityMetadata = serde_json::from_str(json).expect("should deserialize GPU resources");
+    assert_eq!(meta.identifier, "ml-training");
+    let resources = meta.resources.expect("resources should be present");
+    assert_eq!(resources.len(), 1);
+    assert!(matches!(
+        &resources[0],
+        Resource::GPU {
+            architecture: Some(arch),
+            compute_capability: Some(cc),
+            count: Some(8),
+            memory: Some(80),
+            vendor: Some(Vendor::NVIDIA),
+        } if arch == "Hopper" && (*cc - 9.0_f32).abs() < f32::EPSILON
+    ));
+}
+#[test]
+fn test_deserialize_metadata_with_mixed_resources() {
+    let json = r#"{
+        "identifier": "hybrid-compute",
+        "archive": false,
+        "draft": true,
+        "status": "active",
+        "keywords": [],
+        "technology": [],
+        "resources": [
+            {
+                "CPU": {
+                    "architecture": "x86_64",
+                    "cores": 64,
+                    "memory": 512,
+                    "threads": 128,
+                    "vendor": "Intel"
+                }
+            },
+            "TPU",
+            "FPGA",
+            {
+                "GPU": {
+                    "count": 2,
+                    "vendor": "AMD"
+                }
+            }
+        ]
+    }"#;
+    let meta: ResearchActivityMetadata = serde_json::from_str(json).expect("should deserialize mixed resources");
+    let resources = meta.resources.expect("resources should be present");
+    assert_eq!(resources.len(), 4);
+    assert!(matches!(
+        &resources[0],
+        Resource::CPU {
+            cores: Some(64),
+            threads: Some(128),
+            vendor: Some(Vendor::Intel),
+            ..
+        }
+    ));
+    assert!(matches!(resources[1], Resource::TPU));
+    assert!(matches!(resources[2], Resource::FPGA));
+    assert!(matches!(
+        &resources[3],
+        Resource::GPU {
+            count: Some(2),
+            vendor: Some(Vendor::AMD),
+            architecture: None,
+            compute_capability: None,
+            ..
+        }
+    ));
+}
+#[test]
+fn test_deserialize_metadata_with_partial_gpu_fields() {
+    let json = r#"{
+        "identifier": "sparse-gpu",
+        "archive": false,
+        "draft": true,
+        "status": "active",
+        "keywords": [],
+        "technology": [],
+        "resources": [
+            {
+                "GPU": {
+                    "memory": 24
+                }
+            }
+        ]
+    }"#;
+    let meta: ResearchActivityMetadata = serde_json::from_str(json).expect("should deserialize partial GPU fields");
+    let resources = meta.resources.expect("resources should be present");
+    assert!(matches!(
+        &resources[0],
+        Resource::GPU {
+            architecture: None,
+            compute_capability: None,
+            count: None,
+            memory: Some(24),
+            vendor: None,
+        }
+    ));
+}
+#[test]
+fn test_deserialize_metadata_with_unit_resources() {
+    let json = r#"{
+        "identifier": "exotic-compute",
+        "archive": false,
+        "draft": true,
+        "status": "active",
+        "keywords": [],
+        "technology": [],
+        "resources": ["Quantum", "Neuromorphic", "NPU", "ASIC", "DSP", "unique-hardware"]
+    }"#;
+    let meta: ResearchActivityMetadata = serde_json::from_str(json).expect("should deserialize unit resource variants");
+    let resources = meta.resources.expect("resources should be present");
+    assert_eq!(resources.len(), 6);
+    assert!(matches!(resources[0], Resource::Quantum));
+    assert!(matches!(resources[1], Resource::Neuromorphic));
+    assert!(matches!(resources[2], Resource::NPU));
+    assert!(matches!(resources[3], Resource::ASIC));
+    assert!(matches!(resources[4], Resource::DSP));
+    assert!(matches!(&resources[5], Resource::Other(s) if s == "unique-hardware"));
+}
+#[test]
+fn test_deserialize_metadata_with_empty_cpu_and_gpu() {
+    let json = r#"{
+        "identifier": "empty-resources",
+        "archive": false,
+        "draft": true,
+        "status": "active",
+        "keywords": [],
+        "technology": [],
+        "resources": [
+            { "CPU": {} },
+            { "GPU": {} }
+        ]
+    }"#;
+    let meta: ResearchActivityMetadata = serde_json::from_str(json).expect("should deserialize empty CPU and GPU");
+    let resources = meta.resources.expect("resources should be present");
+    assert_eq!(resources.len(), 2);
+    assert!(matches!(
+        &resources[0],
+        Resource::CPU {
+            architecture: None,
+            cores: None,
+            memory: None,
+            threads: None,
+            vendor: None,
+        }
+    ));
+    assert!(matches!(
+        &resources[1],
+        Resource::GPU {
+            architecture: None,
+            compute_capability: None,
+            count: None,
+            memory: None,
+            vendor: None,
+        }
+    ));
+}
+#[test]
+fn test_deserialize_metadata_with_string_cpu_and_gpu() {
+    let json = r#"{
+        "identifier": "string-resources",
+        "archive": false,
+        "draft": true,
+        "status": "active",
+        "keywords": [],
+        "technology": [],
+        "resources": ["CPU", "GPU"]
+    }"#;
+    let meta: ResearchActivityMetadata = serde_json::from_str(json).expect("should deserialize string CPU and GPU");
+    let resources = meta.resources.expect("resources should be present");
+    assert_eq!(resources.len(), 2);
+    assert!(matches!(
+        &resources[0],
+        Resource::CPU {
+            architecture: None,
+            cores: None,
+            memory: None,
+            threads: None,
+            vendor: None,
+        }
+    ));
+    assert!(matches!(
+        &resources[1],
+        Resource::GPU {
+            architecture: None,
+            compute_capability: None,
+            count: None,
+            memory: None,
+            vendor: None,
+        }
+    ));
 }

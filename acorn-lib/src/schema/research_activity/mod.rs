@@ -19,7 +19,7 @@ use crate::util::constants::{
     MAX_LENGTH_SECTION_MISSION,
 };
 use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
-use crate::util::{frontmatter_and_body, LinkedData, ToMarkdown, ToProse};
+use crate::util::{frontmatter_and_body, LinkedData, Resource, ToMarkdown, ToProse};
 #[cfg(feature = "std")]
 use crate::util::{Constant, Label};
 #[cfg(feature = "std")]
@@ -247,6 +247,14 @@ pub struct ResearchActivityMetadata {
     pub partners: Option<Vec<String>>,
     /// Related resarch activity data identifiers of related research activity data
     pub related: Option<Vec<String>>,
+    /// Hardware/compute resource requirements
+    /// ### Note
+    /// Selected components should reflect the minimum hardware/compute resources required to perform the research activity
+    ///
+    /// ### Example
+    /// For an AI/ML workflow that requires at least one GPU to perform training that cannot be executed on a CPU alone,
+    /// the resources attribute should include GPU, but need not include CPU
+    pub resources: Option<Vec<Resource>>,
 }
 /// Linked data (e.g., JSON-LD) context for metadata
 ///
@@ -267,7 +275,7 @@ pub struct ResearchActivityMetadataContext {
     pub identifier: String,
     /// Associated Digital Object Identifiers
     pub doi: String,
-    /// Reseaerch Activity Identifier
+    /// Research Activity Identifier
     pub raid: String,
     /// Research Organization Registry
     pub ror: String,
@@ -287,6 +295,8 @@ pub struct ResearchActivityMetadataContext {
     pub partners: String,
     /// Related research activity data
     pub related: String,
+    /// Hardware/compute resource requirements
+    pub resources: String,
 }
 /// Research activity prose components that describe the activity using natural language
 #[skip_serializing_none]
@@ -406,6 +416,7 @@ impl Default for ResearchActivityMetadataContext {
             .sponsors(codemeta("sponsor"))
             .partners(schema_org("Text"))
             .related(schema_org("Text"))
+            .resources(schema_org("DefinedTerm"))
             .build()
     }
 }
