@@ -520,13 +520,14 @@ fn is_ignored_path(path: &str, ignore: &[String]) -> bool {
     is_builtin_ignored || is_regex_ignored
 }
 fn is_filtered_path(path: &str, filter: &[String]) -> bool {
-    filter.is_empty() || filter
-        .iter()
-        .filter_map(|pattern| match Regex::new(pattern) {
-            | Ok(value) => Some(value),
-            | Err(_) => None,
-        })
-        .any(|pattern| pattern.is_match(path).unwrap_or(false))
+    filter.is_empty()
+        || filter
+            .iter()
+            .filter_map(|pattern| match Regex::new(pattern) {
+                | Ok(value) => Some(value),
+                | Err(_) => None,
+            })
+            .any(|pattern| pattern.is_match(path).unwrap_or(false))
 }
 fn operations_complete_message(name: Option<String>, json_count: usize, image_count: usize) -> String {
     let total = json_count + image_count;

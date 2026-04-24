@@ -16,7 +16,7 @@ use crate::schema::standard::cff::{Cff, Identifier, IdentifierType, Reference};
 use crate::schema::standard::text::Text;
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::{APPLICATION, CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
-use crate::util::{Constant, Label, SemanticVersion, StringConversion};
+use crate::util::{is_uri_or_path, Constant, Label, SemanticVersion, StringConversion};
 use crate::{check, check_err, check_ok};
 use crate::{cmd, skip};
 use crate::{Location, Repository};
@@ -93,6 +93,8 @@ pub trait StaticAnalyzerConfig {
     async fn save(self) -> Self;
     /// Set parent path of configuration
     fn with_path(self, path: PathBuf) -> Self;
+    /// Resolve package source: convert bare package name to download URL or pass through existing URL/path
+    fn resolve_package(value: impl AsRef<str>) -> String;
 }
 #[async_trait]
 impl Analysis for Cff {
@@ -312,10 +314,11 @@ impl Analysis for ResearchActivity {
         });
         join_all(futures).await.into_iter().flatten().collect()
     }
-    fn output_path(_path: &Path, data: &Self) -> PathBuf {
+    fn output_path(path: &Path, data: &Self) -> PathBuf {
+        let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("index.json");
         standard_project_folder("check", None)
             .join(data.meta.identifier.to_lowercase())
-            .join("index.json")
+            .join(filename)
     }
 }
 #[async_trait]
@@ -712,6 +715,7 @@ impl StaticAnalyzerConfig for ValeConfig {
             disabled,
             ..
         } = self;
+        let package_names = packages.clone();
         let mut conf = Ini::new();
         let package_repository = Repository::GitLab {
             id: None,
@@ -724,17 +728,32 @@ impl StaticAnalyzerConfig for ValeConfig {
             }
             | None => DEFAULT_VALE_PACKAGE_URL.to_string(),
         };
+        let package_sources = package_names
+            .iter()
+            .map(Self::resolve_package)
+            .chain(core::iter::once(package_url))
+            .collect::<Vec<String>>();
         // CAUTION: Order of attributes in INI file matter. "StylesPath" must come before "Vocab"
         conf.with_section::<String>(None)
             .set("StylesPath", "styles")
             .set("Vocab", vocabularies.join(", "))
-            .set("Packages", format!("{}, {}", packages.join(", "), package_url));
-        conf.with_section(Some("*"))
-            .set("BasedOnStyles", format!("Vale, {}, {}", CUSTOM_VALE_PACKAGE_NAME, packages.join(", ")));
+            .set("Packages", package_sources.join(", "));
+        conf.with_section(Some("*")).set(
+            "BasedOnStyles",
+            format!("Vale, {}, {}", CUSTOM_VALE_PACKAGE_NAME, package_names.join(", ")),
+        );
         disabled.iter().for_each(|rule| {
             conf.with_section(Some("*")).set(rule, "NO");
         });
         conf
+    }
+    fn resolve_package(value: impl AsRef<str>) -> String {
+        let value = value.as_ref().trim();
+        if is_uri_or_path(value) {
+            value.to_string()
+        } else {
+            format!("https://github.com/errata-ai/{value}/releases/latest/download/{value}.zip")
+        }
     }
     async fn save(self) -> ValeConfig {
         let path = self.clone().path;

@@ -3,13 +3,13 @@ use acorn::prelude::PathBuf;
 use acorn::util::constants::{ENV_CACHE_TTL, ENV_DATABASE_BACKEND, ENV_DATABASE_PATH, ENV_NO_LOCAL_DATABASE};
 use acorn::util::{regex_inverse, regex_join};
 use bon::Builder;
-use fancy_regex::Regex;
 use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
     Styles,
 };
 use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
+use fancy_regex::Regex;
 use tracing::error;
 
 pub mod arguments;

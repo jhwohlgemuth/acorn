@@ -35,8 +35,8 @@ use futures::future::ready;
 use futures::TryFutureExt;
 use owo_colors::OwoColorize;
 use std::process::exit;
-use tracing::info;
 use tracing::instrument;
+use tracing::{debug, info};
 use tracing_indicatif::IndicatifLayer;
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
@@ -142,8 +142,8 @@ async fn main() -> Void {
         env::set_var(ENV_CACHE_TTL, ttl.to_string());
     }
     if threads > 0 {
-        info!("{} {} threads", Label::using(), threads.cyan().bold());
         rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
+        debug!("{} {} threads", Label::using(), threads.cyan().bold());
     }
     let database_initialization = if no_local_database {
         Ok(())

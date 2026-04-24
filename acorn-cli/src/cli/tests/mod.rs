@@ -1,12 +1,11 @@
 use crate::cli::{filter_by_pattern, resolve_paths, Arguments, CommandOptions};
-use acorn::prelude::PathBuf;
+use acorn::prelude::{Path, PathBuf};
 use clap::{CommandFactory, Parser};
 use futures::executor::block_on;
 
-fn has_suffix(path: &PathBuf, suffix: &str) -> bool {
+fn has_suffix(path: &Path, suffix: &str) -> bool {
     path.to_string_lossy().replace('\\', "/").ends_with(suffix)
 }
-
 fn fixture_content_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/filter")
 }
@@ -39,13 +38,7 @@ fn test_filter_paths_by_pattern_keeps_only_matching_relative_paths() {
     ];
     let pattern = "^(?!.*(?:(?:acorn)|(?:sansr))).*$".to_string();
     let filtered = filter_by_pattern(paths, pattern, root.clone());
-    assert_eq!(
-        filtered,
-        vec![
-            root.join("acorn/index.json"),
-            root.join("sansr/index.yaml"),
-        ]
-    );
+    assert_eq!(filtered, vec![root.join("acorn/index.json"), root.join("sansr/index.yaml"),]);
 }
 #[test]
 fn test_filter_paths_by_pattern_applies_ignore_pattern_to_relative_paths() {
@@ -57,13 +50,7 @@ fn test_filter_paths_by_pattern_applies_ignore_pattern_to_relative_paths() {
     ];
     let pattern = "(?:acorn)".to_string();
     let filtered = filter_by_pattern(paths, pattern, root.clone());
-    assert_eq!(
-        filtered,
-        vec![
-            root.join("sansr/index.yaml"),
-            root.join("other/index.json"),
-        ]
-    );
+    assert_eq!(filtered, vec![root.join("sansr/index.yaml"), root.join("other/index.json"),]);
 }
 #[test]
 fn test_filter_paths_by_pattern_returns_empty_for_invalid_regex() {
@@ -75,9 +62,7 @@ fn test_filter_paths_by_pattern_returns_empty_for_invalid_regex() {
 #[test]
 fn test_resolve_paths_applies_filter_to_relative_local_paths() {
     let root = fixture_content_root();
-    let options = CommandOptions::init()
-        .maybe_filter(Some("(?:acorn)|(?:sansr)".to_string()))
-        .build();
+    let options = CommandOptions::init().maybe_filter(Some("(?:acorn)|(?:sansr)".to_string())).build();
     let resolved = block_on(resolve_paths(&Some(root), &options));
     assert_eq!(resolved.len(), 2);
     assert!(resolved.iter().any(|path| has_suffix(path, "acorn/index.json")));

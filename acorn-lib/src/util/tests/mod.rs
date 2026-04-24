@@ -546,3 +546,15 @@ fn test_file_name_with_parent() {
     let removed = std::fs::remove_dir_all(&root);
     assert!(removed.is_ok());
 }
+#[test]
+fn test_is_uri_or_path() {
+    assert!(is_uri_or_path("https://example.org/style.zip"));
+    assert!(is_uri_or_path("http://example.org/style.zip"));
+    assert!(is_uri_or_path("file:///tmp/style"));
+    assert!(is_uri_or_path("/tmp/style"));
+    assert!(is_uri_or_path("./local/style"));
+    assert!(is_uri_or_path("../parent/style"));
+    assert!(!is_uri_or_path("Google"));
+    assert!(!is_uri_or_path("proselint"));
+    assert!(!is_uri_or_path("write-good"));
+}

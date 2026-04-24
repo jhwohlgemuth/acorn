@@ -146,20 +146,19 @@ macro_rules! skip {
         tracing::warn!(
             "{}",
             format!(
-                "=> {} {}",
+                "=> {}{}",
                 $crate::util::Label::skip(),
                 format!($msg, $($rest)*)
             )
         );
     };
     ($msg:literal) => {
-        tracing::warn!("{}", format!("=> {} {}", $crate::util::Label::skip(), $msg));
+        tracing::warn!("{}", format!("=> {}{}", $crate::util::Label::skip(), $msg));
     };
     ($($args:tt)*) => {
         tracing::warn!($($args)*);
     };
 }
-
 /// Build an analyzer [`Check`] with required category/success and optional fields.
 ///
 /// This macro wraps the existing builder API and keeps field assignment explicit.

@@ -113,7 +113,7 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
     let CheckOptions { quiet, no_fail, terse, .. } = options.clone();
     let print_summary = || {
         let file_count = paths.len();
-        let headers = vec!["Item", "Count"];
+        let headers = vec!["", "Count"];
         let rows = (file_count > 1)
             .then(|| vec!["Files checked".to_string(), file_count.to_string()])
             .into_iter()
@@ -123,7 +123,7 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
     };
     if !quiet {
         render(issues, terse);
-        if !(no_fail || terse) && has_failures(issues) {
+        if !(no_fail || terse || issues.is_empty()) {
             print_summary();
         }
     }
@@ -145,18 +145,10 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
     }
 }
 fn failure_count(issues: &[Check]) -> usize {
-    issues
-        .iter()
-        .filter(|issue| issue.is_failure())
-        .map(Check::issue_count)
-        .sum::<usize>()
+    issues.iter().filter(|issue| issue.is_failure()).map(Check::issue_count).sum::<usize>()
 }
 fn filter_by_visibility(issues: &[Check], all: bool) -> Vec<Check> {
-    issues
-        .iter()
-        .filter(|issue| all || issue.is_failure())
-        .cloned()
-        .collect::<Vec<Check>>()
+    issues.iter().filter(|issue| all || issue.is_failure()).cloned().collect::<Vec<Check>>()
 }
 fn has_failures(issues: &[Check]) -> bool {
     issues.iter().any(Check::is_failure)

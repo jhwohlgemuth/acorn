@@ -2,9 +2,9 @@ use crate::analyzer::error::ErrorCode;
 use crate::analyzer::error::ErrorKind;
 use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
 use crate::analyzer::{
-    checks_to_dataframe, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, Check, CheckCategory, CheckSeverity,
+    checks_to_dataframe, collect_validation_checks, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, Analysis, Check,
+    CheckCategory, CheckSeverity, StaticAnalyzerConfig,
 };
-use crate::analyzer::{collect_validation_checks, Analysis};
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
 use crate::test_utils::unique_path;
@@ -514,4 +514,25 @@ fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
         "expected nested indexed path in display output: {rendered}"
     );
     assert!(rendered.contains("EMAIL"), "expected EMAIL code in display output: {rendered}");
+}
+#[test]
+fn test_resolve_vale_package_source() {
+    use crate::analyzer::vale::ValeConfig;
+    let value = ValeConfig::resolve_package("Google");
+    assert_eq!(value, "https://github.com/errata-ai/Google/releases/latest/download/Google.zip");
+    let value = ValeConfig::resolve_package("https://example.org/custom-style.zip");
+    assert_eq!(value, "https://example.org/custom-style.zip");
+    let value = ValeConfig::resolve_package("file:///tmp/custom-style");
+    assert_eq!(value, "file:///tmp/custom-style");
+    let value = ValeConfig::resolve_package(" /tmp/custom-style ");
+    assert_eq!(value, "/tmp/custom-style");
+    let values = ["Google".to_string(), "https://example.org/custom-style.zip".to_string()];
+    let resolved = values.iter().map(ValeConfig::resolve_package).collect::<Vec<String>>();
+    assert_eq!(
+        resolved,
+        vec![
+            "https://github.com/errata-ai/Google/releases/latest/download/Google.zip".to_string(),
+            "https://example.org/custom-style.zip".to_string(),
+        ]
+    );
 }

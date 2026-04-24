@@ -15,7 +15,7 @@
 //! }
 //! ```
 //!
-use crate::prelude::HashMap;
+use crate::prelude::{HashMap, Path};
 use crate::{fail, skip};
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
@@ -36,6 +36,7 @@ use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
 };
+use uriparse::URI;
 
 pub mod constants;
 pub mod macros;
@@ -962,6 +963,10 @@ pub fn generate_guid() -> String {
     ];
     let id = nanoid!(10, &alphabet);
     id
+}
+/// Check if value is a URI or filesystem path
+pub fn is_uri_or_path(value: &str) -> bool {
+    URI::try_from(value).is_ok() || Path::new(value).is_absolute() || value.starts_with("./") || value.starts_with("../")
 }
 /// Prints a diff of changes between two strings.
 ///
