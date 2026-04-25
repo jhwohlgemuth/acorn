@@ -1,0 +1,467 @@
+//! Hardware resource, architecture, and vendor types
+use derive_more::Display;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+/// Hardware architecture or microarchitecture identifier
+#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+pub enum Architecture {
+    /// x86-64 instruction set (Intel/AMD)
+    #[display("x86_64")]
+    #[serde(alias = "x86_64", alias = "x86-64", alias = "amd64")]
+    X86_64,
+    /// 64-bit ARM instruction set
+    #[display("AArch64")]
+    AArch64,
+    /// RISC-V open instruction set architecture
+    #[display("RISC-V")]
+    RiscV,
+    /// MIPS instruction set architecture
+    #[display("MIPS")]
+    Mips,
+    /// IBM PowerPC architecture
+    #[display("PowerPC")]
+    PowerPc,
+    /// NVIDIA Ampere microarchitecture (A100, RTX 30xx)
+    #[display("Ampere")]
+    Ampere,
+    /// NVIDIA Hopper microarchitecture (H100, H200)
+    #[display("Hopper")]
+    Hopper,
+    /// NVIDIA Ada Lovelace microarchitecture (RTX 40xx)
+    #[display("Ada Lovelace")]
+    AdaLovelace,
+    /// NVIDIA Blackwell microarchitecture (RTX 50xx, B100)
+    #[display("Blackwell")]
+    Blackwell,
+    /// NVIDIA Turing microarchitecture (RTX 20xx)
+    #[display("Turing")]
+    Turing,
+    /// NVIDIA Volta microarchitecture (V100)
+    #[display("Volta")]
+    Volta,
+    /// AMD RDNA 2 microarchitecture (RX 6xxx)
+    #[display("RDNA2")]
+    Rdna2,
+    /// AMD RDNA 3 microarchitecture (RX 7xxx)
+    #[display("RDNA3")]
+    Rdna3,
+    /// AMD CDNA 2 microarchitecture (MI250)
+    #[display("CDNA2")]
+    Cdna2,
+    /// AMD CDNA 3 microarchitecture (MI300)
+    #[display("CDNA3")]
+    Cdna3,
+    /// Intel Xe graphics architecture
+    #[display("Xe")]
+    Xe,
+    /// Google TPU v4
+    #[display("TPU v4")]
+    TpuV4,
+    /// Google TPU v5e
+    #[display("TPU v5e")]
+    TpuV5e,
+    /// Google TPU v5p
+    #[display("TPU v5p")]
+    TpuV5p,
+    /// Qualcomm Hexagon processor (NPU/DSP)
+    #[display("Hexagon")]
+    Hexagon,
+    /// Apple Neural Engine
+    #[display("Neural Engine")]
+    NeuralEngine,
+    /// Texas Instruments C66x DSP
+    #[display("C66x")]
+    C66x,
+    /// Cadence Tensilica Xtensa DSP
+    #[display("Xtensa")]
+    Xtensa,
+    /// AMD/Xilinx Virtex UltraScale+ FPGA
+    #[display("Virtex UltraScale+")]
+    VirtexUltraScalePlus,
+    /// AMD/Xilinx Zynq SoC FPGA
+    #[display("Zynq")]
+    Zynq,
+    /// Intel/Altera Cyclone V FPGA
+    #[display("Cyclone V")]
+    CycloneV,
+    /// Intel/Altera Stratix V FPGA
+    #[display("Stratix V")]
+    StratixV,
+    /// Intel Agilex FPGA
+    #[display("Agilex")]
+    Agilex,
+    /// Other or unspecified architecture
+    #[display("{}", _0)]
+    Other(String),
+}
+/// GPU compute backend or API
+#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+pub enum Backend {
+    /// NVIDIA CUDA parallel computing platform
+    #[display("CUDA")]
+    Cuda,
+    /// AMD ROCm open compute platform
+    #[display("ROCm")]
+    RoCm,
+    /// Khronos OpenCL open standard
+    #[display("OpenCL")]
+    OpenCl,
+    /// Apple Metal graphics and compute API
+    #[display("Metal")]
+    Metal,
+    /// Khronos Vulkan graphics and compute API
+    #[display("Vulkan")]
+    Vulkan,
+    /// Intel oneAPI SYCL
+    #[display("SYCL")]
+    Sycl,
+    /// W3C WebGPU API
+    #[display("WebGPU")]
+    WebGpu,
+    /// Other or unspecified backend
+    #[display("{}", _0)]
+    Other(String),
+}
+/// Enumeration for hardware resources used by technology
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+pub enum Resource {
+    /// Central processing unit for "classical" computing
+    CPU {
+        /// Instruction set architecture
+        #[serde(alias = "arch")]
+        architecture: Option<Architecture>,
+        /// Number of physical cores required (if applicable)
+        cores: Option<u32>,
+        /// Minimum RAM in GB (if applicable)
+        #[serde(alias = "ram")]
+        memory: Option<u32>,
+        /// Number of threads required (if applicable)
+        threads: Option<u32>,
+        /// Hardware vendor (e.g., Intel, AMD, ARM)
+        vendor: Option<Vendor>,
+    },
+    /// Graphics processing unit
+    GPU {
+        /// GPU microarchitecture
+        #[serde(alias = "arch")]
+        architecture: Option<Architecture>,
+        /// Compute backend or API
+        backend: Option<Backend>,
+        /// NVIDIA CUDA compute capability (e.g., 8.0 for A100)
+        compute_capability: Option<f32>,
+        /// Number of GPUs required (if applicable)
+        count: Option<u32>,
+        /// VRAM in GB (if applicable)
+        #[serde(alias = "vram")]
+        memory: Option<u32>,
+        /// GPU model name (e.g., "H100", "RTX 4090")
+        name: Option<String>,
+        /// Hardware vendor (e.g., NVIDIA, AMD, Intel)
+        vendor: Option<Vendor>,
+    },
+    /// Tensor processing unit
+    TPU {
+        /// TPU generation
+        #[serde(alias = "arch")]
+        architecture: Option<Architecture>,
+        /// Number of TPU chips required (if applicable)
+        count: Option<u32>,
+        /// High-bandwidth memory in GB (if applicable)
+        #[serde(alias = "mem")]
+        memory: Option<u32>,
+        /// Hardware vendor (e.g., Google)
+        vendor: Option<Vendor>,
+    },
+    /// Neural processing unit
+    ///
+    /// A specialized chip designed for the matrix multiplication calculations that most AI models rely on
+    NPU {
+        /// NPU architecture
+        #[serde(alias = "arch")]
+        architecture: Option<Architecture>,
+        /// Number of NPUs required (if applicable)
+        count: Option<u32>,
+        /// On-chip SRAM in MB (if applicable)
+        #[serde(alias = "mem")]
+        memory: Option<u32>,
+        /// Hardware vendor (e.g., Qualcomm, Apple, Intel)
+        vendor: Option<Vendor>,
+    },
+    /// Application-specific integrated circuit
+    ///
+    /// A custom-designed chip built to perform one particular function or a narrow set of functions, rather than acting as a general-purpose processor like a CPU or GPU
+    ASIC {
+        /// ASIC architecture or design family
+        #[serde(alias = "arch")]
+        architecture: Option<Architecture>,
+        /// Intended purpose of the ASIC (e.g., "Bitcoin mining", "video encoding")
+        purpose: Option<String>,
+        /// Hardware vendor or designer
+        vendor: Option<Vendor>,
+    },
+    /// Digital signal processor
+    ///
+    /// A specialized microprocessor optimized to perform fast mathematical operations on digital signals in real time
+    DSP {
+        /// DSP architecture
+        #[serde(alias = "arch")]
+        architecture: Option<Architecture>,
+        /// Clock frequency in MHz (if applicable)
+        #[serde(alias = "freq")]
+        frequency: Option<u32>,
+        /// Hardware vendor (e.g., Qualcomm, Texas Instruments)
+        vendor: Option<Vendor>,
+    },
+    /// Field-programmable gate array
+    ///
+    /// A reconfigurable integrated circuit that lets you implement custom digital hardware circuits after manufacturing, rather than having a fixed function like a CPU or ASIC
+    FPGA {
+        /// FPGA architecture or product family
+        #[serde(alias = "arch")]
+        architecture: Option<Architecture>,
+        /// Number of logic elements or LUTs available
+        logic_elements: Option<u32>,
+        /// Block RAM in KB (if applicable)
+        #[serde(alias = "mem")]
+        memory: Option<u32>,
+        /// Hardware vendor (e.g., Intel, AMD)
+        vendor: Option<Vendor>,
+    },
+    /// Neuromorphic compute
+    Neuromorphic,
+    /// Quantum computing (e.g., NISQ, etc.)
+    Quantum,
+    /// Unknown, unspecified, or otherwise unclassified resource
+    Other(String),
+}
+/// Hardware vendor or manufacturer
+#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+pub enum Vendor {
+    /// Advanced Micro Devices
+    #[display("AMD")]
+    AMD,
+    /// Apple Inc.
+    #[display("Apple")]
+    Apple,
+    /// Arm Holdings
+    #[display("ARM")]
+    ARM,
+    /// Google LLC
+    #[display("Google")]
+    Google,
+    /// Intel Corporation
+    #[display("Intel")]
+    Intel,
+    /// NVIDIA Corporation
+    #[display("NVIDIA")]
+    NVIDIA,
+    /// Qualcomm Incorporated
+    #[display("Qualcomm")]
+    Qualcomm,
+    /// Other or unspecified vendor
+    #[display("{}", _0)]
+    Other(String),
+}
+impl<'de> Deserialize<'de> for Resource {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        struct ResourceVisitor;
+        impl<'de> serde::de::Visitor<'de> for ResourceVisitor {
+            type Value = Resource;
+            fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                formatter.write_str(r#"a resource string (e.g. "CPU") or object (e.g. {"CPU": {...}})"#)
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Resource, E> {
+                match value {
+                    | "CPU" | "cpu" => Ok(Resource::CPU {
+                        architecture: None,
+                        cores: None,
+                        memory: None,
+                        threads: None,
+                        vendor: None,
+                    }),
+                    | "GPU" | "gpu" => Ok(Resource::GPU {
+                        architecture: None,
+                        backend: None,
+                        compute_capability: None,
+                        count: None,
+                        memory: None,
+                        name: None,
+                        vendor: None,
+                    }),
+                    | "TPU" | "tpu" => Ok(Resource::TPU {
+                        architecture: None,
+                        count: None,
+                        memory: None,
+                        vendor: None,
+                    }),
+                    | "NPU" | "npu" => Ok(Resource::NPU {
+                        architecture: None,
+                        count: None,
+                        memory: None,
+                        vendor: None,
+                    }),
+                    | "ASIC" | "asic" => Ok(Resource::ASIC {
+                        architecture: None,
+                        purpose: None,
+                        vendor: None,
+                    }),
+                    | "DSP" | "dsp" => Ok(Resource::DSP {
+                        architecture: None,
+                        frequency: None,
+                        vendor: None,
+                    }),
+                    | "FPGA" | "fpga" => Ok(Resource::FPGA {
+                        architecture: None,
+                        logic_elements: None,
+                        memory: None,
+                        vendor: None,
+                    }),
+                    | "Neuromorphic" | "neuromorphic" => Ok(Resource::Neuromorphic),
+                    | "Quantum" | "quantum" => Ok(Resource::Quantum),
+                    | other => Ok(Resource::Other(other.to_string())),
+                }
+            }
+            fn visit_map<M: serde::de::MapAccess<'de>>(self, mut map: M) -> Result<Resource, M::Error> {
+                let tag: String = map.next_key()?.ok_or_else(|| serde::de::Error::custom("expected resource variant key"))?;
+                match tag.as_str() {
+                    | "CPU" => {
+                        #[derive(Deserialize)]
+                        struct F {
+                            #[serde(alias = "arch")]
+                            architecture: Option<Architecture>,
+                            cores: Option<u32>,
+                            memory: Option<u32>,
+                            threads: Option<u32>,
+                            vendor: Option<Vendor>,
+                        }
+                        let f: F = map.next_value()?;
+                        Ok(Resource::CPU {
+                            architecture: f.architecture,
+                            cores: f.cores,
+                            memory: f.memory,
+                            threads: f.threads,
+                            vendor: f.vendor,
+                        })
+                    }
+                    | "GPU" => {
+                        #[derive(Deserialize)]
+                        struct F {
+                            #[serde(alias = "arch")]
+                            architecture: Option<Architecture>,
+                            backend: Option<Backend>,
+                            compute_capability: Option<f32>,
+                            count: Option<u32>,
+                            memory: Option<u32>,
+                            name: Option<String>,
+                            vendor: Option<Vendor>,
+                        }
+                        let f: F = map.next_value()?;
+                        Ok(Resource::GPU {
+                            architecture: f.architecture,
+                            backend: f.backend,
+                            compute_capability: f.compute_capability,
+                            count: f.count,
+                            memory: f.memory,
+                            name: f.name,
+                            vendor: f.vendor,
+                        })
+                    }
+                    | "TPU" => {
+                        #[derive(Deserialize)]
+                        struct F {
+                            #[serde(alias = "arch")]
+                            architecture: Option<Architecture>,
+                            count: Option<u32>,
+                            memory: Option<u32>,
+                            vendor: Option<Vendor>,
+                        }
+                        let f: F = map.next_value()?;
+                        Ok(Resource::TPU {
+                            architecture: f.architecture,
+                            count: f.count,
+                            memory: f.memory,
+                            vendor: f.vendor,
+                        })
+                    }
+                    | "NPU" => {
+                        #[derive(Deserialize)]
+                        struct F {
+                            #[serde(alias = "arch")]
+                            architecture: Option<Architecture>,
+                            count: Option<u32>,
+                            memory: Option<u32>,
+                            vendor: Option<Vendor>,
+                        }
+                        let f: F = map.next_value()?;
+                        Ok(Resource::NPU {
+                            architecture: f.architecture,
+                            count: f.count,
+                            memory: f.memory,
+                            vendor: f.vendor,
+                        })
+                    }
+                    | "ASIC" => {
+                        #[derive(Deserialize)]
+                        struct F {
+                            #[serde(alias = "arch")]
+                            architecture: Option<Architecture>,
+                            purpose: Option<String>,
+                            vendor: Option<Vendor>,
+                        }
+                        let f: F = map.next_value()?;
+                        Ok(Resource::ASIC {
+                            architecture: f.architecture,
+                            purpose: f.purpose,
+                            vendor: f.vendor,
+                        })
+                    }
+                    | "DSP" => {
+                        #[derive(Deserialize)]
+                        struct F {
+                            #[serde(alias = "arch")]
+                            architecture: Option<Architecture>,
+                            frequency: Option<u32>,
+                            vendor: Option<Vendor>,
+                        }
+                        let f: F = map.next_value()?;
+                        Ok(Resource::DSP {
+                            architecture: f.architecture,
+                            frequency: f.frequency,
+                            vendor: f.vendor,
+                        })
+                    }
+                    | "FPGA" => {
+                        #[derive(Deserialize)]
+                        struct F {
+                            #[serde(alias = "arch")]
+                            architecture: Option<Architecture>,
+                            logic_elements: Option<u32>,
+                            memory: Option<u32>,
+                            vendor: Option<Vendor>,
+                        }
+                        let f: F = map.next_value()?;
+                        Ok(Resource::FPGA {
+                            architecture: f.architecture,
+                            logic_elements: f.logic_elements,
+                            memory: f.memory,
+                            vendor: f.vendor,
+                        })
+                    }
+                    | "Neuromorphic" | "Quantum" => {
+                        let _: serde::de::IgnoredAny = map.next_value()?;
+                        self.visit_str(&tag)
+                    }
+                    | other => {
+                        let _: serde::de::IgnoredAny = map.next_value()?;
+                        Ok(Resource::Other(other.to_string()))
+                    }
+                }
+            }
+        }
+        deserializer.deserialize_any(ResourceVisitor)
+    }
+}

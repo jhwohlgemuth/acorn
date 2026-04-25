@@ -53,17 +53,6 @@ Maturity uses an augmented version of technology readiness levels (TRL) and incl
 - Modality
 - Quality
 </details>
-<details>
-  <summary>🖥️ <a href="./resources.md">(Hardware) Resources</a></summary>
-
-- <span title="Central Processing Unit">CPU</span>
-- <span title="Graphics Processing Unit">GPU</span>
-- <span title="Tensor Processing Unit">TPU</span>
-- <span title="Field-programmable Gate Array">FPGA</span>
-- Quantum
-- Neuromorphic
-- Other
-</details>
 
 ### Real-world Example
 The ASPECT framework can be applied in various scenarios
@@ -74,4 +63,3 @@ The ASPECT framework can be applied in various scenarios
     - 📈 ***Developed*** (<span title="Technology Readiness Level">TRL</span> 5)
     - 🦾 ***Type 1A***
     - 💾 Uses ***Real***, ***Unavailable***, ***Silver*** quality, ***Textual*** modality data
-    - 🖥️ Requires ***GPU***

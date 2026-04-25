@@ -8,6 +8,7 @@ use crate::io::ApiResult;
 use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
+use crate::schema::hardware::Resource;
 use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::pid::PersistentIdentifierConvert;
 use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
@@ -19,7 +20,7 @@ use crate::util::constants::{
     MAX_LENGTH_SECTION_MISSION,
 };
 use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
-use crate::util::{frontmatter_and_body, LinkedData, Resource, ToMarkdown, ToProse};
+use crate::util::{frontmatter_and_body, LinkedData, ToMarkdown, ToProse};
 #[cfg(feature = "std")]
 use crate::util::{Constant, Label};
 #[cfg(feature = "std")]

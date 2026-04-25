@@ -11,8 +11,6 @@
     - [📈 Maturity](./concepts/aspect/maturity.md)
     - [🦾 Motivity](./concepts/aspect/motivity.md)
     - [💾 Data](./concepts/aspect/data.md)
-    - [🖥️ (Hardware) Resources](./concepts/aspect/resources.md)
-    - [🎯 Task classification](./concepts/aspect/task-classification.md)
   - [Citations](./concepts/citations.md)
 - [🐚 Command Line Reference](./cli-reference/README.md)
   - [Configuration](./cli-reference/configuration.md)

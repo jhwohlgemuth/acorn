@@ -1,9 +1,9 @@
 use crate::io::InputOutput;
 use crate::prelude::PathBuf;
+use crate::schema::hardware::{Architecture, Resource, Vendor};
 use crate::schema::research_activity::*;
 use crate::schema::standard::cff::{Agent, Cff, IdentifierType};
 use crate::schema::*;
-use crate::util::{Resource, Vendor};
 use pretty_assertions::assert_eq;
 
 fn fixtures_dir() -> PathBuf {
@@ -274,14 +274,16 @@ fn test_metadata_with_resources() {
         .identifier("gpu-project".to_string())
         .resources(vec![
             Resource::GPU {
-                architecture: Some("Ampere".to_string()),
+                architecture: Some(Architecture::Ampere),
+                backend: None,
                 compute_capability: Some(8.0),
                 count: Some(4),
                 memory: Some(80),
+                name: None,
                 vendor: Some(Vendor::NVIDIA),
             },
             Resource::CPU {
-                architecture: Some("x86_64".to_string()),
+                architecture: Some(Architecture::X86_64),
                 cores: Some(32),
                 memory: Some(256),
                 threads: Some(64),
@@ -311,12 +313,20 @@ fn test_metadata_with_resources() {
 fn test_metadata_with_minimal_resources() {
     let meta = ResearchActivityMetadata::init()
         .identifier("quantum-project".to_string())
-        .resources(vec![Resource::Quantum, Resource::FPGA])
+        .resources(vec![
+            Resource::Quantum,
+            Resource::FPGA {
+                architecture: None,
+                logic_elements: None,
+                memory: None,
+                vendor: None,
+            },
+        ])
         .build();
     let resources = meta.resources.expect("resources should be present");
     assert_eq!(resources.len(), 2);
     assert!(matches!(resources[0], Resource::Quantum));
-    assert!(matches!(resources[1], Resource::FPGA));
+    assert!(matches!(resources[1], Resource::FPGA { .. }));
 }
 #[test]
 fn test_metadata_without_resources() {
@@ -329,9 +339,11 @@ fn test_metadata_resources_roundtrip() {
         .identifier("roundtrip-test".to_string())
         .resources(vec![Resource::GPU {
             architecture: None,
+            backend: None,
             compute_capability: None,
             count: Some(1),
             memory: Some(24),
+            name: None,
             vendor: Some(Vendor::Intel),
         }])
         .build();
@@ -377,12 +389,13 @@ fn test_deserialize_metadata_with_gpu_resources() {
     assert!(matches!(
         &resources[0],
         Resource::GPU {
-            architecture: Some(arch),
+            architecture: Some(Architecture::Hopper),
             compute_capability: Some(cc),
             count: Some(8),
             memory: Some(80),
             vendor: Some(Vendor::NVIDIA),
-        } if arch == "Hopper" && (*cc - 9.0_f32).abs() < f32::EPSILON
+            ..
+        } if (*cc - 9.0_f32).abs() < f32::EPSILON
     ));
 }
 #[test]
@@ -426,8 +439,8 @@ fn test_deserialize_metadata_with_mixed_resources() {
             ..
         }
     ));
-    assert!(matches!(resources[1], Resource::TPU));
-    assert!(matches!(resources[2], Resource::FPGA));
+    assert!(matches!(resources[1], Resource::TPU { .. }));
+    assert!(matches!(resources[2], Resource::FPGA { .. }));
     assert!(matches!(
         &resources[3],
         Resource::GPU {
@@ -466,6 +479,7 @@ fn test_deserialize_metadata_with_partial_gpu_fields() {
             count: None,
             memory: Some(24),
             vendor: None,
+            ..
         }
     ));
 }
@@ -485,9 +499,9 @@ fn test_deserialize_metadata_with_unit_resources() {
     assert_eq!(resources.len(), 6);
     assert!(matches!(resources[0], Resource::Quantum));
     assert!(matches!(resources[1], Resource::Neuromorphic));
-    assert!(matches!(resources[2], Resource::NPU));
-    assert!(matches!(resources[3], Resource::ASIC));
-    assert!(matches!(resources[4], Resource::DSP));
+    assert!(matches!(resources[2], Resource::NPU { .. }));
+    assert!(matches!(resources[3], Resource::ASIC { .. }));
+    assert!(matches!(resources[4], Resource::DSP { .. }));
     assert!(matches!(&resources[5], Resource::Other(s) if s == "unique-hardware"));
 }
 #[test]
@@ -525,6 +539,7 @@ fn test_deserialize_metadata_with_empty_cpu_and_gpu() {
             count: None,
             memory: None,
             vendor: None,
+            ..
         }
     ));
 }
@@ -560,6 +575,7 @@ fn test_deserialize_metadata_with_string_cpu_and_gpu() {
             count: None,
             memory: None,
             vendor: None,
+            ..
         }
     ));
 }
