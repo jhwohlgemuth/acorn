@@ -401,15 +401,14 @@ impl Bucket {
             }
             | Repository::GitHub { location } => {
                 let path = match location.uri() {
-                    | Some(uri) => uri.path().to_string(),
+                    | Some(uri) => uri.path().to_string().trim_start_matches('/').to_string(),
                     | None => return Err(eyre!("Failed to parse GitHub URI for {bucket_name} bucket")),
                 };
                 let host = match self.domain() {
                     | Ok(value) => value,
                     | Err(why) => return Err(why),
                 };
-                let endpoint = github::endpoint_for(format!("api.{}", host));
-                github::tree_paths(&endpoint, path, "main")
+                github::tree_paths(format!("api.{}", host), path, "main")
                     .await
                     .map_err(|why| eyre!("Failed to get file paths for {bucket_name} bucket - {why}"))
             }
@@ -419,11 +418,10 @@ impl Bucket {
                         | Ok(value) => value,
                         | Err(why) => return Err(why),
                     };
-                    let endpoint = gitlab::endpoint_for(host);
                     let mut page = 1_u32;
                     let mut all_paths: Vec<String> = vec![];
                     loop {
-                        match gitlab::tree_paths(&endpoint, id.to_string(), directory, page).await {
+                        match gitlab::tree_paths(host.clone(), id.to_string(), directory, page).await {
                             | Ok(paths) if paths.is_empty() => break,
                             | Ok(paths) => {
                                 all_paths.extend(paths);

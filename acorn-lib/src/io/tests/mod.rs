@@ -53,7 +53,7 @@ const ENDPOINTS: &str = r#"{
                 {
                     "name": "tree",
                     "method": "get",
-                    "template": "{{ base }}/{{ path }}/git/trees/{{ branch }}?recursive=1"
+                    "template": "{{ base }}/repos/{{ path }}/git/trees/{{ branch }}{{ query }}"
                 }
             ]
         },

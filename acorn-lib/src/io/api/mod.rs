@@ -250,7 +250,27 @@ impl Endpoint {
         let root = root.as_ref().map_or(String::new(), |root| format!("/{root}"));
         format!("{scheme}://{domain}{port}{root}")
     }
+    /// Create a new endpoint with a custom domain while preserving all other properties
+    pub fn with_domain(&self, domain: impl Into<String>) -> Self {
+        Self {
+            domain: domain.into(),
+            ..self.clone()
+        }
+    }
+    /// Find an endpoint template by name from [`INCLUDED_ENDPOINTS`]
+    ///
+    /// # Example
+    /// ```ignore
+    /// let endpoint = Endpoint::from_template("gitlab")?.with_domain("my-gitlab.example.com");
+    /// ```
+    pub fn from_template(name: impl Into<String>) -> ApiResult<Self> {
+        let endpoint_name = name.into();
+        INCLUDED_ENDPOINTS
+            .find_by_name(&endpoint_name)
+            .ok_or_else(|| eyre!("Endpoint template '{endpoint_name}' not found in application configuration"))
+    }
 }
+
 impl Searchable<Endpoint> for Vec<Endpoint> {
     fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
         let name = value.into();

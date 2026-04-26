@@ -210,7 +210,7 @@ pub const ENDPOINTS_TEXT: &str = r#"{
                 {
                     "name": "tree",
                     "method": "get",
-                    "template": "{{ base }}/{{ path }}/git/trees/{{ branch }}?recursive=1"
+                    "template": "{{ base }}/repos/{{ path }}/git/trees/{{ branch }}{{ query }}"
                 }
             ]
         },

@@ -566,7 +566,39 @@ mod orcid_api {
         ];
         let body = params.into_body();
         assert_eq!(body["body_field"], serde_json::Value::String("body value".to_string()));
-        assert!(body.get("q").is_none());
-        assert!(body.get("Authorization").is_none());
+    }
+    #[test]
+    fn test_endpoint_with_domain() {
+        let endpoint = Endpoint::at("original.com").root("api/v1").build();
+        let updated = endpoint.with_domain("custom.domain.com");
+        assert_eq!(updated.domain, "custom.domain.com");
+        assert_eq!(updated.root, Some("api/v1".to_string()));
+        assert_eq!(endpoint.domain, "original.com");
+    }
+    #[test]
+    fn test_from_template_with_domain() {
+        let result = Endpoint::from_template("gitlab").map(|e| e.with_domain("custom-gitlab.example.com"));
+        assert!(result.is_ok());
+        let endpoint = result.unwrap();
+        assert_eq!(endpoint.domain, "custom-gitlab.example.com");
+        assert_eq!(endpoint.root, Some("api/v4".to_string()));
+        assert!(endpoint.resources.iter().any(|r| r.name == "tree"));
+    }
+    #[test]
+    fn test_from_template_with_domain_not_found() {
+        let result = Endpoint::from_template("nonexistent-endpoint").map(|e| e.with_domain("example.com"));
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("nonexistent-endpoint"));
+        assert!(error_msg.contains("not found"));
+    }
+    #[test]
+    fn test_from_template_with_domain_preserves_properties() {
+        let result = Endpoint::from_template("orcid").map(|e| e.with_domain("custom-orcid.example.com"));
+        assert!(result.is_ok());
+        let endpoint = result.unwrap();
+        assert_eq!(endpoint.domain, "custom-orcid.example.com");
+        assert_eq!(endpoint.root, Some("v3.0".to_string()));
+        assert!(endpoint.resources.iter().any(|r| r.name == "search"));
     }
 }

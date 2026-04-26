@@ -2,9 +2,7 @@
 //!
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
-use crate::io::api::{
-    DatabasePersistence, EmptyField, Endpoint, RemoteResource, Resource, ResponseContent, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS,
-};
+use crate::io::api::{DatabasePersistence, EmptyField, Endpoint, RemoteResource, ResponseContent, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::config::{RunnerStatus, RunnerType};
 use crate::io::database::schema::{ProgrammingLanguageRow, Table};
 use crate::io::database::{Database, Operations};
@@ -377,6 +375,9 @@ pub struct Options {
     pub internal_identifier: Option<String>,
     /// Request body payload
     pub body: Option<String>,
+    /// GitLab domain (defaults to gitlab.com)
+    #[builder(default = String::from("gitlab.com"))]
+    pub domain: String,
 }
 /// GitLab API response for runner details
 /// ### Example JSON response
@@ -575,6 +576,7 @@ impl Options {
     /// - `CI_JOB_TOKEN` -> `token` (defaults to empty string when unset)
     /// - `CI_PROJECT_ID` -> `identifier`
     /// - `CI_MERGE_REQUEST_IID` -> `internal_identifier`
+    /// - `CI_SERVER_HOST` -> `domain` (defaults to gitlab.com when unset)
     ///
     /// See <https://docs.gitlab.com/ci/variables/predefined_variables> for more information on available GitLab CI environment variables
     pub fn from_env() -> Self {
@@ -583,6 +585,7 @@ impl Options {
             token: var("CI_JOB_TOKEN").unwrap_or_default(),
             identifier: var("CI_PROJECT_ID").ok(),
             internal_identifier: var("CI_MERGE_REQUEST_IID").ok(),
+            domain: var("CI_SERVER_HOST").unwrap_or_else(|_| "gitlab.com".to_string()),
             body: None,
         }
     }
@@ -597,6 +600,13 @@ impl Options {
     pub fn with_identifier(self, identifier: impl Into<String>) -> Self {
         Self {
             identifier: Some(identifier.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with GitLab domain set
+    pub fn with_domain(self, domain: impl Into<String>) -> Self {
+        Self {
+            domain: domain.into(),
             ..self
         }
     }
@@ -753,11 +763,12 @@ impl ValueValidator for PaginationField {
 }
 /// Get descendant groups of a group by identifier
 pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
-    let name = "GitLab";
     let action = "groups";
-    match INCLUDED_ENDPOINTS.find_by_name(name) {
-        | Some(endpoint) => {
-            let Options { token, identifier, .. } = options;
+    let Options {
+        token, identifier, domain, ..
+    } = options;
+    match Endpoint::from_template("gitlab").map(|e| e.with_domain(&domain)) {
+        | Ok(endpoint) => {
             let params = vec![
                 param!(Header, "PRIVATE-TOKEN", &token),
                 param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
@@ -767,7 +778,7 @@ pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<GroupsResponse>(response)
         }
-        | None => Err(eyre!("{name} API endpoint not found")),
+        | Err(why) => Err(why),
     }
 }
 /// Download programming language metadata from GitLab linguist source file
@@ -802,16 +813,16 @@ pub async fn languages() -> ApiResult<ProgrammingLanguagesResponse> {
 ///
 /// See <https://docs.gitlab.com/api/notes/#create-a-merge-request-note> for more information on this API endpoint and required parameters
 pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteResponse> {
-    let name = "GitLab";
     let action = "merge-request-note";
-    match INCLUDED_ENDPOINTS.find_by_name(name) {
-        | Some(endpoint) => {
-            let Options {
-                token,
-                identifier,
-                internal_identifier,
-                body,
-            } = options;
+    let Options {
+        token,
+        identifier,
+        internal_identifier,
+        body,
+        domain,
+    } = options;
+    match Endpoint::from_template("gitlab").map(|e| e.with_domain(&domain)) {
+        | Ok(endpoint) => {
             let body = body.unwrap_or_default();
             let params = vec![
                 param!(Header, "PRIVATE-TOKEN", &token),
@@ -822,16 +833,17 @@ pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteR
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<MergeRequestNoteResponse>(response)
         }
-        | None => Err(eyre!("{name} API endpoint not found")),
+        | Err(why) => Err(why),
     }
 }
 /// Get runner details by identifier
 pub async fn runner(options: Options) -> ApiResult<RunnerDetails> {
-    let name = "GitLab";
     let action = "runners";
-    match INCLUDED_ENDPOINTS.find_by_name(name) {
-        | Some(endpoint) => {
-            let Options { token, identifier, .. } = options;
+    let Options {
+        token, identifier, domain, ..
+    } = options;
+    match Endpoint::from_template("gitlab").map(|e| e.with_domain(&domain)) {
+        | Ok(endpoint) => {
             let params = vec![
                 param!(Header, "PRIVATE-TOKEN", &token),
                 param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
@@ -839,49 +851,46 @@ pub async fn runner(options: Options) -> ApiResult<RunnerDetails> {
             let response = endpoint.invoke(action, Some(params)).await;
             endpoint.handle::<RunnerDetails>(response)
         }
-        | None => Err(eyre!("{name} API endpoint not found")),
+        | Err(why) => Err(why),
     }
 }
 /// Get runners visible to user associated with given token
 pub async fn runners(options: Options) -> ApiResult<RunnersResponse> {
-    let name = "GitLab";
     let action = "runners";
-    match INCLUDED_ENDPOINTS.find_by_name(name) {
-        | Some(endpoint) => {
-            let params = vec![param!(Header, "PRIVATE-TOKEN", &options.token)];
+    let Options { token, domain, .. } = options;
+    match Endpoint::from_template("gitlab").map(|e| e.with_domain(&domain)) {
+        | Ok(endpoint) => {
+            let params = vec![param!(Header, "PRIVATE-TOKEN", &token)];
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<RunnersResponse>(response)
         }
-        | None => Err(eyre!("{name} API endpoint not found")),
+        | Err(why) => Err(why),
     }
 }
-/// Construct an [`Endpoint`] for any GitLab host with the repository tree resource registered
-pub(crate) fn endpoint_for(host: impl Into<String>) -> Endpoint {
-    let tree = Resource::init()
-        .name("tree")
-        .method("get")
-        .template("{{ base }}/projects/{{ identifier }}/repository/tree{{ query }}")
-        .build();
-    Endpoint::at(host).root("api/v4").resources(vec![tree]).build()
-}
+
 /// Fetch one page of repository tree blob paths for a GitLab project
 pub(crate) async fn tree_paths(
-    endpoint: &Endpoint,
+    host: impl Into<String>,
     identifier: impl Into<String>,
     directory: impl Into<String>,
     page: u32,
 ) -> ApiResult<Vec<String>> {
-    let params = vec![
-        param!(TemplateValue, "identifier", &identifier.into()),
-        param!(KeyValuePair, "per_page", "100"),
-        param!(KeyValuePair, "page", &page.to_string()),
-        param!(KeyValuePair, "recursive", "true"),
-        param!(KeyValuePair, "path", &directory.into()),
-    ];
-    let response = endpoint.invoke("tree", Some(params)).await;
-    endpoint
-        .handle::<TreeResponse>(response)
-        .map(|entries| entries.into_iter().filter(|e| e.is_blob()).map(|e| e.path()).collect())
+    match Endpoint::from_template("gitlab").map(|e| e.with_domain(host.into())) {
+        | Ok(endpoint) => {
+            let params = vec![
+                param!(TemplateValue, "identifier", &identifier.into()),
+                param!(KeyValuePair, "per_page", "100"),
+                param!(KeyValuePair, "page", &page.to_string()),
+                param!(KeyValuePair, "recursive", "true"),
+                param!(KeyValuePair, "path", &directory.into()),
+            ];
+            let response = endpoint.invoke("tree", Some(params)).await;
+            endpoint
+                .handle::<TreeResponse>(response)
+                .map(|entries| entries.into_iter().filter(|e| e.is_blob()).map(|e| e.path()).collect())
+        }
+        | Err(why) => Err(why),
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -889,16 +898,6 @@ mod tests {
     use crate::io::api::IntoBody;
     use core::iter::FromIterator;
 
-    #[test]
-    fn test_endpoint_for_base_url() {
-        let endpoint = endpoint_for("code.ornl.gov");
-        assert_eq!(endpoint.base(), "https://code.ornl.gov/api/v4");
-    }
-    #[test]
-    fn test_endpoint_for_has_tree_resource() {
-        let endpoint = endpoint_for("code.ornl.gov");
-        assert!(endpoint.resources.iter().any(|r| r.name == "tree"));
-    }
     #[test]
     fn test_add_comment_payload_uses_body_field() {
         let payload = vec![param!(Body, "body", "This is a test comment!!!")].into_body();

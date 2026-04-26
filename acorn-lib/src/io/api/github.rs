@@ -1,6 +1,6 @@
 //! Module for interacting with GitHub API
 //!
-use crate::io::api::{Endpoint, RemoteResource, Resource, TreeEntryType};
+use crate::io::api::{Endpoint, RemoteResource, TreeEntryType};
 use crate::io::ApiResult;
 use crate::param;
 use color_eyre::eyre::eyre;
@@ -75,20 +75,15 @@ impl TreeEntry {
         self.entry_type.eq(&TreeEntryType::Blob)
     }
 }
-/// Construct an [`Endpoint`] for any GitHub API host with the repository tree resource registered
-pub(crate) fn endpoint_for(host: impl Into<String>) -> Endpoint {
-    let tree = Resource::init()
-        .name("tree")
-        .method("get")
-        .template("{{ base }}/repos{{ path }}/git/trees/{{ branch }}{{ query }}")
-        .build();
-    Endpoint::at(host).resources(vec![tree]).build()
-}
 /// Fetch repository tree blob paths for a GitHub repository and branch
-pub(crate) async fn tree_paths(endpoint: &Endpoint, path: impl Into<String>, branch: impl Into<String>) -> ApiResult<Vec<String>> {
+pub(crate) async fn tree_paths(host: impl Into<String>, path: impl Into<String>, branch: impl Into<String>) -> ApiResult<Vec<String>> {
+    let endpoint = match Endpoint::from_template("github").map(|e| e.with_domain(host)) {
+        | Ok(endpoint) => endpoint,
+        | Err(why) => return Err(why),
+    };
     let path = path.into();
     let branch = branch.into();
-    let recursive_response = match fetch_tree(endpoint, path.as_str(), branch.as_str(), true).await {
+    let recursive_response = match fetch_tree(&endpoint, path.as_str(), branch.as_str(), true).await {
         | Ok(data) => data,
         | Err(why) => return Err(why),
     };
@@ -96,14 +91,14 @@ pub(crate) async fn tree_paths(endpoint: &Endpoint, path: impl Into<String>, bra
         let (paths, _) = collect_tree(recursive_response.tree, "");
         return Ok(paths);
     }
-    let root_response = match fetch_tree(endpoint, path.as_str(), branch.as_str(), false).await {
+    let root_response = match fetch_tree(&endpoint, path.as_str(), branch.as_str(), false).await {
         | Ok(data) if !data.truncated => data,
         | Ok(_) => return Err(eyre!("Failed to fetch complete GitHub tree for {path}")),
         | Err(why) => return Err(why),
     };
     let (mut all_paths, mut pending) = collect_tree(root_response.tree, "");
     while let Some((sha, prefix)) = pending.pop() {
-        let subtree_response = match fetch_tree(endpoint, path.as_str(), sha.as_str(), false).await {
+        let subtree_response = match fetch_tree(&endpoint, path.as_str(), sha.as_str(), false).await {
             | Ok(data) if !data.truncated => data,
             | Ok(_) => return Err(eyre!("Failed to fetch complete GitHub tree for {path} at subtree {prefix}")),
             | Err(why) => return Err(why),
@@ -113,13 +108,6 @@ pub(crate) async fn tree_paths(endpoint: &Endpoint, path: impl Into<String>, bra
         pending.extend(subtrees);
     }
     Ok(all_paths)
-}
-fn path_for(prefix: &str, path: &str) -> String {
-    if prefix.is_empty() {
-        path.to_string()
-    } else {
-        format!("{prefix}/{path}")
-    }
 }
 fn collect_tree(entries: Vec<TreeEntry>, prefix: &str) -> (Vec<String>, Vec<(String, String)>) {
     entries.into_iter().fold((vec![], vec![]), |(mut paths, mut pending), entry| {
@@ -146,16 +134,22 @@ async fn fetch_tree(endpoint: &Endpoint, path: &str, branch: &str, recursive: bo
     let response = endpoint.invoke("tree", Some(params)).await;
     endpoint.handle::<TreeResponse>(response)
 }
+fn path_for(prefix: &str, path: &str) -> String {
+    if prefix.is_empty() {
+        path.to_string()
+    } else {
+        format!("{prefix}/{path}")
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_endpoint_for() {
-        let endpoint = endpoint_for("api.github.com");
+    fn test_template_endpoint_for() {
+        let endpoint = Endpoint::from_template("github").map(|e| e.with_domain("api.github.com")).unwrap();
         assert_eq!(endpoint.base(), "https://api.github.com");
-        let endpoint = endpoint_for("api.github.com");
         assert!(endpoint.resources.iter().any(|r| r.name == "tree"));
     }
     #[test]
