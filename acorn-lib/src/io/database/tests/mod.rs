@@ -1,6 +1,6 @@
 use crate::io::database::backend::params;
 use crate::io::database::macros::build_query;
-use crate::io::database::schema::{ActivityRow, CatalogRow, LinkCacheRow, ResearchActivityCacheRow, Table, ValidationRow};
+use crate::io::database::schema::{ActivityRow, CatalogRow, LinkCacheRow, ProgrammingLanguageRow, ResearchActivityCacheRow, Table, ValidationRow};
 use crate::io::database::{resolve_database_path, Database, Operations, Row, TableSchemaProvider};
 use crate::prelude::PathBuf;
 use crate::util::constants::ENV_DATABASE_PATH;
@@ -176,10 +176,21 @@ fn test_research_activity_cache_row_default() {
     assert!(row.file_path.is_none());
 }
 #[test]
+fn test_programming_language_row_default() {
+    let row = ProgrammingLanguageRow::default();
+    assert!(row.id.is_none());
+    assert!(row.language_id.is_none());
+    assert!(row.name.is_none());
+    assert!(row.language_type.is_none());
+    assert!(row.color.is_none());
+    assert!(row.group_name.is_none());
+}
+#[test]
 fn test_row_table_implementation() {
     assert_eq!(ActivityRow::default().table(), Table::Activity);
     assert_eq!(CatalogRow::default().table(), Table::Catalog);
     assert_eq!(LinkCacheRow::default().table(), Table::LinkCache);
+    assert_eq!(ProgrammingLanguageRow::default().table(), Table::ProgrammingLanguages);
     assert_eq!(ValidationRow::default().table(), Table::ValidationHistory);
     assert_eq!(ResearchActivityCacheRow::default().table(), Table::ResearchActivityCache);
 }
@@ -190,6 +201,10 @@ fn test_table_from_str() {
     assert_eq!(Table::from("licenses"), Table::Licenses);
     assert_eq!(Table::from("license"), Table::Licenses);
     assert_eq!(Table::from("link_cache"), Table::LinkCache);
+    assert_eq!(Table::from("programming_languages"), Table::ProgrammingLanguages);
+    assert_eq!(Table::from("programminglanguages"), Table::ProgrammingLanguages);
+    assert_eq!(Table::from("languages"), Table::ProgrammingLanguages);
+    assert_eq!(Table::from("language"), Table::ProgrammingLanguages);
     assert_eq!(Table::from("validation_history"), Table::ValidationHistory);
     assert_eq!(Table::from("research_activity_cache"), Table::ResearchActivityCache);
     assert_eq!(Table::from("unknown-table"), Table::Activity);

@@ -2,12 +2,18 @@
 //!
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
-use crate::io::api::{EmptyField, Endpoint, RemoteResource, Resource, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::api::{
+    DatabasePersistence, EmptyField, Endpoint, RemoteResource, Resource, ResponseContent, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS,
+};
 use crate::io::config::{RunnerStatus, RunnerType};
-use crate::io::ApiResult;
+use crate::io::database::schema::{ProgrammingLanguageRow, Table};
+use crate::io::database::{Database, Operations};
+use crate::io::{with_progress, ApiResult, ProgressType};
 use crate::param;
 use crate::prelude::var;
-use crate::util::Searchable;
+use crate::prelude::HashMap;
+use crate::util::{Label, Searchable};
+use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
@@ -21,6 +27,8 @@ pub type GroupsResponse = Vec<GroupDetails>;
 pub type RunnersResponse = Vec<RunnerDetails>;
 /// Type for GitLab API response for a tree
 pub type TreeResponse = Vec<TreeEntry>;
+/// Type for GitLab programming language entries
+pub type ProgrammingLanguageEntries = Vec<ProgrammingLanguageMetadata>;
 /// Access level of the runner
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -29,6 +37,41 @@ pub enum AccessLevel {
     NotProtected,
     /// Ref protected
     RefProtected,
+}
+/// Language metadata details from GitLab languages YAML file
+#[skip_serializing_none]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ProgrammingLanguageDetails {
+    /// Canonical language identifier
+    pub language_id: Option<u64>,
+    /// Language category (for example, `programming`, `data`, `markup`, or `prose`)
+    #[serde(rename = "type")]
+    pub language_type: Option<String>,
+    /// Display color (hex string)
+    pub color: Option<String>,
+    /// Optional parent language group
+    pub group: Option<String>,
+}
+/// Normalized programming language metadata with explicit language name
+#[skip_serializing_none]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ProgrammingLanguageMetadata {
+    /// Display name of the language
+    pub name: String,
+    /// Canonical language identifier
+    pub language_id: Option<u64>,
+    /// Language category (for example, `programming`, `data`, `markup`, or `prose`)
+    pub language_type: Option<String>,
+    /// Display color (hex string)
+    pub color: Option<String>,
+    /// Optional parent language group
+    pub group: Option<String>,
+}
+/// Parsed response for GitLab language metadata
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct ProgrammingLanguagesResponse {
+    /// Flattened language metadata entries
+    pub languages: ProgrammingLanguageEntries,
 }
 /// Group visibility level
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -558,6 +601,66 @@ impl Options {
         }
     }
 }
+impl From<ProgrammingLanguageMetadata> for ProgrammingLanguageRow {
+    fn from(value: ProgrammingLanguageMetadata) -> Self {
+        let ProgrammingLanguageMetadata {
+            name,
+            language_id,
+            language_type,
+            color,
+            group,
+        } = value;
+        ProgrammingLanguageRow::init()
+            .name(name)
+            .maybe_language_id(language_id.and_then(|value| i64::try_from(value).ok()))
+            .maybe_language_type(language_type)
+            .maybe_color(color)
+            .maybe_group_name(group)
+            .build()
+    }
+}
+impl ProgrammingLanguagesResponse {
+    /// Parse a raw language map, retaining only `programming` type entries
+    pub fn parse(data: HashMap<String, ProgrammingLanguageDetails>) -> Self {
+        let languages = data
+            .into_iter()
+            .filter_map(|(name, details)| {
+                details
+                    .language_type
+                    .as_ref()
+                    .map(|kind| kind.eq_ignore_ascii_case("programming"))
+                    .filter(|is_programming| *is_programming)
+                    .map(|_| ProgrammingLanguageMetadata {
+                        name,
+                        language_id: details.language_id,
+                        language_type: details.language_type,
+                        color: details.color,
+                        group: details.group,
+                    })
+            })
+            .collect();
+        Self { languages }
+    }
+}
+impl<'de> serde::Deserialize<'de> for ProgrammingLanguagesResponse {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        HashMap::<String, ProgrammingLanguageDetails>::deserialize(deserializer).map(Self::parse)
+    }
+}
+#[async_trait]
+impl DatabasePersistence for ProgrammingLanguagesResponse {
+    /// Persist GitLab programming language metadata to local database
+    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
+        let Self { languages } = self;
+        let message: fn(&ProgrammingLanguageMetadata) -> String = |item| format!("Saving \"{}\" language metadata", item.name);
+        let operation = |item| async { database.insert(ProgrammingLanguageRow::from(item)) };
+        let finish = |count| format!("{}Saved metadata for {count} programming languages", Label::CHECKMARK);
+        with_progress(languages, message, operation, finish, None, ProgressType::Bar)
+            .await
+            .map(|counts| counts.into_iter().sum())
+            .map_err(eyre::Report::msg)
+    }
+}
 impl Default for Options {
     fn default() -> Self {
         Self::from_env()
@@ -667,6 +770,31 @@ pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
         | None => Err(eyre!("{name} API endpoint not found")),
     }
 }
+/// Download programming language metadata from GitLab linguist source file
+pub async fn languages() -> ApiResult<ProgrammingLanguagesResponse> {
+    let names = ["languages::gitlab", "languages::github"];
+    let action = "languages";
+    async fn fetch(name: &str, action: &str) -> ApiResult<ProgrammingLanguagesResponse> {
+        match INCLUDED_ENDPOINTS.find_by_name(name) {
+            | Some(endpoint) => {
+                let response = endpoint.invoke(action, None).await.map(|content| match content {
+                    | ResponseContent::Raw(content) => ResponseContent::Yaml(content),
+                    | other => other,
+                });
+                endpoint.handle::<ProgrammingLanguagesResponse>(response)
+            }
+            | None => Err(eyre!("{name} API endpoint not found")),
+        }
+    }
+    let mut errors = Vec::new();
+    for name in names {
+        match fetch(name, action).await {
+            | Ok(response) => return Ok(response),
+            | Err(why) => errors.push(format!("{name}={why}")),
+        }
+    }
+    Err(eyre!("Failed to download and parse language metadata — {}", errors.join("; ")))
+}
 /// Add a note (comment) to a merge request using project identifier and merge request IID
 ///
 /// When used in CI environment, the project identifier can be obtained from the `CI_PROJECT_ID` environment variable and the merge request IID can be obtained from the `CI_MERGE_REQUEST_IID` environment variable.
@@ -759,6 +887,7 @@ pub(crate) async fn tree_paths(
 mod tests {
     use super::*;
     use crate::io::api::IntoBody;
+    use core::iter::FromIterator;
 
     #[test]
     fn test_endpoint_for_base_url() {
@@ -774,5 +903,32 @@ mod tests {
     fn test_add_comment_payload_uses_body_field() {
         let payload = vec![param!(Body, "body", "This is a test comment!!!")].into_body();
         assert_eq!(payload, serde_json::json!({ "body": "This is a test comment!!!" }));
+    }
+    #[test]
+    fn test_programming_languages_response_parse_filters_programming_only() {
+        let data = HashMap::from_iter([
+            (
+                "Python".to_string(),
+                ProgrammingLanguageDetails {
+                    language_id: Some(303),
+                    language_type: Some("programming".to_string()),
+                    color: Some("#3572A5".to_string()),
+                    group: None,
+                },
+            ),
+            (
+                "YAML".to_string(),
+                ProgrammingLanguageDetails {
+                    language_id: Some(407),
+                    language_type: Some("data".to_string()),
+                    color: Some("#cb171e".to_string()),
+                    group: None,
+                },
+            ),
+        ]);
+        let response = ProgrammingLanguagesResponse::parse(data);
+        assert_eq!(response.languages.len(), 1);
+        assert_eq!(response.languages[0].name, "Python");
+        assert_eq!(response.languages[0].language_id, Some(303));
     }
 }

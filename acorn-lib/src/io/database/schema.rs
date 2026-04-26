@@ -35,6 +35,8 @@ pub enum Table {
     ValidationHistory = 4,
     /// Downloaded research activity snapshots
     ResearchActivityCache = 5,
+    /// Programming language metadata cached from GitLab
+    ProgrammingLanguages = 6,
 }
 /// Activity log entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -87,6 +89,24 @@ pub struct LicenseRow {
     pub is_free_software: Option<bool>,
     /// Specifies whether the license is approved by the Open Source Initiative (OSI)
     pub is_open_source: Option<bool>,
+}
+/// Programming language metadata entry
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+#[row(table = programming_languages, order_by = "name")]
+pub struct ProgrammingLanguageRow {
+    /// Unique identifier for the row
+    pub id: Option<i64>,
+    /// Stable language identifier from GitLab linguist metadata
+    pub language_id: Option<i64>,
+    /// Language display name
+    pub name: Option<String>,
+    /// Language category (for example, programming, markup, data, prose)
+    pub language_type: Option<String>,
+    /// Optional color associated with language
+    pub color: Option<String>,
+    /// Optional parent group name
+    pub group_name: Option<String>,
 }
 /// Link check cache entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -152,6 +172,7 @@ impl From<&str> for Table {
             | "link_cache" | "linkcache" => Self::LinkCache,
             | "validation_history" | "validationhistory" => Self::ValidationHistory,
             | "research_activity_cache" | "researchactivitycache" => Self::ResearchActivityCache,
+            | "programming_languages" | "programminglanguages" | "languages" | "language" => Self::ProgrammingLanguages,
             | _ => Self::Activity,
         }
     }
@@ -187,6 +208,23 @@ impl From<&BackendRow<'_>> for LicenseRow {
 impl From<BackendRow<'_>> for LicenseRow {
     fn from(row: BackendRow<'_>) -> Self {
         LicenseRow::from(&row)
+    }
+}
+impl From<&BackendRow<'_>> for ProgrammingLanguageRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        ProgrammingLanguageRow {
+            id: row.get(0).ok(),
+            language_id: row.get(1).ok(),
+            name: row.get(2).ok(),
+            language_type: row.get(3).ok(),
+            color: row.get(4).ok(),
+            group_name: row.get(5).ok(),
+        }
+    }
+}
+impl From<BackendRow<'_>> for ProgrammingLanguageRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        ProgrammingLanguageRow::from(&row)
     }
 }
 impl From<&BackendRow<'_>> for CatalogRow {
@@ -292,6 +330,18 @@ impl From<LicenseRow> for Vec<String> {
         ]
     }
 }
+impl From<ProgrammingLanguageRow> for Vec<String> {
+    fn from(row: ProgrammingLanguageRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.language_id.map_or_else(String::new, |v| v.to_string()),
+            row.name.unwrap_or_default(),
+            row.language_type.unwrap_or_default(),
+            row.color.unwrap_or_default(),
+            row.group_name.unwrap_or_default(),
+        ]
+    }
+}
 impl From<LinkCacheRow> for Vec<String> {
     fn from(row: LinkCacheRow) -> Self {
         vec![
@@ -368,6 +418,20 @@ impl fmt::Display for CatalogRow {
         .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
     }
 }
+impl fmt::Display for ProgrammingLanguageRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ProgrammingLanguageRow = id: {}, language_id: {}, name: {}, type: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.language_id.as_ref()),
+            display_or_none(self.name.as_ref()),
+            display_or_none(self.language_type.as_ref())
+        )
+        .and_then(|_| write_optional_field(f, "color", self.color.as_ref()))
+        .and_then(|_| write_optional_field(f, "group_name", self.group_name.as_ref()))
+    }
+}
 impl fmt::Display for LinkCacheRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -420,6 +484,7 @@ impl TableSchemaProvider for Table {
             Table::LinkCache,
             Table::ValidationHistory,
             Table::ResearchActivityCache,
+            Table::ProgrammingLanguages,
         ]
     }
     /// Returns CREATE TABLE SQL statement
@@ -479,6 +544,15 @@ impl TableSchemaProvider for Table {
                     file_path TEXT NOT NULL
                 "#
             }
+            | Table::ProgrammingLanguages => {
+                r#"
+                    language_id INTEGER,
+                    name TEXT NOT NULL UNIQUE,
+                    language_type TEXT,
+                    color TEXT,
+                    group_name TEXT
+                "#
+            }
         };
 
         format!(
@@ -502,6 +576,7 @@ impl TableSchemaProvider for Table {
             | Table::LinkCache => "link_cache",
             | Table::ValidationHistory => "validation_history",
             | Table::ResearchActivityCache => "research_activity_cache",
+            | Table::ProgrammingLanguages => "programming_languages",
         }
     }
     async fn populate(&self) -> ApiResult<usize> {
@@ -515,6 +590,17 @@ impl TableSchemaProvider for Table {
                 match response {
                     | Ok(data) => data.persist(Database::<Self>::from_path(None)).await,
                     | Err(why) => Err(eyre!("Failed to download SPDX license data — {why}")),
+                }
+            }
+            | Table::ProgrammingLanguages => {
+                let progress = create_progress_bar(0, ProgressType::Spinner);
+                progress.set_message("Downloading GitLab programming language data...");
+                let response = api::gitlab::languages().await;
+                let message = format!("{}GitLab programming language metadata download complete", Label::CHECKMARK);
+                finish_progress_bar(&progress, message);
+                match response {
+                    | Ok(data) => data.persist(Database::<Self>::from_path(None)).await,
+                    | Err(why) => Err(eyre!("Failed to download GitLab programming language data — {why}")),
                 }
             }
             | _ => unimplemented!("populate() not implemented for {} table", self.name()),
@@ -547,6 +633,7 @@ impl TableSchemaProvider for Table {
             | Table::Activity => print_rows::<ActivityRow>(self, path.as_ref()),
             | Table::Catalog => print_rows::<CatalogRow>(self, path.as_ref()),
             | Table::Licenses => print_rows::<LicenseRow>(self, path.as_ref()),
+            | Table::ProgrammingLanguages => print_rows::<ProgrammingLanguageRow>(self, path.as_ref()),
             | Table::LinkCache => print_rows::<LinkCacheRow>(self, path.as_ref()),
             | Table::ValidationHistory => print_rows::<ValidationRow>(self, path.as_ref()),
             | Table::ResearchActivityCache => print_rows::<ResearchActivityCacheRow>(self, path.as_ref()),
@@ -680,6 +767,35 @@ impl Row for LinkCacheRow {
             | Ok((url, status_code, is_reachable, expires_at)) => match self.next_row_id(conn) {
                 | Ok(id) => {
                     let params = backend::params![id, url, status_code, is_reachable as i32, checked_at, expires_at.to_rfc3339()];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl Row for ProgrammingLanguageRow {
+    fn table(&self) -> Table {
+        Table::ProgrammingLanguages
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            language_id,
+            name,
+            language_type,
+            color,
+            group_name,
+            ..
+        } = self.clone();
+        let required = required1(name);
+        match required {
+            | Ok((name,)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![id, language_id, name, language_type, color, group_name];
                     execute_insert(&self, conn, params)
                 }
                 | Err(why) => Err(why),

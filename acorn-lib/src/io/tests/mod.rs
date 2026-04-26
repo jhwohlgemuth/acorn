@@ -70,6 +70,28 @@ const ENDPOINTS: &str = r#"{
             ]
         },
         {
+            "name": "languages::gitlab",
+            "domain": "gitlab.com",
+            "resources": [
+                {
+                    "name": "languages",
+                    "method": "get",
+                    "template": "{{ base }}/gitlab-org/gitlab/-/raw/master/vendor/languages.yml"
+                }
+            ]
+        },
+        {
+            "name": "languages::github",
+            "domain": "raw.githubusercontent.com",
+            "resources": [
+                {
+                    "name": "languages",
+                    "method": "get",
+                    "template": "{{ base }}/github-linguist/linguist/refs/heads/main/lib/linguist/languages.yml"
+                }
+            ]
+        },
+        {
             "name": "spdx",
             "domain": "spdx.org",
             "resources": [

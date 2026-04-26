@@ -52,6 +52,23 @@ fn test_link_cache_row_display() {
     assert!(display.contains("reachable: true"));
 }
 #[test]
+fn test_programming_language_row_display() {
+    let row = ProgrammingLanguageRow {
+        id: Some(1),
+        language_id: Some(303),
+        name: Some("Python".to_string()),
+        language_type: Some("programming".to_string()),
+        color: Some("#3572A5".to_string()),
+        group_name: Some("Python".to_string()),
+    };
+    let display = format!("{}", row);
+    assert!(display.contains("ProgrammingLanguageRow"));
+    assert!(display.contains("id: 1"));
+    assert!(display.contains("language_id: 303"));
+    assert!(display.contains("name: Python"));
+    assert!(display.contains("type: programming"));
+}
+#[test]
 fn test_research_activity_cache_row_display() {
     let row = ResearchActivityCacheRow {
         id: Some(1),

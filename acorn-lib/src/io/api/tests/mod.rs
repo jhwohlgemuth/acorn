@@ -15,7 +15,7 @@ fn fixtures_dir() -> PathBuf {
 
 #[test]
 fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 7);
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 9);
 }
 #[tokio::test]
 #[ignore = "Requires internet connection and citeas.org to be up"]

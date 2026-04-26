@@ -198,6 +198,7 @@ async fn main() -> Void {
             database.with_connection(|_| Ok(())).map(|_| ())
         }))
         .and_then(|_| database.populate(Table::Licenses))
+        .and_then(|_| database.populate(Table::ProgrammingLanguages))
         .await
         .map(|_| ())
     };

@@ -75,6 +75,36 @@ Some(
             ],
         },
         Endpoint {
+            domain: "gitlab.com",
+            name: "languages::gitlab",
+            scheme: None,
+            port: None,
+            authentication: None,
+            root: None,
+            resources: [
+                Resource {
+                    name: "languages",
+                    method: Get,
+                    template: "{{ base }}/gitlab-org/gitlab/-/raw/master/vendor/languages.yml",
+                },
+            ],
+        },
+        Endpoint {
+            domain: "raw.githubusercontent.com",
+            name: "languages::github",
+            scheme: None,
+            port: None,
+            authentication: None,
+            root: None,
+            resources: [
+                Resource {
+                    name: "languages",
+                    method: Get,
+                    template: "{{ base }}/github-linguist/linguist/refs/heads/main/lib/linguist/languages.yml",
+                },
+            ],
+        },
+        Endpoint {
             domain: "spdx.org",
             name: "spdx",
             scheme: None,

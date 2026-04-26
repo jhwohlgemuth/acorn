@@ -134,6 +134,8 @@ pub enum ResponseContent {
     Json(String),
     /// Raw text response content
     Raw(String),
+    /// YAML response content
+    Yaml(String),
     /// XML response content
     Xml(String),
 }
@@ -504,6 +506,7 @@ impl RemoteResource for Endpoint {
             | Ok(content) => match content {
                 | ResponseContent::Json(content) => parse_json(&content),
                 | ResponseContent::Xml(content) => parse_xml(&content),
+                | ResponseContent::Yaml(content) => parse_yaml(&content),
                 | ResponseContent::Raw(content) => {
                     let raw = TextResponse { content };
                     serde_json::to_string(&raw).map_err(|e| eyre!(e)).and_then(|json| parse_json(&json))
@@ -713,6 +716,15 @@ where
     R: for<'de> Deserialize<'de>,
 {
     match quick_xml::de::from_str::<R>(content) {
+        | Ok(response) => Ok(response),
+        | Err(why) => Err(eyre!(why)),
+    }
+}
+pub(crate) fn parse_yaml<R>(content: &str) -> ApiResult<R>
+where
+    R: for<'de> Deserialize<'de>,
+{
+    match serde_yml::from_str::<R>(content) {
         | Ok(response) => Ok(response),
         | Err(why) => Err(eyre!(why)),
     }

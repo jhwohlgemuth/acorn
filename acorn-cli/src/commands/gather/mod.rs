@@ -28,7 +28,9 @@ pub async fn run(
     println!("CiteAs API is healthy: {}", api::citeas::is_healthy().await);
     println!("ORCiD API is healthy: {}", api::orcid::is_healthy().await);
     println!("ROR API is healthy: {}", api::ror::is_healthy().await);
-    gitlab_merge_request_note_example().await;
+    // let langs = gitlab::languages().await?;
+    // dbg!(langs);
+    // gitlab_merge_request_note_example().await;
     // gitlab_example().await;
     // orcid_example().await;
     // ror_example().await;
