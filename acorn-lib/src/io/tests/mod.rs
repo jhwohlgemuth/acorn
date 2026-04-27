@@ -6,8 +6,8 @@ use crate::io::http::policy::{http_timeout_layer, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
-    files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, image_paths, read_file, read_large_file, unique_file_extensions,
-    uri_to_path, write_file_bytes, InputOutput,
+    files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, read_file, read_large_file,
+    unique_file_extensions, uri_to_path, write_file_bytes, InputOutput,
 };
 use crate::util::constants::ENV_NO_LOCAL_DATABASE;
 use crate::{Location, Repository, Scheme};
@@ -372,13 +372,42 @@ fn test_checksum() {
     assert!(result.is_none());
 }
 #[test]
-fn test_uri_to_path() {
-    let plain = PathBuf::from("some/relative/path");
-    assert_eq!(uri_to_path(plain.clone()), plain);
-    #[cfg(not(windows))]
-    assert_eq!(uri_to_path(PathBuf::from("file:///absolute/path")), PathBuf::from("/absolute/path"));
-    #[cfg(windows)]
-    assert_eq!(uri_to_path(PathBuf::from("file:///C:/absolute/path")), PathBuf::from("C:/absolute/path"));
+fn test_env_var_is_truthy() {
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some(" true "))], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+    });
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("ON"))], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+    });
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("1"))], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+    });
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("false"))], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
+    });
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("0"))], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
+    });
+    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, None::<&str>)], || {
+        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), None);
+    });
+}
+#[test]
+fn test_first_env_var() {
+    // Test when none of the variables are set
+    assert_eq!(first_env_var(&["NON_EXISTENT_VAR1", "NON_EXISTENT_VAR2"]), None);
+    // Test when the first variable is set
+    temp_env::with_vars([("FIRST_VAR", Some("first_value"))], || {
+        assert_eq!(first_env_var(&["FIRST_VAR", "SECOND_VAR"]), Some("first_value".to_string()));
+    });
+    // Test when the second variable is set but first is not
+    temp_env::with_vars([("MISSING_VAR", None::<&str>), ("SECOND_VAR", Some("second_value"))], || {
+        assert_eq!(first_env_var(&["MISSING_VAR", "SECOND_VAR"]), Some("second_value".to_string()));
+    });
+    // Test with multiple variables where first one wins
+    temp_env::with_vars([("WINNING_VAR", Some("winning_value")), ("LOSING_VAR", Some("losing_value"))], || {
+        assert_eq!(first_env_var(&["WINNING_VAR", "LOSING_VAR"]), Some("winning_value".to_string()));
+    });
 }
 #[test]
 fn test_files_all() {
@@ -510,6 +539,35 @@ fn test_read_file_large_content() {
     remove_file(path).unwrap();
 }
 #[test]
+fn test_should_retry_get_for_retryable_status_codes() {
+    assert!(should_retry(&HttpMethod::Get, Some(408)));
+    assert!(should_retry(&HttpMethod::Get, Some(429)));
+    assert!(should_retry(&HttpMethod::Get, Some(500)));
+    assert!(should_retry(&HttpMethod::Get, Some(503)));
+}
+#[test]
+fn test_shared_http_policy_defaults() {
+    let policy = shared_http_policy();
+    assert_eq!(policy.timeout.as_secs(), 30);
+    assert_eq!(policy.max_retries, 2);
+    assert_eq!(policy.max_attempts(), 3);
+}
+#[test]
+fn test_shared_http_timeout_layer_constructs() {
+    let _layer = http_timeout_layer();
+}
+#[test]
+fn test_should_retry_get_for_transport_failure() {
+    assert!(should_retry(&HttpMethod::Get, None));
+}
+#[test]
+fn test_should_not_retry_non_idempotent_or_non_retryable_status() {
+    assert!(!should_retry(&HttpMethod::Post, Some(500)));
+    assert!(!should_retry(&HttpMethod::Put, Some(503)));
+    assert!(!should_retry(&HttpMethod::Get, Some(200)));
+    assert!(!should_retry(&HttpMethod::Get, Some(404)));
+}
+#[test]
 fn test_unique_file_extensions() {
     let paths = vec![
         PathBuf::from("project/index.json"),
@@ -519,6 +577,15 @@ fn test_unique_file_extensions() {
     ];
     let extensions = unique_file_extensions(&paths);
     assert_eq!(extensions, vec!["json", "yaml"]);
+}
+#[test]
+fn test_uri_to_path() {
+    let plain = PathBuf::from("some/relative/path");
+    assert_eq!(uri_to_path(plain.clone()), plain);
+    #[cfg(not(windows))]
+    assert_eq!(uri_to_path(PathBuf::from("file:///absolute/path")), PathBuf::from("/absolute/path"));
+    #[cfg(windows)]
+    assert_eq!(uri_to_path(PathBuf::from("file:///C:/absolute/path")), PathBuf::from("C:/absolute/path"));
 }
 #[tokio::test]
 async fn test_write_file_bytes_creates_parent_and_writes_content() {
@@ -543,54 +610,4 @@ async fn test_write_file_bytes_propagates_get_bytes_error() {
     assert!(path.exists());
     assert_eq!(std::fs::metadata(path.clone()).unwrap().len(), 0);
     remove_dir_all(dir).unwrap();
-}
-#[test]
-fn test_should_retry_get_for_retryable_status_codes() {
-    assert!(should_retry(&HttpMethod::Get, Some(408)));
-    assert!(should_retry(&HttpMethod::Get, Some(429)));
-    assert!(should_retry(&HttpMethod::Get, Some(500)));
-    assert!(should_retry(&HttpMethod::Get, Some(503)));
-}
-#[test]
-fn test_shared_http_policy_defaults() {
-    let policy = shared_http_policy();
-    assert_eq!(policy.timeout.as_secs(), 30);
-    assert_eq!(policy.max_retries, 2);
-    assert_eq!(policy.max_attempts(), 3);
-}
-#[test]
-fn test_shared_http_timeout_layer_constructs() {
-    let _layer = http_timeout_layer();
-}
-#[test]
-fn test_env_var_is_truthy() {
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some(" true "))], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
-    });
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("ON"))], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
-    });
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("1"))], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
-    });
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("false"))], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
-    });
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("0"))], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
-    });
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, None::<&str>)], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), None);
-    });
-}
-#[test]
-fn test_should_retry_get_for_transport_failure() {
-    assert!(should_retry(&HttpMethod::Get, None));
-}
-#[test]
-fn test_should_not_retry_non_idempotent_or_non_retryable_status() {
-    assert!(!should_retry(&HttpMethod::Post, Some(500)));
-    assert!(!should_retry(&HttpMethod::Put, Some(503)));
-    assert!(!should_retry(&HttpMethod::Get, Some(200)));
-    assert!(!should_retry(&HttpMethod::Get, Some(404)));
 }

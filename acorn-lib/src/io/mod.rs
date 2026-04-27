@@ -731,6 +731,21 @@ pub fn filter_ignored(paths: Vec<PathBuf>, ignore: Option<String>) -> Vec<PathBu
         | None => paths,
     }
 }
+/// Returns the value of the first environment variable in the list that is set
+///
+/// ### Example
+/// ```rust
+/// use acorn::io::first_env_var_value;
+/// use std::env;
+///
+/// env::set_var("MY_APP_CONFIG", "config_value");
+/// let result = first_env_var_value(&["NON_EXISTENT_VAR", "MY_APP_CONFIG", "ANOTHER_VAR"]);
+/// assert_eq!(result, Some("config_value".to_string()));
+/// env::remove_var("MY_APP_CONFIG");
+/// ```
+pub fn first_env_var(names: &[&str]) -> Option<String> {
+    names.iter().find_map(|name| var(name).ok())
+}
 /// Returns the size of a folder in bytes
 pub fn folder_size<P: Into<PathBuf>>(path: P) -> u64 {
     files_all(path.into(), None)
