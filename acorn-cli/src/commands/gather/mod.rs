@@ -54,12 +54,20 @@ Here is a list
 }
 #[allow(dead_code)]
 async fn gitlab_example() {
-    let project = "34619";
     let group = "24758";
     let options = gitlab::Options::from_env();
-    println!("Runners: {:#?}", gitlab::runners(options.clone()).await);
-    let options = options.clone().with_identifier(project);
-    println!("Runner: {:#?}", gitlab::runner(options.clone()).await);
+    dbg!(&options);
+    let runners = gitlab::runners(options.clone()).await;
+    println!("Runners: {:#?}", runners);
+    match runners {
+        | Ok(ref values) if !values.is_empty() => {
+            let runner_id = values[0].identifier.to_string();
+            let options = options.clone().with_identifier(runner_id);
+            println!("Runner: {:#?}", gitlab::runner(options).await);
+        }
+        | Ok(_) => println!("Runner: Ok(None)"),
+        | Err(ref why) => println!("Runner: Err({why:#?})"),
+    }
     let options = options.with_identifier(group);
     println!("Groups: {:#?}", gitlab::groups(options).await);
 }

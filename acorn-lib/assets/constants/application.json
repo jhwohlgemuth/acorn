@@ -79,13 +79,18 @@
                     "template": "{{ base }}/projects/{{ identifier }}/releases{{ query }}"
                 },
                 {
-                    "name": "runners",
+                    "name": "runner",
                     "method": "get",
                     "template": "{{ base }}/runners/{{ identifier }}{{ query }}"
                 },
                 {
                     "name": "runner-create",
                     "method": "post",
+                    "template": "{{ base }}/runners{{ query }}"
+                },
+                {
+                    "name": "runners",
+                    "method": "get",
                     "template": "{{ base }}/runners{{ query }}"
                 },
                 {

@@ -838,7 +838,7 @@ pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteR
 }
 /// Get runner details by identifier
 pub async fn runner(options: Options) -> ApiResult<RunnerDetails> {
-    let action = "runners";
+    let action = "runner";
     let Options {
         token, identifier, domain, ..
     } = options;
