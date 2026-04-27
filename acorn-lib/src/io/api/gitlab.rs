@@ -6,7 +6,7 @@ use crate::io::api::{DatabasePersistence, EmptyField, Endpoint, RemoteResource, 
 use crate::io::config::{RunnerStatus, RunnerType};
 use crate::io::database::schema::{ProgrammingLanguageRow, Table};
 use crate::io::database::{Database, Operations};
-use crate::io::{with_progress, ApiResult, ProgressType};
+use crate::io::{first_env_var, with_progress, ApiResult, ProgressType};
 use crate::param;
 use crate::prelude::var;
 use crate::prelude::HashMap;
@@ -582,7 +582,7 @@ impl Options {
     pub fn from_env() -> Self {
         let _ = dotenvy::from_filename(".env");
         Self {
-            token: var("CI_JOB_TOKEN").unwrap_or_default(),
+            token: first_env_var(&["CI_JOB_TOKEN", "GITLAB_TOKEN"]).unwrap_or_default(),
             identifier: var("CI_PROJECT_ID").ok(),
             internal_identifier: var("CI_MERGE_REQUEST_IID").ok(),
             domain: var("CI_SERVER_HOST").unwrap_or_else(|_| "gitlab.com".to_string()),

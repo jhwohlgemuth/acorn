@@ -1,7 +1,6 @@
 use crate::cli::CommandOptions;
 use crate::commands::preflight;
-use acorn::io::api::gitlab;
-use acorn::io::api::{self};
+use acorn::io::api::{self, gitlab};
 use acorn::param;
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
@@ -56,7 +55,6 @@ Here is a list
 async fn gitlab_example() {
     let group = "24758";
     let options = gitlab::Options::from_env();
-    dbg!(&options);
     let runners = gitlab::runners(options.clone()).await;
     println!("Runners: {:#?}", runners);
     match runners {
@@ -66,7 +64,7 @@ async fn gitlab_example() {
             println!("Runner: {:#?}", gitlab::runner(options).await);
         }
         | Ok(_) => println!("Runner: Ok(None)"),
-        | Err(ref why) => println!("Runner: Err({why:#?})"),
+        | Err(ref why) => panic!("Runner: Err({why:#?})"),
     }
     let options = options.with_identifier(group);
     println!("Groups: {:#?}", gitlab::groups(options).await);
