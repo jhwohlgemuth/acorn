@@ -30,7 +30,7 @@ pub async fn run(
     // let langs = gitlab::languages().await?;
     // dbg!(langs);
     // gitlab_merge_request_note_example().await;
-    // gitlab_example().await;
+    gitlab_example().await;
     // orcid_example().await;
     // ror_example().await;
     Ok(())
@@ -54,6 +54,7 @@ Here is a list
 #[allow(dead_code)]
 async fn gitlab_example() {
     let group = "24758";
+    let project = "16689";
     let options = gitlab::Options::from_env();
     let runners = gitlab::runners(options.clone()).await;
     println!("Runners: {:#?}", runners);
@@ -67,7 +68,9 @@ async fn gitlab_example() {
         | Err(ref why) => panic!("Runner: Err({why:#?})"),
     }
     let options = options.with_identifier(group);
-    println!("Groups: {:#?}", gitlab::groups(options).await);
+    println!("Groups: {:#?}", gitlab::groups(options.clone()).await);
+    let options = options.with_identifier(project);
+    println!("Languages: {:#?}", gitlab::language_use(options).await.unwrap().entries());
 }
 #[allow(dead_code)]
 async fn orcid_example() {

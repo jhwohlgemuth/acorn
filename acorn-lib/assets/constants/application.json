@@ -71,6 +71,11 @@
                     "template": "{{ base }}/runners/{{ identifier }}/jobs{{ query }}"
                 },
                 {
+                    "name": "languages",
+                    "method": "get",
+                    "template": "{{ base }}/projects/{{ identifier }}/languages{{ query }}"
+                },
+                {
                     "name": "merge-request-note",
                     "method": "post",
                     "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/notes"

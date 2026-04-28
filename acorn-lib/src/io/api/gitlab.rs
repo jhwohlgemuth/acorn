@@ -27,6 +27,8 @@ pub type RunnersResponse = Vec<RunnerDetails>;
 pub type TreeResponse = Vec<TreeEntry>;
 /// Type for GitLab programming language entries
 pub type ProgrammingLanguageEntries = Vec<ProgrammingLanguageMetadata>;
+/// Type for GitLab project programming language usage entries
+pub type ProgrammingLanguageUseEntries = Vec<ProgrammingLanguageUseMetadata>;
 /// Access level of the runner
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -70,6 +72,20 @@ pub struct ProgrammingLanguageMetadata {
 pub struct ProgrammingLanguagesResponse {
     /// Flattened language metadata entries
     pub languages: ProgrammingLanguageEntries,
+}
+/// Programming language usage entry for a project
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ProgrammingLanguageUseMetadata {
+    /// Display name of the language
+    pub name: String,
+    /// Relative share of repository content for this language
+    pub percentage: f64,
+}
+/// Parsed response for GitLab project language usage
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct ProgrammingLanguageUseResponse {
+    /// Flattened language usage entries
+    pub languages: ProgrammingLanguageUseEntries,
 }
 /// Group visibility level
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -652,9 +668,39 @@ impl ProgrammingLanguagesResponse {
         Self { languages }
     }
 }
+impl ProgrammingLanguageUseResponse {
+    /// Parse a raw language-to-percentage map into normalized entries
+    pub fn parse(data: HashMap<String, f64>) -> Self {
+        let mut languages = data
+            .into_iter()
+            .map(|(name, percentage)| ProgrammingLanguageUseMetadata { name, percentage })
+            .collect::<ProgrammingLanguageUseEntries>();
+        languages.sort_by(|a, b| a.name.cmp(&b.name));
+        Self { languages }
+    }
+    /// Get language data entry tuples, (name, percentage), sorted by percentage in descending order
+    pub fn entries(&self) -> Vec<(String, f64)> {
+        let mut entries = self
+            .languages
+            .iter()
+            .map(|ProgrammingLanguageUseMetadata { name, percentage }| (name.clone(), *percentage))
+            .collect::<Vec<_>>();
+        entries.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(core::cmp::Ordering::Equal));
+        entries
+    }
+    /// Get language names, sorted by percentage in descending order
+    pub fn names(&self) -> Vec<String> {
+        self.entries().into_iter().map(|(name, _)| name).collect()
+    }
+}
 impl<'de> serde::Deserialize<'de> for ProgrammingLanguagesResponse {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         HashMap::<String, ProgrammingLanguageDetails>::deserialize(deserializer).map(Self::parse)
+    }
+}
+impl<'de> serde::Deserialize<'de> for ProgrammingLanguageUseResponse {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        HashMap::<String, f64>::deserialize(deserializer).map(Self::parse)
     }
 }
 #[async_trait]
@@ -777,6 +823,26 @@ pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
             ];
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<GroupsResponse>(response)
+        }
+        | Err(why) => Err(why),
+    }
+}
+/// Get programming languages used by a GitLab project
+///
+/// See <https://docs.gitlab.com/api/projects/?utm_source=perplexity#retrieve-programming-language-usage-information> for more information on GitLab API.
+pub async fn language_use(options: Options) -> ApiResult<ProgrammingLanguageUseResponse> {
+    let action = "languages";
+    let Options {
+        token, identifier, domain, ..
+    } = options;
+    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
+        | Ok(endpoint) => {
+            let params = vec![
+                param!(Header, "PRIVATE-TOKEN", &token),
+                param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
+            ];
+            let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+            endpoint.handle::<ProgrammingLanguageUseResponse>(response)
         }
         | Err(why) => Err(why),
     }

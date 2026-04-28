@@ -213,7 +213,7 @@ mod github_api {
 
     #[test]
     fn test_template_endpoint_for() {
-        let endpoint = Endpoint::from_template("github").map(|e| e.with_domain("api.github.com")).unwrap();
+        let endpoint = Endpoint::from_template("github::api").map(|e| e.with_domain("api.github.com")).unwrap();
         assert_eq!(endpoint.base(), "https://api.github.com");
         assert!(endpoint.resources.iter().any(|r| r.name == "tree"));
     }
@@ -264,7 +264,7 @@ mod github_api {
 #[cfg(test)]
 mod gitlab_api {
     use super::*;
-    use crate::io::api::gitlab::{PaginationField, ProgrammingLanguageDetails, ProgrammingLanguagesResponse};
+    use crate::io::api::gitlab::{PaginationField, ProgrammingLanguageDetails, ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse};
 
     #[test]
     fn test_query_string() {
@@ -319,6 +319,16 @@ mod gitlab_api {
         assert_eq!(response.languages.len(), 1);
         assert_eq!(response.languages[0].name, "Python");
         assert_eq!(response.languages[0].language_id, Some(303));
+    }
+    #[test]
+    fn test_programming_language_use_response_deserializes_map() {
+        let json = r#"{"Rust":98.12,"Makefile":0.5,"Python":0.49}"#;
+        let response: ProgrammingLanguageUseResponse = serde_json::from_str(json).expect("should deserialize language usage map");
+        assert_eq!(response.languages.len(), 3);
+        assert_eq!(response.languages[0].name, "Makefile");
+        assert_eq!(response.languages[0].percentage, 0.5);
+        assert_eq!(response.languages[1].name, "Python");
+        assert_eq!(response.languages[2].name, "Rust");
     }
 }
 #[cfg(test)]
@@ -666,7 +676,7 @@ mod orcid_api {
     }
     #[test]
     fn test_from_template_with_domain() {
-        let result = Endpoint::from_template("gitlab").map(|e| e.with_domain("custom-gitlab.example.com"));
+        let result = Endpoint::from_template("gitlab::api").map(|e| e.with_domain("custom-gitlab.example.com"));
         assert!(result.is_ok());
         let endpoint = result.unwrap();
         assert_eq!(endpoint.domain, "custom-gitlab.example.com");
