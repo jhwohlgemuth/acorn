@@ -1,9 +1,10 @@
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
-    self, extract_template_keys, orcid, ror, Endpoint, Param, ParamStyle, RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,
+    self, extract_template_keys, orcid, ror, Endpoint, IntoBody, Param, ParamStyle, RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,
 };
 use crate::io::read_file;
 use crate::param;
+use crate::prelude::HashMap;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
 use crate::util::Searchable;
 use crate::{Location, Repository, Scheme};
@@ -181,6 +182,11 @@ fn test_extract_template_keys() {
     assert_eq!(keys, expected);
 }
 #[test]
+fn test_into_body() {
+    let payload = vec![param!(Body, "body", "This is a test comment!!!")].into_body();
+    assert_eq!(payload, serde_json::json!({ "body": "This is a test comment!!!" }));
+}
+#[test]
 fn test_query_params_empty_field() {
     let params = vec![
         Param::of_type(api::ParamStyle::FieldList)
@@ -200,9 +206,65 @@ fn test_ror_search_response() {
     insta::assert_snapshot!(format!("{:#?}", response));
 }
 #[cfg(test)]
+mod github_api {
+    use super::*;
+    use crate::io::api::github::{collect_tree, path_for, TreeEntry};
+    use crate::io::api::TreeEntryType;
+
+    #[test]
+    fn test_template_endpoint_for() {
+        let endpoint = Endpoint::from_template("github").map(|e| e.with_domain("api.github.com")).unwrap();
+        assert_eq!(endpoint.base(), "https://api.github.com");
+        assert!(endpoint.resources.iter().any(|r| r.name == "tree"));
+    }
+    #[test]
+    fn test_path_for() {
+        assert_eq!(path_for("", "README.md"), "README.md");
+        assert_eq!(path_for("content", "index.json"), "content/index.json");
+    }
+    #[test]
+    fn test_collect_tree_partitions_paths_and_subtrees() {
+        let entries = vec![
+            TreeEntry {
+                path: "README.md".to_string(),
+                mode: "100644".to_string(),
+                entry_type: TreeEntryType::Blob,
+                sha: "blob-sha".to_string(),
+                size: Some(10),
+                url: "https://example.invalid/blob".to_string(),
+            },
+            TreeEntry {
+                path: "content".to_string(),
+                mode: "040000".to_string(),
+                entry_type: TreeEntryType::Tree,
+                sha: "tree-sha".to_string(),
+                size: None,
+                url: "https://example.invalid/tree".to_string(),
+            },
+        ];
+        let (paths, pending) = collect_tree(entries, "");
+        assert_eq!(paths, vec!["README.md".to_string()]);
+        assert_eq!(pending, vec![("tree-sha".to_string(), "content".to_string())]);
+    }
+    #[test]
+    fn test_collect_tree_prefixes_nested_entries() {
+        let entries = vec![TreeEntry {
+            path: "index.json".to_string(),
+            mode: "100644".to_string(),
+            entry_type: TreeEntryType::Blob,
+            sha: "blob-sha".to_string(),
+            size: Some(10),
+            url: "https://example.invalid/blob".to_string(),
+        }];
+        let (paths, pending) = collect_tree(entries, "content");
+        assert_eq!(paths, vec!["content/index.json".to_string()]);
+        assert!(pending.is_empty());
+    }
+}
+#[cfg(test)]
 mod gitlab_api {
     use super::*;
-    use crate::io::api::gitlab::PaginationField;
+    use crate::io::api::gitlab::{PaginationField, ProgrammingLanguageDetails, ProgrammingLanguagesResponse};
 
     #[test]
     fn test_query_string() {
@@ -230,6 +292,33 @@ mod gitlab_api {
         let params = vec![param!(KeyValuePair, "per_page", "{}"), param!(KeyValuePair, "page", "not a number")];
         let query = Param::to_query_string::<PaginationField, api::EmptyField>(params);
         assert!(query.is_empty());
+    }
+    #[test]
+    fn test_programming_languages_response_parse_filters_programming_only() {
+        let data = HashMap::from_iter([
+            (
+                "Python".to_string(),
+                ProgrammingLanguageDetails {
+                    language_id: Some(303),
+                    language_type: Some("programming".to_string()),
+                    color: Some("#3572A5".to_string()),
+                    group: None,
+                },
+            ),
+            (
+                "YAML".to_string(),
+                ProgrammingLanguageDetails {
+                    language_id: Some(407),
+                    language_type: Some("data".to_string()),
+                    color: Some("#cb171e".to_string()),
+                    group: None,
+                },
+            ),
+        ]);
+        let response = ProgrammingLanguagesResponse::parse(data);
+        assert_eq!(response.languages.len(), 1);
+        assert_eq!(response.languages[0].name, "Python");
+        assert_eq!(response.languages[0].language_id, Some(303));
     }
 }
 #[cfg(test)]
