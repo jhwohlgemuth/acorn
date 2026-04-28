@@ -28,7 +28,7 @@
             ]
         },
         {
-            "name": "github",
+            "name": "github::api",
             "domain": "api.github.com",
             "resources": [
                 {
@@ -39,8 +39,20 @@
             ]
         },
         {
-            "name": "gitlab",
-            "domain": "code.ornl.gov",
+            "name": "github::org",
+            "domain": "raw.githubusercontent.com",
+            "root": "github-linguist/linguist",
+            "resources": [
+                {
+                    "name": "languages",
+                    "method": "get",
+                    "template": "{{ base }}/refs/heads/main/lib/linguist/languages.yml"
+                }
+            ]
+        },
+        {
+            "name": "gitlab::api",
+            "domain": "gitlab.com",
             "root": "api/v4",
             "resources": [
                 {
@@ -106,24 +118,14 @@
             ]
         },
         {
-            "name": "languages::gitlab",
+            "name": "gitlab::org",
             "domain": "gitlab.com",
+            "root": "gitlab-org/gitlab",
             "resources": [
                 {
                     "name": "languages",
                     "method": "get",
-                    "template": "{{ base }}/gitlab-org/gitlab/-/raw/master/vendor/languages.yml"
-                }
-            ]
-        },
-        {
-            "name": "languages::github",
-            "domain": "raw.githubusercontent.com",
-            "resources": [
-                {
-                    "name": "languages",
-                    "method": "get",
-                    "template": "{{ base }}/github-linguist/linguist/refs/heads/main/lib/linguist/languages.yml"
+                    "template": "{{ base }}/-/raw/master/vendor/languages.yml"
                 }
             ]
         },

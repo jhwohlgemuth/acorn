@@ -767,7 +767,7 @@ pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
     let Options {
         token, identifier, domain, ..
     } = options;
-    match Endpoint::from_template("gitlab").map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
             let params = vec![
                 param!(Header, "PRIVATE-TOKEN", &token),
@@ -783,7 +783,7 @@ pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
 }
 /// Download programming language metadata from GitLab linguist source file
 pub async fn languages() -> ApiResult<ProgrammingLanguagesResponse> {
-    let names = ["languages::gitlab", "languages::github"];
+    let names = ["gitlab::org", "github::org"];
     let action = "languages";
     async fn fetch(name: &str, action: &str) -> ApiResult<ProgrammingLanguagesResponse> {
         match INCLUDED_ENDPOINTS.find_by_name(name) {
@@ -821,7 +821,7 @@ pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteR
         body,
         domain,
     } = options;
-    match Endpoint::from_template("gitlab").map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
             let body = body.unwrap_or_default();
             let params = vec![
@@ -842,7 +842,7 @@ pub async fn runner(options: Options) -> ApiResult<RunnerDetails> {
     let Options {
         token, identifier, domain, ..
     } = options;
-    match Endpoint::from_template("gitlab").map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
             let params = vec![
                 param!(Header, "PRIVATE-TOKEN", &token),
@@ -858,7 +858,7 @@ pub async fn runner(options: Options) -> ApiResult<RunnerDetails> {
 pub async fn runners(options: Options) -> ApiResult<RunnersResponse> {
     let action = "runners";
     let Options { token, domain, .. } = options;
-    match Endpoint::from_template("gitlab").map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
             let params = vec![param!(Header, "PRIVATE-TOKEN", &token)];
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
@@ -875,7 +875,7 @@ pub(crate) async fn tree_paths(
     directory: impl Into<String>,
     page: u32,
 ) -> ApiResult<Vec<String>> {
-    match Endpoint::from_template("gitlab").map(|e| e.with_domain(host.into())) {
+    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(host.into())) {
         | Ok(endpoint) => {
             let params = vec![
                 param!(TemplateValue, "identifier", &identifier.into()),

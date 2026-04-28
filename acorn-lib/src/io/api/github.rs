@@ -77,7 +77,7 @@ impl TreeEntry {
 }
 /// Fetch repository tree blob paths for a GitHub repository and branch
 pub(crate) async fn tree_paths(host: impl Into<String>, path: impl Into<String>, branch: impl Into<String>) -> ApiResult<Vec<String>> {
-    let endpoint = match Endpoint::from_template("github").map(|e| e.with_domain(host)) {
+    let endpoint = match Endpoint::from_template("github::api").map(|e| e.with_domain(host)) {
         | Ok(endpoint) => endpoint,
         | Err(why) => return Err(why),
     };

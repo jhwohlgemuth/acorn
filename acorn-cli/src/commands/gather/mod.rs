@@ -30,7 +30,7 @@ pub async fn run(
     // let langs = gitlab::languages().await?;
     // dbg!(langs);
     // gitlab_merge_request_note_example().await;
-    gitlab_example().await;
+    // gitlab_example().await;
     // orcid_example().await;
     // ror_example().await;
     Ok(())
