@@ -5,6 +5,7 @@ use acorn::param;
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
+use tracing::info;
 
 pub async fn run(
     path: &Option<PathBuf>,
@@ -53,22 +54,32 @@ Here is a list
 }
 #[allow(dead_code)]
 async fn gitlab_example() {
-    let group = "24758";
-    let project = "16689";
+    let group = "24758"; // Research Enablement
+    let project = "16689"; // ACORN
     let options = gitlab::Options::from_env();
     let runners = gitlab::runners(options.clone()).await;
-    println!("Runners: {:#?}", runners);
-    match runners {
+    match &runners {
         | Ok(ref values) if !values.is_empty() => {
-            let runner_id = values[0].identifier.to_string();
+            let runner_id = values[0].identifier.unwrap_or_default().to_string();
             let options = options.clone().with_identifier(runner_id);
-            println!("Runner: {:#?}", gitlab::runner(options).await);
+            let runner = gitlab::runner(options).await;
+            info!("Runner: {runner:#?}");
+            println!("# of runners: {:#?}", values.len());
         }
         | Ok(_) => println!("Runner: Ok(None)"),
         | Err(ref why) => panic!("Runner: Err({why:#?})"),
     }
-    let options = options.with_identifier(group);
-    println!("Groups: {:#?}", gitlab::groups(options.clone()).await);
+    let runner_metadata = gitlab::RunnerMetadata::init()
+        .runner_type("group")
+        .description("TEST RUNNER — DELETE ASAP")
+        .tags(&["gpu", "foo"])
+        .build();
+    let options = options.with_identifier(group).with_runner(runner_metadata);
+    let create = gitlab::create_runner(options.clone()).await;
+    println!("Create Runner Response: {create:#?}");
+    let groups = gitlab::groups(options.clone()).await.unwrap();
+    info!("Groups: {groups:#?}");
+    println!("# of groups: {}", groups.len());
     let options = options.with_identifier(project);
     println!("Languages: {:#?}", gitlab::language_use(options).await.unwrap().entries());
 }

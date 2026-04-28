@@ -53,6 +53,41 @@ pub enum Data {
     /// Opaque data artifact
     Model(Model),
 }
+/// Framework for assessing the readiness of a data set
+///
+/// Adapted from the concept of "data readiness levels" as described by N. Lawrence in [Data Readiness Levels](http://arxiv.org/abs/1705.02245).
+#[derive(Clone, Debug, Deserialize, Display, Serialize, JsonSchema)]
+pub enum DataReadinessLevel {
+    /// Bottom of Band C. Hearsay data — existence is not yet verified. Signs include statements such
+    /// as "The sales department should have a record of that." Problems may include whether the data
+    /// is actually being recorded, the format in which it is recorded, privacy or legal constraints,
+    /// and topology limitations (e.g., data distributed across many devices).
+    #[display("Level E: Hearsay")]
+    E,
+    /// Top of Band C. Data is machine readable and ethical procedures for data handling have been
+    /// addressed. It is ready to be loaded into analysis software or made available via a data
+    /// repository. Reaching D often requires significant bespoke software and human understanding
+    /// of systems, ethics, and the law.
+    #[display("Level D: Accessible")]
+    D,
+    /// Beginning of Band C. Data is accessible and loaded into analysis software but its faithfulness
+    /// and representation have not yet been characterized. Missing values, noise, data entry errors,
+    /// unit correctness, and collection bias have not been assessed.
+    #[display("Level C: Loaded")]
+    C,
+    /// End of Band B. The analyst understands how faithful the data is to its original description.
+    /// A broad idea of limitations in the data is present and an intuition about what may really be
+    /// possible with the data set is beginning to form. Getting to this point is often the most
+    /// expensive part of a data project.
+    #[display("Level B: Faithful")]
+    B,
+    /// Data in context. The data set has been assessed as appropriate for a specific task or question.
+    /// Any remedial steps have been taken and the data is ready to be deployed in the given context.
+    /// A data set may be A1 for one question but only B1 for a different question; the task definition
+    /// is an important pre-requisite for this band.
+    #[display("Level A: Appropriate")]
+    A,
+}
 /// Levels adapted from NASA Earth Observing System Data and Information System ([EOSDIS]) data processing levels,
 /// which are intended to describe the level of processing that has been applied to a given data set.
 /// These levels are widely used in the Earth science community and provide a useful framework for understanding the maturity and usability of data products.
@@ -61,7 +96,7 @@ pub enum Data {
 ///
 /// [EOSDIS]: https://www.earthdata.nasa.gov/about/esdis/eosdis
 #[derive(Clone, Debug, Deserialize, Display, Serialize, JsonSchema)]
-pub enum DataProcessingLevel {
+pub enum GeospatialDataProcessingLevel {
     /// Reconstructed, unprocessed ("raw") instrument and payload data at full resolution,
     /// with any and all communications artifacts (e.g., synchronization frames,
     /// communications headers, duplicate data) removed.
@@ -90,11 +125,11 @@ pub enum DataProcessingLevel {
     /// such as ground elevation, highest and lowest surface return elevations,
     /// energy quantile heights ("relative height" metrics), and other
     /// waveform-derived metrics describing the intercepted surface.
-    #[display("Level 2A: Surface Metrics")]
+    #[display("Level 2A: Derived Surface")]
     L2A,
     /// L2B data are L2A data that have been processed to instrument units
     /// (not all instruments will have a L2B equivalent).
-    #[display("Level 2B: Processed Surface Metrics")]
+    #[display("Level 2B: Processed Derived Surface")]
     L2B,
     /// Variables mapped on uniform space-time grid scales, usually with some
     /// completeness and consistency.
@@ -106,41 +141,8 @@ pub enum DataProcessingLevel {
     L3A,
     /// Model output or results from analyses of lower-level data
     /// (e.g., variables derived from multiple measurements).
-    #[display("Level 4: Model")]
+    #[display("Level 4: Model Output")]
     L4,
-}
-/// Framework for assessing the readiness of a data set across three bands: accessibility (C), faithfulness (B), and contextual appropriateness (A)
-#[derive(Clone, Debug, Deserialize, Display, Serialize, JsonSchema)]
-pub enum DataReadinessLevel {
-    /// Data in context. The data set has been assessed as appropriate for a specific task or question.
-    /// Any remedial steps have been taken and the data is ready to be deployed in the given context.
-    /// A data set may be A1 for one question but only B1 for a different question; the task definition
-    /// is an important pre-requisite for this band.
-    #[display("A: Appropriate")]
-    A1,
-    /// End of Band B. The analyst understands how faithful the data is to its original description.
-    /// A broad idea of limitations in the data is present and an intuition about what may really be
-    /// possible with the data set is beginning to form. Getting to this point is often the most
-    /// expensive part of a data project.
-    #[display("B: Faithful")]
-    B1,
-    /// Beginning of Band B. Data is accessible and loaded into analysis software but its faithfulness
-    /// and representation have not yet been characterized. Missing values, noise, data entry errors,
-    /// unit correctness, and collection bias have not been assessed.
-    #[display("B: Loaded")]
-    B4,
-    /// Top of Band C. Data is machine readable and ethical procedures for data handling have been
-    /// addressed. It is ready to be loaded into analysis software or made available via a data
-    /// repository. Reaching C1 often requires significant bespoke software and human understanding
-    /// of systems, ethics, and the law.
-    #[display("C: Accessible")]
-    C1,
-    /// Bottom of Band C. Hearsay data — existence is not yet verified. Signs include statements such
-    /// as "The sales department should have a record of that." Problems may include whether the data
-    /// is actually being recorded, the format in which it is recorded, privacy or legal constraints,
-    /// and topology limitations (e.g., data distributed across many devices).
-    #[display("C: Hearsay")]
-    C4,
 }
 /// Framework for partitioning data by quality using metaphor of mined metals
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]

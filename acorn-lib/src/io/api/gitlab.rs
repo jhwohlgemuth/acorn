@@ -3,7 +3,7 @@
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
 use crate::io::api::{DatabasePersistence, EmptyField, Endpoint, RemoteResource, ResponseContent, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
-use crate::io::config::{RunnerStatus, RunnerType};
+use crate::io::config::{RunnerDetails, RunnerStatus, RunnerType};
 use crate::io::database::schema::{ProgrammingLanguageRow, Table};
 use crate::io::database::{Database, Operations};
 use crate::io::{first_env_var, with_progress, ApiResult, ProgressType};
@@ -19,10 +19,27 @@ use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
+/// Trait for adding creation and registration functionality (e.g., runners, issues, merge requests, etc.)
+pub trait Create {
+    /// Create a new instance of the struct with default values
+    fn create(_options: &Options) -> ApiResult<Self>
+    where
+        Self: Sized,
+    {
+        unimplemented!()
+    }
+    /// Register a new instance of the struct with specified values
+    fn register(self) -> ApiResult<Self>
+    where
+        Self: Sized,
+    {
+        unimplemented!()
+    }
+}
 /// Type for GitLab API descendent groups response
 pub type GroupsResponse = Vec<GroupDetails>;
 /// Type for GitLab API all runners response
-pub type RunnersResponse = Vec<RunnerDetails>;
+pub type RunnersResponse = Vec<RunnerMetadata>;
 /// Type for GitLab API response for a tree
 pub type TreeResponse = Vec<TreeEntry>;
 /// Type for GitLab programming language entries
@@ -37,55 +54,6 @@ pub enum AccessLevel {
     NotProtected,
     /// Ref protected
     RefProtected,
-}
-/// Language metadata details from GitLab languages YAML file
-#[skip_serializing_none]
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct ProgrammingLanguageDetails {
-    /// Canonical language identifier
-    pub language_id: Option<u64>,
-    /// Language category (for example, `programming`, `data`, `markup`, or `prose`)
-    #[serde(rename = "type")]
-    pub language_type: Option<String>,
-    /// Display color (hex string)
-    pub color: Option<String>,
-    /// Optional parent language group
-    pub group: Option<String>,
-}
-/// Normalized programming language metadata with explicit language name
-#[skip_serializing_none]
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct ProgrammingLanguageMetadata {
-    /// Display name of the language
-    pub name: String,
-    /// Canonical language identifier
-    pub language_id: Option<u64>,
-    /// Language category (for example, `programming`, `data`, `markup`, or `prose`)
-    pub language_type: Option<String>,
-    /// Display color (hex string)
-    pub color: Option<String>,
-    /// Optional parent language group
-    pub group: Option<String>,
-}
-/// Parsed response for GitLab language metadata
-#[derive(Clone, Debug, Default, Serialize)]
-pub struct ProgrammingLanguagesResponse {
-    /// Flattened language metadata entries
-    pub languages: ProgrammingLanguageEntries,
-}
-/// Programming language usage entry for a project
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct ProgrammingLanguageUseMetadata {
-    /// Display name of the language
-    pub name: String,
-    /// Relative share of repository content for this language
-    pub percentage: f64,
-}
-/// Parsed response for GitLab project language usage
-#[derive(Clone, Debug, Default, Serialize)]
-pub struct ProgrammingLanguageUseResponse {
-    /// Flattened language usage entries
-    pub languages: ProgrammingLanguageUseEntries,
 }
 /// Group visibility level
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -350,7 +318,7 @@ pub struct MergeRequestNoteResponse {
     /// Comment body text
     pub body: String,
     /// Author details
-    pub author: UserDetails,
+    pub author: UserMetadata,
     /// Creation timestamp in ISO-8601 format
     pub created_at: String,
     /// Last update timestamp in ISO-8601 format
@@ -394,6 +362,78 @@ pub struct Options {
     /// GitLab domain (defaults to gitlab.com)
     #[builder(default = String::from("gitlab.com"))]
     pub domain: String,
+    /// GitLab runner metadata necessary for creation
+    #[builder(default = RunnerMetadata::default())]
+    pub runner_metadata: RunnerMetadata,
+}
+/// Language metadata details from GitLab languages YAML file
+#[skip_serializing_none]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ProgrammingLanguageDetails {
+    /// Canonical language identifier
+    pub language_id: Option<u64>,
+    /// Language category (for example, `programming`, `data`, `markup`, or `prose`)
+    #[serde(rename = "type")]
+    pub language_type: Option<String>,
+    /// Display color (hex string)
+    pub color: Option<String>,
+    /// Optional parent language group
+    pub group: Option<String>,
+}
+/// Normalized programming language metadata with explicit language name
+#[skip_serializing_none]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ProgrammingLanguageMetadata {
+    /// Display name of the language
+    pub name: String,
+    /// Canonical language identifier
+    pub language_id: Option<u64>,
+    /// Language category (for example, `programming`, `data`, `markup`, or `prose`)
+    pub language_type: Option<String>,
+    /// Display color (hex string)
+    pub color: Option<String>,
+    /// Optional parent language group
+    pub group: Option<String>,
+}
+/// Parsed response for GitLab language metadata
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct ProgrammingLanguagesResponse {
+    /// Flattened language metadata entries
+    pub languages: ProgrammingLanguageEntries,
+}
+/// Programming language usage entry for a project
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ProgrammingLanguageUseMetadata {
+    /// Display name of the language
+    pub name: String,
+    /// Relative share of repository content for this language
+    pub percentage: f64,
+}
+/// Parsed response for GitLab project language usage
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct ProgrammingLanguageUseResponse {
+    /// Flattened language usage entries
+    pub languages: ProgrammingLanguageUseEntries,
+}
+/// GitLab API response for creating a runner
+/// ### Example JSON response
+/// ```json
+/// {
+///     "id": 9171,
+///     "token": "<access-token>",
+///     "token_expires_at": null
+/// }
+/// ```
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RunnerCreationResponse {
+    /// Numeric ID of the runner
+    #[serde(rename = "id")]
+    pub identifier: u64,
+    /// Runner access token
+    pub token: Option<String>,
+    /// Runner access token expiration timestamp
+    pub token_expires_at: Option<String>,
 }
 /// GitLab API response for runner details
 /// ### Example JSON response
@@ -433,23 +473,31 @@ pub struct Options {
 /// }
 /// ```
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RunnerDetails {
+#[derive(Clone, Debug, Builder, Serialize, Deserialize)]
+#[builder(start_fn = init, on(String, into), on(&str, into))]
+pub struct RunnerMetadata {
     /// Numeric ID of the runner
     #[serde(rename = "id")]
-    pub identifier: u64,
+    pub identifier: Option<u64>,
     /// Whether the runner is active
+    #[builder(default)]
     #[serde(default)]
     pub active: bool,
     /// Whether the runner is online
+    #[builder(default)]
     #[serde(default)]
     pub online: bool,
     /// Whether the runner is paused
+    #[builder(default)]
     #[serde(default)]
     pub paused: bool,
-    /// Whether the runner is shared
+    /// Whether the runner runs untagged jobs
+    #[builder(default)]
     #[serde(default)]
-    #[serde(rename = "is_shared")]
+    pub run_untagged: bool,
+    /// Whether the runner is shared
+    #[builder(default)]
+    #[serde(default, rename = "is_shared")]
     pub shared: bool,
     /// CPU architecture reported by the runner
     pub architecture: Option<String>,
@@ -458,9 +506,11 @@ pub struct RunnerDetails {
     /// Runner IP address
     pub ip_address: Option<String>,
     /// Type of runner (for example, `project_type`)
-    pub runner_type: Option<RunnerType>,
+    #[builder(with = |value: &str| RunnerType::from(value))]
+    #[builder(default = RunnerType::Project)]
+    pub runner_type: RunnerType,
     /// Created by user
-    pub created_by: Option<UserDetails>,
+    pub created_by: Option<UserMetadata>,
     /// Created timestamp in ISO-8601 format
     pub created_at: Option<String>,
     /// Last contact timestamp in ISO-8601 format
@@ -482,6 +532,7 @@ pub struct RunnerDetails {
     /// Optional Git revision for the runner version
     pub revision: Option<String>,
     /// Runner tags
+    #[builder(with = |values: &[&str]| values.iter().map(|s| s.to_string()).collect::<Vec<String>>())]
     #[serde(rename = "tag_list")]
     pub tags: Option<Vec<String>>,
     /// Optional runner version
@@ -566,7 +617,7 @@ pub struct TreeEntry {
 /// ```
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct UserDetails {
+pub struct UserMetadata {
     /// URL of user avatar image
     pub avatar_url: String,
     /// Numeric ID of user
@@ -587,6 +638,63 @@ pub struct UserDetails {
     #[serde(rename = "web_url")]
     pub url: String,
 }
+impl Default for RunnerMetadata {
+    fn default() -> Self {
+        Self::init().build()
+    }
+}
+impl From<RunnerDetails> for RunnerMetadata {
+    fn from(value: RunnerDetails) -> Self {
+        let RunnerDetails {
+            name,
+            runner_type,
+            description,
+            tags,
+            ..
+        } = value;
+        Self {
+            access_level: None,
+            active: false,
+            architecture: None,
+            contacted_at: None,
+            created_at: None,
+            created_by: None,
+            description,
+            groups: None,
+            identifier: None,
+            ip_address: None,
+            job_execution_status: None,
+            paused: false,
+            maintenance_note: None,
+            maximum_timeout: None,
+            name: Some(name),
+            online: false,
+            platform: None,
+            projects: None,
+            revision: None,
+            shared: matches!(runner_type, RunnerType::Instance),
+            runner_type,
+            run_untagged: false,
+            status: None,
+            tags,
+            version: None,
+        }
+    }
+}
+impl RunnerMetadata {
+    /// Whether the runner is active and online
+    pub fn is_available(&self) -> bool {
+        let Self { active, online, paused, .. } = self;
+        *active && *online && !*paused
+    }
+    /// Return a copy of runner metadata with project or group identifier set
+    pub fn with_identifier(self, value: u64) -> Self {
+        Self {
+            identifier: Some(value),
+            ..self
+        }
+    }
+}
 impl Options {
     /// Build options from common GitLab CI environment variables.
     /// - `CI_JOB_TOKEN` -> `token` (defaults to empty string when unset)
@@ -603,26 +711,34 @@ impl Options {
             internal_identifier: var("CI_MERGE_REQUEST_IID").ok(),
             domain: var("CI_SERVER_HOST").unwrap_or_else(|_| "gitlab.com".to_string()),
             body: None,
+            runner_metadata: RunnerMetadata::default(),
         }
     }
     /// Return a copy of options with request body payload set
-    pub fn with_body(self, body: impl Into<String>) -> Self {
+    pub fn with_body(self, value: impl Into<String>) -> Self {
         Self {
-            body: Some(body.into()),
-            ..self
-        }
-    }
-    /// Return a copy of options with project or group identifier set
-    pub fn with_identifier(self, identifier: impl Into<String>) -> Self {
-        Self {
-            identifier: Some(identifier.into()),
+            body: Some(value.into()),
             ..self
         }
     }
     /// Return a copy of options with GitLab domain set
-    pub fn with_domain(self, domain: impl Into<String>) -> Self {
+    pub fn with_domain(self, value: impl Into<String>) -> Self {
         Self {
-            domain: domain.into(),
+            domain: value.into(),
+            ..self
+        }
+    }
+    /// Return a copy of options with project or group identifier set
+    pub fn with_identifier(self, value: impl Into<String>) -> Self {
+        Self {
+            identifier: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with runner metadata set
+    pub fn with_runner(self, metadata: RunnerMetadata) -> Self {
+        Self {
+            runner_metadata: metadata,
             ..self
         }
     }
@@ -807,6 +923,40 @@ impl ValueValidator for PaginationField {
         }
     }
 }
+/// Create a new runner using project or group identifier
+pub async fn create_runner(options: Options) -> ApiResult<RunnerCreationResponse> {
+    let action = "runner::create";
+    let Options {
+        token,
+        identifier,
+        domain,
+        runner_metadata,
+        ..
+    } = options;
+    let RunnerMetadata {
+        runner_type,
+        description,
+        tags,
+        run_untagged,
+        ..
+    } = runner_metadata;
+    let id_type_string = runner_type.to_string().replace("type", "id");
+    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
+        | Ok(endpoint) => {
+            let params = vec![
+                param!(Header, "PRIVATE-TOKEN", &token),
+                param!(Body, &id_type_string, &identifier.unwrap_or_default()),
+                param!(Body, "runner_type", &runner_type.to_string()),
+                param!(Body, "description", &description.unwrap_or_default()),
+                param!(Body, "tag_list", &tags.unwrap_or_default().join(",")),
+                param!(Body, "run_untagged", &run_untagged.to_string()),
+            ];
+            let response = endpoint.invoke(action, Some(params)).await;
+            endpoint.handle::<RunnerCreationResponse>(response)
+        }
+        | Err(why) => Err(why),
+    }
+}
 /// Get descendant groups of a group by identifier
 pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
     let action = "groups";
@@ -886,6 +1036,7 @@ pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteR
         internal_identifier,
         body,
         domain,
+        ..
     } = options;
     match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
@@ -903,7 +1054,7 @@ pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteR
     }
 }
 /// Get runner details by identifier
-pub async fn runner(options: Options) -> ApiResult<RunnerDetails> {
+pub async fn runner(options: Options) -> ApiResult<RunnerMetadata> {
     let action = "runner";
     let Options {
         token, identifier, domain, ..
@@ -915,7 +1066,7 @@ pub async fn runner(options: Options) -> ApiResult<RunnerDetails> {
                 param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
             ];
             let response = endpoint.invoke(action, Some(params)).await;
-            endpoint.handle::<RunnerDetails>(response)
+            endpoint.handle::<RunnerMetadata>(response)
         }
         | Err(why) => Err(why),
     }

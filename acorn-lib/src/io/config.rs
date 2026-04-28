@@ -94,7 +94,7 @@ pub struct ApplicationConfiguration {
     /// List of endpoints
     pub endpoints: Option<Vec<Endpoint>>,
     /// List of runners
-    pub runners: Option<Vec<Runner>>,
+    pub runners: Option<Vec<RunnerDetails>>,
 }
 /// Struct for bucket data
 #[skip_serializing_none]
@@ -139,7 +139,7 @@ pub struct BucketOptions {
 #[builder(start_fn = at, on(String, into))]
 #[serde(rename_all = "camelCase")]
 /// CI/CD runner configuration entry
-pub struct Runner {
+pub struct RunnerDetails {
     /// Runner name
     pub name: String,
     /// Runner type (e.g., group, instance, project)
@@ -156,6 +156,13 @@ pub struct Runner {
     #[builder(default)]
     #[serde(default, alias = "gpu")]
     pub gpu_enabled: bool,
+    /// List of tags associated with the runner
+    #[serde(default, alias = "tag_list")]
+    pub tags: Option<Vec<String>>,
+    /// Whether the runner runs untagged jobs (GitLab-specific)
+    #[builder(default)]
+    #[serde(default)]
+    pub run_untagged: bool,
 }
 impl ApplicationConfiguration {
     /// Parse ACORN configuration in JSON or YAML format
@@ -498,6 +505,11 @@ impl From<&str> for RunnerType {
             | "PROJECT" => RunnerType::Project,
             | _ => RunnerType::Group,
         }
+    }
+}
+impl From<String> for RunnerType {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
     }
 }
 fn count_json_files(paths: &[String]) -> usize {

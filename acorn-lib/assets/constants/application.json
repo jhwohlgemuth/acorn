@@ -101,9 +101,9 @@
                     "template": "{{ base }}/runners/{{ identifier }}{{ query }}"
                 },
                 {
-                    "name": "runner-create",
+                    "name": "runner::create",
                     "method": "post",
-                    "template": "{{ base }}/runners{{ query }}"
+                    "template": "{{ base }}/user/runners{{ query }}"
                 },
                 {
                     "name": "runners",

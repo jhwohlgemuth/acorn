@@ -1,11 +1,10 @@
 ---
 source: acorn-lib/src/io/tests/mod.rs
-assertion_line: 220
 expression: "format!(\"{:#?}\", config.runners)"
 ---
 Some(
     [
-        Runner {
+        RunnerDetails {
             name: "NSSD Runner",
             runner_type: Project,
             description: None,
@@ -19,8 +18,10 @@ Some(
                 },
             },
             gpu_enabled: false,
+            tags: None,
+            run_untagged: false,
         },
-        Runner {
+        RunnerDetails {
             name: "Bucket Runner",
             runner_type: Project,
             description: None,
@@ -34,6 +35,8 @@ Some(
                 },
             },
             gpu_enabled: true,
+            tags: None,
+            run_untagged: false,
         },
     ],
 )

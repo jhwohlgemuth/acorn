@@ -231,6 +231,16 @@ macro_rules! check_err {
 /// - **Path style** (explicit): `param!(ParamStyle::QueryPair, "q", ...)`  
 ///   Use when the full path is preferred or when `ParamStyle` is in scope
 ///
+/// # Parameter Styles
+///
+/// Common body type parameters and request styles:
+/// - `Header`: HTTP header (e.g., `"PRIVATE-TOKEN"`)
+/// - `Body`: Request body payload (e.g., JSON or form data)
+/// - `QueryPair`: URL query string parameter
+/// - `FieldList`: Comma-separated field list
+/// - `TemplateValue`: URI template substitution
+/// - `KeyValuePair`: Key-value pair in query or body
+///
 /// # Value Syntaxes
 ///
 /// The macro supports four different value syntaxes:
@@ -256,6 +266,12 @@ macro_rules! check_err {
 ///
 /// // Path style (explicit ParamStyle reference)
 /// param!(ParamStyle::FieldList, "fl", "family-name")
+///
+/// // Header parameter
+/// param!(Header, "PRIVATE-TOKEN", &token)
+///
+/// // Body parameter
+/// param!(Body, "body", &payload)
 ///
 /// // Vec notation
 /// param!(QueryPair, "q", vec![
