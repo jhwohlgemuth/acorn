@@ -3,6 +3,7 @@ use acorn::util::Label;
 use std::process::exit;
 
 pub mod check;
+pub mod create;
 pub mod doctor;
 pub mod download;
 pub mod export;

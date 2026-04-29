@@ -326,6 +326,17 @@ pub enum Commands {
         #[command(flatten)]
         verbose: Verbosity,
     },
+    /// Create research resources like GitLab runners, MCP servers, etc.
+    ///
+    ///     $> acorn create runner --config ./acorn.json
+    ///
+    ///     $> acorn create runner --group 12345
+    ///
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Create {
+        #[command(subcommand)]
+        command: Option<CreateCommands>,
+    },
     /// Diagnose and correct system requirements for using acorn
     ///
     ///     Print system diagnostics and identify issues
@@ -601,6 +612,32 @@ pub enum Commands {
     Schema {
         #[command(subcommand)]
         command: Option<SchemaCommands>,
+    },
+}
+#[derive(Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum CreateCommands {
+    /// Model context provider (MCP) server
+    Mcp {},
+    /// GitLab runner
+    Runner {
+        /// Path to configuration file for creating the resource
+        #[arg(short, long, default_value = "./", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+        config: Option<PathBuf>,
+        /// Runner description (alternative to providing a configuration file)
+        #[arg(short, long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
+        description: Option<String>,
+        /// GitLab group ID to create a runner for (alternative to providing a configuration file)
+        #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
+        group: Option<u64>,
+        /// GitLab project ID to create a runner for (alternative to providing a configuration file)
+        #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
+        project: Option<u64>,
+        /// Tags to register the runner with (alternative to providing a configuration file)
+        #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+        tags: Vec<String>,
+        #[command(flatten)]
+        verbose: Verbosity,
     },
 }
 #[derive(Debug, Subcommand)]

@@ -49,7 +49,7 @@ mod commands;
 mod io;
 mod template;
 
-use cli::{Arguments, Commands, SchemaCommands};
+use cli::{Arguments, Commands, CreateCommands, SchemaCommands};
 
 /// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
@@ -249,6 +249,21 @@ async fn main() -> Void {
             )
             .await
         }
+        | Some(Commands::Create { command, .. }) => match command {
+            | Some(CreateCommands::Mcp {}) => unimplemented!("MCP server creation is not yet implemented"),
+            | Some(CreateCommands::Runner {
+                config,
+                description,
+                group,
+                project,
+                tags,
+                verbose,
+            }) => commands::create::run(config, description, group, project, tags, verbose).await,
+            | None => {
+                eprintln!("=> {} No subcommand provided for 'create'", Label::fail());
+                exit(exitcode::USAGE);
+            }
+        },
         | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, offline).await,
         | Some(Commands::Download {
             config,
