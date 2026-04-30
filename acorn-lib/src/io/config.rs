@@ -10,7 +10,7 @@ use crate::io::api::Endpoint;
 use crate::io::http::get;
 use crate::io::ApiResult;
 use crate::io::{files_all, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType};
-use crate::prelude::{self, exit, PathBuf};
+use crate::prelude::{self, exit, Arc, PathBuf};
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
@@ -276,39 +276,42 @@ impl Bucket {
             quiet,
             ignore,
             filter,
-        } = options.clone();
-        let output = output.unwrap_or_default();
+        } = options;
+        let output = Arc::new(output.clone().unwrap_or_default());
         let Bucket { name, code_repository, .. } = self.clone();
         if code_repository.is_local() {
-            let uri = code_repository.clone().location().uri();
+            let uri = code_repository.location().uri();
             let bucket_root = match uri {
                 | Some(value) => PathBuf::from(value.path().to_string()).to_absolute_string(),
                 | None => {
                     unimplemented!()
                 }
             };
-            let files = files_all(PathBuf::from(bucket_root.clone()), None)
+            let files = files_all(PathBuf::from(&bucket_root), None)
                 .into_iter()
                 .map(|x| x.display().to_string())
                 .collect::<Vec<String>>();
             let items = files
                 .into_iter()
-                .filter(|path| !is_ignored_path(path, &ignore) && PathBuf::from(path).is_file() && is_filtered_path(path, &filter))
+                .filter(|path| !is_ignored_path(path, ignore) && PathBuf::from(path).is_file() && is_filtered_path(path, filter))
                 .collect::<Vec<String>>();
             let message: fn(&String) -> String = |path| format!("Copying {path}");
-            let bucket_root_clone = bucket_root.clone();
-            let output_clone = output.clone();
-            let operation = move |path: String| {
-                let bucket_root = bucket_root_clone.clone();
-                let output = output_clone.clone();
-                async move {
-                    let path_buf = PathBuf::from(&path);
-                    let relative = match path_buf.strip_prefix(PathBuf::from(&bucket_root)) {
-                        | Ok(rel) => rel.to_path_buf(),
-                        | Err(_) => return Err(eyre!("Failed to strip prefix {bucket_root} from {path}")),
-                    };
-                    let output_filepath = output.join(relative);
-                    write_file_bytes(output_filepath, || async { prelude::read(path.clone()) }).await
+            let bucket_root = Arc::new(bucket_root);
+            let operation = {
+                let bucket_root = Arc::clone(&bucket_root);
+                let output = Arc::clone(&output);
+                move |path: String| {
+                    let bucket_root = Arc::clone(&bucket_root);
+                    let output = Arc::clone(&output);
+                    async move {
+                        let path_buf = PathBuf::from(&path);
+                        let relative = match path_buf.strip_prefix(PathBuf::from(bucket_root.as_str())) {
+                            | Ok(rel) => rel.to_path_buf(),
+                            | Err(_) => return Err(eyre!("Failed to strip prefix {bucket_root} from {path}")),
+                        };
+                        let output_filepath = output.join(relative);
+                        write_file_bytes(output_filepath, || async { prelude::read(path.clone()) }).await
+                    }
                 }
             };
             let total_data: usize = count_json_files(&items);
@@ -318,7 +321,7 @@ impl Bucket {
                 | true => ProgressType::Silent,
                 | false => ProgressType::Bar,
             };
-            match with_progress(items, message, operation, finish_message, Some(threads), progress_type).await {
+            match with_progress(items, message, operation, finish_message, Some(*threads), progress_type).await {
                 | Ok(_) => Ok(total_data + total_images),
                 | Err(why) => {
                     error!("=> {} Copy files with progress bar — {why}", Label::fail());
@@ -341,13 +344,13 @@ impl Bucket {
             quiet,
             filter,
             ignore,
-        } = options.clone();
-        let output = output.unwrap_or_default();
+        } = options;
+        let output = Arc::new(output.clone().unwrap_or_default());
         let Bucket { name, code_repository, .. } = self.clone();
         let items = match self.clone().file_paths("").await {
             | Ok(paths) => paths
                 .into_iter()
-                .filter(|path| !is_ignored_path(path, &ignore) && is_filtered_path(path, &filter))
+                .filter(|path| !is_ignored_path(path, ignore) && is_filtered_path(path, filter))
                 .collect::<Vec<String>>(),
             | Err(why) => {
                 error!("=> {} Get file paths for download — {why}", Label::fail());
@@ -355,29 +358,33 @@ impl Bucket {
             }
         };
         let message: fn(&String) -> String = |path| format!("Downloading {path}");
-        let operation = move |path: String| {
-            let output = output.clone();
-            let repository = code_repository.clone();
-            async move {
-                let output_filepath = format!("{}/{}", output.display(), path);
-                let url = repository
-                    .raw_url(path.clone())
-                    .ok_or_else(|| eyre!("Failed to build raw URL for repository path"));
-                match url {
-                    | Ok(url) => {
-                        write_file_bytes(output_filepath, || async move {
-                            match get(url).send().await {
-                                | Ok(response) => response
-                                    .bytes()
-                                    .await
-                                    .map(|b| b.to_vec())
-                                    .map_err(|why| eyre!("Failed to download file — {why}")),
-                                | Err(why) => Err(eyre!("Failed to download file — {why}")),
-                            }
-                        })
-                        .await
+        let operation = {
+            let output = Arc::clone(&output);
+            let code_repository = Arc::new(code_repository);
+            move |path: String| {
+                let output = Arc::clone(&output);
+                let repository = Arc::clone(&code_repository);
+                async move {
+                    let output_filepath = format!("{}/{}", output.display(), path);
+                    let url = repository
+                        .raw_url(path.clone())
+                        .ok_or_else(|| eyre!("Failed to build raw URL for repository path"));
+                    match url {
+                        | Ok(url) => {
+                            write_file_bytes(output_filepath, || async move {
+                                match get(url).send().await {
+                                    | Ok(response) => response
+                                        .bytes()
+                                        .await
+                                        .map(|b| b.to_vec())
+                                        .map_err(|why| eyre!("Failed to download file — {why}")),
+                                    | Err(why) => Err(eyre!("Failed to download file — {why}")),
+                                }
+                            })
+                            .await
+                        }
+                        | Err(why) => Err(why),
                     }
-                    | Err(why) => Err(why),
                 }
             }
         };
@@ -388,7 +395,7 @@ impl Bucket {
             | true => ProgressType::Silent,
             | false => ProgressType::Bar,
         };
-        match with_progress(items, message, operation, finish_message, Some(threads), progress_type).await {
+        match with_progress(items, message, operation, finish_message, Some(*threads), progress_type).await {
             | Ok(_) => Ok(total_data + total_images),
             | Err(why) => Err(why),
         }
@@ -398,7 +405,7 @@ impl Bucket {
         let bucket_name = name.clone().unwrap_or_else(|| "Bucket".to_string()).to_uppercase();
         match &code_repository {
             | Repository::Git { .. } => {
-                let path = match code_repository.clone().location().uri() {
+                let path = match code_repository.location().uri() {
                     | Some(value) => PathBuf::from(value.path().to_string()),
                     | None => {
                         unimplemented!()

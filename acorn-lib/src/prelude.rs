@@ -3,6 +3,7 @@
 /// Module that provides `std` support
 #[allow(unused_imports)]
 mod std {
+    pub use alloc::sync::Arc;
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
     pub use std::env::{self, consts, var};
     pub use std::ffi::OsStr;
@@ -19,6 +20,7 @@ mod std {
 /// Module that provides `no-std` support
 #[allow(unused_imports)]
 mod no_std {
+    pub use alloc::sync::Arc;
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
 }
 
