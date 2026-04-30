@@ -17,8 +17,6 @@ pub mod analyzer;
 pub mod doctor;
 #[cfg(feature = "std")]
 pub mod io;
-#[cfg(feature = "powerpoint")]
-pub mod powerpoint;
 pub mod prelude;
 pub mod schema;
 pub mod util;

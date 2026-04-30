@@ -53,9 +53,12 @@ pub mod api;
 pub mod bagit;
 pub mod config;
 pub mod database;
+pub mod docx;
 pub mod http;
 #[cfg(feature = "agentic")]
 pub mod mcp;
+#[cfg(feature = "powerpoint")]
+pub mod powerpoint;
 
 /// Utility type alias for database and API operation results
 pub type ApiResult<T> = Result<T, Report>;

@@ -37,6 +37,7 @@ derive_more = { version = "2.1.1", features = [
   "from_str",
 ], default-features = false }
 dotenvy = { version = "0.15.0", default-features = false }
+docx-rs = { version = "0.4.17", default-features = false }
 duckdb = { version = "1.10502.0", default-features = false }
 fancy-regex = { version = "0.17.0", default-features = false }
 futures = { version = "0.3.32", features = ["alloc"], default-features = false }
