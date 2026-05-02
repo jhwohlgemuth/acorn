@@ -94,6 +94,9 @@ pub enum Standard {
     /// InvenioRDM
     #[display("invenio")]
     Invenio,
+    /// DOCX-derived text
+    #[display("docx")]
+    Docx,
     /// Plain text
     #[display("text")]
     Text,

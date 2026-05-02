@@ -8,7 +8,7 @@ use acorn::io::unique_file_extensions;
 use acorn::prelude::{exit, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
-use acorn::schema::standard::text::Text;
+use acorn::schema::standard::text::{Docx, Text};
 use acorn::util::constants::ENV_READABILITY_METRIC;
 use acorn::util::{print_values_as_table, regex_join, Label};
 use acorn::{fail, skip};
@@ -92,6 +92,7 @@ fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, option
 async fn collect(paths: &[PathBuf], check_options: &CheckOptions) -> Vec<Check> {
     match infer_standard(paths) {
         | Standard::Cff => collect_checks_for::<Cff>(paths, check_options).await,
+        | Standard::Docx => collect_checks_for::<Docx>(paths, check_options).await,
         | Standard::Rads => collect_checks_for::<ResearchActivity>(paths, check_options).await,
         | Standard::Text => collect_checks_for::<Text>(paths, check_options).await,
         | _ => unimplemented!(),
@@ -158,6 +159,9 @@ fn infer_standard(paths: &[PathBuf]) -> Standard {
     if extensions.len() == 1 && extensions.contains(&"cff".to_string()) {
         warn!("=> {} Inferred standard (CFF)", Label::using());
         Standard::Cff
+    } else if extensions.len() == 1 && extensions.contains(&"docx".to_string()) {
+        warn!("=> {} Inferred standard (DOCX)", Label::using());
+        Standard::Docx
     } else if extensions.len() == 1 && extensions.contains(&"txt".to_string()) {
         warn!("=> {} Inferred standard (Text)", Label::using());
         Standard::Text

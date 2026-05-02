@@ -120,6 +120,11 @@ where
     /// Chunk a string into substrings of a given size
     fn chunk(&self, size: usize) -> Vec<String>;
 }
+/// Expose raw text content from structures with a content field
+pub trait Unstructured {
+    /// Return raw content as a string slice
+    fn content(&self) -> &str;
+}
 /// SPDX compliant license identifier
 ///
 /// See <https://spdx.org/licenses/> for more information

@@ -113,6 +113,9 @@ pub enum Standard {
     /// Dublin Core Metadata Initiative (DCMI)
     #[display("dcmi")]
     Dcmi,
+    /// DOCX-derived text
+    #[display("docx")]
+    Docx,
     /// InvenioRDM
     #[display("invenio")]
     Invenio,
