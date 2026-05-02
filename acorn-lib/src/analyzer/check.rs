@@ -9,6 +9,7 @@ use crate::io::InputOutput;
 #[cfg(feature = "analysis")]
 use crate::prelude::Cursor;
 use crate::prelude::{HashMap, Path, PathBuf};
+use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
 use crate::util::{Label, StringConversion, ToProse};
 use crate::{check, check_err, check_ok};
 use ariadne::{Color, Config, Report, ReportKind, Source};
@@ -262,7 +263,6 @@ impl Check {
     }
     /// Fancy output in contrast with more compressed output of Display impl
     pub fn report(&self) {
-        const MAX_PREFIX_BEFORE_SPAN: usize = 60;
         let index = self.index;
         let Check {
             category,
@@ -316,10 +316,7 @@ impl Check {
                                 span,
                                 ..
                             } = item;
-                            let full_source = Source::from(text.clone());
-                            let full_span = highlighted_span(&full_source, span, *line);
-                            let (source_text, span) = truncate_span(text, full_span, MAX_PREFIX_BEFORE_SPAN);
-                            let source = Source::from(source_text);
+                            let (source, span) = truncate(highlighted(text, span, *line), text, MAX_LENGTH_REPORT_SPAN_PREFIX);
                             let _ = Report::build(severity.into(), (&title, 1..=1))
                                 .with_code(index + i)
                                 .with_config(Config::default().with_compact(false))
@@ -380,13 +377,12 @@ impl Check {
                         process(prefix, validator_kind).iter().enumerate().for_each(|(issue_index, issue)| {
                             let locator = issue.locator();
                             let source_text = issue.source_text();
-                            let source = Source::from(source_text.clone());
-                            let span = match highlighted_span_from_params(&source, &issue.code, &issue.params) {
+                            let full_source = Source::from(source_text.clone());
+                            let full_span = match highlighted_from_params(&full_source, &issue.code, &issue.params) {
                                 | Some(span) => span,
                                 | None => 0..=source_text.len().saturating_sub(1),
                             };
-                            let (source_text, span) = truncate_span(&source_text, span, MAX_PREFIX_BEFORE_SPAN);
-                            let source = Source::from(source_text);
+                            let (source, span) = truncate(full_span, &source_text, MAX_LENGTH_REPORT_SPAN_PREFIX);
                             let _ = Report::build(severity.clone().into(), (&title, 1..=1))
                                 .with_code(index + issue_index)
                                 .with_config(Config::default().with_compact(false))
@@ -734,15 +730,16 @@ pub fn checks_to_csv(values: &[Check], include_headers: bool) -> PolarsResult<St
     }
 }
 /// Calculate a highlighted byte span for a single line in a source report.
-pub fn highlighted_span(source: &Source, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
+pub(crate) fn highlighted(text: &str, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
     let selected = (line_number as usize) - 1;
+    let source = Source::from(text);
     let begin = source.lines().take(selected).fold((span[0] - 1) as usize, |acc, line| acc + line.len());
     let character_count = (span[1] as usize) - (span[0] as usize);
     let end = begin + character_count;
     begin..=end
 }
 /// Calculate a highlighted span for an indexed value in an array-like source.
-pub fn highlighted_span_for_array(source: &Source, params: &HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
+pub(crate) fn highlighted_array(source: &Source, params: &HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
     match params.get("index") {
         | Some(Value::Number(index)) => match index.as_u64() {
             | Some(index) => match params.get("value") {
@@ -751,7 +748,7 @@ pub fn highlighted_span_for_array(source: &Source, params: &HashMap<String, Valu
                     let end = (value[index as usize].to_string().len() + 1) as u32;
                     let span = &[4, end];
                     let line = (index + PADDING) as u32;
-                    Some(highlighted_span(source, span, line))
+                    Some(highlighted(source.text(), span, line))
                 }
                 | Some(_) | None => None,
             },
@@ -761,7 +758,7 @@ pub fn highlighted_span_for_array(source: &Source, params: &HashMap<String, Valu
     }
 }
 /// Select a highlighted span based on validator error code and parameters.
-pub fn highlighted_span_from_params(source: &Source, code: &ErrorCode, params: &HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
+pub(crate) fn highlighted_from_params(source: &Source, code: &ErrorCode, params: &HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
     match code {
         | ErrorCode::Latitude => {
             // TODO: Implement highlighting for latitude errors
@@ -778,10 +775,18 @@ pub fn highlighted_span_from_params(source: &Source, code: &ErrorCode, params: &
             // TODO: Implement highlighting for longitude errors
             None
         }
-        | ErrorCode::Section => highlighted_span_for_array(source, params),
-        | _ if params.get("index").is_some() => highlighted_span_for_array(source, params),
+        | ErrorCode::Section => highlighted_array(source, params),
+        | _ if params.get("index").is_some() => highlighted_array(source, params),
         | _ => None,
     }
+}
+pub(crate) fn nearest_space_boundary(value: &str, index: usize) -> Option<usize> {
+    let index = index.min(value.len());
+    let boundary = value
+        .char_indices()
+        .find(|(i, ch)| *i >= index && ch.is_whitespace())
+        .map(|(i, ch)| i + ch.len_utf8());
+    boundary
 }
 /// Create summary data table from given issues
 pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
@@ -804,20 +809,23 @@ pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
     .collect::<Vec<_>>()
 }
 /// Truncate source text with ellipsis when prefix before span exceeds maximum length.
-pub fn truncate_span(source_text: &str, span: RangeInclusive<usize>, max_prefix: usize) -> (String, RangeInclusive<usize>) {
+pub(crate) fn truncate(span: RangeInclusive<usize>, source_text: &str, max_prefix: usize) -> (Source, RangeInclusive<usize>) {
     fn floor_char_boundary(value: &str, index: usize) -> usize {
         (0..=index.min(value.len())).rev().find(|&i| value.is_char_boundary(i)).unwrap_or(0)
     }
     let start = *span.start();
     let end = *span.end();
     if start <= max_prefix {
-        (source_text.to_string(), start..=end)
+        let text = source_text.to_string();
+        (Source::from(text), start..=end)
     } else {
-        let prefix_start = floor_char_boundary(source_text, start.saturating_sub(max_prefix));
+        let nearest = floor_char_boundary(source_text, start.saturating_sub(max_prefix));
+        let prefix_start = nearest_space_boundary(source_text, nearest).unwrap_or(nearest);
         let sliced = &source_text[prefix_start..];
         let ellipsis = "...";
         let adjusted_start = start.saturating_sub(prefix_start) + ellipsis.len();
         let adjusted_end = end.saturating_sub(prefix_start) + ellipsis.len();
-        (format!("{ellipsis}{sliced}"), adjusted_start..=adjusted_end)
+        let text = format!("{ellipsis}{sliced}");
+        (Source::from(text), adjusted_start..=adjusted_end)
     }
 }

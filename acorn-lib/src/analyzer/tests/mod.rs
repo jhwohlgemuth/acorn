@@ -1,10 +1,8 @@
+use crate::analyzer::check::{highlighted, highlighted_array, highlighted_from_params, nearest_space_boundary, truncate};
 use crate::analyzer::error::ErrorCode;
 use crate::analyzer::error::ErrorKind;
 use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
-use crate::analyzer::{
-    checks_to_dataframe, collect_validation_checks, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, truncate_span,
-    Analysis, Check, CheckCategory, CheckSeverity, StaticAnalyzerConfig,
-};
+use crate::analyzer::{checks_to_dataframe, collect_validation_checks, Analysis, Check, CheckCategory, CheckSeverity, StaticAnalyzerConfig};
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
 use crate::test_utils::unique_path;
@@ -75,10 +73,9 @@ fn test_checks_to_dataframe() {
 }
 #[test]
 fn test_highlighted_span() {
-    let source = Source::from(String::from("line one\nline two\nline three"));
     let span = &[1, 5];
     let line_number = 2;
-    let result = highlighted_span(&source, span, line_number);
+    let result = highlighted("line one\nline two\nline three", span, line_number);
     assert_eq!(result, 9..=13);
 }
 #[test]
@@ -89,7 +86,7 @@ fn test_highlighted_span_for_array() {
     let mut params: HashMap<String, Value> = HashMap::new();
     params.insert("index".to_string(), Value::Number(index.into()));
     params.insert("value".to_string(), value);
-    let result = highlighted_span_for_array(&source, &params);
+    let result = highlighted_array(&source, &params);
     assert!(result.is_some());
     let span = result.unwrap();
     assert!(*span.start() < source.text().len());
@@ -101,7 +98,7 @@ fn test_highlighted_span_from_params_length() {
     let code = ErrorCode::Length;
     let mut params: HashMap<String, Value> = HashMap::new();
     params.insert("max".to_string(), Value::Number(10.into()));
-    let result = highlighted_span_from_params(&source, &code, &params);
+    let result = highlighted_from_params(&source, &code, &params);
     assert!(result.is_some());
     let span = result.unwrap();
     assert!(span.contains(&(source.text().len() - 2)));
@@ -115,7 +112,7 @@ fn test_highlighted_span_from_params_section() {
     let mut params: HashMap<String, Value> = HashMap::new();
     params.insert("index".to_string(), Value::Number(index.into()));
     params.insert("value".to_string(), value);
-    let result = highlighted_span_from_params(&source, &code, &params);
+    let result = highlighted_from_params(&source, &code, &params);
     assert!(result.is_some());
 }
 #[test]
@@ -127,7 +124,7 @@ fn test_highlighted_span_from_params_with_index() {
     let mut params: HashMap<String, Value> = HashMap::new();
     params.insert("index".to_string(), Value::Number(index.into()));
     params.insert("value".to_string(), value);
-    let result = highlighted_span_from_params(&source, &code, &params);
+    let result = highlighted_from_params(&source, &code, &params);
     assert!(result.is_some());
 }
 #[test]
@@ -135,7 +132,7 @@ fn test_highlighted_span_from_params_no_match() {
     let source = Source::from(String::from("{\"key\": \"value\"}"));
     let code = ErrorCode::Date;
     let params: HashMap<String, Value> = HashMap::new();
-    let result = highlighted_span_from_params(&source, &code, &params);
+    let result = highlighted_from_params(&source, &code, &params);
     assert!(result.is_none());
 }
 #[test]
@@ -540,16 +537,51 @@ fn test_resolve_vale_package_source() {
 fn test_truncate_source_before_span_no_truncation() {
     let source_text = "short line";
     let span = 2..=5;
-    let (result_text, result_span) = truncate_span(source_text, span, 10);
-    assert_eq!(result_text, source_text);
+    let (result_source, result_span) = truncate(span, source_text, 10);
+    assert_eq!(result_source.text(), source_text);
     assert_eq!(result_span, 2..=5);
 }
 #[test]
 fn test_truncate_source_before_span_with_ellipsis() {
     let source_text = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let span = 20..=24;
-    let (result_text, result_span) = truncate_span(source_text, span, 5);
+    let (result_source, result_span) = truncate(span, source_text, 5);
+    let result_text = result_source.text();
     assert!(result_text.starts_with("..."));
     assert_eq!(result_span, 8..=12);
     assert_eq!(&result_text[8..=12], "KLMNO");
+}
+
+#[test]
+fn test_truncate_source_before_span_uses_nearest_space() {
+    let source_text = "Alpha Bravo Charlie Delta Echo";
+    let span = 20..=24;
+    let (result_source, result_span) = truncate(span, source_text, 5);
+    let result_text = result_source.text();
+    assert_eq!(result_text, "...Delta Echo");
+    assert_eq!(result_span, 3..=7);
+}
+
+#[test]
+fn test_nearest_space_boundary_returns_first_boundary_at_or_after_index() {
+    let value = "Alpha Bravo Charlie";
+    let result = nearest_space_boundary(value, 8);
+    assert_eq!(result, Some(12));
+}
+
+#[test]
+fn test_nearest_space_boundary_returns_none_without_boundary_at_or_after_index() {
+    let value = "Alpha Bravo Charlie";
+    let result = nearest_space_boundary(value, 12);
+    assert_eq!(result, None);
+}
+
+#[test]
+fn test_truncate_keeps_prefix_at_or_below_maximum() {
+    let source_text = "Alpha Bravo Charlie Delta Echo";
+    let span = 20..=24;
+    let (result_source, result_span) = truncate(span, source_text, 5);
+    let retained_prefix_length = result_span.start().saturating_sub(3);
+    assert_eq!(result_source.text(), "...Delta Echo");
+    assert!(retained_prefix_length <= 5);
 }

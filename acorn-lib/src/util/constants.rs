@@ -110,6 +110,8 @@ pub const MAX_LENGTH_CAPABILIY: usize = 300;
 pub const MAX_LENGTH_IMAGE_CAPTION: u64 = 100;
 /// Maximum number of characters for a single impact description
 pub const MAX_LENGTH_IMPACT: usize = 150;
+/// Maximum number of source characters preserved before a highlighted span in analyzer reports.
+pub const MAX_LENGTH_REPORT_SPAN_PREFIX: usize = 50;
 /// Maximum number of characters for a single [research area](../schema/struct.Research.html#structfield.areas) description
 pub const MAX_LENGTH_RESEARCH_AREA: usize = 40;
 /// Maximum number of characters for an single [research focus](../schema/struct.Research.html#structfield.focus) description

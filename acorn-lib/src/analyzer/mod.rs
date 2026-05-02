@@ -46,11 +46,7 @@ pub mod readability;
 pub mod vale;
 
 #[cfg(feature = "analysis")]
-pub use check::{checks_to_csv, checks_to_dataframe, Analysis, IntoRow};
-pub use check::{
-    highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, truncate_span, Check, CheckCategory, CheckOptions,
-    CheckSeverity, Standard,
-};
+pub use check::{checks_to_csv, checks_to_dataframe, summary, Analysis, Check, CheckCategory, CheckOptions, CheckSeverity, IntoRow, Standard};
 
 #[cfg(feature = "analysis")]
 use check::{check_prose_for, check_readability_for};
