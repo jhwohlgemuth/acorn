@@ -2,8 +2,8 @@ use crate::analyzer::error::ErrorCode;
 use crate::analyzer::error::ErrorKind;
 use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
 use crate::analyzer::{
-    checks_to_dataframe, collect_validation_checks, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, Analysis, Check,
-    CheckCategory, CheckSeverity, StaticAnalyzerConfig,
+    checks_to_dataframe, collect_validation_checks, highlighted_span, highlighted_span_for_array, highlighted_span_from_params, truncate_span,
+    Analysis, Check, CheckCategory, CheckSeverity, StaticAnalyzerConfig,
 };
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
@@ -535,4 +535,21 @@ fn test_resolve_vale_package_source() {
             "https://example.org/custom-style.zip".to_string(),
         ]
     );
+}
+#[test]
+fn test_truncate_source_before_span_no_truncation() {
+    let source_text = "short line";
+    let span = 2..=5;
+    let (result_text, result_span) = truncate_span(source_text, span, 10);
+    assert_eq!(result_text, source_text);
+    assert_eq!(result_span, 2..=5);
+}
+#[test]
+fn test_truncate_source_before_span_with_ellipsis() {
+    let source_text = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let span = 20..=24;
+    let (result_text, result_span) = truncate_span(source_text, span, 5);
+    assert!(result_text.starts_with("..."));
+    assert_eq!(result_span, 8..=12);
+    assert_eq!(&result_text[8..=12], "KLMNO");
 }

@@ -262,6 +262,7 @@ impl Check {
     }
     /// Fancy output in contrast with more compressed output of Display impl
     pub fn report(&self) {
+        const MAX_PREFIX_BEFORE_SPAN: usize = 60;
         let index = self.index;
         let Check {
             category,
@@ -287,7 +288,7 @@ impl Check {
                     | Some(value) => value.trim().to_string(),
                     | None => "No URL".to_string(),
                 };
-                let source_text = if text.is_empty() { " ".to_string() } else { text.clone() };
+                let source_text = if text.is_empty() { " ".to_string() } else { text };
                 let source = Source::from(source_text.clone());
                 let span = 0..=source_text.len().saturating_sub(1);
                 let _ = Report::build(kind, (&title, 1..=1))
@@ -315,13 +316,16 @@ impl Check {
                                 span,
                                 ..
                             } = item;
-                            let source = Source::from(text.clone());
+                            let full_source = Source::from(text.clone());
+                            let full_span = highlighted_span(&full_source, span, *line);
+                            let (source_text, span) = truncate_span(text, full_span, MAX_PREFIX_BEFORE_SPAN);
+                            let source = Source::from(source_text);
                             let _ = Report::build(severity.into(), (&title, 1..=1))
                                 .with_code(index + i)
                                 .with_config(Config::default().with_compact(false))
                                 .with_message(check)
                                 .with_label(
-                                    ariadne::Label::new((&title, highlighted_span(&source, span, *line)))
+                                    ariadne::Label::new((&title, span))
                                         .with_message(message.italic())
                                         .with_color(severity.into()),
                                 )
@@ -381,6 +385,8 @@ impl Check {
                                 | Some(span) => span,
                                 | None => 0..=source_text.len().saturating_sub(1),
                             };
+                            let (source_text, span) = truncate_span(&source_text, span, MAX_PREFIX_BEFORE_SPAN);
+                            let source = Source::from(source_text);
                             let _ = Report::build(severity.clone().into(), (&title, 1..=1))
                                 .with_code(index + issue_index)
                                 .with_config(Config::default().with_compact(false))
@@ -772,14 +778,8 @@ pub fn highlighted_span_from_params(source: &Source, code: &ErrorCode, params: &
             // TODO: Implement highlighting for longitude errors
             None
         }
-        | ErrorCode::Section => match highlighted_span_for_array(source, params) {
-            | Some(span) => Some(span),
-            | None => None,
-        },
-        | _ if params.get("index").is_some() => match highlighted_span_for_array(source, params) {
-            | Some(span) => Some(span),
-            | None => None,
-        },
+        | ErrorCode::Section => highlighted_span_for_array(source, params),
+        | _ if params.get("index").is_some() => highlighted_span_for_array(source, params),
         | _ => None,
     }
 }
@@ -802,4 +802,22 @@ pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
         vec![format!("{} items found", category.to_string().to_case(Case::Title)), count]
     })
     .collect::<Vec<_>>()
+}
+/// Truncate source text with ellipsis when prefix before span exceeds maximum length.
+pub fn truncate_span(source_text: &str, span: RangeInclusive<usize>, max_prefix: usize) -> (String, RangeInclusive<usize>) {
+    fn floor_char_boundary(value: &str, index: usize) -> usize {
+        (0..=index.min(value.len())).rev().find(|&i| value.is_char_boundary(i)).unwrap_or(0)
+    }
+    let start = *span.start();
+    let end = *span.end();
+    if start <= max_prefix {
+        (source_text.to_string(), start..=end)
+    } else {
+        let prefix_start = floor_char_boundary(source_text, start.saturating_sub(max_prefix));
+        let sliced = &source_text[prefix_start..];
+        let ellipsis = "...";
+        let adjusted_start = start.saturating_sub(prefix_start) + ellipsis.len();
+        let adjusted_end = end.saturating_sub(prefix_start) + ellipsis.len();
+        (format!("{ellipsis}{sliced}"), adjusted_start..=adjusted_end)
+    }
 }

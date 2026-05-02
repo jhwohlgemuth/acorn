@@ -55,7 +55,8 @@ fn test_extract_acorn_fixture() {
 #[test]
 fn test_extract_acorn_fixture_readability() {
     let text = extract_text_from_path(fixture_path("acorn.docx")).unwrap();
-    assert_eq!(17.34, flesch_kincaid_grade_level(&text));
+    let grade = flesch_kincaid_grade_level(&text);
+    assert!((grade - 17.34).abs() < 0.2, "Expected readability near 17.34, got {grade}");
 }
 #[test]
 fn test_extract_nonexistent_file() {

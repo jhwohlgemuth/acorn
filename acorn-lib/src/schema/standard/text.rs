@@ -12,7 +12,7 @@ use crate::prelude::PathBuf;
 use crate::util::file_extension;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
-use crate::util::{Unstructured, ToMarkdown, ToProse};
+use crate::util::{ToMarkdown, ToProse, Unstructured};
 #[cfg(feature = "std")]
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;

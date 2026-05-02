@@ -48,7 +48,8 @@ pub mod vale;
 #[cfg(feature = "analysis")]
 pub use check::{checks_to_csv, checks_to_dataframe, Analysis, IntoRow};
 pub use check::{
-    highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, Check, CheckCategory, CheckOptions, CheckSeverity, Standard,
+    highlighted_span, highlighted_span_for_array, highlighted_span_from_params, summary, truncate_span, Check, CheckCategory, CheckOptions,
+    CheckSeverity, Standard,
 };
 
 #[cfg(feature = "analysis")]

@@ -3,7 +3,7 @@ use crate::io::InputOutput;
 use crate::schema::standard::text::{Docx, Text};
 #[cfg(feature = "std")]
 use crate::test_utils::{fixture_path, unique_path};
-use crate::util::{Unstructured, ToMarkdown, ToProse};
+use crate::util::{ToMarkdown, ToProse, Unstructured};
 use validator::Validate;
 
 #[test]
