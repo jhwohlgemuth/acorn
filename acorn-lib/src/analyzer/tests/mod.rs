@@ -3,6 +3,7 @@ use crate::analyzer::error::ErrorCode;
 use crate::analyzer::error::ErrorKind;
 use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
 use crate::analyzer::{checks_to_dataframe, collect_validation_checks, Analysis, Check, CheckCategory, CheckSeverity, StaticAnalyzerConfig};
+use crate::io::License;
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
 use crate::test_utils::unique_path;
@@ -511,6 +512,27 @@ fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
         "expected nested indexed path in display output: {rendered}"
     );
     assert!(rendered.contains("EMAIL"), "expected EMAIL code in display output: {rendered}");
+}
+#[test]
+fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_display() {
+    let cff = Cff {
+        title: "Invalid License".to_string(),
+        message: "Message".to_string(),
+        license: Some(License::Single("not-a-license".to_string())),
+        ..Cff::default()
+    };
+    let checks = collect_validation_checks(cff);
+    let schema_check = checks
+        .iter()
+        .find(|check| check.category == CheckCategory::Schema)
+        .expect("expected schema check");
+    let rendered = format!("{}", schema_check);
+    assert_eq!(schema_check.context.as_deref(), Some("license"));
+    assert!(rendered.contains("license"), "expected license path in display output: {rendered}");
+    assert!(
+        !rendered.contains("license.license"),
+        "expected duplicated wrapper path to be removed: {rendered}"
+    );
 }
 #[test]
 fn test_resolve_vale_package_source() {

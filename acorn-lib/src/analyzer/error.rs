@@ -154,6 +154,7 @@ impl Location for ValidatorIssue {
 }
 /// Process validator errors into a more manageable form
 pub fn process(path: &str, kind: &ValidationErrorsKind) -> Vec<ValidatorIssue> {
+    let is_wrapper_field = |value: &str| matches!(value, "license" | "month" | "year" | "postal_code");
     match kind {
         | ValidationErrorsKind::Field(errors) => {
             let result = errors
@@ -182,8 +183,14 @@ pub fn process(path: &str, kind: &ValidationErrorsKind) -> Vec<ValidatorIssue> {
                 .into_errors()
                 .into_iter()
                 .flat_map(|(field, kind)| {
-                    let prefix = if path.is_empty() { "".to_string() } else { format!("{path}.") };
-                    process(&format!("{prefix}{field}"), &kind)
+                    let is_wrapper_recursion = matches!(kind, ValidationErrorsKind::Field(_)) && path == field && is_wrapper_field(field.as_ref());
+                    let next_path = match (path.is_empty(), field.is_empty(), is_wrapper_recursion) {
+                        | (_, true, _) => path.to_string(),
+                        | (true, false, _) => field.to_string(),
+                        | (false, false, true) => path.to_string(),
+                        | (false, false, false) => format!("{path}.{field}"),
+                    };
+                    process(&next_path, &kind)
                 })
                 .collect();
             result
@@ -229,6 +236,21 @@ mod tests {
     struct ParentListModel {
         #[validate(nested)]
         children: Vec<ChildModel>,
+    }
+    #[derive(Validate)]
+    struct RepeatedChildModel {
+        #[validate(email)]
+        email: String,
+    }
+    #[derive(Validate)]
+    struct RepeatedNameModel {
+        #[validate(nested)]
+        child: RepeatedChildModel,
+    }
+    #[derive(Validate)]
+    struct RepeatedNameParentModel {
+        #[validate(nested)]
+        child: RepeatedNameModel,
     }
     #[derive(Validate)]
     struct ArrayParamModel {
@@ -343,5 +365,20 @@ mod tests {
         let source = issue.source_text();
         assert!(source.contains("- \"alpha\""));
         assert!(source.contains("- \"beta\""));
+    }
+    #[test]
+    fn process_preserves_non_wrapper_repeated_segment_paths() {
+        let value = RepeatedNameParentModel {
+            child: RepeatedNameModel {
+                child: RepeatedChildModel {
+                    email: "invalid".to_string(),
+                },
+            },
+        };
+        let errors = value.validate().expect_err("expected validation failure");
+        let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+        assert_eq!(issues.len(), 1);
+        let issue = &issues[0];
+        assert_eq!(issue.path.as_deref(), Some("child.child.email"));
     }
 }

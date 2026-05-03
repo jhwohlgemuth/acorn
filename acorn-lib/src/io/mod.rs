@@ -108,6 +108,28 @@ pub trait InputOutput: Sized {
     /// Write data as YAML to specified path
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
 }
+/// Root-level or reference-level license declaration.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum License {
+    /// Multiple SPDX identifiers interpreted as OR.
+    Multiple(Vec<String>),
+    /// Single SPDX identifier.
+    Single(String),
+}
+/// Progress indicator types for with_progress
+#[derive(Clone, Copy, Debug, Default)]
+pub enum ProgressType {
+    /// Progress bar with spinner, count, and percentage indicator
+    #[default]
+    Bar,
+    /// Indeterminate spinner for unknown item counts
+    Spinner,
+    /// Simple counter showing position of total (e.g., "5 of 100")
+    Counter,
+    /// No progress output
+    Silent,
+}
 /// Struct for parsing GitLab API merge request diff responses
 ///
 /// Used by [`files_from_gitlab_merge_request`]
@@ -155,28 +177,6 @@ pub struct GitlabMergeRequestDiffResponse {
     // renamed_file: bool,
     // deleted_file: bool,
     // generated_file: bool,
-}
-/// Root-level or reference-level license declaration.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(untagged)]
-pub enum License {
-    /// Multiple SPDX identifiers interpreted as OR.
-    Multiple(Vec<String>),
-    /// Single SPDX identifier.
-    Single(String),
-}
-/// Progress indicator types for with_progress
-#[derive(Clone, Copy, Debug, Default)]
-pub enum ProgressType {
-    /// Progress bar with spinner, count, and percentage indicator
-    #[default]
-    Bar,
-    /// Indeterminate spinner for unknown item counts
-    Spinner,
-    /// Simple counter showing position of total (e.g., "5 of 100")
-    Counter,
-    /// No progress output
-    Silent,
 }
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
