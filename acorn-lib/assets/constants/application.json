@@ -156,24 +156,14 @@
             "domain": "api.demo.raid.org.au",
             "resources": [
                 {
-                    "name": "raid",
+                    "name": "records",
                     "method": "get",
-                    "template": "{{ base }}/raid/{{ prefix }}/{{ suffix }}{{ query }}"
-                },
-                {
-                    "name": "raids",
-                    "method": "get",
-                    "template": "{{ base }}/raid/{{ query }}"
-                },
-                {
-                    "name": "service-point",
-                    "method": "get",
-                    "template": "{{ base }}/service-point/{{ identifier }}{{ query }}"
+                    "template": "{{ base }}/raid/{{ identifier }}{{ query }}"
                 },
                 {
                     "name": "service-points",
                     "method": "get",
-                    "template": "{{ base }}/service-point/{{ query }}"
+                    "template": "{{ base }}/service-point/{{ identifier }}{{ query }}"
                 }
             ]
         },

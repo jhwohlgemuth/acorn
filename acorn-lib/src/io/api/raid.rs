@@ -26,6 +26,8 @@ pub struct Options {
     /// RAiD server domain (defaults to api.raid.org)
     #[builder(default = String::from("api.raid.org"))]
     pub domain: String,
+    /// Service point identifier
+    pub identifier: Option<String>,
     /// RAiD prefix (e.g., "10.83962")
     pub prefix: Option<String>,
     /// RAiD suffix (e.g., "000001")
@@ -108,6 +110,7 @@ impl Configuration for Options {
             domain: var("RAID_SERVER_HOST").unwrap_or_else(|_| String::from("api.raid.org")),
             prefix: None,
             suffix: None,
+            identifier: None,
         }
     }
     /// Return a copy of options with request body payload set
@@ -126,99 +129,86 @@ impl Configuration for Options {
     }
 }
 impl Options {
-    /// Return a copy of options with RAiD prefix set
-    pub fn with_prefix(self, value: impl Into<String>) -> Self {
+    /// Return a copy of options with service point identifier set
+    pub fn with_identifier(self, value: impl Into<String>) -> Self {
         Self {
-            prefix: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return a copy of options with RAiD suffix set
-    pub fn with_suffix(self, value: impl Into<String>) -> Self {
-        Self {
-            suffix: Some(value.into()),
+            identifier: Some(value.into()),
             ..self
         }
     }
 }
-/// Get a single RAiD record by prefix and suffix
-/// # Example
+/// Retrieve RAiD record(s) attached to associated service point of provided options
+///
+/// If no identifier is provided, will return all RAiD records attached to the associated service point.
+///
+/// ### Example
 /// ```ignore
 /// use acorn::io::api::raid;
 ///
-/// let options = raid::Options::from_env()
-///     .with_prefix("10.83962")
-///     .with_suffix("000001");
-/// let result = raid::raid(options).await;
+/// let options = raid::Options::from_env();
+/// let result = raid::records(options).await;
 /// ```
-pub async fn raid(options: Options) -> ApiResult<Metadata> {
+pub async fn records(options: Options) -> ApiResult<Vec<Metadata>> {
     let template = "raid::api";
-    let action = "raid";
+    let action = "records";
     let Options {
-        prefix,
-        suffix,
-        token,
-        domain,
-        ..
+        identifier, token, domain, ..
     } = options;
     match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
-        | Ok(endpoint) => {
-            let params = vec![
-                param!(Header, "Authorization", &format!("Bearer {token}")),
-                param!(TemplateValue, "prefix", &prefix.unwrap_or_default()),
-                param!(TemplateValue, "suffix", &suffix.unwrap_or_default()),
-            ];
-            let response = endpoint.invoke(action, Some(params)).await;
-            endpoint.handle::<Metadata>(response)
-        }
+        | Ok(endpoint) => match identifier {
+            | Some(value) if !value.is_empty() => {
+                let params = vec![
+                    param!(Header, "Authorization", &format!("Bearer {token}")),
+                    param!(TemplateValue, "identifier", &value),
+                ];
+                let response = endpoint.invoke(action, Some(params)).await;
+                dbg!(&response);
+                endpoint.handle::<Metadata>(response).map(|r| vec![r])
+            }
+            | Some(_) | None => {
+                let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
+                let response = endpoint.invoke(action, Some(params)).await;
+                dbg!(&response);
+                endpoint.handle::<Vec<Metadata>>(response)
+            }
+        },
         | Err(why) => Err(why),
     }
 }
 
-/// Retrieve all RAiD records attached to associated service point of provided options
+/// Retrieve all service point(s) for a given server
+///
+/// If no identifier is provided, will return all service points for the associated server
+///
 /// ### Example
 /// ```ignore
 /// use acorn::io::api::raid;
 ///
 /// let options = raid::Options::from_env();
-/// let result = raid::raids(options).await;
-/// ```
-pub async fn raids(options: Options) -> ApiResult<Vec<Metadata>> {
-    let template = "raid::api";
-    let action = "raids";
-    let Options { token, domain, .. } = options;
-    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
-        | Ok(endpoint) => {
-            let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
-            let response = endpoint.invoke(action, Some(params)).await;
-            endpoint.handle::<Vec<Metadata>>(response)
-        }
-        | Err(why) => Err(why),
-    }
-}
-
-/// Retrieve all service points for a given server
-/// ### Example
-/// ```ignore
-/// use acorn::io::api::raid;
-/// use acorn::param;
-///
-/// let options = raid::Options::from_env();
-/// let params = vec![
-///     param!(FieldList, "limit", "10"),
-/// ];
-/// let result = raid::service_points(options, params).await;
+/// let result = raid::service_points(options).await;
 /// ```
 pub async fn service_points(options: Options) -> ApiResult<Vec<ServicePointResponse>> {
     let template = "raid::api";
-    let action = "service-point";
-    let Options { token, domain, .. } = options;
+    let action = "service-points";
+    let Options {
+        token, domain, identifier, ..
+    } = options;
     match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
-        | Ok(endpoint) => {
-            let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
-            let response = endpoint.invoke(action, Some(params)).await;
-            endpoint.handle::<Vec<ServicePointResponse>>(response)
-        }
+        | Ok(endpoint) => match identifier {
+            | Some(value) if !value.is_empty() => {
+                let params = vec![
+                    param!(Header, "Authorization", &format!("Bearer {token}")),
+                    param!(TemplateValue, "identifier", &value),
+                ];
+                let response = endpoint.invoke(action, Some(params)).await;
+                endpoint.handle::<ServicePointResponse>(response).map(|r| vec![r])
+            }
+            | Some(_) | None => {
+                let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
+                let response = endpoint.invoke(action, Some(params)).await;
+                endpoint.handle::<Vec<ServicePointResponse>>(response)
+            }
+        },
         | Err(why) => Err(why),
     }
 }

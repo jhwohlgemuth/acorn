@@ -98,23 +98,27 @@ async fn orcid_example() {
 }
 #[allow(dead_code)]
 async fn raid_example() {
-    // let service_point_id = "20000033";
-    // let prefix = "10.83962";
-    // let suffix = "fb5be317";
     let options = api::raid::Options::from_env();
-    let response = api::raid::service_points(options.clone()).await;
-    // info!("Service Points: {response:#?}");
-    println!("Service Points: {response:#?}");
-    // println!("# of service points: {}", response.len());
-    // let response = api::raid::raids(options).await.unwrap();
-    // info!("RAiD Records: {response:#?}");
-    // println!("# of RAiD records: {}", response.len());
-    // let options = api::raid::Options::from_env()
-    //     .with_prefix(prefix)
-    //     .with_suffix(suffix);
-    // let record = api::raid::raid(options).await.unwrap();
-    // println!("RAiD Record: {record:#?}");
+    let response = api::raid::service_points(options.clone()).await.unwrap();
+    info!("Service Points: {response:#?}");
+    println!("# of service points: {}", response.len());
+
+    let ornl_service_point_id = "20000033";
+    let options = options.with_identifier(ornl_service_point_id);
+    let response = api::raid::service_points(options.clone()).await.unwrap();
+    println!("ORNL Service Point: {response:#?}");
+
+    let options = api::raid::Options::from_env();
+    let response = api::raid::records(options.clone()).await.unwrap();
+    info!("RAiD Records: {response:#?}");
+    println!("# of RAiD records: {}", response.len());
+
+    let test_raid_id = "10.83962/fb5be317";
+    let options = options.with_identifier(test_raid_id);
+    let record = api::raid::records(options).await.unwrap();
+    println!("RAiD Record: {record:#?}");
 }
+
 #[allow(dead_code)]
 async fn ror_example() {
     let identifier = "01qz5mb56";
