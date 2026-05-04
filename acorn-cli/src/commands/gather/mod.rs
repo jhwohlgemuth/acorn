@@ -1,6 +1,6 @@
 use crate::cli::CommandOptions;
 use crate::commands::preflight;
-use acorn::io::api::{self, gitlab};
+use acorn::io::api::{self, gitlab, Configuration};
 use acorn::param;
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
@@ -31,8 +31,9 @@ pub async fn run(
     // let langs = gitlab::languages().await?;
     // dbg!(langs);
     // gitlab_merge_request_note_example().await;
-    gitlab_example().await;
+    // gitlab_example().await;
     // orcid_example().await;
+    raid_example().await;
     // ror_example().await;
     Ok(())
 }
@@ -94,6 +95,25 @@ async fn orcid_example() {
         param!(FieldList, "fl", "family-name"),
     ];
     println!("ORCiD Search Response: {:#?}", api::orcid::search(params).await);
+}
+#[allow(dead_code)]
+async fn raid_example() {
+    // let service_point_id = "20000033";
+    // let prefix = "10.83962";
+    // let suffix = "fb5be317";
+    let options = api::raid::Options::from_env();
+    let response = api::raid::service_points(options.clone()).await;
+    // info!("Service Points: {response:#?}");
+    println!("Service Points: {response:#?}");
+    // println!("# of service points: {}", response.len());
+    // let response = api::raid::raids(options).await.unwrap();
+    // info!("RAiD Records: {response:#?}");
+    // println!("# of RAiD records: {}", response.len());
+    // let options = api::raid::Options::from_env()
+    //     .with_prefix(prefix)
+    //     .with_suffix(suffix);
+    // let record = api::raid::raid(options).await.unwrap();
+    // println!("RAiD Record: {record:#?}");
 }
 #[allow(dead_code)]
 async fn ror_example() {

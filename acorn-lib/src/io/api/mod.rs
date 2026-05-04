@@ -38,6 +38,15 @@ lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
     pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = Constant::json::<ApplicationConfiguration>("application").endpoints.unwrap_or_default();
 }
+/// Trait to standardize configuration loading from environment variables and modification with new values
+pub trait Configuration {
+    /// Populate values from environment (e.g., `.env` file or environment variables)
+    fn from_env() -> Self;
+    /// Return a copy of this configuration with the specified request body payload set
+    fn with_body(self, value: impl Into<String>) -> Self;
+    /// Return a copy of this configuration with the specified domain set
+    fn with_domain(self, value: impl Into<String>) -> Self;
+}
 /// Trait for objects that can be persisted in a database
 #[async_trait]
 pub trait DatabasePersistence {

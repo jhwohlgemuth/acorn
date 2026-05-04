@@ -2,7 +2,9 @@
 //!
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
-use crate::io::api::{DatabasePersistence, EmptyField, Endpoint, RemoteResource, ResponseContent, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::api::{
+    Configuration, DatabasePersistence, EmptyField, Endpoint, RemoteResource, ResponseContent, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS,
+};
 use crate::io::config::{RunnerDetails, RunnerStatus, RunnerType};
 use crate::io::database::schema::{ProgrammingLanguageRow, Table};
 use crate::io::database::{Database, Operations};
@@ -353,15 +355,15 @@ pub struct Options {
     /// Authentication token
     #[builder(start_fn)]
     pub token: String,
-    /// Project or group identifier
-    pub identifier: Option<String>,
-    /// Internal resource identifier (e.g., merge request IID)
-    pub internal_identifier: Option<String>,
     /// Request body payload
     pub body: Option<String>,
     /// GitLab domain (defaults to gitlab.com)
     #[builder(default = String::from("gitlab.com"))]
     pub domain: String,
+    /// Project or group identifier
+    pub identifier: Option<String>,
+    /// Internal resource identifier (e.g., merge request IID)
+    pub internal_identifier: Option<String>,
     /// GitLab runner metadata necessary for creation
     #[builder(default = RunnerMetadata::default())]
     pub runner_metadata: RunnerMetadata,
@@ -695,7 +697,7 @@ impl RunnerMetadata {
         }
     }
 }
-impl Options {
+impl Configuration for Options {
     /// Build options from common GitLab CI environment variables.
     /// - `CI_JOB_TOKEN` -> `token` (defaults to empty string when unset)
     /// - `CI_PROJECT_ID` -> `identifier`
@@ -703,7 +705,7 @@ impl Options {
     /// - `CI_SERVER_HOST` -> `domain` (defaults to gitlab.com when unset)
     ///
     /// See <https://docs.gitlab.com/ci/variables/predefined_variables> for more information on available GitLab CI environment variables
-    pub fn from_env() -> Self {
+    fn from_env() -> Self {
         let _ = dotenvy::from_filename(".env");
         Self {
             token: first_env_var(&["CI_JOB_TOKEN", "GITLAB_TOKEN"]).unwrap_or_default(),
@@ -715,19 +717,21 @@ impl Options {
         }
     }
     /// Return a copy of options with request body payload set
-    pub fn with_body(self, value: impl Into<String>) -> Self {
+    fn with_body(self, value: impl Into<String>) -> Self {
         Self {
             body: Some(value.into()),
             ..self
         }
     }
     /// Return a copy of options with GitLab domain set
-    pub fn with_domain(self, value: impl Into<String>) -> Self {
+    fn with_domain(self, value: impl Into<String>) -> Self {
         Self {
             domain: value.into(),
             ..self
         }
     }
+}
+impl Options {
     /// Return a copy of options with project or group identifier set
     pub fn with_identifier(self, value: impl Into<String>) -> Self {
         Self {
@@ -925,6 +929,7 @@ impl ValueValidator for PaginationField {
 }
 /// Create a new runner using project or group identifier
 pub async fn create_runner(options: Options) -> ApiResult<RunnerCreationResponse> {
+    let template = "gitlab::api";
     let action = "runner::create";
     let Options {
         token,
@@ -941,7 +946,7 @@ pub async fn create_runner(options: Options) -> ApiResult<RunnerCreationResponse
         ..
     } = runner_metadata;
     let id_type_string = runner_type.to_string().replace("type", "id");
-    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
             let params = vec![
                 param!(Header, "PRIVATE-TOKEN", &token),
@@ -959,11 +964,12 @@ pub async fn create_runner(options: Options) -> ApiResult<RunnerCreationResponse
 }
 /// Get descendant groups of a group by identifier
 pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
+    let template = "gitlab::api";
     let action = "groups";
     let Options {
         token, identifier, domain, ..
     } = options;
-    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
             let params = vec![
                 param!(Header, "PRIVATE-TOKEN", &token),
@@ -981,11 +987,12 @@ pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
 ///
 /// See <https://docs.gitlab.com/api/projects/?utm_source=perplexity#retrieve-programming-language-usage-information> for more information on GitLab API.
 pub async fn language_use(options: Options) -> ApiResult<ProgrammingLanguageUseResponse> {
+    let template = "gitlab::api";
     let action = "languages";
     let Options {
         token, identifier, domain, ..
     } = options;
-    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
             let params = vec![
                 param!(Header, "PRIVATE-TOKEN", &token),
@@ -1029,6 +1036,7 @@ pub async fn languages() -> ApiResult<ProgrammingLanguagesResponse> {
 ///
 /// See <https://docs.gitlab.com/api/notes/#create-a-merge-request-note> for more information on this API endpoint and required parameters
 pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteResponse> {
+    let template = "gitlab::api";
     let action = "merge-request-note";
     let Options {
         token,
@@ -1038,7 +1046,7 @@ pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteR
         domain,
         ..
     } = options;
-    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
             let body = body.unwrap_or_default();
             let params = vec![
@@ -1055,11 +1063,12 @@ pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteR
 }
 /// Get runner details by identifier
 pub async fn runner(options: Options) -> ApiResult<RunnerMetadata> {
+    let template = "gitlab::api";
     let action = "runner";
     let Options {
         token, identifier, domain, ..
     } = options;
-    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
             let params = vec![
                 param!(Header, "PRIVATE-TOKEN", &token),
@@ -1073,9 +1082,10 @@ pub async fn runner(options: Options) -> ApiResult<RunnerMetadata> {
 }
 /// Get runners visible to user associated with given token
 pub async fn runners(options: Options) -> ApiResult<RunnersResponse> {
+    let template = "gitlab::api";
     let action = "runners";
     let Options { token, domain, .. } = options;
-    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => {
             let params = vec![param!(Header, "PRIVATE-TOKEN", &token)];
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
@@ -1092,7 +1102,8 @@ pub(crate) async fn tree_paths(
     directory: impl Into<String>,
     page: u32,
 ) -> ApiResult<Vec<String>> {
-    match Endpoint::from_template("gitlab::api").map(|e| e.with_domain(host.into())) {
+    let template = "gitlab::api";
+    match Endpoint::from_template(template).map(|e| e.with_domain(host.into())) {
         | Ok(endpoint) => {
             let params = vec![
                 param!(TemplateValue, "identifier", &identifier.into()),
