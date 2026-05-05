@@ -15,7 +15,7 @@ Software at this level is packaged and run in containers such as Docker[^docker]
 ### Installable (Level 3)
 Software at this level is designed to be installed and configured on multiple platforms, usually through installers or setup scripts. Some manual setup may still be required, but the process is generally user-friendly. Platform-specific installers or options are often provided to support different operating systems and hardware.
 
-### Managed (Level 4)
+### Automated Installation Available (Level 4)
 Software at this level is distributed through one or more package managers such as npm[^npm], Homebrew[^homebrew], Scoop[^scoop], or the Ubuntu advanced package management tool[^apt]. It is typically published to package repositories so users can install and update it with standard tools. This approach improves deployment speed and ongoing maintenance across many environments.
 
 ### WebAssembly[^wasm] (Level 5)
