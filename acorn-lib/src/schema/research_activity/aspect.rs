@@ -23,6 +23,7 @@ use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use core::str::FromStr;
 
 /// Description of obstacles to shared access
 ///
@@ -427,6 +428,25 @@ impl LinkedData for DataDescription {
             context: Some(DataDescriptionContext::default()),
             description_type: None,
             ..self.clone()
+        }
+    }
+}
+impl FromStr for GeospatialDataProcessingLevel {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "LV0" | "L0" | "0" => Ok(Self::L0),
+            "LV1A" | "L1A" | "1A" => Ok(Self::L1A),
+            "LV1B" | "L1B" | "1B" => Ok(Self::L1B),
+            "LV1C" | "L1C" | "1C" => Ok(Self::L1C),
+            "LV2" | "L2" | "2" => Ok(Self::L2),
+            "LV2A" | "L2A" | "2A" => Ok(Self::L2A),
+            "LV2B" | "L2B" | "2B" => Ok(Self::L2B),
+            "LV3" | "L3" | "3" => Ok(Self::L3),
+            "LV3A" | "L3A" | "3A" => Ok(Self::L3A),
+            "LV4" | "L4" | "4" => Ok(Self::L4),
+            _ => Err(format!("unknown GeospatialDataProcessingLevel: {value}")),
         }
     }
 }
