@@ -26,10 +26,10 @@ arrow from E.e  to E1.w thick color 0x00662C
 ## Discussion
 
 When discussing data, we can evaluate four core aspects:
-- **Origin**: Where does the data come from, and how was it produced?
-- **Availability**: How accessible is the data to intended users and systems?
-- **Modality**: What forms of information does the data contain?
-- **Quality**: How well does the data support its intended use?
+- **Origin** — Where does the data come from, and how was it produced?
+- **Availability** — How accessible is the data to intended users and systems?
+- **Modality** — What forms of information does the data contain?
+- **Quality** — How well does the data support its intended use?
 
 ### Attributes
 #### Origin
@@ -44,30 +44,36 @@ Where openness is characterized as open, public, shared, or closed, ASPECT data 
 
 #### Modality
 Data modality describes the type or format of data, which can include:
-- Text: Unstructured or structured textual data, such as documents, articles, or social media posts.
-- Audio: Sound recordings, such as music, speech, or environmental sounds.
-- Image: Visual data, such as photographs or scanned images.
-- Video: Moving image data, such as movies or surveillance footage.
-- Signal: Time-series data, such as sensor readings or financial market data.
-- Graph: Structured data representing relationships between entities, such as social networks or knowledge graphs.
+- 📕 Text — Unstructured or structured textual data, such as documents, articles, or social media posts.
+- 🎵 Audio — Sound recordings, such as music, speech, or environmental sounds.
+- 🖼️ Image — Visual data, such as photographs or scanned images.
+- 🎬 Video — Moving image data, such as movies or surveillance footage.
+- 📈 Signal — Time-series data, such as sensor readings or financial market data.
+- 🕸️ Graph — Structured data representing relationships between entities, such as social networks or knowledge graphs.
 
 Multi-modal data combines multiple modalities, such as video with audio or text with images, to provide richer context and insights. In the context of ASPECT, data modality is a list and multi-modal data can be described by including multiple modalities in the list (e.g., ["text", "image"] for research activity data that relies on both textual and visual data).
 
 #### Quality
 
-```mermaid
-graph LR
-    B["Raw</br>(Collected)"] --> C["Bronze</br>(Ingested)"]
-    C --> D["Silver</br>(Processed)"]
-    D --> E["Gold</br>(Analysis Ready)"]
-    E --> F["Platinum</br>(Context Ready)"]
+```pikchr
+scale = 0.7
+B: box "Raw" "(Collected)"       wid 1.1in ht 0.45in fill white
+C: box "Bronze" "(Ingested)"     wid 1.1in ht 0.45in fill white with .w at B.e+(0.3in,0)
+D: box "Silver" "(Processed)"    wid 1.1in ht 0.45in fill white with .w at C.e+(0.3in,0)
+E: box "Gold" "(Analysis Ready)" wid 1.3in ht 0.45in fill white with .w at D.e+(0.3in,0)
+F: box "Platinum" "(Context Ready)" wid 1.3in ht 0.45in fill white with .w at E.e+(0.3in,0)
+
+arrow from B.e to C.w thick color 0x00662C
+arrow from C.e to D.w thick color 0x00662C
+arrow from D.e to E.w thick color 0x00662C
+arrow from E.e to F.w thick color 0x00662C
 ```
 
 Data quality leverages the metaphor of precious metals to provide an intuitive and memorable way to describe the quality of data.
 
 Data quality describes the level of processing and readiness of the data for analysis and use. The levels were developed with inspiration from data readiness levels [^1], anaylsis ready data[^2], and multiple other data quality frameworks. For example, the transition from gold to platinum maps nearly directly to a transition from band B to band A in the data readiness levels, with the key difference being that ASPECT's quality levels are designed to be more intuitive and directly actionable for researchers working with data in the context of research activities. See [the geospatial data section below](#geospatial-data) for an example of how data processing levels relates to data quality.
 
-### Geospatial Data
+### 🌎 Geospatial Data
 Geospatial data describes features and events tied to location. Common formats include raster data, such as satellite imagery, and vector data, such as points, lines, and polygons. These datasets support mapping, navigation, and spatial analysis. For geospatial work, *data processing level* is an important additional quality dimension.
 
 Based on NASA's Data Processing Levels[^nasa-dpl], geospatial data can be described with the following processing levels
