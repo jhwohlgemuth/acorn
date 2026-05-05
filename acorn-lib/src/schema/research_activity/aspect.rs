@@ -44,6 +44,8 @@ pub enum Availability {
     Unrestricted = 2,
 }
 /// Describe the data that a system can process, use, and depend on
+/// 
+/// The attribute of data that designates "real" vs "synthetic" is intended to capture the ***origin*** of the data, which can have implications for its quality, reliability, and applicability to different tasks.
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub enum Data {
     /// Data that has been collected from natural events
@@ -243,7 +245,7 @@ pub enum SoftwarePortability {
     /// Software is provided via a container image automatically generated via a build script using an image configuration (e.g., Dockerfile)
     Containerized = 2,
     /// Involves steps that cannot be immediately automated (e.g., GUI installer, manual configuration, installer that cannot be downloaded automatically)
-    Installer = 3,
+    Installable = 3,
     /// Available via TUI package manager (e.g., npm, brew, scoop)
     /// ### Note
     /// > This level is basically level 3 technology published to public package repositories and available via one or more package managers.
