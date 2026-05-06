@@ -1,0 +1,59 @@
+{
+    "failures": [
+        {
+            "fieldId": "access.statement.language.schemaUri",
+            "errorType": "invalidValue",
+            "message": "schema is unknown/unsupported"
+        },
+        {
+            "fieldId": "title[0].language.schemaUri",
+            "errorType": "invalidValue",
+            "message": "schema is unknown/unsupported"
+        },
+        {
+            "fieldId": "description[0].language.schemaUri",
+            "errorType": "invalidValue",
+            "message": "schema is unknown/unsupported"
+        },
+        {
+            "fieldId": "subject[0].schemaUri",
+            "errorType": "invalidValue",
+            "message": "must be https://vocabs.ardc.edu.au/viewById/316."
+        },
+        {
+            "fieldId": "subject[0].keyword[0].language.schemaUri",
+            "errorType": "invalidValue",
+            "message": "schema is unknown/unsupported"
+        },
+        {
+            "fieldId": "contributor[0].id",
+            "errorType": "invalidValue",
+            "message": "Contributor id should start with https://sandbox.orcid.org/"
+        },
+        {
+            "fieldId": "organisation[0].id",
+            "errorType": "invalidValue",
+            "message": "has invalid/unsupported value - should match ^https://ror\\.org/[0-9a-z]{9}$"
+        },
+        {
+            "fieldId": "relatedObject[0].schemaUri",
+            "errorType": "invalid",
+            "message": "Only [https://doi.org/, https://web.archive.org/] is supported."
+        },
+        {
+            "fieldId": "spatialCoverage[0].schemaUri",
+            "errorType": "invalidValue",
+            "message": "schema is unknown/unsupported"
+        },
+        {
+            "fieldId": "spatialCoverage[0].place[0].language.schemaUri",
+            "errorType": "invalidValue",
+            "message": "schema is unknown/unsupported"
+        }
+    ],
+    "type": "https://raid.org.au/errors#ValidationException",
+    "title": "There were validation failures.",
+    "status": 400,
+    "detail": "Request had 10 validation failure(s). See failures for more details...",
+    "instance": "https://raid.org.au"
+}

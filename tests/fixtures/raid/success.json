@@ -1,0 +1,97 @@
+{
+    "traditionalKnowledgeLabel": [
+        {
+            "id": "https://localcontexts.org/label/tk-verified/",
+            "schemaUri": "https://localcontexts.org/labels/traditional-knowledge-labels/"
+        }
+    ],
+    "metadata": {
+        "created": 1778030112,
+        "updated": 1778030112
+    },
+    "identifier": {
+        "id": "https://raid.org/10.83962/f2a7645d",
+        "schemaUri": "https://raid.org/",
+        "registrationAgency": {
+            "id": "https://ror.org/038sjwq14",
+            "schemaUri": "https://ror.org/"
+        },
+        "owner": {
+            "id": "https://ror.org/01qz5mb56",
+            "schemaUri": "https://ror.org/",
+            "servicePoint": 20000033
+        },
+        "raidAgencyUrl": "https://static.demo.raid.org.au/raids/10.83962/f2a7645d",
+        "license": "Creative Commons CC-0",
+        "version": 1
+    },
+    "title": [
+        {
+            "text": "Created from API",
+            "type": {
+                "id": "https://vocabulary.raid.org/title.type.schema/5",
+                "schemaUri": "https://vocabulary.raid.org/title.type.schema/376"
+            },
+            "startDate": "2026-05-05"
+        }
+    ],
+    "date": {
+        "startDate": "2026-05-05"
+    },
+    "description": [
+        {
+            "text": "string",
+            "type": {
+                "id": "https://vocabulary.raid.org/description.type.schema/318",
+                "schemaUri": "https://vocabulary.raid.org/description.type.schema/320"
+            }
+        }
+    ],
+    "access": {
+        "type": {
+            "id": "https://vocabularies.coar-repositories.org/access_rights/c_abf2/",
+            "schemaUri": "https://vocabularies.coar-repositories.org/access_rights/"
+        }
+    },
+    "alternateUrl": [
+        {
+            "url": "string"
+        }
+    ],
+    "contributor": [
+        {
+            "id": "https://sandbox.orcid.org/0000-0003-0021-3068",
+            "schemaUri": "https://orcid.org/",
+            "status": "AWAITING_AUTHENTICATION",
+            "statusMessage": "string",
+            "email": "string",
+            "uuid": "string",
+            "position": [
+                {
+                    "schemaUri": "https://vocabulary.raid.org/contributor.position.schema/305",
+                    "id": "https://vocabulary.raid.org/contributor.position.schema/307",
+                    "startDate": "2025-08-28"
+                }
+            ],
+            "role": [
+                {
+                    "schemaUri": "https://credit.niso.org/",
+                    "id": "https://credit.niso.org/contributor-roles/writing-review-editing/"
+                }
+            ],
+            "leader": true,
+            "contact": true
+        }
+    ],
+    "organisation": [],
+    "subject": [],
+    "relatedRaid": [],
+    "relatedObject": [],
+    "alternateIdentifier": [
+        {
+            "id": "string",
+            "type": "string"
+        }
+    ],
+    "spatialCoverage": []
+}

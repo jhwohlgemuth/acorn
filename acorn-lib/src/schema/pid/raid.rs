@@ -389,9 +389,9 @@ pub enum TitleType {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Access {
     /// Access type
-    #[validate(nested)]
+    #[validate(required, nested)]
     #[serde(rename = "type")]
-    pub access_type: AccessIdentifier,
+    pub access_type: Option<AccessIdentifier>,
     /// Date an embargo on access to the RAiD metadata ends
     /// ### Format
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
@@ -463,8 +463,8 @@ pub struct Contributor {
     /// Should be a valid *full* ORCiD
     /// ### Example
     /// > "<https://orcid.org/0000-0000-0000-0000>"
-    #[validate(custom(function = "is_orcid"))]
-    pub id: String,
+    #[validate(required, custom(function = "is_orcid"))]
+    pub id: Option<String>,
     /// URI of the contributor identifier schema
     ///
     /// <div class="warning">PID is required and (currently) only [ORCID] and [ISNI] are allowed</div>
@@ -530,8 +530,8 @@ pub struct Date {
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_date"))]
-    pub start_date: String,
+    #[validate(required, custom(function = "is_date"))]
+    pub start_date: Option<String>,
     /// Associated data end date
     /// ### Format
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
@@ -624,14 +624,14 @@ pub struct Metadata {
     /// Title metadata of the RAiD
     ///
     /// <div class="warning">One and only one title should be identified as "primary"</div>
-    #[validate(nested, length(min = 1))]
+    #[validate(required, nested, length(min = 1))]
     pub title: Option<Vec<Title>>,
     /// Description metadata of the RAiD
     #[validate(nested)]
     pub description: Option<Vec<Description>>,
     /// Contributors to the RAiD
-    #[validate(nested, length(min = 1))]
-    pub contributor: Vec<Contributor>,
+    #[validate(required, nested, length(min = 1))]
+    pub contributor: Option<Vec<Contributor>>,
     /// Organizations associated with the RAiD
     ///
     /// <div class="warning">If only one organization is listed, it's role defaults to "Lead Research Organization"</div>
@@ -912,6 +912,7 @@ pub struct Subject {
     #[validate(url)]
     pub schema_uri: Option<String>,
     /// Subject keywords
+    #[validate(required, nested)]
     pub keyword: Option<Vec<Keyword>>,
 }
 /// Metadata schema block containing the title of RAiD and associated properties
@@ -949,7 +950,7 @@ pub struct Title {
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
     #[validate(custom(function = "is_year"))]
-    pub end_date: String,
+    pub end_date: Option<String>,
 }
 /// Metadata schema block containing information about Traditional Knowledge / Biocultural Labels and Notices
 /// ### Note
@@ -1035,7 +1036,7 @@ impl From<ResearchActivity> for Metadata {
             .filter(|id| is_orcid(id).is_ok())
             .unwrap_or_else(|| unimplemented!("Contributor ID is not an ORCID"));
         let date = Date {
-            start_date: default_start_date.clone(),
+            start_date: Some(default_start_date.clone()),
             end_date: None,
         };
         let contributor_position = ContributorPosition {
@@ -1044,7 +1045,7 @@ impl From<ResearchActivity> for Metadata {
             date: date.clone(),
         };
         let contributor = Contributor {
-            id: contributor_id,
+            id: Some(contributor_id),
             schema_uri: Some(DEFAULT_ORCID_SCHEMA_URI.to_string()),
             status: "active".to_string(),
             status_message: None,
@@ -1073,7 +1074,7 @@ impl From<ResearchActivity> for Metadata {
             },
             language: None,
             start_date: default_start_date.clone(),
-            end_date: default_end_year.clone(),
+            end_date: Some(default_end_year.clone()),
         };
         let description = Description {
             text: activity.sections.mission.clone(),
@@ -1100,10 +1101,10 @@ impl From<ResearchActivity> for Metadata {
             version: 1,
         };
         let access = Access {
-            access_type: AccessIdentifier {
+            access_type: Some(AccessIdentifier {
                 id: AccessType::OpenAccess,
                 schema_uri: None,
-            },
+            }),
             embargo_expiry: None,
             statement: None,
         };
@@ -1113,7 +1114,7 @@ impl From<ResearchActivity> for Metadata {
             date: None,
             title: Some(vec![title]),
             description: Some(vec![description]),
-            contributor: vec![contributor],
+            contributor: Some(vec![contributor]),
             organization: vec![organization],
             related_object: None,
             alternate_identifier: None,

@@ -12,6 +12,62 @@ use dotenvy;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
+/// Server response for RAiD API errors
+/// ### Example JSON output
+/// ```json
+/// {
+///   "type": "https://raid.org.au/errors#InvalidDateException",
+///   "title": "Invalid date",
+///   "status": 400,
+///   "detail": "2023-08-28; 2023-08; 2023 is an invalid date or has an unsupported format.",
+///   "instance": "https://raid.org.au",
+///   "failures": [
+///     {
+///       "fieldId": "access.statement.language.schemaUri",
+///       "errorType": "invalidValue",
+///       "message": "schema is unknown/unsupported"
+///     }
+///   ]
+/// }
+/// ```
+#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
+#[builder(start_fn = with_token, on(String, into))]
+pub struct ErrorResponse {
+    /// Error type
+    #[serde(rename = "type")]
+    pub error_type: String,
+    /// Error title
+    pub title: String,
+    /// HTTP status code
+    pub status: u16,
+    /// Detailed error message
+    pub detail: String,
+    /// Error instance
+    pub instance: String,
+    /// Validation failures associated with this error response
+    pub failures: Option<Vec<ErrorResponseFailure>>,
+}
+/// RAiD API error response failure
+/// ### Example JSON output
+/// ```json
+/// {
+///   "fieldId": "access.statement.language.schemaUri",
+///   "errorType": "invalidValue",
+///   "message": "schema is unknown/unsupported"
+/// }
+/// ```
+#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
+#[builder(start_fn = with_token, on(String, into))]
+pub struct ErrorResponseFailure {
+    /// Field associated with this validation failure
+    #[serde(rename = "fieldId")]
+    pub field_id: String,
+    /// Error type for this failure
+    #[serde(rename = "errorType")]
+    pub error_type: String,
+    /// Human-readable failure message
+    pub message: String,
+}
 /// RAiD API options
 ///
 /// Configuration options for RAiD API operations
@@ -32,6 +88,8 @@ pub struct Options {
     pub prefix: Option<String>,
     /// RAiD suffix (e.g., "000001")
     pub suffix: Option<String>,
+    /// Metadata for minting a new RAiD record
+    pub raid_metadata: Option<Metadata>,
 }
 /// RAiD service point
 ///
@@ -111,6 +169,7 @@ impl Configuration for Options {
             prefix: None,
             suffix: None,
             identifier: None,
+            raid_metadata: None,
         }
     }
     /// Return a copy of options with request body payload set
@@ -133,6 +192,13 @@ impl Options {
     pub fn with_identifier(self, value: impl Into<String>) -> Self {
         Self {
             identifier: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with RAiD metadata set
+    pub fn with_raid_metadata(self, value: impl Into<Metadata>) -> Self {
+        Self {
+            raid_metadata: Some(value.into()),
             ..self
         }
     }

@@ -19,11 +19,11 @@ use crate::schema::prompt::Model;
 use crate::schema::TechnologyReadinessLevel;
 use crate::util::LinkedData;
 use bon::Builder;
+use core::str::FromStr;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use core::str::FromStr;
 
 /// Description of obstacles to shared access
 ///
@@ -45,7 +45,7 @@ pub enum Availability {
     Unrestricted = 2,
 }
 /// Describe the data that a system can process, use, and depend on
-/// 
+///
 /// The attribute of data that designates "real" vs "synthetic" is intended to capture the ***origin*** of the data, which can have implications for its quality, reliability, and applicability to different tasks.
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub enum Data {
@@ -436,17 +436,17 @@ impl FromStr for GeospatialDataProcessingLevel {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "LV0" | "L0" | "0" => Ok(Self::L0),
-            "LV1A" | "L1A" | "1A" => Ok(Self::L1A),
-            "LV1B" | "L1B" | "1B" => Ok(Self::L1B),
-            "LV1C" | "L1C" | "1C" => Ok(Self::L1C),
-            "LV2" | "L2" | "2" => Ok(Self::L2),
-            "LV2A" | "L2A" | "2A" => Ok(Self::L2A),
-            "LV2B" | "L2B" | "2B" => Ok(Self::L2B),
-            "LV3" | "L3" | "3" => Ok(Self::L3),
-            "LV3A" | "L3A" | "3A" => Ok(Self::L3A),
-            "LV4" | "L4" | "4" => Ok(Self::L4),
-            _ => Err(format!("unknown GeospatialDataProcessingLevel: {value}")),
+            | "LV0" | "L0" | "0" => Ok(Self::L0),
+            | "LV1A" | "L1A" | "1A" => Ok(Self::L1A),
+            | "LV1B" | "L1B" | "1B" => Ok(Self::L1B),
+            | "LV1C" | "L1C" | "1C" => Ok(Self::L1C),
+            | "LV2" | "L2" | "2" => Ok(Self::L2),
+            | "LV2A" | "L2A" | "2A" => Ok(Self::L2A),
+            | "LV2B" | "L2B" | "2B" => Ok(Self::L2B),
+            | "LV3" | "L3" | "3" => Ok(Self::L3),
+            | "LV3A" | "L3A" | "3A" => Ok(Self::L3A),
+            | "LV4" | "L4" | "4" => Ok(Self::L4),
+            | _ => Err(format!("unknown GeospatialDataProcessingLevel: {value}")),
         }
     }
 }
