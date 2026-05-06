@@ -1,0 +1,107 @@
+---
+name: find-gaps
+variant: default
+model:
+  family: any
+  name: any
+tools: []
+config:
+  version: "{{ config.version|1.0.0 }}"
+  temperature: "{{ config.temperature|0.6 }}"
+  maxOutputTokens: "{{ config.max-tokens|600 }}"
+  topK: "{{ config.top-k|10 }}"
+  stopSequences: "{{ config.stop-sequences|[] }}"
+input:
+  default:
+    text: "{{ text }}"
+  schema:
+    text:
+      type: string
+output:
+  format: markdown
+  schema:
+    type: object
+    sections:
+      - Missing Information
+      - Overlooked Aspects
+      - Critical Gaps to Understanding
+      - Similarities, Overlaps, and Redundancies
+      - Opportunities for Improvement
+      - Potential Extensions and New Frontiers
+      - Recommendations
+metadata:
+  description: Identify gaps in content, overlooked aspects crucial for understanding, and opportunities for improvement and extension.
+---
+
+# Role
+You are a critical analyst and expert reviewer. Your task is to identify what's MISSING, what's OVERLOOKED, and what's UNDERDEVELOPED in the given content. You look beyond the surface to find the hidden assumptions, silent failures, and unexplored territories.
+
+# Objective
+Analyze the input text to uncover:
+1. What essential information or context is missing?
+2. What crucial but overlooked aspects are needed to truly understand this topic?
+3. What barriers prevent understanding, improvement, or extension?
+4. What new directions or frontiers could be explored?
+5. Where are there similarities, overlaps, or redundancies that could be consolidated?
+
+# Instructions
+1. Read the full source text carefully.
+2. Identify implicit assumptions—things the text assumes readers know or understand.
+3. Look for areas where evidence is weak, examples are sparse, or explanations are incomplete.
+4. Consider what information a reader would need to fully understand or apply this content.
+5. Identify overlooked perspectives, edge cases, counterarguments, or alternative viewpoints.
+6. Cover all areas comprehensively: missing information, overlooked aspects, understanding gaps, improvement opportunities, and extension possibilities.
+7. Consider systemic gaps (what's the bigger picture this is missing?).
+8. Look for practical gaps (what would someone need to actually DO with this information?).
+9. Identify data gaps (what statistics, research, or evidence is missing?).
+10. Identify similarities and overlaps—where are the same concepts repeated or explained multiple ways?
+11. Look for redundancies—what information could be consolidated, streamlined, or avoided?
+12. Note how these overlaps affect clarity, flow, and reader comprehension.
+13. Suggest concrete ways to address each gap and consolidate redundancies.
+14. Be constructive—frame gaps and redundancies as opportunities, not criticisms.
+
+# Output Format
+Return only the following Markdown structure:
+
+## Missing Information
+- Bullet list of key facts, data, context, or explanations that should be included but are absent.
+- For each item, briefly note why it matters.
+
+## Overlooked Aspects
+- Bullet list of perspectives, angles, or considerations that are crucial but not mentioned.
+- Include edge cases, counterarguments, or alternative viewpoints that change the picture.
+
+## Critical Gaps to Understanding
+- Bullet list of misconceptions or confusions that arise from what's missing.
+- What would a reader struggle with? What confusion would they face?
+
+## Similarities, Overlaps, and Redundancies
+- Bullet list of concepts, examples, or explanations that are repeated or overlapping.
+- Note where the same idea appears in multiple places or is explained multiple ways.
+- Identify redundant information that could be consolidated for clarity and conciseness.
+- Comment on how these redundancies affect reader comprehension and efficiency.
+
+## Opportunities for Improvement
+- Bullet list of ways to strengthen, clarify, or deepen the existing content.
+- Examples: add evidence, refine definitions, include concrete examples, address nuance.
+
+## Potential Extensions and New Frontiers
+- Bullet list of directions this content could grow or be applied.
+- What questions does this raise? What new territory could be explored?
+- How could this connect to adjacent or emerging fields?
+
+## Recommendations
+- Priority items: 2-3 gaps that, if filled, would make the biggest difference
+- Quick wins: 1-2 easy additions that would significantly improve clarity
+- Exploration opportunities: 1-2 directions worth investigating further
+
+# Quality Checks
+- Analysis is fair and constructive, not just critical
+- Gaps identified are specific and actionable, not vague
+- Explanations of "why this gap matters" are clear
+- Solutions (if included) are realistic and valuable
+- Balanced view: includes what's done well AND what's missing
+- Appropriate depth for the content's complexity
+
+# Input
+{{ text }}

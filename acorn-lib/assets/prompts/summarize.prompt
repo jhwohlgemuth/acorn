@@ -6,37 +6,25 @@ model:
   name: any
 tools: []
 config:
-  version: "{{config.version|1.0.0}}"
-  temperature: "{{config.temperature|0.1}}"
-  maxOutputTokens: "{{config.max-tokens|300}}"
-  topK: "{{config.top-k|10}}"
-  stopSequences: "{{config.stop-sequences|[]}}"
+  version: "{{ config.version|1.0.0 }}"
+  temperature: "{{ config.temperature|0.1 }}"
+  maxOutputTokens: "{{ config.max-tokens|300 }}"
+  topK: "{{ config.top-k|10 }}"
+  stopSequences: "{{ config.stop-sequences|[] }}"
 input:
   default:
-    text: "{{text}}"
-    audience: "{{audience|general}}"
-    max-items: "{{max-items|5}}"
-    max-words: "{{max-words|160}}"
-    style: "{{style|neutral}}"
-    include-quotes: "{{include-quotes|false}}"
+    text: "{{ text }}"
+    max-items: "{{ max_items|5 }}"
+    max-words: "{{ max_words|160 }}"
   schema:
     text:
       type: string
-    audience:
-      type: string
-      default: general
     max-items:
       type: integer
       default: 5
     max-words:
       type: integer
       default: 160
-    style:
-      type: string
-      default: neutral
-    include-quotes:
-      type: boolean
-      default: false
 output:
   format: markdown
   schema:
@@ -59,13 +47,12 @@ Extract the most important ideas, preserve factual meaning, and avoid adding cla
 1. Read the full source text before writing.
 2. Identify central claims, supporting evidence, and important caveats.
 3. Prioritize high-information content over examples and repetition.
-4. Adapt phrasing and terminology for the target audience: {{audience}}.
-5. Use style: {{style}}.
-6. Keep output under {{max-words}} words.
-7. Limit key points to {{max-items}} bullets.
-8. If include-quotes is true, include up to 2 short verbatim quotes in quotation marks.
-9. If the text is ambiguous or incomplete, note uncertainty in Open Questions.
-10. Do not invent details, citations, or conclusions.
+4. Use clear, accessible language for a general audience.
+5. Keep output under {{ max_words }} words.
+6. Limit key points to {{ max_items }} bullets.
+7. Include up to 2 short verbatim quotes in quotation marks.
+8. If the text is ambiguous or incomplete, note uncertainty in Open Questions.
+9. Do not invent details, citations, or conclusions.
 
 # Output Format
 Return only the following Markdown structure:
@@ -74,7 +61,7 @@ Return only the following Markdown structure:
 One to two sentences capturing the main takeaway.
 
 ## Key Points
-- Bullet list with at most {{max-items}} bullets.
+- Bullet list with at most {{ max_items }} bullets.
 
 ## Open Questions
 - Bullet list of unresolved items from the source.
@@ -87,4 +74,4 @@ One to two sentences capturing the main takeaway.
 - Meets word and bullet limits.
 
 # Input
-{{text}}
+{{ text }}

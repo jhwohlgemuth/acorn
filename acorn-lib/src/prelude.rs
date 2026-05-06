@@ -10,7 +10,7 @@ mod std {
     pub use std::fs::{canonicalize, copy, create_dir_all, read, remove_dir_all, remove_file, write, File};
     #[cfg(unix)]
     pub use std::fs::{set_permissions, Permissions};
-    pub use std::io::{self, BufRead, BufReader, Cursor, Error, Read, Write};
+    pub use std::io::{self, BufRead, BufReader, Cursor, Error, ErrorKind, Read, Write};
     #[cfg(unix)]
     pub use std::os::unix::fs::PermissionsExt;
     pub use std::path::{absolute, Path, PathBuf};

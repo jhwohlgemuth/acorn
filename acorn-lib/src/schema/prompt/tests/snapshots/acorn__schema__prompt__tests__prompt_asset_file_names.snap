@@ -1,0 +1,11 @@
+---
+source: acorn-lib/src/schema/prompt/tests/mod.rs
+assertion_line: 64
+expression: names
+---
+- eli5.prompt
+- extract-claim.prompt
+- find-gaps.prompt
+- summarize.prompt
+- teach.prompt
+- translate.prompt
