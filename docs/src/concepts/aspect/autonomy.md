@@ -88,5 +88,5 @@ arrow thick thick from first box.e to first diamond.w color 0x00662C
 ```
 
 [^ISO]: ISO/IEC 22989:2022 Information Technology --- Artificial Intelligence Concepts and Terminology
-[^sae]: SAE J3016 Taxonomy and Definitions for Terms Related to Driving Automation Systems: https://www.sae.org/standards/j3016_202104-taxonomy-definitions-terms-related-driving-automation-systems-road-motor-vehicles
-[^visidata]: Visidata AI Collaboration Levels: https://www.visidata.org/blog/2026/ai/
+[^sae]: SAE J3016 Taxonomy and Definitions for Terms Related to Driving Automation Systems: [https://www.sae.org/standards/j3016_202104-taxonomy-definitions-terms-related-driving-automation-systems-road-motor-vehicles](https://www.sae.org/standards/j3016_202104-taxonomy-definitions-terms-related-driving-automation-systems-road-motor-vehicles)
+[^visidata]: Visidata AI Collaboration Levels: [https://www.visidata.org/blog/2026/ai/](https://www.visidata.org/blog/2026/ai/)

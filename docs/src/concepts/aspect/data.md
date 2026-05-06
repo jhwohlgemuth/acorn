@@ -92,7 +92,7 @@ Most remote sensing sources (e.g. satellites) provide metadata that includes the
 
 Geospatial data processing level relates to ASPECT's data quality attribute in that higher processing levels typically indicate higher quality data. For instance, Level 2B data, which has been processed to correct for atmospheric effects and terrain distortions, would generally be considered higher quality than Level 1B data, which is only annotated and not fully processed. However, the specific quality designation (e.g., gold, silver) would depend on additional factors such as the intended use case and the presence of any remaining artifacts or limitations in the data. For example, orthorectification might be the difference between gold and silver quality data for AI/ML applications.
 
-[^1]: Data Readiness Levels: https://arxiv.org/abs/1705.02245
-[^2]: Analysis Ready Data (ARD): https://ieeexplore.ieee.org/document/8899846
-[^omniverse]: NVIDIA Omniverse Replicator: https://docs.omniverse.nvidia.com/extensions/latest/ext_replicator.html
-[^nasa-dpl]: NASA Data Processing Levels: https://www.earthdata.nasa.gov/learn/earth-observation-data-basics/data-processing-levels
+[^1]: Data Readiness Levels: [https://arxiv.org/abs/1705.02245](https://arxiv.org/abs/1705.02245)
+[^2]: Analysis Ready Data (ARD): [https://ieeexplore.ieee.org/document/8899846](https://ieeexplore.ieee.org/document/8899846)
+[^omniverse]: NVIDIA Omniverse Replicator: [https://docs.omniverse.nvidia.com/extensions/latest/ext_replicator.html](https://docs.omniverse.nvidia.com/extensions/latest/ext_replicator.html)
+[^nasa-dpl]: NASA Data Processing Levels: [https://www.earthdata.nasa.gov/learn/earth-observation-data-basics/data-processing-levels](https://www.earthdata.nasa.gov/learn/earth-observation-data-basics/data-processing-levels)

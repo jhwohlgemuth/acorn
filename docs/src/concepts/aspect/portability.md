@@ -21,12 +21,12 @@ Software at this level is distributed through one or more package managers such 
 ### WebAssembly[^wasm] (Level 5)
 Software at this level is compiled to WebAssembly (WASM)[^compile], which allows it to run in modern browsers and other environments that support a WebAssembly runtime. It can often run across desktop, mobile, and server targets without platform-specific changes. Because runtime support is broad and growing, WebAssembly is often treated as a leading portability target.
 
-[^apptainer]: https://apptainer.org/
-[^apt]: https://ubuntu.com/server/docs/how-to/software/package-management/
-[^compile]: https://webassembly.org/getting-started/developers-guide/
-[^docker]: https://www.docker.com/
-[^homebrew]: https://brew.sh/
-[^npm]: https://www.npmjs.com/
-[^podman]: https://podman.io/
-[^scoop]: https://scoop.sh/
-[^wasm]: https://webassembly.org/
+[^apptainer]: [https://apptainer.org/](https://apptainer.org/)
+[^apt]: [https://ubuntu.com/server/docs/how-to/software/package-management/](https://ubuntu.com/server/docs/how-to/software/package-management/)
+[^compile]: [https://webassembly.org/getting-started/developers-guide/](https://webassembly.org/getting-started/developers-guide/)
+[^docker]: [https://www.docker.com/](https://www.docker.com/)
+[^homebrew]: [https://brew.sh/](https://brew.sh/)
+[^npm]: [https://www.npmjs.com/](https://www.npmjs.com/)
+[^podman]: [https://podman.io/](https://podman.io/)
+[^scoop]: [https://scoop.sh/](https://scoop.sh/)
+[^wasm]: [https://webassembly.org/](https://webassembly.org/)

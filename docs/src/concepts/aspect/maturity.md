@@ -20,5 +20,5 @@ ASPECT leverages an augmented version of technology readiness levels (TRL). Wiki
 **Maturity** in ASPECT reflects the degree to which a system has been tested, validated, and proven in real-world scenarios, as well as its readiness for deployment and integration into existing workflows. In combination with the other ASPECT attributes, ASPECT's maturity attribute provides a holistic view of the system under consideration, beyond  a technology's age or quality.  
 
 [^lavin]: A. Lavin et al., "Technology readiness levels for machine learning systems," Nat Commun, vol. 13, no. 1, p. 6039, Oct. 2022, doi: 10.1038/s41467-022-33128-9.
-[^wikipedia]: Technology Readiness Level: https://en.wikipedia.org/wiki/Technology_readiness_level
+[^wikipedia]: Technology Readiness Level: [https://en.wikipedia.org/wiki/Technology_readiness_level](https://en.wikipedia.org/wiki/Technology_readiness_level)
 ![TRLs for ML systems](../../_assets/ml_trl.png)
