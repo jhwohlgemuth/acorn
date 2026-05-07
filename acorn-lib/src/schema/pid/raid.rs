@@ -6,7 +6,7 @@
 #[cfg(feature = "std")]
 use crate::io::current_date;
 #[cfg(feature = "std")]
-use crate::io::read_file;
+use crate::io::{read_file, License};
 #[cfg(feature = "std")]
 use crate::prelude::{Error, PathBuf};
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
@@ -14,6 +14,8 @@ use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
 #[cfg(feature = "std")]
 use crate::util::Label;
+#[cfg(not(feature = "std"))]
+use crate::util::License;
 use bon::Builder;
 use derive_more::Display;
 use schemars::{schema_for, JsonSchema};
@@ -29,11 +31,11 @@ use validator::Validate;
 pub enum AccessType {
     /// Open access
     #[default]
-    #[display("open-access")]
+    #[display("https://vocabularies.coar-repositories.org/access_rights/c_abf2/")]
     #[serde(alias = "https://vocabularies.coar-repositories.org/access_rights/c_abf2/")]
     OpenAccess,
     /// Embargoed access
-    #[display("embargoed-access")]
+    #[display("https://vocabularies.coar-repositories.org/access_rights/c_f1cf/")]
     #[serde(alias = "https://vocabularies.coar-repositories.org/access_rights/c_f1cf/")]
     EmbargoedAccess,
 }
@@ -46,59 +48,59 @@ pub enum AccessType {
 #[serde(rename_all = "kebab-case")]
 pub enum CreditRole {
     /// Ideas; formulation or evolution of overarching research goals and aims.
-    #[display("conceptualization")]
+    #[display("https://credit.niso.org/contributor-roles/conceptualization/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/conceptualization/")]
     Conceptualization,
     /// Management activities to annotate (produce metadata), scrub data and maintain research data (including software code, where it is necessary for interpreting the data itself) for initial use and later re-use.
-    #[display("data-curation")]
+    #[display("https://credit.niso.org/contributor-roles/data-curation/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/data-curation/")]
     DataCuration,
     /// Application of statistical, mathematical, computational, or other formal techniques to analyze or synthesize study data.
-    #[display("formal-analysis")]
+    #[display("https://credit.niso.org/contributor-roles/formal-analysis/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/formal-analysis/")]
     FormalAnalysis,
     /// Acquisition of the financial support for the project leading to this publication.
-    #[display("funding-acquisition")]
+    #[display("https://credit.niso.org/contributor-roles/funding-acquisition/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/funding-acquisition/")]
     FundingAcquisition,
     /// Conducting a research and investigation process, specifically performing the experiments, or data/evidence collection.
-    #[display("investigation")]
+    #[display("https://credit.niso.org/contributor-roles/investigation/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/investigation/")]
     Investigation,
     /// Development or design of methodology; creation of models.
-    #[display("methodology")]
+    #[display("https://credit.niso.org/contributor-roles/methodology/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/methodology/")]
     Methodology,
     /// Management and coordination responsibility for the research activity planning and execution.
-    #[display("project-administration")]
+    #[display("https://credit.niso.org/contributor-roles/project-administration/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/project-administration/")]
     ProjectAdministration,
     /// Provision of study materials, reagents, materials, patients, laboratory samples, animals, instrumentation, computing resources, or other analysis tools.
-    #[display("resources")]
+    #[display("https://credit.niso.org/contributor-roles/resources/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/resources/")]
     Resources,
     /// Programming, software development; designing computer programs; implementation of the computer code and supporting algorithms; testing of existing code components.
-    #[display("software")]
+    #[display("https://credit.niso.org/contributor-roles/software/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/software/")]
     Software,
     /// Oversight and leadership responsibility for the research activity planning and execution, including mentorship external to the core team.
-    #[display("supervision")]
+    #[display("https://credit.niso.org/contributor-roles/supervision/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/supervision/")]
     Supervision,
     /// Verification, whether as a part of the activity or separate, of the overall replication/reproducibility of results/experiments and other research outputs.
-    #[display("validation")]
+    #[display("https://credit.niso.org/contributor-roles/validation/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/validation/")]
     Validation,
     /// Preparation, creation and/or presentation of the published work, specifically visualization/data presentation.
-    #[display("visualization")]
+    #[display("https://credit.niso.org/contributor-roles/visualization/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/visualization/")]
     Visualization,
     /// Preparation, creation and/or presentation of the published work, specifically writing the initial draft (including substantive translation).
-    #[display("writing-original-draft")]
+    #[display("https://credit.niso.org/contributor-roles/writing-original-draft/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/writing-original-draft/")]
     WritingOriginalDraft,
     /// Preparation, creation and/or presentation of the published work by those from the original research group, specifically critical review, commentary or revision - including pre- or post-publication stages
-    #[display("writing-review-editing")]
+    #[display("https://credit.niso.org/contributor-roles/writing-review-editing/")]
     #[serde(alias = "https://credit.niso.org/contributor-roles/writing-review-editing/")]
     WritingReviewEditing,
 }
@@ -107,28 +109,35 @@ pub enum CreditRole {
 #[serde(rename_all = "kebab-case")]
 pub enum DescriptionType {
     /// Primary description (i.e., a preferred full description or abstract)
+    #[display("https://vocabulary.raid.org/description.type.schema/318")]
     #[serde(alias = "https://vocabulary.raid.org/description.type.schema/318")]
     Primary,
     /// An alternative description (i.e., an additional or supplementary full description or abstract)
+    #[display("https://vocabulary.raid.org/description.type.schema/319")]
     #[serde(alias = "https://vocabulary.raid.org/description.type.schema/319")]
     Alternative,
     /// Brief description (i.e., a shorter version of the primary description)
+    #[display("https://vocabulary.raid.org/description.type.schema/3")]
     #[serde(alias = "https://vocabulary.raid.org/description.type.schema/3")]
     Brief,
     /// Significance statement
-    #[display("significance-statement")]
+    #[display("https://vocabulary.raid.org/description.type.schema/9")]
     #[serde(alias = "https://vocabulary.raid.org/description.type.schema/9")]
     SignificanceStatement,
     /// Methods
+    #[display("https://vocabulary.raid.org/description.type.schema/8")]
     #[serde(alias = "https://vocabulary.raid.org/description.type.schema/8")]
     Methods,
     /// Objectives
+    #[display("https://vocabulary.raid.org/description.type.schema/7")]
     #[serde(alias = "https://vocabulary.raid.org/description.type.schema/7")]
     Objectives,
     /// Acknowledgements (i.e., for recognition of people not listed as Contributors or organizations not listed as organizations)
+    #[display("https://vocabulary.raid.org/description.type.schema/392")]
     #[serde(alias = "https://vocabulary.raid.org/description.type.schema/392")]
     Acknowledgements,
     /// Other (i.e., any other descriptive information such as a note)
+    #[display("https://vocabulary.raid.org/description.type.schema/6")]
     #[serde(alias = "https://vocabulary.raid.org/description.type.schema/6")]
     Other,
 }
@@ -309,23 +318,23 @@ pub enum OrganizationRoleType {
 #[serde(rename_all = "kebab-case")]
 pub enum PositionType {
     /// Principal Investigator
-    #[display("principal-investigator")]
+    #[display("https://vocabulary.raid.org/contributor.position.schema/307")]
     #[serde(alias = "ChiefInvestigator", alias = "https://vocabulary.raid.org/contributor.position.schema/307")]
     PrincipalInvestigator,
     /// Co-Investigator
-    #[display("co-investigator")]
+    #[display("https://vocabulary.raid.org/contributor.position.schema/308")]
     #[serde(alias = "collaborator", alias = "https://vocabulary.raid.org/contributor.position.schema/308")]
     CoInvestigator,
     /// Partner Investigator (e.g., industry, government, or community collaborator)
-    #[display("partner-investigator")]
+    #[display("https://vocabulary.raid.org/contributor.position.schema/309")]
     #[serde(alias = "https://vocabulary.raid.org/contributor.position.schema/309")]
     PartnerInvestigator,
     /// Consultant (e.g., someone hired as a contract researcher by the project)
-    #[display("consultant")]
+    #[display("https://vocabulary.raid.org/contributor.position.schema/310")]
     #[serde(alias = "https://vocabulary.raid.org/contributor.position.schema/310")]
     Consultant,
     /// Other Participant not covered by one of the positions above, e.g., "member" or "other significant contributor"
-    #[display("other")]
+    #[display("https://vocabulary.raid.org/contributor.position.schema/311")]
     #[serde(alias = "https://vocabulary.raid.org/contributor.position.schema/311")]
     Other,
 }
@@ -372,15 +381,19 @@ pub enum RelatedRaidType {
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
 pub enum TitleType {
     /// Title acronym
+    #[display("https://vocabulary.raid.org/title.type.schema/156")]
     #[serde(alias = "https://vocabulary.raid.org/title.type.schema/156")]
     Acronym,
     /// Alternative title, including subtitle or other supplemental title
+    #[display("https://vocabulary.raid.org/title.type.schema/4")]
     #[serde(alias = "https://vocabulary.raid.org/title.type.schema/4")]
     Alternative,
     /// Preferred full or long title
+    #[display("https://vocabulary.raid.org/title.type.schema/5")]
     #[serde(alias = "https://vocabulary.raid.org/title.type.schema/5")]
     Primary,
     /// Abreviated title
+    #[display("https://vocabulary.raid.org/title.type.schema/157")]
     #[serde(alias = "https://vocabulary.raid.org/title.type.schema/157")]
     Short,
 }
@@ -612,26 +625,35 @@ pub struct Language {
 #[display("({identifier:?})")]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Metadata {
-    /// RAiD metadata metadata
-    #[validate(nested)]
-    pub metadata: Option<MetadataMetadata>,
+    /// Access for the RAiD metadata
+    #[validate(required, nested)]
+    pub access: Option<Access>,
+    /// Contributors to the RAiD
+    #[validate(required, nested, length(min = 1))]
+    pub contributor: Option<Vec<Contributor>>,
+    /// Dates associated with the RAiD metadata
+    #[validate(required, nested)]
+    pub date: Option<Date>,
     /// Metadata schema block containing the RAiD name and associated properties
     #[validate(required, nested)]
     pub identifier: Option<MetadataIdentifier>,
-    /// Dates associated with the RAiD metadata
-    #[validate(nested)]
-    pub date: Option<Date>,
     /// Title metadata of the RAiD
     ///
     /// <div class="warning">One and only one title should be identified as "primary"</div>
     #[validate(required, nested, length(min = 1))]
     pub title: Option<Vec<Title>>,
+    /// Alternate identifiers associated with the RAiD
+    #[validate(nested)]
+    pub alternate_identifier: Option<Vec<AlternateIdentifier>>,
+    /// Alternate URLs associated with the RAiD
+    #[validate(nested)]
+    pub alternate_url: Option<Vec<AlternateUrl>>,
     /// Description metadata of the RAiD
     #[validate(nested)]
     pub description: Option<Vec<Description>>,
-    /// Contributors to the RAiD
-    #[validate(required, nested, length(min = 1))]
-    pub contributor: Option<Vec<Contributor>>,
+    /// RAiD metadata metadata
+    #[validate(nested)]
+    pub metadata: Option<MetadataMetadata>,
     /// Organizations associated with the RAiD
     ///
     /// <div class="warning">If only one organization is listed, it's role defaults to "Lead Research Organization"</div>
@@ -643,62 +665,53 @@ pub struct Metadata {
     /// Related objects associated with the RAiD
     #[validate(nested)]
     pub related_object: Option<Vec<RelatedObject>>,
-    /// Alternate identifiers associated with the RAiD
-    #[validate(nested)]
-    pub alternate_identifier: Option<Vec<AlternateIdentifier>>,
-    /// Alternate URLs associated with the RAiD
-    #[validate(nested)]
-    pub alternate_url: Option<Vec<AlternateUrl>>,
     /// Related RAiD(s) associated with the RAiD
     #[validate(nested)]
     pub related_raid: Option<Vec<RelatedRaid>>,
-    /// Access for the RAiD metadata
-    #[validate(nested)]
-    pub access: Option<Access>,
-    /// Traditional knowledge information
-    #[validate(nested)]
-    pub traditional_knowledge_label: Option<Vec<TraditionalKnowledgeLabel>>,
     /// Spatial coverage
     #[validate(nested)]
     pub spatial_coverage: Option<Vec<SpatialCoverage>>,
     /// Subjects
     #[validate(nested)]
     pub subject: Option<Vec<Subject>>,
+    /// Traditional knowledge information
+    #[validate(nested)]
+    pub traditional_knowledge_label: Option<Vec<TraditionalKnowledgeLabel>>,
 }
 /// Metadata schema block containing the RAiD name and associated properties
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier>
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, Display, JsonSchema, Validate)]
-#[display("{id}")]
+#[display("{id:?}")]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct MetadataIdentifier {
     /// Unique alphanumeric character string that identifies a Research Activity Identifier (RAiD) name
     /// ### Format
     /// > `https://raid.org/prefix/suffix`
-    #[validate(custom(function = "is_raid"))]
-    pub id: String,
+    #[validate(required, custom(function = "is_raid"))]
+    pub id: Option<String>,
     /// URI of the identifier scheme used to identify RAiDs
     /// ### Example
     /// > `https://raid.org/`
-    #[validate(url)]
+    #[validate(required, url)]
     pub schema_uri: Option<String>,
     /// RAiD owner
-    #[validate(nested)]
-    pub owner: Owner,
+    #[validate(required, nested)]
+    pub owner: Option<Owner>,
     /// RAiD agency URL
-    #[validate(url)]
-    pub raid_agency_url: String,
+    #[validate(required, url)]
+    pub raid_agency_url: Option<String>,
     /// Mtadata schema sub-block declaring the Registration Agency that minted the RAiD
-    #[validate(nested)]
-    pub registration_agency: RegistrationAgency,
+    #[validate(required, nested)]
+    pub registration_agency: Option<RegistrationAgency>,
     /// The licence, or licence waiver, under which the RAiD metadata record associated with this Identifier has been issued
     ///
     /// <div class="warning">Only supports CC-0 (?)</div>
-    // TODO: validate with is_license
-    pub license: String,
+    #[validate(required, nested)]
+    pub license: Option<License>,
     /// Version number of the RAiD
-    #[validate(range(min = 0))]
-    pub version: u32,
+    #[validate(required, range(min = 0))]
+    pub version: Option<u32>,
 }
 /// Information about edit history of associated RAiD
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -1085,20 +1098,20 @@ impl From<ResearchActivity> for Metadata {
             language: None,
         };
         let identifier = MetadataIdentifier {
-            id: raid_id,
+            id: Some(raid_id),
             schema_uri: Some("https://raid.org/".to_string()),
-            owner: Owner {
+            owner: Some(Owner {
                 id: ror_id.clone(),
                 schema_uri: Some(DEFAULT_ROR_SCHEMA_URI.to_string()),
                 service_point: 0,
-            },
-            raid_agency_url: "https://raid.org/".to_string(),
-            registration_agency: RegistrationAgency {
+            }),
+            raid_agency_url: Some("https://raid.org/".to_string()),
+            registration_agency: Some(RegistrationAgency {
                 id: ror_id,
                 schema_uri: Some(DEFAULT_ROR_SCHEMA_URI.to_string()),
-            },
-            license: "CC0-1.0".to_string(),
-            version: 1,
+            }),
+            license: Some(License::Single("CC0-1.0".to_string())),
+            version: Some(1),
         };
         let access = Access {
             access_type: Some(AccessIdentifier {
@@ -1109,21 +1122,21 @@ impl From<ResearchActivity> for Metadata {
             statement: None,
         };
         Metadata {
-            metadata: None,
-            identifier: Some(identifier),
-            date: None,
-            title: Some(vec![title]),
-            description: Some(vec![description]),
+            access: Some(access),
             contributor: Some(vec![contributor]),
-            organization: Some(vec![organization]),
-            related_object: None,
+            date: None,
+            description: Some(vec![description]),
+            metadata: None,
+            title: Some(vec![title]),
+            identifier: Some(identifier),
             alternate_identifier: None,
             alternate_url: None,
+            organization: Some(vec![organization]),
+            related_object: None,
             related_raid: None,
-            access: Some(access),
-            traditional_knowledge_label: None,
             spatial_coverage: None,
             subject: None,
+            traditional_knowledge_label: None,
         }
     }
 }

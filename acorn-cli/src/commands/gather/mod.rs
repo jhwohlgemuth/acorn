@@ -3,7 +3,6 @@ use crate::commands::preflight;
 use acorn::io::api::{self, gitlab, Configuration};
 use acorn::param;
 use acorn::prelude::PathBuf;
-use acorn::schema::pid::raid::Metadata;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 use tracing::info;
@@ -119,8 +118,15 @@ async fn raid_example() {
     let record = api::raid::record(options).await.unwrap();
     println!("RAiD Record: {record:#?}");
 
-    let metadata = Metadata::init().build();
-    println!("RAiD Metadata: {metadata:#?}");
+    // use acorn::schema::pid::raid::{Metadata, Title, Access, Contributor, Date, Description};
+    // let metadata = Metadata::init()
+    //     .access()
+    //     .contributor()
+    //     .date()
+    //     .description("TEST DESCRIPTION")
+    //     .title()
+    //     .build();
+    // println!("RAiD Metadata: {metadata:#?}");
     // let options = api::raid::Options::from_env().with_metadata(metadata);
     // let record = api::raid::create_record(options).await.unwrap();
     // println!("RAiD Record: {record:#?}");
