@@ -1,199 +1,204 @@
 {
-    "endpoints": [
+  "endpoints": [
+    {
+      "name": "citeas",
+      "domain": "api.citeas.org",
+      "resources": [
         {
-            "name": "citeas",
-            "domain": "api.citeas.org",
-            "resources": [
-                {
-                    "name": "record",
-                    "method": "get",
-                    "template": "{{ base }}/product/{{ doi }}?email=research@ornl.gov"
-                },
-                {
-                    "name": "status",
-                    "method": "get",
-                    "template": "{{ base }}/?email=research@ornl.gov"
-                }
-            ]
+          "name": "record",
+          "method": "get",
+          "template": "{{ base }}/product/{{ doi }}?email=research@ornl.gov"
         },
         {
-            "name": "geonames",
-            "domain": "download.geonames.org",
-            "resources": [
-                {
-                    "name": "countries",
-                    "method": "get",
-                    "template": "{{ base }}/export/dump/countryInfo.txt"
-                }
-            ]
-        },
-        {
-            "name": "github::api",
-            "domain": "api.github.com",
-            "resources": [
-                {
-                    "name": "tree",
-                    "method": "get",
-                    "template": "{{ base }}/repos/{{ path }}/git/trees/{{ branch }}{{ query }}"
-                }
-            ]
-        },
-        {
-            "name": "github::org",
-            "domain": "raw.githubusercontent.com",
-            "root": "github-linguist/linguist",
-            "resources": [
-                {
-                    "name": "languages",
-                    "method": "get",
-                    "template": "{{ base }}/refs/heads/main/lib/linguist/languages.yml"
-                }
-            ]
-        },
-        {
-            "name": "gitlab::api",
-            "domain": "gitlab.com",
-            "root": "api/v4",
-            "resources": [
-                {
-                    "name": "group",
-                    "method": "get",
-                    "template": "{{ base }}/groups/{{ identifier }}{{ query }}"
-                },
-                {
-                    "name": "groups",
-                    "method": "get",
-                    "template": "{{ base }}/groups/{{ identifier }}/descendant_groups{{ query }}"
-                },
-                {
-                    "name": "jobs",
-                    "method": "get",
-                    "template": "{{ base }}/runners/{{ identifier }}/jobs{{ query }}"
-                },
-                {
-                    "name": "languages",
-                    "method": "get",
-                    "template": "{{ base }}/projects/{{ identifier }}/languages{{ query }}"
-                },
-                {
-                    "name": "merge-request-note",
-                    "method": "post",
-                    "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/notes"
-                },
-                {
-                    "name": "merge-requests",
-                    "method": "get",
-                    "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}{{ query }}"
-                },
-                {
-                    "name": "projects",
-                    "method": "get",
-                    "template": "{{ base }}/projects/{{ identifier }}{{ query }}"
-                },
-                {
-                    "name": "releases",
-                    "method": "get",
-                    "template": "{{ base }}/projects/{{ identifier }}/releases{{ query }}"
-                },
-                {
-                    "name": "runner",
-                    "method": "get",
-                    "template": "{{ base }}/runners/{{ identifier }}{{ query }}"
-                },
-                {
-                    "name": "runner::create",
-                    "method": "post",
-                    "template": "{{ base }}/user/runners{{ query }}"
-                },
-                {
-                    "name": "runners",
-                    "method": "get",
-                    "template": "{{ base }}/runners{{ query }}"
-                },
-                {
-                    "name": "tags",
-                    "method": "get",
-                    "template": "{{ base }}/projects/{{ identifier }}/repository/tags{{ query }}"
-                },
-                {
-                    "name": "tree",
-                    "method": "get",
-                    "template": "{{ base }}/projects/{{ identifier }}/repository/tree{{ query }}"
-                }
-            ]
-        },
-        {
-            "name": "gitlab::org",
-            "domain": "gitlab.com",
-            "root": "gitlab-org/gitlab",
-            "resources": [
-                {
-                    "name": "languages",
-                    "method": "get",
-                    "template": "{{ base }}/-/raw/master/vendor/languages.yml"
-                }
-            ]
-        },
-        {
-            "name": "orcid",
-            "domain": "pub.orcid.org",
-            "root": "v3.0",
-            "resources": [
-                {
-                    "name": "search",
-                    "method": "get",
-                    "template": "{{ base }}/expanded-search/{{ query }}"
-                },
-                {
-                    "name": "status",
-                    "method": "get",
-                    "template": "{{ base }}/pubStatus"
-                }
-            ]
-        },
-        {
-            "name": "raid::api",
-            "domain": "api.demo.raid.org.au",
-            "resources": [
-                {
-                    "name": "records",
-                    "method": "get",
-                    "template": "{{ base }}/raid/{{ identifier }}{{ query }}"
-                },
-                {
-                    "name": "service-points",
-                    "method": "get",
-                    "template": "{{ base }}/service-point/{{ identifier }}{{ query }}"
-                }
-            ]
-        },
-        {
-            "name": "ror",
-            "domain": "api.ror.org",
-            "root": "v2",
-            "resources": [
-                {
-                    "name": "search",
-                    "method": "get",
-                    "template": "{{ base }}/organizations/{{ identifier }}{{ query }}"
-                },
-                {
-                    "name": "status",
-                    "method": "get",
-                    "template": "{{ base }}/heartbeat"
-                }
-            ]
-        },
-        {
-            "name": "spdx",
-            "domain": "spdx.org",
-            "resources": [
-                {
-                    "name": "licenses",
-                    "method": "get",
-                    "template": "{{ base }}/licenses/licenses.json"
-                }
-            ]
+          "name": "status",
+          "method": "get",
+          "template": "{{ base }}/?email=research@ornl.gov"
         }
-    ]
+      ]
+    },
+    {
+      "name": "geonames",
+      "domain": "download.geonames.org",
+      "resources": [
+        {
+          "name": "countries",
+          "method": "get",
+          "template": "{{ base }}/export/dump/countryInfo.txt"
+        }
+      ]
+    },
+    {
+      "name": "github::api",
+      "domain": "api.github.com",
+      "resources": [
+        {
+          "name": "tree",
+          "method": "get",
+          "template": "{{ base }}/repos/{{ path }}/git/trees/{{ branch }}{{ query }}"
+        }
+      ]
+    },
+    {
+      "name": "github::org",
+      "domain": "raw.githubusercontent.com",
+      "root": "github-linguist/linguist",
+      "resources": [
+        {
+          "name": "languages",
+          "method": "get",
+          "template": "{{ base }}/refs/heads/main/lib/linguist/languages.yml"
+        }
+      ]
+    },
+    {
+      "name": "gitlab::api",
+      "domain": "gitlab.com",
+      "root": "api/v4",
+      "resources": [
+        {
+          "name": "group",
+          "method": "get",
+          "template": "{{ base }}/groups/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "groups",
+          "method": "get",
+          "template": "{{ base }}/groups/{{ identifier }}/descendant_groups{{ query }}"
+        },
+        {
+          "name": "jobs",
+          "method": "get",
+          "template": "{{ base }}/runners/{{ identifier }}/jobs{{ query }}"
+        },
+        {
+          "name": "languages",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/languages{{ query }}"
+        },
+        {
+          "name": "merge-request-note",
+          "method": "post",
+          "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/notes"
+        },
+        {
+          "name": "merge-requests",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}{{ query }}"
+        },
+        {
+          "name": "projects",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "releases",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/releases{{ query }}"
+        },
+        {
+          "name": "runner",
+          "method": "get",
+          "template": "{{ base }}/runners/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "runner::create",
+          "method": "post",
+          "template": "{{ base }}/user/runners{{ query }}"
+        },
+        {
+          "name": "runners",
+          "method": "get",
+          "template": "{{ base }}/runners{{ query }}"
+        },
+        {
+          "name": "tags",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/repository/tags{{ query }}"
+        },
+        {
+          "name": "tree",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/repository/tree{{ query }}"
+        }
+      ]
+    },
+    {
+      "name": "gitlab::org",
+      "domain": "gitlab.com",
+      "root": "gitlab-org/gitlab",
+      "resources": [
+        {
+          "name": "languages",
+          "method": "get",
+          "template": "{{ base }}/-/raw/master/vendor/languages.yml"
+        }
+      ]
+    },
+    {
+      "name": "orcid",
+      "domain": "pub.orcid.org",
+      "root": "v3.0",
+      "resources": [
+        {
+          "name": "search",
+          "method": "get",
+          "template": "{{ base }}/expanded-search/{{ query }}"
+        },
+        {
+          "name": "status",
+          "method": "get",
+          "template": "{{ base }}/pubStatus"
+        }
+      ]
+    },
+    {
+      "name": "raid::api",
+      "domain": "api.demo.raid.org.au",
+      "resources": [
+        {
+          "name": "record",
+          "method": "get",
+          "template": "{{ base }}/raid/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "record::create",
+          "method": "post",
+          "template": "{{ base }}/raid"
+        },
+        {
+          "name": "service-point",
+          "method": "get",
+          "template": "{{ base }}/service-point/{{ identifier }}{{ query }}"
+        }
+      ]
+    },
+    {
+      "name": "ror",
+      "domain": "api.ror.org",
+      "root": "v2",
+      "resources": [
+        {
+          "name": "search",
+          "method": "get",
+          "template": "{{ base }}/organizations/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "status",
+          "method": "get",
+          "template": "{{ base }}/heartbeat"
+        }
+      ]
+    },
+    {
+      "name": "spdx",
+      "domain": "spdx.org",
+      "resources": [
+        {
+          "name": "licenses",
+          "method": "get",
+          "template": "{{ base }}/licenses/licenses.json"
+        }
+      ]
+    }
+  ]
 }

@@ -8,6 +8,7 @@ use crate::prelude::var;
 use crate::schema::pid::raid::Metadata;
 use crate::schema::validate::is_ror;
 use bon::Builder;
+use color_eyre::eyre::eyre;
 use dotenvy;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
@@ -84,12 +85,12 @@ pub struct Options {
     pub domain: String,
     /// Service point identifier
     pub identifier: Option<String>,
+    /// Metadata for minting a new RAiD record
+    pub metadata: Option<Metadata>,
     /// RAiD prefix (e.g., "10.83962")
     pub prefix: Option<String>,
     /// RAiD suffix (e.g., "000001")
     pub suffix: Option<String>,
-    /// Metadata for minting a new RAiD record
-    pub raid_metadata: Option<Metadata>,
 }
 /// RAiD service point
 ///
@@ -169,7 +170,7 @@ impl Configuration for Options {
             prefix: None,
             suffix: None,
             identifier: None,
-            raid_metadata: None,
+            metadata: None,
         }
     }
     /// Return a copy of options with request body payload set
@@ -196,11 +197,29 @@ impl Options {
         }
     }
     /// Return a copy of options with RAiD metadata set
-    pub fn with_raid_metadata(self, value: impl Into<Metadata>) -> Self {
+    pub fn with_metadata(self, value: impl Into<Metadata>) -> Self {
         Self {
-            raid_metadata: Some(value.into()),
+            metadata: Some(value.into()),
             ..self
         }
+    }
+}
+/// Create a RAiD record with provided metadata
+pub async fn create_record(options: Options) -> ApiResult<Metadata> {
+    let template = "raid::api";
+    let action = "record::create";
+    let Options { token, domain, metadata, .. } = options;
+    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
+        | Ok(endpoint) => match metadata {
+            | Some(value) => {
+                let body = serde_json::to_string(&value).map_err(|why| eyre!("Failed to serialize RAiD metadata to JSON — {why:#?}"))?;
+                let params = vec![param!(Header, "Authorization", &format!("Bearer {token}")), param!(Body, "body", &body)];
+                let response = endpoint.invoke(action, Some(params)).await;
+                endpoint.handle::<Metadata>(response)
+            }
+            | None => Err(eyre!("RAiD metadata is required for creating a record")),
+        },
+        | Err(why) => Err(why),
     }
 }
 /// Retrieve RAiD record(s) attached to associated service point of provided options
@@ -212,11 +231,11 @@ impl Options {
 /// use acorn::io::api::raid;
 ///
 /// let options = raid::Options::from_env();
-/// let result = raid::records(options).await;
+/// let result = raid::record(options).await;
 /// ```
-pub async fn records(options: Options) -> ApiResult<Vec<Metadata>> {
+pub async fn record(options: Options) -> ApiResult<Vec<Metadata>> {
     let template = "raid::api";
-    let action = "records";
+    let action = "record";
     let Options {
         identifier, token, domain, ..
     } = options;
@@ -228,20 +247,17 @@ pub async fn records(options: Options) -> ApiResult<Vec<Metadata>> {
                     param!(TemplateValue, "identifier", &value),
                 ];
                 let response = endpoint.invoke(action, Some(params)).await;
-                dbg!(&response);
                 endpoint.handle::<Metadata>(response).map(|r| vec![r])
             }
             | Some(_) | None => {
                 let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
                 let response = endpoint.invoke(action, Some(params)).await;
-                dbg!(&response);
                 endpoint.handle::<Vec<Metadata>>(response)
             }
         },
         | Err(why) => Err(why),
     }
 }
-
 /// Retrieve all service point(s) for a given server
 ///
 /// If no identifier is provided, will return all service points for the associated server
@@ -251,11 +267,11 @@ pub async fn records(options: Options) -> ApiResult<Vec<Metadata>> {
 /// use acorn::io::api::raid;
 ///
 /// let options = raid::Options::from_env();
-/// let result = raid::service_points(options).await;
+/// let result = raid::service_point(options).await;
 /// ```
-pub async fn service_points(options: Options) -> ApiResult<Vec<ServicePointResponse>> {
+pub async fn service_point(options: Options) -> ApiResult<Vec<ServicePointResponse>> {
     let template = "raid::api";
-    let action = "service-points";
+    let action = "service-point";
     let Options {
         token, domain, identifier, ..
     } = options;

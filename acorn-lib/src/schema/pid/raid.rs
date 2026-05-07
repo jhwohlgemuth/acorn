@@ -609,15 +609,15 @@ pub struct Language {
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Display, Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
-#[display("({identifier})")]
+#[display("({identifier:?})")]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Metadata {
     /// RAiD metadata metadata
     #[validate(nested)]
     pub metadata: Option<MetadataMetadata>,
     /// Metadata schema block containing the RAiD name and associated properties
-    #[validate(nested)]
-    pub identifier: MetadataIdentifier,
+    #[validate(required, nested)]
+    pub identifier: Option<MetadataIdentifier>,
     /// Dates associated with the RAiD metadata
     #[validate(nested)]
     pub date: Option<Date>,
@@ -639,7 +639,7 @@ pub struct Metadata {
     /// <div class="warning">One and only one organization should be identified as "Lead Research Organization"</div>
     #[validate(nested, length(min = 1))]
     #[serde(alias = "organisation")]
-    pub organization: Vec<Organization>,
+    pub organization: Option<Vec<Organization>>,
     /// Related objects associated with the RAiD
     #[validate(nested)]
     pub related_object: Option<Vec<RelatedObject>>,
@@ -654,7 +654,7 @@ pub struct Metadata {
     pub related_raid: Option<Vec<RelatedRaid>>,
     /// Access for the RAiD metadata
     #[validate(nested)]
-    pub access: Access,
+    pub access: Option<Access>,
     /// Traditional knowledge information
     #[validate(nested)]
     pub traditional_knowledge_label: Option<Vec<TraditionalKnowledgeLabel>>,
@@ -1110,17 +1110,17 @@ impl From<ResearchActivity> for Metadata {
         };
         Metadata {
             metadata: None,
-            identifier,
+            identifier: Some(identifier),
             date: None,
             title: Some(vec![title]),
             description: Some(vec![description]),
             contributor: Some(vec![contributor]),
-            organization: vec![organization],
+            organization: Some(vec![organization]),
             related_object: None,
             alternate_identifier: None,
             alternate_url: None,
             related_raid: None,
-            access,
+            access: Some(access),
             traditional_knowledge_label: None,
             spatial_coverage: None,
             subject: None,

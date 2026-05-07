@@ -3,6 +3,7 @@ use crate::commands::preflight;
 use acorn::io::api::{self, gitlab, Configuration};
 use acorn::param;
 use acorn::prelude::PathBuf;
+use acorn::schema::pid::raid::Metadata;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
 use tracing::info;
@@ -99,26 +100,31 @@ async fn orcid_example() {
 #[allow(dead_code)]
 async fn raid_example() {
     let options = api::raid::Options::from_env();
-    let response = api::raid::service_points(options.clone()).await.unwrap();
+    let response = api::raid::service_point(options.clone()).await.unwrap();
     info!("Service Points: {response:#?}");
     println!("# of service points: {}", response.len());
 
     let ornl_service_point_id = "20000033";
     let options = options.with_identifier(ornl_service_point_id);
-    let response = api::raid::service_points(options.clone()).await.unwrap();
+    let response = api::raid::service_point(options.clone()).await.unwrap();
     println!("ORNL Service Point: {response:#?}");
 
     let options = api::raid::Options::from_env();
-    let response = api::raid::records(options.clone()).await.unwrap();
+    let response = api::raid::record(options.clone()).await.unwrap();
     info!("RAiD Records: {response:#?}");
     println!("# of RAiD records: {}", response.len());
 
     let test_raid_id = "10.83962/fb5be317";
     let options = options.with_identifier(test_raid_id);
-    let record = api::raid::records(options).await.unwrap();
+    let record = api::raid::record(options).await.unwrap();
     println!("RAiD Record: {record:#?}");
-}
 
+    let metadata = Metadata::init().build();
+    println!("RAiD Metadata: {metadata:#?}");
+    // let options = api::raid::Options::from_env().with_metadata(metadata);
+    // let record = api::raid::create_record(options).await.unwrap();
+    // println!("RAiD Record: {record:#?}");
+}
 #[allow(dead_code)]
 async fn ror_example() {
     let identifier = "01qz5mb56";
