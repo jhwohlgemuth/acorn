@@ -16,9 +16,11 @@ In the context of technology, AI/ML and automation are the same.
 
 <img src="../../_assets/aspect_attributes.png" alt="ASPECT Attributes" width="200" />
 
+portability | maturity | autonomy | motivity
+
 *click arrow to expand or collapse*
 <details>
-  <summary>💼 <a href="./portability.md">Portability</a></summary>
+  <summary>📦 <a href="./portability.md">Portability</a></summary>
 
 - Limited (level 0)
 - Source (level 1)
@@ -28,7 +30,7 @@ In the context of technology, AI/ML and automation are the same.
 - WebAssembly (level 5)
 </details>
 <details>
-  <summary>📈 <a href="./maturity.md">Maturity</a></summary>
+  <summary>🪴 <a href="./maturity.md">Maturity</a></summary>
 
 - Non-viable (level 0)
 - Discovery (level 1)
@@ -71,15 +73,17 @@ Data has multiple dimensions
 The ASPECT framework can be applied in various scenarios
 
 #### [AI-driven Gravity Mapping](https://research.ornl.gov/gravity/)
-| Attribute | Value | Level/Details |
+| Attribute | Level | Details |
 |---|---|---|
-| 💼 Portability | ***Source*** | Level 1 |
-| 🪴 Maturity | ***Development*** | Level 3 |
-| 🤝 Autonomy | ***Machine-assisted*** | Level 1 |
+| 📦 Portability | Level 1 | ***Source*** |
+| 🪴 Maturity | Level 3 | ***Development*** |
+| 🤝 Autonomy | Level 1 | ***Machine-assisted*** |
 | 🦾 Motivity | ***Type 1A*** | Receive input from environment |
 
 ASPECT can be visualized in a badge-like form for visual project portfolio management
 
-<img src="../../_assets/aspect_gravity.png" alt="ASPECT Gravity Example" width="100" />
+<p align="center">
+  <img src="../../_assets/aspect_gravity.png" alt="ASPECT Gravity Example" width="100" />
+</p>
 
 

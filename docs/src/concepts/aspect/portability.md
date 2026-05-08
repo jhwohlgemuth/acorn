@@ -1,4 +1,4 @@
-# 💼 Software Portability
+# 📦 Software Portability
 
 Software portability describes how easily software can move across platforms and run in different environments with little or no modification. In ASPECT, this attribute helps measure whether software can work across different hardware, operating systems, and cloud setups.
 
