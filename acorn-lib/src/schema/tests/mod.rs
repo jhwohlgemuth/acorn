@@ -1,4 +1,5 @@
 use crate::schema::geonames::{CodeFormat, Country, GeonamesParser};
+use crate::schema::research_activity::aspect::Maturity;
 use crate::schema::research_activity::*;
 use crate::schema::validate::*;
 use crate::schema::*;
@@ -545,6 +546,24 @@ fn test_trl() {
 #[should_panic]
 fn test_trl_panic() {
     assert_eq!(TechnologyReadinessLevel::Principles, serde_json::from_str("10").unwrap());
+}
+#[test]
+fn test_trl_into_maturity() {
+    let cases = [
+        (TechnologyReadinessLevel::Principles, Maturity::Discovery),
+        (TechnologyReadinessLevel::Research, Maturity::Discovery),
+        (TechnologyReadinessLevel::Concept, Maturity::Concept),
+        (TechnologyReadinessLevel::Feasible, Maturity::Concept),
+        (TechnologyReadinessLevel::Developing, Maturity::Development),
+        (TechnologyReadinessLevel::Developed, Maturity::Development),
+        (TechnologyReadinessLevel::Prototype, Maturity::Prototype),
+        (TechnologyReadinessLevel::Operational, Maturity::Prototype),
+        (TechnologyReadinessLevel::MissionReady, Maturity::Prototype),
+        (TechnologyReadinessLevel::MissionCapable, Maturity::Proven),
+    ];
+    cases
+        .iter()
+        .for_each(|(trl, maturity)| assert_eq!(Maturity::from(trl.clone()), *maturity));
 }
 #[test]
 fn test_has_image_extension() {

@@ -1,5 +1,5 @@
 //! # ASPECT
-//! > A Scientific Prescription for the Efficient Classification of Technology
+//! > A Scientific Paradigm for the Efficient Classification of Technology
 //!
 //! What is ASPECT?
 //! ASPECT
@@ -25,6 +25,33 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
+/// Adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes
+/// ### Notes
+/// - In general, represents the integration of human interaction with machine intelligence capabilities (see ISO 22989)
+/// - Originally derived from [Society of Automotive Engineers](https://www.sae.org/) (SAE) [Standard J3016](https://www.sae.org/standards/content/j3016_202104)
+#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+#[repr(u8)]
+#[serde(deny_unknown_fields)]
+pub enum Autonomy {
+    /// No machine autonomy - only human engagement
+    #[display("Manual")]
+    Manual = 0,
+    /// Machine executes some functions within a task
+    #[display("Machine-assisted")]
+    MachineAssisted = 1,
+    /// Human operator delegates task when feasible
+    #[display("Human-as-primary")]
+    HumanPrimary = 2,
+    /// Human is supervisor / ready user
+    #[display("Machine-as-primary")]
+    MachinePrimary = 3,
+    /// Human operator validates conditions prior to employment
+    #[display("Human-supervised")]
+    HumanAware = 4,
+    /// Human operator unaware of machine execution of employment
+    #[display("Machine-only")]
+    MachineOnly = 5,
+}
 /// Description of obstacles to shared access
 ///
 /// Data availability is strongly related to the concept of "openness" and the "presumed open principle" for data.
@@ -147,19 +174,50 @@ pub enum GeospatialDataProcessingLevel {
     #[display("Level 4: Model Output")]
     L4,
 }
-/// Framework for partitioning data by quality using metaphor of mined metals
-#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
-pub enum Quality {
-    /// Raw and unprocessed
-    Raw = 0,
-    /// Ingested
-    Bronze = 1,
-    /// Processed in some form short of being "AI ready" (e.g., large scale consumption)
-    Silver = 2,
-    /// AI-ready
-    Gold = 3,
-    /// AI-ready data that is adapted to a specific application and/or subjected to additional processing
-    Platinum = 4,
+/// Six-level partition of technology maturity derived from 0-9 TRLs
+#[derive(Clone, Debug, Default, Deserialize_repr, Display, Serialize_repr, PartialEq, PartialOrd, JsonSchema)]
+#[repr(u8)]
+#[serde(deny_unknown_fields)]
+pub enum Maturity {
+    /// Discovery stage (TRL 0-1)
+    #[default]
+    #[display("Discovery")]
+    Discovery = 1,
+    /// Concept stage (TRL 2-3)
+    #[display("Concept")]
+    Concept = 2,
+    /// Development stage (TRL 4-5)
+    #[display("Development")]
+    Development = 3,
+    /// Prototype stage (TRL 6-8)
+    #[display("Prototype")]
+    Prototype = 4,
+    /// Proven stage (TRL 9)
+    #[display("Proven")]
+    Proven = 5,
+    /// Non-viable stage - not suitable for deployment
+    #[display("Non-viable")]
+    NonViable = 0,
+}
+/// Specific type or form of data that a system can process and learn from
+#[derive(Clone, Debug, Default, Display, Deserialize, Serialize, JsonSchema)]
+pub enum Modality {
+    /// Textual data that includes text and tabular data
+    #[default]
+    #[display("text")]
+    Text,
+    /// Audio data such as MPEG
+    #[display("audio")]
+    Audio,
+    /// Video data such as MP4
+    #[display("video")]
+    Video,
+    /// Signal data
+    #[display("signal")]
+    Signal,
+    /// Graph data or generally data with relational structure
+    #[display("graph")]
+    Graph,
 }
 /// Motivity of a given technology that describes how it interacts with the environment
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
@@ -183,52 +241,19 @@ pub enum Motivity {
     #[display("Type-2")]
     Type2 = 3,
 }
-/// Adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes
-/// ### Notes
-/// - In general, represents the integration of human interaction with machine intelligence capabilities (see ISO 22989)
-/// - Originally derived from [Society of Automotive Engineers](https://www.sae.org/) (SAE) [Standard J3016](https://www.sae.org/standards/content/j3016_202104)
+/// Framework for partitioning data by quality using metaphor of mined metals
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
-#[repr(u8)]
-#[serde(deny_unknown_fields)]
-pub enum Autonomy {
-    /// No machine autonomy - only human engagement
-    #[display("Manual")]
-    Manual = 0,
-    /// Machine executes some functions within a task
-    #[display("Machine-assisted")]
-    MachineAssisted = 1,
-    /// Human operator delegates task when feasible
-    #[display("Human-as-primary")]
-    HumanPrimary = 2,
-    /// Human is supervisor / ready user
-    #[display("Machine-as-primary")]
-    MachinePrimary = 3,
-    /// Human operator validates conditions prior to employment
-    #[display("Human-supervised")]
-    HumanAware = 4,
-    /// Human operator unaware of machine execution of employment
-    #[display("Machine-only")]
-    MachineOnly = 5,
-}
-/// Specific type or form of data that a system can process and learn from
-#[derive(Clone, Debug, Default, Display, Deserialize, Serialize, JsonSchema)]
-pub enum Modality {
-    /// Textual data that includes text and tabular data
-    #[default]
-    #[display("text")]
-    Text,
-    /// Audio data such as MPEG
-    #[display("audio")]
-    Audio,
-    /// Video data such as MP4
-    #[display("video")]
-    Video,
-    /// Signal data
-    #[display("signal")]
-    Signal,
-    /// Graph data or generally data with relational structure
-    #[display("graph")]
-    Graph,
+pub enum Quality {
+    /// Raw and unprocessed
+    Raw = 0,
+    /// Ingested
+    Bronze = 1,
+    /// Processed in some form short of being "AI ready" (e.g., large scale consumption)
+    Silver = 2,
+    /// AI-ready
+    Gold = 3,
+    /// AI-ready data that is adapted to a specific application and/or subjected to additional processing
+    Platinum = 4,
 }
 /// Describe the portability of a given software project (e.g., how easily it can be used on multiple platforms/architectures)
 ///
@@ -447,6 +472,17 @@ impl FromStr for GeospatialDataProcessingLevel {
             | "LV3A" | "L3A" | "3A" => Ok(Self::L3A),
             | "LV4" | "L4" | "4" => Ok(Self::L4),
             | _ => Err(format!("unknown GeospatialDataProcessingLevel: {value}")),
+        }
+    }
+}
+impl From<TechnologyReadinessLevel> for Maturity {
+    fn from(value: TechnologyReadinessLevel) -> Self {
+        match value {
+            | TechnologyReadinessLevel::Principles | TechnologyReadinessLevel::Research => Self::Discovery,
+            | TechnologyReadinessLevel::Concept | TechnologyReadinessLevel::Feasible => Self::Concept,
+            | TechnologyReadinessLevel::Developing | TechnologyReadinessLevel::Developed => Self::Development,
+            | TechnologyReadinessLevel::Prototype | TechnologyReadinessLevel::Operational | TechnologyReadinessLevel::MissionReady => Self::Prototype,
+            | TechnologyReadinessLevel::MissionCapable => Self::Proven,
         }
     }
 }

@@ -1,5 +1,5 @@
 # ASPECT
-> **A** **S**cientific **P**rescription for the **E**fficient **C**lassification of **T**echnology
+> **A** **S**cientific **P**aradigm for the **E**fficient **C**lassification of **T**echnology
 
 The **ASPECT** framework is a standardized methodology for classifying and describing technology components within the ACORN ecosystem. It provides a structured approach to defining the attributes and relationships of various technological elements, ensuring consistency and interoperability across different systems and applications.
 
@@ -10,17 +10,32 @@ In the context of technology, AI/ML and automation are the same.
 > [!TIP]
 > [Read docs.rs documentation for ASPECT](https://docs.rs/acorn-lib/latest/acorn_lib/schema/research_activity/aspect/index.html)
 
-### Key Components
+## Key Components
+
+### Primary attributes
+
+<img src="../../_assets/aspect_attributes.png" alt="ASPECT Attributes" width="200" />
+
 *click arrow to expand or collapse*
 <details>
   <summary>💼 <a href="./portability.md">Portability</a></summary>
 
-- Limited (0)
-- Source (1)
-- Containerized (2)
-- Installer (3)
-- Package manager (4)
-- WebAssembly (5)
+- Limited (level 0)
+- Source (level 1)
+- Containerized (level 2)
+- Installer (level 3)
+- Package manager (level 4)
+- WebAssembly (level 5)
+</details>
+<details>
+  <summary>📈 <a href="./maturity.md">Maturity</a></summary>
+
+- Non-viable (level 0)
+- Discovery (level 1)
+- Concept (level 2)
+- Development (level 3)
+- Prototype (level 4)
+- Proven (level 5)
 </details>
 <details>
   <summary>🤝 <a href="./autonomy.md">Autonomy</a></summary>
@@ -33,11 +48,6 @@ In the context of technology, AI/ML and automation are the same.
 - Machine-only (level 5)
 </details>
 <details>
-  <summary>📈 <a href="./maturity.md">Maturity</a></summary>
-
-Maturity uses an augmented version of technology readiness levels (TRL) and includes levels 1 through 9
-</details>
-<details>
   <summary>🦾 <a href="./motivity.md">Motivity</a></summary>
 
 - Type 0
@@ -45,21 +55,31 @@ Maturity uses an augmented version of technology readiness levels (TRL) and incl
 - Type 1B
 - Type 2
 </details>
-<details>
-  <summary>💾 <a href="./data.md">Data</a></summary>
 
+### 💾 <a href="./data.md">Data</a>
+
+Data is not included in primary four attributes, but is very important when characterizing technology.
+
+Data has multiple dimensions
 - Real or Synthetic
 - Availability
 - Modality
 - Quality
-</details>
 
-### Real-world Example
+## Real-world Example
+
 The ASPECT framework can be applied in various scenarios
 
-- [AI-driven Gravity Mapping](https://research.ornl.gov/gravity/)
-    - 💼 ***Source*** (Level 1)
-    - 🤝 ***Machine-assisted*** (Level 1)
-    - 📈 ***Developed*** (<span title="Technology Readiness Level">TRL</span> 5)
-    - 🦾 ***Type 1A***
-    - 💾 Uses ***Real***, ***Unavailable***, ***Silver*** quality, ***Textual*** modality data
+#### [AI-driven Gravity Mapping](https://research.ornl.gov/gravity/)
+| Attribute | Value | Level/Details |
+|---|---|---|
+| 💼 Portability | ***Source*** | Level 1 |
+| 🪴 Maturity | ***Development*** | Level 3 |
+| 🤝 Autonomy | ***Machine-assisted*** | Level 1 |
+| 🦾 Motivity | ***Type 1A*** | Receive input from environment |
+
+ASPECT can be visualized in a badge-like form for visual project portfolio management
+
+<img src="../../_assets/aspect_gravity.png" alt="ASPECT Gravity Example" width="100" />
+
+
