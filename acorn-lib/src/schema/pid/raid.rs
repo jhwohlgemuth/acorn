@@ -27,16 +27,21 @@ use validator::Validate;
 
 /// Allowed values for access types
 #[derive(Clone, Debug, Default, Deserialize, Display, JsonSchema, Serialize)]
-#[serde(rename_all = "kebab-case")]
 pub enum AccessType {
     /// Open access
     #[default]
     #[display("https://vocabularies.coar-repositories.org/access_rights/c_abf2/")]
-    #[serde(alias = "https://vocabularies.coar-repositories.org/access_rights/c_abf2/")]
+    #[serde(
+        alias = "https://vocabularies.coar-repositories.org/access_rights/c_abf2/",
+        rename = "https://vocabularies.coar-repositories.org/access_rights/c_abf2/"
+    )]
     OpenAccess,
     /// Embargoed access
     #[display("https://vocabularies.coar-repositories.org/access_rights/c_f1cf/")]
-    #[serde(alias = "https://vocabularies.coar-repositories.org/access_rights/c_f1cf/")]
+    #[serde(
+        alias = "https://vocabularies.coar-repositories.org/access_rights/c_f1cf/",
+        rename = "https://vocabularies.coar-repositories.org/access_rights/c_f1cf/"
+    )]
     EmbargoedAccess,
 }
 /// CRediT role
@@ -49,59 +54,101 @@ pub enum AccessType {
 pub enum CreditRole {
     /// Ideas; formulation or evolution of overarching research goals and aims.
     #[display("https://credit.niso.org/contributor-roles/conceptualization/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/conceptualization/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/conceptualization/",
+        rename = "https://credit.niso.org/contributor-roles/conceptualization/"
+    )]
     Conceptualization,
     /// Management activities to annotate (produce metadata), scrub data and maintain research data (including software code, where it is necessary for interpreting the data itself) for initial use and later re-use.
     #[display("https://credit.niso.org/contributor-roles/data-curation/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/data-curation/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/data-curation/",
+        rename = "https://credit.niso.org/contributor-roles/data-curation/"
+    )]
     DataCuration,
     /// Application of statistical, mathematical, computational, or other formal techniques to analyze or synthesize study data.
     #[display("https://credit.niso.org/contributor-roles/formal-analysis/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/formal-analysis/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/formal-analysis/",
+        rename = "https://credit.niso.org/contributor-roles/formal-analysis/"
+    )]
     FormalAnalysis,
     /// Acquisition of the financial support for the project leading to this publication.
     #[display("https://credit.niso.org/contributor-roles/funding-acquisition/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/funding-acquisition/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/funding-acquisition/",
+        rename = "https://credit.niso.org/contributor-roles/funding-acquisition/"
+    )]
     FundingAcquisition,
     /// Conducting a research and investigation process, specifically performing the experiments, or data/evidence collection.
     #[display("https://credit.niso.org/contributor-roles/investigation/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/investigation/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/investigation/",
+        rename = "https://credit.niso.org/contributor-roles/investigation/"
+    )]
     Investigation,
     /// Development or design of methodology; creation of models.
     #[display("https://credit.niso.org/contributor-roles/methodology/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/methodology/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/methodology/",
+        rename = "https://credit.niso.org/contributor-roles/methodology/"
+    )]
     Methodology,
     /// Management and coordination responsibility for the research activity planning and execution.
     #[display("https://credit.niso.org/contributor-roles/project-administration/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/project-administration/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/project-administration/",
+        rename = "https://credit.niso.org/contributor-roles/project-administration/"
+    )]
     ProjectAdministration,
     /// Provision of study materials, reagents, materials, patients, laboratory samples, animals, instrumentation, computing resources, or other analysis tools.
     #[display("https://credit.niso.org/contributor-roles/resources/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/resources/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/resources/",
+        rename = "https://credit.niso.org/contributor-roles/resources/"
+    )]
     Resources,
     /// Programming, software development; designing computer programs; implementation of the computer code and supporting algorithms; testing of existing code components.
     #[display("https://credit.niso.org/contributor-roles/software/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/software/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/software/",
+        rename = "https://credit.niso.org/contributor-roles/software/"
+    )]
     Software,
     /// Oversight and leadership responsibility for the research activity planning and execution, including mentorship external to the core team.
     #[display("https://credit.niso.org/contributor-roles/supervision/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/supervision/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/supervision/",
+        rename = "https://credit.niso.org/contributor-roles/supervision/"
+    )]
     Supervision,
     /// Verification, whether as a part of the activity or separate, of the overall replication/reproducibility of results/experiments and other research outputs.
     #[display("https://credit.niso.org/contributor-roles/validation/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/validation/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/validation/",
+        rename = "https://credit.niso.org/contributor-roles/validation/"
+    )]
     Validation,
     /// Preparation, creation and/or presentation of the published work, specifically visualization/data presentation.
     #[display("https://credit.niso.org/contributor-roles/visualization/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/visualization/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/visualization/",
+        rename = "https://credit.niso.org/contributor-roles/visualization/"
+    )]
     Visualization,
     /// Preparation, creation and/or presentation of the published work, specifically writing the initial draft (including substantive translation).
     #[display("https://credit.niso.org/contributor-roles/writing-original-draft/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/writing-original-draft/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/writing-original-draft/",
+        rename = "https://credit.niso.org/contributor-roles/writing-original-draft/"
+    )]
     WritingOriginalDraft,
     /// Preparation, creation and/or presentation of the published work by those from the original research group, specifically critical review, commentary or revision - including pre- or post-publication stages
     #[display("https://credit.niso.org/contributor-roles/writing-review-editing/")]
-    #[serde(alias = "https://credit.niso.org/contributor-roles/writing-review-editing/")]
+    #[serde(
+        alias = "https://credit.niso.org/contributor-roles/writing-review-editing/",
+        rename = "https://credit.niso.org/contributor-roles/writing-review-editing/"
+    )]
     WritingReviewEditing,
 }
 /// Description types
@@ -110,35 +157,59 @@ pub enum CreditRole {
 pub enum DescriptionType {
     /// Primary description (i.e., a preferred full description or abstract)
     #[display("https://vocabulary.raid.org/description.type.schema/318")]
-    #[serde(alias = "https://vocabulary.raid.org/description.type.schema/318")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/description.type.schema/318",
+        rename = "https://vocabulary.raid.org/description.type.schema/318"
+    )]
     Primary,
     /// An alternative description (i.e., an additional or supplementary full description or abstract)
     #[display("https://vocabulary.raid.org/description.type.schema/319")]
-    #[serde(alias = "https://vocabulary.raid.org/description.type.schema/319")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/description.type.schema/319",
+        rename = "https://vocabulary.raid.org/description.type.schema/319"
+    )]
     Alternative,
     /// Brief description (i.e., a shorter version of the primary description)
     #[display("https://vocabulary.raid.org/description.type.schema/3")]
-    #[serde(alias = "https://vocabulary.raid.org/description.type.schema/3")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/description.type.schema/3",
+        rename = "https://vocabulary.raid.org/description.type.schema/3"
+    )]
     Brief,
     /// Significance statement
     #[display("https://vocabulary.raid.org/description.type.schema/9")]
-    #[serde(alias = "https://vocabulary.raid.org/description.type.schema/9")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/description.type.schema/9",
+        rename = "https://vocabulary.raid.org/description.type.schema/9"
+    )]
     SignificanceStatement,
     /// Methods
     #[display("https://vocabulary.raid.org/description.type.schema/8")]
-    #[serde(alias = "https://vocabulary.raid.org/description.type.schema/8")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/description.type.schema/8",
+        rename = "https://vocabulary.raid.org/description.type.schema/8"
+    )]
     Methods,
     /// Objectives
     #[display("https://vocabulary.raid.org/description.type.schema/7")]
-    #[serde(alias = "https://vocabulary.raid.org/description.type.schema/7")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/description.type.schema/7",
+        rename = "https://vocabulary.raid.org/description.type.schema/7"
+    )]
     Objectives,
     /// Acknowledgements (i.e., for recognition of people not listed as Contributors or organizations not listed as organizations)
     #[display("https://vocabulary.raid.org/description.type.schema/392")]
-    #[serde(alias = "https://vocabulary.raid.org/description.type.schema/392")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/description.type.schema/392",
+        rename = "https://vocabulary.raid.org/description.type.schema/392"
+    )]
     Acknowledgements,
     /// Other (i.e., any other descriptive information such as a note)
     #[display("https://vocabulary.raid.org/description.type.schema/6")]
-    #[serde(alias = "https://vocabulary.raid.org/description.type.schema/6")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/description.type.schema/6",
+        rename = "https://vocabulary.raid.org/description.type.schema/6"
+    )]
     Other,
 }
 /// Category of input, output, or process document
@@ -319,23 +390,40 @@ pub enum OrganizationRoleType {
 pub enum PositionType {
     /// Principal Investigator
     #[display("https://vocabulary.raid.org/contributor.position.schema/307")]
-    #[serde(alias = "ChiefInvestigator", alias = "https://vocabulary.raid.org/contributor.position.schema/307")]
+    #[serde(
+        alias = "ChiefInvestigator",
+        alias = "https://vocabulary.raid.org/contributor.position.schema/307",
+        rename = "https://vocabulary.raid.org/contributor.position.schema/307"
+    )]
     PrincipalInvestigator,
     /// Co-Investigator
     #[display("https://vocabulary.raid.org/contributor.position.schema/308")]
-    #[serde(alias = "collaborator", alias = "https://vocabulary.raid.org/contributor.position.schema/308")]
+    #[serde(
+        alias = "collaborator",
+        alias = "https://vocabulary.raid.org/contributor.position.schema/308",
+        rename = "https://vocabulary.raid.org/contributor.position.schema/308"
+    )]
     CoInvestigator,
     /// Partner Investigator (e.g., industry, government, or community collaborator)
     #[display("https://vocabulary.raid.org/contributor.position.schema/309")]
-    #[serde(alias = "https://vocabulary.raid.org/contributor.position.schema/309")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/contributor.position.schema/309",
+        rename = "https://vocabulary.raid.org/contributor.position.schema/309"
+    )]
     PartnerInvestigator,
     /// Consultant (e.g., someone hired as a contract researcher by the project)
     #[display("https://vocabulary.raid.org/contributor.position.schema/310")]
-    #[serde(alias = "https://vocabulary.raid.org/contributor.position.schema/310")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/contributor.position.schema/310",
+        rename = "https://vocabulary.raid.org/contributor.position.schema/310"
+    )]
     Consultant,
     /// Other Participant not covered by one of the positions above, e.g., "member" or "other significant contributor"
     #[display("https://vocabulary.raid.org/contributor.position.schema/311")]
-    #[serde(alias = "https://vocabulary.raid.org/contributor.position.schema/311")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/contributor.position.schema/311",
+        rename = "https://vocabulary.raid.org/contributor.position.schema/311"
+    )]
     Other,
 }
 /// RAiD Relation Type
@@ -382,23 +470,37 @@ pub enum RelatedRaidType {
 pub enum TitleType {
     /// Title acronym
     #[display("https://vocabulary.raid.org/title.type.schema/156")]
-    #[serde(alias = "https://vocabulary.raid.org/title.type.schema/156")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/title.type.schema/156",
+        rename = "https://vocabulary.raid.org/title.type.schema/156"
+    )]
     Acronym,
     /// Alternative title, including subtitle or other supplemental title
     #[display("https://vocabulary.raid.org/title.type.schema/4")]
-    #[serde(alias = "https://vocabulary.raid.org/title.type.schema/4")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/title.type.schema/4",
+        rename = "https://vocabulary.raid.org/title.type.schema/4"
+    )]
     Alternative,
     /// Preferred full or long title
     #[display("https://vocabulary.raid.org/title.type.schema/5")]
-    #[serde(alias = "https://vocabulary.raid.org/title.type.schema/5")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/title.type.schema/5",
+        rename = "https://vocabulary.raid.org/title.type.schema/5"
+    )]
     Primary,
     /// Abreviated title
     #[display("https://vocabulary.raid.org/title.type.schema/157")]
-    #[serde(alias = "https://vocabulary.raid.org/title.type.schema/157")]
+    #[serde(
+        alias = "https://vocabulary.raid.org/title.type.schema/157",
+        rename = "https://vocabulary.raid.org/title.type.schema/157"
+    )]
     Short,
 }
 /// Metadata schema block containing RAiD access information
+#[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Access {
     /// Access type
@@ -424,13 +526,15 @@ pub struct Access {
 }
 /// Access type identifier
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct AccessIdentifier {
     /// Type of access granted to a RAiD metadata record
     pub id: AccessType,
     /// URI of the access type schema
+    #[builder(default = "https://vocabularies.coar-repositories.org/access_rights/".to_string())]
     #[validate(url)]
-    pub schema_uri: Option<String>,
+    pub schema_uri: String,
 }
 /// Metadata schema block containing an explanation for any access type that is not "open", with the explanation's associated properties
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
@@ -469,6 +573,7 @@ pub struct AlternateUrl {
 /// See <https://metadata.raid.org/en/v1.6/core/contributors.html>
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Contributor {
     /// Contributor (person) associated with a project or activity identified by a persistent identifier (PID)
@@ -487,33 +592,36 @@ pub struct Contributor {
     #[validate(url)]
     pub schema_uri: Option<String>,
     /// Contibutor status
-    pub status: String,
+    // TODO: Not in schema docs
+    pub status: Option<String>,
     /// Text describing status
     pub status_message: Option<String>,
     /// Contributor's administrative position on a project or activity
+    // TODO: Schema docs list position as singular
     #[validate(nested)]
     pub position: Vec<ContributorPosition>,
     /// Flag indicating that the contributor as a project leader
-    ///
-    /// Allowed values: `Yes` or `Null`
+    #[builder(default = false)]
     pub leader: bool,
     /// Flag indicating that the contributor as a project contact
-    ///
-    /// Allowed values: `Yes` or `Null`
+    #[builder(default = false)]
     pub contact: bool,
     /// Contributor email
+    // TODO: Not in schema docs
     #[validate(email)]
     pub email: Option<String>,
     /// Contributor's role(s) on a project or activity
     #[validate(nested)]
     pub role: Option<Vec<Role>>,
     /// Contributor UUID
+    // TODO: Not in schema docs
     pub uuid: Option<String>,
 }
 /// Metadata schema sub-block describing a contributor's administrative position on a project or activity
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/contributors.html#contributor-position>
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ContributorPosition {
     /// Contributor's administrative position in the project
@@ -526,8 +634,9 @@ pub struct ContributorPosition {
     ///
     /// [OpenAIRE]: https://guidelines.openaire.eu/en/latest/
     /// [Project Ontology]: http://linked.data.gov.au/def/project
+    #[builder(default = "https://vocabulary.raid.org/contributor.position.schema/305".to_string())]
     #[validate(url)]
-    pub schema_uri: Option<String>,
+    pub schema_uri: String,
     /// Dates associated with contributor's involvement in a project or activity
     #[validate(nested)]
     #[serde(flatten)]
@@ -536,6 +645,7 @@ pub struct ContributorPosition {
 ///  Start and end dates for the associated metadata
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Date {
     /// Associated data start date
@@ -558,31 +668,35 @@ pub struct Date {
 /// See <https://metadata.raid.org/en/v1.6/core/descriptions.html>
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Description {
     /// Description text
-    #[validate(length(min = 3, max = 1000))]
-    pub text: String,
+    #[validate(required, length(min = 3, max = 1000))]
+    pub text: Option<String>,
     /// Description type information
-    #[validate(nested)]
+    #[validate(required, nested)]
     #[serde(rename = "type")]
-    pub description_type: DescriptionIdentifier,
+    pub description_type: Option<DescriptionIdentifier>,
     /// Language of the description text
     #[validate(nested)]
     pub language: Option<Language>,
 }
 /// Metadata schema block declaring the type of description
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct DescriptionIdentifier {
     /// Description identifier
     pub id: DescriptionType,
     /// URI of the associated description schema
+    #[builder(default = "https://vocabulary.raid.org/description.type.schema/320".to_string())]
     #[validate(url)]
-    pub schema_uri: Option<String>,
+    pub schema_uri: String,
 }
 /// Metadata schema block containing information about the associated type
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Identifier {
     /// Type identifier
@@ -593,6 +707,7 @@ pub struct Identifier {
 }
 /// Metadata schema sub-block containing free-text keyword describing a project plus associated properties
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Keyword {
     /// Unconstrained keyword or key phrase describing the project or activity
@@ -603,6 +718,7 @@ pub struct Keyword {
 }
 /// Metadata schema block declaring the language of the associated text
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Language {
     /// Language used for the associated text, identified by a code or another identifier
@@ -933,16 +1049,17 @@ pub struct Subject {
 /// See <https://metadata.raid.org/en/v1.6/core/titles.html>
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Display, Serialize, Deserialize, JsonSchema, Validate)]
-#[display("{text} ({title_type})")]
+#[builder(start_fn = init, on(String, into))]
+#[display("{text:?} ({title_type:?})")]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Title {
     /// Name or title by which the project or activity is known
-    #[validate(length(min = 3, max = 100))]
-    pub text: String,
+    #[validate(required, length(min = 3, max = 100))]
+    pub text: Option<String>,
     /// Metadata schema block containing information about the title type
-    #[validate(nested)]
+    #[validate(required, nested)]
     #[serde(rename = "type")]
-    pub title_type: TitleIdentifier,
+    pub title_type: Option<TitleIdentifier>,
     /// Language of the title
     #[validate(nested)]
     pub language: Option<Language>,
@@ -951,8 +1068,8 @@ pub struct Title {
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_date"))]
-    pub start_date: String,
+    #[validate(required, custom(function = "is_date"))]
+    pub start_date: Option<String>,
     /// Date the project or activity title was changed or stopped being used
     /// ### Format
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
@@ -962,7 +1079,7 @@ pub struct Title {
     /// <div class="warning">Listed as "recommended" (optional) and "required"</div>
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_year"))]
+    #[validate(required, custom(function = "is_year"))]
     pub end_date: Option<String>,
 }
 /// Metadata schema block containing information about Traditional Knowledge / Biocultural Labels and Notices
@@ -982,7 +1099,8 @@ pub struct TraditionalKnowledgeLabel {
     pub schema_uri: Option<String>,
 }
 /// Metadata schema block containing information about the title type
-#[derive(Clone, Debug, Serialize, Deserialize, Display, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, Display, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[display("{id}")]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct TitleIdentifier {
@@ -991,8 +1109,9 @@ pub struct TitleIdentifier {
     /// <div class="warning">Only one title should be identified as "Primary"</div>
     pub id: TitleType,
     /// URI of the title type schema
+    #[builder(default = "https://vocabulary.raid.org/title.type.schema/376".to_string())]
     #[validate(url)]
-    pub schema_uri: Option<String>,
+    pub schema_uri: String,
 }
 impl Metadata {
     /// Print research activity identifier (RAiD) metadata schema as JSON schema
@@ -1052,15 +1171,14 @@ impl From<ResearchActivity> for Metadata {
             start_date: Some(default_start_date.clone()),
             end_date: None,
         };
-        let contributor_position = ContributorPosition {
-            id: PositionType::PrincipalInvestigator,
-            schema_uri: None,
-            date: date.clone(),
-        };
+        let contributor_position = ContributorPosition::init()
+            .id(PositionType::PrincipalInvestigator)
+            .date(date.clone())
+            .build();
         let contributor = Contributor {
             id: Some(contributor_id),
             schema_uri: Some(DEFAULT_ORCID_SCHEMA_URI.to_string()),
-            status: "active".to_string(),
+            status: Some("active".to_string()),
             status_message: None,
             position: vec![contributor_position],
             leader: true,
@@ -1080,21 +1198,18 @@ impl From<ResearchActivity> for Metadata {
             role: vec![org_role],
         };
         let title = Title {
-            text: activity.title.clone(),
-            title_type: TitleIdentifier {
-                id: TitleType::Primary,
-                schema_uri: None,
-            },
+            text: Some(activity.title.clone()),
+            title_type: Some(TitleIdentifier::init().id(TitleType::Primary).build()),
             language: None,
-            start_date: default_start_date.clone(),
+            start_date: Some(default_start_date.clone()),
             end_date: Some(default_end_year.clone()),
         };
         let description = Description {
-            text: activity.sections.mission.clone(),
-            description_type: DescriptionIdentifier {
+            text: Some(activity.sections.mission.clone()),
+            description_type: Some(DescriptionIdentifier {
                 id: DescriptionType::Primary,
-                schema_uri: None,
-            },
+                schema_uri: "https://vocabulary.raid.org/description.type.schema/318".to_string(),
+            }),
             language: None,
         };
         let identifier = MetadataIdentifier {
@@ -1116,7 +1231,7 @@ impl From<ResearchActivity> for Metadata {
         let access = Access {
             access_type: Some(AccessIdentifier {
                 id: AccessType::OpenAccess,
-                schema_uri: None,
+                schema_uri: "https://vocabularies.coar-repositories.org/access_rights/".to_string(),
             }),
             embargo_expiry: None,
             statement: None,
