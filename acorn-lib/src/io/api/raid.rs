@@ -215,6 +215,7 @@ pub async fn create_record(options: Options) -> ApiResult<Metadata> {
                 let body = serde_json::to_string(&value).map_err(|why| eyre!("Failed to serialize RAiD metadata to JSON — {why:#?}"))?;
                 let params = vec![param!(Header, "Authorization", &format!("Bearer {token}")), param!(Body, "body", &body)];
                 let response = endpoint.invoke(action, Some(params)).await;
+                dbg!(&response);
                 endpoint.handle::<Metadata>(response)
             }
             | None => Err(eyre!("RAiD metadata is required for creating a record")),

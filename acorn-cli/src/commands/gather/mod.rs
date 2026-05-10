@@ -119,20 +119,24 @@ async fn raid_example() {
     // println!("RAiD Record: {record:#?}");
 
     use acorn::schema::pid::raid::{
-        Access, AccessIdentifier, AccessType, Contributor, Date, Description, DescriptionIdentifier, DescriptionType, Metadata, Title,
-        TitleIdentifier, TitleType,
+        Access, AccessIdentifier, AccessType, Contributor, ContributorPosition, CreditRole, Date, Description, DescriptionIdentifier,
+        DescriptionType, Metadata, PositionType, Role, Title, TitleIdentifier, TitleType,
     };
     let orcid = "https://sandbox.orcid.org/0000-0003-0021-3068";
     let access_type = AccessIdentifier::init().id(AccessType::OpenAccess).build();
     let description_type = DescriptionIdentifier::init().id(DescriptionType::Primary).build();
     let title_type = TitleIdentifier::init().id(TitleType::Primary).build();
-    // let position = ContributorPosition::init().date(Date::init().start_date("2025-08-28").build());
+    let position = ContributorPosition::init()
+        .id(PositionType::PrincipalInvestigator)
+        .date(Date::init().start_date("2025-08-28").build())
+        .build();
+    let role = Role::init().id(CreditRole::WritingReviewEditing).build();
     let access = Access::init().access_type(access_type).build();
     let contributor = Contributor::init()
         .id(orcid)
         .schema_uri("https://orcid.org/")
-        .position(vec![])
-        .role(vec![])
+        .position(vec![position])
+        .role(vec![role])
         .contact(true)
         .build();
     let date = Date::init().start_date("2024-01-01").build();
@@ -141,7 +145,7 @@ async fn raid_example() {
         .description_type(description_type)
         .build();
     let title = Title::init()
-        .text("RAiD Record created from ACORN")
+        .text("RAiD Record created from ACORN API")
         .title_type(title_type)
         .start_date("2026-05-05")
         .build();
@@ -153,9 +157,9 @@ async fn raid_example() {
         .title(vec![title])
         .build();
     println!("RAiD Metadata: {}", serde_json::to_string_pretty(&metadata).unwrap());
-    // let options = api::raid::Options::from_env().with_metadata(metadata);
-    // let record = api::raid::create_record(options).await.unwrap();
-    // println!("RAiD Record: {record:#?}");
+    let options = api::raid::Options::from_env().with_metadata(metadata);
+    let record = api::raid::create_record(options).await;
+    println!("RAiD Record: {record:#?}");
 }
 #[allow(dead_code)]
 async fn ror_example() {

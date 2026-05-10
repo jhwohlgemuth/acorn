@@ -30,18 +30,12 @@ use validator::Validate;
 pub enum AccessType {
     /// Open access
     #[default]
-    #[display("https://vocabularies.coar-repositories.org/access_rights/c_abf2/")]
-    #[serde(
-        alias = "https://vocabularies.coar-repositories.org/access_rights/c_abf2/",
-        rename = "https://vocabularies.coar-repositories.org/access_rights/c_abf2/"
-    )]
+    #[display("open-access")]
+    #[serde(rename = "https://vocabularies.coar-repositories.org/access_rights/c_abf2/")]
     OpenAccess,
     /// Embargoed access
-    #[display("https://vocabularies.coar-repositories.org/access_rights/c_f1cf/")]
-    #[serde(
-        alias = "https://vocabularies.coar-repositories.org/access_rights/c_f1cf/",
-        rename = "https://vocabularies.coar-repositories.org/access_rights/c_f1cf/"
-    )]
+    #[display("embargoed-access")]
+    #[serde(rename = "https://vocabularies.coar-repositories.org/access_rights/c_f1cf/")]
     EmbargoedAccess,
 }
 /// CRediT role
@@ -53,102 +47,60 @@ pub enum AccessType {
 #[serde(rename_all = "kebab-case")]
 pub enum CreditRole {
     /// Ideas; formulation or evolution of overarching research goals and aims.
-    #[display("https://credit.niso.org/contributor-roles/conceptualization/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/conceptualization/",
-        rename = "https://credit.niso.org/contributor-roles/conceptualization/"
-    )]
+    #[display("conceptualization")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/conceptualization/")]
     Conceptualization,
     /// Management activities to annotate (produce metadata), scrub data and maintain research data (including software code, where it is necessary for interpreting the data itself) for initial use and later re-use.
-    #[display("https://credit.niso.org/contributor-roles/data-curation/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/data-curation/",
-        rename = "https://credit.niso.org/contributor-roles/data-curation/"
-    )]
+    #[display("data-curation")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/data-curation/")]
     DataCuration,
     /// Application of statistical, mathematical, computational, or other formal techniques to analyze or synthesize study data.
-    #[display("https://credit.niso.org/contributor-roles/formal-analysis/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/formal-analysis/",
-        rename = "https://credit.niso.org/contributor-roles/formal-analysis/"
-    )]
+    #[display("formal-analysis")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/formal-analysis/")]
     FormalAnalysis,
     /// Acquisition of the financial support for the project leading to this publication.
-    #[display("https://credit.niso.org/contributor-roles/funding-acquisition/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/funding-acquisition/",
-        rename = "https://credit.niso.org/contributor-roles/funding-acquisition/"
-    )]
+    #[display("funding-acquisition")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/funding-acquisition/")]
     FundingAcquisition,
     /// Conducting a research and investigation process, specifically performing the experiments, or data/evidence collection.
-    #[display("https://credit.niso.org/contributor-roles/investigation/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/investigation/",
-        rename = "https://credit.niso.org/contributor-roles/investigation/"
-    )]
+    #[display("investigation")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/investigation/")]
     Investigation,
     /// Development or design of methodology; creation of models.
-    #[display("https://credit.niso.org/contributor-roles/methodology/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/methodology/",
-        rename = "https://credit.niso.org/contributor-roles/methodology/"
-    )]
+    #[display("methodology")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/methodology/")]
     Methodology,
     /// Management and coordination responsibility for the research activity planning and execution.
-    #[display("https://credit.niso.org/contributor-roles/project-administration/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/project-administration/",
-        rename = "https://credit.niso.org/contributor-roles/project-administration/"
-    )]
+    #[display("project-administration")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/project-administration/")]
     ProjectAdministration,
     /// Provision of study materials, reagents, materials, patients, laboratory samples, animals, instrumentation, computing resources, or other analysis tools.
-    #[display("https://credit.niso.org/contributor-roles/resources/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/resources/",
-        rename = "https://credit.niso.org/contributor-roles/resources/"
-    )]
+    #[display("resources")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/resources/")]
     Resources,
     /// Programming, software development; designing computer programs; implementation of the computer code and supporting algorithms; testing of existing code components.
-    #[display("https://credit.niso.org/contributor-roles/software/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/software/",
-        rename = "https://credit.niso.org/contributor-roles/software/"
-    )]
+    #[display("software")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/software/")]
     Software,
     /// Oversight and leadership responsibility for the research activity planning and execution, including mentorship external to the core team.
-    #[display("https://credit.niso.org/contributor-roles/supervision/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/supervision/",
-        rename = "https://credit.niso.org/contributor-roles/supervision/"
-    )]
+    #[display("supervision")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/supervision/")]
     Supervision,
     /// Verification, whether as a part of the activity or separate, of the overall replication/reproducibility of results/experiments and other research outputs.
-    #[display("https://credit.niso.org/contributor-roles/validation/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/validation/",
-        rename = "https://credit.niso.org/contributor-roles/validation/"
-    )]
+    #[display("validation")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/validation/")]
     Validation,
     /// Preparation, creation and/or presentation of the published work, specifically visualization/data presentation.
-    #[display("https://credit.niso.org/contributor-roles/visualization/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/visualization/",
-        rename = "https://credit.niso.org/contributor-roles/visualization/"
-    )]
+    #[display("visualization")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/visualization/")]
     Visualization,
     /// Preparation, creation and/or presentation of the published work, specifically writing the initial draft (including substantive translation).
-    #[display("https://credit.niso.org/contributor-roles/writing-original-draft/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/writing-original-draft/",
-        rename = "https://credit.niso.org/contributor-roles/writing-original-draft/"
-    )]
+    #[display("writing-original-draft")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/writing-original-draft/")]
     WritingOriginalDraft,
     /// Preparation, creation and/or presentation of the published work by those from the original research group, specifically critical review, commentary or revision - including pre- or post-publication stages
-    #[display("https://credit.niso.org/contributor-roles/writing-review-editing/")]
-    #[serde(
-        alias = "https://credit.niso.org/contributor-roles/writing-review-editing/",
-        rename = "https://credit.niso.org/contributor-roles/writing-review-editing/"
-    )]
+    #[display("writing-review-editing")]
+    #[serde(rename = "https://credit.niso.org/contributor-roles/writing-review-editing/")]
     WritingReviewEditing,
 }
 /// Description types
@@ -156,60 +108,36 @@ pub enum CreditRole {
 #[serde(rename_all = "kebab-case")]
 pub enum DescriptionType {
     /// Primary description (i.e., a preferred full description or abstract)
-    #[display("https://vocabulary.raid.org/description.type.schema/318")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/description.type.schema/318",
-        rename = "https://vocabulary.raid.org/description.type.schema/318"
-    )]
+    #[display("primary")]
+    #[serde(rename = "https://vocabulary.raid.org/description.type.schema/318")]
     Primary,
     /// An alternative description (i.e., an additional or supplementary full description or abstract)
-    #[display("https://vocabulary.raid.org/description.type.schema/319")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/description.type.schema/319",
-        rename = "https://vocabulary.raid.org/description.type.schema/319"
-    )]
+    #[display("alternative")]
+    #[serde(rename = "https://vocabulary.raid.org/description.type.schema/319")]
     Alternative,
     /// Brief description (i.e., a shorter version of the primary description)
-    #[display("https://vocabulary.raid.org/description.type.schema/3")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/description.type.schema/3",
-        rename = "https://vocabulary.raid.org/description.type.schema/3"
-    )]
+    #[display("brief")]
+    #[serde(rename = "https://vocabulary.raid.org/description.type.schema/3")]
     Brief,
     /// Significance statement
-    #[display("https://vocabulary.raid.org/description.type.schema/9")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/description.type.schema/9",
-        rename = "https://vocabulary.raid.org/description.type.schema/9"
-    )]
+    #[display("significance-statement")]
+    #[serde(rename = "https://vocabulary.raid.org/description.type.schema/9")]
     SignificanceStatement,
     /// Methods
-    #[display("https://vocabulary.raid.org/description.type.schema/8")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/description.type.schema/8",
-        rename = "https://vocabulary.raid.org/description.type.schema/8"
-    )]
+    #[display("methods")]
+    #[serde(rename = "https://vocabulary.raid.org/description.type.schema/8")]
     Methods,
     /// Objectives
-    #[display("https://vocabulary.raid.org/description.type.schema/7")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/description.type.schema/7",
-        rename = "https://vocabulary.raid.org/description.type.schema/7"
-    )]
+    #[display("objectives")]
+    #[serde(rename = "https://vocabulary.raid.org/description.type.schema/7")]
     Objectives,
     /// Acknowledgements (i.e., for recognition of people not listed as Contributors or organizations not listed as organizations)
-    #[display("https://vocabulary.raid.org/description.type.schema/392")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/description.type.schema/392",
-        rename = "https://vocabulary.raid.org/description.type.schema/392"
-    )]
+    #[display("acknowledgements")]
+    #[serde(rename = "https://vocabulary.raid.org/description.type.schema/392")]
     Acknowledgements,
     /// Other (i.e., any other descriptive information such as a note)
-    #[display("https://vocabulary.raid.org/description.type.schema/6")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/description.type.schema/6",
-        rename = "https://vocabulary.raid.org/description.type.schema/6"
-    )]
+    #[display("other")]
+    #[serde(rename = "https://vocabulary.raid.org/description.type.schema/6")]
     Other,
 }
 /// Category of input, output, or process document
@@ -218,15 +146,15 @@ pub enum DescriptionType {
 pub enum ObjectCategoryType {
     /// Output
     #[display("output")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.category.id/190")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.category.id/190")]
     Output,
     /// Input
     #[display("input")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.category.id/191")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.category.id/191")]
     Input,
     /// Internal process document or artifact
     #[display("internal-process-document")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.category.id/192")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.category.id/192")]
     InternalProcessDocument,
 }
 /// Type of input, output, or process document
@@ -235,118 +163,118 @@ pub enum ObjectCategoryType {
 pub enum ObjectType {
     /// Output management plan
     #[display("output-management-plan")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/247")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/247")]
     OutputManagementPlan,
     /// Conference poster
     #[display("conference-poster")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/248")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/248")]
     ConferencePoster,
     /// Workflow
     #[display("workflow")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/249")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/249")]
     Workflow,
     /// Journal article
     #[display("journal-article")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/250")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/250")]
     JournalArticle,
     /// Standard
     #[display("standard")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/251")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/251")]
     Standard,
     /// Report
     #[display("report")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/252")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/252")]
     Report,
     /// Dissertation
     #[display("dissertation")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/253")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/253")]
     Dissertation,
     /// Preprint
     #[display("preprint")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/254")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/254")]
     Preprint,
     /// Data paper
     #[display("data-paper")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/255")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/255")]
     DataPaper,
     /// Computational notebook (e.g., Jupyter notebook)
     #[display("computational-notebook")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/256")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/256")]
     ComputationalNotebook,
     /// Image
     #[display("image")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/257")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/257")]
     Image,
     /// Book
     #[display("book")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/258")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/258")]
     Book,
     /// Software
     #[display("software")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/259")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/259")]
     Software,
     /// Event
     #[display("event")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/260")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/260")]
     Event,
     /// Sound
     #[display("sound")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/261")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/261")]
     Sound,
     /// Conference proceeding
     #[display("conference-proceeding")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/262")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/262")]
     ConferenceProceeding,
     /// Model
     #[display("model")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/263")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/263")]
     Model,
     /// Conference paper
     #[display("conference-paper")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/264")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/264")]
     ConferencePaper,
     /// Text
     #[display("text")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/265")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/265")]
     Text,
     /// Instrument
     #[display("instrument")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/266")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/266")]
     Instrument,
     /// Learning object
     #[display("learning-object")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/267")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/267")]
     LearningObject,
     /// Prize (excluding funded awards)
     #[display("prize")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/268")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/268")]
     Prize,
     /// Dataset
     #[display("dataset")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/269")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/269")]
     Dataset,
     /// Physical object
     #[display("physical-object")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/270")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/270")]
     PhysicalObject,
     /// Book chapter
     #[display("book-chapter")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/271")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/271")]
     BookChapter,
     /// Funding
     ///
     /// *Note*
     /// > Includes grants or other cash or in-kind awards, but not prizes
     #[display("funding")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/272")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/272")]
     Funding,
     /// Audiovisual
     #[display("audiovisual")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/273")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/273")]
     Audiovisual,
     /// Service
     #[display("service")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedObject.type.schema/274")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/274")]
     Service,
 }
 /// Organization role identifier
@@ -355,31 +283,31 @@ pub enum ObjectType {
 pub enum OrganizationRoleType {
     /// Lead research organization
     #[display("lead-research-organization")]
-    #[serde(alias = "https://vocabulary.raid.org/organisation.role.schema/182")]
+    #[serde(rename = "https://vocabulary.raid.org/organisation.role.schema/182")]
     LeadResearchOrganization,
     /// Other research organization
     #[display("other-research-organization")]
-    #[serde(alias = "https://vocabulary.raid.org/organisation.role.schema/183")]
+    #[serde(rename = "https://vocabulary.raid.org/organisation.role.schema/183")]
     OtherResearchOrganization,
     /// Partner organization (i.e., a non-research organization, such as an industry, government, or community partner that is collaborating on the project or activity, as a research partner rather than a hired consultant or contractor)
     #[display("partner-organization")]
-    #[serde(alias = "https://vocabulary.raid.org/organisation.role.schema/184")]
+    #[serde(rename = "https://vocabulary.raid.org/organisation.role.schema/184")]
     PartnerOrganization,
     /// Contractor (i.e., a consulting organization hired by the project)
     #[display("contractor")]
-    #[serde(alias = "https://vocabulary.raid.org/organisation.role.schema/185")]
+    #[serde(rename = "https://vocabulary.raid.org/organisation.role.schema/185")]
     Contractor,
     /// Funder (i.e., an organization underwriting the research via a cash or in-kind grant, prize, or investment, but not otherwise listed as a research organization, partner organization or contractor)
     #[display("funder")]
-    #[serde(alias = "https://vocabulary.raid.org/organisation.role.schema/186")]
+    #[serde(rename = "https://vocabulary.raid.org/organisation.role.schema/186")]
     Funder,
     /// Facility (i.e., an organization providing access to physical or digital infrastructure, but not otherwise listed as a research organization, partner organization or contractor)
     #[display("facility")]
-    #[serde(alias = "https://vocabulary.raid.org/organisation.role.schema/187")]
+    #[serde(rename = "https://vocabulary.raid.org/organisation.role.schema/187")]
     Facility,
     /// Other Organiation not covered by the roles above
     #[display("other-organization")]
-    #[serde(alias = "https://vocabulary.raid.org/organisation.role.schema/188")]
+    #[serde(rename = "https://vocabulary.raid.org/organisation.role.schema/188")]
     OtherOrganization,
 }
 /// Represents a contributor's administrative position on a project (such as their position on a grant application)
@@ -389,41 +317,24 @@ pub enum OrganizationRoleType {
 #[serde(rename_all = "kebab-case")]
 pub enum PositionType {
     /// Principal Investigator
-    #[display("https://vocabulary.raid.org/contributor.position.schema/307")]
-    #[serde(
-        alias = "ChiefInvestigator",
-        alias = "https://vocabulary.raid.org/contributor.position.schema/307",
-        rename = "https://vocabulary.raid.org/contributor.position.schema/307"
-    )]
+    #[display("principal-investigator")]
+    #[serde(rename = "https://vocabulary.raid.org/contributor.position.schema/307")]
     PrincipalInvestigator,
     /// Co-Investigator
-    #[display("https://vocabulary.raid.org/contributor.position.schema/308")]
-    #[serde(
-        alias = "collaborator",
-        alias = "https://vocabulary.raid.org/contributor.position.schema/308",
-        rename = "https://vocabulary.raid.org/contributor.position.schema/308"
-    )]
+    #[display("co-investigator")]
+    #[serde(rename = "https://vocabulary.raid.org/contributor.position.schema/308")]
     CoInvestigator,
     /// Partner Investigator (e.g., industry, government, or community collaborator)
-    #[display("https://vocabulary.raid.org/contributor.position.schema/309")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/contributor.position.schema/309",
-        rename = "https://vocabulary.raid.org/contributor.position.schema/309"
-    )]
+    #[display("partner-investigator")]
+    #[serde(rename = "https://vocabulary.raid.org/contributor.position.schema/309")]
     PartnerInvestigator,
     /// Consultant (e.g., someone hired as a contract researcher by the project)
-    #[display("https://vocabulary.raid.org/contributor.position.schema/310")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/contributor.position.schema/310",
-        rename = "https://vocabulary.raid.org/contributor.position.schema/310"
-    )]
+    #[display("consultant")]
+    #[serde(rename = "https://vocabulary.raid.org/contributor.position.schema/310")]
     Consultant,
     /// Other Participant not covered by one of the positions above, e.g., "member" or "other significant contributor"
-    #[display("https://vocabulary.raid.org/contributor.position.schema/311")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/contributor.position.schema/311",
-        rename = "https://vocabulary.raid.org/contributor.position.schema/311"
-    )]
+    #[display("other")]
+    #[serde(rename = "https://vocabulary.raid.org/contributor.position.schema/311")]
     Other,
 }
 /// RAiD Relation Type
@@ -434,67 +345,57 @@ pub enum PositionType {
 pub enum RelatedRaidType {
     /// Obsoletes
     /// > For resolving duplicate RAiDs
-    #[serde(alias = "https://vocabulary.raid.org/relatedRaid.type.schema/198")]
+    #[display("obsoletes")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedRaid.type.schema/198")]
     Obsoletes,
     /// Is source of
     #[display("is-source-of")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedRaid.type.schema/199")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedRaid.type.schema/199")]
     IsSourceOf,
     /// Is derived from
     #[display("is-derived-from")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedRaid.type.schema/200")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedRaid.type.schema/200")]
     IsDerivedFrom,
     /// Has part
     #[display("has-part")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedRaid.type.schema/201")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedRaid.type.schema/201")]
     HasPart,
     /// Is part of
     #[display("is-part-of")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedRaid.type.schema/202")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedRaid.type.schema/202")]
     IsPartOf,
     /// Is continued by
     #[display("is-continued-by")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedRaid.type.schema/203")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedRaid.type.schema/203")]
     IsContinuedBy,
     /// Continues
-    #[serde(alias = "https://vocabulary.raid.org/relatedRaid.type.schema/204")]
+    #[display("continues")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedRaid.type.schema/204")]
     Continues,
     /// Is obsoleted by
     /// > For resolving duplicate RAiDs
     #[display("is-obsoleted-by")]
-    #[serde(alias = "https://vocabulary.raid.org/relatedRaid.type.schema/205")]
+    #[serde(rename = "https://vocabulary.raid.org/relatedRaid.type.schema/205")]
     IsObsoletedBy,
 }
 /// Allowed values for title identifiers
 #[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
 pub enum TitleType {
     /// Title acronym
-    #[display("https://vocabulary.raid.org/title.type.schema/156")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/title.type.schema/156",
-        rename = "https://vocabulary.raid.org/title.type.schema/156"
-    )]
+    #[display("acronym")]
+    #[serde(rename = "https://vocabulary.raid.org/title.type.schema/156")]
     Acronym,
     /// Alternative title, including subtitle or other supplemental title
-    #[display("https://vocabulary.raid.org/title.type.schema/4")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/title.type.schema/4",
-        rename = "https://vocabulary.raid.org/title.type.schema/4"
-    )]
+    #[display("alternative")]
+    #[serde(rename = "https://vocabulary.raid.org/title.type.schema/4")]
     Alternative,
     /// Preferred full or long title
-    #[display("https://vocabulary.raid.org/title.type.schema/5")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/title.type.schema/5",
-        rename = "https://vocabulary.raid.org/title.type.schema/5"
-    )]
+    #[display("primary")]
+    #[serde(rename = "https://vocabulary.raid.org/title.type.schema/5")]
     Primary,
     /// Abreviated title
-    #[display("https://vocabulary.raid.org/title.type.schema/157")]
-    #[serde(
-        alias = "https://vocabulary.raid.org/title.type.schema/157",
-        rename = "https://vocabulary.raid.org/title.type.schema/157"
-    )]
+    #[display("short")]
+    #[serde(rename = "https://vocabulary.raid.org/title.type.schema/157")]
     Short,
 }
 /// Metadata schema block containing RAiD access information
@@ -1006,13 +907,16 @@ pub struct RegistrationAgency {
 /// [CRediT]: https://credit.niso.org/
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Role {
     /// Contributor role on a project or activity
+    #[validate(required)]
     pub id: Option<CreditRole>,
     /// URI of the role schema used
+    #[builder(default = "https://credit.niso.org/".to_string())]
     #[validate(url)]
-    pub schema_uri: Option<String>,
+    pub schema_uri: String,
 }
 /// Metadata schema block containing information about any spatial region(s) or named place(s) targeted by the project
 /// ### Note
