@@ -183,8 +183,28 @@ fn test_extract_template_keys() {
 }
 #[test]
 fn test_into_body() {
-    let payload = vec![param!(Body, "body", "This is a test comment!!!")].into_body();
-    assert_eq!(payload, serde_json::json!({ "body": "This is a test comment!!!" }));
+    let body = "This is a test comment!!!";
+    let payload = vec![param!(Body & body)].into_body();
+    assert_eq!(payload, serde_json::json!("This is a test comment!!!"));
+}
+#[test]
+fn test_into_body_parses_json_string_for_body_key() {
+    let body = "{\"title\":\"ACORN\",\"active\":true}";
+    let payload = vec![param!(Body & body)].into_body();
+    assert_eq!(payload, serde_json::json!({ "title": "ACORN", "active": true }));
+}
+#[test]
+fn test_into_body_keyed_multiple_values_as_object_array() {
+    let payload = vec![Param::of_type(ParamStyle::Body)
+        .values(vec![vec![Some("one")], vec![Some("two")]])
+        .with_key("items")]
+    .into_body();
+    assert_eq!(payload, serde_json::json!({ "items": ["one", "two"] }));
+}
+#[test]
+fn test_into_body_keyed_empty_values_as_object_null() {
+    let payload = vec![Param::of_type(ParamStyle::Body).values(vec![]).with_key("data")].into_body();
+    assert_eq!(payload, serde_json::json!({ "data": null }));
 }
 #[test]
 fn test_query_params_empty_field() {

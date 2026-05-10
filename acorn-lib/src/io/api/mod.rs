@@ -15,7 +15,7 @@ use axum::http::header::{HeaderName, HeaderValue};
 use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
-use core::fmt;
+use core::{fmt, marker::PhantomData};
 use derive_more::Display;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
@@ -65,6 +65,28 @@ pub trait IntoHeaders {
 }
 /// Helper trait combining common bounds for API query field types
 pub trait QueryField: fmt::Display + for<'a> TryFrom<&'a str> {}
+/// Trait for types that can serve as a fallback error response parser
+///
+/// When `handle_or` fails to parse the primary response type, it calls
+/// `into_error` on the fallback type to attempt an alternative parse
+/// and surface a more descriptive error. Use [`NoFallback`] (the default)
+/// when no fallback is needed, or [`FallbackFor<T>`] to wrap a concrete
+/// error-response type.
+pub trait FallbackResponse {
+    /// Attempt to parse `content` as a fallback error type and return an
+    /// error report, or `None` if parsing also fails.
+    fn into_error(content: &str) -> Option<eyre::Report>;
+    /// Attempt to parse and pretty-print JSON content for readable fallback output.
+    fn to_string(content: &str) -> Option<String> {
+        serde_json::from_str::<serde_json::Value>(content).ok().and_then(|value| match value {
+            | serde_json::Value::String(inner) => serde_json::from_str::<serde_json::Value>(&inner)
+                .ok()
+                .and_then(|nested| serde_json::to_string_pretty(&nested).ok())
+                .or_else(|| serde_json::to_string_pretty(&serde_json::Value::String(inner)).ok()),
+            | other => serde_json::to_string_pretty(&other).ok(),
+        })
+    }
+}
 /// Trait for working with request-response cycle using HTTP methods like GET, POST, PUT, PATCH, and DELETE
 /// against resource URLs that return structured data
 #[async_trait]
@@ -86,7 +108,27 @@ pub trait RemoteResource {
     /// Handle a response from an endpoint request
     fn handle<R>(&self, response: ApiResult<ResponseContent>) -> ApiResult<R>
     where
-        R: for<'de> Deserialize<'de>;
+        R: for<'de> Deserialize<'de>,
+    {
+        match response {
+            | Ok(content) => match content {
+                | ResponseContent::Json(content) => parse_json(&content),
+                | ResponseContent::Xml(content) => parse_xml(&content),
+                | ResponseContent::Yaml(content) => parse_yaml(&content),
+                | ResponseContent::Raw(content) => {
+                    let raw = TextResponse { content };
+                    serde_json::to_string(&raw).map_err(|e| eyre!(e)).and_then(|json| parse_json(&json))
+                }
+            },
+            | Err(e) => Err(eyre!(e)),
+        }
+    }
+    /// Handle a response from an endpoint request, trying to parse as `R` first,
+    /// then falling back to `E` on parse failure to surface a richer error message
+    fn handle_or<R, E>(&self, response: ApiResult<ResponseContent>) -> ApiResult<R>
+    where
+        R: for<'de> Deserialize<'de>,
+        E: FallbackResponse;
     /// Send data to the endpoint and receive a response asynchronously
     async fn invoke(&self, action: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent>;
     /// Send data to the endpoint and receive a response asynchronously using explicit query/field types
@@ -163,6 +205,16 @@ pub enum TreeEntryType {
     #[display("blob")]
     Blob,
 }
+/// Wrapper that enables any `Deserialize + fmt::Debug` type as a fallback
+/// error response parser
+///
+/// ### Example
+/// ```ignore
+/// endpoint.handle_or::<Metadata, FallbackFor<ErrorResponse>>(response)
+/// ```
+pub struct FallbackFor<T>(PhantomData<T>);
+/// Default pass-through fallback — no secondary parse is attempted
+pub struct NoFallback;
 /// Represents authentication credentials for accessing an API
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[builder(start_fn = init)]
@@ -279,11 +331,29 @@ impl Endpoint {
             .ok_or_else(|| eyre!("Endpoint template '{endpoint_name}' not found in application configuration"))
     }
 }
-
 impl Searchable<Endpoint> for Vec<Endpoint> {
     fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
         let name = value.into();
         self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
+    }
+}
+impl FallbackResponse for NoFallback {
+    fn into_error(_: &str) -> Option<eyre::Report> {
+        None
+    }
+    fn to_string(_: &str) -> Option<String> {
+        None
+    }
+}
+impl<T> FallbackResponse for FallbackFor<T>
+where
+    T: for<'de> Deserialize<'de> + fmt::Debug,
+{
+    fn into_error(content: &str) -> Option<eyre::Report> {
+        serde_json::from_str::<T>(content).ok().map(|why| {
+            let message = Self::to_string(content).unwrap_or_else(|| format!("{why:#?}"));
+            eyre!("{message}")
+        })
     }
 }
 impl Searchable<Resource> for Vec<Resource> {
@@ -454,23 +524,38 @@ impl Param {
 }
 impl IntoBody for Vec<Param> {
     fn into_body(self) -> serde_json::Value {
-        let body = self
-            .into_iter()
-            .filter(|param| param.is_body())
-            .map(|param| {
-                let Param { name, values, .. } = param;
-                let flattened: Vec<String> = values.into_iter().flat_map(|vec| vec.into_iter().flatten()).collect();
-                let value = if flattened.len() == 1 {
-                    serde_json::Value::String(flattened.into_iter().next().unwrap())
+        let params: Vec<Param> = self.into_iter().filter(|param| param.is_body()).collect();
+        match params.as_slice() {
+            | [Param { name, values, .. }] if name.is_empty() => {
+                let flattened: Vec<String> = values.iter().cloned().flat_map(|vec| vec.into_iter().flatten()).collect();
+                if flattened.len() == 1 {
+                    let raw = flattened.into_iter().next().unwrap_or_default();
+                    serde_json::from_str::<serde_json::Value>(&raw).unwrap_or(serde_json::Value::String(raw))
                 } else if flattened.is_empty() {
                     serde_json::Value::Null
                 } else {
                     serde_json::Value::Array(flattened.into_iter().map(serde_json::Value::String).collect())
-                };
-                (name, value)
-            })
-            .collect();
-        serde_json::Value::Object(body)
+                }
+            }
+            | _ => {
+                let body = params
+                    .into_iter()
+                    .map(|param| {
+                        let Param { name, values, .. } = param;
+                        let flattened: Vec<String> = values.into_iter().flat_map(|vec| vec.into_iter().flatten()).collect();
+                        let value = if flattened.len() == 1 {
+                            serde_json::Value::String(flattened.into_iter().next().unwrap())
+                        } else if flattened.is_empty() {
+                            serde_json::Value::Null
+                        } else {
+                            serde_json::Value::Array(flattened.into_iter().map(serde_json::Value::String).collect())
+                        };
+                        (name, value)
+                    })
+                    .collect();
+                serde_json::Value::Object(body)
+            }
+        }
     }
 }
 impl IntoHeaders for Vec<Param> {
@@ -527,21 +612,28 @@ impl RemoteResource for Endpoint {
         context.insert("base", &self.base());
         context
     }
-    fn handle<R>(&self, response: ApiResult<ResponseContent>) -> ApiResult<R>
+    fn handle_or<R, E>(&self, response: ApiResult<ResponseContent>) -> ApiResult<R>
     where
         R: for<'de> Deserialize<'de>,
+        E: FallbackResponse,
     {
         match response {
-            | Ok(content) => match content {
-                | ResponseContent::Json(content) => parse_json(&content),
-                | ResponseContent::Xml(content) => parse_xml(&content),
-                | ResponseContent::Yaml(content) => parse_yaml(&content),
-                | ResponseContent::Raw(content) => {
-                    let raw = TextResponse { content };
-                    serde_json::to_string(&raw).map_err(|e| eyre!(e)).and_then(|json| parse_json(&json))
-                }
-            },
-            | Err(e) => Err(eyre!(e)),
+            | Ok(content) => {
+                let raw_text = match &content {
+                    | ResponseContent::Json(s) | ResponseContent::Xml(s) | ResponseContent::Yaml(s) | ResponseContent::Raw(s) => s.clone(),
+                };
+                let result: ApiResult<R> = match content {
+                    | ResponseContent::Json(s) => parse_json(&s),
+                    | ResponseContent::Xml(s) => parse_xml(&s),
+                    | ResponseContent::Yaml(s) => parse_yaml(&s),
+                    | ResponseContent::Raw(s) => {
+                        let raw = TextResponse { content: s };
+                        serde_json::to_string(&raw).map_err(|e| eyre!(e)).and_then(|json| parse_json(&json))
+                    }
+                };
+                result.map_err(|err| E::into_error(&raw_text).unwrap_or(err))
+            }
+            | Err(why) => Err(eyre!(why)),
         }
     }
     /// Invoke an endpoint resource asynchronously with data and receive a response using [`EmptyField`] as the default query and field types.

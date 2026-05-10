@@ -2,7 +2,7 @@
 //!
 //! See <https://metadata.raid.org> for more information
 //!
-use crate::io::api::{ApiResult, Configuration, Endpoint, RemoteResource};
+use crate::io::api::{ApiResult, Configuration, Endpoint, FallbackFor, RemoteResource};
 use crate::param;
 use crate::prelude::var;
 use crate::schema::pid::raid::Metadata;
@@ -211,13 +211,14 @@ pub async fn create_record(options: Options) -> ApiResult<Metadata> {
     let Options { token, domain, metadata, .. } = options;
     match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
         | Ok(endpoint) => match metadata {
-            | Some(value) => {
-                let body = serde_json::to_string(&value).map_err(|why| eyre!("Failed to serialize RAiD metadata to JSON — {why:#?}"))?;
-                let params = vec![param!(Header, "Authorization", &format!("Bearer {token}")), param!(Body, "body", &body)];
-                let response = endpoint.invoke(action, Some(params)).await;
-                dbg!(&response);
-                endpoint.handle::<Metadata>(response)
-            }
+            | Some(value) => match serde_json::to_string(&value) {
+                | Ok(body) => {
+                    let params = vec![param!(Header, "Authorization", &format!("Bearer {token}")), param!(Body, &body)];
+                    let response = endpoint.invoke(action, Some(params)).await;
+                    endpoint.handle_or::<Metadata, FallbackFor<ErrorResponse>>(response)
+                }
+                | Err(why) => Err(eyre!("Failed to serialize RAiD metadata to JSON — {why:#?}")),
+            },
             | None => Err(eyre!("RAiD metadata is required for creating a record")),
         },
         | Err(why) => Err(why),

@@ -1,4 +1,4 @@
-use crate::io::api::ParamStyle;
+use crate::io::api::{IntoBody, ParamStyle};
 use crate::io::{
     command_exists, extract_zip, file_name_with_parent, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand,
     FromPath,
@@ -332,6 +332,22 @@ fn test_mimetype() {
     assert_eq!(mime, MimeType::Yaml);
     assert_eq!(MimeType::Json.file_type(), "json");
     assert_eq!(MimeType::Yaml.file_type(), "yaml");
+}
+#[test]
+fn test_param_body_shorthand_no_comma() {
+    let body = "{\"title\":\"ACORN\"}";
+    let body_param = param!(Body & body);
+    assert_eq!(body_param.name, "");
+    let payload = vec![body_param].into_body();
+    assert_eq!(payload, serde_json::json!({ "title": "ACORN" }));
+}
+#[test]
+fn test_param_body_shorthand_with_comma() {
+    let body = "plain text";
+    let body_param = param!(Body, &body);
+    assert_eq!(body_param.name, "");
+    let payload = vec![body_param].into_body();
+    assert_eq!(payload, serde_json::json!("plain text"));
 }
 #[test]
 fn test_param_single_value() {

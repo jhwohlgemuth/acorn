@@ -163,7 +163,7 @@
         {
           "name": "record::create",
           "method": "post",
-          "template": "{{ base }}/raid"
+          "template": "{{ base }}/raid/"
         },
         {
           "name": "service-point",

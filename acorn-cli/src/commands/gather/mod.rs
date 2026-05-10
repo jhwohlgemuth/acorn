@@ -98,25 +98,25 @@ async fn orcid_example() {
 }
 #[allow(dead_code)]
 async fn raid_example() {
-    // let options = api::raid::Options::from_env();
-    // let response = api::raid::service_point(options.clone()).await.unwrap();
-    // info!("Service Points: {response:#?}");
-    // println!("# of service points: {}", response.len());
+    let options = api::raid::Options::from_env();
+    let response = api::raid::service_point(options.clone()).await.unwrap();
+    info!("Service Points: {response:#?}");
+    println!("# of service points: {}", response.len());
 
-    // let ornl_service_point_id = "20000033";
-    // let options = options.with_identifier(ornl_service_point_id);
-    // let response = api::raid::service_point(options.clone()).await.unwrap();
-    // println!("ORNL Service Point: {response:#?}");
+    let ornl_service_point_id = "20000033";
+    let options = options.with_identifier(ornl_service_point_id);
+    let response = api::raid::service_point(options.clone()).await.unwrap();
+    println!("ORNL Service Point: {response:#?}");
 
-    // let options = api::raid::Options::from_env();
-    // let response = api::raid::record(options.clone()).await.unwrap();
-    // info!("RAiD Records: {response:#?}");
-    // println!("# of RAiD records: {}", response.len());
+    let options = api::raid::Options::from_env();
+    let response = api::raid::record(options.clone()).await.unwrap();
+    info!("RAiD Records: {response:#?}");
+    println!("# of RAiD records: {}", response.len());
 
-    // let test_raid_id = "10.83962/fb5be317";
-    // let options = options.with_identifier(test_raid_id);
-    // let record = api::raid::record(options).await.unwrap();
-    // println!("RAiD Record: {record:#?}");
+    let test_raid_id = "10.83962/fb5be317";
+    let options = options.with_identifier(test_raid_id);
+    let record = api::raid::record(options).await.unwrap();
+    println!("RAiD Record: {record:#?}");
 
     use acorn::schema::pid::raid::{
         Access, AccessIdentifier, AccessType, Contributor, ContributorPosition, CreditRole, Date, Description, DescriptionIdentifier,
@@ -137,6 +137,7 @@ async fn raid_example() {
         .schema_uri("https://orcid.org/")
         .position(vec![position])
         .role(vec![role])
+        .leader(true)
         .contact(true)
         .build();
     let date = Date::init().start_date("2024-01-01").build();
@@ -156,10 +157,13 @@ async fn raid_example() {
         .description(vec![description])
         .title(vec![title])
         .build();
-    println!("RAiD Metadata: {}", serde_json::to_string_pretty(&metadata).unwrap());
+    info!("Metadata: {}", serde_json::to_string_pretty(&metadata).unwrap());
     let options = api::raid::Options::from_env().with_metadata(metadata);
-    let record = api::raid::create_record(options).await;
-    println!("RAiD Record: {record:#?}");
+    let response = api::raid::create_record(options).await;
+    match response {
+        | Ok(record) => println!("Created RAiD Record: {record:#?}"),
+        | Err(why) => println!("Failed to create RAiD record:\n{why}"),
+    }
 }
 #[allow(dead_code)]
 async fn ror_example() {

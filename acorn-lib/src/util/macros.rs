@@ -248,6 +248,7 @@ macro_rules! check_err {
 /// 2. Single tuple: `param!(QueryPair, "filter", ("status", "inactive"))`
 /// 3. Multiple tuples: `param!(QueryPair, "q", (("key1", "val1"), ("key2", "val2")))`
 /// 4. Vec notation: `param!(FieldList, "fields", vec![vec!["field1"], vec!["field2"]])`
+/// 5. Body shorthand: `param!(Body &payload)` (uses an empty key for raw curl `-d` semantics)
 ///
 /// # Examples
 ///
@@ -270,7 +271,10 @@ macro_rules! check_err {
 /// // Header parameter
 /// param!(Header, "PRIVATE-TOKEN", &token)
 ///
-/// // Body parameter
+/// // Body shorthand (raw body, no key)
+/// param!(Body &payload)
+///
+/// // Body parameter (with key name)
 /// param!(Body, "body", &payload)
 ///
 /// // Vec notation
@@ -280,6 +284,18 @@ macro_rules! check_err {
 /// ```
 #[macro_export]
 macro_rules! param {
+    // Body shorthand without key: param!(Body &payload)
+    (Body $val:expr) => {
+        $crate::io::api::Param::of_type($crate::io::api::ParamStyle::Body)
+            .values(vec![vec![Some($val)]])
+            .with_key("")
+    };
+    // Body shorthand without key (comma form): param!(Body, &payload)
+    (Body, $val:expr) => {
+        $crate::io::api::Param::of_type($crate::io::api::ParamStyle::Body)
+            .values(vec![vec![Some($val)]])
+            .with_key("")
+    };
     // Ident with multiple tuples: param!(QueryPair, "q", (("a", "b"), ("c", "d")))
     ($style:ident, $name:expr, ( $( ($($val:expr),* $(,)?) ),+ $(,)? )) => {
         $crate::io::api::Param::of_type($crate::io::api::ParamStyle::$style)
