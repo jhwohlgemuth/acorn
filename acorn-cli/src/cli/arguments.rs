@@ -122,6 +122,9 @@ pub enum Standard {
     /// Huwise
     #[display("huwise")]
     Huwise,
+    /// Research Activity Identifier metadata (RAiD)
+    #[display("raid")]
+    Raid,
     /// Plain text (no schema structure)
     #[display("text")]
     Text,
@@ -173,6 +176,22 @@ impl From<FileFormat> for Standard {
             | FileFormat::Bag | FileFormat::Json | FileFormat::Markdown | FileFormat::Pdf | FileFormat::Powerpoint | FileFormat::Yaml => {
                 unimplemented!("Cannot infer standard for {format} file")
             }
+        }
+    }
+}
+impl From<Standard> for analyzer::Standard {
+    fn from(value: Standard) -> Self {
+        match value {
+            | Standard::Rads => analyzer::Standard::ResearchActivityData,
+            | Standard::Cff => analyzer::Standard::CitationFileFormat,
+            | Standard::Datacite => analyzer::Standard::Datacite,
+            | Standard::Dcat => analyzer::Standard::Dcat,
+            | Standard::Dcmi => analyzer::Standard::DublinCore,
+            | Standard::Docx => analyzer::Standard::Docx,
+            | Standard::Invenio => analyzer::Standard::Invenio,
+            | Standard::Huwise => analyzer::Standard::Huwise,
+            | Standard::Raid => analyzer::Standard::Raid,
+            | Standard::Text => analyzer::Standard::Text,
         }
     }
 }

@@ -22,7 +22,7 @@
                     "id": "https://credit.niso.org/contributor-roles/writing-review-editing/"
                 }
             ],
-            "leader": true,
+            "leader": false,
             "contact": true
         }
     ],

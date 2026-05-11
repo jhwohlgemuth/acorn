@@ -184,6 +184,15 @@ pub fn format_timestamp(value: &str) -> String {
         .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Micros, false))
         .unwrap_or_else(|_| value.to_string())
 }
+/// Validate that at least one item in `values` satisfies `method`
+///
+/// This helper is intended for composing `validator` custom functions.
+pub fn has_at_least_one_truthy<T>(values: &[T], method: fn(&T) -> bool, code: &'static str, message: &'static str) -> Result<(), ValidationError> {
+    match values.iter().any(method) {
+        | true => Ok(()),
+        | false => Err(ValidationError::new(code).with_message(message.into())),
+    }
+}
 /// Check if value is a valid commit hash
 pub fn is_commit(value: &str) -> Result<(), ValidationError> {
     const CODE: &str = "commit";

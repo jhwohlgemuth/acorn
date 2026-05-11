@@ -11,7 +11,7 @@ use crate::io::{read_file, License};
 use crate::prelude::{Error, PathBuf};
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::research_activity::ResearchActivity;
-use crate::schema::validate::{is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
+use crate::schema::validate::{has_at_least_one_truthy, is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
 #[cfg(feature = "std")]
 use crate::util::Label;
 #[cfg(not(feature = "std"))]
@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
 use tracing::error;
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 /// Allowed values for access types
 #[derive(Clone, Debug, Default, Deserialize, Display, JsonSchema, Serialize)]
@@ -262,8 +262,7 @@ pub enum ObjectType {
     #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/271")]
     BookChapter,
     /// Funding
-    ///
-    /// *Note*
+    /// ### Note
     /// > Includes grants or other cash or in-kind awards, but not prizes
     #[display("funding")]
     #[serde(rename = "https://vocabulary.raid.org/relatedObject.type.schema/272")]
@@ -640,6 +639,7 @@ pub struct Language {
 #[derive(Builder, Clone, Debug, Display, Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 #[display("({identifier:?})")]
+#[validate(schema(function = "validate_metadata", skip_on_field_errors = false))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Metadata {
     /// Access for the RAiD metadata
@@ -652,7 +652,7 @@ pub struct Metadata {
     #[validate(required, nested)]
     pub date: Option<Date>,
     /// Metadata schema block containing the RAiD name and associated properties
-    #[validate(required, nested)]
+    #[validate(nested)]
     pub identifier: Option<MetadataIdentifier>,
     /// Title metadata of the RAiD
     ///
@@ -676,7 +676,7 @@ pub struct Metadata {
     /// <div class="warning">If only one organization is listed, it's role defaults to "Lead Research Organization"</div>
     ///
     /// <div class="warning">One and only one organization should be identified as "Lead Research Organization"</div>
-    #[validate(nested, length(min = 1))]
+    #[validate(nested)]
     #[serde(alias = "organisation")]
     pub organization: Option<Vec<Organization>>,
     /// Related objects associated with the RAiD
@@ -983,7 +983,7 @@ pub struct Title {
     /// <div class="warning">Listed as "recommended" (optional) and "required"</div>
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(required, custom(function = "is_year"))]
+    #[validate(custom(function = "is_year"))]
     pub end_date: Option<String>,
 }
 /// Metadata schema block containing information about Traditional Knowledge / Biocultural Labels and Notices
@@ -1046,7 +1046,21 @@ impl Metadata {
         }
     }
 }
-
+impl Contributor {
+    fn is_contact(&self) -> bool {
+        self.contact
+    }
+    fn is_leader(&self) -> bool {
+        self.leader
+    }
+}
+impl Organization {
+    fn is_lead_research_organization(&self) -> bool {
+        self.role
+            .iter()
+            .any(|role| matches!(role.id, OrganizationRoleType::LeadResearchOrganization))
+    }
+}
 #[cfg(feature = "std")]
 impl From<ResearchActivity> for Metadata {
     fn from(activity: ResearchActivity) -> Self {
@@ -1157,5 +1171,86 @@ impl From<ResearchActivity> for Metadata {
             subject: None,
             traditional_knowledge_label: None,
         }
+    }
+}
+fn has_contact(value: &Vec<Contributor>) -> Result<(), ValidationError> {
+    has_at_least_one_truthy(
+        value.as_slice(),
+        Contributor::is_contact,
+        "contributors",
+        "Mark at least one contributor as contact",
+    )
+}
+fn has_leader(value: &Vec<Contributor>) -> Result<(), ValidationError> {
+    has_at_least_one_truthy(
+        value.as_slice(),
+        Contributor::is_leader,
+        "contributors",
+        "Mark at least one contributor as leader",
+    )
+}
+fn validate_contributors(value: &Metadata) -> Result<(), ValidationError> {
+    match &value.contributor {
+        | Some(contributors) => {
+            let message = [
+                has_contact(contributors)
+                    .err()
+                    .map(|_| "Mark at least one contributor as contact".to_string()),
+                has_leader(contributors)
+                    .err()
+                    .map(|_| "Mark at least one contributor as leader".to_string()),
+            ]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<String>>()
+            .join("; ");
+            match message.is_empty() {
+                | true => Ok(()),
+                | false => Err(ValidationError::new("contributors").with_message(message.into())),
+            }
+        }
+        | None => Ok(()),
+    }
+}
+fn validate_organization(value: &Metadata) -> Result<(), ValidationError> {
+    match &value.organization {
+        | Some(organizations) => {
+            let lead_count = organizations
+                .iter()
+                .filter(|organization| organization.is_lead_research_organization())
+                .count();
+            let message = if organizations.is_empty() {
+                None
+            } else if lead_count == 0 {
+                Some("Mark one organization as lead research organization".to_string())
+            } else if lead_count > 1 {
+                Some("Only one organization can be lead research organization".to_string())
+            } else {
+                None
+            };
+            match message {
+                | Some(value) => Err(ValidationError::new("organization").with_message(value.into())),
+                | None => Ok(()),
+            }
+        }
+        | None => Ok(()),
+    }
+}
+fn validate_metadata(value: &Metadata) -> Result<(), ValidationError> {
+    let message = [
+        validate_contributors(value)
+            .err()
+            .map(|why| why.message.unwrap_or_else(|| "Invalid contributors".into()).to_string()),
+        validate_organization(value)
+            .err()
+            .map(|why| why.message.unwrap_or_else(|| "Invalid organization".into()).to_string()),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<String>>()
+    .join("; ");
+    match message.is_empty() {
+        | true => Ok(()),
+        | false => Err(ValidationError::new("metadata").with_message(message.into())),
     }
 }

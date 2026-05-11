@@ -3,9 +3,10 @@ use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use crate::io::{is_stdout_piped, write_stdout};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{checks_to_csv, summary, Analysis, Check, CheckCategory, CheckOptions};
+use acorn::analyzer::{checks_to_csv, summary, Analysis, Check, CheckCategory, CheckOptions, Standard as AnalyzerStandard};
 use acorn::io::unique_file_extensions;
 use acorn::prelude::{exit, PathBuf};
+use acorn::schema::pid::raid;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
 use acorn::schema::standard::text::{Docx, Text};
@@ -37,7 +38,7 @@ pub async fn run(
     no_fail: &bool,
     raw: &bool,
     terse: &bool,
-    _standard: &Standard,
+    standard: &Standard,
     readability_metric: &ReadabilityTypeArgument,
     verbose: &Verbosity,
     offline: bool,
@@ -54,6 +55,7 @@ pub async fn run(
         .supported(true)
         .build();
     preflight!(&command_options);
+    let paths = resolve_paths(path, &command_options).await;
     let options = CheckOptions::init()
         .all(*all)
         .disable_website_checks(*disable_website_checks)
@@ -63,10 +65,10 @@ pub async fn run(
         .quiet(is_silent || *raw)
         .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
         .skip_verify_checksum(*skip_verify_checksum)
+        .standard(resolve_standard(&paths, standard))
         .terse(*terse)
         .readability_metric(resolve_readability_metric(readability_metric))
         .build();
-    let paths = resolve_paths(path, &command_options).await;
     let issues = filter_by_visibility(&collect(&paths, &options).await, options.all);
     handle(&issues, &paths, &options)
 }
@@ -90,11 +92,12 @@ fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, option
     filtered_results
 }
 async fn collect(paths: &[PathBuf], check_options: &CheckOptions) -> Vec<Check> {
-    match infer_standard(paths) {
-        | Standard::Cff => collect_checks_for::<Cff>(paths, check_options).await,
-        | Standard::Docx => collect_checks_for::<Docx>(paths, check_options).await,
-        | Standard::Rads => collect_checks_for::<ResearchActivity>(paths, check_options).await,
-        | Standard::Text => collect_checks_for::<Text>(paths, check_options).await,
+    match check_options.standard {
+        | AnalyzerStandard::CitationFileFormat => collect_checks_for::<Cff>(paths, check_options).await,
+        | AnalyzerStandard::Docx => collect_checks_for::<Docx>(paths, check_options).await,
+        | AnalyzerStandard::ResearchActivityData => collect_checks_for::<ResearchActivity>(paths, check_options).await,
+        | AnalyzerStandard::Raid => collect_checks_for::<raid::Metadata>(paths, check_options).await,
+        | AnalyzerStandard::Text => collect_checks_for::<Text>(paths, check_options).await,
         | _ => unimplemented!(),
     }
 }
@@ -154,19 +157,19 @@ fn filter_by_visibility(issues: &[Check], all: bool) -> Vec<Check> {
 fn has_failures(issues: &[Check]) -> bool {
     issues.iter().any(Check::is_failure)
 }
-fn infer_standard(paths: &[PathBuf]) -> Standard {
+fn infer_standard(paths: &[PathBuf]) -> AnalyzerStandard {
     let extensions = unique_file_extensions(paths);
     if extensions.len() == 1 && extensions.contains(&"cff".to_string()) {
         warn!("=> {} Inferred standard (CFF)", Label::using());
-        Standard::Cff
+        AnalyzerStandard::CitationFileFormat
     } else if extensions.len() == 1 && extensions.contains(&"docx".to_string()) {
         warn!("=> {} Inferred standard (DOCX)", Label::using());
-        Standard::Docx
+        AnalyzerStandard::Docx
     } else if extensions.len() == 1 && extensions.contains(&"txt".to_string()) {
         warn!("=> {} Inferred standard (Text)", Label::using());
-        Standard::Text
+        AnalyzerStandard::Text
     } else {
-        Standard::Rads
+        AnalyzerStandard::ResearchActivityData
     }
 }
 fn render(issues: &[Check], terse: bool) {
@@ -206,6 +209,12 @@ fn resolve_skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
         .chain(once(CheckCategory::Quality))
         .chain((offline || disable_website_checks).then_some(CheckCategory::Link))
         .collect()
+}
+fn resolve_standard(paths: &[PathBuf], standard: &Standard) -> AnalyzerStandard {
+    match standard {
+        | Standard::Rads => infer_standard(paths),
+        | value => (*value).into(),
+    }
 }
 #[cfg(test)]
 mod tests;

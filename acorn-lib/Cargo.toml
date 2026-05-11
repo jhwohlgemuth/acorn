@@ -87,7 +87,7 @@ tower = { workspace = true, optional = true, features = ["timeout", "util"] }
 uriparse = { workspace = true }
 urlencoding = { version = "2.1.3", default-features = false}
 exitcode = { version = "1.1.2", default-features = false }
-validator = { version = "0.20.0", features = ["derive"], default-features = false }
+validator = { workspace = true }
 which = { version = "8.0.0", features = ["real-sys"], default-features = false, optional = true }
 zip = { version = "8.5.1", features = ["deflate"], default-features = false }
 

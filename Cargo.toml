@@ -68,6 +68,7 @@ tracing-subscriber = { version = "0.3.23", features = [
 ], default-features = false }
 tower = { version = "0.5.3", default-features = false }
 uriparse = { version = "0.6.4", default-features = false }
+validator = { version = "0.20.0", features = ["derive"], default-features = false }
 
 [workspace.metadata.cross.build]
 default-target = "x86_64-unknown-linux-musl"

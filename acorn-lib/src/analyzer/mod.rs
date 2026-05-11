@@ -10,6 +10,7 @@ use crate::io::http::get;
 use crate::io::InputOutput;
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder, ApiResult};
 use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, Path, PathBuf, Stdio};
+use crate::schema::pid::raid;
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::standard::cff::{Cff, Identifier, IdentifierType, Reference};
@@ -379,6 +380,56 @@ impl Analysis for Text {
     }
     async fn check_schema(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         vec![]
+    }
+    #[cfg(feature = "std")]
+    async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        vec![]
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+#[async_trait]
+impl Analysis for raid::Metadata {
+    fn standard() -> Standard {
+        Standard::Raid
+    }
+    async fn check_prose(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        vec![]
+    }
+    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path.to_path_buf()) {
+                | Ok(_) => check_ok!(CheckCategory::Quality),
+                | Err(why) => check_err!(
+                    CheckCategory::Quality,
+                    message: "Cannot read RAiD metadata",
+                    context: why.to_string()
+                ),
+            })
+            .collect()
+    }
+    async fn check_readability(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        vec![]
+    }
+    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .flat_map(|path| match Self::read(path.to_path_buf()) {
+                | Ok(data) => {
+                    let uri = path.file_name_with_parent();
+                    collect_validation_checks(data)
+                        .into_iter()
+                        .map(|issue| issue.with_uri(uri.clone()))
+                        .collect::<Vec<_>>()
+                }
+                | Err(why) => {
+                    error!("=> {} Read RAiD metadata at {} — {why}", Label::fail(), path.display());
+                    vec![check_err!(CheckCategory::Schema)]
+                }
+            })
+            .collect()
     }
     #[cfg(feature = "std")]
     async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {

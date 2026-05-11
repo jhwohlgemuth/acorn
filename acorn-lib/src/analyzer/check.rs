@@ -86,6 +86,9 @@ pub enum Standard {
     /// Data Catalog (DCAT)
     #[display("dcat")]
     Dcat,
+    /// DOCX-derived text
+    #[display("docx")]
+    Docx,
     /// Dublin Core
     #[display("dublin-core")]
     DublinCore,
@@ -95,9 +98,9 @@ pub enum Standard {
     /// InvenioRDM
     #[display("invenio")]
     Invenio,
-    /// DOCX-derived text
-    #[display("docx")]
-    Docx,
+    /// Research Activity Identifier metadata (RAiD)
+    #[display("raid")]
+    Raid,
     /// Plain text
     #[display("text")]
     Text,
@@ -196,6 +199,9 @@ pub struct CheckOptions {
     /// Categories of checks to skip during processing
     #[builder(default)]
     pub skip: Vec<String>,
+    /// Metadata standard used to resolve check processing behavior
+    #[builder(default)]
+    pub standard: Standard,
     /// Readability metric to use for readability checks
     pub readability_metric: ReadabilityType,
     /// Whether or not to skip checksum verification for prose analysis
