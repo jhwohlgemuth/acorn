@@ -238,6 +238,21 @@ pub enum Resource {
         /// Hardware vendor (e.g., Intel, AMD, ARM)
         vendor: Option<Vendor>,
     },
+    /// Data processing unit
+    ///
+    /// A programmable processor optimized for data movement, networking, and infrastructure tasks, offloading them from the CPU
+    DPU {
+        /// DPU architecture or product family
+        #[serde(alias = "arch")]
+        architecture: Option<Architecture>,
+        /// Number of DPUs required (if applicable)
+        count: Option<u32>,
+        /// On-chip memory in GB (if applicable)
+        #[serde(alias = "mem")]
+        memory: Option<u32>,
+        /// Hardware vendor (e.g., NVIDIA, Intel, AMD)
+        vendor: Option<Vendor>,
+    },
     /// Digital signal processor
     ///
     /// A specialized microprocessor optimized to perform fast mathematical operations on digital signals in real time
@@ -395,6 +410,12 @@ impl<'de> Deserialize<'de> for Resource {
             }
             fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Resource, E> {
                 match value {
+                    | "ASIC" | "asic" => Ok(Resource::ASIC {
+                        architecture: None,
+                        count: Some(1),
+                        purpose: None,
+                        vendor: None,
+                    }),
                     | "CPU" | "cpu" => Ok(Resource::CPU {
                         architecture: None,
                         cores: None,
@@ -403,31 +424,10 @@ impl<'de> Deserialize<'de> for Resource {
                         threads: None,
                         vendor: None,
                     }),
-                    | "GPU" | "gpu" => Ok(Resource::GPU {
-                        architecture: None,
-                        backend: None,
-                        compute_capability: None,
-                        count: Some(1),
-                        memory: None,
-                        name: None,
-                        vendor: None,
-                    }),
-                    | "TPU" | "tpu" => Ok(Resource::TPU {
+                    | "DPU" | "dpu" => Ok(Resource::DPU {
                         architecture: None,
                         count: Some(1),
                         memory: None,
-                        vendor: None,
-                    }),
-                    | "NPU" | "npu" => Ok(Resource::NPU {
-                        architecture: None,
-                        count: Some(1),
-                        memory: None,
-                        vendor: None,
-                    }),
-                    | "ASIC" | "asic" => Ok(Resource::ASIC {
-                        architecture: None,
-                        count: Some(1),
-                        purpose: None,
                         vendor: None,
                     }),
                     | "DSP" | "dsp" => Ok(Resource::DSP {
@@ -443,8 +443,29 @@ impl<'de> Deserialize<'de> for Resource {
                         memory: None,
                         vendor: None,
                     }),
+                    | "GPU" | "gpu" => Ok(Resource::GPU {
+                        architecture: None,
+                        backend: None,
+                        compute_capability: None,
+                        count: Some(1),
+                        memory: None,
+                        name: None,
+                        vendor: None,
+                    }),
+                    | "NPU" | "npu" => Ok(Resource::NPU {
+                        architecture: None,
+                        count: Some(1),
+                        memory: None,
+                        vendor: None,
+                    }),
                     | "Neuromorphic" | "neuromorphic" => Ok(Resource::Neuromorphic),
                     | "Quantum" | "quantum" => Ok(Resource::Quantum),
+                    | "TPU" | "tpu" => Ok(Resource::TPU {
+                        architecture: None,
+                        count: Some(1),
+                        memory: None,
+                        vendor: None,
+                    }),
                     | other => Ok(Resource::Other(other.to_string())),
                 }
             }
@@ -452,6 +473,27 @@ impl<'de> Deserialize<'de> for Resource {
                 let next_key_result: Result<Option<String>, M::Error> = map.next_key();
                 match next_key_result {
                     | Ok(Some(tag)) => match tag.as_str() {
+                        | "ASIC" => {
+                            #[derive(Deserialize)]
+                            struct F {
+                                #[serde(alias = "arch")]
+                                architecture: Option<Architecture>,
+                                #[serde(default = "default_count")]
+                                count: Option<u32>,
+                                purpose: Option<String>,
+                                vendor: Option<Vendor>,
+                            }
+                            let next_value_result: Result<F, M::Error> = map.next_value();
+                            match next_value_result {
+                                | Ok(f) => Ok(Resource::ASIC {
+                                    architecture: f.architecture,
+                                    count: f.count,
+                                    purpose: f.purpose,
+                                    vendor: f.vendor,
+                                }),
+                                | Err(why) => Err(why),
+                            }
+                        }
                         | "CPU" => {
                             #[derive(Deserialize)]
                             struct F {
@@ -477,34 +519,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 | Err(why) => Err(why),
                             }
                         }
-                        | "GPU" => {
-                            #[derive(Deserialize)]
-                            struct F {
-                                #[serde(alias = "arch")]
-                                architecture: Option<Architecture>,
-                                backend: Option<Backend>,
-                                compute_capability: Option<f32>,
-                                #[serde(default = "default_count")]
-                                count: Option<u32>,
-                                memory: Option<u32>,
-                                name: Option<String>,
-                                vendor: Option<Vendor>,
-                            }
-                            let next_value_result: Result<F, M::Error> = map.next_value();
-                            match next_value_result {
-                                | Ok(f) => Ok(Resource::GPU {
-                                    architecture: f.architecture,
-                                    backend: f.backend,
-                                    compute_capability: f.compute_capability,
-                                    count: f.count,
-                                    memory: f.memory,
-                                    name: f.name,
-                                    vendor: f.vendor,
-                                }),
-                                | Err(why) => Err(why),
-                            }
-                        }
-                        | "TPU" => {
+                        | "DPU" => {
                             #[derive(Deserialize)]
                             struct F {
                                 #[serde(alias = "arch")]
@@ -516,52 +531,10 @@ impl<'de> Deserialize<'de> for Resource {
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
                             match next_value_result {
-                                | Ok(f) => Ok(Resource::TPU {
+                                | Ok(f) => Ok(Resource::DPU {
                                     architecture: f.architecture,
                                     count: f.count,
                                     memory: f.memory,
-                                    vendor: f.vendor,
-                                }),
-                                | Err(why) => Err(why),
-                            }
-                        }
-                        | "NPU" => {
-                            #[derive(Deserialize)]
-                            struct F {
-                                #[serde(alias = "arch")]
-                                architecture: Option<Architecture>,
-                                #[serde(default = "default_count")]
-                                count: Option<u32>,
-                                memory: Option<u32>,
-                                vendor: Option<Vendor>,
-                            }
-                            let next_value_result: Result<F, M::Error> = map.next_value();
-                            match next_value_result {
-                                | Ok(f) => Ok(Resource::NPU {
-                                    architecture: f.architecture,
-                                    count: f.count,
-                                    memory: f.memory,
-                                    vendor: f.vendor,
-                                }),
-                                | Err(why) => Err(why),
-                            }
-                        }
-                        | "ASIC" => {
-                            #[derive(Deserialize)]
-                            struct F {
-                                #[serde(alias = "arch")]
-                                architecture: Option<Architecture>,
-                                #[serde(default = "default_count")]
-                                count: Option<u32>,
-                                purpose: Option<String>,
-                                vendor: Option<Vendor>,
-                            }
-                            let next_value_result: Result<F, M::Error> = map.next_value();
-                            match next_value_result {
-                                | Ok(f) => Ok(Resource::ASIC {
-                                    architecture: f.architecture,
-                                    count: f.count,
-                                    purpose: f.purpose,
                                     vendor: f.vendor,
                                 }),
                                 | Err(why) => Err(why),
@@ -611,10 +584,79 @@ impl<'de> Deserialize<'de> for Resource {
                                 | Err(why) => Err(why),
                             }
                         }
+                        | "GPU" => {
+                            #[derive(Deserialize)]
+                            struct F {
+                                #[serde(alias = "arch")]
+                                architecture: Option<Architecture>,
+                                backend: Option<Backend>,
+                                compute_capability: Option<f32>,
+                                #[serde(default = "default_count")]
+                                count: Option<u32>,
+                                memory: Option<u32>,
+                                name: Option<String>,
+                                vendor: Option<Vendor>,
+                            }
+                            let next_value_result: Result<F, M::Error> = map.next_value();
+                            match next_value_result {
+                                | Ok(f) => Ok(Resource::GPU {
+                                    architecture: f.architecture,
+                                    backend: f.backend,
+                                    compute_capability: f.compute_capability,
+                                    count: f.count,
+                                    memory: f.memory,
+                                    name: f.name,
+                                    vendor: f.vendor,
+                                }),
+                                | Err(why) => Err(why),
+                            }
+                        }
+                        | "NPU" => {
+                            #[derive(Deserialize)]
+                            struct F {
+                                #[serde(alias = "arch")]
+                                architecture: Option<Architecture>,
+                                #[serde(default = "default_count")]
+                                count: Option<u32>,
+                                memory: Option<u32>,
+                                vendor: Option<Vendor>,
+                            }
+                            let next_value_result: Result<F, M::Error> = map.next_value();
+                            match next_value_result {
+                                | Ok(f) => Ok(Resource::NPU {
+                                    architecture: f.architecture,
+                                    count: f.count,
+                                    memory: f.memory,
+                                    vendor: f.vendor,
+                                }),
+                                | Err(why) => Err(why),
+                            }
+                        }
                         | "Neuromorphic" | "Quantum" => {
                             let next_value_result: Result<serde::de::IgnoredAny, M::Error> = map.next_value();
                             match next_value_result {
                                 | Ok::<serde::de::IgnoredAny, M::Error>(_) => self.visit_str(&tag),
+                                | Err(why) => Err(why),
+                            }
+                        }
+                        | "TPU" => {
+                            #[derive(Deserialize)]
+                            struct F {
+                                #[serde(alias = "arch")]
+                                architecture: Option<Architecture>,
+                                #[serde(default = "default_count")]
+                                count: Option<u32>,
+                                memory: Option<u32>,
+                                vendor: Option<Vendor>,
+                            }
+                            let next_value_result: Result<F, M::Error> = map.next_value();
+                            match next_value_result {
+                                | Ok(f) => Ok(Resource::TPU {
+                                    architecture: f.architecture,
+                                    count: f.count,
+                                    memory: f.memory,
+                                    vendor: f.vendor,
+                                }),
                                 | Err(why) => Err(why),
                             }
                         }

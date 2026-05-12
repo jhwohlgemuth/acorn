@@ -154,6 +154,45 @@ fn test_date_validation() {
     }
 }
 #[test]
+fn test_hardware_resource_dpu_from_string() {
+    let data: Resource = serde_json::from_str("\"dpu\"").unwrap();
+    match data {
+        | Resource::DPU {
+            architecture,
+            count,
+            memory,
+            vendor,
+        } => {
+            assert!(architecture.is_none());
+            assert_eq!(count, Some(1));
+            assert!(memory.is_none());
+            assert!(vendor.is_none());
+        }
+        | other => panic!("expected DPU resource, got {other:?}"),
+    }
+}
+#[test]
+fn test_hardware_resource_dpu_from_map() {
+    let data: Resource = serde_json::from_str(r#"{"DPU":{"arch":"x86_64","count":2,"memory":64,"vendor":"Intel"}}"#).unwrap();
+    match data {
+        | Resource::DPU {
+            architecture,
+            count,
+            memory,
+            vendor,
+        } => {
+            assert_eq!(architecture, Some(Architecture::X86_64));
+            assert_eq!(count, Some(2));
+            assert_eq!(memory, Some(64));
+            match vendor {
+                | Some(Vendor::Intel) => {}
+                | other => panic!("expected Intel vendor, got {other:?}"),
+            }
+        }
+        | other => panic!("expected DPU resource, got {other:?}"),
+    }
+}
+#[test]
 fn test_format_phone_number() {
     let no_country_code = ["555-123-4567", "555.123.4567", "(555) 123-4567"];
     for x in no_country_code.iter() {

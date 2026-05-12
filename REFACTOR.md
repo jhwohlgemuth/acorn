@@ -715,43 +715,6 @@ After implementing Arc optimizations:
 
 Remaining suggestions for the hardware data model that were not yet implemented.
 
-## 1. Add DPU Resource Variant
-
-**Status:** Not implemented
-**Effort:** Medium
-
-### Description
-Add a DPU (Data Processing Unit) variant to the `Resource` enum to cover NVIDIA BlueField, Intel IPU, AMD Pensando — devices increasingly used in cloud/data center research.
-
-### Example
-```rust
-/// Data processing unit
-///
-/// A programmable processor optimized for data movement, networking, and
-/// infrastructure tasks, offloading them from the CPU
-DPU {
-    /// DPU architecture or product family
-    #[serde(alias = "arch")]
-    architecture: Option<Architecture>,
-    /// Number of DPUs required (if applicable)
-    #[serde(default = "default_count")]
-    count: Option<u32>,
-    /// On-chip memory in GB (if applicable)
-    #[serde(alias = "mem")]
-    memory: Option<u32>,
-    /// Hardware vendor (e.g., NVIDIA, Intel, AMD)
-    vendor: Option<Vendor>,
-},
-```
-
-### Required changes
-1. Add variant to `Resource` enum in `hardware.rs`
-2. Add `visit_str` arm: `"DPU" | "dpu" => Ok(Resource::DPU { ... })`
-3. Add `visit_map` arm: `| "DPU" => { ... }`
-4. Add test coverage in `tests/mod.rs`
-
----
-
 ## 2. Target Architecture Validation
 
 **Status:** Not implemented
