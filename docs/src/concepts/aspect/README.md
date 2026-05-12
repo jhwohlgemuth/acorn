@@ -72,7 +72,7 @@ Data has multiple dimensions
 
 The ASPECT framework can be applied in various scenarios
 
-#### [AI-driven Gravity Mapping](https://research.ornl.gov/gravity/)
+### [AI-driven Gravity Mapping](https://research.ornl.gov/gravity/)
 | Attribute | Level | Details |
 |---|---|---|
 | 📦 Portability | Level 1 | ***Source*** |
@@ -80,10 +80,18 @@ The ASPECT framework can be applied in various scenarios
 | 🤝 Autonomy | Level 1 | ***Machine-assisted*** |
 | 🦾 Motivity | ***Type 1A*** | Receive input from environment |
 
+#### Badge Visualization
 ASPECT can be visualized in a badge-like form for visual project portfolio management
 
 <p align="center">
-  <img src="../../_assets/aspect_gravity.png" alt="ASPECT Gravity Example" width="100" />
+  <img src="../../_assets/aspect_gravity.png" alt="ASPECT Gravity Example" width="165" />
 </p>
+<p align="center"><em><b>Figure 1</b>: ASPECT badge for the AI-driven Gravity Mapping project</em></p>
 
 
+**Figure 1** is an example of an ASPECT badge that provides immediate feedback on the state of the project and its technology components. It can be used in project dashboards, reports, and presentations to communicate the current status and future goals of the project in a clear and concise manner. **Figure 2** below shows the same badge as depicted in *figure 1*, but with the attributes annotated for clarity.
+
+<p align="center">
+  <img src="../../_assets/aspect_gravity_annotated.png" alt="Annotated ASPECT Gravity Example" width="500" />
+</p>
+<p align="center"><em><b>Figure 2</b>: Annotated ASPECT badge</em></p>
