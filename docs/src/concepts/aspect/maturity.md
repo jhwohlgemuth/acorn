@@ -3,7 +3,7 @@
 ## Levels
 | Maturity Level | TRL Mapping | Description |
 |---|---|---|
-| Non-viable | N/A | Technology is not suitable for deployment or further development. |
+| Unvalidated | N/A | Technology has not been assessed or lacks sufficient evidence of readiness. |
 | Discovery | 0-1 | Early exploration and basic research to establish foundational principles. |
 | Concept | 2-3 | Concept is defined and initial feasibility is demonstrated. |
 | Development | 4-5 | Technology is built and validated through low- to high-fidelity development. |

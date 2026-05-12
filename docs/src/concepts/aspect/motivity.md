@@ -9,65 +9,85 @@
 
 Similar niche terms like "affordance" in <span title="Human Computer Interaction">HCI</span> gained traction despite initial obscurity and today offer rich, nuanced meanings. 
 
-## Types
-**Motivity** is partitioned into four distinct types based on the level of interaction with the environment. **Motivity** is built around the concepts of perception, projection, and comprehension, which act as proxies for one-way data binding (input), one-way data binding (output), and computation, respectively.
+## Levels
 
-### Type 0
+**Motivity** is partitioned into six ordinal levels that describe how a technology interacts with its environment. The framework is built around three primitives: **perception** (one-way input binding), **projection** (one-way output binding), and **comprehension** (internal state and computation).
+
 > [!NOTE]
-> *Example* Digital model
+> Throughout this document, "comprehension" refers to a technology's ability to receive, store, and act on data — not to general intelligence, consciousness, or AGI. A hash function, a state machine, and a lookup table all exhibit comprehension in this sense: they maintain internal state and their behavior depends on it.
 
-Type 0 has no interaction with the environment. Type 0 agency can involve "comprehension" (e.g., simulations) but also includes technology that does not (e.g., a hammer). Although comprehension is optional in every type, including Type 0, in the case of Type 0 technologies it is not a very interesting thing to consider.
+| Level | Name | Perception | Comprehension | Projection | Stateless/Stateful | Examples |
+|-------|------|------------|--------------|------------|--------------------|---------|
+| 0 | **Inert** | ✗ | ✗ | ✗ | — | A hammer or simple pulley system |
+| 1 | **Computational** | ✗ | ✓ | ✗ | Stateful (internal) | Digital model[^twin], simulation |
+| 2 | **Perceptive** | ✓ | ✗ | ✗ | Stateless | Data shadow[^twin], sensor log |
+| 3 | **Projective** | ✗ | ✗ | ✓ | Stateless | Cron job that emails status |
+| 4 | **Reactive** | ✓ | ✗ | ✓ | Stateless | Smart light switch, relay |
+| 5 | **Adaptive** | ✓ | ✓ | ✓ | Stateful | Digital twin[^twin], autonomous agent |
+
+### Inert (Level 0)
+Technology at this level has no computational capability and no interaction with the environment. It is purely passive. Examples include a hammer, a simple pulley system, or any purely physical tool with no embedded intelligence.
 
 ```pikchr
 scale = 0.7
-circle "Env" fill white width 0.5
-move 2cm
-circle "Self" fill white
-arrow dashed thick <-> from last circle.s down 2cm "    Comprehension" ljust color 0x00662C
 circle "Self" fill white
 ```
 
-### Type 1A
-> [!NOTE]
-> *Example* Data shadow[^twin]
+### Computational (Level 1)
+Technology at this level performs self-contained computation but has no input from or output to the environment. Comprehension (internal processing) is present, but neither perception nor projection are. Examples include a digital model or simulation that runs in isolation.
 
-Type 1A is arguably the most common form of technology, at least in the context of research. Although it is mildly ambiguous in interpretation, the use of an interactive notebook (e.g., Jupyter) to visualize data distribution read from a <span title="Comma Separated Values">CSV</span> file would be considered as Type 1A since the technology reads input from the environment (a CSV file) and presents an aspect of the data visually. Technically, the associated image is a created artifact stored with zeroes and ones, but for the purpose of classification via purpose of agency, we consider such ephemeral artifacts as insufficient to justify Types 1B or 2.
+```pikchr
+scale = 0.7
+circle "Self" fill white
+arrow thick <-> from last circle.s down 2cm "    Comprehension" ljust color 0x00662C
+circle "Self" fill white
+```
+
+### Perceptive (Level 2)
+Technology at this level receives input from the environment (one-way input binding) but produces no output and has no internal comprehension. The technology observes but does not process or act. Examples include a data shadow or a sensor that logs readings to storage without analyzing them.
 
 ```pikchr
 scale = 0.7
 E1: circle "Env" fill white width 0.5
     move 2cm
 S1: circle "Self" fill white
-    arrow dashed thick <-> from S1.s down 2cm "    Comprehension" ljust color 0x00662C
-S2: circle "Self" fill white
     arrow thick from E1.e to S1.w "Perception" above "" above color 0x00662C
 ```
 
-### Type 1B
-> [!NOTE]
-> *Example* Cron job that emails status of long running calculation
+### Projective (Level 3)
+Technology at this level produces output to the environment (one-way output binding) but receives no input and has no internal comprehension. Examples include a cron job that emails a status report — it projects information without sensing or reasoning about its environment.
 
 ```pikchr
 scale = 0.7
 S1: circle "Self" fill white
-    arrow dashed thick <-> from S1.n up 2cm "Comprehension    " rjust color 0x00662C
-S2: circle "Self" fill white
-    arrow thick -> from S2.e right 2cm "Projection" above "" above color 0x00662C
-E1: circle "Env" fill white
+    move 2cm
+E1: circle "Env" fill white width 0.5
+    arrow thick from S1.e right 2cm "Projection" above "" above color 0x00662C
 ```
 
-### Type 2
-> [!NOTE]
-> *Example* Digital twin[^twin]
+### Reactive (Level 4)
+Technology at this level has two-way binding with the environment (perception and projection) but is stateless — it responds to input with output in a direct stimulus-response fashion with no internal model or memory of past interactions. Comprehension is absent. Examples include a smart light switch that turns lights on when motion is detected, or a relay that closes a circuit when a threshold is crossed.
 
 ```pikchr
 scale = 0.7
 E1: circle "Env" fill white
-    arrow thick -> from E1.e right 2cm color 0x00662C "Perception" above "" above
+    arrow thick -> from E1.e right 2cm "Perception" above "" above color 0x00662C
 S1: circle "Self" fill white
-    arrow dashed thick <-> from S1.s down 2cm "Comprehension    " rjust color 0x00662C
+    arrow thick -> from S1.e right 2cm "Projection" above "" above color 0x00662C
+E2: circle "Env" fill white
+```
+
+### Adaptive (Level 5)
+Technology at this level has full two-way binding (perception and projection) with internal comprehension — it maintains state, builds an internal model of its environment, and changes its behavior based on accumulated experience. Examples include a digital twin that continuously synchronizes with a physical system and predicts future states, or an autonomous agent that plans and adapts.
+
+```pikchr
+scale = 0.7
+E1: circle "Env" fill white
+    arrow thick -> from E1.e right 2cm "Perception" above "" above color 0x00662C
+S1: circle "Self" fill white
+    arrow thick <-> from S1.s down 2cm "    Comprehension" ljust color 0x00662C
 S2: circle "Self" fill white
-    arrow thick -> from S1.e right 2cm "Projection" above "" above color 0x00662c
+    arrow thick -> from S1.e right 2cm "Projection" above "" above color 0x00662C
 E2: circle "Env" fill white
 ```
 

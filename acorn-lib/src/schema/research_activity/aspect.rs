@@ -179,8 +179,11 @@ pub enum GeospatialDataProcessingLevel {
 #[repr(u8)]
 #[serde(deny_unknown_fields)]
 pub enum Maturity {
-    /// Discovery stage (TRL 0-1)
+    /// Not yet validated — technology has not been assessed or lacks sufficient evidence of readiness
     #[default]
+    #[display("Unvalidated")]
+    Unvalidated = 0,
+    /// Discovery stage (TRL 0-1)
     #[display("Discovery")]
     Discovery = 1,
     /// Concept stage (TRL 2-3)
@@ -195,9 +198,6 @@ pub enum Maturity {
     /// Proven stage (TRL 9)
     #[display("Proven")]
     Proven = 5,
-    /// Non-viable stage - not suitable for deployment
-    #[display("Non-viable")]
-    NonViable = 0,
 }
 /// Specific type or form of data that a system can process and learn from
 #[derive(Clone, Debug, Default, Display, Deserialize, Serialize, JsonSchema)]
@@ -220,26 +220,37 @@ pub enum Modality {
     Graph,
 }
 /// Motivity of a given technology that describes how it interacts with the environment
-#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+///
+/// Motivity is partitioned into six ordinal levels that describe breadth of environmental
+/// interaction and depth of internal processing. Each level builds on the prior concepts
+/// of perception (input), projection (output), and comprehension (internal state).
+#[derive(Clone, Debug, Default, Display, Deserialize, Serialize, JsonSchema)]
 #[repr(u8)]
 #[serde(deny_unknown_fields)]
 pub enum Motivity {
-    /// No input or output. Basically any operation with no side effects
-    /// ## Example
-    /// > digital models
-    #[display("Type-0")]
-    Type0 = 0,
-    /// Receive input from environment
-    #[display("Type-1A")]
-    Type1A = 1,
-    /// Applies output to environment
-    #[display("Type-1B")]
-    Type1B = 2,
-    /// Receives input and applies output to environment
-    /// ## Example
-    /// > digital twins
-    #[display("Type-2")]
-    Type2 = 3,
+    /// No computation, no environmental interaction
+    #[default]
+    #[display("Inert")]
+    Inert = 0,
+    /// Self-contained computation; no input or output binding
+    #[display("Computational")]
+    Computational = 1,
+    /// One-way input binding (perception); no output, no comprehension
+    #[display("Perceptive")]
+    Perceptive = 2,
+    /// One-way output binding (projection); no input, no comprehension
+    #[display("Projective")]
+    Projective = 3,
+    /// Two-way binding, stateless; responds to input with output but has no internal model or memory
+    #[display("Reactive")]
+    Reactive = 4,
+    /// Two-way binding, stateful; maintains an internal model, comprehends, and changes behavior based on accumulated state
+    ///
+    /// "Comprehends" here means receiving and acting on data — not general intelligence,
+    /// consciousness, or <span title="artificial general intelligence">AGI</span>. A state machine or lookup table exhibits comprehension in
+    /// this sense: behavior depends on stored state.
+    #[display("Adaptive")]
+    Adaptive = 5,
 }
 /// Framework for partitioning data by quality using metaphor of mined metals
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]

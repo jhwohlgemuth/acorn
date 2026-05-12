@@ -32,7 +32,7 @@ portability | maturity | autonomy | motivity
 <details>
   <summary>🪴 <a href="./maturity.md">Maturity</a></summary>
 
-- Non-viable (level 0)
+- Unvalidated (level 0)
 - Discovery (level 1)
 - Concept (level 2)
 - Development (level 3)
@@ -52,10 +52,12 @@ portability | maturity | autonomy | motivity
 <details>
   <summary>🦾 <a href="./motivity.md">Motivity</a></summary>
 
-- Type 0
-- Type 1A
-- Type 1B
-- Type 2
+- Inert (level 0)
+- Computational (level 1)
+- Perceptive (level 2)
+- Projective (level 3)
+- Reactive (level 4)
+- Adaptive (level 5)
 </details>
 
 ### 💾 <a href="./data.md">Data</a>
