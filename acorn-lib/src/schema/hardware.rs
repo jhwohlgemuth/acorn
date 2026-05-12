@@ -22,6 +22,18 @@ pub enum Architecture {
     /// IBM PowerPC architecture
     #[display("PowerPC")]
     PowerPc,
+    /// IBM z/Architecture mainframe
+    #[display("z/Architecture")]
+    ZArch,
+    /// Intel Itanium architecture (IA-64)
+    #[display("IA-64")]
+    Ia64,
+    /// LoongArch (Chinese CPU ISA)
+    #[display("LoongArch")]
+    LoongArch,
+    /// 32-bit x86 instruction set
+    #[display("x86")]
+    X86,
     /// NVIDIA Ampere microarchitecture (A100, RTX 30xx)
     #[display("Ampere")]
     Ampere,
@@ -43,18 +55,33 @@ pub enum Architecture {
     /// AMD RDNA 2 microarchitecture (RX 6xxx)
     #[display("RDNA2")]
     Rdna2,
+    /// AMD RDNA 1 microarchitecture (RX 5xxx)
+    #[display("RDNA1")]
+    Rdna1,
     /// AMD RDNA 3 microarchitecture (RX 7xxx)
     #[display("RDNA3")]
     Rdna3,
     /// AMD CDNA 2 microarchitecture (MI250)
     #[display("CDNA2")]
     Cdna2,
+    /// AMD CDNA 1 microarchitecture (MI100)
+    #[display("CDNA1")]
+    Cdna1,
     /// AMD CDNA 3 microarchitecture (MI300)
     #[display("CDNA3")]
     Cdna3,
     /// Intel Xe graphics architecture
     #[display("Xe")]
     Xe,
+    /// Intel Xe2 graphics architecture (Battlemage)
+    #[display("Xe2")]
+    Xe2,
+    /// Intel Xe3 graphics architecture (Celestial)
+    #[display("Xe3")]
+    Xe3,
+    /// Intel Alchemist graphics architecture (Xe-HPG)
+    #[display("Alchemist")]
+    Alchemist,
     /// Google TPU v4
     #[display("TPU v4")]
     TpuV4,
@@ -70,6 +97,39 @@ pub enum Architecture {
     /// Apple Neural Engine
     #[display("Neural Engine")]
     NeuralEngine,
+    /// Intel Habana Gaudi2 AI accelerator
+    #[display("Gaudi2")]
+    Gaudi2,
+    /// Amazon Trainium AI accelerator
+    #[display("Trainium")]
+    Trainium,
+    /// Amazon Inferentia AI inference chip
+    #[display("Inferentia")]
+    Inferentia,
+    /// Microsoft Maia AI accelerator
+    #[display("Maia")]
+    Maia,
+    /// Huawei Ascend 910 AI accelerator
+    #[display("Ascend 910")]
+    Ascend910,
+    /// Cerebras Wafer-Scale Engine 2 (WSE-2)
+    #[display("WSE-2")]
+    Wse2,
+    /// Cerebras Wafer-Scale Engine 3 (WSE-3)
+    #[display("WSE-3")]
+    Wse3,
+    /// Groq Language Processing Unit
+    #[display("LPU")]
+    Lpu,
+    /// Tenstorrent Wormhole AI accelerator
+    #[display("Wormhole")]
+    Wormhole,
+    /// Tenstorrent Blackhole AI accelerator
+    #[display("Blackhole")]
+    Blackhole,
+    /// ARM Ethos NPU
+    #[display("Ethos")]
+    Ethos,
     /// Texas Instruments C66x DSP
     #[display("C66x")]
     C66x,
@@ -91,6 +151,18 @@ pub enum Architecture {
     /// Intel Agilex FPGA
     #[display("Agilex")]
     Agilex,
+    /// AMD/Xilinx Versal adaptive compute acceleration platform
+    #[display("Versal")]
+    Versal,
+    /// Lattice iCE40 FPGA
+    #[display("iCE40")]
+    Ice40,
+    /// Lattice ECP5 FPGA
+    #[display("ECP5")]
+    Ecp5,
+    /// Lattice CrossLink FPGA
+    #[display("CrossLink")]
+    CrossLink,
     /// Other or unspecified architecture
     #[display("{}", _0)]
     Other(String),
@@ -116,6 +188,15 @@ pub enum Backend {
     /// Intel oneAPI SYCL
     #[display("SYCL")]
     Sycl,
+    /// Microsoft DirectML
+    #[display("DirectML")]
+    DirectMl,
+    /// AMD HIP (CUDA-compatible layer)
+    #[display("HIP")]
+    Hip,
+    /// Intel oneAPI
+    #[display("oneAPI")]
+    OneApi,
     /// W3C WebGPU API
     #[display("WebGPU")]
     WebGpu,
@@ -133,6 +214,8 @@ pub enum Resource {
         architecture: Option<Architecture>,
         /// Number of physical cores required (if applicable)
         cores: Option<u32>,
+        /// Number of CPUs required (if applicable)
+        count: Option<u32>,
         /// Minimum RAM in GB (if applicable)
         #[serde(alias = "ram")]
         memory: Option<u32>,
@@ -195,6 +278,8 @@ pub enum Resource {
         /// ASIC architecture or design family
         #[serde(alias = "arch")]
         architecture: Option<Architecture>,
+        /// Number of ASICs required (if applicable)
+        count: Option<u32>,
         /// Intended purpose of the ASIC (e.g., "Bitcoin mining", "video encoding")
         purpose: Option<String>,
         /// Hardware vendor or designer
@@ -207,6 +292,8 @@ pub enum Resource {
         /// DSP architecture
         #[serde(alias = "arch")]
         architecture: Option<Architecture>,
+        /// Number of DSPs required (if applicable)
+        count: Option<u32>,
         /// Clock frequency in MHz (if applicable)
         #[serde(alias = "freq")]
         frequency: Option<u32>,
@@ -220,6 +307,8 @@ pub enum Resource {
         /// FPGA architecture or product family
         #[serde(alias = "arch")]
         architecture: Option<Architecture>,
+        /// Number of FPGAs required (if applicable)
+        count: Option<u32>,
         /// Number of logic elements or LUTs available
         logic_elements: Option<u32>,
         /// Block RAM in KB (if applicable)
@@ -259,6 +348,36 @@ pub enum Vendor {
     /// Qualcomm Incorporated
     #[display("Qualcomm")]
     Qualcomm,
+    /// Samsung Electronics
+    #[display("Samsung")]
+    Samsung,
+    /// Huawei Technologies
+    #[display("Huawei")]
+    Huawei,
+    /// Amazon Web Services
+    #[display("Amazon")]
+    Amazon,
+    /// Microsoft Corporation
+    #[display("Microsoft")]
+    Microsoft,
+    /// Broadcom Inc.
+    #[display("Broadcom")]
+    Broadcom,
+    /// International Business Machines Corporation
+    #[display("IBM")]
+    Ibm,
+    /// MediaTek Inc.
+    #[display("MediaTek")]
+    MediaTek,
+    /// Texas Instruments
+    #[display("Texas Instruments")]
+    TexasInstruments,
+    /// Tenstorrent Inc.
+    #[display("Tenstorrent")]
+    Tenstorrent,
+    /// Groq Inc.
+    #[display("Groq")]
+    Groq,
     /// Other or unspecified vendor
     #[display("{}", _0)]
     Other(String),
@@ -279,6 +398,7 @@ impl<'de> Deserialize<'de> for Resource {
                     | "CPU" | "cpu" => Ok(Resource::CPU {
                         architecture: None,
                         cores: None,
+                        count: Some(1),
                         memory: None,
                         threads: None,
                         vendor: None,
@@ -287,35 +407,38 @@ impl<'de> Deserialize<'de> for Resource {
                         architecture: None,
                         backend: None,
                         compute_capability: None,
-                        count: None,
+                        count: Some(1),
                         memory: None,
                         name: None,
                         vendor: None,
                     }),
                     | "TPU" | "tpu" => Ok(Resource::TPU {
                         architecture: None,
-                        count: None,
+                        count: Some(1),
                         memory: None,
                         vendor: None,
                     }),
                     | "NPU" | "npu" => Ok(Resource::NPU {
                         architecture: None,
-                        count: None,
+                        count: Some(1),
                         memory: None,
                         vendor: None,
                     }),
                     | "ASIC" | "asic" => Ok(Resource::ASIC {
                         architecture: None,
+                        count: Some(1),
                         purpose: None,
                         vendor: None,
                     }),
                     | "DSP" | "dsp" => Ok(Resource::DSP {
                         architecture: None,
+                        count: Some(1),
                         frequency: None,
                         vendor: None,
                     }),
                     | "FPGA" | "fpga" => Ok(Resource::FPGA {
                         architecture: None,
+                        count: Some(1),
                         logic_elements: None,
                         memory: None,
                         vendor: None,
@@ -334,6 +457,8 @@ impl<'de> Deserialize<'de> for Resource {
                             #[serde(alias = "arch")]
                             architecture: Option<Architecture>,
                             cores: Option<u32>,
+                            #[serde(default = "default_count")]
+                            count: Option<u32>,
                             memory: Option<u32>,
                             threads: Option<u32>,
                             vendor: Option<Vendor>,
@@ -342,6 +467,7 @@ impl<'de> Deserialize<'de> for Resource {
                         Ok(Resource::CPU {
                             architecture: f.architecture,
                             cores: f.cores,
+                            count: f.count,
                             memory: f.memory,
                             threads: f.threads,
                             vendor: f.vendor,
@@ -354,6 +480,7 @@ impl<'de> Deserialize<'de> for Resource {
                             architecture: Option<Architecture>,
                             backend: Option<Backend>,
                             compute_capability: Option<f32>,
+                            #[serde(default = "default_count")]
                             count: Option<u32>,
                             memory: Option<u32>,
                             name: Option<String>,
@@ -375,6 +502,7 @@ impl<'de> Deserialize<'de> for Resource {
                         struct F {
                             #[serde(alias = "arch")]
                             architecture: Option<Architecture>,
+                            #[serde(default = "default_count")]
                             count: Option<u32>,
                             memory: Option<u32>,
                             vendor: Option<Vendor>,
@@ -392,6 +520,7 @@ impl<'de> Deserialize<'de> for Resource {
                         struct F {
                             #[serde(alias = "arch")]
                             architecture: Option<Architecture>,
+                            #[serde(default = "default_count")]
                             count: Option<u32>,
                             memory: Option<u32>,
                             vendor: Option<Vendor>,
@@ -409,12 +538,15 @@ impl<'de> Deserialize<'de> for Resource {
                         struct F {
                             #[serde(alias = "arch")]
                             architecture: Option<Architecture>,
+                            #[serde(default = "default_count")]
+                            count: Option<u32>,
                             purpose: Option<String>,
                             vendor: Option<Vendor>,
                         }
                         let f: F = map.next_value()?;
                         Ok(Resource::ASIC {
                             architecture: f.architecture,
+                            count: f.count,
                             purpose: f.purpose,
                             vendor: f.vendor,
                         })
@@ -424,12 +556,15 @@ impl<'de> Deserialize<'de> for Resource {
                         struct F {
                             #[serde(alias = "arch")]
                             architecture: Option<Architecture>,
+                            #[serde(default = "default_count")]
+                            count: Option<u32>,
                             frequency: Option<u32>,
                             vendor: Option<Vendor>,
                         }
                         let f: F = map.next_value()?;
                         Ok(Resource::DSP {
                             architecture: f.architecture,
+                            count: f.count,
                             frequency: f.frequency,
                             vendor: f.vendor,
                         })
@@ -439,6 +574,8 @@ impl<'de> Deserialize<'de> for Resource {
                         struct F {
                             #[serde(alias = "arch")]
                             architecture: Option<Architecture>,
+                            #[serde(default = "default_count")]
+                            count: Option<u32>,
                             logic_elements: Option<u32>,
                             memory: Option<u32>,
                             vendor: Option<Vendor>,
@@ -446,6 +583,7 @@ impl<'de> Deserialize<'de> for Resource {
                         let f: F = map.next_value()?;
                         Ok(Resource::FPGA {
                             architecture: f.architecture,
+                            count: f.count,
                             logic_elements: f.logic_elements,
                             memory: f.memory,
                             vendor: f.vendor,
@@ -464,4 +602,7 @@ impl<'de> Deserialize<'de> for Resource {
         }
         deserializer.deserialize_any(ResourceVisitor)
     }
+}
+fn default_count() -> Option<u32> {
+    Some(1)
 }

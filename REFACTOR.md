@@ -708,3 +708,118 @@ After implementing Arc optimizations:
 1. Run `cargo test` to ensure no regressions
 2. Run `cargo clippy` to catch any new warnings
 3. Consider benchmarking before/after if performance is critical
+
+---
+
+# Hardware Schema Improvements
+
+Remaining suggestions for the hardware data model that were not yet implemented.
+
+## 1. Add DPU Resource Variant
+
+**Status:** Not implemented
+**Effort:** Medium
+
+### Description
+Add a DPU (Data Processing Unit) variant to the `Resource` enum to cover NVIDIA BlueField, Intel IPU, AMD Pensando — devices increasingly used in cloud/data center research.
+
+### Example
+```rust
+/// Data processing unit
+///
+/// A programmable processor optimized for data movement, networking, and
+/// infrastructure tasks, offloading them from the CPU
+DPU {
+    /// DPU architecture or product family
+    #[serde(alias = "arch")]
+    architecture: Option<Architecture>,
+    /// Number of DPUs required (if applicable)
+    #[serde(default = "default_count")]
+    count: Option<u32>,
+    /// On-chip memory in GB (if applicable)
+    #[serde(alias = "mem")]
+    memory: Option<u32>,
+    /// Hardware vendor (e.g., NVIDIA, Intel, AMD)
+    vendor: Option<Vendor>,
+},
+```
+
+### Required changes
+1. Add variant to `Resource` enum in `hardware.rs`
+2. Add `visit_str` arm: `"DPU" | "dpu" => Ok(Resource::DPU { ... })`
+3. Add `visit_map` arm: `| "DPU" => { ... }`
+4. Add test coverage in `tests/mod.rs`
+
+---
+
+## 2. Target Architecture Validation
+
+**Status:** Not implemented
+**Effort:** High — breaking change
+
+### Description
+Currently, `Architecture` mixes ISA-level (X86_64, RiscV), GPU µarch (Ampere, RDNA2), and FPGA families (Cyclone V, Versal) in one enum. Nothing prevents assigning `Architecture::Ampere` to a CPU resource. This would require splitting into separate enums.
+
+### Options
+
+**Option A: Separate enums per resource type**
+```rust
+pub enum CpuArchitecture { X86_64, AArch64, RiscV, LoongArch, ... }
+pub enum GpuArchitecture { Ampere, Hopper, Blackwell, RDNA2, RDNA3, ... }
+pub enum FpgaArchitecture { VirtexUltraScalePlus, Zynq, CycloneV, Agilex, Versal, ... }
+pub enum AcceleratorArchitecture { Gaudi2, Trainium, Wse2, Lpu, ... }
+```
+
+**Option B: Keep unified but add validation**
+Use `#[validate(...)]` or a custom `is_valid_for(resource_type)` method.
+
+### Required changes
+1. Decide on approach (separation vs validation)
+2. Update `Resource` variants to use typed architecture enums
+3. Update all construction sites and tests
+4. Migration path for existing serialized data
+
+---
+
+## 3. Memory Unit Disambiguation
+
+**Status:** Not implemented
+**Effort:** Medium
+
+### Description
+The `memory` field uses different units per resource variant:
+- CPU/GPU/TPU: GB
+- NPU: MB (on-chip SRAM)
+- FPGA: KB (block RAM)
+
+This creates risk of 1000× errors.
+
+### Options
+
+**Option A: Suffixed field names**
+```rust
+CPU { memory_gb: Option<u32>, ... }
+NPU { memory_mb: Option<u32>, ... }
+FPGA { memory_kb: Option<u32>, ... }
+```
+
+**Option B: Unit enum**
+```rust
+pub enum MemoryAmount { GB(u32), MB(u32), KB(u32) }
+```
+
+**Option C: Memory struct**
+```rust
+pub struct Memory {
+    amount: u32,
+    unit: MemoryUnit,
+}
+pub enum MemoryUnit { GB, MB, KB }
+```
+
+### Required changes
+1. Decide on approach (simplest: suffixed field names)
+2. Update `Resource` variant field definitions
+3. Update deserializer arms (visit_str, visit_map)
+4. Update all test constructions
+5. Document unit conventions

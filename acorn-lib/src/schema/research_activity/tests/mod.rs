@@ -285,6 +285,7 @@ fn test_metadata_with_resources() {
             Resource::CPU {
                 architecture: Some(Architecture::X86_64),
                 cores: Some(32),
+                count: None,
                 memory: Some(256),
                 threads: Some(64),
                 vendor: Some(Vendor::AMD),
@@ -317,6 +318,7 @@ fn test_metadata_with_minimal_resources() {
             Resource::Quantum,
             Resource::FPGA {
                 architecture: None,
+                count: None,
                 logic_elements: None,
                 memory: None,
                 vendor: None,
@@ -476,7 +478,7 @@ fn test_deserialize_metadata_with_partial_gpu_fields() {
         Resource::GPU {
             architecture: None,
             compute_capability: None,
-            count: None,
+            count: Some(1),
             memory: Some(24),
             vendor: None,
             ..
@@ -526,6 +528,7 @@ fn test_deserialize_metadata_with_empty_cpu_and_gpu() {
         Resource::CPU {
             architecture: None,
             cores: None,
+            count: Some(1),
             memory: None,
             threads: None,
             vendor: None,
@@ -536,7 +539,7 @@ fn test_deserialize_metadata_with_empty_cpu_and_gpu() {
         Resource::GPU {
             architecture: None,
             compute_capability: None,
-            count: None,
+            count: Some(1),
             memory: None,
             vendor: None,
             ..
@@ -562,6 +565,7 @@ fn test_deserialize_metadata_with_string_cpu_and_gpu() {
         Resource::CPU {
             architecture: None,
             cores: None,
+            count: Some(1),
             memory: None,
             threads: None,
             vendor: None,
@@ -572,7 +576,7 @@ fn test_deserialize_metadata_with_string_cpu_and_gpu() {
         Resource::GPU {
             architecture: None,
             compute_capability: None,
-            count: None,
+            count: Some(1),
             memory: None,
             vendor: None,
             ..
