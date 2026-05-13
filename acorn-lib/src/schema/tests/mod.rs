@@ -1,7 +1,12 @@
 use crate::schema::geonames::{CodeFormat, Country, GeonamesParser};
+use crate::schema::hardware::Architecture;
 use crate::schema::research_activity::aspect::Maturity;
 use crate::schema::research_activity::*;
 use crate::schema::validate::*;
+use crate::schema::vendor::{
+    AmdCpuArchitecture, AmdGpuArchitecture, AppleCpuArchitecture, AppleGpuArchitecture, IntelCpuArchitecture, IntelFpgaArchitecture,
+    IntelGpuArchitecture, NvidiaGpuArchitecture,
+};
 use crate::schema::*;
 use crate::util::constants::ENV_DATABASE_PATH;
 use crate::util::{Constant, Searchable};
@@ -403,7 +408,6 @@ fn test_memory_in_research_activity_float() {
 }
 #[test]
 fn test_architecture_from_string() {
-    use crate::schema::hardware::Architecture;
     let tests = [
         ("x86_64", Architecture::X86_64),
         ("amd64", Architecture::X86_64),
@@ -415,6 +419,7 @@ fn test_architecture_from_string() {
         ("Versal", Architecture::Versal),
         ("TPU v4", Architecture::TpuV4),
         ("C66x", Architecture::C66x),
+        ("Neural Engine", Architecture::NeuralEngine),
         ("unknown_arch", Architecture::Other("unknown_arch".to_string())),
     ];
     for (input, expected) in tests {
@@ -424,7 +429,6 @@ fn test_architecture_from_string() {
 }
 #[test]
 fn test_architecture_deserialize() {
-    use crate::schema::hardware::Architecture;
     let tests = [
         (r#""x86_64""#, Architecture::X86_64),
         (r#""Ampere""#, Architecture::Ampere),
@@ -437,6 +441,87 @@ fn test_architecture_deserialize() {
         let result: Result<Architecture, _> = serde_json::from_str(json);
         assert!(result.is_ok(), "Failed to deserialize: {}", json);
         assert_eq!(result.unwrap(), expected, "Deserialization mismatch for: {}", json);
+    }
+}
+#[test]
+fn test_vendor_architecture_enums() {
+    assert!(matches!(NvidiaGpuArchitecture::Ampere, NvidiaGpuArchitecture::Ampere));
+    assert!(matches!(AmdGpuArchitecture::Cdna1, AmdGpuArchitecture::Cdna1));
+    assert!(matches!(AmdCpuArchitecture::X86_64, AmdCpuArchitecture::X86_64));
+    assert!(matches!(IntelCpuArchitecture::Ia64, IntelCpuArchitecture::Ia64));
+    assert!(matches!(IntelFpgaArchitecture::Agilex, IntelFpgaArchitecture::Agilex));
+    assert!(matches!(IntelGpuArchitecture::Alchemist, IntelGpuArchitecture::Alchemist));
+    assert!(matches!(AppleCpuArchitecture::NeuralEngine, AppleCpuArchitecture::NeuralEngine));
+    assert!(matches!(AppleGpuArchitecture::M3, AppleGpuArchitecture::M3));
+}
+#[test]
+fn test_vendor_architecture_conversions() {
+    let nvidia: GpuArchitecture = NvidiaGpuArchitecture::Ampere.into();
+    assert!(matches!(nvidia, GpuArchitecture::Ampere));
+    let amd: GpuArchitecture = AmdGpuArchitecture::Cdna1.into();
+    assert!(matches!(amd, GpuArchitecture::Cdna1));
+    let intel: GpuArchitecture = IntelGpuArchitecture::Alchemist.into();
+    assert!(matches!(intel, GpuArchitecture::Alchemist));
+    let apple_gpu: GpuArchitecture = AppleGpuArchitecture::M3.into();
+    assert!(matches!(apple_gpu, GpuArchitecture::Other(_)));
+    let apple_cpu: CpuArchitecture = AppleCpuArchitecture::NeuralEngine.into();
+    assert!(matches!(apple_cpu, CpuArchitecture::NeuralEngine));
+}
+#[test]
+fn test_vendor_architecture_to_architecture() {
+    let arch: Architecture = NvidiaGpuArchitecture::Hopper.into();
+    assert_eq!(arch, Architecture::Hopper);
+    let arch: Architecture = AmdGpuArchitecture::Rdna3.into();
+    assert_eq!(arch, Architecture::Rdna3);
+    let arch: Architecture = AppleGpuArchitecture::M4.into();
+    assert!(matches!(arch, Architecture::Other(_)));
+}
+#[test]
+fn test_vendor_architecture_deserialize() {
+    let nvidia_tests = [
+        (r#""Ampere""#, NvidiaGpuArchitecture::Ampere),
+        (r#""Hopper""#, NvidiaGpuArchitecture::Hopper),
+        (r#""Blackwell""#, NvidiaGpuArchitecture::Blackwell),
+    ];
+    for (json, expected) in nvidia_tests {
+        let actual: NvidiaGpuArchitecture = serde_json::from_str(json).unwrap();
+        assert_eq!(actual, expected, "NvidiaGpuArchitecture mismatch: {}", json);
+    }
+    let amd_gpu_tests = [(r#""Cdna1""#, AmdGpuArchitecture::Cdna1), (r#""Rdna2""#, AmdGpuArchitecture::Rdna2)];
+    for (json, expected) in amd_gpu_tests {
+        let actual: AmdGpuArchitecture = serde_json::from_str(json).unwrap();
+        assert_eq!(actual, expected, "AmdGpuArchitecture mismatch: {}", json);
+    }
+    let intel_gpu_tests = [
+        (r#""Alchemist""#, IntelGpuArchitecture::Alchemist),
+        (r#""Xe2""#, IntelGpuArchitecture::Xe2),
+    ];
+    for (json, expected) in intel_gpu_tests {
+        let actual: IntelGpuArchitecture = serde_json::from_str(json).unwrap();
+        assert_eq!(actual, expected, "IntelGpuArchitecture mismatch: {}", json);
+    }
+    let apple_gpu_tests = [
+        (r#""Apple GPU (M3)""#, AppleGpuArchitecture::M3),
+        (r#""Apple GPU (M4)""#, AppleGpuArchitecture::M4),
+    ];
+    for (json, expected) in apple_gpu_tests {
+        let actual: AppleGpuArchitecture = serde_json::from_str(json).unwrap();
+        assert_eq!(actual, expected, "AppleGpuArchitecture mismatch: {}", json);
+    }
+    let intel_cpu_tests = [(r#""IA-64""#, IntelCpuArchitecture::Ia64)];
+    for (json, expected) in intel_cpu_tests {
+        let actual: IntelCpuArchitecture = serde_json::from_str(json).unwrap();
+        assert_eq!(actual, expected, "IntelCpuArchitecture mismatch: {}", json);
+    }
+    let apple_cpu_tests = [(r#""Neural Engine""#, AppleCpuArchitecture::NeuralEngine)];
+    for (json, expected) in apple_cpu_tests {
+        let actual: AppleCpuArchitecture = serde_json::from_str(json).unwrap();
+        assert_eq!(actual, expected, "AppleCpuArchitecture mismatch: {}", json);
+    }
+    let amd_cpu_tests = [(r#""x86_64""#, AmdCpuArchitecture::X86_64), (r#""X86""#, AmdCpuArchitecture::X86)];
+    for (json, expected) in amd_cpu_tests {
+        let actual: AmdCpuArchitecture = serde_json::from_str(json).unwrap();
+        assert_eq!(actual, expected, "AmdCpuArchitecture mismatch: {}", json);
     }
 }
 #[test]

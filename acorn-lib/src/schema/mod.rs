@@ -3,8 +3,12 @@
 //! Here you'll find everything needed to build and use the research activity data schema, including metadata fields, section information, media objects, formats, and functions that power ACORN CLI commands.
 //!
 pub mod hardware;
+pub use hardware::vendor::{
+    AmdCpuArchitecture, AmdGpuArchitecture, AppleCpuArchitecture, AppleGpuArchitecture, IntelCpuArchitecture, IntelFpgaArchitecture,
+    IntelGpuArchitecture, NvidiaGpuArchitecture,
+};
 pub use hardware::{
-    AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Memory, MemoryUnit,
+    vendor, AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Memory, MemoryUnit,
     Resource, Vendor,
 };
 

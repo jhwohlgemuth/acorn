@@ -3,6 +3,13 @@ use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Vendor-specific hardware architecture types
+pub mod vendor;
+use vendor::{
+    AmdCpuArchitecture, AmdGpuArchitecture, AppleCpuArchitecture, AppleGpuArchitecture, IntelCpuArchitecture,
+    IntelGpuArchitecture, NvidiaGpuArchitecture,
+};
+
 /// Unified hardware architecture identifier
 ///
 /// This enum provides a single type that can represent any hardware architecture
@@ -276,6 +283,7 @@ pub enum CpuArchitecture {
     Mips,
     /// Apple Neural Engine (integrated in Apple silicon)
     #[display("Neural Engine")]
+    #[serde(alias = "Neural Engine")]
     NeuralEngine,
     /// IBM PowerPC architecture
     #[display("PowerPC")]
@@ -348,6 +356,14 @@ pub enum FpgaArchitecture {
     Other(String),
 }
 /// GPU graphics microarchitectures
+///
+/// Vendor-specific GPU architectures are defined in the `vendor` module:
+/// - [`vendor::NvidiaGpuArchitecture`] for NVIDIA GPUs
+/// - [`vendor::AmdGpuArchitecture`] for AMD GPUs
+/// - [`vendor::IntelGpuArchitecture`] for Intel GPUs
+///
+/// This enum provides backward-compatible JSON deserialization for all GPU
+/// architectures. The variants map to their respective vendor enums.
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub enum GpuArchitecture {
     /// NVIDIA Ada Lovelace microarchitecture (RTX 40xx)
@@ -651,43 +667,6 @@ impl From<&str> for Architecture {
         Architecture::from_str(s)
     }
 }
-impl Architecture {
-    fn from_str(s: &str) -> Self {
-        let normalized = s.trim();
-        let quoted = format!("\"{normalized}\"");
-        [
-            serde_json::from_str::<CpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<GpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<FpgaArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<AcceleratorArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<DspArchitecture>(&quoted).ok().map(Architecture::from),
-        ]
-        .into_iter()
-        .flatten()
-        .next()
-        .unwrap_or_else(|| Architecture::Other(normalized.to_string()))
-    }
-}
-impl From<AcceleratorArchitecture> for Architecture {
-    fn from(value: AcceleratorArchitecture) -> Self {
-        match value {
-            | AcceleratorArchitecture::Ascend910 => Architecture::Ascend910,
-            | AcceleratorArchitecture::Blackhole => Architecture::Blackhole,
-            | AcceleratorArchitecture::Gaudi2 => Architecture::Gaudi2,
-            | AcceleratorArchitecture::Inferentia => Architecture::Inferentia,
-            | AcceleratorArchitecture::Lpu => Architecture::Lpu,
-            | AcceleratorArchitecture::Maia => Architecture::Maia,
-            | AcceleratorArchitecture::TpuV4 => Architecture::TpuV4,
-            | AcceleratorArchitecture::TpuV5e => Architecture::TpuV5e,
-            | AcceleratorArchitecture::TpuV5p => Architecture::TpuV5p,
-            | AcceleratorArchitecture::Trainium => Architecture::Trainium,
-            | AcceleratorArchitecture::Wormhole => Architecture::Wormhole,
-            | AcceleratorArchitecture::Wse2 => Architecture::Wse2,
-            | AcceleratorArchitecture::Wse3 => Architecture::Wse3,
-            | AcceleratorArchitecture::Other(s) => Architecture::Other(s),
-        }
-    }
-}
 impl From<CpuArchitecture> for Architecture {
     fn from(value: CpuArchitecture) -> Self {
         match value {
@@ -753,6 +732,30 @@ impl From<GpuArchitecture> for Architecture {
             | GpuArchitecture::Xe3 => Architecture::Xe3,
             | GpuArchitecture::Other(s) => Architecture::Other(s),
         }
+    }
+}
+impl Architecture {
+    fn from_str(s: &str) -> Self {
+        let normalized = s.trim();
+        let quoted = format!("\"{normalized}\"");
+        [
+            serde_json::from_str::<CpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<AmdCpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<AppleCpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<IntelCpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<GpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<AmdGpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<AppleGpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<IntelGpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<NvidiaGpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<FpgaArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<AcceleratorArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<DspArchitecture>(&quoted).ok().map(Architecture::from),
+        ]
+        .into_iter()
+        .flatten()
+        .next()
+        .unwrap_or_else(|| Architecture::Other(normalized.to_string()))
     }
 }
 impl<'de> Deserialize<'de> for Architecture {
