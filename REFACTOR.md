@@ -713,38 +713,7 @@ After implementing Arc optimizations:
 
 # Hardware Schema Improvements
 
-Remaining suggestions for the hardware data model that were not yet implemented.
-
-## 2. Target Architecture Validation
-
-**Status:** Not implemented
-**Effort:** High — breaking change
-
-### Description
-Currently, `Architecture` mixes ISA-level (X86_64, RiscV), GPU µarch (Ampere, RDNA2), and FPGA families (Cyclone V, Versal) in one enum. Nothing prevents assigning `Architecture::Ampere` to a CPU resource. This would require splitting into separate enums.
-
-### Options
-
-**Option A: Separate enums per resource type**
-```rust
-pub enum CpuArchitecture { X86_64, AArch64, RiscV, LoongArch, ... }
-pub enum GpuArchitecture { Ampere, Hopper, Blackwell, RDNA2, RDNA3, ... }
-pub enum FpgaArchitecture { VirtexUltraScalePlus, Zynq, CycloneV, Agilex, Versal, ... }
-pub enum AcceleratorArchitecture { Gaudi2, Trainium, Wse2, Lpu, ... }
-```
-
-**Option B: Keep unified but add validation**
-Use `#[validate(...)]` or a custom `is_valid_for(resource_type)` method.
-
-### Required changes
-1. Decide on approach (separation vs validation)
-2. Update `Resource` variants to use typed architecture enums
-3. Update all construction sites and tests
-4. Migration path for existing serialized data
-
----
-
-## 3. Memory Unit Disambiguation
+## Memory Unit Disambiguation
 
 **Status:** Not implemented
 **Effort:** Medium

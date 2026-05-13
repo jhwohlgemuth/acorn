@@ -181,7 +181,7 @@ fn test_hardware_resource_dpu_from_map() {
             memory,
             vendor,
         } => {
-            assert_eq!(architecture, Some(Architecture::X86_64));
+            assert_eq!(architecture, Some(CpuArchitecture::X86_64));
             assert_eq!(count, Some(2));
             assert_eq!(memory, Some(64));
             match vendor {
@@ -190,6 +190,44 @@ fn test_hardware_resource_dpu_from_map() {
             }
         }
         | other => panic!("expected DPU resource, got {other:?}"),
+    }
+}
+#[test]
+fn test_architecture_from_string() {
+    use crate::schema::hardware::Architecture;
+    let tests = [
+        ("x86_64", Architecture::X86_64),
+        ("amd64", Architecture::X86_64),
+        ("x86-64", Architecture::X86_64),
+        ("AArch64", Architecture::AArch64),
+        ("Ampere", Architecture::Ampere),
+        ("RDNA1", Architecture::Rdna1),
+        ("rdna1", Architecture::Rdna1),
+        ("Versal", Architecture::Versal),
+        ("TPU v4", Architecture::TpuV4),
+        ("C66x", Architecture::C66x),
+        ("unknown_arch", Architecture::Other("unknown_arch".to_string())),
+    ];
+    for (input, expected) in tests {
+        let result = Architecture::from(input);
+        assert_eq!(result, expected, "Architecture::from(\"{}\") failed", input);
+    }
+}
+#[test]
+fn test_architecture_deserialize() {
+    use crate::schema::hardware::Architecture;
+    let tests = [
+        (r#""x86_64""#, Architecture::X86_64),
+        (r#""Ampere""#, Architecture::Ampere),
+        (r#""RDNA1""#, Architecture::Rdna1),
+        (r#""Versal""#, Architecture::Versal),
+        (r#""TPU v4""#, Architecture::TpuV4),
+        (r#""custom_arch""#, Architecture::Other("custom_arch".to_string())),
+    ];
+    for (json, expected) in tests {
+        let result: Result<Architecture, _> = serde_json::from_str(json);
+        assert!(result.is_ok(), "Failed to deserialize: {}", json);
+        assert_eq!(result.unwrap(), expected, "Deserialization mismatch for: {}", json);
     }
 }
 #[test]

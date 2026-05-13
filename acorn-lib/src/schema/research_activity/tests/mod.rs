@@ -1,6 +1,6 @@
 use crate::io::InputOutput;
 use crate::prelude::PathBuf;
-use crate::schema::hardware::{Architecture, Resource, Vendor};
+use crate::schema::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
 use crate::schema::research_activity::*;
 use crate::schema::standard::cff::{Agent, Cff, IdentifierType};
 use crate::schema::*;
@@ -274,7 +274,7 @@ fn test_metadata_with_resources() {
         .identifier("gpu-project".to_string())
         .resources(vec![
             Resource::GPU {
-                architecture: Some(Architecture::Ampere),
+                architecture: Some(GpuArchitecture::Ampere),
                 backend: None,
                 compute_capability: Some(8.0),
                 count: Some(4),
@@ -283,7 +283,7 @@ fn test_metadata_with_resources() {
                 vendor: Some(Vendor::NVIDIA),
             },
             Resource::CPU {
-                architecture: Some(Architecture::X86_64),
+                architecture: Some(CpuArchitecture::X86_64),
                 cores: Some(32),
                 count: None,
                 memory: Some(256),
@@ -391,7 +391,7 @@ fn test_deserialize_metadata_with_gpu_resources() {
     assert!(matches!(
         &resources[0],
         Resource::GPU {
-            architecture: Some(Architecture::Hopper),
+            architecture: Some(GpuArchitecture::Hopper),
             compute_capability: Some(cc),
             count: Some(8),
             memory: Some(80),
