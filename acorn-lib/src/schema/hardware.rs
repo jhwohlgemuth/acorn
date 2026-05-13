@@ -405,6 +405,16 @@ pub enum GpuArchitecture {
     #[display("{}", _0)]
     Other(String),
 }
+/// Memory unit for hardware resources
+#[derive(Clone, Copy, Debug, Display, PartialEq, Serialize)]
+pub enum MemoryUnit {
+    /// Gigabytes
+    GB,
+    /// Kilobytes
+    KB,
+    /// Megabytes
+    MB,
+}
 /// Enumeration for hardware resources used by technology
 #[derive(Clone, Debug, Serialize, JsonSchema)]
 pub enum Resource {
@@ -431,9 +441,9 @@ pub enum Resource {
         cores: Option<u32>,
         /// Number of CPUs required (if applicable)
         count: Option<u32>,
-        /// Minimum RAM in GB (if applicable)
+        /// Minimum RAM (if applicable)
         #[serde(alias = "ram")]
-        memory: Option<u32>,
+        memory: Option<Memory>,
         /// Number of threads required (if applicable)
         threads: Option<u32>,
         /// Hardware vendor (e.g., Intel, AMD, ARM)
@@ -448,9 +458,9 @@ pub enum Resource {
         architecture: Option<CpuArchitecture>,
         /// Number of DPUs required (if applicable)
         count: Option<u32>,
-        /// On-chip memory in GB (if applicable)
+        /// On-chip memory (if applicable)
         #[serde(alias = "mem")]
-        memory: Option<u32>,
+        memory: Option<Memory>,
         /// Hardware vendor (e.g., NVIDIA, Intel, AMD)
         vendor: Option<Vendor>,
     },
@@ -480,9 +490,9 @@ pub enum Resource {
         count: Option<u32>,
         /// Number of logic elements or LUTs available
         logic_elements: Option<u32>,
-        /// Block RAM in KB (if applicable)
+        /// Block RAM (if applicable)
         #[serde(alias = "mem")]
-        memory: Option<u32>,
+        memory: Option<Memory>,
         /// Hardware vendor (e.g., Intel, AMD)
         vendor: Option<Vendor>,
     },
@@ -497,9 +507,9 @@ pub enum Resource {
         compute_capability: Option<f32>,
         /// Number of GPUs required (if applicable)
         count: Option<u32>,
-        /// VRAM in GB (if applicable)
+        /// VRAM (if applicable)
         #[serde(alias = "vram")]
-        memory: Option<u32>,
+        memory: Option<Memory>,
         /// GPU model name (e.g., "H100", "RTX 4090")
         name: Option<String>,
         /// Hardware vendor (e.g., NVIDIA, AMD, Intel)
@@ -514,9 +524,9 @@ pub enum Resource {
         architecture: Option<AcceleratorArchitecture>,
         /// Number of NPUs required (if applicable)
         count: Option<u32>,
-        /// On-chip SRAM in MB (if applicable)
+        /// On-chip SRAM (if applicable)
         #[serde(alias = "mem")]
-        memory: Option<u32>,
+        memory: Option<Memory>,
         /// Hardware vendor (e.g., Qualcomm, Apple, Intel)
         vendor: Option<Vendor>,
     },
@@ -531,9 +541,9 @@ pub enum Resource {
         architecture: Option<AcceleratorArchitecture>,
         /// Number of TPU chips required (if applicable)
         count: Option<u32>,
-        /// High-bandwidth memory in GB (if applicable)
+        /// High-bandwidth memory (if applicable)
         #[serde(alias = "mem")]
-        memory: Option<u32>,
+        memory: Option<Memory>,
         /// Hardware vendor (e.g., Google)
         vendor: Option<Vendor>,
     },
@@ -597,6 +607,39 @@ pub enum Vendor {
     /// Other or unspecified vendor
     #[display("{}", _0)]
     Other(String),
+}
+/// Memory amount with explicit unit
+///
+/// Supports string formats like `"80GB"`, `"512MB"`, `"64KB"` and plain number (defaults to GB).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Memory {
+    /// Numeric amount of memory
+    pub amount: u32,
+    /// Unit of measurement
+    pub unit: MemoryUnit,
+}
+impl Memory {
+    /// Create a Memory value in GB
+    pub const fn gb(amount: u32) -> Self {
+        Memory {
+            amount,
+            unit: MemoryUnit::GB,
+        }
+    }
+    /// Create a Memory value in KB
+    pub const fn kb(amount: u32) -> Self {
+        Memory {
+            amount,
+            unit: MemoryUnit::KB,
+        }
+    }
+    /// Create a Memory value in MB
+    pub const fn mb(amount: u32) -> Self {
+        Memory {
+            amount,
+            unit: MemoryUnit::MB,
+        }
+    }
 }
 impl From<String> for Architecture {
     fn from(s: String) -> Self {
@@ -835,7 +878,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 cores: Option<u32>,
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
-                                memory: Option<u32>,
+                                memory: Option<Memory>,
                                 threads: Option<u32>,
                                 vendor: Option<Vendor>,
                             }
@@ -859,7 +902,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 architecture: Option<CpuArchitecture>,
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
-                                memory: Option<u32>,
+                                memory: Option<Memory>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -902,7 +945,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
                                 logic_elements: Option<u32>,
-                                memory: Option<u32>,
+                                memory: Option<Memory>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -926,7 +969,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 compute_capability: Option<f32>,
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
-                                memory: Option<u32>,
+                                memory: Option<Memory>,
                                 name: Option<String>,
                                 vendor: Option<Vendor>,
                             }
@@ -951,7 +994,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 architecture: Option<AcceleratorArchitecture>,
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
-                                memory: Option<u32>,
+                                memory: Option<Memory>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -979,7 +1022,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 architecture: Option<AcceleratorArchitecture>,
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
-                                memory: Option<u32>,
+                                memory: Option<Memory>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -1007,6 +1050,110 @@ impl<'de> Deserialize<'de> for Resource {
             }
         }
         deserializer.deserialize_any(ResourceVisitor)
+    }
+}
+impl<'de> Deserialize<'de> for Memory {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        struct MemoryVisitor;
+        impl<'de> serde::de::Visitor<'de> for MemoryVisitor {
+            type Value = Memory;
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                f.write_str(r#"a memory string (e.g. "80GB", "512MB") or a number (treated as GB)"#)
+            }
+            fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Memory, E> {
+                Ok(Memory {
+                    amount: value as u32,
+                    unit: MemoryUnit::GB,
+                })
+            }
+            fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Memory, E> {
+                if value < 0 {
+                    return Err(serde::de::Error::custom("Memory amount cannot be negative"));
+                }
+                Ok(Memory {
+                    amount: value as u32,
+                    unit: MemoryUnit::GB,
+                })
+            }
+            fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Memory, E> {
+                Ok(Memory {
+                    amount: value as u32,
+                    unit: MemoryUnit::GB,
+                })
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Memory, E> {
+                let s = value.trim();
+                let split = s
+                    .find(|c: char| !c.is_ascii_digit())
+                    .ok_or_else(|| serde::de::Error::custom(format!("Missing unit in memory value: '{s}'")))?;
+                let num_str = s[..split].trim();
+                let unit_str = s[split..].trim();
+                let amount: u32 = num_str
+                    .parse()
+                    .map_err(|_| serde::de::Error::custom(format!("Invalid memory amount: '{num_str}'")))?;
+                let unit = MemoryUnit::deserialize(serde::de::value::StrDeserializer::new(unit_str))?;
+                Ok(Memory { amount, unit })
+            }
+        }
+        deserializer.deserialize_any(MemoryVisitor)
+    }
+}
+impl<'de> Deserialize<'de> for MemoryUnit {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        struct MemoryUnitVisitor;
+        impl<'de> serde::de::Visitor<'de> for MemoryUnitVisitor {
+            type Value = MemoryUnit;
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                f.write_str("a memory unit string (e.g. 'GB', 'MB', 'KB')")
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<MemoryUnit, E> {
+                match value.trim().to_uppercase().as_str() {
+                    | "GB" | "G" | "GIB" => Ok(MemoryUnit::GB),
+                    | "MB" | "M" | "MIB" => Ok(MemoryUnit::MB),
+                    | "KB" | "K" | "KIB" => Ok(MemoryUnit::KB),
+                    | other => Err(serde::de::Error::custom(format!("Invalid memory unit: '{other}'"))),
+                }
+            }
+        }
+        deserializer.deserialize_str(MemoryUnitVisitor)
+    }
+}
+impl Serialize for Memory {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let s = format!("{}{}", self.amount, self.unit);
+        serializer.serialize_str(&s)
+    }
+}
+impl schemars::JsonSchema for Memory {
+    fn schema_name() -> alloc::borrow::Cow<'static, str> {
+        "Memory".into()
+    }
+    fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
+        use core::convert::TryInto;
+        serde_json::json!({"type": "string", "pattern": "^\\d+\\s*(GB|MB|KB)$"})
+            .try_into()
+            .unwrap()
+    }
+    fn inline_schema() -> bool {
+        true
+    }
+}
+impl schemars::JsonSchema for MemoryUnit {
+    fn schema_name() -> alloc::borrow::Cow<'static, str> {
+        "MemoryUnit".into()
+    }
+    fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
+        use core::convert::TryInto;
+        serde_json::json!({"type": "string", "enum": ["GB", "MB", "KB"]}).try_into().unwrap()
+    }
+    fn inline_schema() -> bool {
+        true
     }
 }
 fn default_count() -> Option<u32> {

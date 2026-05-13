@@ -183,7 +183,7 @@ fn test_hardware_resource_dpu_from_map() {
         } => {
             assert_eq!(architecture, Some(CpuArchitecture::X86_64));
             assert_eq!(count, Some(2));
-            assert_eq!(memory, Some(64));
+            assert_eq!(memory, Some(Memory::gb(64)));
             match vendor {
                 | Some(Vendor::Intel) => {}
                 | other => panic!("expected Intel vendor, got {other:?}"),
@@ -191,6 +191,124 @@ fn test_hardware_resource_dpu_from_map() {
         }
         | other => panic!("expected DPU resource, got {other:?}"),
     }
+}
+#[test]
+fn test_memory_deserialize() {
+    let mem: Memory = serde_json::from_str("\"200GB\"").unwrap();
+    assert_eq!(mem, Memory::gb(200));
+    let mem: Memory = serde_json::from_str("\"100KB\"").unwrap();
+    assert_eq!(mem, Memory::kb(100));
+    let mem: Memory = serde_json::from_str("\"512MB\"").unwrap();
+    assert_eq!(mem, Memory::mb(512));
+    let mem: Memory = serde_json::from_str("\"64 GB\"").unwrap();
+    assert_eq!(mem, Memory::gb(64));
+    let mem: Memory = serde_json::from_str("80").unwrap();
+    assert_eq!(mem, Memory::gb(80));
+    let mem: Memory = serde_json::from_str("\"256M\"").unwrap();
+    assert_eq!(mem, Memory::mb(256));
+    let mem: Memory = serde_json::from_str("\"128kb\"").unwrap();
+    assert_eq!(mem, Memory::kb(128));
+    // Roundtrip
+    let mem = Memory::gb(96);
+    let json = serde_json::to_string(&mem).unwrap();
+    assert_eq!(json, "\"96GB\"");
+    let parsed: Memory = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed, mem);
+}
+#[test]
+fn test_memory_in_resource_with_string() {
+    let json = r#"{"CPU":{"memory":"256GB"}}"#;
+    let resource: Resource = serde_json::from_str(json).unwrap();
+    match resource {
+        | Resource::CPU { memory, .. } => {
+            assert_eq!(memory, Some(Memory::gb(256)));
+        }
+        | other => panic!("expected CPU, got {other:?}"),
+    }
+    let json = r#"{"GPU":{"memory":"80GB","vendor":"NVIDIA"}}"#;
+    let resource: Resource = serde_json::from_str(json).unwrap();
+    match resource {
+        | Resource::GPU { memory, .. } => {
+            assert_eq!(memory, Some(Memory::gb(80)));
+        }
+        | other => panic!("expected GPU, got {other:?}"),
+    }
+    let json = r#"{"FPGA":{"memory":"4MB"}}"#;
+    let resource: Resource = serde_json::from_str(json).unwrap();
+    match resource {
+        | Resource::FPGA { memory, .. } => {
+            assert_eq!(memory, Some(Memory::mb(4)));
+        }
+        | other => panic!("expected FPGA, got {other:?}"),
+    }
+    let json = r#"{"NPU":{"memory":"8KB"}}"#;
+    let resource: Resource = serde_json::from_str(json).unwrap();
+    match resource {
+        | Resource::NPU { memory, .. } => {
+            assert_eq!(memory, Some(Memory::kb(8)));
+        }
+        | other => panic!("expected NPU, got {other:?}"),
+    }
+    let json = r#"{"TPU":{"memory":"32GB"}}"#;
+    let resource: Resource = serde_json::from_str(json).unwrap();
+    match resource {
+        | Resource::TPU { memory, .. } => {
+            assert_eq!(memory, Some(Memory::gb(32)));
+        }
+        | other => panic!("expected TPU, got {other:?}"),
+    }
+    let json = r#"{"TPU":{"memory":"32GB"}}"#;
+    let resource: Resource = serde_json::from_str(json).unwrap();
+    match resource {
+        | Resource::TPU { memory, .. } => {
+            assert_eq!(memory, Some(Memory::gb(32)));
+        }
+        | other => panic!("expected TPU, got {other:?}"),
+    }
+    let json = r#"{"DPU":{"memory":64}}"#;
+    let resource: Resource = serde_json::from_str(json).unwrap();
+    match resource {
+        | Resource::DPU { memory, .. } => {
+            assert_eq!(memory, Some(Memory::gb(64)));
+        }
+        | other => panic!("expected DPU, got {other:?}"),
+    }
+}
+#[test]
+fn test_memory_in_research_activity_string_values() {
+    let json = r#"{
+        "identifier": "memory-test",
+        "archive": false,
+        "draft": false,
+        "status": "active",
+        "keywords": [],
+        "technology": [],
+        "resources": [
+            {"GPU": {"memory": "80GB"}},
+            {"CPU": {"memory": "512GB", "cores": 64}},
+            {"FPGA": {"memory": "4MB"}},
+            {"NPU": {"memory": "8KB"}}
+        ]
+    }"#;
+    let meta: ResearchActivityMetadata = serde_json::from_str(json).unwrap();
+    let resources = meta.resources.expect("resources should be present");
+    assert_eq!(resources.len(), 4);
+    assert!(matches!(
+        &resources[0],
+        Resource::GPU { memory: Some(Memory { amount: 80, unit: MemoryUnit::GB }), .. }
+    ));
+    assert!(matches!(
+        &resources[1],
+        Resource::CPU { memory: Some(Memory { amount: 512, unit: MemoryUnit::GB }), .. }
+    ));
+    assert!(matches!(
+        &resources[2],
+        Resource::FPGA { memory: Some(Memory { amount: 4, unit: MemoryUnit::MB }), .. }
+    ));
+    assert!(matches!(
+        &resources[3],
+        Resource::NPU { memory: Some(Memory { amount: 8, unit: MemoryUnit::KB }), .. }
+    ));
 }
 #[test]
 fn test_architecture_from_string() {

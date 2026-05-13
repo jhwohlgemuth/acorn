@@ -4,7 +4,8 @@
 //!
 pub mod hardware;
 pub use hardware::{
-    AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Resource, Vendor,
+    AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Memory, MemoryUnit,
+    Resource, Vendor,
 };
 
 #[cfg(feature = "std")]

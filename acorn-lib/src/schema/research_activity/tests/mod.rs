@@ -278,7 +278,7 @@ fn test_metadata_with_resources() {
                 backend: None,
                 compute_capability: Some(8.0),
                 count: Some(4),
-                memory: Some(80),
+                memory: Some(Memory::gb(80)),
                 name: None,
                 vendor: Some(Vendor::NVIDIA),
             },
@@ -286,7 +286,7 @@ fn test_metadata_with_resources() {
                 architecture: Some(CpuArchitecture::X86_64),
                 cores: Some(32),
                 count: None,
-                memory: Some(256),
+                memory: Some(Memory::gb(256)),
                 threads: Some(64),
                 vendor: Some(Vendor::AMD),
             },
@@ -344,7 +344,7 @@ fn test_metadata_resources_roundtrip() {
             backend: None,
             compute_capability: None,
             count: Some(1),
-            memory: Some(24),
+            memory: Some(Memory::gb(24)),
             name: None,
             vendor: Some(Vendor::Intel),
         }])
@@ -357,7 +357,10 @@ fn test_metadata_resources_roundtrip() {
         &resources[0],
         Resource::GPU {
             count: Some(1),
-            memory: Some(24),
+            memory: Some(Memory {
+                amount: 24,
+                unit: MemoryUnit::GB
+            }),
             vendor: Some(Vendor::Intel),
             ..
         }
@@ -394,7 +397,7 @@ fn test_deserialize_metadata_with_gpu_resources() {
             architecture: Some(GpuArchitecture::Hopper),
             compute_capability: Some(cc),
             count: Some(8),
-            memory: Some(80),
+            memory: Some(Memory { amount: 80, unit: MemoryUnit::GB }),
             vendor: Some(Vendor::NVIDIA),
             ..
         } if (*cc - 9.0_f32).abs() < f32::EPSILON
@@ -479,7 +482,10 @@ fn test_deserialize_metadata_with_partial_gpu_fields() {
             architecture: None,
             compute_capability: None,
             count: Some(1),
-            memory: Some(24),
+            memory: Some(Memory {
+                amount: 24,
+                unit: MemoryUnit::GB
+            }),
             vendor: None,
             ..
         }
