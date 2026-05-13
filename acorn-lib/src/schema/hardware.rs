@@ -610,33 +610,33 @@ pub enum Vendor {
 }
 /// Memory amount with explicit unit
 ///
-/// Supports string formats like `"80GB"`, `"512MB"`, `"64KB"` and plain number (defaults to GB).
+/// Supports string formats like `"80GB"`, `"2.5GB"`, `"512MB"`, `"64KB"` and plain number (defaults to GB).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Memory {
     /// Numeric amount of memory
-    pub amount: u32,
+    pub amount: f64,
     /// Unit of measurement
     pub unit: MemoryUnit,
 }
 impl Memory {
     /// Create a Memory value in GB
-    pub const fn gb(amount: u32) -> Self {
+    pub fn gb(amount: impl Into<f64>) -> Self {
         Memory {
-            amount,
+            amount: amount.into(),
             unit: MemoryUnit::GB,
         }
     }
     /// Create a Memory value in KB
-    pub const fn kb(amount: u32) -> Self {
+    pub fn kb(amount: impl Into<f64>) -> Self {
         Memory {
-            amount,
+            amount: amount.into(),
             unit: MemoryUnit::KB,
         }
     }
     /// Create a Memory value in MB
-    pub const fn mb(amount: u32) -> Self {
+    pub fn mb(amount: impl Into<f64>) -> Self {
         Memory {
-            amount,
+            amount: amount.into(),
             unit: MemoryUnit::MB,
         }
     }
@@ -1061,11 +1061,11 @@ impl<'de> Deserialize<'de> for Memory {
         impl<'de> serde::de::Visitor<'de> for MemoryVisitor {
             type Value = Memory;
             fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.write_str(r#"a memory string (e.g. "80GB", "512MB") or a number (treated as GB)"#)
+                f.write_str(r#"a memory string (e.g. "80GB", "2.5GB", "512MB") or a number (treated as GB)"#)
             }
             fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Memory, E> {
                 Ok(Memory {
-                    amount: value as u32,
+                    amount: value as f64,
                     unit: MemoryUnit::GB,
                 })
             }
@@ -1074,26 +1074,32 @@ impl<'de> Deserialize<'de> for Memory {
                     return Err(serde::de::Error::custom("Memory amount cannot be negative"));
                 }
                 Ok(Memory {
-                    amount: value as u32,
+                    amount: value as f64,
                     unit: MemoryUnit::GB,
                 })
             }
             fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Memory, E> {
+                if value < 0.0 {
+                    return Err(serde::de::Error::custom("Memory amount cannot be negative"));
+                }
                 Ok(Memory {
-                    amount: value as u32,
+                    amount: value,
                     unit: MemoryUnit::GB,
                 })
             }
             fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Memory, E> {
                 let s = value.trim();
                 let split = s
-                    .find(|c: char| !c.is_ascii_digit())
+                    .find(|c: char| !c.is_ascii_digit() && c != '.')
                     .ok_or_else(|| serde::de::Error::custom(format!("Missing unit in memory value: '{s}'")))?;
                 let num_str = s[..split].trim();
                 let unit_str = s[split..].trim();
-                let amount: u32 = num_str
+                let amount: f64 = num_str
                     .parse()
                     .map_err(|_| serde::de::Error::custom(format!("Invalid memory amount: '{num_str}'")))?;
+                if amount < 0.0 {
+                    return Err(serde::de::Error::custom("Memory amount cannot be negative"));
+                }
                 let unit = MemoryUnit::deserialize(serde::de::value::StrDeserializer::new(unit_str))?;
                 Ok(Memory { amount, unit })
             }
@@ -1136,7 +1142,7 @@ impl schemars::JsonSchema for Memory {
     }
     fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         use core::convert::TryInto;
-        serde_json::json!({"type": "string", "pattern": "^\\d+\\s*(GB|MB|KB)$"})
+        serde_json::json!({"type": "string", "pattern": "^\\d+(\\.\\d+)?\\s*(GB|MB|KB)$"})
             .try_into()
             .unwrap()
     }

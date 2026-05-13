@@ -216,6 +216,28 @@ fn test_memory_deserialize() {
     assert_eq!(parsed, mem);
 }
 #[test]
+fn test_memory_deserialize_float() {
+    let mem: Memory = serde_json::from_str("\"2.5GB\"").unwrap();
+    assert!((mem.amount - 2.5).abs() < f64::EPSILON);
+    assert_eq!(mem.unit, MemoryUnit::GB);
+    let mem: Memory = serde_json::from_str("\"1.2MB\"").unwrap();
+    assert!((mem.amount - 1.2).abs() < f64::EPSILON);
+    assert_eq!(mem.unit, MemoryUnit::MB);
+    let mem: Memory = serde_json::from_str("\"0.5KB\"").unwrap();
+    assert!((mem.amount - 0.5).abs() < f64::EPSILON);
+    assert_eq!(mem.unit, MemoryUnit::KB);
+    let mem: Memory = serde_json::from_str("\"3.75 MB\"").unwrap();
+    assert!((mem.amount - 3.75).abs() < f64::EPSILON);
+    assert_eq!(mem.unit, MemoryUnit::MB);
+    // Roundtrip
+    let mem = Memory::gb(2.5);
+    let json = serde_json::to_string(&mem).unwrap();
+    assert_eq!(json, "\"2.5GB\"");
+    let parsed: Memory = serde_json::from_str(&json).unwrap();
+    assert!((parsed.amount - 2.5).abs() < f64::EPSILON);
+    assert_eq!(parsed.unit, MemoryUnit::GB);
+}
+#[test]
 fn test_memory_in_resource_with_string() {
     let json = r#"{"CPU":{"memory":"256GB"}}"#;
     let resource: Resource = serde_json::from_str(json).unwrap();
@@ -275,6 +297,19 @@ fn test_memory_in_resource_with_string() {
     }
 }
 #[test]
+fn test_memory_float_in_resource() {
+    let json = r#"{"GPU":{"memory":"2.5GB"}}"#;
+    let resource: Resource = serde_json::from_str(json).unwrap();
+    match resource {
+        | Resource::GPU { memory, .. } => {
+            let mem = memory.expect("memory should be present");
+            assert!((mem.amount - 2.5).abs() < f64::EPSILON);
+            assert_eq!(mem.unit, MemoryUnit::GB);
+        }
+        | other => panic!("expected GPU, got {other:?}"),
+    }
+}
+#[test]
 fn test_memory_in_research_activity_string_values() {
     let json = r#"{
         "identifier": "memory-test",
@@ -295,20 +330,76 @@ fn test_memory_in_research_activity_string_values() {
     assert_eq!(resources.len(), 4);
     assert!(matches!(
         &resources[0],
-        Resource::GPU { memory: Some(Memory { amount: 80, unit: MemoryUnit::GB }), .. }
+        Resource::GPU {
+            memory: Some(Memory {
+                amount: 80.0,
+                unit: MemoryUnit::GB
+            }),
+            ..
+        }
     ));
     assert!(matches!(
         &resources[1],
-        Resource::CPU { memory: Some(Memory { amount: 512, unit: MemoryUnit::GB }), .. }
+        Resource::CPU {
+            memory: Some(Memory {
+                amount: 512.0,
+                unit: MemoryUnit::GB
+            }),
+            ..
+        }
     ));
     assert!(matches!(
         &resources[2],
-        Resource::FPGA { memory: Some(Memory { amount: 4, unit: MemoryUnit::MB }), .. }
+        Resource::FPGA {
+            memory: Some(Memory {
+                amount: 4.0,
+                unit: MemoryUnit::MB
+            }),
+            ..
+        }
     ));
     assert!(matches!(
         &resources[3],
-        Resource::NPU { memory: Some(Memory { amount: 8, unit: MemoryUnit::KB }), .. }
+        Resource::NPU {
+            memory: Some(Memory {
+                amount: 8.0,
+                unit: MemoryUnit::KB
+            }),
+            ..
+        }
     ));
+}
+#[test]
+fn test_memory_in_research_activity_float() {
+    let json = r#"{
+        "identifier": "float-mem-test",
+        "archive": false,
+        "draft": false,
+        "status": "active",
+        "keywords": [],
+        "technology": [],
+        "resources": [
+            {"GPU": {"memory": "3.5GB"}},
+            {"NPU": {"memory": "1.25MB"}}
+        ]
+    }"#;
+    let meta: ResearchActivityMetadata = serde_json::from_str(json).unwrap();
+    let resources = meta.resources.expect("resources should be present");
+    assert_eq!(resources.len(), 2);
+    if let Resource::GPU { memory, .. } = &resources[0] {
+        let mem = memory.as_ref().expect("GPU memory should be present");
+        assert!((mem.amount - 3.5).abs() < f64::EPSILON);
+        assert_eq!(mem.unit, MemoryUnit::GB);
+    } else {
+        panic!("expected GPU");
+    }
+    if let Resource::NPU { memory, .. } = &resources[1] {
+        let mem = memory.as_ref().expect("NPU memory should be present");
+        assert!((mem.amount - 1.25).abs() < f64::EPSILON);
+        assert_eq!(mem.unit, MemoryUnit::MB);
+    } else {
+        panic!("expected NPU");
+    }
 }
 #[test]
 fn test_architecture_from_string() {

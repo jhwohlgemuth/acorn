@@ -358,7 +358,7 @@ fn test_metadata_resources_roundtrip() {
         Resource::GPU {
             count: Some(1),
             memory: Some(Memory {
-                amount: 24,
+                amount: 24.0,
                 unit: MemoryUnit::GB
             }),
             vendor: Some(Vendor::Intel),
@@ -397,7 +397,7 @@ fn test_deserialize_metadata_with_gpu_resources() {
             architecture: Some(GpuArchitecture::Hopper),
             compute_capability: Some(cc),
             count: Some(8),
-            memory: Some(Memory { amount: 80, unit: MemoryUnit::GB }),
+            memory: Some(Memory { amount: 80.0, unit: MemoryUnit::GB }),
             vendor: Some(Vendor::NVIDIA),
             ..
         } if (*cc - 9.0_f32).abs() < f32::EPSILON
@@ -483,7 +483,7 @@ fn test_deserialize_metadata_with_partial_gpu_fields() {
             compute_capability: None,
             count: Some(1),
             memory: Some(Memory {
-                amount: 24,
+                amount: 24.0,
                 unit: MemoryUnit::GB
             }),
             vendor: None,
