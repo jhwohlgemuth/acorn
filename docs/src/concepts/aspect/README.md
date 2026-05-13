@@ -1,6 +1,10 @@
 # ASPECT
 > **A** **S**cientific **P**aradigm for the **E**fficient **C**lassification of **T**echnology
 
+<img src="../../_assets/aspect_attributes.png" alt="ASPECT Attributes" width="200" />
+
+*portability* | *maturity* | *autonomy* | *motivity*
+
 The **ASPECT** framework is a standardized methodology for classifying and describing technology components within the ACORN ecosystem. It provides a structured approach to defining the attributes and relationships of various technological elements, ensuring consistency and interoperability across different systems and applications.
 
 **ASPECT** was designed to unify our understanding of automation, AI/ML technology, and "classical" software. We focus on "technology" instead of "***AI/ML*** technology" because the latter is a subset of the former. Focusing on AI/ML as the end goal is not fruitful or correct. In fact, doing so is backward. AI/ML software is not novel in any meaningful sense. Even if it was, it would still be 100% predicated on the scientific principles of software.
@@ -13,10 +17,6 @@ In the context of technology, AI/ML and automation are the same.
 ## Key Components
 
 ### Primary attributes
-
-<img src="../../_assets/aspect_attributes.png" alt="ASPECT Attributes" width="200" />
-
-portability | maturity | autonomy | motivity
 
 *click arrow to expand or collapse*
 <details>
