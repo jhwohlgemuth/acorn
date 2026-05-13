@@ -3,12 +3,18 @@ use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Memory types and (de)serialization for hardware resources
+pub mod memory;
 /// Vendor-specific hardware architecture types
 pub mod vendor;
+pub use memory::{Memory, MemoryUnit};
 use vendor::{
-    AmdCpuArchitecture, AmdGpuArchitecture, AppleCpuArchitecture, AppleGpuArchitecture, IntelCpuArchitecture,
-    IntelGpuArchitecture, NvidiaGpuArchitecture,
+    AmdCpuArchitecture, AmdGpuArchitecture, AppleCpuArchitecture, AppleGpuArchitecture, IntelCpuArchitecture, IntelGpuArchitecture,
+    NvidiaGpuArchitecture,
 };
+
+#[cfg(test)]
+mod tests;
 
 /// Unified hardware architecture identifier
 ///
@@ -421,16 +427,6 @@ pub enum GpuArchitecture {
     #[display("{}", _0)]
     Other(String),
 }
-/// Memory unit for hardware resources
-#[derive(Clone, Copy, Debug, Display, PartialEq, Serialize)]
-pub enum MemoryUnit {
-    /// Gigabytes
-    GB,
-    /// Kilobytes
-    KB,
-    /// Megabytes
-    MB,
-}
 /// Enumeration for hardware resources used by technology
 #[derive(Clone, Debug, Serialize, JsonSchema)]
 pub enum Resource {
@@ -624,37 +620,28 @@ pub enum Vendor {
     #[display("{}", _0)]
     Other(String),
 }
-/// Memory amount with explicit unit
-///
-/// Supports string formats like `"80GB"`, `"2.5GB"`, `"512MB"`, `"64KB"` and plain number (defaults to GB).
-#[derive(Clone, Debug, PartialEq)]
-pub struct Memory {
-    /// Numeric amount of memory
-    pub amount: f64,
-    /// Unit of measurement
-    pub unit: MemoryUnit,
-}
-impl Memory {
-    /// Create a Memory value in GB
-    pub fn gb(amount: impl Into<f64>) -> Self {
-        Memory {
-            amount: amount.into(),
-            unit: MemoryUnit::GB,
-        }
-    }
-    /// Create a Memory value in KB
-    pub fn kb(amount: impl Into<f64>) -> Self {
-        Memory {
-            amount: amount.into(),
-            unit: MemoryUnit::KB,
-        }
-    }
-    /// Create a Memory value in MB
-    pub fn mb(amount: impl Into<f64>) -> Self {
-        Memory {
-            amount: amount.into(),
-            unit: MemoryUnit::MB,
-        }
+impl Architecture {
+    fn from_str(s: &str) -> Self {
+        let normalized = s.trim();
+        let quoted = format!("\"{normalized}\"");
+        [
+            serde_json::from_str::<CpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<AmdCpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<AppleCpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<IntelCpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<GpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<AmdGpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<AppleGpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<IntelGpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<NvidiaGpuArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<FpgaArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<AcceleratorArchitecture>(&quoted).ok().map(Architecture::from),
+            serde_json::from_str::<DspArchitecture>(&quoted).ok().map(Architecture::from),
+        ]
+        .into_iter()
+        .flatten()
+        .next()
+        .unwrap_or_else(|| Architecture::Other(normalized.to_string()))
     }
 }
 impl From<String> for Architecture {
@@ -732,30 +719,6 @@ impl From<GpuArchitecture> for Architecture {
             | GpuArchitecture::Xe3 => Architecture::Xe3,
             | GpuArchitecture::Other(s) => Architecture::Other(s),
         }
-    }
-}
-impl Architecture {
-    fn from_str(s: &str) -> Self {
-        let normalized = s.trim();
-        let quoted = format!("\"{normalized}\"");
-        [
-            serde_json::from_str::<CpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<AmdCpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<AppleCpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<IntelCpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<GpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<AmdGpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<AppleGpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<IntelGpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<NvidiaGpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<FpgaArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<AcceleratorArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<DspArchitecture>(&quoted).ok().map(Architecture::from),
-        ]
-        .into_iter()
-        .flatten()
-        .next()
-        .unwrap_or_else(|| Architecture::Other(normalized.to_string()))
     }
 }
 impl<'de> Deserialize<'de> for Architecture {
@@ -1053,116 +1016,6 @@ impl<'de> Deserialize<'de> for Resource {
             }
         }
         deserializer.deserialize_any(ResourceVisitor)
-    }
-}
-impl<'de> Deserialize<'de> for Memory {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        struct MemoryVisitor;
-        impl<'de> serde::de::Visitor<'de> for MemoryVisitor {
-            type Value = Memory;
-            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.write_str(r#"a memory string (e.g. "80GB", "2.5GB", "512MB") or a number (treated as GB)"#)
-            }
-            fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Memory, E> {
-                Ok(Memory {
-                    amount: value as f64,
-                    unit: MemoryUnit::GB,
-                })
-            }
-            fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Memory, E> {
-                if value < 0 {
-                    return Err(serde::de::Error::custom("Memory amount cannot be negative"));
-                }
-                Ok(Memory {
-                    amount: value as f64,
-                    unit: MemoryUnit::GB,
-                })
-            }
-            fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Memory, E> {
-                if value < 0.0 {
-                    return Err(serde::de::Error::custom("Memory amount cannot be negative"));
-                }
-                Ok(Memory {
-                    amount: value,
-                    unit: MemoryUnit::GB,
-                })
-            }
-            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Memory, E> {
-                let s = value.trim();
-                let split = s
-                    .find(|c: char| !c.is_ascii_digit() && c != '.')
-                    .ok_or_else(|| serde::de::Error::custom(format!("Missing unit in memory value: '{s}'")))?;
-                let num_str = s[..split].trim();
-                let unit_str = s[split..].trim();
-                let amount: f64 = num_str
-                    .parse()
-                    .map_err(|_| serde::de::Error::custom(format!("Invalid memory amount: '{num_str}'")))?;
-                if amount < 0.0 {
-                    return Err(serde::de::Error::custom("Memory amount cannot be negative"));
-                }
-                let unit = MemoryUnit::deserialize(serde::de::value::StrDeserializer::new(unit_str))?;
-                Ok(Memory { amount, unit })
-            }
-        }
-        deserializer.deserialize_any(MemoryVisitor)
-    }
-}
-impl<'de> Deserialize<'de> for MemoryUnit {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        struct MemoryUnitVisitor;
-        impl<'de> serde::de::Visitor<'de> for MemoryUnitVisitor {
-            type Value = MemoryUnit;
-            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.write_str("a memory unit string (e.g. 'GB', 'MB', 'KB')")
-            }
-            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<MemoryUnit, E> {
-                match value.trim().to_uppercase().as_str() {
-                    | "GB" | "G" | "GIB" => Ok(MemoryUnit::GB),
-                    | "MB" | "M" | "MIB" => Ok(MemoryUnit::MB),
-                    | "KB" | "K" | "KIB" => Ok(MemoryUnit::KB),
-                    | other => Err(serde::de::Error::custom(format!("Invalid memory unit: '{other}'"))),
-                }
-            }
-        }
-        deserializer.deserialize_str(MemoryUnitVisitor)
-    }
-}
-impl Serialize for Memory {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let s = format!("{}{}", self.amount, self.unit);
-        serializer.serialize_str(&s)
-    }
-}
-impl schemars::JsonSchema for Memory {
-    fn schema_name() -> alloc::borrow::Cow<'static, str> {
-        "Memory".into()
-    }
-    fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
-        use core::convert::TryInto;
-        serde_json::json!({"type": "string", "pattern": "^\\d+(\\.\\d+)?\\s*(GB|MB|KB)$"})
-            .try_into()
-            .unwrap()
-    }
-    fn inline_schema() -> bool {
-        true
-    }
-}
-impl schemars::JsonSchema for MemoryUnit {
-    fn schema_name() -> alloc::borrow::Cow<'static, str> {
-        "MemoryUnit".into()
-    }
-    fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
-        use core::convert::TryInto;
-        serde_json::json!({"type": "string", "enum": ["GB", "MB", "KB"]}).try_into().unwrap()
-    }
-    fn inline_schema() -> bool {
-        true
     }
 }
 fn default_count() -> Option<u32> {
