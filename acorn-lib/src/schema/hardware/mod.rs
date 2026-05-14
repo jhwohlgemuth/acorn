@@ -5,9 +5,12 @@ use serde::{Deserialize, Serialize};
 
 /// Memory types and (de)serialization for hardware resources
 pub mod memory;
+/// Quantum computing paradigms and hardware definitions
+pub mod quantum;
 /// Vendor-specific hardware architecture types
 pub mod vendor;
 pub use memory::{Memory, MemoryUnit};
+pub use quantum::{Model, Paradigm, Topology};
 use vendor::{
     AmdCpuArchitecture, AmdGpuArchitecture, AppleCpuArchitecture, AppleGpuArchitecture, IntelCpuArchitecture, IntelGpuArchitecture,
     NvidiaGpuArchitecture,
@@ -621,52 +624,6 @@ pub enum FpgaArchitecture {
     #[display("{}", _0)]
     Other(String),
 }
-/// Quantum computing paradigm or modality
-#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
-pub enum QuantumParadigm {
-    /// Gate-based quantum computing (e.g., IBM, Google)
-    #[display("Gate-based")]
-    #[serde(alias = "gate-based", alias = "gate_based", alias = "GateBased")]
-    GateBased,
-    /// Quantum annealing (e.g., D-Wave)
-    #[display("Annealing")]
-    Annealing,
-    /// Hybrid quantum-classical workflows
-    #[display("Hybrid Quantum-Classical")]
-    #[serde(
-        alias = "Hybrid Quantum-Classical",
-        alias = "hybrid quantum-classical",
-        alias = "hybrid quantum classical",
-        alias = "hybrid_quantum_classical",
-        alias = "HybridQuantumClassical"
-    )]
-    HybridQuantumClassical,
-    /// Photonic quantum computing (e.g., PsiQuantum, Xanadu)
-    #[display("Photonic")]
-    Photonic,
-    /// Neutral atom quantum computing (e.g., QuEra, Pasqal)
-    #[display("Neutral Atom")]
-    #[serde(alias = "Neutral Atom", alias = "neutral_atom", alias = "NeutralAtom")]
-    NeutralAtom,
-    /// Noisy Intermediate-Scale Quantum (NISQ) computing
-    #[display("NISQ")]
-    #[serde(
-        alias = "NISQ",
-        alias = "nisq",
-        alias = "Noisy Intermediate-Scale Quantum",
-        alias = "noisy intermediate-scale quantum",
-        alias = "noisy_intermediate_scale_quantum",
-        alias = "NoisyIntermediateScaleQuantum"
-    )]
-    Nisq,
-    /// Trapped ion quantum computing (e.g., IonQ, Honeywell)
-    #[display("Trapped Ion")]
-    #[serde(alias = "Trapped Ion", alias = "trapped_ion", alias = "TrappedIon")]
-    TrappedIon,
-    /// Other or unspecified quantum paradigm
-    #[display("{}", _0)]
-    Other(String),
-}
 /// GPU graphics microarchitectures
 ///
 /// Vendor-specific GPU architectures are defined in the `vendor` module:
@@ -933,13 +890,13 @@ pub enum Resource {
         /// Number of QPUs required (if applicable)
         count: Option<u32>,
         /// Chip or system model name (e.g., "Eagle", "Heron", "Sycamore")
-        model: Option<String>,
+        model: Option<Model>,
         /// Computing paradigm or modality
-        paradigm: Option<QuantumParadigm>,
+        paradigm: Option<Paradigm>,
         /// Number of qubits (physical or logical, as applicable)
         qubits: Option<u32>,
         /// Qubit connectivity topology (e.g., "heavy-hex", "all-to-all")
-        topology: Option<String>,
+        topology: Option<Topology>,
         /// Hardware vendor (e.g., IBM, Google, IonQ)
         vendor: Option<Vendor>,
     },
@@ -1462,10 +1419,10 @@ impl<'de> Deserialize<'de> for Resource {
                             struct F {
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
-                                model: Option<String>,
-                                paradigm: Option<QuantumParadigm>,
+                                model: Option<Model>,
+                                paradigm: Option<Paradigm>,
                                 qubits: Option<u32>,
-                                topology: Option<String>,
+                                topology: Option<Topology>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();

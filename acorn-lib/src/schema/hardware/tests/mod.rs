@@ -2,7 +2,7 @@ use super::vendor::{
     AmdCpuArchitecture, AmdGpuArchitecture, AppleCpuArchitecture, AppleGpuArchitecture, IntelCpuArchitecture, IntelGpuArchitecture,
     NvidiaGpuArchitecture,
 };
-use super::{Architecture, CpuArchitecture, GpuArchitecture, Memory, MemoryUnit, QuantumParadigm, Resource, Vendor};
+use super::{Architecture, CpuArchitecture, GpuArchitecture, Memory, MemoryUnit, Paradigm, Resource, Vendor};
 use crate::schema::research_activity::ResearchActivityMetadata;
 
 #[test]
@@ -305,21 +305,21 @@ fn test_memory_in_research_activity_float() {
 #[test]
 fn test_quantum_paradigm_deserialize() {
     let tests = [
-        (r#""NISQ""#, QuantumParadigm::Nisq),
-        (r#""nisq""#, QuantumParadigm::Nisq),
-        (r#""Noisy Intermediate-Scale Quantum""#, QuantumParadigm::Nisq),
+        (r#""NISQ""#, Paradigm::Nisq),
+        (r#""nisq""#, Paradigm::Nisq),
+        (r#""Noisy Intermediate-Scale Quantum""#, Paradigm::Nisq),
     ];
     for (json, expected) in tests {
-        let actual: QuantumParadigm = serde_json::from_str(json).unwrap();
+        let actual: Paradigm = serde_json::from_str(json).unwrap();
         assert_eq!(actual, expected, "QuantumParadigm mismatch: {}", json);
     }
     let tests = [
-        (r#""Hybrid Quantum-Classical""#, QuantumParadigm::HybridQuantumClassical),
-        (r#""hybrid quantum-classical""#, QuantumParadigm::HybridQuantumClassical),
-        (r#""hybrid quantum classical""#, QuantumParadigm::HybridQuantumClassical),
+        (r#""Hybrid Quantum-Classical""#, Paradigm::HybridQuantumClassical),
+        (r#""hybrid quantum-classical""#, Paradigm::HybridQuantumClassical),
+        (r#""hybrid quantum classical""#, Paradigm::HybridQuantumClassical),
     ];
     for (json, expected) in tests {
-        let actual: QuantumParadigm = serde_json::from_str(json).unwrap();
+        let actual: Paradigm = serde_json::from_str(json).unwrap();
         assert_eq!(actual, expected, "QuantumParadigm mismatch: {}", json);
     }
 }

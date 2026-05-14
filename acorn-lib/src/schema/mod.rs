@@ -9,7 +9,7 @@ pub use hardware::vendor::{
 };
 pub use hardware::{
     vendor, AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Memory, MemoryUnit,
-    Resource, Vendor,
+    Model, Paradigm, Resource, Topology, Vendor,
 };
 
 #[cfg(feature = "std")]
