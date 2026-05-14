@@ -1,5 +1,4 @@
 //! Apple-specific hardware architectures
-
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -25,7 +24,6 @@ pub enum AppleCpuArchitecture {
     #[display("{}", _0)]
     Other(String),
 }
-
 /// Apple GPU architectures (integrated in Apple Silicon)
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub enum AppleGpuArchitecture {

@@ -1,5 +1,4 @@
 //! NVIDIA-specific hardware architectures
-
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

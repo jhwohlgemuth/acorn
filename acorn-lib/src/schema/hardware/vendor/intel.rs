@@ -1,5 +1,4 @@
 //! Intel-specific hardware architectures
-
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -15,7 +14,6 @@ pub enum IntelCpuArchitecture {
     #[display("{}", _0)]
     Other(String),
 }
-
 /// Intel FPGA architectures
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub enum IntelFpgaArchitecture {
@@ -32,7 +30,6 @@ pub enum IntelFpgaArchitecture {
     #[display("{}", _0)]
     Other(String),
 }
-
 /// Intel GPU architectures
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub enum IntelGpuArchitecture {

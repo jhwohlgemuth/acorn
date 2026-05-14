@@ -13,9 +13,6 @@ use vendor::{
     NvidiaGpuArchitecture,
 };
 
-#[cfg(test)]
-mod tests;
-
 /// Unified hardware architecture identifier
 ///
 /// This enum provides a single type that can represent any hardware architecture
@@ -361,6 +358,31 @@ pub enum FpgaArchitecture {
     #[display("{}", _0)]
     Other(String),
 }
+/// Quantum computing paradigm or modality
+#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+pub enum QuantumParadigm {
+    /// Gate-based quantum computing (e.g., IBM, Google)
+    #[display("Gate-based")]
+    #[serde(alias = "gate-based", alias = "gate_based", alias = "GateBased")]
+    GateBased,
+    /// Quantum annealing (e.g., D-Wave)
+    #[display("Annealing")]
+    Annealing,
+    /// Photonic quantum computing (e.g., PsiQuantum, Xanadu)
+    #[display("Photonic")]
+    Photonic,
+    /// Neutral atom quantum computing (e.g., QuEra, Pasqal)
+    #[display("Neutral Atom")]
+    #[serde(alias = "Neutral Atom", alias = "neutral_atom", alias = "NeutralAtom")]
+    NeutralAtom,
+    /// Trapped ion quantum computing (e.g., IonQ, Honeywell)
+    #[display("Trapped Ion")]
+    #[serde(alias = "Trapped Ion", alias = "trapped_ion", alias = "TrappedIon")]
+    TrappedIon,
+    /// Other or unspecified quantum paradigm
+    #[display("{}", _0)]
+    Other(String),
+}
 /// GPU graphics microarchitectures
 ///
 /// Vendor-specific GPU architectures are defined in the `vendor` module:
@@ -543,9 +565,36 @@ pub enum Resource {
         vendor: Option<Vendor>,
     },
     /// Neuromorphic compute
-    Neuromorphic,
+    Neuromorphic {
+        /// Number of neuromorphic chips required (if applicable)
+        count: Option<u32>,
+        /// On-chip memory (if applicable)
+        #[serde(alias = "mem")]
+        memory: Option<Memory>,
+        /// Chip model name (e.g., "Loihi 2", "TrueNorth", "SpiNNaker2")
+        model: Option<String>,
+        /// Neuron capacity per chip (if applicable)
+        neurons: Option<u64>,
+        /// Synapse capacity per chip (if applicable)
+        synapses: Option<u64>,
+        /// Hardware vendor (e.g., Intel, IBM)
+        vendor: Option<Vendor>,
+    },
     /// Quantum computing (e.g., NISQ, etc.)
-    Quantum,
+    Quantum {
+        /// Number of QPUs required (if applicable)
+        count: Option<u32>,
+        /// Chip or system model name (e.g., "Eagle", "Heron", "Sycamore")
+        model: Option<String>,
+        /// Computing paradigm or modality
+        paradigm: Option<QuantumParadigm>,
+        /// Number of qubits (physical or logical, as applicable)
+        qubits: Option<u32>,
+        /// Qubit connectivity topology (e.g., "heavy-hex", "all-to-all")
+        topology: Option<String>,
+        /// Hardware vendor (e.g., IBM, Google, IonQ)
+        vendor: Option<Vendor>,
+    },
     /// Tensor processing unit
     TPU {
         /// TPU generation
@@ -577,9 +626,15 @@ pub enum Vendor {
     /// Arm Holdings
     #[display("ARM")]
     ARM,
+    /// BrainChip Holdings (neuromorphic AI)
+    #[display("BrainChip")]
+    BrainChip,
     /// Broadcom Inc.
     #[display("Broadcom")]
     Broadcom,
+    /// D-Wave Systems (quantum annealing)
+    #[display("D-Wave")]
+    DWave,
     /// Google LLC
     #[display("Google")]
     Google,
@@ -595,6 +650,9 @@ pub enum Vendor {
     /// Intel Corporation
     #[display("Intel")]
     Intel,
+    /// IonQ Inc. (trapped ion quantum computing)
+    #[display("IonQ")]
+    IonQ,
     /// MediaTek Inc.
     #[display("MediaTek")]
     MediaTek,
@@ -607,6 +665,12 @@ pub enum Vendor {
     /// Qualcomm Incorporated
     #[display("Qualcomm")]
     Qualcomm,
+    /// Quantinuum (trapped ion quantum computing, Honeywell spin-off)
+    #[display("Quantinuum")]
+    Quantinuum,
+    /// Rigetti Computing (superconducting gate-based quantum)
+    #[display("Rigetti")]
+    Rigetti,
     /// Samsung Electronics
     #[display("Samsung")]
     Samsung,
@@ -800,8 +864,22 @@ impl<'de> Deserialize<'de> for Resource {
                         memory: None,
                         vendor: None,
                     }),
-                    | "Neuromorphic" | "neuromorphic" => Ok(Resource::Neuromorphic),
-                    | "Quantum" | "quantum" => Ok(Resource::Quantum),
+                    | "Neuromorphic" | "neuromorphic" => Ok(Resource::Neuromorphic {
+                        count: Some(1),
+                        memory: None,
+                        model: None,
+                        neurons: None,
+                        synapses: None,
+                        vendor: None,
+                    }),
+                    | "Quantum" | "quantum" => Ok(Resource::Quantum {
+                        count: Some(1),
+                        model: None,
+                        paradigm: None,
+                        qubits: None,
+                        topology: None,
+                        vendor: None,
+                    }),
                     | "TPU" | "tpu" => Ok(Resource::TPU {
                         architecture: None,
                         count: Some(1),
@@ -974,10 +1052,52 @@ impl<'de> Deserialize<'de> for Resource {
                                 | Err(why) => Err(why),
                             }
                         }
-                        | "Neuromorphic" | "Quantum" => {
-                            let next_value_result: Result<serde::de::IgnoredAny, M::Error> = map.next_value();
+                        | "Neuromorphic" => {
+                            #[derive(Deserialize)]
+                            struct F {
+                                #[serde(default = "default_count")]
+                                count: Option<u32>,
+                                #[serde(alias = "mem")]
+                                memory: Option<Memory>,
+                                model: Option<String>,
+                                neurons: Option<u64>,
+                                synapses: Option<u64>,
+                                vendor: Option<Vendor>,
+                            }
+                            let next_value_result: Result<F, M::Error> = map.next_value();
                             match next_value_result {
-                                | Ok::<serde::de::IgnoredAny, M::Error>(_) => self.visit_str(&tag),
+                                | Ok(f) => Ok(Resource::Neuromorphic {
+                                    count: f.count,
+                                    memory: f.memory,
+                                    model: f.model,
+                                    neurons: f.neurons,
+                                    synapses: f.synapses,
+                                    vendor: f.vendor,
+                                }),
+                                | Err(why) => Err(why),
+                            }
+                        }
+                        | "Quantum" => {
+                            #[derive(Deserialize)]
+                            struct F {
+                                #[serde(default = "default_count")]
+                                count: Option<u32>,
+                                model: Option<String>,
+                                paradigm: Option<QuantumParadigm>,
+                                qubits: Option<u32>,
+                                topology: Option<String>,
+                                vendor: Option<Vendor>,
+                            }
+                            let next_value_result: Result<F, M::Error> = map.next_value();
+                            match next_value_result {
+                                | Ok(f) => Ok(Resource::Quantum {
+                                    count: f.count,
+                                    model: f.model,
+                                    paradigm: f.paradigm,
+                                    qubits: f.qubits,
+                                    topology: f.topology,
+                                    vendor: f.vendor,
+                                }),
                                 | Err(why) => Err(why),
                             }
                         }
@@ -1021,3 +1141,6 @@ impl<'de> Deserialize<'de> for Resource {
 fn default_count() -> Option<u32> {
     Some(1)
 }
+
+#[cfg(test)]
+mod tests;

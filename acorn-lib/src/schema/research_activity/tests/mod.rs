@@ -315,7 +315,14 @@ fn test_metadata_with_minimal_resources() {
     let meta = ResearchActivityMetadata::init()
         .identifier("quantum-project".to_string())
         .resources(vec![
-            Resource::Quantum,
+            Resource::Quantum {
+                count: None,
+                model: None,
+                paradigm: None,
+                qubits: None,
+                topology: None,
+                vendor: None,
+            },
             Resource::FPGA {
                 architecture: None,
                 count: None,
@@ -327,7 +334,7 @@ fn test_metadata_with_minimal_resources() {
         .build();
     let resources = meta.resources.expect("resources should be present");
     assert_eq!(resources.len(), 2);
-    assert!(matches!(resources[0], Resource::Quantum));
+    assert!(matches!(resources[0], Resource::Quantum { .. }));
     assert!(matches!(resources[1], Resource::FPGA { .. }));
 }
 #[test]
@@ -505,8 +512,8 @@ fn test_deserialize_metadata_with_unit_resources() {
     let meta: ResearchActivityMetadata = serde_json::from_str(json).expect("should deserialize unit resource variants");
     let resources = meta.resources.expect("resources should be present");
     assert_eq!(resources.len(), 6);
-    assert!(matches!(resources[0], Resource::Quantum));
-    assert!(matches!(resources[1], Resource::Neuromorphic));
+    assert!(matches!(resources[0], Resource::Quantum { .. }));
+    assert!(matches!(resources[1], Resource::Neuromorphic { .. }));
     assert!(matches!(resources[2], Resource::NPU { .. }));
     assert!(matches!(resources[3], Resource::ASIC { .. }));
     assert!(matches!(resources[4], Resource::DSP { .. }));

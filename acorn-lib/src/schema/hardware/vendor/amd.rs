@@ -1,5 +1,4 @@
 //! AMD-specific hardware architectures
-
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -18,7 +17,6 @@ pub enum AmdCpuArchitecture {
     #[display("{}", _0)]
     Other(String),
 }
-
 /// AMD GPU architectures
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub enum AmdGpuArchitecture {
