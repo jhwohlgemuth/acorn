@@ -3,7 +3,6 @@
 /// Module that provides `std` support
 #[allow(unused_imports)]
 mod std {
-    pub use alloc::sync::Arc;
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
     pub use std::env::{self, consts, var};
     pub use std::ffi::OsStr;
@@ -16,12 +15,13 @@ mod std {
     pub use std::path::{absolute, Path, PathBuf};
     pub use std::process::{exit, Command, ExitStatus, Output, Stdio};
     pub use std::sync::{Mutex, OnceLock};
+    pub use triomphe::Arc;
 }
 /// Module that provides `no-std` support
 #[allow(unused_imports)]
 mod no_std {
-    pub use alloc::sync::Arc;
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
+    pub use triomphe::Arc;
 }
 
 #[cfg(not(feature = "std"))]
