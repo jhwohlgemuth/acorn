@@ -21,159 +21,352 @@ use vendor::{
 #[derive(Clone, Debug, Display, PartialEq, Serialize, JsonSchema)]
 pub enum Architecture {
     /// 64-bit ARM instruction set
+    ///
+    /// See <https://developer.arm.com/documentation/102374/0103/> for more information
     #[display("AArch64")]
     AArch64,
-    /// NVIDIA Ada Lovelace microarchitecture (RTX 40xx)
+    /// NVIDIA Ada Lovelace architecture (RTX 40xx)
+    /// > Designed to provide revolutionary performance for ray tracing and AI-based neural graphics
+    ///
+    /// See <https://www.nvidia.com/en-us/geforce/ada-lovelace-architecture/> for more information
     #[display("Ada Lovelace")]
     AdaLovelace,
-    /// Intel Agilex FPGA
+    /// Intel Agilex [`Resource::FPGA`]
+    ///
+    /// See <https://www.intel.com/content/www/us/en/homepage.html> for more information
     #[display("Agilex")]
     Agilex,
+    /// Xilinx Artix [`Resource::FPGA`] family
+    /// > Cost and transceiver optimized
+    ///
+    /// See <https://www.amd.com/en/products/adaptive-socs-and-fpgas/fpga/artix-7.html> for more information
+    #[display("Artix")]
+    Artix,
     /// Intel Alchemist graphics architecture (Xe-HPG)
+    /// > High-performance graphics architecture designed for discrete GPUs
+    ///
+    /// See [Introduction to the Xe-HPG Architecture](https://www.intel.com/content/www/us/en/developer/articles/technical/introduction-to-the-xe-hpg-architecture.html) for more information
     #[display("Alchemist")]
     Alchemist,
-    /// NVIDIA Ampere microarchitecture (A100, RTX 30xx)
+    /// NVIDIA (2020) Ampere architecture (A100, RTX 30xx)
+    /// > Designed for AI, HPC, and graphics workloads
+    ///
+    /// See <https://www.nvidia.com/en-us/data-center/ampere-architecture/> for more information
     #[display("Ampere")]
     Ampere,
     /// Huawei Ascend 910 AI accelerator
+    ///
+    /// See <https://www.huawei.com/en/> for more information
     #[display("Ascend 910")]
     Ascend910,
     /// Tenstorrent Blackhole AI accelerator
+    /// > PCIe boards that are infinitely scalable and designed for high performance AI processing — features 16 big RISC-V cores and up to 32GB of GDDR6 memory per chip
+    ///
+    /// See <https://tenstorrent.com/hardware/cards> for more information
     #[display("Blackhole")]
     Blackhole,
-    /// NVIDIA Blackwell microarchitecture (RTX 50xx, B100)
+    /// NVIDIA Blackwell architecture (RTX 50xx, B100)
+    ///
+    /// See <https://www.nvidia.com/en-us/data-center/technologies/blackwell-architecture/> for more information
     #[display("Blackwell")]
     Blackwell,
-    /// Texas Instruments C66x DSP
+    /// Texas Instruments C66x [`Resource::DSP`]
+    ///
+    /// See [C66x DSP CPU and Instruction Set](https://www.nvidia.com/en-us/data-center/technologies/blackwell-architecture/) for more information
     #[display("C66x")]
     C66x,
     /// AMD CDNA 1 microarchitecture (MI100)
+    /// > Dedicated compute architecture underlying AMD Instinct™ GPUs and APUs
+    ///
+    /// See <https://www.amd.com/en/technologies/cdna.html> for more information
     #[display("CDNA1")]
     Cdna1,
     /// AMD CDNA 2 microarchitecture (MI250)
+    /// > Dedicated compute architecture underlying AMD Instinct™ GPUs and APUs
+    ///
+    /// See <https://www.amd.com/en/technologies/cdna.html> for more information
     #[display("CDNA2")]
     Cdna2,
     /// AMD CDNA 3 microarchitecture (MI300)
+    /// > Dedicated compute architecture underlying AMD Instinct™ GPUs and APUs
+    ///
+    /// See <https://www.amd.com/en/technologies/cdna.html> for more information
     #[display("CDNA3")]
     Cdna3,
-    /// Lattice CrossLink FPGA
+    /// AMD CDNA 4 microarchitecture (MI350)
+    /// > Dedicated compute architecture underlying AMD Instinct™ GPUs and APUs
+    ///
+    /// See <https://www.amd.com/en/technologies/cdna.html> for more information
+    #[display("CDNA4")]
+    Cdna4,
+    /// Lattice CrossLink [`Resource::FPGA`]
+    /// > Low power FPGA featuring hardened MIPI[^mipi] D-PHY[^dphy], LVDS[^lvds], SLVS[^slvs], subLVDS[^sublvds], & Open LDI[^openldi] bridging
+    ///
+    /// [^mipi]: Mobile Industry Processor Interface (a standards body/spec family)
+    /// [^dphy]: A specific MIPI-defined physical layer (often just called "MIPI D-PHY") rather than a word-by-word acronym expansion in practice
+    /// [^lvds]: Low-Voltage Differential Signaling
+    /// [^slvs]: Scalable Low-Voltage Signaling
+    /// [^sublvds]: Sub Low-Voltage Differential Signaling (a lower-swing LVDS variant used in imaging)
+    /// [^openldi]: Open LVDS Display Interface (Open LDI / OpenLDI)
+    ///
+    /// See <https://www.latticesemi.com/products/fpgaandcpld/crosslink> for more information
     #[display("CrossLink")]
     CrossLink,
-    /// Intel/Altera Cyclone V FPGA
+    /// Intel/Altera Cyclone V [`Resource::FPGA`]
+    ///
+    /// See <https://www.intel.com/content/www/us/en/homepage.html> for more information
     #[display("Cyclone V")]
     CycloneV,
-    /// Lattice ECP5 FPGA
+    /// Lattice ECP5 [`Resource::FPGA`]
+    /// > Lattice mid-range FPGA family
+    ///
+    /// See <https://www.latticesemi.com/products/fpgaandcpld/ecp5> for more information
     #[display("ECP5")]
     Ecp5,
-    /// ARM Ethos NPU
+    /// ARM Ethos [`Resource::NPU`]
+    ///
+    /// See <https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u85> for more information
     #[display("Ethos")]
     Ethos,
     /// Intel Habana Gaudi2 AI accelerator
+    ///
+    /// See <[The Habana Gaudi2 Processor for Deep Learning](https://www.intel.com/content/www/us/en/developer/articles/technical/habana-gaudi2-processor-for-deep-learning.html) for more information
     #[display("Gaudi2")]
     Gaudi2,
-    /// Qualcomm Hexagon processor (NPU/DSP)
+    /// Graphcore Colossus GC200 / IPU architecture (2018-2019)
+    #[display("Graphcore GC200")]
+    GraphcoreGc200,
+    /// Qualcomm Hexagon processor NPU
+    /// > Purpose-built for AI, powers advanced gen AI models and cutting-edge gen AI experiences while maintaining best-in-class power efficiency
+    ///
+    /// See https://www.qualcomm.com/processors/hexagon> for more information
     #[display("Hexagon")]
     Hexagon,
-    /// NVIDIA Hopper microarchitecture (H100, H200)
+    /// NVIDIA Hopper architecture (H100, H200)
+    ///
+    /// See <https://www.nvidia.com/en-us/data-center/technologies/hopper-architecture/> for more information
     #[display("Hopper")]
     Hopper,
     /// Intel Itanium architecture (IA-64)
+    ///
+    /// See [WIkipedia](https://en.wikipedia.org/wiki/Itanium) for more information
     #[display("IA-64")]
     Ia64,
-    /// Lattice iCE40 FPGA
+    /// Lattice iCE40 LP/HX/UltraPlus [`Resource::FPGA`]
+    /// > Low-Power, High-Performance FPGA with Small [^BGA] package for the thinnest devices
+    ///
+    /// [^BGA]: Ball Grid Array (BGA) is a type of surface-mount packaging used for integrated circuits, where the connections are made through an array of solder balls on the underside of the package rather than traditional pins. This allows for a smaller footprint and better thermal performance, making it ideal for compact devices.
+    ///
+    /// See <https://www.latticesemi.com/products/fpgaandcpld/ice40> for more information
     #[display("iCE40")]
     Ice40,
     /// Amazon Inferentia AI inference chip
+    ///
+    /// See <https://aws.amazon.com/ai/machine-learning/inferentia/> for more information
     #[display("Inferentia")]
     Inferentia,
+    /// NVIDIA (2012) Kepler [`Resource::GPU`] architecture (GK-series)
+    ///
+    /// See [Tuning CUDA Applications for Kepler](https://docs.nvidia.com/cuda/archive/9.2/kepler-tuning-guide/index.html#nvidia-kepler-compute-architecture) for more information
+    #[display("Kepler")]
+    Kepler,
+    /// Xilinx Kintex FPGA family
+    #[display("Kintex")]
+    Kintex,
     /// LoongArch (Chinese CPU ISA)
+    ///
+    /// See [Wikipedia](https://en.wikipedia.org/wiki/Loongson#LoongArch) for more information
     #[display("LoongArch")]
     LoongArch,
     /// Groq Language Processing Unit
+    ///
+    /// See <https://groq.com/lpu-architecture> for more information
     #[display("LPU")]
     Lpu,
     /// Microsoft Maia AI accelerator
+    ///
+    /// See <https://news.microsoft.com/maia-200/> for more information
     #[display("Maia")]
     Maia,
-    /// MIPS instruction set architecture
+    /// NVIDIA (2014) Maxwell [`Resource::GPU`] architecture (GM-series)
+    ///
+    /// See <https://developer.nvidia.com/maxwell-compute-architecture> for more information
+    #[display("Maxwell")]
+    Maxwell,
+    /// [^MIPS] instruction set architecture
+    ///
+    /// [^MIPS]: Microprocessor without Interlocked Pipeline Stages (MIPS) is a RISC (Reduced Instruction Set Computer) architecture developed in the 1980s.
+    ///
+    /// See [Wikipedia](https://en.wikipedia.org/wiki/MIPS_architecture) for more information
     #[display("MIPS")]
     Mips,
     /// Apple Neural Engine
+    ///
+    /// See [Apple Machine Learning Research - The Apple Neural Engine](https://machinelearning.apple.com/research/neural-engine-transformers#the-apple-neuralengine) for more information
     #[display("Neural Engine")]
     NeuralEngine,
+    /// Intel Nervana neural processor (NNP-I / NNP-T)
+    ///
+    /// See <https://www.intel.com/content/www/us/en/homepage.html> for more information
+    #[display("Nervana")]
+    Nervana,
+    /// NVIDIA (2016) Pascal [`Resource::GPU`] microarchitecture (GP-series)
+    ///
+    /// See <https://www.nvidia.com/en-us/data-center/pascal-gpu-architecture/> for more information
+    #[display("Pascal")]
+    Pascal,
     /// IBM PowerPC architecture
+    /// > RISC [^ISA] created in 1991
+    ///
+    /// [^ISA]: Instruction Set Architecture (ISA)
+    ///
+    /// See [Wikipedia](https://en.wikipedia.org/wiki/PowerPC) for more information
     #[display("PowerPC")]
     PowerPc,
-    /// AMD RDNA 1 microarchitecture (RX 5xxx)
+    /// AMD RDNA 1 architecture (RX 5xxx)
+    ///
+    /// See <https://www.amd.com/en/technologies/rdna.html> for more information
     #[display("RDNA1")]
     Rdna1,
-    /// AMD RDNA 2 microarchitecture (RX 6xxx)
+    /// AMD RDNA 2 architecture (RX 6xxx)
+    ///
+    /// See <https://www.amd.com/en/technologies/rdna.html> for more information
     #[display("RDNA2")]
     Rdna2,
-    /// AMD RDNA 3 microarchitecture (RX 7xxx)
+    /// AMD RDNA 3 architecture (RX 7xxx)
+    ///
+    /// See <https://www.amd.com/en/technologies/rdna.html> for more information
     #[display("RDNA3")]
     Rdna3,
-    /// RISC-V open instruction set architecture
+    /// [^RISC]-V open [^ISA]
+    ///
+    /// [^RISC]: Reduced Instruction Set Computer (RISC)
+    /// [^ISA]: Instruction Set Architecture (ISA)
+    ///
+    /// See <https://riscv.org/> for more information
     #[display("RISC-V")]
     RiscV,
-    /// Intel/Altera Stratix V FPGA
+    /// SambaNova Reconfigurable Dataflow Unit (RDU) architecture
+    /// > Fifth-generation chip purpose-built for agentic inference
+    ///
+    /// See <https://sambanova.ai/products/rdu-ai-chips> for more information
+    #[display("SambaNova RDU")]
+    SambaNovaRdu,
+    /// Xilinx Spartan [`Resource::FPGA`] family
+    /// > I/O Optimization with High Performance-per-Watt
+    ///
+    /// See <https://www.amd.com/en/products/adaptive-socs-and-fpgas/fpga/spartan-7.html> for more information
+    #[display("Spartan")]
+    Spartan,
+    /// Intel Stratix 10 [`Resource::FPGA`] family
+    ///
+    /// See <https://www.intel.com/content/www/us/en/homepage.html> for more information
+    #[display("Stratix 10")]
+    Stratix10,
+    /// Intel/Altera Stratix V [`Resource::FPGA`]
+    ///
+    /// See <https://www.intel.com/content/www/us/en/homepage.html> for more information
     #[display("Stratix V")]
     StratixV,
-    /// Google TPU v4
+    /// Google [`Resource::TPU`] v4
+    ///
+    /// See <https://docs.cloud.google.com/tpu/docs/v4> for more information
     #[display("TPU v4")]
     TpuV4,
-    /// Google TPU v5e
+    /// Google [`Resource::TPU`] v5e
+    ///
+    /// See <https://docs.cloud.google.com/tpu/docs/v5e> for more information
     #[display("TPU v5e")]
     TpuV5e,
-    /// Google TPU v5p
+    /// Google [`Resource::TPU`] v5p
+    ///
+    /// See <https://docs.cloud.google.com/tpu/docs/v5p> for more information
     #[display("TPU v5p")]
     TpuV5p,
+    /// Google [`Resource::TPU`] v6e ("Trillium")
+    ///
+    /// See <https://cloud.google.com/tpu/docs/v6e> for more information
+    #[display("TPU v6e")]
+    TpuV6e,
     /// Amazon Trainium AI accelerator
+    /// > Purpose-built for high-performance, cost-efficient AI at scale
+    ///
+    /// See <https://aws.amazon.com/ai/machine-learning/trainium/> for more information
     #[display("Trainium")]
     Trainium,
-    /// NVIDIA Turing microarchitecture (RTX 20xx)
+    /// NVIDIA (2018) Turing architecture (RTX 20xx)
+    ///
+    /// See <https://www.nvidia.com/en-us/geforce/turing/> for more information
     #[display("Turing")]
     Turing,
     /// AMD/Xilinx Versal adaptive compute acceleration platform
+    /// > Heterogeneous acceleration from cloud to edge
+    ///
+    /// See <https://www.amd.com/en/products/adaptive-socs-and-fpgas/versal.html> for more information
     #[display("Versal")]
     Versal,
-    /// AMD/Xilinx Virtex UltraScale+ FPGA
+    /// AMD/Xilinx Virtex UltraScale+ [`Resource::FPGA`]
+    ///
+    /// See <https://www.amd.com/en/products/adaptive-socs-and-fpgas/fpga/virtex-ultrascale-plus.html> for more information
     #[display("Virtex UltraScale+")]
     VirtexUltraScalePlus,
-    /// NVIDIA Volta microarchitecture (V100)
+    /// NVIDIA Volta architecture (V100)
+    ///
+    /// See <https://www.nvidia.com/en-us/data-center/volta-gpu-architecture/> for more information
     #[display("Volta")]
     Volta,
     /// Tenstorrent Wormhole AI accelerator
+    /// > Flexible, scalable processors built with Tensix Cores™. Each includes a compute unit, network-on-chip, local cache and "baby RISC-V" cores, coalescing in powerful data movement through the chip.
+    ///
+    /// See <https://tenstorrent.com/hardware/cards#Wormhole> for more information
     #[display("Wormhole")]
     Wormhole,
     /// Cerebras Wafer-Scale Engine 2 (WSE-2)
+    ///
+    /// See <https://www.cerebras.ai/chip> for more information
     #[display("WSE-2")]
     Wse2,
     /// Cerebras Wafer-Scale Engine 3 (WSE-3)
+    ///
+    /// See <https://www.cerebras.ai/chip> for more information
     #[display("WSE-3")]
     Wse3,
     /// 32-bit x86 instruction set
+    ///
+    /// See [Wikipedia](https://en.wikipedia.org/wiki/X86) for more information
     #[display("x86")]
     X86,
     /// x86-64 instruction set (Intel/AMD)
+    ///
+    /// See [Wikipedia](https://en.wikipedia.org/wiki/X86-64) for more information
     #[display("x86_64")]
     X86_64,
     /// Intel Xe graphics architecture
     #[display("Xe")]
     Xe,
     /// Intel Xe2 graphics architecture (Battlemage)
+    ///
+    /// See <https://www.intel.com/content/www/us/en/homepage.html> for more information
     #[display("Xe2")]
     Xe2,
     /// Intel Xe3 graphics architecture (Celestial)
+    ///
+    /// See <https://www.intel.com/content/www/us/en/homepage.html> for more information
     #[display("Xe3")]
     Xe3,
-    /// Cadence Tensilica Xtensa DSP
+    /// Cadence Tensilica Xtensa [`Resource::DSP`]
+    ///
+    /// See <https://www.cadence.com/en_US/home/tools/ip/tensilica-ip.html> for more information
     #[display("Xtensa")]
     Xtensa,
     /// IBM z/Architecture mainframe
+    ///
+    /// See <https://www.ibm.com/us-en> for more information
     #[display("z/Architecture")]
     ZArch,
-    /// AMD/Xilinx Zynq SoC FPGA
+    /// AMD/Xilinx Zynq SoC [`Resource::FPGA`]
+    ///
+    /// See <https://www.amd.com/en/products/adaptive-socs-and-fpgas/soc.html> for more information
     #[display("Zynq")]
     Zynq,
     /// Other or unspecified architecture
@@ -185,22 +378,40 @@ pub enum Architecture {
 pub enum AcceleratorArchitecture {
     /// Huawei Ascend 910 AI accelerator
     #[display("Ascend 910")]
+    #[serde(alias = "ascend 910", alias = "Ascend910", alias = "ascend910")]
     Ascend910,
     /// Tenstorrent Blackhole AI accelerator
     #[display("Blackhole")]
+    #[serde(alias = "blackhole")]
     Blackhole,
     /// Intel Habana Gaudi2 AI accelerator
     #[display("Gaudi2")]
+    #[serde(alias = "Gaudi 2", alias = "gaudi2", alias = "gaudi 2")]
     Gaudi2,
+    /// Graphcore Colossus GC200 / IPU architecture (2018-2019)
+    #[display("Graphcore GC200")]
+    #[serde(alias = "graphcore gc200", alias = "GC200", alias = "gc200")]
+    GraphcoreGc200,
     /// Amazon Inferentia AI inference chip
     #[display("Inferentia")]
+    #[serde(alias = "inferentia")]
     Inferentia,
     /// Groq Language Processing Unit
     #[display("LPU")]
+    #[serde(alias = "lpu", alias = "Language Processing Unit", alias = "language processing unit")]
     Lpu,
     /// Microsoft Maia AI accelerator
     #[display("Maia")]
+    #[serde(alias = "maia")]
     Maia,
+    /// Intel Nervana neural processor (NNP-I / NNP-T, 2010s)
+    #[display("Nervana")]
+    #[serde(alias = "nervana")]
+    Nervana,
+    /// SambaNova Reconfigurable Dataflow Unit (RDU) architecture (2020s)
+    #[display("SambaNova RDU")]
+    #[serde(alias = "sambanova rdu", alias = "RDU", alias = "rdu")]
+    SambaNovaRdu,
     /// Google TPU v4
     #[display("TPU v4")]
     #[serde(alias = "TPU v4", alias = "TPUv4", alias = "tpu v4", alias = "tpuv4")]
@@ -213,17 +424,32 @@ pub enum AcceleratorArchitecture {
     #[display("TPU v5p")]
     #[serde(alias = "TPU v5p", alias = "TPUv5p", alias = "tpu v5p", alias = "tpuv5p")]
     TpuV5p,
+    /// Google TPU v6e ("Trillium")
+    #[display("TPU v6e")]
+    #[serde(
+        alias = "TPU v6e",
+        alias = "TPUv6e",
+        alias = "tpu v6e",
+        alias = "tpuv6e",
+        alias = "Trillium",
+        alias = "trillium"
+    )]
+    TpuV6e,
     /// Amazon Trainium AI accelerator
     #[display("Trainium")]
+    #[serde(alias = "trainium")]
     Trainium,
     /// Tenstorrent Wormhole AI accelerator
     #[display("Wormhole")]
+    #[serde(alias = "wormhole")]
     Wormhole,
     /// Cerebras Wafer-Scale Engine 2 (WSE-2)
     #[display("WSE-2")]
+    #[serde(alias = "wse2", alias = "WSE2", alias = "wse-2")]
     Wse2,
     /// Cerebras Wafer-Scale Engine 3 (WSE-3)
     #[display("WSE-3")]
+    #[serde(alias = "wse3", alias = "WSE3", alias = "wse-3")]
     Wse3,
     /// Other or unspecified accelerator architecture
     #[display("{}", _0)]
@@ -271,18 +497,23 @@ pub enum Backend {
 pub enum CpuArchitecture {
     /// 64-bit ARM instruction set
     #[display("AArch64")]
+    #[serde(alias = "aarch64", alias = "arm64")]
     AArch64,
     /// ARM Ethos NPU (integrated in some ARM CPUs)
     #[display("Ethos")]
+    #[serde(alias = "ethos")]
     Ethos,
     /// Intel Itanium architecture (IA-64)
     #[display("IA-64")]
+    #[serde(alias = "ia64", alias = "IA64")]
     Ia64,
     /// LoongArch (Chinese CPU ISA)
     #[display("LoongArch")]
+    #[serde(alias = "loongarch")]
     LoongArch,
     /// MIPS instruction set architecture
     #[display("MIPS")]
+    #[serde(alias = "mips")]
     Mips,
     /// Apple Neural Engine (integrated in Apple silicon)
     #[display("Neural Engine")]
@@ -290,15 +521,19 @@ pub enum CpuArchitecture {
     NeuralEngine,
     /// IBM PowerPC architecture
     #[display("PowerPC")]
+    #[serde(alias = "powerpc")]
     PowerPc,
     /// Qualcomm Hexagon processor (integrated in Snapdragon)
     #[display("Hexagon")]
+    #[serde(alias = "hexagon")]
     Hexagon,
     /// RISC-V open instruction set architecture
     #[display("RISC-V")]
+    #[serde(alias = "riscv", alias = "risc-v")]
     RiscV,
     /// 32-bit x86 instruction set
     #[display("x86")]
+    #[serde(alias = "X86")]
     X86,
     /// x86-64 instruction set (Intel/AMD)
     #[display("x86_64")]
@@ -306,6 +541,7 @@ pub enum CpuArchitecture {
     X86_64,
     /// IBM z/Architecture mainframe
     #[display("z/Architecture")]
+    #[serde(alias = "z architecture", alias = "zarchitecture")]
     ZArch,
     /// Other or unspecified CPU architecture
     #[display("{}", _0)]
@@ -316,43 +552,70 @@ pub enum CpuArchitecture {
 pub enum DspArchitecture {
     /// Texas Instruments C66x DSP
     #[display("C66x")]
+    #[serde(alias = "c66x")]
     C66x,
     /// Cadence Tensilica Xtensa DSP
     #[display("Xtensa")]
+    #[serde(alias = "xtensa")]
     Xtensa,
     /// Other or unspecified DSP architecture
     #[display("{}", _0)]
     Other(String),
 }
-/// FPGA architecture families
+/// FPGA architecture families used by [`Resource::FPGA`] resources
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub enum FpgaArchitecture {
     /// Intel Agilex FPGA
     #[display("Agilex")]
+    #[serde(alias = "agilex")]
     Agilex,
+    /// Xilinx Artix FPGA family (2010s)
+    #[display("Artix")]
+    #[serde(alias = "artix")]
+    Artix,
     /// Lattice CrossLink FPGA
     #[display("CrossLink")]
+    #[serde(alias = "crosslink", alias = "cross-link")]
     CrossLink,
     /// Intel/Altera Cyclone V FPGA
     #[display("Cyclone V")]
+    #[serde(alias = "cyclonev", alias = "cyclone v")]
     CycloneV,
     /// Lattice ECP5 FPGA
     #[display("ECP5")]
+    #[serde(alias = "ecp5")]
     Ecp5,
     /// Lattice iCE40 FPGA
     #[display("iCE40")]
+    #[serde(alias = "ice40", alias = "iCE40")]
     Ice40,
+    /// Xilinx Kintex FPGA family (2010s)
+    #[display("Kintex")]
+    #[serde(alias = "kintex")]
+    Kintex,
+    /// Xilinx Spartan FPGA family (modern 2010s+ variants)
+    #[display("Spartan")]
+    #[serde(alias = "spartan")]
+    Spartan,
+    /// Intel Stratix 10 FPGA family (2016-2017)
+    #[display("Stratix 10")]
+    #[serde(alias = "stratix10", alias = "stratix 10")]
+    Stratix10,
     /// Intel/Altera Stratix V FPGA
     #[display("Stratix V")]
+    #[serde(alias = "stratixv", alias = "stratix v")]
     StratixV,
     /// AMD/Xilinx Versal adaptive compute acceleration platform
     #[display("Versal")]
+    #[serde(alias = "versal")]
     Versal,
     /// AMD/Xilinx Virtex UltraScale+ FPGA
     #[display("Virtex UltraScale+")]
+    #[serde(alias = "virtex ultrascale+", alias = "virtexultrascaleplus", alias = "virtex ultrascale plus")]
     VirtexUltraScalePlus,
     /// AMD/Xilinx Zynq SoC FPGA
     #[display("Zynq")]
+    #[serde(alias = "zynq")]
     Zynq,
     /// Other or unspecified FPGA architecture
     #[display("{}", _0)]
@@ -396,28 +659,85 @@ pub enum QuantumParadigm {
 pub enum GpuArchitecture {
     /// NVIDIA Ada Lovelace microarchitecture (RTX 40xx)
     #[display("Ada Lovelace")]
+    #[serde(
+        alias = "Ada",
+        alias = "ada",
+        alias = "Ada Lovelace",
+        alias = "ada lovelace",
+        alias = "ada-lovelace",
+        alias = "ada_lovelace"
+    )]
     AdaLovelace,
     /// Intel Alchemist graphics architecture (Xe-HPG)
     #[display("Alchemist")]
+    #[serde(alias = "alchemist", alias = "Arc", alias = "arc", alias = "DG2", alias = "dg2")]
     Alchemist,
     /// NVIDIA Ampere microarchitecture (A100, RTX 30xx)
     #[display("Ampere")]
+    #[serde(alias = "ampere", alias = "GA100", alias = "ga100", alias = "GA102", alias = "ga102")]
     Ampere,
     /// NVIDIA Blackwell microarchitecture (RTX 50xx, B100)
     #[display("Blackwell")]
+    #[serde(alias = "blackwell", alias = "GB100", alias = "gb100", alias = "GB200", alias = "gb200")]
     Blackwell,
     /// AMD CDNA 1 microarchitecture (MI100)
     #[display("CDNA1")]
+    #[serde(
+        alias = "CDNA 1",
+        alias = "cdna1",
+        alias = "cdna 1",
+        alias = "MI100",
+        alias = "mi100",
+        alias = "Arcturus",
+        alias = "arcturus"
+    )]
     Cdna1,
     /// AMD CDNA 2 microarchitecture (MI250)
     #[display("CDNA2")]
+    #[serde(
+        alias = "CDNA 2",
+        alias = "cdna2",
+        alias = "cdna 2",
+        alias = "MI200",
+        alias = "mi200",
+        alias = "MI250",
+        alias = "mi250",
+        alias = "Aldebaran",
+        alias = "aldebaran"
+    )]
     Cdna2,
     /// AMD CDNA 3 microarchitecture (MI300)
     #[display("CDNA3")]
+    #[serde(
+        alias = "CDNA 3",
+        alias = "cdna3",
+        alias = "cdna 3",
+        alias = "MI300",
+        alias = "mi300",
+        alias = "Aqua Vanjaram",
+        alias = "aqua vanjaram"
+    )]
     Cdna3,
+    /// AMD CDNA 4 microarchitecture (MI350)
+    #[display("CDNA4")]
+    #[serde(alias = "CDNA 4", alias = "cdna4", alias = "cdna 4", alias = "MI350", alias = "mi350")]
+    Cdna4,
     /// NVIDIA Hopper microarchitecture (H100, H200)
     #[display("Hopper")]
+    #[serde(alias = "hopper", alias = "GH100", alias = "gh100", alias = "GH200", alias = "gh200")]
     Hopper,
+    /// NVIDIA Kepler GPU microarchitecture (GK-series, 2012)
+    #[display("Kepler")]
+    #[serde(alias = "kepler", alias = "GK110", alias = "gk110")]
+    Kepler,
+    /// NVIDIA Maxwell GPU microarchitecture (GM-series, 2014)
+    #[display("Maxwell")]
+    #[serde(alias = "maxwell", alias = "GM200", alias = "gm200")]
+    Maxwell,
+    /// NVIDIA Pascal GPU microarchitecture (GP-series, 2016)
+    #[display("Pascal")]
+    #[serde(alias = "pascal", alias = "GP100", alias = "gp100")]
+    Pascal,
     /// AMD RDNA 1 microarchitecture (RX 5xxx)
     #[display("RDNA1")]
     #[serde(alias = "RDNA1", alias = "RDNA 1", alias = "rdna1", alias = "RDNA1", alias = "rdna 1")]
@@ -432,18 +752,23 @@ pub enum GpuArchitecture {
     Rdna3,
     /// NVIDIA Turing microarchitecture (RTX 20xx)
     #[display("Turing")]
+    #[serde(alias = "turing", alias = "TU102", alias = "tu102")]
     Turing,
     /// NVIDIA Volta microarchitecture (V100)
     #[display("Volta")]
+    #[serde(alias = "volta", alias = "GV100", alias = "gv100")]
     Volta,
     /// Intel Xe graphics architecture
     #[display("Xe")]
+    #[serde(alias = "xe", alias = "Xe HPG", alias = "xe hpg", alias = "Xe-HPG", alias = "xe-hpg")]
     Xe,
     /// Intel Xe2 graphics architecture (Battlemage)
     #[display("Xe2")]
+    #[serde(alias = "Battlemage", alias = "battlemage", alias = "xe2")]
     Xe2,
     /// Intel Xe3 graphics architecture (Celestial)
     #[display("Xe3")]
+    #[serde(alias = "Celestial", alias = "celestial", alias = "xe3")]
     Xe3,
     /// Other or unspecified GPU architecture
     #[display("{}", _0)]
@@ -452,7 +777,7 @@ pub enum GpuArchitecture {
 /// Enumeration for hardware resources used by technology
 #[derive(Clone, Debug, Serialize, JsonSchema)]
 pub enum Resource {
-    /// Application-specific integrated circuit
+    /// Application-specific integrated circuit (ASIC)
     ///
     /// A custom-designed chip built to perform one particular function or a narrow set of functions, rather than acting as a general-purpose processor like a CPU or GPU
     ASIC {
@@ -466,7 +791,7 @@ pub enum Resource {
         /// Hardware vendor or designer
         vendor: Option<Vendor>,
     },
-    /// Central processing unit for "classical" computing
+    /// Central processing unit (CPU) for "classical" computing
     CPU {
         /// Instruction set architecture
         #[serde(alias = "arch")]
@@ -483,7 +808,7 @@ pub enum Resource {
         /// Hardware vendor (e.g., Intel, AMD, ARM)
         vendor: Option<Vendor>,
     },
-    /// Data processing unit
+    /// Data processing unit (DPU)
     ///
     /// A programmable processor optimized for data movement, networking, and infrastructure tasks, offloading them from the CPU
     DPU {
@@ -498,7 +823,7 @@ pub enum Resource {
         /// Hardware vendor (e.g., NVIDIA, Intel, AMD)
         vendor: Option<Vendor>,
     },
-    /// Digital signal processor
+    /// Digital signal processor (DSP)
     ///
     /// A specialized microprocessor optimized to perform fast mathematical operations on digital signals in real time
     DSP {
@@ -513,9 +838,11 @@ pub enum Resource {
         /// Hardware vendor (e.g., Qualcomm, Texas Instruments)
         vendor: Option<Vendor>,
     },
-    /// Field-programmable gate array
+    /// Field-programmable gate array (FPGA)
     ///
     /// A reconfigurable integrated circuit that lets you implement custom digital hardware circuits after manufacturing, rather than having a fixed function like a CPU or ASIC
+    ///
+    /// See [`FpgaArchitecture`] for supported architecture families.
     FPGA {
         /// FPGA architecture or product family
         #[serde(alias = "arch")]
@@ -530,7 +857,7 @@ pub enum Resource {
         /// Hardware vendor (e.g., Intel, AMD)
         vendor: Option<Vendor>,
     },
-    /// Graphics processing unit
+    /// Graphics processing unit (GPU)
     GPU {
         /// GPU microarchitecture
         #[serde(alias = "arch")]
@@ -549,7 +876,7 @@ pub enum Resource {
         /// Hardware vendor (e.g., NVIDIA, AMD, Intel)
         vendor: Option<Vendor>,
     },
-    /// Neural processing unit
+    /// Neural processing unit (NPU)
     ///
     /// A specialized chip designed for the matrix multiplication calculations that most AI models rely on
     NPU {
@@ -595,7 +922,7 @@ pub enum Resource {
         /// Hardware vendor (e.g., IBM, Google, IonQ)
         vendor: Option<Vendor>,
     },
-    /// Tensor processing unit
+    /// Tensor processing unit (NPU)
     TPU {
         /// TPU generation
         #[serde(alias = "arch")]
@@ -746,14 +1073,42 @@ impl From<DspArchitecture> for Architecture {
         }
     }
 }
+impl From<AcceleratorArchitecture> for Architecture {
+    fn from(value: AcceleratorArchitecture) -> Self {
+        match value {
+            | AcceleratorArchitecture::Ascend910 => Architecture::Ascend910,
+            | AcceleratorArchitecture::Blackhole => Architecture::Blackhole,
+            | AcceleratorArchitecture::Gaudi2 => Architecture::Gaudi2,
+            | AcceleratorArchitecture::GraphcoreGc200 => Architecture::GraphcoreGc200,
+            | AcceleratorArchitecture::Inferentia => Architecture::Inferentia,
+            | AcceleratorArchitecture::Lpu => Architecture::Lpu,
+            | AcceleratorArchitecture::Maia => Architecture::Maia,
+            | AcceleratorArchitecture::Nervana => Architecture::Nervana,
+            | AcceleratorArchitecture::SambaNovaRdu => Architecture::SambaNovaRdu,
+            | AcceleratorArchitecture::TpuV4 => Architecture::TpuV4,
+            | AcceleratorArchitecture::TpuV5e => Architecture::TpuV5e,
+            | AcceleratorArchitecture::TpuV5p => Architecture::TpuV5p,
+            | AcceleratorArchitecture::TpuV6e => Architecture::TpuV6e,
+            | AcceleratorArchitecture::Trainium => Architecture::Trainium,
+            | AcceleratorArchitecture::Wormhole => Architecture::Wormhole,
+            | AcceleratorArchitecture::Wse2 => Architecture::Wse2,
+            | AcceleratorArchitecture::Wse3 => Architecture::Wse3,
+            | AcceleratorArchitecture::Other(s) => Architecture::Other(s),
+        }
+    }
+}
 impl From<FpgaArchitecture> for Architecture {
     fn from(value: FpgaArchitecture) -> Self {
         match value {
             | FpgaArchitecture::Agilex => Architecture::Agilex,
+            | FpgaArchitecture::Artix => Architecture::Artix,
             | FpgaArchitecture::CrossLink => Architecture::CrossLink,
             | FpgaArchitecture::CycloneV => Architecture::CycloneV,
             | FpgaArchitecture::Ecp5 => Architecture::Ecp5,
             | FpgaArchitecture::Ice40 => Architecture::Ice40,
+            | FpgaArchitecture::Kintex => Architecture::Kintex,
+            | FpgaArchitecture::Spartan => Architecture::Spartan,
+            | FpgaArchitecture::Stratix10 => Architecture::Stratix10,
             | FpgaArchitecture::StratixV => Architecture::StratixV,
             | FpgaArchitecture::Versal => Architecture::Versal,
             | FpgaArchitecture::VirtexUltraScalePlus => Architecture::VirtexUltraScalePlus,
@@ -772,7 +1127,11 @@ impl From<GpuArchitecture> for Architecture {
             | GpuArchitecture::Cdna1 => Architecture::Cdna1,
             | GpuArchitecture::Cdna2 => Architecture::Cdna2,
             | GpuArchitecture::Cdna3 => Architecture::Cdna3,
+            | GpuArchitecture::Cdna4 => Architecture::Cdna4,
             | GpuArchitecture::Hopper => Architecture::Hopper,
+            | GpuArchitecture::Kepler => Architecture::Kepler,
+            | GpuArchitecture::Maxwell => Architecture::Maxwell,
+            | GpuArchitecture::Pascal => Architecture::Pascal,
             | GpuArchitecture::Rdna1 => Architecture::Rdna1,
             | GpuArchitecture::Rdna2 => Architecture::Rdna2,
             | GpuArchitecture::Rdna3 => Architecture::Rdna3,

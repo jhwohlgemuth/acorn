@@ -22,13 +22,46 @@ pub enum AmdCpuArchitecture {
 pub enum AmdGpuArchitecture {
     /// AMD CDNA 1 microarchitecture (MI100)
     #[display("CDNA1")]
+    #[serde(
+        alias = "CDNA 1",
+        alias = "cdna1",
+        alias = "cdna 1",
+        alias = "MI100",
+        alias = "mi100",
+        alias = "Arcturus",
+        alias = "arcturus"
+    )]
     Cdna1,
     /// AMD CDNA 2 microarchitecture (MI250)
     #[display("CDNA2")]
+    #[serde(
+        alias = "CDNA 2",
+        alias = "cdna2",
+        alias = "cdna 2",
+        alias = "MI200",
+        alias = "mi200",
+        alias = "MI250",
+        alias = "mi250",
+        alias = "Aldebaran",
+        alias = "aldebaran"
+    )]
     Cdna2,
     /// AMD CDNA 3 microarchitecture (MI300)
     #[display("CDNA3")]
+    #[serde(
+        alias = "CDNA 3",
+        alias = "cdna3",
+        alias = "cdna 3",
+        alias = "MI300",
+        alias = "mi300",
+        alias = "Aqua Vanjaram",
+        alias = "aqua vanjaram"
+    )]
     Cdna3,
+    /// AMD CDNA 4 microarchitecture (MI350)
+    #[display("CDNA4")]
+    #[serde(alias = "CDNA 4", alias = "cdna4", alias = "cdna 4", alias = "MI350", alias = "mi350")]
+    Cdna4,
     /// AMD RDNA 1 microarchitecture (RX 5xxx)
     #[display("RDNA1")]
     #[serde(alias = "RDNA1", alias = "RDNA 1", alias = "rdna1", alias = "RDNA1", alias = "rdna 1")]

@@ -1,5 +1,5 @@
 //! Vendor-specific hardware architecture types and implementations
-use crate::schema::hardware::{AcceleratorArchitecture, Architecture, CpuArchitecture, GpuArchitecture};
+use crate::schema::hardware::{Architecture, CpuArchitecture, GpuArchitecture};
 /// AMD-specific CPU and GPU architectures
 pub mod amd;
 /// Apple-specific CPU and GPU architectures
@@ -14,26 +14,6 @@ pub use apple::{AppleCpuArchitecture, AppleGpuArchitecture};
 pub use intel::{IntelCpuArchitecture, IntelFpgaArchitecture, IntelGpuArchitecture};
 pub use nvidia::NvidiaGpuArchitecture;
 
-impl From<AcceleratorArchitecture> for Architecture {
-    fn from(value: AcceleratorArchitecture) -> Self {
-        match value {
-            | AcceleratorArchitecture::Ascend910 => Architecture::Ascend910,
-            | AcceleratorArchitecture::Blackhole => Architecture::Blackhole,
-            | AcceleratorArchitecture::Gaudi2 => Architecture::Gaudi2,
-            | AcceleratorArchitecture::Inferentia => Architecture::Inferentia,
-            | AcceleratorArchitecture::Lpu => Architecture::Lpu,
-            | AcceleratorArchitecture::Maia => Architecture::Maia,
-            | AcceleratorArchitecture::TpuV4 => Architecture::TpuV4,
-            | AcceleratorArchitecture::TpuV5e => Architecture::TpuV5e,
-            | AcceleratorArchitecture::TpuV5p => Architecture::TpuV5p,
-            | AcceleratorArchitecture::Trainium => Architecture::Trainium,
-            | AcceleratorArchitecture::Wormhole => Architecture::Wormhole,
-            | AcceleratorArchitecture::Wse2 => Architecture::Wse2,
-            | AcceleratorArchitecture::Wse3 => Architecture::Wse3,
-            | AcceleratorArchitecture::Other(s) => Architecture::Other(s),
-        }
-    }
-}
 impl From<AmdCpuArchitecture> for Architecture {
     fn from(value: AmdCpuArchitecture) -> Self {
         match value {
@@ -49,6 +29,7 @@ impl From<AmdGpuArchitecture> for Architecture {
             | AmdGpuArchitecture::Cdna1 => Architecture::Cdna1,
             | AmdGpuArchitecture::Cdna2 => Architecture::Cdna2,
             | AmdGpuArchitecture::Cdna3 => Architecture::Cdna3,
+            | AmdGpuArchitecture::Cdna4 => Architecture::Cdna4,
             | AmdGpuArchitecture::Rdna1 => Architecture::Rdna1,
             | AmdGpuArchitecture::Rdna2 => Architecture::Rdna2,
             | AmdGpuArchitecture::Rdna3 => Architecture::Rdna3,
@@ -139,6 +120,7 @@ impl From<AmdGpuArchitecture> for GpuArchitecture {
             | AmdGpuArchitecture::Cdna1 => GpuArchitecture::Cdna1,
             | AmdGpuArchitecture::Cdna2 => GpuArchitecture::Cdna2,
             | AmdGpuArchitecture::Cdna3 => GpuArchitecture::Cdna3,
+            | AmdGpuArchitecture::Cdna4 => GpuArchitecture::Cdna4,
             | AmdGpuArchitecture::Rdna1 => GpuArchitecture::Rdna1,
             | AmdGpuArchitecture::Rdna2 => GpuArchitecture::Rdna2,
             | AmdGpuArchitecture::Rdna3 => GpuArchitecture::Rdna3,
