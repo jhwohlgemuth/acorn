@@ -631,6 +631,16 @@ pub enum QuantumParadigm {
     /// Quantum annealing (e.g., D-Wave)
     #[display("Annealing")]
     Annealing,
+    /// Hybrid quantum-classical workflows
+    #[display("Hybrid Quantum-Classical")]
+    #[serde(
+        alias = "Hybrid Quantum-Classical",
+        alias = "hybrid quantum-classical",
+        alias = "hybrid quantum classical",
+        alias = "hybrid_quantum_classical",
+        alias = "HybridQuantumClassical"
+    )]
+    HybridQuantumClassical,
     /// Photonic quantum computing (e.g., PsiQuantum, Xanadu)
     #[display("Photonic")]
     Photonic,
@@ -638,6 +648,17 @@ pub enum QuantumParadigm {
     #[display("Neutral Atom")]
     #[serde(alias = "Neutral Atom", alias = "neutral_atom", alias = "NeutralAtom")]
     NeutralAtom,
+    /// Noisy Intermediate-Scale Quantum (NISQ) computing
+    #[display("NISQ")]
+    #[serde(
+        alias = "NISQ",
+        alias = "nisq",
+        alias = "Noisy Intermediate-Scale Quantum",
+        alias = "noisy intermediate-scale quantum",
+        alias = "noisy_intermediate_scale_quantum",
+        alias = "NoisyIntermediateScaleQuantum"
+    )]
+    Nisq,
     /// Trapped ion quantum computing (e.g., IonQ, Honeywell)
     #[display("Trapped Ion")]
     #[serde(alias = "Trapped Ion", alias = "trapped_ion", alias = "TrappedIon")]

@@ -2,9 +2,60 @@ use super::vendor::{
     AmdCpuArchitecture, AmdGpuArchitecture, AppleCpuArchitecture, AppleGpuArchitecture, IntelCpuArchitecture, IntelGpuArchitecture,
     NvidiaGpuArchitecture,
 };
-use super::{Architecture, CpuArchitecture, GpuArchitecture, Memory, MemoryUnit, Resource, Vendor};
+use super::{Architecture, CpuArchitecture, GpuArchitecture, Memory, MemoryUnit, QuantumParadigm, Resource, Vendor};
 use crate::schema::research_activity::ResearchActivityMetadata;
 
+#[test]
+fn test_architecture_from_string() {
+    let tests = [
+        ("x86_64", Architecture::X86_64),
+        ("amd64", Architecture::X86_64),
+        ("x86-64", Architecture::X86_64),
+        ("AArch64", Architecture::AArch64),
+        ("Ampere", Architecture::Ampere),
+        ("RDNA1", Architecture::Rdna1),
+        ("rdna1", Architecture::Rdna1),
+        ("Versal", Architecture::Versal),
+        ("TPU v4", Architecture::TpuV4),
+        ("C66x", Architecture::C66x),
+        ("Neural Engine", Architecture::NeuralEngine),
+        ("unknown_arch", Architecture::Other("unknown_arch".to_string())),
+    ];
+    for (input, expected) in tests {
+        let result = Architecture::from(input);
+        assert_eq!(result, expected, "Architecture::from(\"{}\") failed", input);
+    }
+}
+#[test]
+fn test_architecture_deserialize() {
+    let tests = [
+        (r#""x86_64""#, Architecture::X86_64),
+        (r#""Ampere""#, Architecture::Ampere),
+        (r#""RDNA1""#, Architecture::Rdna1),
+        (r#""Versal""#, Architecture::Versal),
+        (r#""TPU v4""#, Architecture::TpuV4),
+        (r#""custom_arch""#, Architecture::Other("custom_arch".to_string())),
+    ];
+    for (json, expected) in tests {
+        let result: Result<Architecture, _> = serde_json::from_str(json);
+        assert!(result.is_ok(), "Failed to deserialize: {}", json);
+        assert_eq!(result.unwrap(), expected, "Deserialization mismatch for: {}", json);
+    }
+}
+#[test]
+fn test_vendor_architecture_enums() {
+    assert!(matches!(NvidiaGpuArchitecture::Ampere, NvidiaGpuArchitecture::Ampere));
+    assert!(matches!(AmdGpuArchitecture::Cdna1, AmdGpuArchitecture::Cdna1));
+    assert!(matches!(AmdCpuArchitecture::X86_64, AmdCpuArchitecture::X86_64));
+    assert!(matches!(IntelCpuArchitecture::Ia64, IntelCpuArchitecture::Ia64));
+    assert!(matches!(
+        super::vendor::IntelFpgaArchitecture::Agilex,
+        super::vendor::IntelFpgaArchitecture::Agilex
+    ));
+    assert!(matches!(IntelGpuArchitecture::Alchemist, IntelGpuArchitecture::Alchemist));
+    assert!(matches!(AppleCpuArchitecture::NeuralEngine, AppleCpuArchitecture::NeuralEngine));
+    assert!(matches!(AppleGpuArchitecture::M3, AppleGpuArchitecture::M3));
+}
 #[test]
 fn test_hardware_resource_dpu_from_string() {
     let data: Resource = serde_json::from_str("\"dpu\"").unwrap();
@@ -252,55 +303,25 @@ fn test_memory_in_research_activity_float() {
     }
 }
 #[test]
-fn test_architecture_from_string() {
+fn test_quantum_paradigm_deserialize() {
     let tests = [
-        ("x86_64", Architecture::X86_64),
-        ("amd64", Architecture::X86_64),
-        ("x86-64", Architecture::X86_64),
-        ("AArch64", Architecture::AArch64),
-        ("Ampere", Architecture::Ampere),
-        ("RDNA1", Architecture::Rdna1),
-        ("rdna1", Architecture::Rdna1),
-        ("Versal", Architecture::Versal),
-        ("TPU v4", Architecture::TpuV4),
-        ("C66x", Architecture::C66x),
-        ("Neural Engine", Architecture::NeuralEngine),
-        ("unknown_arch", Architecture::Other("unknown_arch".to_string())),
-    ];
-    for (input, expected) in tests {
-        let result = Architecture::from(input);
-        assert_eq!(result, expected, "Architecture::from(\"{}\") failed", input);
-    }
-}
-#[test]
-fn test_architecture_deserialize() {
-    let tests = [
-        (r#""x86_64""#, Architecture::X86_64),
-        (r#""Ampere""#, Architecture::Ampere),
-        (r#""RDNA1""#, Architecture::Rdna1),
-        (r#""Versal""#, Architecture::Versal),
-        (r#""TPU v4""#, Architecture::TpuV4),
-        (r#""custom_arch""#, Architecture::Other("custom_arch".to_string())),
+        (r#""NISQ""#, QuantumParadigm::Nisq),
+        (r#""nisq""#, QuantumParadigm::Nisq),
+        (r#""Noisy Intermediate-Scale Quantum""#, QuantumParadigm::Nisq),
     ];
     for (json, expected) in tests {
-        let result: Result<Architecture, _> = serde_json::from_str(json);
-        assert!(result.is_ok(), "Failed to deserialize: {}", json);
-        assert_eq!(result.unwrap(), expected, "Deserialization mismatch for: {}", json);
+        let actual: QuantumParadigm = serde_json::from_str(json).unwrap();
+        assert_eq!(actual, expected, "QuantumParadigm mismatch: {}", json);
     }
-}
-#[test]
-fn test_vendor_architecture_enums() {
-    assert!(matches!(NvidiaGpuArchitecture::Ampere, NvidiaGpuArchitecture::Ampere));
-    assert!(matches!(AmdGpuArchitecture::Cdna1, AmdGpuArchitecture::Cdna1));
-    assert!(matches!(AmdCpuArchitecture::X86_64, AmdCpuArchitecture::X86_64));
-    assert!(matches!(IntelCpuArchitecture::Ia64, IntelCpuArchitecture::Ia64));
-    assert!(matches!(
-        super::vendor::IntelFpgaArchitecture::Agilex,
-        super::vendor::IntelFpgaArchitecture::Agilex
-    ));
-    assert!(matches!(IntelGpuArchitecture::Alchemist, IntelGpuArchitecture::Alchemist));
-    assert!(matches!(AppleCpuArchitecture::NeuralEngine, AppleCpuArchitecture::NeuralEngine));
-    assert!(matches!(AppleGpuArchitecture::M3, AppleGpuArchitecture::M3));
+    let tests = [
+        (r#""Hybrid Quantum-Classical""#, QuantumParadigm::HybridQuantumClassical),
+        (r#""hybrid quantum-classical""#, QuantumParadigm::HybridQuantumClassical),
+        (r#""hybrid quantum classical""#, QuantumParadigm::HybridQuantumClassical),
+    ];
+    for (json, expected) in tests {
+        let actual: QuantumParadigm = serde_json::from_str(json).unwrap();
+        assert_eq!(actual, expected, "QuantumParadigm mismatch: {}", json);
+    }
 }
 #[test]
 fn test_vendor_architecture_conversions() {
