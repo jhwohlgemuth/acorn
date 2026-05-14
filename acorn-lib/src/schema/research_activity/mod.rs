@@ -255,6 +255,7 @@ pub struct ResearchActivityMetadata {
     /// ### Example
     /// For an AI/ML workflow that requires at least one GPU to perform training that cannot be executed on a CPU alone,
     /// the resources attribute should include GPU, but need not include CPU
+    #[validate(nested)]
     pub resources: Option<Vec<Resource>>,
 }
 /// Linked data (e.g., JSON-LD) context for metadata

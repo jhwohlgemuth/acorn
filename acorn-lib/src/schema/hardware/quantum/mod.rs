@@ -1,5 +1,4 @@
 //! Quantum computing paradigms and hardware definitions
-use super::Vendor;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -189,18 +188,4 @@ pub enum Topology {
     /// Other or unspecified topology
     #[display("{}", _0)]
     Other(String),
-}
-impl Model {
-    /// Returns the known hardware vendor for this quantum model, or [`None`] for user-specified models.
-    pub fn vendor(&self) -> Option<Vendor> {
-        match self {
-            | Self::Advantage | Self::Advantage2 | Self::TwoThousandQ => Some(Vendor::DWave),
-            | Self::Ankaa | Self::Aspen => Some(Vendor::Rigetti),
-            | Self::Bristlecone | Self::Sycamore | Self::Willow => Some(Vendor::Google),
-            | Self::Condor | Self::Eagle | Self::Falcon | Self::Flamingo | Self::Heron | Self::Hummingbird | Self::Osprey => Some(Vendor::Ibm),
-            | Self::H1 | Self::H2 => Some(Vendor::Quantinuum),
-            | Self::IonQAria | Self::IonQForte | Self::IonQHarmony | Self::IonQTempo => Some(Vendor::IonQ),
-            | Self::Other(_) => None,
-        }
-    }
 }

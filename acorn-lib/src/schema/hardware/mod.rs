@@ -2,19 +2,18 @@
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use validator::{Validate, ValidationErrors};
 
 /// Memory types and (de)serialization for hardware resources
 pub mod memory;
 /// Quantum computing paradigms and hardware definitions
 pub mod quantum;
-/// Vendor-specific hardware architecture types
+/// Vendor types and vendor-aware trait
 pub mod vendor;
 pub use memory::{Memory, MemoryUnit};
 pub use quantum::{Model, Paradigm, Topology};
-use vendor::{
-    AmdCpuArchitecture, AmdGpuArchitecture, AppleCpuArchitecture, AppleGpuArchitecture, IntelCpuArchitecture, IntelGpuArchitecture,
-    NvidiaGpuArchitecture,
-};
+use vendor::validate_vendor;
+pub use vendor::{Vendor, Vendored};
 
 /// Unified hardware architecture identifier
 ///
@@ -39,12 +38,6 @@ pub enum Architecture {
     /// See <https://www.intel.com/content/www/us/en/homepage.html> for more information
     #[display("Agilex")]
     Agilex,
-    /// Xilinx Artix [`Resource::FPGA`] family
-    /// > Cost and transceiver optimized
-    ///
-    /// See <https://www.amd.com/en/products/adaptive-socs-and-fpgas/fpga/artix-7.html> for more information
-    #[display("Artix")]
-    Artix,
     /// Intel Alchemist graphics architecture (Xe-HPG)
     /// > High-performance graphics architecture designed for discrete GPUs
     ///
@@ -57,6 +50,42 @@ pub enum Architecture {
     /// See <https://www.nvidia.com/en-us/data-center/ampere-architecture/> for more information
     #[display("Ampere")]
     Ampere,
+    /// Apple GPU architecture (A14/A15 Bionic)
+    #[display("Apple GPU (A14/A15)")]
+    AppleA14,
+    /// Apple GPU architecture (A16/A17 Bionic)
+    #[display("Apple GPU (A16/A17)")]
+    AppleA16,
+    /// Apple GPU architecture (A18/A18 Pro)
+    #[display("Apple GPU (A18)")]
+    AppleA18,
+    /// Apple efficiency core (big/little architecture)
+    #[display("Apple Efficiency Core")]
+    AppleEfficiencyCore,
+    /// Apple GPU architecture (M1 series)
+    #[display("Apple GPU (M1)")]
+    AppleM1,
+    /// Apple GPU architecture (M2 series)
+    #[display("Apple GPU (M2)")]
+    AppleM2,
+    /// Apple GPU architecture (M3 series)
+    #[display("Apple GPU (M3)")]
+    AppleM3,
+    /// Apple GPU architecture (M4 series)
+    #[display("Apple GPU (M4)")]
+    AppleM4,
+    /// Apple GPU architecture (M5 series)
+    #[display("Apple GPU (M5)")]
+    AppleM5,
+    /// Apple performance core (big/little architecture)
+    #[display("Apple Performance Core")]
+    ApplePerformanceCore,
+    /// Xilinx Artix [`Resource::FPGA`] family
+    /// > Cost and transceiver optimized
+    ///
+    /// See <https://www.amd.com/en/products/adaptive-socs-and-fpgas/fpga/artix-7.html> for more information
+    #[display("Artix")]
+    Artix,
     /// Huawei Ascend 910 AI accelerator
     ///
     /// See <https://www.huawei.com/en/> for more information
@@ -203,16 +232,16 @@ pub enum Architecture {
     /// See [Wikipedia](https://en.wikipedia.org/wiki/MIPS_architecture) for more information
     #[display("MIPS")]
     Mips,
-    /// Apple Neural Engine
-    ///
-    /// See [Apple Machine Learning Research - The Apple Neural Engine](https://machinelearning.apple.com/research/neural-engine-transformers#the-apple-neuralengine) for more information
-    #[display("Neural Engine")]
-    NeuralEngine,
     /// Intel Nervana neural processor (NNP-I / NNP-T)
     ///
     /// See <https://www.intel.com/content/www/us/en/homepage.html> for more information
     #[display("Nervana")]
     Nervana,
+    /// Apple Neural Engine
+    ///
+    /// See [Apple Machine Learning Research - The Apple Neural Engine](https://machinelearning.apple.com/research/neural-engine-transformers#the-apple-neuralengine) for more information
+    #[display("Neural Engine")]
+    NeuralEngine,
     /// NVIDIA (2016) Pascal [`Resource::GPU`] microarchitecture (GP-series)
     ///
     /// See <https://www.nvidia.com/en-us/data-center/pascal-gpu-architecture/> for more information
@@ -502,10 +531,18 @@ pub enum CpuArchitecture {
     #[display("AArch64")]
     #[serde(alias = "aarch64", alias = "arm64")]
     AArch64,
+    /// Apple-specific efficiency core (big/little architecture)
+    #[display("Apple Efficiency Core")]
+    #[serde(alias = "Apple Efficiency Core", alias = "apple efficiency core", alias = "EfficiencyCore")]
+    EfficiencyCore,
     /// ARM Ethos NPU (integrated in some ARM CPUs)
     #[display("Ethos")]
     #[serde(alias = "ethos")]
     Ethos,
+    /// Qualcomm Hexagon processor (integrated in Snapdragon)
+    #[display("Hexagon")]
+    #[serde(alias = "hexagon")]
+    Hexagon,
     /// Intel Itanium architecture (IA-64)
     #[display("IA-64")]
     #[serde(alias = "ia64", alias = "IA64")]
@@ -522,14 +559,14 @@ pub enum CpuArchitecture {
     #[display("Neural Engine")]
     #[serde(alias = "Neural Engine")]
     NeuralEngine,
+    /// Apple-specific performance core (big/little architecture)
+    #[display("Apple Performance Core")]
+    #[serde(alias = "Apple Performance Core", alias = "apple performance core", alias = "PerformanceCore")]
+    PerformanceCore,
     /// IBM PowerPC architecture
     #[display("PowerPC")]
     #[serde(alias = "powerpc")]
     PowerPc,
-    /// Qualcomm Hexagon processor (integrated in Snapdragon)
-    #[display("Hexagon")]
-    #[serde(alias = "hexagon")]
-    Hexagon,
     /// RISC-V open instruction set architecture
     #[display("RISC-V")]
     #[serde(alias = "riscv", alias = "risc-v")]
@@ -626,10 +663,7 @@ pub enum FpgaArchitecture {
 }
 /// GPU graphics microarchitectures
 ///
-/// Vendor-specific GPU architectures are defined in the `vendor` module:
-/// - [`vendor::NvidiaGpuArchitecture`] for NVIDIA GPUs
-/// - [`vendor::AmdGpuArchitecture`] for AMD GPUs
-/// - [`vendor::IntelGpuArchitecture`] for Intel GPUs
+/// Vendor-specific GPU architectures are defined in the [`vendor`] module.
 ///
 /// This enum provides backward-compatible JSON deserialization for all GPU
 /// architectures. The variants map to their respective vendor enums.
@@ -654,6 +688,38 @@ pub enum GpuArchitecture {
     #[display("Ampere")]
     #[serde(alias = "ampere", alias = "GA100", alias = "ga100", alias = "GA102", alias = "ga102")]
     Ampere,
+    /// Apple GPU architecture (A14/A15 Bionic)
+    #[display("Apple GPU (A14/A15)")]
+    #[serde(alias = "Apple GPU (A14/A15)", alias = "apple gpu (a14/a15)", alias = "A14", alias = "a14")]
+    AppleA14,
+    /// Apple GPU architecture (A16/A17 Bionic)
+    #[display("Apple GPU (A16/A17)")]
+    #[serde(alias = "Apple GPU (A16/A17)", alias = "apple gpu (a16/a17)", alias = "A16", alias = "a16")]
+    AppleA16,
+    /// Apple GPU architecture (A18/A18 Pro)
+    #[display("Apple GPU (A18)")]
+    #[serde(alias = "Apple GPU (A18)", alias = "apple gpu (a18)", alias = "A18", alias = "a18")]
+    AppleA18,
+    /// Apple GPU architecture (M1 series)
+    #[display("Apple GPU (M1)")]
+    #[serde(alias = "Apple GPU (M1)", alias = "apple gpu (m1)", alias = "M1", alias = "m1")]
+    AppleM1,
+    /// Apple GPU architecture (M2 series)
+    #[display("Apple GPU (M2)")]
+    #[serde(alias = "Apple GPU (M2)", alias = "apple gpu (m2)", alias = "M2", alias = "m2")]
+    AppleM2,
+    /// Apple GPU architecture (M3 series)
+    #[display("Apple GPU (M3)")]
+    #[serde(alias = "Apple GPU (M3)", alias = "apple gpu (m3)", alias = "M3", alias = "m3")]
+    AppleM3,
+    /// Apple GPU architecture (M4 series)
+    #[display("Apple GPU (M4)")]
+    #[serde(alias = "Apple GPU (M4)", alias = "apple gpu (m4)", alias = "M4", alias = "m4")]
+    AppleM4,
+    /// Apple GPU architecture (M5 series)
+    #[display("Apple GPU (M5)")]
+    #[serde(alias = "Apple GPU (M5)", alias = "apple gpu (m5)", alias = "M5", alias = "m5")]
+    AppleM5,
     /// NVIDIA Blackwell microarchitecture (RTX 50xx, B100)
     #[display("Blackwell")]
     #[serde(alias = "blackwell", alias = "GB100", alias = "gb100", alias = "GB200", alias = "gb200")]
@@ -916,93 +982,13 @@ pub enum Resource {
     /// Unknown, unspecified, or otherwise unclassified resource
     Other(String),
 }
-/// Hardware vendor or manufacturer
-#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
-pub enum Vendor {
-    /// Advanced Micro Devices
-    #[display("AMD")]
-    AMD,
-    /// Amazon Web Services
-    #[display("Amazon")]
-    Amazon,
-    /// Apple Inc.
-    #[display("Apple")]
-    Apple,
-    /// Arm Holdings
-    #[display("ARM")]
-    ARM,
-    /// BrainChip Holdings (neuromorphic AI)
-    #[display("BrainChip")]
-    BrainChip,
-    /// Broadcom Inc.
-    #[display("Broadcom")]
-    Broadcom,
-    /// D-Wave Systems (quantum annealing)
-    #[display("D-Wave")]
-    DWave,
-    /// Google LLC
-    #[display("Google")]
-    Google,
-    /// Groq Inc.
-    #[display("Groq")]
-    Groq,
-    /// Huawei Technologies
-    #[display("Huawei")]
-    Huawei,
-    /// International Business Machines Corporation
-    #[display("IBM")]
-    Ibm,
-    /// Intel Corporation
-    #[display("Intel")]
-    Intel,
-    /// IonQ Inc. (trapped ion quantum computing)
-    #[display("IonQ")]
-    IonQ,
-    /// MediaTek Inc.
-    #[display("MediaTek")]
-    MediaTek,
-    /// Microsoft Corporation
-    #[display("Microsoft")]
-    Microsoft,
-    /// NVIDIA Corporation
-    #[display("NVIDIA")]
-    NVIDIA,
-    /// Qualcomm Incorporated
-    #[display("Qualcomm")]
-    Qualcomm,
-    /// Quantinuum (trapped ion quantum computing, Honeywell spin-off)
-    #[display("Quantinuum")]
-    Quantinuum,
-    /// Rigetti Computing (superconducting gate-based quantum)
-    #[display("Rigetti")]
-    Rigetti,
-    /// Samsung Electronics
-    #[display("Samsung")]
-    Samsung,
-    /// Tenstorrent Inc.
-    #[display("Tenstorrent")]
-    Tenstorrent,
-    /// Texas Instruments
-    #[display("Texas Instruments")]
-    TexasInstruments,
-    /// Other or unspecified vendor
-    #[display("{}", _0)]
-    Other(String),
-}
 impl Architecture {
     fn from_str(s: &str) -> Self {
         let normalized = s.trim();
         let quoted = format!("\"{normalized}\"");
         [
             serde_json::from_str::<CpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<AmdCpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<AppleCpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<IntelCpuArchitecture>(&quoted).ok().map(Architecture::from),
             serde_json::from_str::<GpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<AmdGpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<AppleGpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<IntelGpuArchitecture>(&quoted).ok().map(Architecture::from),
-            serde_json::from_str::<NvidiaGpuArchitecture>(&quoted).ok().map(Architecture::from),
             serde_json::from_str::<FpgaArchitecture>(&quoted).ok().map(Architecture::from),
             serde_json::from_str::<AcceleratorArchitecture>(&quoted).ok().map(Architecture::from),
             serde_json::from_str::<DspArchitecture>(&quoted).ok().map(Architecture::from),
@@ -1032,6 +1018,8 @@ impl From<CpuArchitecture> for Architecture {
             | CpuArchitecture::LoongArch => Architecture::LoongArch,
             | CpuArchitecture::Mips => Architecture::Mips,
             | CpuArchitecture::NeuralEngine => Architecture::NeuralEngine,
+            | CpuArchitecture::PerformanceCore => Architecture::ApplePerformanceCore,
+            | CpuArchitecture::EfficiencyCore => Architecture::AppleEfficiencyCore,
             | CpuArchitecture::PowerPc => Architecture::PowerPc,
             | CpuArchitecture::Hexagon => Architecture::Hexagon,
             | CpuArchitecture::RiscV => Architecture::RiscV,
@@ -1042,12 +1030,42 @@ impl From<CpuArchitecture> for Architecture {
         }
     }
 }
+impl From<&CpuArchitecture> for Architecture {
+    fn from(value: &CpuArchitecture) -> Self {
+        match value {
+            | CpuArchitecture::AArch64 => Architecture::AArch64,
+            | CpuArchitecture::Ethos => Architecture::Ethos,
+            | CpuArchitecture::Ia64 => Architecture::Ia64,
+            | CpuArchitecture::LoongArch => Architecture::LoongArch,
+            | CpuArchitecture::Mips => Architecture::Mips,
+            | CpuArchitecture::NeuralEngine => Architecture::NeuralEngine,
+            | CpuArchitecture::PerformanceCore => Architecture::ApplePerformanceCore,
+            | CpuArchitecture::EfficiencyCore => Architecture::AppleEfficiencyCore,
+            | CpuArchitecture::PowerPc => Architecture::PowerPc,
+            | CpuArchitecture::Hexagon => Architecture::Hexagon,
+            | CpuArchitecture::RiscV => Architecture::RiscV,
+            | CpuArchitecture::X86 => Architecture::X86,
+            | CpuArchitecture::X86_64 => Architecture::X86_64,
+            | CpuArchitecture::ZArch => Architecture::ZArch,
+            | CpuArchitecture::Other(s) => Architecture::Other(s.clone()),
+        }
+    }
+}
 impl From<DspArchitecture> for Architecture {
     fn from(value: DspArchitecture) -> Self {
         match value {
             | DspArchitecture::C66x => Architecture::C66x,
             | DspArchitecture::Xtensa => Architecture::Xtensa,
             | DspArchitecture::Other(s) => Architecture::Other(s),
+        }
+    }
+}
+impl From<&DspArchitecture> for Architecture {
+    fn from(value: &DspArchitecture) -> Self {
+        match value {
+            | DspArchitecture::C66x => Architecture::C66x,
+            | DspArchitecture::Xtensa => Architecture::Xtensa,
+            | DspArchitecture::Other(s) => Architecture::Other(s.clone()),
         }
     }
 }
@@ -1075,6 +1093,30 @@ impl From<AcceleratorArchitecture> for Architecture {
         }
     }
 }
+impl From<&AcceleratorArchitecture> for Architecture {
+    fn from(value: &AcceleratorArchitecture) -> Self {
+        match value {
+            | AcceleratorArchitecture::Ascend910 => Architecture::Ascend910,
+            | AcceleratorArchitecture::Blackhole => Architecture::Blackhole,
+            | AcceleratorArchitecture::Gaudi2 => Architecture::Gaudi2,
+            | AcceleratorArchitecture::GraphcoreGc200 => Architecture::GraphcoreGc200,
+            | AcceleratorArchitecture::Inferentia => Architecture::Inferentia,
+            | AcceleratorArchitecture::Lpu => Architecture::Lpu,
+            | AcceleratorArchitecture::Maia => Architecture::Maia,
+            | AcceleratorArchitecture::Nervana => Architecture::Nervana,
+            | AcceleratorArchitecture::SambaNovaRdu => Architecture::SambaNovaRdu,
+            | AcceleratorArchitecture::TpuV4 => Architecture::TpuV4,
+            | AcceleratorArchitecture::TpuV5e => Architecture::TpuV5e,
+            | AcceleratorArchitecture::TpuV5p => Architecture::TpuV5p,
+            | AcceleratorArchitecture::TpuV6e => Architecture::TpuV6e,
+            | AcceleratorArchitecture::Trainium => Architecture::Trainium,
+            | AcceleratorArchitecture::Wormhole => Architecture::Wormhole,
+            | AcceleratorArchitecture::Wse2 => Architecture::Wse2,
+            | AcceleratorArchitecture::Wse3 => Architecture::Wse3,
+            | AcceleratorArchitecture::Other(s) => Architecture::Other(s.clone()),
+        }
+    }
+}
 impl From<FpgaArchitecture> for Architecture {
     fn from(value: FpgaArchitecture) -> Self {
         match value {
@@ -1092,6 +1134,26 @@ impl From<FpgaArchitecture> for Architecture {
             | FpgaArchitecture::VirtexUltraScalePlus => Architecture::VirtexUltraScalePlus,
             | FpgaArchitecture::Zynq => Architecture::Zynq,
             | FpgaArchitecture::Other(s) => Architecture::Other(s),
+        }
+    }
+}
+impl From<&FpgaArchitecture> for Architecture {
+    fn from(value: &FpgaArchitecture) -> Self {
+        match value {
+            | FpgaArchitecture::Agilex => Architecture::Agilex,
+            | FpgaArchitecture::Artix => Architecture::Artix,
+            | FpgaArchitecture::CrossLink => Architecture::CrossLink,
+            | FpgaArchitecture::CycloneV => Architecture::CycloneV,
+            | FpgaArchitecture::Ecp5 => Architecture::Ecp5,
+            | FpgaArchitecture::Ice40 => Architecture::Ice40,
+            | FpgaArchitecture::Kintex => Architecture::Kintex,
+            | FpgaArchitecture::Spartan => Architecture::Spartan,
+            | FpgaArchitecture::Stratix10 => Architecture::Stratix10,
+            | FpgaArchitecture::StratixV => Architecture::StratixV,
+            | FpgaArchitecture::Versal => Architecture::Versal,
+            | FpgaArchitecture::VirtexUltraScalePlus => Architecture::VirtexUltraScalePlus,
+            | FpgaArchitecture::Zynq => Architecture::Zynq,
+            | FpgaArchitecture::Other(s) => Architecture::Other(s.clone()),
         }
     }
 }
@@ -1118,10 +1180,54 @@ impl From<GpuArchitecture> for Architecture {
             | GpuArchitecture::Xe => Architecture::Xe,
             | GpuArchitecture::Xe2 => Architecture::Xe2,
             | GpuArchitecture::Xe3 => Architecture::Xe3,
+            | GpuArchitecture::AppleA14 => Architecture::AppleA14,
+            | GpuArchitecture::AppleA16 => Architecture::AppleA16,
+            | GpuArchitecture::AppleA18 => Architecture::AppleA18,
+            | GpuArchitecture::AppleM1 => Architecture::AppleM1,
+            | GpuArchitecture::AppleM2 => Architecture::AppleM2,
+            | GpuArchitecture::AppleM3 => Architecture::AppleM3,
+            | GpuArchitecture::AppleM4 => Architecture::AppleM4,
+            | GpuArchitecture::AppleM5 => Architecture::AppleM5,
             | GpuArchitecture::Other(s) => Architecture::Other(s),
         }
     }
 }
+impl From<&GpuArchitecture> for Architecture {
+    fn from(value: &GpuArchitecture) -> Self {
+        match value {
+            | GpuArchitecture::AdaLovelace => Architecture::AdaLovelace,
+            | GpuArchitecture::Alchemist => Architecture::Alchemist,
+            | GpuArchitecture::Ampere => Architecture::Ampere,
+            | GpuArchitecture::Blackwell => Architecture::Blackwell,
+            | GpuArchitecture::Cdna1 => Architecture::Cdna1,
+            | GpuArchitecture::Cdna2 => Architecture::Cdna2,
+            | GpuArchitecture::Cdna3 => Architecture::Cdna3,
+            | GpuArchitecture::Cdna4 => Architecture::Cdna4,
+            | GpuArchitecture::Hopper => Architecture::Hopper,
+            | GpuArchitecture::Kepler => Architecture::Kepler,
+            | GpuArchitecture::Maxwell => Architecture::Maxwell,
+            | GpuArchitecture::Pascal => Architecture::Pascal,
+            | GpuArchitecture::Rdna1 => Architecture::Rdna1,
+            | GpuArchitecture::Rdna2 => Architecture::Rdna2,
+            | GpuArchitecture::Rdna3 => Architecture::Rdna3,
+            | GpuArchitecture::Turing => Architecture::Turing,
+            | GpuArchitecture::Volta => Architecture::Volta,
+            | GpuArchitecture::Xe => Architecture::Xe,
+            | GpuArchitecture::Xe2 => Architecture::Xe2,
+            | GpuArchitecture::Xe3 => Architecture::Xe3,
+            | GpuArchitecture::AppleA14 => Architecture::AppleA14,
+            | GpuArchitecture::AppleA16 => Architecture::AppleA16,
+            | GpuArchitecture::AppleA18 => Architecture::AppleA18,
+            | GpuArchitecture::AppleM1 => Architecture::AppleM1,
+            | GpuArchitecture::AppleM2 => Architecture::AppleM2,
+            | GpuArchitecture::AppleM3 => Architecture::AppleM3,
+            | GpuArchitecture::AppleM4 => Architecture::AppleM4,
+            | GpuArchitecture::AppleM5 => Architecture::AppleM5,
+            | GpuArchitecture::Other(s) => Architecture::Other(s.clone()),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for Architecture {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -1473,6 +1579,11 @@ impl<'de> Deserialize<'de> for Resource {
             }
         }
         deserializer.deserialize_any(ResourceVisitor)
+    }
+}
+impl Validate for Resource {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        validate_vendor(self)
     }
 }
 fn default_count() -> Option<u32> {
