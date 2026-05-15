@@ -1,6 +1,8 @@
 use crate::io::InputOutput;
 use crate::prelude::PathBuf;
 use crate::schema::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
+use crate::schema::prompt::{LanguageModelDetails, Model};
+use crate::schema::research_activity::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};
 use crate::schema::research_activity::*;
 use crate::schema::standard::cff::{Agent, Cff, IdentifierType};
 use crate::schema::*;
@@ -79,6 +81,54 @@ Focus of the research
     let data = ResearchActivity::default();
     let actual = data.to_markdown().replace("\r\n", "\n");
     assert_eq!(actual, expected);
+}
+#[test]
+fn test_aspect_to_markdown() {
+    let aspect = AspectFramework::init()
+        .data(vec![
+            Data::Real(
+                DataDescription::init()
+                    .availability(Availability::Unrestricted)
+                    .license("CC-BY-4.0".to_string())
+                    .modality(Modality::Text)
+                    .quality(Quality::Gold)
+                    .build(),
+            ),
+            Data::Model(Model::LLM(
+                LanguageModelDetails::init()
+                    .family("llama".to_string())
+                    .name("llama-3.1".to_string())
+                    .version("8B".to_string())
+                    .parameters(8)
+                    .build(),
+            )),
+        ])
+        .portability(SoftwarePortability::Containerized)
+        .motivity(Motivity::Adaptive)
+        .autonomy(Autonomy::MachineAssisted)
+        .maturity(TechnologyReadinessLevel::Prototype)
+        .build();
+
+    let expected = r#"## ASPECT
+- Portability: Containerized
+- Maturity: Prototype
+- Autonomy: Machine-assisted
+- Motivity: Adaptive
+
+### Data
+- Real
+  - Availability: Unrestricted
+  - License: CC-BY-4.0
+  - Modality: text
+  - Quality: Gold
+- Model
+  - Kind: LLM
+  - Family: llama
+  - Name: llama-3.1
+  - Version: 8B
+  - Parameters: 8B"#;
+
+    assert_eq!(aspect.to_markdown(), expected);
 }
 #[test]
 fn test_research_activity_into_cff() {

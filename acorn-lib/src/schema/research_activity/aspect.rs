@@ -17,7 +17,7 @@
 use crate::schema::namespaces::{codemeta, schema_org};
 use crate::schema::prompt::Model;
 use crate::schema::TechnologyReadinessLevel;
-use crate::util::LinkedData;
+use crate::util::{LinkedData, StringInterpolation, ToMarkdown};
 use bon::Builder;
 use core::str::FromStr;
 use derive_more::Display;
@@ -429,6 +429,62 @@ impl Default for DataDescriptionContext {
             .modality(schema_org("DefinedTerm"))
             .quality(schema_org("DefinedTerm"))
             .build()
+    }
+}
+impl ToMarkdown for AspectFramework {
+    fn to_markdown(&self) -> String {
+        let summary = [
+            self.portability.as_ref().map(|value| format!("- Portability: {value}")),
+            self.maturity.as_ref().map(|value| format!("- Maturity: {value}")),
+            self.autonomy.as_ref().map(|value| format!("- Autonomy: {value}")),
+            self.motivity.as_ref().map(|value| format!("- Motivity: {value}")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+        let data = self
+            .data
+            .as_ref()
+            .map(|values| values.iter().map(ToMarkdown::to_markdown).collect::<Vec<_>>())
+            .filter(|values| !values.is_empty())
+            .map(|values| format!("\n\n### Data\n{}", values.join("\n")))
+            .unwrap_or_default();
+
+        if summary.is_empty() && data.is_empty() {
+            "## ASPECT\n[]".to_string()
+        } else {
+            format!("## ASPECT\n{}{}", summary.join("\n"), data)
+        }
+    }
+}
+impl ToMarkdown for Data {
+    fn to_markdown(&self) -> String {
+        match self {
+            | Self::Real(description) => format!("- Real{}", description.to_markdown()),
+            | Self::Synthetic(description) => format!("- Synthetic{}", description.to_markdown()),
+            | Self::Model(model) => match model {
+                | Model::SLM(details) => format!("- Model\n  - Kind: SLM{}", details.to_markdown()),
+                | Model::LLM(details) => format!("- Model\n  - Kind: LLM{}", details.to_markdown()),
+            },
+        }
+    }
+}
+impl ToMarkdown for DataDescription {
+    fn to_markdown(&self) -> String {
+        let lines = [
+            self.availability.as_ref().map(|value| format!("Availability: {value}")),
+            self.license.as_ref().map(|value| format!("License: {value}")),
+            self.modality.as_ref().map(|value| format!("Modality: {value}")),
+            self.quality.as_ref().map(|value| format!("Quality: {}", value)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+        if lines.is_empty() {
+            String::new()
+        } else {
+            format!("\n{}", lines.to_markdown().trim_start().with_indent(2))
+        }
     }
 }
 impl From<VisidataMachineAssistanceLevel> for Autonomy {

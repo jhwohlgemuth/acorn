@@ -4,7 +4,7 @@
 use crate::io::ApiResult;
 use crate::io::License;
 use crate::prelude::{Error, ErrorKind};
-use crate::util::SemanticVersion;
+use crate::util::{SemanticVersion, ToMarkdown};
 use bon::Builder;
 use color_eyre::eyre::Report;
 use core::fmt;
@@ -178,6 +178,26 @@ impl Default for FrontMatter {
 impl Default for Configuration {
     fn default() -> Self {
         Configuration::init().build()
+    }
+}
+impl ToMarkdown for LanguageModelDetails {
+    fn to_markdown(&self) -> String {
+        let lines = [
+            self.family.as_ref().map(|value| format!("  - Family: {value}")),
+            self.name.as_ref().map(|value| format!("  - Name: {value}")),
+            self.variant.as_ref().map(|value| format!("  - Variant: {value}")),
+            self.version.as_ref().map(|value| format!("  - Version: {value}")),
+            self.parameters.map(|value| format!("  - Parameters: {value}B")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+        if lines.is_empty() {
+            String::new()
+        } else {
+            format!("\n{}", lines.join("\n"))
+        }
     }
 }
 impl PromptTemplate {
