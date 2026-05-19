@@ -198,6 +198,13 @@ fn infer_table_name(name: &syn::Ident) -> String {
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing,
+        clippy::arithmetic_side_effects
+    )]
     use super::*;
     use syn::{parse_quote, DeriveInput, Type};
 

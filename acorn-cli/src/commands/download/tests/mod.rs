@@ -1,6 +1,13 @@
 //! Tests for the download command
 //!
 //! These tests validate local-bucket download execution with silent verbosity.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects
+)]
 use super::{resolve_default_config_path, run};
 use crate::test_utils::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::prelude::{create_dir_all, PathBuf};

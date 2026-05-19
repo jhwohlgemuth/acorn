@@ -1,4 +1,10 @@
-//! Shared test utilities for acorn-cli tests
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 use acorn::prelude::{create_dir_all, remove_dir_all, PathBuf};
 
 /// Get path to test fixtures relative to workspace root

@@ -86,15 +86,15 @@ pub struct ValeOutput {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ValeOutputItem {
-    action: ValeOutputItemAction,
+    pub(crate) action: ValeOutputItemAction,
     /// Name of Vale check
     /// ### Example
     /// `Vale.Spelling`
     pub check: String,
-    description: String,
+    pub(crate) description: String,
     /// Line number
     pub line: u32,
-    link: String,
+    pub(crate) link: String,
     /// Text describing the issue and/or providing suggestions
     pub message: String,
     /// Severity of the issue (e.g., warning, error, suggestion)
@@ -102,16 +102,16 @@ pub struct ValeOutputItem {
     /// Span of the issue (e.g., starting and ending characters of issue location in context)
     pub span: Vec<u32>,
     #[serde(rename = "Match")]
-    word_match: String,
+    pub(crate) word_match: String,
 }
 /// Vale output item action
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ValeOutputItemAction {
     /// Action name
-    name: String,
+    pub(crate) name: String,
     /// Action parameters
-    params: Option<Vec<String>>,
+    pub(crate) params: Option<Vec<String>>,
 }
 impl ValeOutput {
     /// Parse Vale output
@@ -198,46 +198,4 @@ pub(crate) fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
     let normalized = output.replace("\\\\", "/");
     // Then handle the extended-length path prefix and replace the full path
     normalized.replace(&format!("//?/{}", input), "items").replace(&input, "items")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Location, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
-
-    #[test]
-    fn vale_output_item_location_matches_prose_display_format() {
-        let item = ValeOutputItem {
-            action: ValeOutputItemAction {
-                name: "replace".to_string(),
-                params: None,
-            },
-            check: "Vale.Spelling".to_string(),
-            description: "".to_string(),
-            line: 17,
-            link: "".to_string(),
-            message: "Did you really mean 'Indexable'?".to_string(),
-            severity: ValeOutputItemSeverity::Error,
-            span: vec![23, 31],
-            word_match: "Indexable".to_string(),
-        };
-        assert_eq!(item.locator(), "Line 17, Character 23");
-    }
-    #[test]
-    fn vale_output_item_source_text_uses_word_match() {
-        let item = ValeOutputItem {
-            action: ValeOutputItemAction {
-                name: "replace".to_string(),
-                params: None,
-            },
-            check: "Science.use-instead".to_string(),
-            description: "".to_string(),
-            line: 19,
-            link: "".to_string(),
-            message: "Use 'geospatial' instead of 'geo-spatial'.".to_string(),
-            severity: ValeOutputItemSeverity::Error,
-            span: vec![36, 46],
-            word_match: "geo-spatial".to_string(),
-        };
-        assert_eq!(item.source_text(), "geo-spatial");
-    }
 }

@@ -212,23 +212,32 @@ pub fn parse_ooxml_paragraph(content: &str) -> Result<TextParagraph, quick_xml::
 }
 /// Prettify XML
 pub fn prettify_xml(xml: &str) -> String {
-    let mut buf: Vec<u8> = Vec::new();
     let mut reader = Reader::from_str(xml);
     let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
     loop {
-        let ev = reader.read_event();
-        match ev {
+        match reader.read_event() {
             | Ok(Event::Eof) => break, // exits the loop when reaching end of file
-            | Ok(event) => writer.write_event(event),
-            | Err(e) => panic!("Error at position {}: {:?}", reader.buffer_position(), e),
+            | Ok(event) => match writer.write_event(event) {
+                | Ok(_) => {}
+                | Err(why) => {
+                    error!("=> {} Cannot write XML event — {why}", Label::fail());
+                    break;
+                }
+            },
+            | Err(why) => {
+                error!("=> {} Error at XML position {} — {why}", Label::fail(), reader.buffer_position());
+                break;
+            }
         }
-        .expect("Failed to parse XML");
-        buf.clear();
     }
-    let result = core::str::from_utf8(&writer.into_inner())
-        .expect("Failed to convert a slice of bytes to a string slice")
-        .to_string();
-    result
+    let output = writer.into_inner();
+    match core::str::from_utf8(&output) {
+        | Ok(value) => value.to_string(),
+        | Err(why) => {
+            error!("=> {} Cannot decode prettified XML as UTF-8 — {why}", Label::fail());
+            String::new()
+        }
+    }
 }
 /// Read OOXML relationships XML file
 pub fn read_xml_rel(path: PathBuf) -> Option<Relationships> {

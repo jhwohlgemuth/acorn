@@ -1,3 +1,10 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 use crate::schema::geonames::{CodeFormat, Country, GeonamesParser};
 use crate::schema::research_activity::aspect::Maturity;
 use crate::schema::research_activity::*;

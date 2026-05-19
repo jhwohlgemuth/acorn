@@ -1,3 +1,10 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 use crate::io::InputOutput;
 use crate::prelude::PathBuf;
 use crate::schema::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};

@@ -154,6 +154,13 @@ pub(crate) use define_required_fn;
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing,
+        clippy::arithmetic_side_effects
+    )]
     define_required_fn!(1, required1_test, A, a);
     define_required_fn!(3, required3_test, A, a, B, b, C, c);
     define_required_fn!(4, required4_test, A, a, B, b, C, c, D, d);

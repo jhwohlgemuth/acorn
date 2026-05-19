@@ -8,6 +8,13 @@
 //! - Terse output mode
 //!
 //! All tests run in offline mode to avoid network dependencies.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects
+)]
 use crate::cli::arguments::{CheckCategoryArgument, ReadabilityTypeArgument, Standard};
 use crate::commands::check::run;
 use crate::test_utils::fixture_path;

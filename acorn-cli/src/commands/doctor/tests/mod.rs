@@ -1,3 +1,10 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects
+)]
 use crate::cli::arguments::Diagnostic;
 use crate::commands::doctor::{run, should_run};
 use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, TableFormatPrint};

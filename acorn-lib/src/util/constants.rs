@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used)]
 //! # Constants, regular expressions, and configuration values
 //!
 //! This module contains a collection of regular expressions, configuration values, and guidelines for research activity data. This includes section character counts and line counts.
@@ -180,43 +181,49 @@ lazy_static! {
     /// Regex that should match a Archival Resource Key (ARK)
     ///
     /// See <https://arks.org/> for more information
-    pub static ref RE_ARK: Regex = Regex::new(RE_ARK_TEXT).unwrap();
+    pub static ref RE_ARK: Regex = Regex::new(RE_ARK_TEXT).expect("RE_ARK_TEXT should compile as a valid regex");
     /// Regex that should match a Digital Object Identifier (DOI)
     ///
     /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
-    pub static ref RE_DOI: Regex = Regex::new(RE_DOI_TEXT).unwrap();
+    pub static ref RE_DOI: Regex = Regex::new(RE_DOI_TEXT).expect("RE_DOI_TEXT should compile as a valid regex");
     /// Regex that should match an International Standard Book Number (ISBN)
-    pub static ref RE_ISBN: Regex = Regex::new(RE_ISBN_TEXT).unwrap();
+    pub static ref RE_ISBN: Regex = Regex::new(RE_ISBN_TEXT).expect("RE_ISBN_TEXT should compile as a valid regex");
     /// Regex that should match a USPTO patent identifier (granted patent, application, or publication)
-    pub static ref RE_PATENT: Regex = Regex::new(RE_PATENT_TEXT).unwrap();
+    pub static ref RE_PATENT: Regex = Regex::new(RE_PATENT_TEXT).expect("RE_PATENT_TEXT should compile as a valid regex");
     /// Regex that should match an Open Researcher and Contributor ID (ORCiD) value
     ///
 /// See <https://orcid.org/> for more information
-    pub static ref RE_ORCID: Regex = Regex::new(RE_ORCID_TEXT).unwrap();
+    pub static ref RE_ORCID: Regex = Regex::new(RE_ORCID_TEXT).expect("RE_ORCID_TEXT should compile as a valid regex");
     /// Regex that should match a Research Activity Identifier (RAiD)
     ///
     /// See <https://raid.org/> for more information
-    pub static ref RE_RAID: Regex = Regex::new(RE_RAID_TEXT).unwrap();
+    pub static ref RE_RAID: Regex = Regex::new(RE_RAID_TEXT).expect("RE_RAID_TEXT should compile as a valid regex");
     /// Regex that should match a Research Organization Registry (ROR)
     ///
     /// See <https://www.ror.org/> for more information
-    pub static ref RE_ROR: Regex = Regex::new(RE_ROR_TEXT).unwrap();
+    pub static ref RE_ROR: Regex = Regex::new(RE_ROR_TEXT).expect("RE_ROR_TEXT should compile as a valid regex");
     /// Regex that should match an image extension (e.g. .png, .jpg, .jpeg, .svg)
-    pub static ref RE_IMAGE_EXTENSION: Regex = Regex::new(r#".*[.](png|PNG|jpg|JPG|jpeg|JPEG|svg|SVG|gif|GIF|webp|WEBP|tiff|TIFF)$"#).unwrap();
+    pub static ref RE_IMAGE_EXTENSION: Regex = Regex::new(r#".*[.](png|PNG|jpg|JPG|jpeg|JPEG|svg|SVG|gif|GIF|webp|WEBP|tiff|TIFF)$"#)
+        .expect("RE_IMAGE_EXTENSION should compile as a valid regex");
     /// Regex that should match an IP6 address
-    pub static ref RE_IP6: Regex = Regex::new(r#"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"#).unwrap();
+    pub static ref RE_IP6: Regex = Regex::new(r#"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"#)
+        .expect("RE_IP6 should compile as a valid regex");
     /// Regex that should match an ISO 8601 date (e.g., `YYYY-MM-DD`)
     /// ### Example
     /// > `2025-06-04`
-    pub static ref RE_ISO_8601_DATE: Regex = Regex::new(r#"^(?<year>(19[5-9][0-9]|20[0-2][0-9]))-(?<month>(((0[13578]|(10|12)))-(?<day>(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30))))$"#).unwrap();
+    pub static ref RE_ISO_8601_DATE: Regex = Regex::new(r#"^(?<year>(19[5-9][0-9]|20[0-2][0-9]))-(?<month>(((0[13578]|(10|12)))-(?<day>(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30))))$"#)
+        .expect("RE_ISO_8601_DATE should compile as a valid regex");
     /// Regex that should match an ISO 8601 year from modern times, 1950 through 2029
     /// ### Example
     /// > `2025`
-    pub static ref RE_ISO_8601_YEAR: Regex = Regex::new(r#"^(?<year>(19[5-9][0-9]|20[0-2][0-9]))$"#).unwrap();
+    pub static ref RE_ISO_8601_YEAR: Regex = Regex::new(r#"^(?<year>(19[5-9][0-9]|20[0-2][0-9]))$"#)
+        .expect("RE_ISO_8601_YEAR should compile as a valid regex");
     /// Regex that should match a phone number (with optional country and area codes)
-    pub static ref RE_PHONE: Regex = Regex::new(r#"^(?<country>\+\d{1,2}\s?)?(?<area>\(?\d{3}\)?)[\s.-]?(?<prefix>\d{3})[\s.-]?(?<line>\d{4})$"#).unwrap();
+    pub static ref RE_PHONE: Regex = Regex::new(r#"^(?<country>\+\d{1,2}\s?)?(?<area>\(?\d{3}\)?)[\s.-]?(?<prefix>\d{3})[\s.-]?(?<line>\d{4})$"#)
+        .expect("RE_PHONE should compile as a valid regex");
     /// Regex that should match a fake phone number (e.g. 555.555.5555)
-    pub static ref RE_FAKE_PHONE: Regex = Regex::new(r#"^(\+\d{1,2}\s?)?\(?5{3}\)?[\s.-]?5{3}[\s.-]?5{4}$"#).unwrap();
+    pub static ref RE_FAKE_PHONE: Regex = Regex::new(r#"^(\+\d{1,2}\s?)?\(?5{3}\)?[\s.-]?5{3}[\s.-]?5{4}$"#)
+        .expect("RE_FAKE_PHONE should compile as a valid regex");
     /// Regex that should match a Unix epoch (ex. 1759017645)
-    pub static ref RE_UNIX_EPOCH: Regex = Regex::new(r#"^\d{10}$"#).unwrap();
+    pub static ref RE_UNIX_EPOCH: Regex = Regex::new(r#"^\d{10}$"#).expect("RE_UNIX_EPOCH should compile as a valid regex");
 }

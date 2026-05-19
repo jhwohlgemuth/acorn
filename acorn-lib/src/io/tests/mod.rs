@@ -1,3 +1,10 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 use crate::io::api::gitlab::TreeEntry;
 use crate::io::api::TreeEntryType;
 use crate::io::bagit::{Bag, BagInfo, Save};

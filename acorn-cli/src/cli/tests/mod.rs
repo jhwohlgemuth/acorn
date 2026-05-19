@@ -1,3 +1,10 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects
+)]
 use crate::cli::{filter_by_pattern, resolve_paths, Arguments, CommandOptions};
 use acorn::prelude::{Path, PathBuf};
 use clap::{CommandFactory, Parser};

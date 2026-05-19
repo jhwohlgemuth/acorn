@@ -1,3 +1,10 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
     self, extract_template_keys, orcid, ror, Endpoint, IntoBody, Param, ParamStyle, RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,

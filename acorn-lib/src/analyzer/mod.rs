@@ -478,6 +478,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         vale
     }
     async fn run(&self, path: PathBuf, content: String, output_format: Option<String>) -> Vec<Check> {
+        let uri = path.file_name_with_parent();
         let root = path
             .parent()
             .map(|value| value.to_path_buf())
@@ -488,7 +489,14 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         }
         match write(&path, content.as_bytes()) {
             | Ok(_) => {}
-            | Err(why) => panic!("=> {} Write file {} - {why}", Label::fail(), path.display()),
+            | Err(why) => {
+                error!(path = path.to_absolute_string(), "=> {} Write file — {why}", Label::fail());
+                return vec![check_err!(
+                    CheckCategory::Prose,
+                    uri: uri,
+                    message: format!("Cannot write analyzer input at {}", path.display())
+                )];
+            }
         }
         let binary = match &self.binary {
             | Some(value) => value,
@@ -497,7 +505,6 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 &PathBuf::from("./.vale/vale")
             }
         };
-        let uri = path.file_name_with_parent();
         match &self.config {
             | Some(config) => {
                 let binary_path = binary.to_absolute_string();
@@ -737,15 +744,15 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     .collect::<Vec<String>>()
                     .join("\n");
                 match write(format!("{parent}/accept.txt"), accept_content.as_bytes()) {
-                    | Ok(_) => {}
-                    | Err(why) => panic!("=> {} Write accept.txt — {why}", Label::fail()),
+                    | Ok(_) => {
+                        let reject_content = Constant::read_lines("reject.txt").join("\n");
+                        match write(format!("{parent}/reject.txt"), reject_content.as_bytes()) {
+                            | Ok(_) => Ok(()),
+                            | Err(why) => Err(eyre!("Write reject.txt failed — {why}")),
+                        }
+                    }
+                    | Err(why) => Err(eyre!("Write accept.txt failed — {why}")),
                 }
-                let reject_content = Constant::read_lines("reject.txt").join("\n");
-                match write(format!("{parent}/reject.txt"), reject_content.as_bytes()) {
-                    | Ok(_) => {}
-                    | Err(why) => panic!("=> {} Write reject.txt — {why}", Label::fail()),
-                }
-                Ok(())
             }
             | Err(why) => {
                 error!(config = config_path.to_absolute_string(), "=> {} Vale sync — {why}", Label::fail());

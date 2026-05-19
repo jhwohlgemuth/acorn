@@ -1,3 +1,10 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 #[cfg(feature = "std")]
 use crate::io::InputOutput;
 use crate::schema::standard::text::{Docx, Text};

@@ -191,6 +191,13 @@ fn prepare_destination(output: &Option<PathBuf>, name: &str) -> ApiResult<PathBu
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing,
+        clippy::arithmetic_side_effects
+    )]
     use super::prepare_destination;
 
     #[test]

@@ -1,3 +1,10 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 use crate::io::database::backend::params;
 use crate::io::database::macros::build_query;
 use crate::io::database::schema::{ActivityRow, CatalogRow, LinkCacheRow, ProgrammingLanguageRow, ResearchActivityCacheRow, Table, ValidationRow};

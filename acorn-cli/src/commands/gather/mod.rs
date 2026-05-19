@@ -1,3 +1,4 @@
+#![allow(clippy::panic)]
 use crate::cli::CommandOptions;
 use crate::commands::preflight;
 use acorn::io::api::{self, gitlab, Configuration};
@@ -33,7 +34,7 @@ pub async fn run(
     // dbg!(langs);
     // gitlab_merge_request_note_example().await;
     // gitlab_example().await;
-    // orcid_example().await;
+    // orcid_example().await;Hey.
     raid_example().await;
     // ror_example().await;
     Ok(())

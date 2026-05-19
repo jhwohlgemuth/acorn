@@ -1,3 +1,10 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 //! Shared test utilities for `acorn-lib` unit tests.
 use crate::io::database::{schema::Table, Database, Operations};
 use crate::io::ApiResult;

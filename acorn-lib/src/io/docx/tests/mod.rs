@@ -1,3 +1,10 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 use crate::analyzer::readability::flesch_kincaid_grade_level;
 use crate::io::docx::extract_text_from_path;
 use crate::prelude::{write, File, PathBuf, Write};

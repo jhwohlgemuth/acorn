@@ -1,3 +1,10 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unwrap_used
+)]
 use crate::analyzer::check::{highlighted, highlighted_array, highlighted_from_params, nearest_space_boundary, truncate};
 use crate::analyzer::error::ErrorCode;
 use crate::analyzer::error::ErrorKind;
@@ -13,6 +20,47 @@ use ariadne::ReportKind;
 use ariadne::Source;
 use serde_json::Value;
 use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
+
+#[derive(Validate)]
+struct FieldModel {
+    #[validate(length(min = 3, max = 3))]
+    name: String,
+}
+#[derive(Validate)]
+struct ChildModel {
+    #[validate(email)]
+    email: String,
+}
+#[derive(Validate)]
+struct ParentModel {
+    #[validate(nested)]
+    child: ChildModel,
+}
+#[derive(Validate)]
+struct ParentListModel {
+    #[validate(nested)]
+    children: Vec<ChildModel>,
+}
+#[derive(Validate)]
+struct RepeatedChildModel {
+    #[validate(email)]
+    email: String,
+}
+#[derive(Validate)]
+struct RepeatedNameModel {
+    #[validate(nested)]
+    child: RepeatedChildModel,
+}
+#[derive(Validate)]
+struct RepeatedNameParentModel {
+    #[validate(nested)]
+    child: RepeatedNameModel,
+}
+#[derive(Validate)]
+struct ArrayParamModel {
+    #[validate(length(min = 3))]
+    tags: Vec<String>,
+}
 
 #[test]
 fn test_cff_validation_issues_invalid_doi() {
@@ -597,7 +645,138 @@ fn test_nearest_space_boundary_returns_none_without_boundary_at_or_after_index()
     let result = nearest_space_boundary(value, 12);
     assert_eq!(result, None);
 }
-
+#[test]
+fn process_returns_field_issue_tuple() {
+    use crate::analyzer::error::{ErrorCode, ErrorKind};
+    let value = FieldModel { name: "x".to_string() };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert!(matches!(issue.code, ErrorCode::Length));
+    assert_eq!(issue.path.as_deref(), Some("name"));
+    assert_eq!(issue.message, "length");
+    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("x")));
+    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
+    assert_eq!(issue.params.get("max").and_then(|v| v.as_i64()), Some(3));
+}
+#[test]
+fn process_returns_nested_struct_path() {
+    use crate::analyzer::error::{ErrorCode, ErrorKind};
+    let value = ParentModel {
+        child: ChildModel {
+            email: "not-an-email".to_string(),
+        },
+    };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert!(matches!(issue.code, ErrorCode::Email));
+    assert_eq!(issue.path.as_deref(), Some("child.email"));
+    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
+}
+#[test]
+fn process_returns_nested_list_index_path() {
+    use crate::analyzer::error::{ErrorCode, ErrorKind};
+    let value = ParentListModel {
+        children: vec![
+            ChildModel {
+                email: "valid@example.com".to_string(),
+            },
+            ChildModel {
+                email: "invalid".to_string(),
+            },
+        ],
+    };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert!(matches!(issue.code, ErrorCode::Email));
+    assert_eq!(issue.path.as_deref(), Some("children[1].email"));
+    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("invalid")));
+}
+#[test]
+fn process_returns_none_path_for_root_field_errors() {
+    use crate::analyzer::error::process;
+    use crate::analyzer::error::ErrorCode;
+    let value = FieldModel { name: "x".to_string() };
+    let errors = value.validate().expect_err("expected validation failure");
+    let field_errors = errors
+        .into_errors()
+        .remove("name")
+        .and_then(|kind| match kind {
+            | ValidationErrorsKind::Field(errors) => Some(errors),
+            | _ => None,
+        })
+        .expect("expected field-level validation errors for name");
+    let kind = ValidationErrorsKind::Field(field_errors);
+    let issues = process("", &kind);
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert!(matches!(issue.code, ErrorCode::Length));
+    assert_eq!(issue.path.as_deref(), None);
+    assert_eq!(issue.message, "length");
+    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("x")));
+    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
+}
+#[test]
+fn process_serializes_array_param_values() {
+    use crate::analyzer::error::{ErrorCode, ErrorKind};
+    let value = ArrayParamModel {
+        tags: vec!["one".to_string(), "two".to_string()],
+    };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert!(matches!(issue.code, ErrorCode::Length));
+    assert_eq!(issue.path.as_deref(), Some("tags"));
+    assert_eq!(issue.message, "length");
+    assert_eq!(
+        issue.params.get("value").and_then(|v| v.as_array()).map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str())
+                .map(|item| item.to_string())
+                .collect::<Vec<String>>()
+        }),
+        Some(vec!["one".to_string(), "two".to_string()])
+    );
+    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
+}
+#[test]
+fn source_text_formats_array_values_as_markdown_list() {
+    use crate::analyzer::error::{ErrorCode, Location, ValidatorIssue};
+    let mut params: HashMap<String, Value> = HashMap::new();
+    params.insert("value".to_string(), serde_json::json!(["alpha", "beta"]));
+    let issue = ValidatorIssue::init()
+        .code(ErrorCode::Section)
+        .maybe_path(Some("sections.impact".to_string()))
+        .message("section")
+        .params(params)
+        .build();
+    let source = issue.source_text();
+    assert!(source.contains("- \"alpha\""));
+    assert!(source.contains("- \"beta\""));
+}
+#[test]
+fn process_preserves_non_wrapper_repeated_segment_paths() {
+    use crate::analyzer::error::ErrorKind;
+    let value = RepeatedNameParentModel {
+        child: RepeatedNameModel {
+            child: RepeatedChildModel {
+                email: "invalid".to_string(),
+            },
+        },
+    };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert_eq!(issue.path.as_deref(), Some("child.child.email"));
+}
 #[test]
 fn test_truncate_keeps_prefix_at_or_below_maximum() {
     let source_text = "Alpha Bravo Charlie Delta Echo";
@@ -606,4 +785,44 @@ fn test_truncate_keeps_prefix_at_or_below_maximum() {
     let retained_prefix_length = result_span.start().saturating_sub(3);
     assert_eq!(result_source.text(), "...Delta Echo");
     assert!(retained_prefix_length <= 5);
+}
+#[test]
+fn test_vale_output_item_location_matches_prose_display_format() {
+    use crate::analyzer::error::Location;
+    use crate::analyzer::vale::{ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
+    let item = ValeOutputItem {
+        action: ValeOutputItemAction {
+            name: "replace".to_string(),
+            params: None,
+        },
+        check: "Vale.Spelling".to_string(),
+        description: "".to_string(),
+        line: 17,
+        link: "".to_string(),
+        message: "Did you really mean 'Indexable'?".to_string(),
+        severity: ValeOutputItemSeverity::Error,
+        span: vec![23, 31],
+        word_match: "Indexable".to_string(),
+    };
+    assert_eq!(item.locator(), "Line 17, Character 23");
+}
+#[test]
+fn test_vale_output_item_source_text_uses_word_match() {
+    use crate::analyzer::error::Location;
+    use crate::analyzer::vale::{ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
+    let item = ValeOutputItem {
+        action: ValeOutputItemAction {
+            name: "replace".to_string(),
+            params: None,
+        },
+        check: "Science.use-instead".to_string(),
+        description: "".to_string(),
+        line: 19,
+        link: "".to_string(),
+        message: "Use 'geospatial' instead of 'geo-spatial'.".to_string(),
+        severity: ValeOutputItemSeverity::Error,
+        span: vec![36, 46],
+        word_match: "geo-spatial".to_string(),
+    };
+    assert_eq!(item.source_text(), "geo-spatial");
 }
