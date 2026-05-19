@@ -18,6 +18,7 @@ RUN rustup target add x86_64-unknown-linux-musl \
 
 FROM dhi.io/debian-base:bookworm
 COPY --from=build-env /app/target/x86_64-unknown-linux-musl/release/acorn /
+USER 0
 RUN apt-get update \
     && apt-get install --no-install-recommends --yes ca-certificates \
     && apt-get clean \
