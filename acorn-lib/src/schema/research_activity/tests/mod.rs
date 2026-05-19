@@ -135,7 +135,7 @@ fn test_aspect_to_markdown() {
   - Version: 8B
   - Parameters: 8B"#;
 
-    assert_eq!(aspect.to_markdown(), expected);
+    assert_eq!(aspect.to_markdown().replace("\r\n", "\n").trim_end(), expected);
 }
 #[test]
 fn test_research_activity_into_cff() {
@@ -337,6 +337,7 @@ fn test_metadata_with_resources() {
                 count: Some(4),
                 memory: Some(Memory::gb(80)),
                 name: None,
+                required: None,
                 vendor: Some(Vendor::NVIDIA),
             },
             Resource::CPU {
@@ -344,6 +345,7 @@ fn test_metadata_with_resources() {
                 cores: Some(32),
                 count: None,
                 memory: Some(Memory::gb(256)),
+                required: None,
                 threads: Some(64),
                 vendor: Some(Vendor::AMD),
             },
@@ -376,6 +378,7 @@ fn test_metadata_with_minimal_resources() {
                 count: None,
                 model: None,
                 paradigm: None,
+                required: None,
                 qubits: None,
                 topology: None,
                 vendor: None,
@@ -385,6 +388,7 @@ fn test_metadata_with_minimal_resources() {
                 count: None,
                 logic_elements: None,
                 memory: None,
+                required: None,
                 vendor: None,
             },
         ])
@@ -410,6 +414,7 @@ fn test_metadata_resources_roundtrip() {
             count: Some(1),
             memory: Some(Memory::gb(24)),
             name: None,
+            required: None,
             vendor: Some(Vendor::Intel),
         }])
         .build();
@@ -425,6 +430,7 @@ fn test_metadata_resources_roundtrip() {
                 amount: 24.0,
                 unit: MemoryUnit::GB
             }),
+            required: None,
             vendor: Some(Vendor::Intel),
             ..
         }
@@ -462,6 +468,7 @@ fn test_deserialize_metadata_with_gpu_resources() {
             compute_capability: Some(cc),
             count: Some(8),
             memory: Some(Memory { amount: 80.0, unit: MemoryUnit::GB }),
+            required: None,
             vendor: Some(Vendor::NVIDIA),
             ..
         } if (*cc - 9.0_f32).abs() < f32::EPSILON
@@ -503,6 +510,7 @@ fn test_deserialize_metadata_with_mixed_resources() {
         &resources[0],
         Resource::CPU {
             cores: Some(64),
+            required: None,
             threads: Some(128),
             vendor: Some(Vendor::Intel),
             ..
@@ -513,10 +521,11 @@ fn test_deserialize_metadata_with_mixed_resources() {
     assert!(matches!(
         &resources[3],
         Resource::GPU {
-            count: Some(2),
-            vendor: Some(Vendor::AMD),
             architecture: None,
             compute_capability: None,
+            count: Some(2),
+            required: None,
+            vendor: Some(Vendor::AMD),
             ..
         }
     ));
@@ -550,6 +559,7 @@ fn test_deserialize_metadata_with_partial_gpu_fields() {
                 amount: 24.0,
                 unit: MemoryUnit::GB
             }),
+            required: None,
             vendor: None,
             ..
         }
@@ -600,6 +610,7 @@ fn test_deserialize_metadata_with_empty_cpu_and_gpu() {
             cores: None,
             count: Some(1),
             memory: None,
+            required: None,
             threads: None,
             vendor: None,
         }
@@ -611,6 +622,7 @@ fn test_deserialize_metadata_with_empty_cpu_and_gpu() {
             compute_capability: None,
             count: Some(1),
             memory: None,
+            required: None,
             vendor: None,
             ..
         }
@@ -637,6 +649,7 @@ fn test_deserialize_metadata_with_string_cpu_and_gpu() {
             cores: None,
             count: Some(1),
             memory: None,
+            required: None,
             threads: None,
             vendor: None,
         }
@@ -648,6 +661,7 @@ fn test_deserialize_metadata_with_string_cpu_and_gpu() {
             compute_capability: None,
             count: Some(1),
             memory: None,
+            required: None,
             vendor: None,
             ..
         }

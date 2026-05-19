@@ -832,6 +832,8 @@ pub enum Resource {
         count: Option<u32>,
         /// Intended purpose of the ASIC (e.g., "Bitcoin mining", "video encoding")
         purpose: Option<String>,
+        /// Whether this resource is required
+        required: Option<bool>,
         /// Hardware vendor or designer
         vendor: Option<Vendor>,
     },
@@ -847,6 +849,8 @@ pub enum Resource {
         /// Minimum RAM (if applicable)
         #[serde(alias = "ram")]
         memory: Option<Memory>,
+        /// Whether this resource is required
+        required: Option<bool>,
         /// Number of threads required (if applicable)
         threads: Option<u32>,
         /// Hardware vendor (e.g., Intel, AMD, ARM)
@@ -864,6 +868,8 @@ pub enum Resource {
         /// On-chip memory (if applicable)
         #[serde(alias = "mem")]
         memory: Option<Memory>,
+        /// Whether this resource is required
+        required: Option<bool>,
         /// Hardware vendor (e.g., NVIDIA, Intel, AMD)
         vendor: Option<Vendor>,
     },
@@ -879,6 +885,8 @@ pub enum Resource {
         /// Clock frequency in MHz (if applicable)
         #[serde(alias = "freq")]
         frequency: Option<u32>,
+        /// Whether this resource is required
+        required: Option<bool>,
         /// Hardware vendor (e.g., Qualcomm, Texas Instruments)
         vendor: Option<Vendor>,
     },
@@ -898,6 +906,8 @@ pub enum Resource {
         /// Block RAM (if applicable)
         #[serde(alias = "mem")]
         memory: Option<Memory>,
+        /// Whether this resource is required
+        required: Option<bool>,
         /// Hardware vendor (e.g., Intel, AMD)
         vendor: Option<Vendor>,
     },
@@ -917,6 +927,8 @@ pub enum Resource {
         memory: Option<Memory>,
         /// GPU model name (e.g., "H100", "RTX 4090")
         name: Option<String>,
+        /// Whether this resource is required
+        required: Option<bool>,
         /// Hardware vendor (e.g., NVIDIA, AMD, Intel)
         vendor: Option<Vendor>,
     },
@@ -932,6 +944,8 @@ pub enum Resource {
         /// On-chip SRAM (if applicable)
         #[serde(alias = "mem")]
         memory: Option<Memory>,
+        /// Whether this resource is required
+        required: Option<bool>,
         /// Hardware vendor (e.g., Qualcomm, Apple, Intel)
         vendor: Option<Vendor>,
     },
@@ -946,6 +960,8 @@ pub enum Resource {
         model: Option<String>,
         /// Neuron capacity per chip (if applicable)
         neurons: Option<u64>,
+        /// Whether this resource is required
+        required: Option<bool>,
         /// Synapse capacity per chip (if applicable)
         synapses: Option<u64>,
         /// Hardware vendor (e.g., Intel, IBM)
@@ -961,6 +977,8 @@ pub enum Resource {
         paradigm: Option<Paradigm>,
         /// Number of qubits (physical or logical, as applicable)
         qubits: Option<u32>,
+        /// Whether this resource is required
+        required: Option<bool>,
         /// Qubit connectivity topology (e.g., "heavy-hex", "all-to-all")
         topology: Option<Topology>,
         /// Hardware vendor (e.g., IBM, Google, IonQ)
@@ -976,6 +994,8 @@ pub enum Resource {
         /// High-bandwidth memory (if applicable)
         #[serde(alias = "mem")]
         memory: Option<Memory>,
+        /// Whether this resource is required
+        required: Option<bool>,
         /// Hardware vendor (e.g., Google)
         vendor: Option<Vendor>,
     },
@@ -1263,6 +1283,7 @@ impl<'de> Deserialize<'de> for Resource {
                         architecture: None,
                         count: Some(1),
                         purpose: None,
+                        required: None,
                         vendor: None,
                     }),
                     | "CPU" | "cpu" => Ok(Resource::CPU {
@@ -1270,6 +1291,7 @@ impl<'de> Deserialize<'de> for Resource {
                         cores: None,
                         count: Some(1),
                         memory: None,
+                        required: None,
                         threads: None,
                         vendor: None,
                     }),
@@ -1277,12 +1299,14 @@ impl<'de> Deserialize<'de> for Resource {
                         architecture: None,
                         count: Some(1),
                         memory: None,
+                        required: None,
                         vendor: None,
                     }),
                     | "DSP" | "dsp" => Ok(Resource::DSP {
                         architecture: None,
                         count: Some(1),
                         frequency: None,
+                        required: None,
                         vendor: None,
                     }),
                     | "FPGA" | "fpga" => Ok(Resource::FPGA {
@@ -1290,6 +1314,7 @@ impl<'de> Deserialize<'de> for Resource {
                         count: Some(1),
                         logic_elements: None,
                         memory: None,
+                        required: None,
                         vendor: None,
                     }),
                     | "GPU" | "gpu" => Ok(Resource::GPU {
@@ -1299,12 +1324,14 @@ impl<'de> Deserialize<'de> for Resource {
                         count: Some(1),
                         memory: None,
                         name: None,
+                        required: None,
                         vendor: None,
                     }),
                     | "NPU" | "npu" => Ok(Resource::NPU {
                         architecture: None,
                         count: Some(1),
                         memory: None,
+                        required: None,
                         vendor: None,
                     }),
                     | "Neuromorphic" | "neuromorphic" => Ok(Resource::Neuromorphic {
@@ -1312,6 +1339,7 @@ impl<'de> Deserialize<'de> for Resource {
                         memory: None,
                         model: None,
                         neurons: None,
+                        required: None,
                         synapses: None,
                         vendor: None,
                     }),
@@ -1320,6 +1348,7 @@ impl<'de> Deserialize<'de> for Resource {
                         model: None,
                         paradigm: None,
                         qubits: None,
+                        required: None,
                         topology: None,
                         vendor: None,
                     }),
@@ -1327,6 +1356,7 @@ impl<'de> Deserialize<'de> for Resource {
                         architecture: None,
                         count: Some(1),
                         memory: None,
+                        required: None,
                         vendor: None,
                     }),
                     | other => Ok(Resource::Other(other.to_string())),
@@ -1344,6 +1374,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
                                 purpose: Option<String>,
+                                required: Option<bool>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -1352,6 +1383,7 @@ impl<'de> Deserialize<'de> for Resource {
                                     architecture: f.architecture,
                                     count: f.count,
                                     purpose: f.purpose,
+                                    required: f.required,
                                     vendor: f.vendor,
                                 }),
                                 | Err(why) => Err(why),
@@ -1366,6 +1398,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
                                 memory: Option<Memory>,
+                                required: Option<bool>,
                                 threads: Option<u32>,
                                 vendor: Option<Vendor>,
                             }
@@ -1376,6 +1409,7 @@ impl<'de> Deserialize<'de> for Resource {
                                     cores: f.cores,
                                     count: f.count,
                                     memory: f.memory,
+                                    required: f.required,
                                     threads: f.threads,
                                     vendor: f.vendor,
                                 }),
@@ -1390,6 +1424,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
                                 memory: Option<Memory>,
+                                required: Option<bool>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -1398,6 +1433,7 @@ impl<'de> Deserialize<'de> for Resource {
                                     architecture: f.architecture,
                                     count: f.count,
                                     memory: f.memory,
+                                    required: f.required,
                                     vendor: f.vendor,
                                 }),
                                 | Err(why) => Err(why),
@@ -1411,6 +1447,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
                                 frequency: Option<u32>,
+                                required: Option<bool>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -1419,6 +1456,7 @@ impl<'de> Deserialize<'de> for Resource {
                                     architecture: f.architecture,
                                     count: f.count,
                                     frequency: f.frequency,
+                                    required: f.required,
                                     vendor: f.vendor,
                                 }),
                                 | Err(why) => Err(why),
@@ -1433,6 +1471,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 count: Option<u32>,
                                 logic_elements: Option<u32>,
                                 memory: Option<Memory>,
+                                required: Option<bool>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -1442,6 +1481,7 @@ impl<'de> Deserialize<'de> for Resource {
                                     count: f.count,
                                     logic_elements: f.logic_elements,
                                     memory: f.memory,
+                                    required: f.required,
                                     vendor: f.vendor,
                                 }),
                                 | Err(why) => Err(why),
@@ -1458,6 +1498,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 count: Option<u32>,
                                 memory: Option<Memory>,
                                 name: Option<String>,
+                                required: Option<bool>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -1469,6 +1510,7 @@ impl<'de> Deserialize<'de> for Resource {
                                     count: f.count,
                                     memory: f.memory,
                                     name: f.name,
+                                    required: f.required,
                                     vendor: f.vendor,
                                 }),
                                 | Err(why) => Err(why),
@@ -1482,6 +1524,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
                                 memory: Option<Memory>,
+                                required: Option<bool>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -1490,6 +1533,7 @@ impl<'de> Deserialize<'de> for Resource {
                                     architecture: f.architecture,
                                     count: f.count,
                                     memory: f.memory,
+                                    required: f.required,
                                     vendor: f.vendor,
                                 }),
                                 | Err(why) => Err(why),
@@ -1504,6 +1548,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 memory: Option<Memory>,
                                 model: Option<String>,
                                 neurons: Option<u64>,
+                                required: Option<bool>,
                                 synapses: Option<u64>,
                                 vendor: Option<Vendor>,
                             }
@@ -1514,6 +1559,7 @@ impl<'de> Deserialize<'de> for Resource {
                                     memory: f.memory,
                                     model: f.model,
                                     neurons: f.neurons,
+                                    required: f.required,
                                     synapses: f.synapses,
                                     vendor: f.vendor,
                                 }),
@@ -1528,6 +1574,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 model: Option<Model>,
                                 paradigm: Option<Paradigm>,
                                 qubits: Option<u32>,
+                                required: Option<bool>,
                                 topology: Option<Topology>,
                                 vendor: Option<Vendor>,
                             }
@@ -1538,6 +1585,7 @@ impl<'de> Deserialize<'de> for Resource {
                                     model: f.model,
                                     paradigm: f.paradigm,
                                     qubits: f.qubits,
+                                    required: f.required,
                                     topology: f.topology,
                                     vendor: f.vendor,
                                 }),
@@ -1552,6 +1600,7 @@ impl<'de> Deserialize<'de> for Resource {
                                 #[serde(default = "default_count")]
                                 count: Option<u32>,
                                 memory: Option<Memory>,
+                                required: Option<bool>,
                                 vendor: Option<Vendor>,
                             }
                             let next_value_result: Result<F, M::Error> = map.next_value();
@@ -1560,6 +1609,7 @@ impl<'de> Deserialize<'de> for Resource {
                                     architecture: f.architecture,
                                     count: f.count,
                                     memory: f.memory,
+                                    required: f.required,
                                     vendor: f.vendor,
                                 }),
                                 | Err(why) => Err(why),

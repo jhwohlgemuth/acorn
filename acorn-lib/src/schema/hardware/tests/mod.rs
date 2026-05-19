@@ -105,6 +105,7 @@ fn test_resource_vendor() {
         count: Some(1),
         memory: None,
         name: None,
+        required: None,
         vendor: None,
     };
     assert_eq!(gpu.vendor(), Some(Vendor::NVIDIA));
@@ -113,6 +114,7 @@ fn test_resource_vendor() {
         cores: None,
         count: Some(1),
         memory: None,
+        required: None,
         threads: None,
         vendor: Some(Vendor::Intel),
     };
@@ -121,6 +123,7 @@ fn test_resource_vendor() {
         count: Some(1),
         model: Some(super::Model::Heron),
         paradigm: None,
+        required: None,
         qubits: None,
         topology: None,
         vendor: None,
@@ -137,11 +140,13 @@ fn test_hardware_resource_dpu_from_string() {
             architecture,
             count,
             memory,
+            required,
             vendor,
         } => {
             assert!(architecture.is_none());
             assert_eq!(count, Some(1));
             assert!(memory.is_none());
+            assert!(required.is_none());
             assert!(vendor.is_none());
         }
         | other => panic!("expected DPU resource, got {other:?}"),
@@ -155,11 +160,13 @@ fn test_hardware_resource_dpu_from_map() {
             architecture,
             count,
             memory,
+            required,
             vendor,
         } => {
             assert_eq!(architecture, Some(CpuArchitecture::X86_64));
             assert_eq!(count, Some(2));
             assert_eq!(memory, Some(Memory::gb(64)));
+            assert!(required.is_none());
             match vendor {
                 | Some(Vendor::Intel) => {}
                 | other => panic!("expected Intel vendor, got {other:?}"),
@@ -405,6 +412,7 @@ fn test_resource_validate_vendor() {
         count: Some(1),
         memory: None,
         name: None,
+        required: None,
         vendor: Some(Vendor::NVIDIA),
     };
     assert!(gpu.validate().is_ok());
@@ -413,6 +421,7 @@ fn test_resource_validate_vendor() {
         cores: None,
         count: Some(1),
         memory: None,
+        required: None,
         threads: None,
         vendor: Some(Vendor::Intel),
     };
@@ -422,6 +431,7 @@ fn test_resource_validate_vendor() {
         count: Some(1),
         logic_elements: None,
         memory: None,
+        required: None,
         vendor: Some(Vendor::AMD),
     };
     assert!(fpga.validate().is_ok());
@@ -432,6 +442,7 @@ fn test_resource_validate_vendor() {
         count: Some(1),
         memory: None,
         name: None,
+        required: None,
         vendor: Some(Vendor::AMD),
     };
     let result = gpu.validate();
@@ -452,6 +463,7 @@ fn test_resource_validate_vendor() {
         count: Some(1),
         memory: None,
         name: None,
+        required: None,
         vendor: None,
     };
     assert!(gpu.validate().is_ok());
@@ -462,6 +474,7 @@ fn test_resource_validate_vendor() {
         count: Some(1),
         memory: None,
         name: None,
+        required: None,
         vendor: Some(Vendor::NVIDIA),
     };
     assert!(gpu.validate().is_ok());
@@ -470,6 +483,7 @@ fn test_resource_validate_vendor() {
         cores: None,
         count: Some(1),
         memory: None,
+        required: None,
         threads: None,
         vendor: Some(Vendor::AMD),
     };
@@ -479,6 +493,7 @@ fn test_resource_validate_vendor() {
         cores: None,
         count: Some(1),
         memory: None,
+        required: None,
         threads: None,
         vendor: Some(Vendor::Intel),
     };
