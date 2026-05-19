@@ -1,4 +1,4 @@
-FROM rust:1.89.0-slim AS build-env
+FROM rust:1.95.0-slim AS build-env
 LABEL author="Jason Wohlgemuth"
 WORKDIR /app
 COPY . /app

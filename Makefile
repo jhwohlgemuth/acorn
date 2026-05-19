@@ -3,6 +3,7 @@
 -include .env
 
 setup:
+	@rustup update stable
 	@cargo install $(DEV_DEPENDENCIES) --locked
 	@rustup target add $(TARGETS)
 
