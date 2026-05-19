@@ -92,7 +92,7 @@ acorn-clean:
 	@docker rmi -f ghcr.io/jhwohlgemuth/acorn:latest
 
 acorn-image:
-	@docker build --no-cache --platform $(PLATFORM) -t acorn:$(VERSION) -f Dockerfile .
+	@docker build --no-cache --platform $(PLATFORM) --build-arg RUST_VERSION=$(RUST_VERSION) -t acorn:$(VERSION) -f Dockerfile .
 	@docker tag acorn:$(VERSION) acorn:latest
 	@docker tag acorn:$(VERSION) $(REGISTRY)/acorn/runner:$(VERSION)
 	@docker tag acorn:$(VERSION) $(REGISTRY)/acorn/runner:latest
@@ -126,6 +126,7 @@ bucket-clean:
 bucket-image:
 	@docker build --no-cache \
 		--platform $(PLATFORM) \
+		--build-arg RUST_VERSION=$(RUST_VERSION) \
 		--build-arg ACORN_VERSION=$(VERSION) \
 		--build-arg DEFAULT_TARGET=$(DEFAULT_TARGET) \
 		-t bucket:$(VERSION) \
@@ -157,7 +158,7 @@ rust-clean:
 	@docker rmi -f $(REGISTRY)/acorn/rust:latest
 
 rust-image:
-	@docker build --no-cache --platform $(PLATFORM) -t $(REGISTRY)/acorn/rust:$(VERSION) -f Dockerfile.rust .
+	@docker build --no-cache --platform $(PLATFORM) --build-arg RUST_VERSION=$(RUST_VERSION) -t $(REGISTRY)/acorn/rust:$(VERSION) -f Dockerfile.rust .
 	@docker tag $(REGISTRY)/acorn/rust:$(VERSION) $(REGISTRY)/acorn/rust:latest
 
 rust-push:
@@ -169,6 +170,7 @@ rust-push:
 # PLATFORM = linux/amd64,linux/arm64
 PLATFORM = linux/amd64
 VERSION = `awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
+RUST_VERSION = `awk -F ' = ' '$$1 ~ /rust-version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 REGISTRY = savannah.ornl.gov/research-enablement
 DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml | tr . _`
 DEFAULT_WINDOWS_TARGET = x86_64-pc-windows-gnu

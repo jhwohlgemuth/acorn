@@ -4,6 +4,7 @@ resolver = "2"
 
 [workspace.package]
 version = "0.1.52"
+rust-version = "1.95.0"
 license = "MIT"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
 description = "Accessible Content Optimization for Research Needs - Multitool for maintaining sustainable research activity data"

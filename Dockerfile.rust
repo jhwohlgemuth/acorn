@@ -1,4 +1,5 @@
-FROM rust:1.95.0-slim
+ARG RUST_VERSION=1.95.0
+FROM rust:${RUST_VERSION}-slim
 #
 # %labels
 #
