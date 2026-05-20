@@ -9,6 +9,10 @@ LABEL author="Jason Wohlgemuth"
 #
 ARG DEBIAN_FRONTEND=noninteractive
 #
+# %environment
+#
+ENV PATH="/root/.cargo/bin:${PATH}"
+#
 # %post
 #
 RUN apt-get update && apt-get install --no-install-recommends --yes \
@@ -16,6 +20,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
         curl \
         gnupg \
         libssl-dev \
+        make \
         mingw-w64 \
         musl-tools \
         pkg-config \
@@ -33,8 +38,6 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
     && rm -f /tmp/powershell.tar.gz \
     && rustup component add clippy \
     && rustup component add rustfmt \
-    && rustup target add x86_64-unknown-linux-musl \
-    && rustup target add x86_64-pc-windows-gnu \
     && apt-get clean \
     && rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/* \
     && rm -rf /usr/share/man/?? \

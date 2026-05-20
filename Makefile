@@ -32,10 +32,15 @@ book-write:
 build: clean
 	@mkdir -p ./bin
 	@cargo build --release --package acorn-cli --target $(DEFAULT_TARGET)
-	@mv target/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
+	@mv $(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
 	@pwsh -Command New-Item -ItemType Directory -Path ".\bin" -Force
 	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
-	@pwsh -Command Move-Item -Path "target\$(DEFAULT_WINDOWS_TARGET)\release\acorn.exe" -Destination ".\bin\acorn-v${VERSION}.exe"
+	@pwsh -Command Move-Item -Path "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Destination "./bin/acorn-v${VERSION}.exe"
+
+build-in-image: clean
+	@docker image inspect $(REGISTRY)/acorn/rust:$(VERSION) > /dev/null 2>&1 || $(MAKE) rust-image
+	@MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' docker run --rm -e CARGO_TARGET_DIR=/app/target/acorn -v "$(CURDIR):/app" -v acorn-target:/app/target -w /app $(REGISTRY)/acorn/rust:$(VERSION) make build
+
 
 clean:
 	@cargo clean
@@ -80,6 +85,9 @@ test-ci: clean lint
 
 version: 
 	@echo $(VERSION)
+
+rust-version:
+	@echo $(RUST_VERSION)
 
 acorn-clean:
 	@docker rmi -f acorn:$(VERSION)
@@ -169,16 +177,18 @@ rust-push:
 #
 # PLATFORM = linux/amd64,linux/arm64
 PLATFORM = linux/amd64
-VERSION = `awk -F ' = ' '$$1 ~ /version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
-RUST_VERSION = `awk -F ' = ' '$$1 ~ /rust-version/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
+VERSION = `awk -F ' = ' '$$1 ~ /^version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
+RUST_VERSION = `awk -F ' = ' '$$1 ~ /rust-version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 REGISTRY = savannah.ornl.gov/research-enablement
-DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["]/, "", $$2); printf("%s",$$2) }' Cargo.toml | tr . _`
+DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml | tr . _`
 DEFAULT_WINDOWS_TARGET = x86_64-pc-windows-gnu
+ARTIFACT_TARGET_DIR = $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),target)
 DEV_DEPENDENCIES = \
 	cargo-audit \
 	cargo-auditable \
 	cargo-deny \
 	cargo-insta \
+	cargo-msrv \
 	cargo-nextest \
 	cargo-shear \
 	cargo-tarpaulin \
@@ -212,6 +222,7 @@ TASKS = \
 	test-ci \
 	version \
 	acorn-clean \
+	acorn-build-in-image \
 	acorn-image \
 	acorn-push \
 	acorn-push-docker \
