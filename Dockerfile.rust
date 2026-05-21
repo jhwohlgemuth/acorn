@@ -18,6 +18,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN apt-get update && apt-get install --no-install-recommends --yes \
         ca-certificates \
         curl \
+        git \
         gnupg \
         libssl-dev \
         make \
