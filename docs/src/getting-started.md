@@ -6,9 +6,6 @@
 ## Installation
 
 ### Install with Scoop (Windows only)
-> [!WARNING]  
-> 🚧 Under construction ([Pull Request](https://github.com/ScoopInstaller/Extras/pull/16876)/[Issue](https://github.com/ScoopInstaller/Extras/issues/16896))
-
 - Ensure you have [Scoop](https://scoop.sh/) installed.
 - Open your terminal and add the extras bucket to Scoop
     ```sh
@@ -21,6 +18,10 @@
 - After installation, you can verify the installation by running:
     ```sh
     acorn help
+    ```
+- You can keep ACORN up to date with Scoop by running:
+    ```sh
+    scoop update acorn
     ```
 
 ### Install with Homebrew (Linux and MacOS)
