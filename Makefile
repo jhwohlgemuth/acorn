@@ -30,10 +30,9 @@ book-write:
 	@mdbook serve --open docs
 
 build: clean
-	@mkdir -p ./bin
+	@pwsh -Command New-Item -ItemType Directory -Path ".\bin" -Force
 	@cargo build --release --package acorn-cli --target $(DEFAULT_TARGET)
 	@mv $(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
-	@pwsh -Command New-Item -ItemType Directory -Path ".\bin" -Force
 	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
 	@pwsh -Command Move-Item -Path "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Destination "./bin/acorn-v${VERSION}.exe" -Force
 
