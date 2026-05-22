@@ -125,7 +125,12 @@ impl Bag {
             .find(|x| x.starts_with("manifest"))
         {
             | Some(name) => {
-                let algorithm = name["manifest.".len()..].split(".").collect::<Vec<_>>()[0].to_lowercase();
+                let algorithm = name["manifest.".len()..]
+                    .split(".")
+                    .collect::<Vec<_>>()
+                    .first()
+                    .unwrap_or(&"")
+                    .to_lowercase();
                 let manifest = format!("manifest-{}.txt", algorithm.clone());
                 let checksum_algorithm: &'static ring::digest::Algorithm = ChecksumAlgorithm::from(algorithm).into();
                 let required = ["bagit.txt", &manifest, "data/"]
@@ -142,14 +147,17 @@ impl Bag {
                     let compare_checksums = pairs
                         .iter()
                         .map(|x| {
-                            let checksum = x[0];
-                            let payload_path = base_directory.join(x[1]);
+                            let checksum = x.first().copied().unwrap_or("");
+                            let payload_path = base_directory.join(x.get(1).copied().unwrap_or(""));
                             let calculated = file_checksum(payload_path, Some(checksum_algorithm)).unwrap_or_default();
                             calculated.eq(checksum)
                         })
                         .collect::<Vec<_>>();
                     match compare_checksums.iter().enumerate().find(|(_, result)| !*result) {
-                        | Some((index, _)) => Err(eyre!("Checksum mismatch in payload file = {}", pairs[index][1])),
+                        | Some((index, _)) => {
+                            let path = pairs.get(index).and_then(|p| p.get(1)).copied().unwrap_or("");
+                            Err(eyre!("Checksum mismatch in payload file = {}", path))
+                        }
                         | None => Ok(()),
                     }
                 } else {

@@ -247,7 +247,7 @@ impl Repository {
         match self.releases().await {
             | releases if releases.is_empty() => None,
             | releases => {
-                let release = releases[0].clone();
+                let release = releases.into_iter().next().unwrap();
                 trace!("=> {} Latest {:#?}", Label::using(), release);
                 Some(release)
             }

@@ -63,7 +63,7 @@ async fn gitlab_example() {
     let runners = gitlab::runners(options.clone()).await;
     match &runners {
         | Ok(ref values) if !values.is_empty() => {
-            let runner_id = values[0].identifier.unwrap_or_default().to_string();
+            let runner_id = values.first().map(|v| v.identifier.unwrap_or_default().to_string()).unwrap_or_default();
             let options = options.clone().with_identifier(runner_id);
             let runner = gitlab::runner(options).await;
             info!("Runner: {runner:#?}");

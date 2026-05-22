@@ -581,8 +581,8 @@ impl ContactPoint {
                 }
             },
             | None => {
-                let ornl = &Organization::load()[0];
-                match ornl.clone().member(&updated_organization) {
+                let ornl = Organization::load().into_iter().next().unwrap();
+                match ornl.member(&updated_organization) {
                     | Some(organization) => match organization.nearest(OrganizationType::Directorate) {
                         | Some(Organization { name, .. }) => Some(name),
                         | None => Some(DEFAULT_AFFILIATION.to_string()),
@@ -676,7 +676,7 @@ impl MediaObject {
 impl Organization {
     /// Return list of all alternative names
     pub fn alternative_names() -> Vec<String> {
-        let members = Organization::load()[0].clone().members();
+        let members = Organization::load().into_iter().next().unwrap().members();
 
         members
             .into_iter()
@@ -716,7 +716,7 @@ impl Organization {
         if a > b {
             None
         } else {
-            let ornl = Organization::load()[0].clone();
+            let ornl = Organization::load().into_iter().next().unwrap();
             let graph = ornl.clone().to_graph();
             let name = match b - a {
                 | 3 => Some(ornl.clone().name),
@@ -908,7 +908,7 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
     output
 }
 pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
-    let organization = &Organization::load()[0];
+    let organization = Organization::load().into_iter().next().unwrap();
     let items: Vec<Organization> = once(organization.clone())
         .chain(
             organization

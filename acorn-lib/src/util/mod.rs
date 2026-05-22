@@ -547,9 +547,9 @@ impl License {
         let result = data
             .into_iter()
             .map(|row| row.into_iter().take(5).collect::<Vec<String>>())
-            .find(|pair| pair[0] == value);
+            .find(|pair| pair.first().map(|s| s.as_str()) == Some(value));
         match result {
-            | Some(pair) => Some(License::from(pair[4].clone())),
+            | Some(pair) => pair.get(4).map(|s| License::from(s.clone())),
             | None => None,
         }
     }
@@ -559,9 +559,9 @@ impl License {
         let result = data
             .into_iter()
             .map(|row| row.into_iter().skip(4).take(2).collect::<Vec<String>>())
-            .find(|pair| pair[0] == self.to_string());
+            .find(|pair| pair.first().map(|s| s.as_str()) == Some(self.to_string().as_str()));
         match result {
-            | Some(value) => value[1] == "true",
+            | Some(value) => value.get(1).map(|s| s.as_str()) == Some("true"),
             | None => false,
         }
     }
@@ -752,7 +752,7 @@ pub fn base32_crockford_encode(value: u128) -> String {
     } else {
         const MODULUS: u128 = CROCKFORD_BASE32_ALPHABET.len() as u128;
         successors(Some(value), |&n| (n >= MODULUS).then_some(n / MODULUS))
-            .map(|n| CROCKFORD_BASE32_ALPHABET[(n % MODULUS) as usize] as char)
+            .map(|n| *CROCKFORD_BASE32_ALPHABET.get((n % MODULUS) as usize).unwrap_or(&0) as char)
             .collect::<Vec<_>>()
             .into_iter()
             .rev()
@@ -886,9 +886,9 @@ pub fn format_bytes(bytes: u64) -> String {
     .last()
     .unwrap_or((bytes as f64, 0));
     if index == 0 {
-        format!("{} {}", size as u64, units[index])
+        format!("{} {}", size as u64, units.get(index).unwrap_or(&""))
     } else {
-        format!("{:.2} {}", size, units[index])
+        format!("{:.2} {}", size, units.get(index).unwrap_or(&""))
     }
 }
 /// Parse frontmatter and body from content that contains YAML frontmatter (e.g., Markdown, dotprompt, etc.)
@@ -1009,9 +1009,10 @@ where
             | Ok(captures) => {
                 captures.iter().skip(1).enumerate().for_each(|(index, data)| {
                     if let Some(results) = data {
-                        let key = groups[index].clone();
-                        let value = results.as_str().to_string();
-                        lookup.insert(key, value);
+                        if let Some(key) = groups.get(index) {
+                            let value = results.as_str().to_string();
+                            lookup.insert(key.clone(), value);
+                        }
                     }
                 });
             }

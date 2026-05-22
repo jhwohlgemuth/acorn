@@ -739,8 +739,13 @@ pub fn checks_to_csv(values: &[Check], include_headers: bool) -> PolarsResult<St
 pub(crate) fn highlighted(text: &str, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
     let selected = (line_number as usize) - 1;
     let source = Source::from(text);
-    let begin = source.lines().take(selected).fold((span[0] - 1) as usize, |acc, line| acc + line.len());
-    let character_count = (span[1] as usize) - (span[0] as usize);
+    let begin = source
+        .lines()
+        .take(selected)
+        .fold((span.first().copied().unwrap_or(1).saturating_sub(1)) as usize, |acc, line| {
+            acc + line.len()
+        });
+    let character_count = (span.get(1).copied().unwrap_or(0) as usize) - (span.first().copied().unwrap_or(0) as usize);
     let end = begin + character_count;
     begin..=end
 }
@@ -751,7 +756,7 @@ pub(crate) fn highlighted_array(source: &Source, params: &HashMap<String, Value>
             | Some(index) => match params.get("value") {
                 | Some(Value::Array(value)) => {
                     const PADDING: u64 = 2;
-                    let end = (value[index as usize].to_string().len() + 1) as u32;
+                    let end = (value.get(index as usize).map(|v| v.to_string().len() + 1).unwrap_or(0)) as u32;
                     let span = &[4, end];
                     let line = (index + PADDING) as u32;
                     Some(highlighted(source.text(), span, line))

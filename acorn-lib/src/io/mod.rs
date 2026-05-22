@@ -513,7 +513,7 @@ where
                 if count == 0 {
                     break;
                 }
-                context.update(&buffer[..count]);
+                context.update(buffer.get(..count).unwrap_or(&[]));
             }
             let digest = context.finish();
             let result = HEXUPPER.encode(digest.as_ref());

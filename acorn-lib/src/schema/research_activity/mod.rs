@@ -800,7 +800,7 @@ impl ResearchActivityMetadata {
         };
         debug!(path = path_parent.to_absolute_string(), "=> {} Parent directory", Label::using());
         let name = match image_paths(&path_parent) {
-            | value if !value.is_empty() => Some(value[0].file_name().unwrap().to_string_lossy().to_string()),
+            | value if !value.is_empty() => value.first().map(|v| v.file_name().unwrap().to_string_lossy().to_string()),
             | _ => None,
         };
         let media = match name {
@@ -967,9 +967,10 @@ pub(crate) fn is_attribute_approach(value: &[String]) -> ValidationResult {
     const MAX_LENGTH: usize = MAX_LENGTH_APPROACH;
     value
         .iter()
-        .position(|x| x.len() > MAX_LENGTH)
-        .map(|index| {
-            let length = value[index].len();
+        .enumerate()
+        .find(|(_, x)| x.len() > MAX_LENGTH)
+        .map(|(index, x)| {
+            let length = x.len();
             validation_error_with_index_and_length(
                 CODE,
                 format!("Each approach statement should be less than {MAX_LENGTH} characters"),
@@ -985,9 +986,10 @@ pub(crate) fn is_attribute_areas(value: &[String]) -> ValidationResult {
     const MAX_LENGTH: usize = MAX_LENGTH_RESEARCH_AREA;
     value
         .iter()
-        .position(|x| x.len() > MAX_LENGTH)
-        .map(|index| {
-            let length = value[index].len();
+        .enumerate()
+        .find(|(_, x)| x.len() > MAX_LENGTH)
+        .map(|(index, x)| {
+            let length = x.len();
             validation_error_with_index_and_length(CODE, format!("Each area should be less than {MAX_LENGTH} characters"), index, length)
         })
         .map_or(Ok(()), Err)
@@ -1007,9 +1009,10 @@ pub(crate) fn is_attribute_capabilities(value: &[String]) -> ValidationResult {
     const MAX_LENGTH: usize = MAX_LENGTH_CAPABILIY;
     value
         .iter()
-        .position(|x| x.len() > MAX_LENGTH)
-        .map(|index| {
-            let length = value[index].len();
+        .enumerate()
+        .find(|(_, x)| x.len() > MAX_LENGTH)
+        .map(|(index, x)| {
+            let length = x.len();
             validation_error_with_index_and_length(
                 CODE,
                 format!("Each capability should be less than {MAX_LENGTH} characters"),
@@ -1043,9 +1046,10 @@ pub(crate) fn is_attribute_impact(value: &[String]) -> ValidationResult {
     const MAX_LENGTH: usize = MAX_LENGTH_IMPACT;
     value
         .iter()
-        .position(|x| x.len() > MAX_LENGTH)
-        .map(|index| {
-            let length = value[index].len();
+        .enumerate()
+        .find(|(_, x)| x.len() > MAX_LENGTH)
+        .map(|(index, x)| {
+            let length = x.len();
             validation_error_with_index_and_length(
                 CODE,
                 format!("Each impact statement should be less than {MAX_LENGTH} characters"),

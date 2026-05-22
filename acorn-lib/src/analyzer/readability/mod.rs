@@ -171,24 +171,28 @@ pub fn sentence_count(text: &str) -> u32 {
             .find(|character| !(character.is_whitespace() || is_wrapper(*character)))
     }
     fn previous_meaningful(chars: &[char], index: usize) -> Option<char> {
-        chars[..index]
-            .iter()
+        chars
+            .get(..index)
+            .into_iter()
+            .flatten()
             .rev()
             .copied()
             .find(|character| !(character.is_whitespace() || is_wrapper(*character)))
     }
     fn token_before(chars: &[char], index: usize) -> String {
-        chars[..index]
-            .iter()
-            .rev()
-            .take_while(|character| !character.is_whitespace())
-            .copied()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect::<String>()
-            .trim_matches(|character: char| !character.is_alphanumeric() && character != '.')
-            .to_lowercase()
+        chars.get(..index).map_or(String::new(), |slice| {
+            slice
+                .iter()
+                .rev()
+                .take_while(|character| !character.is_whitespace())
+                .copied()
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<String>()
+                .trim_matches(|character: char| !character.is_alphanumeric() && character != '.')
+                .to_lowercase()
+        })
     }
     fn suppresses_boundary(token: &str, next: Option<char>) -> bool {
         matches!(token, "e.g" | "i.e")

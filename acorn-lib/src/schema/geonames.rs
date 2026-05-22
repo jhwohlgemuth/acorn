@@ -230,8 +230,8 @@ fn parse(data: &str) -> Countries {
                 fips: string_field(&columns, 3),
                 name: string_field(&columns, 4),
                 capital: string_field(&columns, 5),
-                area: parse_u64_field(columns[6]),
-                population: parse_u64_field(columns[7]),
+                area: columns.get(6).and_then(|s| parse_u64_field(s)),
+                population: columns.get(7).and_then(|s| parse_u64_field(s)),
                 continent: string_field(&columns, 8),
                 top_level_domain: string_field(&columns, 9),
                 currency_code: string_field(&columns, 10),
@@ -239,10 +239,10 @@ fn parse(data: &str) -> Countries {
                 country_code: string_field(&columns, 12),
                 postal_code_format: string_field(&columns, 13),
                 postal_code_regex: string_field(&columns, 14),
-                languages: list_field(columns[15]),
-                identifier: parse_u64_field(columns[16]),
-                neighbours: list_field(columns[17]),
-                equivalent_fips_code: parse_optional_string_field(columns[18]),
+                languages: columns.get(15).map(|s| list_field(s)).unwrap_or_default(),
+                identifier: columns.get(16).and_then(|s| parse_u64_field(s)),
+                neighbours: columns.get(17).map(|s| list_field(s)).unwrap_or_default(),
+                equivalent_fips_code: columns.get(18).and_then(|s| parse_optional_string_field(s)),
             }
         })
         .collect::<Vec<Country>>()

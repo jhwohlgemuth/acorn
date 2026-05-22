@@ -166,7 +166,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 Replacement::String("caption", caption),
                 Replacement::String("challenge", challenge),
                 // TODO: Use CiteAs API to get in Chicago format
-                Replacement::String("citation", doi.unwrap_or_else(|| vec!["".to_string()])[0].clone()),
+                Replacement::String("citation", doi.as_ref().and_then(|d| d.first().cloned()).unwrap_or_default()),
                 Replacement::String("email", email),
                 Replacement::String("first", first),
                 Replacement::String("focus", focus),

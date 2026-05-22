@@ -171,7 +171,7 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandO
             let _ = copy_image(slide_number, &data, &index_path, &reference_extract_path);
         });
     let folder = if count == 1 {
-        paths[0].clone().parent().unwrap().canonicalize().unwrap()
+        paths.first().map(|p| p.clone().parent().unwrap().canonicalize().unwrap()).unwrap()
     } else {
         path.as_ref().unwrap().to_path_buf()
     };
