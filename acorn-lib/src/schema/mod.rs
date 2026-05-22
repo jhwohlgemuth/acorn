@@ -5,8 +5,8 @@
 pub mod hardware;
 pub use hardware::memory::{Memory, MemoryUnit};
 pub use hardware::{
-    AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Model, Paradigm, Resource,
-    Topology, Vendor, Vendored,
+    AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Model, Paradigm, Regime,
+    Resource, SensorModality, Topology, Vendor, Vendored,
 };
 
 #[cfg(feature = "std")]

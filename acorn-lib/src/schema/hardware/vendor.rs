@@ -37,9 +37,15 @@ pub enum Vendor {
     /// Broadcom Inc.
     #[display("Broadcom")]
     Broadcom,
+    /// Bosch (sensors and embedded systems)
+    #[display("Bosch")]
+    Bosch,
     /// D-Wave Systems (quantum annealing)
     #[display("D-Wave")]
     DWave,
+    /// FLIR Systems (thermal and imaging sensors)
+    #[display("FLIR")]
+    FLIR,
     /// Google LLC
     #[display("Google")]
     Google,
@@ -85,6 +91,9 @@ pub enum Vendor {
     /// Texas Instruments
     #[display("Texas Instruments")]
     TexasInstruments,
+    /// Velodyne Lidar (LiDAR sensors)
+    #[display("Velodyne")]
+    Velodyne,
     /// Other or unspecified vendor
     #[display("{}", _0)]
     Other(String),
@@ -271,7 +280,7 @@ impl Vendored for Resource {
             | Resource::FPGA { architecture, .. } => architecture.as_ref().map(Architecture::from),
             | Resource::GPU { architecture, .. } => architecture.as_ref().map(Architecture::from),
             | Resource::NPU { architecture, .. } | Resource::TPU { architecture, .. } => architecture.as_ref().map(Architecture::from),
-            | Resource::Neuromorphic { .. } | Resource::Quantum { .. } | Resource::Other(_) => None,
+            | Resource::Neuromorphic { .. } | Resource::Quantum { .. } | Resource::Sensor { .. } | Resource::Other(_) => None,
         }
     }
     fn vendor(&self) -> Option<Vendor> {
@@ -284,6 +293,7 @@ impl Vendored for Resource {
             | Resource::GPU { vendor, .. }
             | Resource::NPU { vendor, .. }
             | Resource::Neuromorphic { vendor, .. }
+            | Resource::Sensor { vendor, .. }
             | Resource::TPU { vendor, .. }
             | Resource::Quantum { vendor, .. } => vendor.clone(),
             | Resource::Other(_) => None,
@@ -307,12 +317,13 @@ pub(super) fn validate_vendor(resource: &Resource) -> Result<(), ValidationError
         | Resource::GPU { vendor, .. }
         | Resource::NPU { vendor, .. }
         | Resource::Neuromorphic { vendor, .. }
+        | Resource::Sensor { vendor, .. }
         | Resource::TPU { vendor, .. }
         | Resource::Quantum { vendor, .. } => vendor.as_ref(),
         | Resource::Other(_) => None,
     };
     match resource {
-        | Resource::Neuromorphic { .. } | Resource::Quantum { .. } | Resource::Other(_) => Ok(()),
+        | Resource::Neuromorphic { .. } | Resource::Quantum { .. } | Resource::Sensor { .. } | Resource::Other(_) => Ok(()),
         | value => match (value.architecture(), explicit_vendor) {
             | (Some(arch), Some(vendor)) => match arch.vendor() {
                 | Some(arch_vendor) if arch_vendor != *vendor => {

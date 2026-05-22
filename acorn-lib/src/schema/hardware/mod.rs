@@ -1,4 +1,5 @@
 //! Hardware resource, architecture, and vendor types
+use crate::schema::research_activity::aspect::Modality;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -11,7 +12,7 @@ pub mod quantum;
 /// Vendor types and vendor-aware trait
 pub mod vendor;
 pub use memory::{Memory, MemoryUnit};
-pub use quantum::{Model, Paradigm, Topology};
+pub use quantum::{Model, Paradigm, Regime, Topology};
 use vendor::validate_vendor;
 pub use vendor::{Vendor, Vendored};
 
@@ -524,6 +525,129 @@ pub enum Backend {
     #[display("{}", _0)]
     Other(String),
 }
+/// Sensor modalities for hardware resources
+#[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+pub enum SensorModality {
+    /// Acoustic sensing such as microphones and hydrophones
+    #[display("audio")]
+    #[serde(alias = "audio", alias = "acoustic", alias = "microphone", alias = "hydrophone")]
+    Audio,
+    /// Chemical sensing such as gas composition or pH
+    #[display("chemical")]
+    #[serde(alias = "chemical", alias = "chem", alias = "gas", alias = "ph")]
+    Chemical,
+    /// Depth sensing such as time-of-flight and structured light
+    #[display("depth")]
+    #[serde(alias = "depth", alias = "tof", alias = "time-of-flight", alias = "structured-light")]
+    Depth,
+    /// Event-based vision sensors
+    #[display("event")]
+    #[serde(alias = "event", alias = "event-camera", alias = "event camera", alias = "dvs")]
+    Event,
+    /// Hyperspectral sensing across many narrow wavelength bands
+    #[display("hyperspectral")]
+    #[serde(alias = "hyperspectral", alias = "hyper-spectral", alias = "hsi")]
+    Hyperspectral,
+    /// Imaging modalities such as RGB cameras and thermal imagers
+    #[display("image")]
+    #[serde(alias = "image", alias = "camera", alias = "vision", alias = "thermal")]
+    Image,
+    /// Inertial measurement sensing (accelerometer/gyroscope)
+    #[display("inertial")]
+    #[serde(alias = "inertial", alias = "imu", alias = "accel", alias = "gyroscope")]
+    Inertial,
+    /// Light detection and ranging
+    #[display("lidar")]
+    #[serde(alias = "lidar", alias = "li-dar")]
+    Lidar,
+    /// Magnetic field sensing
+    #[display("magnetic")]
+    #[serde(alias = "magnetic", alias = "magnetometer")]
+    Magnetic,
+    /// Position and navigation sensing (e.g., GNSS)
+    #[display("navigation")]
+    #[serde(alias = "navigation", alias = "gnss", alias = "gps")]
+    Navigation,
+    /// Network traffic telemetry and packet-level sensing
+    #[display("network-traffic")]
+    #[serde(alias = "network-traffic", alias = "network traffic", alias = "netflow", alias = "packet")]
+    NetworkTraffic,
+    /// Pressure sensing
+    #[display("pressure")]
+    #[serde(alias = "pressure", alias = "barometer")]
+    Pressure,
+    /// Radio detection and ranging
+    #[display("radar")]
+    #[serde(alias = "radar", alias = "sar")]
+    Radar,
+    /// General RF sensing and spectrum observation
+    #[display("rf")]
+    #[serde(alias = "rf", alias = "radio", alias = "spectrum")]
+    Radio,
+    /// Seismic sensing for ground motion and vibration
+    #[display("seismic")]
+    #[serde(alias = "seismic", alias = "geophone")]
+    Seismic,
+    /// Server-side event stream sensing from server push channels
+    #[display("server-side-event")]
+    #[serde(
+        alias = "server-side-event",
+        alias = "server side event",
+        alias = "server-sent-event",
+        alias = "server sent event",
+        alias = "sse"
+    )]
+    ServerSideEvent,
+    /// Sonar sensing using reflected acoustic waves
+    #[display("sonar")]
+    #[serde(alias = "sonar", alias = "acoustic-ranging")]
+    Sonar,
+    /// Temperature sensing
+    #[display("temperature")]
+    #[serde(alias = "temperature", alias = "temp", alias = "thermometer")]
+    Temperature,
+    /// Ultrasonic sensing using high-frequency acoustic waves
+    #[display("ultrasonic")]
+    #[serde(alias = "ultrasonic", alias = "ultrasound")]
+    Ultrasonic,
+    /// Webhook event stream sensing from HTTP callbacks
+    #[display("webhook")]
+    #[serde(alias = "webhook", alias = "web hook", alias = "http-callback", alias = "http callback")]
+    Webhook,
+    /// Other or unspecified sensor modality
+    #[display("{}", _0)]
+    Other(String),
+}
+impl From<&SensorModality> for Modality {
+    fn from(value: &SensorModality) -> Self {
+        match value {
+            | SensorModality::Audio => Modality::Audio,
+            | SensorModality::Image | SensorModality::Event | SensorModality::Depth => Modality::Video,
+            | SensorModality::Lidar
+            | SensorModality::Radar
+            | SensorModality::Radio
+            | SensorModality::NetworkTraffic
+            | SensorModality::Webhook
+            | SensorModality::Hyperspectral
+            | SensorModality::Seismic
+            | SensorModality::ServerSideEvent
+            | SensorModality::Sonar
+            | SensorModality::Inertial
+            | SensorModality::Magnetic
+            | SensorModality::Navigation
+            | SensorModality::Pressure
+            | SensorModality::Temperature
+            | SensorModality::Ultrasonic
+            | SensorModality::Chemical
+            | SensorModality::Other(_) => Modality::Signal,
+        }
+    }
+}
+impl From<SensorModality> for Modality {
+    fn from(value: SensorModality) -> Self {
+        (&value).into()
+    }
+}
 /// CPU instruction set architectures
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub enum CpuArchitecture {
@@ -984,7 +1108,26 @@ pub enum Resource {
         /// Hardware vendor (e.g., IBM, Google, IonQ)
         vendor: Option<Vendor>,
     },
-    /// Tensor processing unit (NPU)
+    /// Sensor hardware for data acquisition and measurement
+    Sensor {
+        /// Number of sensors required (if applicable)
+        count: Option<u32>,
+        /// Sensor modalities (e.g., image, lidar, radar, temperature)
+        modality: Option<Vec<SensorModality>>,
+        /// Sensor model name (e.g., "FLIR Boson", "Velodyne VLP-16")
+        model: Option<String>,
+        /// Quantum sensing regime when the sensor relies on quantum effects
+        #[serde(alias = "regime", alias = "quantum", alias = "quantumRegime", alias = "quantum regime")]
+        quantum_regime: Option<Regime>,
+        /// Whether this resource is required
+        required: Option<bool>,
+        /// Sampling rate in Hz (if applicable)
+        #[serde(alias = "samplingRate", alias = "sampling_rate")]
+        sampling_rate: Option<f32>,
+        /// Hardware vendor (e.g., FLIR, Velodyne, Bosch)
+        vendor: Option<Vendor>,
+    },
+    /// Tensor processing unit (TPU)
     TPU {
         /// TPU generation
         #[serde(alias = "arch")]
@@ -1352,6 +1495,15 @@ impl<'de> Deserialize<'de> for Resource {
                         topology: None,
                         vendor: None,
                     }),
+                    | "Sensor" | "sensor" => Ok(Resource::Sensor {
+                        count: Some(1),
+                        modality: None,
+                        model: None,
+                        quantum_regime: None,
+                        sampling_rate: None,
+                        required: None,
+                        vendor: None,
+                    }),
                     | "TPU" | "tpu" => Ok(Resource::TPU {
                         architecture: None,
                         count: Some(1),
@@ -1587,6 +1739,34 @@ impl<'de> Deserialize<'de> for Resource {
                                     qubits: f.qubits,
                                     required: f.required,
                                     topology: f.topology,
+                                    vendor: f.vendor,
+                                }),
+                                | Err(why) => Err(why),
+                            }
+                        }
+                        | "Sensor" => {
+                            #[derive(Deserialize)]
+                            struct F {
+                                #[serde(default = "default_count")]
+                                count: Option<u32>,
+                                modality: Option<Vec<SensorModality>>,
+                                model: Option<String>,
+                                #[serde(alias = "quantumRegime", alias = "quantum regime")]
+                                quantum_regime: Option<Regime>,
+                                #[serde(alias = "samplingRateHz", alias = "sampling_rate")]
+                                sampling_rate_hz: Option<f32>,
+                                required: Option<bool>,
+                                vendor: Option<Vendor>,
+                            }
+                            let next_value_result: Result<F, M::Error> = map.next_value();
+                            match next_value_result {
+                                | Ok(f) => Ok(Resource::Sensor {
+                                    count: f.count,
+                                    modality: f.modality,
+                                    model: f.model,
+                                    quantum_regime: f.quantum_regime,
+                                    sampling_rate: f.sampling_rate_hz,
+                                    required: f.required,
                                     vendor: f.vendor,
                                 }),
                                 | Err(why) => Err(why),

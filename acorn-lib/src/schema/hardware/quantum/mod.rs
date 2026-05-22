@@ -142,6 +142,33 @@ pub enum Paradigm {
     #[display("{}", _0)]
     Other(String),
 }
+/// Quantum sensing regime classification used by hardware sensor modalities
+///
+/// Classical systems include mature technologies where measurement's quantum nature is inconsequential, such as radar and RF communications.
+///
+/// Hybrid systems sit at the classical/quantum boundary, where superposition and measurement are both essential, such as atom or light interferometry.
+///
+/// Deep systems represent the deep quantum regime where entanglement is essential to the expected advantage, as in quantum simulation/computing.
+///
+/// ### References
+/// [1] J. Kitching et al., "Independent Panel Report for Technical Assessment of NASA and External Quantum Sensing Capabilities," 2023.
+#[derive(Clone, Debug, Default, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
+#[repr(u8)]
+pub enum Regime {
+    /// Classical domain technologies (ex., radar and RF communications) where the quantum nature of measurement is inconsequential.
+    #[default]
+    #[display("classical")]
+    #[serde(alias = "classical")]
+    Classical = 0,
+    /// Classical/quantum boundary technologies (ex., atom interferometry and light interferometry with photon detection) where superposition and measurement both play an essential role.
+    #[display("hybrid")]
+    #[serde(alias = "hybrid")]
+    Hybrid = 1,
+    /// Deep quantum regime technologies where entanglement is essential for the promised quantum advantage.
+    #[display("deep")]
+    #[serde(alias = "deep")]
+    Deep = 2,
+}
 /// Qubit connectivity topology
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub enum Topology {

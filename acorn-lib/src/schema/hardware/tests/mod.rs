@@ -7,7 +7,11 @@
 )]
 use super::memory::{Memory, MemoryUnit};
 use super::vendor::Vendored;
-use super::{AcceleratorArchitecture, Architecture, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Paradigm, Resource, Vendor};
+use super::{
+    AcceleratorArchitecture, Architecture, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Paradigm, Regime, Resource,
+    SensorModality, Vendor,
+};
+use crate::schema::research_activity::aspect::Modality as DataModality;
 use crate::schema::research_activity::ResearchActivityMetadata;
 use validator::Validate;
 
@@ -174,6 +178,82 @@ fn test_hardware_resource_dpu_from_map() {
         }
         | other => panic!("expected DPU resource, got {other:?}"),
     }
+}
+#[test]
+fn test_hardware_resource_sensor_from_string() {
+    let data: Resource = serde_json::from_str("\"sensor\"").unwrap();
+    match data {
+        | Resource::Sensor {
+            count,
+            modality,
+            model,
+            quantum_regime,
+            sampling_rate: sampling_rate_hz,
+            required,
+            vendor,
+        } => {
+            assert_eq!(count, Some(1));
+            assert!(modality.is_none());
+            assert!(model.is_none());
+            assert!(quantum_regime.is_none());
+            assert!(sampling_rate_hz.is_none());
+            assert!(required.is_none());
+            assert!(vendor.is_none());
+        }
+        | other => panic!("expected Sensor resource, got {other:?}"),
+    }
+}
+#[test]
+fn test_hardware_resource_sensor_from_map() {
+    let data: Resource = serde_json::from_str(
+        r#"{"Sensor":{"count":3,"modality":["lidar"],"model":"VLP-16","samplingRateHz":10.0,"required":true,"vendor":"Intel"}}"#,
+    )
+    .unwrap();
+    match data {
+        | Resource::Sensor {
+            count,
+            modality,
+            model,
+            quantum_regime,
+            sampling_rate: sampling_rate_hz,
+            required,
+            vendor,
+        } => {
+            assert_eq!(count, Some(3));
+            assert_eq!(modality, Some(vec![SensorModality::Lidar]));
+            assert_eq!(model, Some("VLP-16".to_string()));
+            assert!(quantum_regime.is_none());
+            assert_eq!(sampling_rate_hz, Some(10.0));
+            assert_eq!(required, Some(true));
+            assert_eq!(vendor, Some(Vendor::Intel));
+        }
+        | other => panic!("expected Sensor resource, got {other:?}"),
+    }
+}
+#[test]
+fn test_hardware_resource_sensor_from_map_with_quantum_regime() {
+    let data: Resource =
+        serde_json::from_str(r#"{"Sensor":{"count":1,"modality":["lidar"],"quantumRegime":"deep","model":"Q-Sensor","required":true}}"#).unwrap();
+    match data {
+        | Resource::Sensor {
+            modality, quantum_regime, ..
+        } => {
+            assert_eq!(modality, Some(vec![SensorModality::Lidar]));
+            assert_eq!(quantum_regime, Some(Regime::Deep));
+        }
+        | other => panic!("expected Sensor resource, got {other:?}"),
+    }
+}
+#[test]
+fn test_sensor_modality_bridge_to_data_modality() {
+    let audio: DataModality = SensorModality::Audio.into();
+    assert!(matches!(audio, DataModality::Audio));
+    let image: DataModality = SensorModality::Image.into();
+    assert!(matches!(image, DataModality::Video));
+    let lidar: DataModality = SensorModality::Lidar.into();
+    assert!(matches!(lidar, DataModality::Signal));
+    let other: DataModality = SensorModality::Other("custom".to_string()).into();
+    assert!(matches!(other, DataModality::Signal));
 }
 #[test]
 fn test_memory_deserialize() {
