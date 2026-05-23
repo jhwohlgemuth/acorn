@@ -160,12 +160,19 @@ impl Vendored for Architecture {
             | Architecture::AdaLovelace
             | Architecture::Ampere
             | Architecture::Blackwell
+            | Architecture::Carmel
+            | Architecture::Fermi
+            | Architecture::Grace
             | Architecture::Hopper
             | Architecture::Kepler
             | Architecture::Maxwell
+            | Architecture::Orin
             | Architecture::Pascal
+            | Architecture::Tesla
+            | Architecture::Thor
             | Architecture::Turing
-            | Architecture::Volta => Some(Vendor::NVIDIA),
+            | Architecture::Volta
+            | Architecture::Vera => Some(Vendor::NVIDIA),
             | Architecture::AArch64 | Architecture::Ethos => Some(Vendor::ARM),
             | Architecture::TpuV4 | Architecture::TpuV5e | Architecture::TpuV5p | Architecture::TpuV6e => Some(Vendor::Google),
             | Architecture::Inferentia | Architecture::Trainium => Some(Vendor::Amazon),
@@ -191,6 +198,7 @@ impl Vendored for CpuArchitecture {
     fn vendor(&self) -> Option<Vendor> {
         match self {
             | CpuArchitecture::AArch64 | CpuArchitecture::Ethos => Some(Vendor::ARM),
+            | CpuArchitecture::Carmel | CpuArchitecture::Grace | CpuArchitecture::Vera => Some(Vendor::NVIDIA),
             | CpuArchitecture::Ia64 => Some(Vendor::Intel),
             | CpuArchitecture::NeuralEngine | CpuArchitecture::PerformanceCore | CpuArchitecture::EfficiencyCore => Some(Vendor::Apple),
             | CpuArchitecture::PowerPc | CpuArchitecture::ZArch => Some(Vendor::Ibm),
@@ -231,10 +239,14 @@ impl Vendored for GpuArchitecture {
             | GpuArchitecture::AdaLovelace
             | GpuArchitecture::Ampere
             | GpuArchitecture::Blackwell
+            | GpuArchitecture::Fermi
             | GpuArchitecture::Hopper
             | GpuArchitecture::Kepler
             | GpuArchitecture::Maxwell
+            | GpuArchitecture::Orin
             | GpuArchitecture::Pascal
+            | GpuArchitecture::Tesla
+            | GpuArchitecture::Thor
             | GpuArchitecture::Turing
             | GpuArchitecture::Volta => Some(Vendor::NVIDIA),
             | GpuArchitecture::Cdna1

@@ -10,7 +10,7 @@ use crate::io::database::macros::build_query;
 use crate::io::database::schema::{ActivityRow, CatalogRow, LinkCacheRow, ProgrammingLanguageRow, ResearchActivityCacheRow, Table, ValidationRow};
 use crate::io::database::{resolve_database_path, Database, Operations, Row, TableSchemaProvider};
 use crate::prelude::PathBuf;
-use crate::util::constants::ENV_DATABASE_PATH;
+use crate::util::constants::env::DATABASE_PATH;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const TEST_ENV_DATABASE_PATH: &str = "target/test_artifacts/from-env-acorn.db";
@@ -144,7 +144,7 @@ fn test_catalog_row_default() {
 #[test]
 fn test_database_path_uses_explicit_argument_before_environment() {
     let expected = PathBuf::from("target/test_artifacts/explicit-acorn.db");
-    let from_expected = temp_env::with_vars([(ENV_DATABASE_PATH, Some(TEST_ENV_DATABASE_PATH))], || {
+    let from_expected = temp_env::with_vars([(DATABASE_PATH, Some(TEST_ENV_DATABASE_PATH))], || {
         resolve_database_path(Some(&expected)).unwrap()
     });
     assert_eq!(from_expected, expected);
@@ -152,9 +152,7 @@ fn test_database_path_uses_explicit_argument_before_environment() {
 #[test]
 fn test_database_path_uses_environment_when_argument_absent() {
     let expected = PathBuf::from(TEST_ENV_DATABASE_PATH);
-    let from_env = temp_env::with_vars([(ENV_DATABASE_PATH, Some(TEST_ENV_DATABASE_PATH))], || {
-        resolve_database_path(None).unwrap()
-    });
+    let from_env = temp_env::with_vars([(DATABASE_PATH, Some(TEST_ENV_DATABASE_PATH))], || resolve_database_path(None).unwrap());
     assert_eq!(from_env, expected);
 }
 #[test]

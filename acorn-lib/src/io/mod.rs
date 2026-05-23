@@ -24,7 +24,8 @@ use crate::prelude::CommandOutput;
 use crate::prelude::{canonicalize, create_dir_all, io, var, write, BufReader, Cursor, File, HashSet, PathBuf, Read, Write};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, Permissions, PermissionsExt};
-use crate::util::constants::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
+use crate::util::constants::ornl::{APPLICATION, ORGANIZATION, QUALIFIER};
+use crate::util::constants::LARGE_FILE_THRESHOLD_BYTES;
 #[cfg(windows)]
 use crate::util::file_extension;
 use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, StringConversion, ToStrings};

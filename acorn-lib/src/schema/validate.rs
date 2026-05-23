@@ -12,7 +12,7 @@ use crate::schema::geonames::{CodeFormat, GeonamesParser};
 use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::schema::standard::datacite::GeoLocationPoint;
 #[cfg(feature = "std")]
-use crate::util::constants::ENV_DATABASE_PATH;
+use crate::util::constants::env::DATABASE_PATH;
 use crate::util::constants::{RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_PHONE, RE_RAID, RE_UNIX_EPOCH};
 use crate::util::Constant;
 #[cfg(not(feature = "std"))]
@@ -293,7 +293,7 @@ pub fn is_license(value: &str) -> Result<(), ValidationError> {
     if normalized.is_empty() {
         Err(validation_error(format!("{MESSAGE} (cannot be empty)")))
     } else {
-        match env::var(ENV_DATABASE_PATH) {
+        match env::var(DATABASE_PATH) {
             | Ok(path) => {
                 let exists = LicenseRow::default().select(Some(path.into()), predicate).map(|row| row.is_some());
                 match exists {

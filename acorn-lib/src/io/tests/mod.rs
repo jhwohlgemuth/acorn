@@ -16,7 +16,7 @@ use crate::io::{
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, read_file, read_large_file,
     unique_file_extensions, uri_to_path, write_file_bytes, InputOutput,
 };
-use crate::util::constants::ENV_NO_LOCAL_DATABASE;
+use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::{Location, Repository, Scheme};
 use color_eyre::Report;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
@@ -380,23 +380,23 @@ fn test_checksum() {
 }
 #[test]
 fn test_env_var_is_truthy() {
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some(" true "))], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+    temp_env::with_vars([(NO_LOCAL_DATABASE, Some(" true "))], || {
+        assert_eq!(env_var_is_truthy(NO_LOCAL_DATABASE), Some(true));
     });
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("ON"))], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+    temp_env::with_vars([(NO_LOCAL_DATABASE, Some("ON"))], || {
+        assert_eq!(env_var_is_truthy(NO_LOCAL_DATABASE), Some(true));
     });
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("1"))], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(true));
+    temp_env::with_vars([(NO_LOCAL_DATABASE, Some("1"))], || {
+        assert_eq!(env_var_is_truthy(NO_LOCAL_DATABASE), Some(true));
     });
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("false"))], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
+    temp_env::with_vars([(NO_LOCAL_DATABASE, Some("false"))], || {
+        assert_eq!(env_var_is_truthy(NO_LOCAL_DATABASE), Some(false));
     });
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, Some("0"))], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), Some(false));
+    temp_env::with_vars([(NO_LOCAL_DATABASE, Some("0"))], || {
+        assert_eq!(env_var_is_truthy(NO_LOCAL_DATABASE), Some(false));
     });
-    temp_env::with_vars([(ENV_NO_LOCAL_DATABASE, None::<&str>)], || {
-        assert_eq!(env_var_is_truthy(ENV_NO_LOCAL_DATABASE), None);
+    temp_env::with_vars([(NO_LOCAL_DATABASE, None::<&str>)], || {
+        assert_eq!(env_var_is_truthy(NO_LOCAL_DATABASE), None);
     });
 }
 #[test]

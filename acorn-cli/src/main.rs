@@ -26,7 +26,7 @@ use acorn::io::env_var_is_truthy;
 use acorn::prelude::env;
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::constants::{ENV_CACHE_TTL, ENV_DATABASE_BACKEND, ENV_DATABASE_PATH, ENV_NO_LOCAL_DATABASE};
+use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
 use acorn::util::Label;
 use clap::{crate_version, Parser};
 use color_eyre::eyre;
@@ -132,14 +132,14 @@ async fn main() -> Void {
         cache_ttl,
         ..
     } = args;
-    let no_local_database = no_local_database_flag || env_var_is_truthy(ENV_NO_LOCAL_DATABASE).unwrap_or(false);
+    let no_local_database = no_local_database_flag || env_var_is_truthy(NO_LOCAL_DATABASE).unwrap_or(false);
     let mut database_path = database_path;
     if no_local_database && (reset_database || clear_cache) {
         eprintln!("{} Cannot use --reset-database or --clear-cache with --no-local-database", Label::fail());
         exit(exitcode::USAGE);
     }
     if let Some(ttl) = cache_ttl {
-        env::set_var(ENV_CACHE_TTL, ttl.to_string());
+        env::set_var(CACHE_TTL, ttl.to_string());
     }
     if threads > 0 {
         rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
@@ -155,12 +155,12 @@ async fn main() -> Void {
                 exit(exitcode::SOFTWARE);
             }
         };
-        env::set_var(ENV_DATABASE_PATH, resolved_database_path.as_os_str());
+        env::set_var(DATABASE_PATH, resolved_database_path.as_os_str());
         if database_path.is_none() {
             database_path = Some(resolved_database_path);
         }
         if let Some(selected) = database_backend {
-            env::set_var(ENV_DATABASE_BACKEND, selected.to_string());
+            env::set_var(DATABASE_BACKEND, selected.to_string());
         }
         if let Err(why) = backend::validate_backend_selection() {
             eprintln!("=> {} {why}", Label::fail());

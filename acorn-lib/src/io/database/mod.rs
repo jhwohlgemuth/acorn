@@ -5,7 +5,9 @@
 use crate::io::api::DatabasePersistence;
 use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
-use crate::util::constants::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ENV_CACHE_TTL, ENV_DATABASE_PATH, ORGANIZATION, QUALIFIER};
+use crate::util::constants::env::{CACHE_TTL, DATABASE_PATH};
+use crate::util::constants::ornl::{APPLICATION, ORGANIZATION, QUALIFIER};
+use crate::util::constants::DEFAULT_CACHE_TTL_SECONDS;
 use crate::util::Label;
 use async_trait::async_trait;
 use backend::{params, BackendRow, Connection, Params};
@@ -227,7 +229,7 @@ where
     pub fn cache_ttl(&self) -> Duration {
         #[cfg(feature = "std")]
         {
-            if let Ok(env_ttl) = dotenvy::var(ENV_CACHE_TTL) {
+            if let Ok(env_ttl) = dotenvy::var(CACHE_TTL) {
                 if let Ok(seconds) = env_ttl.parse::<i64>() {
                     if seconds > 0 {
                         return Duration::seconds(seconds);
@@ -236,7 +238,7 @@ where
             }
         }
         let default_ttl = Duration::seconds(DEFAULT_CACHE_TTL_SECONDS as i64);
-        if let Ok(env_ttl) = env::var(ENV_CACHE_TTL) {
+        if let Ok(env_ttl) = env::var(CACHE_TTL) {
             if let Ok(seconds) = env_ttl.parse::<i64>() {
                 if seconds > 0 {
                     return Duration::seconds(seconds);
@@ -356,12 +358,9 @@ fn database_name() -> &'static str {
 }
 /// Resolve the effective database path from an explicit argument, environment variable, or project defaults.
 pub fn resolve_database_path(path: Option<&PathBuf>) -> ApiResult<PathBuf> {
-    let path = path.cloned().or_else(|| {
-        env::var(ENV_DATABASE_PATH)
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .map(PathBuf::from)
-    });
+    let path = path
+        .cloned()
+        .or_else(|| env::var(DATABASE_PATH).ok().filter(|value| !value.trim().is_empty()).map(PathBuf::from));
     match path {
         | Some(path) => Ok(path),
         | None => ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)

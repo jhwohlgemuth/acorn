@@ -4,7 +4,7 @@
 //! based on enabled feature flags.
 use crate::io::ApiResult;
 use crate::prelude::env;
-use crate::util::constants::ENV_DATABASE_BACKEND;
+use crate::util::constants::env::DATABASE_BACKEND;
 use color_eyre::eyre::eyre;
 /// SQLite backend value.
 pub const BACKEND_SQLITE: &str = "sqlite";
@@ -29,7 +29,7 @@ pub fn backend() -> &'static str {
 }
 /// Returns the backend selected from environment, defaulting to compiled backend.
 pub fn selected_backend() -> String {
-    env::var(ENV_DATABASE_BACKEND)
+    env::var(DATABASE_BACKEND)
         .map(|value| value.trim().to_ascii_lowercase())
         .ok()
         .filter(|value| !value.is_empty())

@@ -10,7 +10,7 @@ use acorn::schema::pid::raid;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
 use acorn::schema::standard::text::{Docx, Text};
-use acorn::util::constants::ENV_READABILITY_METRIC;
+use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, regex_join, Label};
 use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
@@ -187,7 +187,7 @@ fn render(issues: &[Check], terse: bool) {
 fn resolve_readability_metric(readability_metric: &ReadabilityTypeArgument) -> ReadabilityType {
     let metric_from_cli = ReadabilityType::from_string(&readability_metric.to_string());
     match dotenv() {
-        | Ok(_) => match dotenvy::var(ENV_READABILITY_METRIC) {
+        | Ok(_) => match dotenvy::var(READABILITY_METRIC) {
             | Ok(value) if !value.is_empty() => {
                 debug!(value, "=> {} Readability metric from .env", Label::using());
                 ReadabilityType::from_string(&value)

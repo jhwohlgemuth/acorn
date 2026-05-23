@@ -4,7 +4,8 @@
 //!
 use crate::analyzer::error::Location;
 use crate::prelude::PathBuf;
-use crate::util::constants::{APPLICATION, DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, ORGANIZATION};
+use crate::util::constants::ornl::{APPLICATION, ORGANIZATION};
+use crate::util::constants::vale::{DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES};
 use crate::util::{Label, SemanticVersion};
 use ariadne::{Color, ReportKind};
 use bon::Builder;

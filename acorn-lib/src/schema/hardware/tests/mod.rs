@@ -579,3 +579,481 @@ fn test_resource_validate_vendor() {
     };
     assert!(cpu.validate().is_ok());
 }
+#[test]
+fn test_compute_value_blackwell() {
+    let spark = Resource::GPU {
+        architecture: Some(GpuArchitecture::Blackwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("DGX Spark".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(spark.compute_value(), Some((12, 1)));
+    let spark_gb10 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Blackwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("NVIDIA GB10".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(spark_gb10.compute_value(), Some((12, 1)));
+    let rtx5090 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Blackwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce RTX 5090".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(rtx5090.compute_value(), Some((12, 0)));
+    let b200 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Blackwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("NVIDIA B200".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(b200.compute_value(), Some((10, 0)));
+    let gb200 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Blackwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("NVIDIA GB200".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(gb200.compute_value(), Some((10, 0)));
+    let b300 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Blackwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("NVIDIA B300".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(b300.compute_value(), Some((10, 3)));
+    let gb300 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Blackwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("NVIDIA GB300".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(gb300.compute_value(), Some((10, 3)));
+    let blackwell_no_name = Resource::GPU {
+        architecture: Some(GpuArchitecture::Blackwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: None,
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(blackwell_no_name.compute_value(), Some((12, 0)));
+}
+#[test]
+fn test_compute_value_hopper() {
+    let h100 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Hopper),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("H100".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(h100.compute_value(), Some((9, 0)));
+    let h200 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Hopper),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("H200".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(h200.compute_value(), Some((9, 0)));
+}
+#[test]
+fn test_compute_value_ada_lovelace() {
+    let rtx4090 = Resource::GPU {
+        architecture: Some(GpuArchitecture::AdaLovelace),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce RTX 4090".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(rtx4090.compute_value(), Some((8, 9)));
+    let l40 = Resource::GPU {
+        architecture: Some(GpuArchitecture::AdaLovelace),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("NVIDIA L40".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(l40.compute_value(), Some((8, 9)));
+}
+#[test]
+fn test_compute_value_ampere() {
+    let a100 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Ampere),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("NVIDIA A100".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(a100.compute_value(), Some((8, 0)));
+    let a30 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Ampere),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("NVIDIA A30".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(a30.compute_value(), Some((8, 0)));
+    let rtx3090 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Ampere),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce RTX 3090".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(rtx3090.compute_value(), Some((8, 6)));
+    let ampere_no_name = Resource::GPU {
+        architecture: Some(GpuArchitecture::Ampere),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: None,
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(ampere_no_name.compute_value(), Some((8, 6)));
+}
+#[test]
+fn test_compute_value_turing() {
+    let rtx2080 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Turing),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce RTX 2080".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(rtx2080.compute_value(), Some((7, 5)));
+}
+#[test]
+fn test_compute_value_new_archs() {
+    let thor = Resource::GPU {
+        architecture: Some(GpuArchitecture::Thor),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Jetson T5000".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(thor.compute_value(), Some((11, 0)));
+    let orin = Resource::GPU {
+        architecture: Some(GpuArchitecture::Orin),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Jetson AGX Orin".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(orin.compute_value(), Some((8, 7)));
+}
+#[test]
+fn test_compute_value_volta() {
+    let v100 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Volta),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("NVIDIA V100".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(v100.compute_value(), Some((7, 0)));
+    let xavier = Resource::GPU {
+        architecture: Some(GpuArchitecture::Volta),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Jetson AGX Xavier".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(xavier.compute_value(), Some((7, 2)));
+}
+#[test]
+fn test_compute_value_pascal() {
+    let gtx1080 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Pascal),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce GTX 1080".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(gtx1080.compute_value(), Some((6, 1)));
+    let p100 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Pascal),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Tesla P100".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(p100.compute_value(), Some((6, 0)));
+    let tx2 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Pascal),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Jetson TX2".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(tx2.compute_value(), Some((6, 2)));
+}
+#[test]
+fn test_compute_value_maxwell() {
+    let m60 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Maxwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Tesla M60".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(m60.compute_value(), Some((5, 2)));
+    let nano = Resource::GPU {
+        architecture: Some(GpuArchitecture::Maxwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Jetson Nano".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(nano.compute_value(), Some((5, 3)));
+    let gtx750ti = Resource::GPU {
+        architecture: Some(GpuArchitecture::Maxwell),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce GTX 750 Ti".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(gtx750ti.compute_value(), Some((5, 0)));
+}
+#[test]
+fn test_compute_value_kepler() {
+    let k80 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Kepler),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Tesla K80".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(k80.compute_value(), Some((3, 7)));
+    let k40 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Kepler),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Tesla K40".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(k40.compute_value(), Some((3, 5)));
+    let gtx680 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Kepler),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce GTX 680".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(gtx680.compute_value(), Some((3, 0)));
+}
+#[test]
+fn test_compute_value_fermi() {
+    let gtx580 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Fermi),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce GTX 580".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(gtx580.compute_value(), Some((2, 0)));
+    let gtx560ti = Resource::GPU {
+        architecture: Some(GpuArchitecture::Fermi),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce GTX 560 Ti".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(gtx560ti.compute_value(), Some((2, 1)));
+}
+#[test]
+fn test_compute_value_tesla() {
+    let gtx285 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Tesla),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce GTX 285".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(gtx285.compute_value(), Some((1, 3)));
+    let gt240 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Tesla),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce GT 240".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(gt240.compute_value(), Some((1, 2)));
+    let gtx260 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Tesla),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce GTX 260".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(gtx260.compute_value(), Some((1, 3)));
+    let c1060 = Resource::GPU {
+        architecture: Some(GpuArchitecture::Tesla),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Tesla C1060".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(c1060.compute_value(), Some((1, 3)));
+    let ione = Resource::GPU {
+        architecture: Some(GpuArchitecture::Tesla),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("GeForce 8800 GT".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(ione.compute_value(), Some((1, 1)));
+}
+#[test]
+fn test_compute_value_non_nvidia() {
+    let amd = Resource::GPU {
+        architecture: Some(GpuArchitecture::Rdna3),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("AMD RX 7900 XTX".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(amd.compute_value(), None);
+    let intel = Resource::GPU {
+        architecture: Some(GpuArchitecture::Alchemist),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: Some("Intel Arc A770".to_string()),
+        required: None,
+        vendor: None,
+    };
+    assert_eq!(intel.compute_value(), None);
+    let non_gpu = Resource::CPU {
+        architecture: Some(CpuArchitecture::X86_64),
+        cores: Some(8),
+        count: Some(1),
+        memory: None,
+        required: None,
+        threads: None,
+        vendor: Some(Vendor::Intel),
+    };
+    assert_eq!(non_gpu.compute_value(), None);
+}

@@ -1,5 +1,13 @@
 //! Hardware resource, architecture, and vendor types
 use crate::schema::research_activity::aspect::Modality;
+use crate::util::constants::gpu::{
+    NVIDIA_CC_AMPERE_80_PATTERNS, NVIDIA_CC_BLACKWELL_100_PATTERNS, NVIDIA_CC_BLACKWELL_103_PATTERNS, NVIDIA_CC_FERMI_21_GT_SUFFIXES,
+    NVIDIA_CC_FERMI_21_PATTERNS, NVIDIA_CC_FERMI_21_QUADRO_SUFFIXES, NVIDIA_CC_KEPLER_32_PATTERNS, NVIDIA_CC_KEPLER_35_PATTERNS,
+    NVIDIA_CC_MAXWELL_50_PATTERNS, NVIDIA_CC_MAXWELL_52_PATTERNS, NVIDIA_CC_PASCAL_60_PATTERNS, NVIDIA_CC_TESLA_11_GTS_SUFFIXES,
+    NVIDIA_CC_TESLA_11_GT_SUFFIXES, NVIDIA_CC_TESLA_11_PATTERNS, NVIDIA_CC_TESLA_11_QUADRO_SUFFIXES, NVIDIA_CC_TESLA_12_GT_SUFFIXES,
+    NVIDIA_CC_TESLA_12_PATTERNS, NVIDIA_CC_TESLA_12_QUADRO_SUFFIXES, NVIDIA_CC_TESLA_13_PATTERNS, NVIDIA_CC_TESLA_13_QUADRO_SUFFIXES,
+};
+use crate::util::{contains_any, contains_any_with_prefix};
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -108,6 +116,13 @@ pub enum Architecture {
     /// See [C66x DSP CPU and Instruction Set](https://www.nvidia.com/en-us/data-center/technologies/blackwell-architecture/) for more information
     #[display("C66x")]
     C66x,
+    /// NVIDIA Carmel CPU architecture
+    ///
+    /// Custom ARMv8.2 CPU core used in Jetson Xavier series (AGX Xavier, Xavier NX)
+    ///
+    /// See <https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/> for more information
+    #[display("Carmel")]
+    Carmel,
     /// AMD CDNA 1 microarchitecture (MI100)
     /// > Dedicated compute architecture underlying AMD Instinct™ GPUs and APUs
     ///
@@ -161,6 +176,13 @@ pub enum Architecture {
     /// See <https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u85> for more information
     #[display("Ethos")]
     Ethos,
+    /// NVIDIA Fermi microarchitecture (Tesla 20xx, GeForce 4xx/5xx, 2010)
+    ///
+    /// Compute capability 2.x
+    ///
+    /// See <https://developer.nvidia.com/cuda-gpus> for more information
+    #[display("Fermi")]
+    Fermi,
     /// Intel Habana Gaudi2 AI accelerator
     ///
     /// See <[The Habana Gaudi2 Processor for Deep Learning](https://www.intel.com/content/www/us/en/developer/articles/technical/habana-gaudi2-processor-for-deep-learning.html) for more information
@@ -169,6 +191,11 @@ pub enum Architecture {
     /// Graphcore Colossus GC200 / IPU architecture (2018-2019)
     #[display("Graphcore GC200")]
     GraphcoreGc200,
+    /// NVIDIA Grace CPU architecture
+    ///
+    /// See <https://www.nvidia.com/en-us/data-center/grace-cpu/> for more information
+    #[display("Grace")]
+    Grace,
     /// Qualcomm Hexagon processor NPU
     /// > Purpose-built for AI, powers advanced gen AI models and cutting-edge gen AI experiences while maintaining best-in-class power efficiency
     ///
@@ -243,6 +270,13 @@ pub enum Architecture {
     /// See [Apple Machine Learning Research - The Apple Neural Engine](https://machinelearning.apple.com/research/neural-engine-transformers#the-apple-neuralengine) for more information
     #[display("Neural Engine")]
     NeuralEngine,
+    /// NVIDIA Orin system-on-chip (Jetson AGX Orin, Orin NX, Orin Nano)
+    ///
+    /// Ampere-based GPU integrated in the Jetson Orin family. Compute capability 8.7
+    ///
+    /// See <https://developer.nvidia.com/cuda-gpus> for more information
+    #[display("Orin")]
+    Orin,
     /// NVIDIA (2016) Pascal [`Resource::GPU`] microarchitecture (GP-series)
     ///
     /// See <https://www.nvidia.com/en-us/data-center/pascal-gpu-architecture/> for more information
@@ -301,6 +335,20 @@ pub enum Architecture {
     /// See <https://www.intel.com/content/www/us/en/homepage.html> for more information
     #[display("Stratix V")]
     StratixV,
+    /// NVIDIA Tesla microarchitecture (G80, GT200, pre-Fermi, 2006-2009)
+    ///
+    /// Compute capability 1.x. Covers G80, G92, G94, G96, G200, GT21x families
+    ///
+    /// See <https://developer.nvidia.com/cuda-gpus> for more information
+    #[display("Tesla")]
+    Tesla,
+    /// Jetson Thor system-on-chip (Jetson T5000, T4000)
+    ///
+    /// Next-generation Jetson embedded GPU. Compute capability 11.0
+    ///
+    /// See <https://developer.nvidia.com/cuda-gpus> for more information
+    #[display("Thor")]
+    Thor,
     /// Google [`Resource::TPU`] v4
     ///
     /// See <https://docs.cloud.google.com/tpu/docs/v4> for more information
@@ -348,6 +396,11 @@ pub enum Architecture {
     /// See <https://www.nvidia.com/en-us/data-center/volta-gpu-architecture/> for more information
     #[display("Volta")]
     Volta,
+    /// NVIDIA Vera CPU architecture
+    ///
+    /// See <https://www.nvidia.com/en-us/data-center/cpu/> for more information
+    #[display("Vera")]
+    Vera,
     /// Tenstorrent Wormhole AI accelerator
     /// > Flexible, scalable processors built with Tensix Cores™. Each includes a compute unit, network-on-chip, local cache and "baby RISC-V" cores, coalescing in powerful data movement through the chip.
     ///
@@ -653,8 +706,16 @@ impl From<SensorModality> for Modality {
 pub enum CpuArchitecture {
     /// 64-bit ARM instruction set
     #[display("AArch64")]
-    #[serde(alias = "aarch64", alias = "arm64")]
+    #[serde(alias = "arm", alias = "aarch64", alias = "arm64")]
     AArch64,
+    /// NVIDIA Carmel CPU architecture
+    ///
+    /// Custom ARMv8.2 CPU core used in Jetson Xavier series (AGX Xavier, Xavier NX)
+    ///
+    /// See <https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/> for more information
+    #[display("Carmel")]
+    #[serde(alias = "carmel", alias = "carmel cpu")]
+    Carmel,
     /// Apple-specific efficiency core (big/little architecture)
     #[display("Apple Efficiency Core")]
     #[serde(alias = "Apple Efficiency Core", alias = "apple efficiency core", alias = "EfficiencyCore")]
@@ -663,6 +724,14 @@ pub enum CpuArchitecture {
     #[display("Ethos")]
     #[serde(alias = "ethos")]
     Ethos,
+    /// NVIDIA Grace architecture
+    ///
+    /// Used in [DGX Spark](https://www.nvidia.com/en-us/products/workstations/dgx-spark/) machine
+    ///
+    /// See <https://www.nvidia.com/en-us/data-center/grace-cpu-superchip/> for more information
+    #[display("Grace")]
+    #[serde(alias = "grace", alias = "grace cpu")]
+    Grace,
     /// Qualcomm Hexagon processor (integrated in Snapdragon)
     #[display("Hexagon")]
     #[serde(alias = "hexagon")]
@@ -695,6 +764,12 @@ pub enum CpuArchitecture {
     #[display("RISC-V")]
     #[serde(alias = "riscv", alias = "risc-v")]
     RiscV,
+    /// NVIDIA Vera architecture
+    ///
+    /// See <https://www.nvidia.com/en-us/data-center/grace-cpu-superchip/> for more information
+    #[display("Vera")]
+    #[serde(alias = "vera", alias = "vera cpu")]
+    Vera,
     /// 32-bit x86 instruction set
     #[display("x86")]
     #[serde(alias = "X86")]
@@ -890,6 +965,12 @@ pub enum GpuArchitecture {
     #[display("CDNA4")]
     #[serde(alias = "CDNA 4", alias = "cdna4", alias = "cdna 4", alias = "MI350", alias = "mi350")]
     Cdna4,
+    /// NVIDIA Fermi microarchitecture (Tesla 20xx, GeForce 4xx/5xx, 2010)
+    ///
+    /// Compute capability 2.x
+    #[display("Fermi")]
+    #[serde(alias = "fermi", alias = "GF100", alias = "gf100", alias = "GF110", alias = "gf110")]
+    Fermi,
     /// NVIDIA Hopper microarchitecture (H100, H200)
     #[display("Hopper")]
     #[serde(alias = "hopper", alias = "GH100", alias = "gh100", alias = "GH200", alias = "gh200")]
@@ -902,6 +983,22 @@ pub enum GpuArchitecture {
     #[display("Maxwell")]
     #[serde(alias = "maxwell", alias = "GM200", alias = "gm200")]
     Maxwell,
+    /// NVIDIA Orin system-on-chip (Jetson AGX Orin, Orin NX, Orin Nano)
+    ///
+    /// Ampere-based GPU integrated in the Jetson Orin family. Compute capability 8.7
+    #[display("Orin")]
+    #[serde(
+        alias = "orin",
+        alias = "Jetson Orin",
+        alias = "jetson orin",
+        alias = "AGX Orin",
+        alias = "agx orin",
+        alias = "Orin NX",
+        alias = "orin nx",
+        alias = "Orin Nano",
+        alias = "orin nano"
+    )]
+    Orin,
     /// NVIDIA Pascal GPU microarchitecture (GP-series, 2016)
     #[display("Pascal")]
     #[serde(alias = "pascal", alias = "GP100", alias = "gp100")]
@@ -918,6 +1015,36 @@ pub enum GpuArchitecture {
     #[display("RDNA3")]
     #[serde(alias = "RDNA3", alias = "RDNA 3", alias = "rdna3", alias = "RDNA3", alias = "rdna 3")]
     Rdna3,
+    /// NVIDIA Tesla microarchitecture (G80, GT200, pre-Fermi, 2006-2009)
+    ///
+    /// Compute capability 1.x. Covers G80, G92, G94, G96, G200, GT21x families
+    #[display("Tesla")]
+    #[serde(
+        alias = "tesla",
+        alias = "G80",
+        alias = "g80",
+        alias = "G92",
+        alias = "g92",
+        alias = "GT200",
+        alias = "gt200",
+        alias = "GT21x",
+        alias = "gt21x"
+    )]
+    Tesla,
+    /// Jetson Thor system-on-chip (Jetson T5000, T4000)
+    ///
+    /// Next-generation Jetson embedded GPU. Compute capability 11.0
+    #[display("Thor")]
+    #[serde(
+        alias = "thor",
+        alias = "Jetson Thor",
+        alias = "jetson thor",
+        alias = "Jetson T5000",
+        alias = "jetson t5000",
+        alias = "Jetson T4000",
+        alias = "jetson t4000"
+    )]
+    Thor,
     /// NVIDIA Turing microarchitecture (RTX 20xx)
     #[display("Turing")]
     #[serde(alias = "turing", alias = "TU102", alias = "tu102")]
@@ -1176,7 +1303,9 @@ impl From<CpuArchitecture> for Architecture {
     fn from(value: CpuArchitecture) -> Self {
         match value {
             | CpuArchitecture::AArch64 => Architecture::AArch64,
+            | CpuArchitecture::Carmel => Architecture::Carmel,
             | CpuArchitecture::Ethos => Architecture::Ethos,
+            | CpuArchitecture::Grace => Architecture::Grace,
             | CpuArchitecture::Ia64 => Architecture::Ia64,
             | CpuArchitecture::LoongArch => Architecture::LoongArch,
             | CpuArchitecture::Mips => Architecture::Mips,
@@ -1186,6 +1315,7 @@ impl From<CpuArchitecture> for Architecture {
             | CpuArchitecture::PowerPc => Architecture::PowerPc,
             | CpuArchitecture::Hexagon => Architecture::Hexagon,
             | CpuArchitecture::RiscV => Architecture::RiscV,
+            | CpuArchitecture::Vera => Architecture::Vera,
             | CpuArchitecture::X86 => Architecture::X86,
             | CpuArchitecture::X86_64 => Architecture::X86_64,
             | CpuArchitecture::ZArch => Architecture::ZArch,
@@ -1197,7 +1327,9 @@ impl From<&CpuArchitecture> for Architecture {
     fn from(value: &CpuArchitecture) -> Self {
         match value {
             | CpuArchitecture::AArch64 => Architecture::AArch64,
+            | CpuArchitecture::Carmel => Architecture::Carmel,
             | CpuArchitecture::Ethos => Architecture::Ethos,
+            | CpuArchitecture::Grace => Architecture::Grace,
             | CpuArchitecture::Ia64 => Architecture::Ia64,
             | CpuArchitecture::LoongArch => Architecture::LoongArch,
             | CpuArchitecture::Mips => Architecture::Mips,
@@ -1207,6 +1339,7 @@ impl From<&CpuArchitecture> for Architecture {
             | CpuArchitecture::PowerPc => Architecture::PowerPc,
             | CpuArchitecture::Hexagon => Architecture::Hexagon,
             | CpuArchitecture::RiscV => Architecture::RiscV,
+            | CpuArchitecture::Vera => Architecture::Vera,
             | CpuArchitecture::X86 => Architecture::X86,
             | CpuArchitecture::X86_64 => Architecture::X86_64,
             | CpuArchitecture::ZArch => Architecture::ZArch,
@@ -1331,13 +1464,17 @@ impl From<GpuArchitecture> for Architecture {
             | GpuArchitecture::Cdna2 => Architecture::Cdna2,
             | GpuArchitecture::Cdna3 => Architecture::Cdna3,
             | GpuArchitecture::Cdna4 => Architecture::Cdna4,
+            | GpuArchitecture::Fermi => Architecture::Fermi,
             | GpuArchitecture::Hopper => Architecture::Hopper,
             | GpuArchitecture::Kepler => Architecture::Kepler,
             | GpuArchitecture::Maxwell => Architecture::Maxwell,
+            | GpuArchitecture::Orin => Architecture::Orin,
             | GpuArchitecture::Pascal => Architecture::Pascal,
             | GpuArchitecture::Rdna1 => Architecture::Rdna1,
             | GpuArchitecture::Rdna2 => Architecture::Rdna2,
             | GpuArchitecture::Rdna3 => Architecture::Rdna3,
+            | GpuArchitecture::Tesla => Architecture::Tesla,
+            | GpuArchitecture::Thor => Architecture::Thor,
             | GpuArchitecture::Turing => Architecture::Turing,
             | GpuArchitecture::Volta => Architecture::Volta,
             | GpuArchitecture::Xe => Architecture::Xe,
@@ -1366,13 +1503,17 @@ impl From<&GpuArchitecture> for Architecture {
             | GpuArchitecture::Cdna2 => Architecture::Cdna2,
             | GpuArchitecture::Cdna3 => Architecture::Cdna3,
             | GpuArchitecture::Cdna4 => Architecture::Cdna4,
+            | GpuArchitecture::Fermi => Architecture::Fermi,
             | GpuArchitecture::Hopper => Architecture::Hopper,
             | GpuArchitecture::Kepler => Architecture::Kepler,
             | GpuArchitecture::Maxwell => Architecture::Maxwell,
+            | GpuArchitecture::Orin => Architecture::Orin,
             | GpuArchitecture::Pascal => Architecture::Pascal,
             | GpuArchitecture::Rdna1 => Architecture::Rdna1,
             | GpuArchitecture::Rdna2 => Architecture::Rdna2,
             | GpuArchitecture::Rdna3 => Architecture::Rdna3,
+            | GpuArchitecture::Tesla => Architecture::Tesla,
+            | GpuArchitecture::Thor => Architecture::Thor,
             | GpuArchitecture::Turing => Architecture::Turing,
             | GpuArchitecture::Volta => Architecture::Volta,
             | GpuArchitecture::Xe => Architecture::Xe,
@@ -1814,6 +1955,163 @@ impl<'de> Deserialize<'de> for Resource {
 impl Validate for Resource {
     fn validate(&self) -> Result<(), ValidationErrors> {
         validate_vendor(self)
+    }
+}
+impl Resource {
+    fn is_spark(&self) -> bool {
+        match self {
+            | Resource::GPU {
+                name: Some(name),
+                architecture: Some(architecture),
+                ..
+            } => {
+                let value = name.to_lowercase();
+                *architecture == GpuArchitecture::Blackwell && ["spark", "gb10", "dgx spark"].iter().any(|term| value.contains(term))
+            }
+            | _ => false,
+        }
+    }
+    fn name(&self) -> Option<String> {
+        match self {
+            | Resource::GPU { name: Some(name), .. } => Some(name.to_lowercase().replace(' ', "")),
+            | _ => None,
+        }
+    }
+    /// Returns compute value (major, minor) which defines the hardware features and supported instructions for each NVIDIA GPU architecture
+    ///
+    /// Values come from the official [NVIDIA CUDA GPU compute capability page](https://developer.nvidia.com/cuda/gpus) (and [this page](https://developer.nvidia.com/cuda/gpus/legacy) for legacy GPUs)
+    ///
+    /// Returns `None` for non-NVIDIA GPUs or unrecognized models.
+    #[allow(dead_code)]
+    pub fn compute_value(&self) -> Option<(u8, u8)> {
+        match &self.vendor() {
+            | Some(Vendor::NVIDIA) => match self.architecture() {
+                | Some(Architecture::Blackwell) => {
+                    if self.is_spark() {
+                        Some((12, 1))
+                    } else if let Some(v) = self.name() {
+                        if contains_any(NVIDIA_CC_BLACKWELL_103_PATTERNS, &v) {
+                            Some((10, 3))
+                        } else if contains_any(NVIDIA_CC_BLACKWELL_100_PATTERNS, &v) {
+                            Some((10, 0))
+                        } else {
+                            Some((12, 0))
+                        }
+                    } else {
+                        Some((12, 0))
+                    }
+                }
+                | Some(Architecture::Hopper) => Some((9, 0)),
+                | Some(Architecture::AdaLovelace) => Some((8, 9)),
+                | Some(Architecture::Thor) => Some((11, 0)),
+                | Some(Architecture::Orin) => Some((8, 7)),
+                | Some(Architecture::Ampere) => {
+                    if let Some(v) = self.name() {
+                        if contains_any(NVIDIA_CC_AMPERE_80_PATTERNS, &v) {
+                            Some((8, 0))
+                        } else {
+                            Some((8, 6))
+                        }
+                    } else {
+                        Some((8, 6))
+                    }
+                }
+                | Some(Architecture::Turing) => Some((7, 5)),
+                | Some(Architecture::Volta) => {
+                    if let Some(v) = self.name() {
+                        if v.contains("xavier") {
+                            Some((7, 2))
+                        } else {
+                            Some((7, 0))
+                        }
+                    } else {
+                        Some((7, 0))
+                    }
+                }
+                | Some(Architecture::Pascal) => {
+                    if let Some(v) = self.name() {
+                        if v.contains("tx2") {
+                            Some((6, 2))
+                        } else if contains_any(NVIDIA_CC_PASCAL_60_PATTERNS, &v) {
+                            Some((6, 0))
+                        } else {
+                            Some((6, 1))
+                        }
+                    } else {
+                        Some((6, 1))
+                    }
+                }
+                | Some(Architecture::Maxwell) => {
+                    if let Some(v) = self.name() {
+                        if v.contains("jetson") && v.contains("nano") {
+                            Some((5, 3))
+                        } else if contains_any(NVIDIA_CC_MAXWELL_52_PATTERNS, &v) {
+                            Some((5, 2))
+                        } else if contains_any(NVIDIA_CC_MAXWELL_50_PATTERNS, &v) || (v.contains("gtx") && v.contains("750")) {
+                            Some((5, 0))
+                        } else {
+                            Some((5, 2))
+                        }
+                    } else {
+                        Some((5, 2))
+                    }
+                }
+                | Some(Architecture::Kepler) => {
+                    if let Some(v) = self.name() {
+                        if v.contains("k80") {
+                            Some((3, 7))
+                        } else if contains_any(NVIDIA_CC_KEPLER_35_PATTERNS, &v) {
+                            Some((3, 5))
+                        } else if contains_any(NVIDIA_CC_KEPLER_32_PATTERNS, &v) {
+                            Some((3, 2))
+                        } else {
+                            Some((3, 0))
+                        }
+                    } else {
+                        Some((3, 0))
+                    }
+                }
+                | Some(Architecture::Fermi) => {
+                    if let Some(v) = self.name() {
+                        if contains_any(NVIDIA_CC_FERMI_21_PATTERNS, &v)
+                            || contains_any_with_prefix(&v, "quadro", NVIDIA_CC_FERMI_21_QUADRO_SUFFIXES)
+                            || contains_any_with_prefix(&v, "gt", NVIDIA_CC_FERMI_21_GT_SUFFIXES)
+                        {
+                            Some((2, 1))
+                        } else {
+                            Some((2, 0))
+                        }
+                    } else {
+                        Some((2, 0))
+                    }
+                }
+                | Some(Architecture::Tesla) => {
+                    if let Some(v) = self.name() {
+                        if contains_any(NVIDIA_CC_TESLA_13_PATTERNS, &v) || contains_any_with_prefix(&v, "quadro", NVIDIA_CC_TESLA_13_QUADRO_SUFFIXES)
+                        {
+                            Some((1, 3))
+                        } else if contains_any(NVIDIA_CC_TESLA_12_PATTERNS, &v)
+                            || contains_any_with_prefix(&v, "quadro", NVIDIA_CC_TESLA_12_QUADRO_SUFFIXES)
+                            || contains_any_with_prefix(&v, "gt", NVIDIA_CC_TESLA_12_GT_SUFFIXES)
+                        {
+                            Some((1, 2))
+                        } else if contains_any(NVIDIA_CC_TESLA_11_PATTERNS, &v)
+                            || contains_any_with_prefix(&v, "quadro", NVIDIA_CC_TESLA_11_QUADRO_SUFFIXES)
+                            || contains_any_with_prefix(&v, "gts", NVIDIA_CC_TESLA_11_GTS_SUFFIXES)
+                            || contains_any_with_prefix(&v, "gt", NVIDIA_CC_TESLA_11_GT_SUFFIXES)
+                        {
+                            Some((1, 1))
+                        } else {
+                            Some((1, 0))
+                        }
+                    } else {
+                        Some((1, 0))
+                    }
+                }
+                | _ => None,
+            },
+            | _ => None,
+        }
     }
 }
 fn default_count() -> Option<u32> {

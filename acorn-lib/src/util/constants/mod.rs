@@ -5,8 +5,15 @@
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
-/// ORNL disclaimer
-pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
+/// Environment variable names used by ACORN.
+pub mod env;
+/// NVIDIA GPU compute-capability constants.
+pub mod gpu;
+/// ACORN application and ORNL branding constants.
+pub mod ornl;
+/// Vale configuration and package constants.
+pub mod vale;
+
 /// Crockford base32 alphabet (excludes I, L, O, U to avoid confusion)
 pub const CROCKFORD_BASE32_ALPHABET: &[u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 /// Cross-platform line separator (CRLF on Windows, LF on Unix)
@@ -15,72 +22,15 @@ pub const LINE_SEPARATOR: &str = "\r\n";
 /// Cross-platform line separator (CRLF on Windows, LF on Unix)
 #[cfg(not(target_os = "windows"))]
 pub const LINE_SEPARATOR: &str = "\n";
-/// Base URL for deploying ORNL data
-pub const BASE_URL: &str = "https://research.ornl.gov";
-/// RGB color for transparency
-pub const COLOR_TRANSPARENT: [u8; 4] = [255, 255, 255, 0];
-/// RGB ORNL brand primary color
-///
-// See <https://www.olcf.ornl.gov/about-olcf/media-assets/>
-pub const COLOR_PRIMARY: [u8; 4] = [0, 121, 52, 255];
 /// URL-encoded space character
 pub const URL_ENCODED_SPACE: &str = "%20";
 /// URL-encoded caret character
 pub const URL_ENCODED_CARAT: &str = "%5E";
-/// URL for Vale releases
-pub const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
-/// Version of Vale to use with ACORN
-pub const VALE_VERSION: &str = "3.9.4";
-/// Default Vale configuration path
-pub const DEFAULT_VALE_ROOT: &str = "./.vale/";
-/// URL for custom ORNL Science Vale package
-pub const DEFAULT_VALE_PACKAGE_URL: &str = "https://code.ornl.gov/research-enablement/vale-package/-/archive/v0.0.1/vale-package-v0.0.1.zip";
-/// Custom Vale package name
-pub const CUSTOM_VALE_PACKAGE_NAME: &str = "Science";
-/// Enabled Vale packages
-pub const ENABLED_VALE_PACKAGES: [&str; 4] = ["Google", "proselint", "write-good", "Joblint"];
-/// Disabled Vale rules
-pub const DISABLED_VALE_RULES: [&str; 15] = [
-    "Vale.Terms",
-    "Google.EmDash",
-    "Google.Contractions",
-    "Google.GenderBias",
-    "Google.Headings",
-    "Google.Latin",
-    "Google.Parens",
-    "Google.Quotes",
-    "Google.We",
-    "Joblint.Competitive",
-    "proselint.GenderBias",
-    "write-good.E-Prime",
-    "write-good.Passive",
-    "write-good.TooWordy",
-    "write-good.Weasel",
-];
-// Project folder values
-/// Application name
-pub const APPLICATION: &str = "acorn";
-/// Organization name
-pub const ORGANIZATION: &str = "ornl";
-/// Organization qualifier
-pub const QUALIFIER: &str = "org";
 /// Default cache TTL in seconds (1 month = 30 days)
 pub const DEFAULT_CACHE_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
-/// Environment variable name for cache TTL override
-pub const ENV_CACHE_TTL: &str = "ACORN_CACHE_TTL";
-/// Environment variable used to select a database backend at runtime.
-pub const ENV_DATABASE_BACKEND: &str = "ACORN_DATABASE_BACKEND";
-/// Environment variable used to override database path at runtime.
-pub const ENV_DATABASE_PATH: &str = "ACORN_DATABASE_PATH";
-/// Environment variable used to disable local database use at runtime.
-pub const ENV_NO_LOCAL_DATABASE: &str = "ACORN_NO_LOCAL_DATABASE";
-/// Environment variable used to select readability metric for readability checks at runtime.
-pub const ENV_READABILITY_METRIC: &str = "ACORN_READABILITY_METRIC";
 /// File size threshold in bytes for switching to large-file read strategy (100 MB).
 pub const LARGE_FILE_THRESHOLD_BYTES: u64 = 100 * 1024 * 1024;
 // Schema defaults
-/// Default affiliation
-pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
 /// Default graphic content URL (href)
 pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 /// Default graphic caption
@@ -129,35 +79,6 @@ pub const MAX_LENGTH_SUBTITLE: u64 = 75;
 ///
 /// [`title`]: ../schema/struct.ResearchActivity.html#structfield.title
 pub const MAX_LENGTH_TITLE: u64 = 45;
-// Readability defaults
-/// Automated Readability Index (ARI) maximum allowed value
-///
-/// This value maps to 12th grade (high school senior) reading level
-pub const MAX_ALLOWED_ARI: f64 = 18.0;
-/// Coleman-Liau Index (CLI) maximum allowed value
-///
-/// This value maps to 12th grade (high school senior) reading level
-pub const MAX_ALLOWED_CLI: f64 = 12.0;
-/// Flesch-Kincaid Grade Level (FKGL) maximum allowed value
-///
-/// This value maps to 12th grade (high school senior) reading level
-pub const MAX_ALLOWED_FKGL: f64 = 12.0;
-/// Flesch Reading Ease Score (FRES) maximum allowed value
-///
-/// This value maps to 12th grade (high school senior) reading level
-pub const MAX_ALLOWED_FRES: f64 = 50.0;
-/// Gunning Fog Index (GFI) maximum allowed value
-///
-/// This value maps to 12th grade (high school senior) reading level
-pub const MAX_ALLOWED_GFI: f64 = 12.0;
-/// Lix Index (Lix) maximum allowed value
-///
-/// This value is somewhere in between "very easy" (20) and "very difficult" (60), skewed toward "very difficult"
-pub const MAX_ALLOWED_LIX: f64 = 50.0;
-/// Simple Measure of Gobbledygook (SMOG) maximum allowed value
-///
-/// This value maps to upper end of high school (12th grade) reading level
-pub const MAX_ALLOWED_SMOG: f64 = 13.0;
 /// Pattern text for ARK regular expression defined by [`RE_ARK`]
 pub const RE_ARK_TEXT: &str = r#"(?<nma>https\:\/\/[^\/]+\/)?(?<label>ark\:\/?)(?<naan>\d{2,9})\/(?<assigned_name>[a-z0-9A-Z]+)(?:\/(?<parts>[a-zA-Z0-9/_-]+))?(?:\.(?<variants>[a-zA-Z0-9._-]+))?"#;
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]

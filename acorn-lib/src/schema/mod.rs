@@ -14,7 +14,7 @@ use crate::prelude::PathBuf;
 #[cfg(feature = "std")]
 use crate::schema::validate::format_phone_number;
 #[cfg(feature = "std")]
-use crate::util::constants::DEFAULT_AFFILIATION;
+use crate::util::constants::ornl::DEFAULT_AFFILIATION;
 use crate::util::constants::MAX_LENGTH_IMAGE_CAPTION;
 #[cfg(feature = "std")]
 use crate::util::Label;

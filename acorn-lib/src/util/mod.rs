@@ -17,6 +17,7 @@
 //!
 use crate::prelude::{HashMap, Path};
 use crate::{fail, skip};
+use aho_corasick::AhoCorasick;
 use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
@@ -787,6 +788,17 @@ pub fn base32_crockford_decode(value: impl AsRef<str>) -> Option<u128> {
                 | None => None,
             }
         })
+}
+/// Returns true when any pattern exists in the haystack.
+pub fn contains_any(patterns: &[&str], haystack: &str) -> bool {
+    match AhoCorasick::new(patterns) {
+        | Ok(matcher) => matcher.is_match(haystack),
+        | Err(_) => false,
+    }
+}
+/// Returns true when haystack contains a prefix and any suffix pattern.
+pub fn contains_any_with_prefix(haystack: &str, prefix: &str, suffixes: &[&str]) -> bool {
+    haystack.contains(prefix) && contains_any(suffixes, haystack)
 }
 fn crockford_digit(value: char) -> Option<u128> {
     let upper = value.to_ascii_uppercase();

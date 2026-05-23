@@ -1,6 +1,6 @@
 use acorn::io::{files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored};
 use acorn::prelude::PathBuf;
-use acorn::util::constants::{ENV_CACHE_TTL, ENV_DATABASE_BACKEND, ENV_DATABASE_PATH, ENV_NO_LOCAL_DATABASE};
+use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
 use acorn::util::{regex_inverse, regex_join};
 use bon::Builder;
 use clap::builder::{
@@ -167,7 +167,7 @@ pub struct Arguments {
     #[arg(
         long = "database-backend",
         value_name = "BACKEND",
-        env = ENV_DATABASE_BACKEND,
+        env = DATABASE_BACKEND,
         help_heading = "OPTIONS"
     )]
     pub database_backend: Option<DatabaseBackend>,
@@ -178,7 +178,7 @@ pub struct Arguments {
         value_name = "PATH",
         value_hint = ValueHint::FilePath,
         conflicts_with = "no_local_database",
-        env = ENV_DATABASE_PATH,
+        env = DATABASE_PATH,
         help_heading = "OPTIONS"
     )]
     pub database_path: Option<PathBuf>,
@@ -188,7 +188,7 @@ pub struct Arguments {
         long = "no-local-database",
         value_name = "BOOL",
         conflicts_with = "database_path",
-        env = ENV_NO_LOCAL_DATABASE,
+        env = NO_LOCAL_DATABASE,
         help_heading = "FLAGS"
     )]
     pub no_local_database: bool,
@@ -214,7 +214,7 @@ pub struct Arguments {
     /// Override default cache TTL (in seconds). Default is 2592000 (30 days)
     ///
     /// Set to 0 to disable caching
-    #[arg(long = "cache-ttl", value_name = "SECONDS", env = ENV_CACHE_TTL, help_heading = "OPTIONS")]
+    #[arg(long = "cache-ttl", value_name = "SECONDS", env = CACHE_TTL, help_heading = "OPTIONS")]
     pub cache_ttl: Option<u64>,
     #[command(flatten)]
     pub verbose: Verbosity,

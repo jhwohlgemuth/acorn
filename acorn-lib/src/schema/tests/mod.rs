@@ -10,7 +10,7 @@ use crate::schema::research_activity::aspect::Maturity;
 use crate::schema::research_activity::*;
 use crate::schema::validate::*;
 use crate::schema::*;
-use crate::util::constants::ENV_DATABASE_PATH;
+use crate::util::constants::env::DATABASE_PATH;
 use crate::util::{Constant, Searchable};
 use glob::glob;
 use pretty_assertions::assert_eq;
@@ -630,7 +630,7 @@ async fn test_is_license() {
         .await
         .expect("failed to initialize temporary test database");
     let path_string = path.to_string_lossy().to_string();
-    temp_env::with_vars([(ENV_DATABASE_PATH, Some(path_string.as_str()))], || {
+    temp_env::with_vars([(DATABASE_PATH, Some(path_string.as_str()))], || {
         assert!(is_license("MIT").is_ok());
         assert!(is_license("mit").is_ok());
         assert!(is_license("MIT License").is_ok());
@@ -646,7 +646,7 @@ fn test_is_license_invalid_database_path() {
     let corrupt_db = dir.join("corrupt.db");
     std::fs::write(&corrupt_db, b"not a sqlite database").expect("failed to write corrupt db");
     let path_string = corrupt_db.to_string_lossy().to_string();
-    temp_env::with_vars([(ENV_DATABASE_PATH, Some(path_string.as_str()))], || {
+    temp_env::with_vars([(DATABASE_PATH, Some(path_string.as_str()))], || {
         let result = is_license("MIT");
         assert!(result.is_err());
         let why = result.unwrap_err();
@@ -657,7 +657,7 @@ fn test_is_license_invalid_database_path() {
 }
 #[test]
 fn test_is_license_missing_database_path_env() {
-    temp_env::with_vars([(ENV_DATABASE_PATH, None::<&str>)], || {
+    temp_env::with_vars([(DATABASE_PATH, None::<&str>)], || {
         let result = is_license("MIT");
         assert!(result.is_err());
         let why = result.unwrap_err();
