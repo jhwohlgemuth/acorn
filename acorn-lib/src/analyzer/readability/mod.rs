@@ -130,7 +130,7 @@ impl ReadabilityType {
                     | ReadabilityType::SMOG => find_first(variables, "MAX_ALLOWED_SMOG"),
                 };
                 match pair {
-                    | Some((_, value)) => Some(value.parse::<f64>().unwrap()),
+                    | Some((_, value)) => value.parse::<f64>().ok(),
                     | None => None,
                 }
             }
@@ -244,7 +244,7 @@ pub fn automated_readability_index(text: &str) -> f64 {
     let sentences = sentence_count(text);
     debug!(letters, words, sentences, "=> {}", Label::using());
     let score = 4.71 * (letters as f64 / words as f64) + 0.5 * (words as f64 / sentences as f64) - 21.43;
-    format!("{score:.2}").parse().unwrap()
+    (score * 100.0).round() / 100.0
 }
 /// Coleman-Liau Index (CLI)
 ///
@@ -255,7 +255,7 @@ pub fn coleman_liau_index(text: &str) -> f64 {
     let sentences = sentence_count(text);
     debug!(letters, words, sentences, "=> {}", Label::using());
     let score = (0.0588 * 100.0 * (letters as f64 / words as f64)) - (0.296 * 100.0 * (sentences as f64 / words as f64)) - 15.8;
-    format!("{score:.2}").parse().unwrap()
+    (score * 100.0).round() / 100.0
 }
 /// Flesch-Kincaid Grade Level (FKGL)[^cite]
 ///
@@ -274,7 +274,7 @@ pub fn flesch_kincaid_grade_level(text: &str) -> f64 {
     let syllables = syllable_count(text);
     debug!(words, sentences, syllables, "=> {}", Label::using());
     let score = 0.39 * (words as f64 / sentences as f64) + 11.8 * (syllables as f64 / words as f64) - 15.59;
-    format!("{score:.2}").parse().unwrap()
+    (score * 100.0).round() / 100.0
 }
 /// Flesch Reading Ease Score (FRES)
 ///
@@ -289,7 +289,7 @@ pub fn flesch_reading_ease_score(text: &str) -> f64 {
     let syllables = syllable_count(text);
     debug!(words, sentences, syllables, "=> {}", Label::using());
     let score = 206.835 - (1.015 * words as f64 / sentences as f64) - (84.6 * syllables as f64 / words as f64);
-    format!("{score:.2}").parse().unwrap()
+    (score * 100.0).round() / 100.0
 }
 /// Gunning Fog Index (GFI)
 ///
@@ -303,7 +303,7 @@ pub fn gunning_fog_index(text: &str) -> f64 {
     let complex_words = complex_word_count(text);
     let sentences = sentence_count(text);
     let score = 0.4 * ((words as f64 / sentences as f64) + (100.0 * (complex_words as f64 / words as f64)));
-    format!("{score:.2}").parse().unwrap()
+    (score * 100.0).round() / 100.0
 }
 /// Lix (abbreviation of Swedish läsbarhetsindex)
 ///
@@ -319,7 +319,7 @@ pub fn lix(text: &str) -> f64 {
     let sentences = sentence_count(text);
     let long_words = long_word_count(text);
     let score = (words as f64 / sentences as f64) + 100.0 * (long_words as f64 / words as f64);
-    format!("{score:.2}").parse().unwrap()
+    (score * 100.0).round() / 100.0
 }
 /// Simple Measure of Gobbledygook (SMOG)
 ///
@@ -334,7 +334,7 @@ pub fn smog(text: &str) -> f64 {
     let sentences = sentence_count(text);
     let complex_words = complex_word_count(text);
     let score = 1.0430 * (30.0 * (complex_words as f64 / sentences as f64)).sqrt() + 3.1291;
-    format!("{score:.2}").parse().unwrap()
+    (score * 100.0).round() / 100.0
 }
 /// Get the singular form of a word (e.g. "people" -> "person")
 ///
@@ -348,15 +348,14 @@ pub fn singular_form(word: &str) -> String {
             | None => value.to_string(),
         },
         | value => {
-            let pair = PLURAL_TO_SINGULAR
-                .iter()
-                .find(|(pattern, _)| match Regex::new(pattern).unwrap().is_match(value) {
-                    | Ok(true) => true,
-                    | Ok(false) | Err(_) => false,
-                });
+            let pair = PLURAL_TO_SINGULAR.iter().find(|(pattern, _)| {
+                #[allow(clippy::unwrap_used)]
+                Regex::new(pattern).unwrap().is_match(value).unwrap_or(false)
+            });
             match pair {
                 | Some((pattern, replacement)) => {
                     trace!(pattern, replacement, value, "=> {} Singular form conversion", Label::using());
+                    #[allow(clippy::unwrap_used)]
                     let re = Regex::new(pattern).unwrap();
                     re.replace_all(value, *replacement).to_string()
                 }
@@ -414,7 +413,7 @@ pub fn syllable_count(text: &str) -> usize {
                 count += DOUBLE_SYLLABIC_TWO.find_iter(&input).count() as isize;
                 count += DOUBLE_SYLLABIC_THREE.find_iter(&input).count() as isize;
                 count += DOUBLE_SYLLABIC_FOUR.find_iter(&input).count() as isize;
-                count += VOWEL.split(&input).filter(|x| !x.as_ref().unwrap().is_empty()).count() as isize;
+                count += VOWEL.split(&input).filter_map(Result::ok).filter(|x| !x.is_empty()).count() as isize;
                 count.max(1) as usize
             }
         }

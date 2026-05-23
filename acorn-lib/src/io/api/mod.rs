@@ -544,6 +544,7 @@ impl IntoBody for Vec<Param> {
                         let Param { name, values, .. } = param;
                         let flattened: Vec<String> = values.into_iter().flat_map(|vec| vec.into_iter().flatten()).collect();
                         let value = if flattened.len() == 1 {
+                            #[allow(clippy::unwrap_used)]
                             serde_json::Value::String(flattened.into_iter().next().unwrap())
                         } else if flattened.is_empty() {
                             serde_json::Value::Null

@@ -356,18 +356,23 @@ pub fn is_phone_number(value: &str) -> Result<(), ValidationError> {
 pub fn is_polygon(value: &[GeoLocationPoint]) -> Result<(), ValidationError> {
     const CODE: &str = "polygon";
     const EMPTY_MESSAGE: &str = "Provide valid polygon — no points were provided";
-    let length_message = format!("Provide valid polygon — at least 4 points are required (only {} found)", value.len());
-    let first = value.first().unwrap();
-    let last = value.last().unwrap();
-    let closed_message = format!("Provide valid polygon — first point must equal last point ({first} ≠ {last})");
     let length = value.len();
-    let is_closed = value.first().zip(value.last()).map(|(first, last)| first == last).unwrap_or(false);
-    match (length, is_closed) {
-        | (0, _) => Err(ValidationError::new(CODE).with_message(EMPTY_MESSAGE.into())),
-        | (1..=3, _) => Err(ValidationError::new(CODE).with_message(length_message.into())),
-        | (_, false) => Err(ValidationError::new(CODE).with_message(closed_message.into())),
-        | _ => Ok(()),
-    }
+    let result = if length == 0 {
+        Err(ValidationError::new(CODE).with_message(EMPTY_MESSAGE.into()))
+    } else if length < 4 {
+        let length_message = format!("Provide valid polygon — at least 4 points are required (only {length} found)");
+        Err(ValidationError::new(CODE).with_message(length_message.into()))
+    } else {
+        match (value.first(), value.last()) {
+            | (Some(first), Some(last)) if first == last => Ok(()),
+            | (Some(first), Some(last)) => {
+                let closed_message = format!("Provide valid polygon — first point must equal last point ({first} ≠ {last})");
+                Err(ValidationError::new(CODE).with_message(closed_message.into()))
+            }
+            | _ => Err(ValidationError::new(CODE).with_message(EMPTY_MESSAGE.into())),
+        }
+    };
+    result
 }
 /// Check if value is a valid RFC3339 timestamp (ISO 8601 compliant)
 /// ### Examples

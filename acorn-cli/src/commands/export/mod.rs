@@ -70,12 +70,14 @@ pub async fn run(
             export_convert(path, options, format, &extension, |p, ext| p.with_extension(ext), progress_type).await
         }
         | FileFormat::Bag => {
+            #[allow(clippy::unwrap_used)]
             let base = path.clone().unwrap().display().to_string();
             let date = current_date();
             let size = format_bytes(folder_size(base.clone()));
             let info = BagInfo::init().date(date).size(size).build();
             debug!("=> {} {:#?}", Label::using(), info);
             let bag = Bag::init().base_directory(base).info(info).build();
+            #[allow(clippy::unwrap_used)]
             let destination = output.clone().unwrap();
             bag.save(destination.clone())
                 .and_then(|_| Bag::verify(destination.clone()))

@@ -136,6 +136,7 @@ impl Location {
     /// assert_eq!(location.hash(), "code_ornl_gov_research-enablement_buckets_nssd");
     /// ```
     pub fn hash(&self) -> String {
+        #[allow(clippy::unwrap_used)]
         let uri = self.uri().unwrap();
         let host = match uri.host() {
             | Some(value) => value.clone().to_string().replace('.', "_"),
@@ -247,6 +248,7 @@ impl Repository {
         match self.releases().await {
             | releases if releases.is_empty() => None,
             | releases => {
+                #[allow(clippy::unwrap_used)]
                 let release = releases.into_iter().next().unwrap();
                 trace!("=> {} Latest {:#?}", Label::using(), release);
                 Some(release)
@@ -290,6 +292,7 @@ impl Repository {
             | Repository::Git { .. } => None,
             | Repository::GitHub { location } => match location.uri() {
                 | Some(uri) => {
+                    #[allow(clippy::unwrap_used)]
                     let host = uri.host().unwrap().to_string();
                     let path = uri.path();
                     let endpoint = Some(format!("https://api.{host}/repos{path}/releases"));
@@ -303,6 +306,7 @@ impl Repository {
             | Repository::GitLab { location, .. } => match self.id() {
                 | Some(id) => match location.uri() {
                     | Some(uri) => {
+                        #[allow(clippy::unwrap_used)]
                         let host = uri.host().unwrap().to_string();
                         Some(format!("https://{host}/api/v4/projects/{id}/releases"))
                     }

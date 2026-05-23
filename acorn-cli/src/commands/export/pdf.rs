@@ -13,6 +13,7 @@ use std::process::exit;
 use tracing::{debug, error};
 
 /// Create PDF document from Research Activity data
+#[allow(clippy::unwrap_used)]
 pub async fn create(page: &Page, options: CommandOptions) {
     let CommandOptions { output, .. } = options;
     let path = match options.path {

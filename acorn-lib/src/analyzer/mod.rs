@@ -587,7 +587,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | Ok(path) => {
                 if !skip_verify_checksum {
                     let dowloaded_checksum = match self.clone().download_checksums().await {
-                        | Ok(value) => value.get(&platform).unwrap().to_string(),
+                        | Ok(value) => value.get(&platform).unwrap_or(&String::new()).to_string(),
                         | Err(_) => "".to_string(),
                     };
                     if let Some(calculated) = file_checksum(path.clone(), None) {
@@ -602,7 +602,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     skip!("Checksum verification");
                 }
                 let destination = match config.clone() {
-                    | Some(value) => value.path.parent().unwrap().to_path_buf(),
+                    | Some(value) => value.path.parent().map(Path::to_path_buf).unwrap_or(PathBuf::from("./.vale/")),
                     | None => PathBuf::from("./.vale/"),
                 };
                 let binary = self.clone().extract(path.clone(), Some(destination));
@@ -637,22 +637,32 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             "{VALE_RELEASES_URL}/download/v{release}/{}_{release}_checksums.txt",
             self.clone().command()
         );
-        let response = get(url).send().await.unwrap();
-        let content = response.text().await.unwrap();
-        let checksums = content.lines().clone().fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
-            let mut values = line.split("  ").collect::<Vec<&str>>();
-            let key = values.pop().unwrap()["vale_#.#.#_".len()..].to_string();
-            let value = values.pop().unwrap().to_string();
-            acc.insert(key, value);
-            acc
-        });
-        debug!(
-            "=> {} {} checksums {:#?}",
-            Label::using(),
-            self.command().to_case(Case::Title),
-            checksums.dimmed().cyan()
-        );
-        Ok(checksums)
+        let checksums = match get(url).send().await {
+            | Ok(response) => match response.text().await {
+                | Ok(content) => Ok(content.lines().clone().fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
+                    let mut values: Vec<&str> = line.split("  ").collect();
+                    if let (Some(raw_key), Some(raw_value)) = (values.pop(), values.pop()) {
+                        let key = raw_key["vale_#.#.#_".len()..].to_string();
+                        acc.insert(key, raw_value.to_string());
+                    }
+                    acc
+                })),
+                | Err(why) => Err(eyre!("Failed to read checksums response — {why}")),
+            },
+            | Err(why) => Err(eyre!("Failed to download checksums — {why}")),
+        };
+        match checksums {
+            | Ok(checksums) => {
+                debug!(
+                    "=> {} {} checksums {:#?}",
+                    Label::using(),
+                    self.command().to_case(Case::Title),
+                    checksums.dimmed().cyan()
+                );
+                Ok(checksums)
+            }
+            | Err(why) => Err(why),
+        }
     }
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
         let command = self.clone().command();
@@ -672,7 +682,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     }
                 }
                 | Err(why) => {
-                    error!("=> {} {command} extract - {why}", Label::fail());
+                    error!("=> {} {command} extract — {why}", Label::fail());
                     let path = PathBuf::from(DEFAULT_VALE_ROOT).join(command);
                     if cfg!(windows) {
                         path.with_extension("exe")
@@ -682,13 +692,25 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 }
             },
             | "gz" => {
+                #[allow(clippy::unwrap_used)]
                 let tar_gz = File::open(path).unwrap();
                 let tar = GzDecoder::new(tar_gz);
                 let mut archive = Archive::new(tar);
-                let message = format!("Unable to extract {command} binary");
-                archive.unpack(parent.clone()).expect(&message);
-                debug!(parent, "=> {} Extracted {command} binary", Label::using());
-                PathBuf::from(format!("{parent}/{command}"))
+                match archive.unpack(parent.clone()) {
+                    | Ok(_) => {
+                        debug!(parent, "=> {} Extracted {command} binary", Label::using());
+                        PathBuf::from(format!("{parent}/{command}"))
+                    }
+                    | Err(why) => {
+                        error!("=> {} {command} extract — {why}", Label::fail());
+                        let path = PathBuf::from(DEFAULT_VALE_ROOT).join(command);
+                        if cfg!(windows) {
+                            path.with_extension("exe")
+                        } else {
+                            path
+                        }
+                    }
+                }
             }
             | _ => {
                 error!("=> {} {command} extract — Unsupported format", Label::fail());
@@ -705,6 +727,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 PathBuf::from(DEFAULT_VALE_ROOT).join(command)
             }
         };
+        #[allow(clippy::unwrap_used)]
         let config_path = self.config.unwrap().path;
         let result: ApiResult<()> = if is_offline {
             skip!("Vale sync");
@@ -726,7 +749,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         match result {
             | Ok(_) => {
-                let parent = format!("{}/styles/config/vocabularies/{}", config_path.parent().unwrap().display(), APPLICATION);
+                let parent_dir = config_path.parent().map(|p| p.display().to_string()).unwrap_or_default();
+                let parent = format!("{parent_dir}/styles/config/vocabularies/{APPLICATION}");
                 debug!(parent, "=> {} Vocabularies", Label::using());
                 match create_dir_all(parent.clone()) {
                     | Ok(_) => {}
@@ -775,9 +799,11 @@ impl StaticAnalyzer<ValeConfig> for Vale {
     fn with_system_command(mut self) -> Self {
         let name = self.clone().command();
         if command_exists(name.clone()) {
+            #[allow(clippy::unwrap_used)]
             let path = which(name.clone()).unwrap().to_path_buf();
             self.binary = Some(path.clone());
             let offset = "vale version ".len();
+            #[allow(clippy::unwrap_used)]
             let output = cmd!(name.clone(), ["--version"]).unwrap();
             let stdout = output.stdout();
             let version = stdout[offset..].trim().to_string();
@@ -848,6 +874,7 @@ impl StaticAnalyzerConfig for ValeConfig {
     }
     async fn save(self) -> ValeConfig {
         let path = self.clone().path;
+        #[allow(clippy::unwrap_used)]
         let parent = path.parent().unwrap().to_path_buf();
         match create_dir_all(parent.clone()) {
             | Ok(_) => {}
@@ -1003,6 +1030,7 @@ pub fn pretty_print<I: IntoIterator<Item = usize>>(text: &str, syntax: Programmi
     for line in highlight {
         printer.highlight(line);
     }
+    #[allow(clippy::unwrap_used)]
     printer.print().unwrap();
 }
 /// Convert vector of values of a given type to a Polars [DataFrame]

@@ -48,7 +48,7 @@ pub async fn run(
             if dry_run {
                 println!("{} Link {}", Label::dry_run(), path.clone().to_absolute_string().yellow());
             }
-            if dry_run || verbose.log_level().unwrap() > Level::Error {
+            if dry_run || verbose.log_level().unwrap_or(Level::Info) > Level::Error {
                 print_changes(&old_content, &new_content);
             }
             if !dry_run {

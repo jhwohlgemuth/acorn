@@ -732,7 +732,7 @@ where
         self.as_ref()
             .as_bytes()
             .chunks(size)
-            .map(|chunk| String::from_utf8(chunk.to_vec()).unwrap())
+            .filter_map(|chunk| String::from_utf8(chunk.to_vec()).ok())
             .collect::<Vec<_>>()
     }
 }
@@ -852,6 +852,7 @@ where
     let filename = value.into();
     let segments = filename.split('.').filter(|x| !x.is_empty()).collect::<Vec<_>>();
     if !segments.is_empty() {
+        #[allow(clippy::unwrap_used)]
         let last_segment = segments.clone().last().unwrap().to_string();
         let has_extension = filename.contains(".") && segments.len() > 1;
         let is_filename = !(last_segment.contains("/") || last_segment.is_empty());
@@ -1014,6 +1015,7 @@ pub fn regex_capture_lookup<S>(pattern: S, text: S, groups: Vec<S>) -> HashMap<S
 where
     S: Into<String> + AsRef<str> + Clone + core::cmp::Eq + core::hash::Hash,
 {
+    #[allow(clippy::unwrap_used)]
     let re = Regex::new(pattern.as_ref()).unwrap();
     let mut lookup = HashMap::new();
     if let Some(capture_matches) = re.captures_iter(text.as_ref()).last() {

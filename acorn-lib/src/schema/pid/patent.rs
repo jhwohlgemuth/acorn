@@ -261,7 +261,10 @@ impl Patent {
     /// Find all patent identifier values present in a string
     pub fn find_all(value: &str) -> Vec<Self> {
         let re = &RE_PATENT;
-        re.find_iter(value).flat_map(|m| Patent::parse(m.unwrap().as_str())).collect::<Vec<_>>()
+        re.find_iter(value)
+            .filter_map(Result::ok)
+            .filter_map(|m| Patent::parse(m.as_str()))
+            .collect::<Vec<_>>()
     }
     /// Check if a string is a valid patent identifier
     pub fn is_valid<S>(value: S) -> bool

@@ -206,7 +206,11 @@ impl InputOutput for ApplicationConfiguration {
         let content = match read_file(path.clone()) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} ACORN configuration JSON content", Label::fail());
+                error!(
+                    path = path.to_string_lossy().to_string(),
+                    "=> {} ACORN configuration JSON content",
+                    Label::fail()
+                );
                 "{}".to_owned()
             }
         };
@@ -217,7 +221,11 @@ impl InputOutput for ApplicationConfiguration {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,
             | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} ACORN configuration YAML content", Label::fail());
+                error!(
+                    path = path.to_string_lossy().to_string(),
+                    "=> {} ACORN configuration YAML content",
+                    Label::fail()
+                );
                 "".to_owned()
             }
         };

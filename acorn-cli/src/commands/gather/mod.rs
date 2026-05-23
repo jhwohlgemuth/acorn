@@ -80,11 +80,16 @@ async fn gitlab_example() {
     let options = options.with_identifier(group).with_runner(runner_metadata);
     let create = gitlab::create_runner(options.clone()).await;
     println!("Create Runner Response: {create:#?}");
+    #[allow(clippy::unwrap_used)]
     let groups = gitlab::groups(options.clone()).await.unwrap();
     info!("Groups: {groups:#?}");
     println!("# of groups: {}", groups.len());
     let options = options.with_identifier(project);
-    println!("Languages: {:#?}", gitlab::language_use(options).await.unwrap().entries());
+
+    match gitlab::language_use(options).await {
+        | Ok(response) => println!("Languages: {:#?}", response.entries()),
+        | Err(why) => println!("Languages request failed: {why:#?}"),
+    }
 }
 #[allow(dead_code)]
 async fn orcid_example() {
@@ -159,7 +164,10 @@ async fn raid_example() {
         .description(vec![description])
         .title(vec![title])
         .build();
-    info!("Metadata: {}", serde_json::to_string_pretty(&metadata).unwrap());
+    match serde_json::to_string_pretty(&metadata) {
+        | Ok(serialized) => info!("Metadata: {serialized}"),
+        | Err(why) => info!("Metadata serialization failed: {why:#?}"),
+    }
     println!("Validation: {:#?}", metadata.validate());
     // let options = api::raid::Options::from_env().with_metadata(metadata);
     // let response = api::raid::create_record(options).await;

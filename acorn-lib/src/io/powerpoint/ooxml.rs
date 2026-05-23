@@ -459,7 +459,7 @@ impl XmlRels for Vec<Relationship> {
     fn revision_identifiers(&self) -> Vec<u32> {
         self.clone()
             .iter()
-            .map(|x| x.id.clone().trim_start_matches("rId").to_string().parse::<u32>().unwrap())
+            .filter_map(|x| x.id.clone().trim_start_matches("rId").to_string().parse::<u32>().ok())
             .collect::<Vec<u32>>()
     }
 }

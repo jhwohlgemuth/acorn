@@ -156,6 +156,33 @@ Located in `tests/fixtures/`:
 - `raid/`: RAiD metadata test data
 - `glob/`: Pattern matching test files
 
+## Fixing `clippy::unwrap_used` Warnings
+
+The workspace enables `unwrap_used = "warn"` in Cargo.toml. Test modules suppress it with `#[allow(clippy::unwrap_used)]`, but production code must not use bare `.unwrap()`. Use these strategies (in order of preference):
+
+### Strategy 1: Arithmetic rounding
+`format!("{val:.2}").parse().unwrap()` → `(val * 100.0).round() / 100.0`
+
+### Strategy 2: `?` operator
+When the function already returns `Result<T, E>` or `Option<T>`, propagate errors instead of panicking.
+
+### Strategy 3: `unwrap_or_default()` / `unwrap_or(fallback)`
+When a sensible fallback exists (e.g., `.unwrap_or(0)`, `.unwrap_or_default()`, `.unwrap_or("unknown")`).
+
+### Strategy 4: Iterator-safe alternatives
+```rust
+// Before
+iter.filter(|x| !x.as_ref().unwrap().is_empty())
+// After
+iter.filter_map(Result::ok).filter(|x| !x.is_empty())
+```
+
+### Strategy 5: `if let` / pattern matching
+Replace guarded `.unwrap()` with `if let` destructuring or early returns with `let else`.
+
+### Strategy 6: `#[allow(clippy::unwrap_used)]` with rationale
+Use only when the unwrap is genuinely infallible (hardcoded patterns, known-good templates, guarded invariants) and none of the above strategies apply. Document *why* it's safe with a comment.
+
 ## Code Review Checklist
 
 Before submitting changes, verify:

@@ -581,6 +581,7 @@ impl ContactPoint {
                 }
             },
             | None => {
+                #[allow(clippy::unwrap_used)]
                 let ornl = Organization::load().into_iter().next().unwrap();
                 match ornl.member(&updated_organization) {
                     | Some(organization) => match organization.nearest(OrganizationType::Directorate) {
@@ -676,6 +677,7 @@ impl MediaObject {
 impl Organization {
     /// Return list of all alternative names
     pub fn alternative_names() -> Vec<String> {
+        #[allow(clippy::unwrap_used)]
         let members = Organization::load().into_iter().next().unwrap().members();
 
         members
@@ -685,8 +687,9 @@ impl Organization {
     }
     /// Returns a list of all organizations, loaded from the organization.json asset file
     pub fn load() -> Vec<Organization> {
-        let content = Constant::from_asset("organization.json").unwrap_or_default();
-        serde_json::from_str(&content).unwrap()
+        Constant::from_asset("organization.json")
+            .and_then(|content| serde_json::from_str(&content).ok())
+            .unwrap_or_default()
     }
     /// Finds the first organization in the hierarchy with the given label.
     pub fn member(self, label: &str) -> Option<Organization> {
@@ -716,7 +719,7 @@ impl Organization {
         if a > b {
             None
         } else {
-            let ornl = Organization::load().into_iter().next().unwrap();
+            let ornl = Organization::load().into_iter().next()?;
             let graph = ornl.clone().to_graph();
             let name = match b - a {
                 | 3 => Some(ornl.clone().name),
@@ -908,7 +911,7 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
     output
 }
 pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
-    let organization = Organization::load().into_iter().next().unwrap();
+    let organization = Organization::load().into_iter().next()?;
     let items: Vec<Organization> = once(organization.clone())
         .chain(
             organization

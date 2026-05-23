@@ -19,7 +19,9 @@ use tracing::error;
 fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
     fn add_slide_element(xml: &str, revision_identifier: u32) -> String {
         let pattern = r#"<p:sldIdLst>(?<first_slide><p:sldId id="(?<identifier>\d+)" r:id="rId(?<revision>\d+)"/>)(?<new_slides>.*)</p:sldIdLst>"#;
+        #[allow(clippy::unwrap_used)]
         let re = Regex::new(pattern).unwrap();
+        #[allow(clippy::unwrap_used)]
         let new_slide_element_identifier: u32 = nanoid!(4, &['1', '2', '3', '4', '5', '6', '7', '8', '9']).parse().unwrap();
         let new_slide_element = format!(r#"<p:sldId id="{}" r:id="rId{revision_identifier}" />"#, new_slide_element_identifier);
         re.replace(xml, format!(r#"<p:sldIdLst>$1$4{new_slide_element}</p:sldIdLst>"#))
@@ -53,7 +55,7 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
             | Some(value) => value,
             | None => Relationships::default(),
         };
-        let largest_identifier = presentation_xml_rels.largest_revision_identifier().unwrap();
+        let largest_identifier = presentation_xml_rels.largest_revision_identifier().unwrap_or(0);
         let new_slide_revision_identifier = largest_identifier + 1;
         let new_slide_relationship = Relationship::init()
             .id(format!("rId{}", new_slide_revision_identifier))
@@ -63,6 +65,7 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
         let _ = write_file(presentation_xml_rels_path, format!("{updated_presentation_xml_rels}"));
         // Add new slide element to presentation.xml
         let presentation_xml_path = reference_extract_path.clone().join("ppt/presentation.xml");
+        #[allow(clippy::unwrap_used)]
         let presentation_xml = read_file(&presentation_xml_path).unwrap();
         let updated_presentation_xml = add_slide_element(&presentation_xml, new_slide_revision_identifier);
         let _ = write_file(&presentation_xml_path, updated_presentation_xml.to_string());
@@ -87,19 +90,23 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
             exit(exitcode::NOINPUT);
         }
     };
+    #[allow(clippy::unwrap_used)]
     let parent = source.parent().unwrap().canonicalize().unwrap();
     let image_url = meta.clone().first_image_content_url();
     let from = parent.join(image_url.clone());
     let name = meta.clone().identifier;
-    let extension = Path::new(&image_url).extension().unwrap().to_str().unwrap();
+    let extension = Path::new(&image_url).extension().and_then(|e| e.to_str()).unwrap_or("png");
     let to = destination.join(format!("ppt/media/{name}.{extension}"));
+    #[allow(clippy::unwrap_used)]
     let re = Regex::new(&target).unwrap();
+    #[allow(clippy::unwrap_used)]
     let content = read_file(xml_rels_path.clone()).unwrap();
     let updated = re.replace(&content, format!("../media/{name}.{extension}")).to_string();
     let _ = write_file(xml_rels_path, updated);
     copy(from, to)
 }
 /// Create PowerPoint presentation from Research Activity data
+#[allow(clippy::unwrap_used)]
 pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandOptions>) -> ApiResult<PathBuf> {
     let CommandOptions { output, path, reference, .. } = options.clone().unwrap();
     let paths: Vec<PathBuf> = paths.into_iter().collect();
@@ -127,7 +134,11 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandO
             let parent = if path_from_options.is_dir() {
                 path_from_options
             } else {
-                path_from_options.parent().unwrap().canonicalize().unwrap()
+                path_from_options
+                    .parent()
+                    .unwrap_or(Path::new("."))
+                    .canonicalize()
+                    .unwrap_or(PathBuf::from("."))
             };
             match reference {
                 | Some(ref value) => {
@@ -171,9 +182,12 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandO
             let _ = copy_image(slide_number, &data, &index_path, &reference_extract_path);
         });
     let folder = if count == 1 {
-        paths.first().map(|p| p.clone().parent().unwrap().canonicalize().unwrap()).unwrap()
+        paths
+            .first()
+            .map(|p| p.clone().parent().unwrap_or(Path::new(".")).canonicalize().unwrap_or(PathBuf::from(".")))
+            .unwrap_or(PathBuf::from("."))
     } else {
-        path.as_ref().unwrap().to_path_buf()
+        path.as_ref().unwrap_or(&PathBuf::from(".")).to_path_buf()
     };
     let folder_name = folder.file_name_with_parent();
     prepare_destination(&output, &folder_name).and_then(|destination| archive(reference_extract_path.clone(), Some(destination)))

@@ -490,25 +490,9 @@ impl PersistentIdentifier for ARK {
             .join("/")
     }
     fn prefix(&self) -> Option<String> {
-        let Self {
-            label,
-            name_assigning_authority_number,
-            assigned_name,
-            ..
-        } = self;
-        if [name_assigning_authority_number.clone(), assigned_name.clone()]
-            .iter()
-            .all(|x| x.is_some())
-        {
-            let result = format!(
-                "{}{}/{}",
-                label.trim_end_matches('/'),
-                name_assigning_authority_number.as_ref().unwrap(),
-                assigned_name.as_ref().unwrap()
-            );
-            Some(result)
-        } else {
-            None
+        match (self.name_assigning_authority_number.as_ref(), self.assigned_name.as_ref()) {
+            | (Some(naan), Some(name)) => Some(format!("{}{}/{}", self.label.trim_end_matches('/'), naan, name)),
+            | _ => None,
         }
     }
     fn suffix(&self) -> Option<String> {
@@ -847,7 +831,10 @@ impl PersistentIdentifierParse for ARK {
     /// Find all [`ARK`] values present in a string
     fn find_all(value: impl ToString) -> Vec<Self> {
         let re = &RE_ARK;
-        re.find_iter(&value.to_string()).map(|m| ARK::from_string(m.unwrap().as_str())).collect()
+        re.find_iter(&value.to_string())
+            .filter_map(Result::ok)
+            .map(|m| ARK::from_string(m.as_str()))
+            .collect()
     }
     /// Convenience method for easily parsing and formatting an [`ARK`] from a string value
     /// ### Example
@@ -924,7 +911,10 @@ impl PersistentIdentifierParse for DOI {
     /// Find all [`DOI`] values present in a string
     fn find_all(value: impl ToString) -> Vec<Self> {
         let re = &RE_DOI;
-        re.find_iter(&value.to_string()).map(|m| DOI::from_string(m.unwrap().as_str())).collect()
+        re.find_iter(&value.to_string())
+            .filter_map(Result::ok)
+            .map(|m| DOI::from_string(m.as_str()))
+            .collect()
     }
     /// Convenience method for easily parsing and formatting a [`DOI`] from a string value
     /// ### Example
@@ -987,7 +977,10 @@ impl PersistentIdentifierParse for ISBN {
     /// Find all [`ISBN`] values present in a string
     fn find_all(value: impl ToString) -> Vec<Self> {
         let re = &RE_ISBN;
-        re.find_iter(&value.to_string()).map(|m| ISBN::from_string(m.unwrap().as_str())).collect()
+        re.find_iter(&value.to_string())
+            .filter_map(Result::ok)
+            .map(|m| ISBN::from_string(m.as_str()))
+            .collect()
     }
     /// Convenience method for easily parsing and formatting a [`ISBN`] from a string value
     fn format(value: impl ToString) -> String {
@@ -1042,7 +1035,8 @@ impl PersistentIdentifierParse for ORCID {
     fn find_all(value: impl ToString) -> Vec<Self> {
         let re = &RE_ORCID;
         re.find_iter(&value.to_string())
-            .map(|m| ORCID::from_string(m.unwrap().as_str()))
+            .filter_map(Result::ok)
+            .map(|m| ORCID::from_string(m.as_str()))
             .collect()
     }
     /// Convenience method for easily parsing and formatting a [`ORCID`] from a string value
@@ -1111,7 +1105,10 @@ impl PersistentIdentifierParse for RAID {
     /// Find all [`RAID`] values present in a string
     fn find_all(value: impl ToString) -> Vec<Self> {
         let re = &RE_DOI;
-        re.find_iter(&value.to_string()).map(|m| RAID::from_string(m.unwrap().as_str())).collect()
+        re.find_iter(&value.to_string())
+            .filter_map(Result::ok)
+            .map(|m| RAID::from_string(m.as_str()))
+            .collect()
     }
     /// Convenience method for easily parsing and formatting a [`RAID`] from a string value
     /// ### Example
@@ -1160,7 +1157,10 @@ impl PersistentIdentifierParse for ROR {
     /// Find all [`ROR`] values present in a string
     fn find_all(value: impl ToString) -> Vec<Self> {
         let re = &RE_ROR;
-        re.find_iter(&value.to_string()).map(|m| ROR::from_string(m.unwrap().as_str())).collect()
+        re.find_iter(&value.to_string())
+            .filter_map(Result::ok)
+            .map(|m| ROR::from_string(m.as_str()))
+            .collect()
     }
     /// Convenience method for easily parsing and formatting a [`ROR`] from a string value
     /// ### Example
@@ -1267,10 +1267,7 @@ where
     const RADIX: usize = 29;
     let sum = value.as_ref().chars().enumerate().fold(0, |acc, (i, val)| {
         let position = i + 1;
-        let ordinal = match val.is_betanumeric() {
-            | true => val.to_betanumeric_ordinal().unwrap(),
-            | false => 0,
-        };
+        let ordinal = val.to_betanumeric_ordinal().unwrap_or(0);
         acc + (position * ordinal)
     });
     let remainder = sum % RADIX;

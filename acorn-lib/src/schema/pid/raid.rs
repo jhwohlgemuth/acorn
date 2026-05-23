@@ -1070,7 +1070,8 @@ impl From<ResearchActivity> for Metadata {
             .meta
             .raid
             .as_ref()
-            .map(|raid| raid.first().unwrap().clone())
+            .and_then(|raid| raid.first())
+            .cloned()
             .unwrap_or_else(|| unimplemented!("RAiD is required to create RAiD metadata"));
         let ror_id = activity
             .meta

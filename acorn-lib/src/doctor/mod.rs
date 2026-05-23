@@ -225,10 +225,10 @@ impl TableFormatPrint for SystemInformation {
         let mut sys = System::new_all();
         sys.refresh_all();
         SystemInformation {
-            name: System::name().unwrap(),
-            kernel_version: System::kernel_version().unwrap(),
-            os_version: System::os_version().unwrap(),
-            host_name: System::host_name().unwrap(),
+            name: System::name().unwrap_or_default(),
+            kernel_version: System::kernel_version().unwrap_or_default(),
+            os_version: System::os_version().unwrap_or_default(),
+            host_name: System::host_name().unwrap_or_default(),
             cpu_arch: System::cpu_arch(),
             cpu_count: sys.cpus().len().to_string(),
         }

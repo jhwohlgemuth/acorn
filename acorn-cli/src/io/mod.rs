@@ -32,7 +32,10 @@ pub fn read_stdin() -> Option<String> {
             let stdin = io::stdin();
             let reader = stdin.lock();
             let lines = reader.lines();
-            let value = lines.last().expect("Failed to read stdin line").unwrap();
+            let value = match lines.last() {
+                | Some(Ok(v)) => v,
+                | _ => return None,
+            };
             Some(value)
         }
         | InputOutputStreamState::NotPiped => None,
@@ -49,7 +52,9 @@ where
     S: Into<String>,
 {
     let mut stdout = io::stdout().lock();
+    #[allow(clippy::unwrap_used)]
     stdout.write_all(value.into().as_bytes()).unwrap();
+    #[allow(clippy::unwrap_used)]
     stdout.flush().unwrap();
     drop(stdout);
 }

@@ -332,6 +332,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf
 /// ```
 pub fn async_runtime() -> Runtime {
     debug!("=> {} Async runtime", Label::using());
+    #[allow(clippy::unwrap_used)]
     Builder::new_current_thread().enable_all().build().unwrap()
 }
 /// Checks if a given command exists in current terminal context.
@@ -401,7 +402,11 @@ where
 {
     let url_string: String = url.into();
     let dest: PathBuf = destination.clone().into();
-    let filename = PathBuf::from(url_string.clone()).file_name().unwrap().to_str().unwrap().to_string();
+    let filename = PathBuf::from(url_string.clone())
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("downloaded_file")
+        .to_string();
     match http::get(url_string.clone()).send().await {
         | Ok(data) => match data.bytes().await {
             | Ok(content) => {
@@ -510,7 +515,18 @@ where
             let mut context = Context::new(digest_algorithm);
             let mut reader = BufReader::new(file);
             loop {
-                let count = reader.read(&mut buffer).unwrap();
+                let count = match reader.read(&mut buffer) {
+                    | Ok(c) => c,
+                    | Err(err) => {
+                        error!(
+                            error = err.to_string(),
+                            path = value.to_absolute_string(),
+                            "=> {} Read file checksum",
+                            Label::fail()
+                        );
+                        return None;
+                    }
+                };
                 if count == 0 {
                     break;
                 }
@@ -558,8 +574,8 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
                     let glob_pattern = pattern(path.clone(), extension);
                     glob(&glob_pattern)
                 })
-                .filter(|x| x.is_ok())
-                .flat_map(|x| paths_to_vec(x.unwrap()))
+                .filter_map(|x| x.ok())
+                .flat_map(paths_to_vec)
                 .unique()
                 .collect::<Vec<PathBuf>>(),
             | None => match glob(&format!("{}/**/*", path.to_absolute_string())) {
@@ -724,7 +740,7 @@ pub fn filter_ignored(paths: Vec<PathBuf>, ignore: Option<String>) -> Vec<PathBu
             | Ok(re) => paths
                 .into_iter()
                 .map(to_absolute_string)
-                .filter(|x| !re.is_match(x).unwrap())
+                .filter(|x| !re.is_match(x).unwrap_or(false))
                 .map(PathBuf::from)
                 .collect(),
             | Err(why) => {
@@ -1086,6 +1102,7 @@ pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> Progres
             ProgressBar::new(count as u64)
         };
         if let Some(template) = progress_type.template() {
+            #[allow(clippy::unwrap_used)]
             progress.set_style(ProgressStyle::with_template(template).unwrap());
         }
         progress
@@ -1093,10 +1110,12 @@ pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> Progres
 }
 /// Applies a new style template to an existing progress bar
 pub fn apply_progress_style(progress: &ProgressBar, template: &str) {
+    #[allow(clippy::unwrap_used)]
     progress.set_style(ProgressStyle::with_template(template).unwrap());
 }
 /// Finishes a progress bar with a message, applying appropriate final style
 pub fn finish_progress_bar(progress: &ProgressBar, message: String) {
+    #[allow(clippy::unwrap_used)]
     progress.set_style(ProgressStyle::with_template("  {msg}").unwrap());
     progress.finish_with_message(message);
 }
@@ -1201,13 +1220,28 @@ where
     E: Into<Report>,
 {
     let path = path.into();
-    let folder = path.parent().unwrap().display().to_string();
-    create_dir_all(folder.clone()).map_err(|why| eyre!("Failed to create output folder — {why}"))?;
-    let mut file = File::create(&path).map_err(|why| eyre!("Failed to create output file — {why}"))?;
-    let bytes = get_bytes().await.map_err(Into::into)?;
-    let mut content = Cursor::new(bytes);
-    io::copy(&mut content, &mut file).map_err(|why| eyre!("Failed to write bytes — {why}"))?;
-    Ok(())
+    match path.parent() {
+        | Some(parent) => {
+            let folder = parent.display().to_string();
+            match create_dir_all(folder.clone()) {
+                | Ok(_) => match File::create(&path) {
+                    | Ok(mut file) => match get_bytes().await.map_err(Into::into) {
+                        | Ok(bytes) => {
+                            let mut content = Cursor::new(bytes);
+                            match io::copy(&mut content, &mut file) {
+                                | Ok(_) => Ok(()),
+                                | Err(why) => Err(eyre!("Failed to write bytes — {why}")),
+                            }
+                        }
+                        | Err(why) => Err(why),
+                    },
+                    | Err(why) => Err(eyre!("Failed to create output file — {why}")),
+                },
+                | Err(why) => Err(eyre!("Failed to create output folder — {why}")),
+            }
+        }
+        | None => Err(eyre!("Output path has no parent directory")),
+    }
 }
 
 #[cfg(test)]

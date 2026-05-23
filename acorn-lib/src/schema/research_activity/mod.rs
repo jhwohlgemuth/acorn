@@ -462,11 +462,11 @@ impl InputOutput for ResearchActivity {
         };
         match &result {
             | Ok(data) => {
-                debug!(path = source.to_str().unwrap(), "=> {}", label);
+                debug!(path = source.to_string_lossy().to_string(), "=> {}", label);
                 debug!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
             }
             | Err(_) => {
-                error!(path = source.to_str().unwrap(), "=> {}", label);
+                error!(path = source.to_string_lossy().to_string(), "=> {}", label);
             }
         }
         result
@@ -478,7 +478,7 @@ impl InputOutput for ResearchActivity {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,
             | Err(_) => {
-                error!(path = path.to_str().unwrap(), "=> {} RAD content is not valid", Label::fail());
+                error!(path = path.to_string_lossy().to_string(), "=> {} RAD content is not valid", Label::fail());
                 "{}".to_owned()
             }
         };
@@ -686,7 +686,7 @@ impl ToMarkdown for ResearchActivity {
             ..
         } = self;
         let classification = meta.clone().classification.unwrap_or_default();
-        let frontmatter = serde_yml::to_string(&meta).unwrap();
+        let frontmatter = serde_yml::to_string(&meta).unwrap_or_default();
         let sections = sections.to_markdown();
         let contact = self.contact.to_markdown();
         match &subtitle {
@@ -800,7 +800,7 @@ impl ResearchActivityMetadata {
         };
         debug!(path = path_parent.to_absolute_string(), "=> {} Parent directory", Label::using());
         let name = match image_paths(&path_parent) {
-            | value if !value.is_empty() => value.first().map(|v| v.file_name().unwrap().to_string_lossy().to_string()),
+            | value if !value.is_empty() => value.first().and_then(|v| v.file_name().map(|f| f.to_string_lossy().to_string())),
             | _ => None,
         };
         let media = match name {

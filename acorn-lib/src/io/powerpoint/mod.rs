@@ -78,6 +78,7 @@ where
                             .text_run(vec![run])
                             .maybe_end_paragraph_run_properties(end_paragraph_run_properties.clone())
                             .build();
+                        #[allow(clippy::unwrap_used)]
                         prettify_xml(&quick_xml::se::to_string(&custom).unwrap())
                     })
                     .collect();

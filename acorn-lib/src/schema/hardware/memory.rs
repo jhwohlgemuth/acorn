@@ -59,6 +59,7 @@ impl JsonSchema for Memory {
         "Memory".into()
     }
     fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
+        #[allow(clippy::unwrap_used)]
         serde_json::json!({"type": "string", "pattern": "^\\d+(\\.\\d+)?\\s*(GB|MB|KB)$"})
             .try_into()
             .unwrap()
@@ -125,6 +126,7 @@ impl JsonSchema for MemoryUnit {
         "MemoryUnit".into()
     }
     fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
+        #[allow(clippy::unwrap_used)]
         serde_json::json!({"type": "string", "enum": ["GB", "MB", "KB"]}).try_into().unwrap()
     }
     fn inline_schema() -> bool {
