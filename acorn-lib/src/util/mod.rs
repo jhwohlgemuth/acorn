@@ -890,8 +890,8 @@ pub fn find_first(values: Vec<(String, String)>, pattern: &str) -> Option<(Strin
 pub fn format_bytes(bytes: u64) -> String {
     let units = ["B", "KB", "MB", "GB", "TB"];
     let (size, index) = successors(Some((bytes as f64, 0usize)), |(size, index)| {
-        if *size >= 1024.0 && *index < units.len() - 1 {
-            Some((size / 1024.0, index + 1))
+        if *size >= 1024.0 && *index < units.len().saturating_sub(1) {
+            Some((size / 1024.0, index.saturating_add(1)))
         } else {
             None
         }

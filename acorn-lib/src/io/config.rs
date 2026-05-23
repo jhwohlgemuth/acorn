@@ -330,7 +330,7 @@ impl Bucket {
                 | false => ProgressType::Bar,
             };
             match with_progress(items, message, operation, finish_message, Some(*threads), progress_type).await {
-                | Ok(_) => Ok(total_data + total_images),
+                | Ok(_) => Ok(total_data.saturating_add(total_images)),
                 | Err(why) => {
                     error!("=> {} Copy files with progress bar — {why}", Label::fail());
                     Err(why)
@@ -404,7 +404,7 @@ impl Bucket {
             | false => ProgressType::Bar,
         };
         match with_progress(items, message, operation, finish_message, Some(*threads), progress_type).await {
-            | Ok(_) => Ok(total_data + total_images),
+            | Ok(_) => Ok(total_data.saturating_add(total_images)),
             | Err(why) => Err(why),
         }
     }
@@ -447,7 +447,7 @@ impl Bucket {
                             | Ok(paths) if paths.is_empty() => break,
                             | Ok(paths) => {
                                 all_paths.extend(paths);
-                                page += 1;
+                                page = page.saturating_add(1);
                             }
                             | Err(why) => {
                                 return Err::<Vec<String>, _>(why);
@@ -555,7 +555,7 @@ fn is_filtered_path(path: &str, filter: &[String]) -> bool {
             .any(|pattern| pattern.is_match(path).unwrap_or(false))
 }
 fn operations_complete_message(name: Option<String>, json_count: usize, image_count: usize) -> String {
-    let total = json_count + image_count;
+    let total = json_count.saturating_add(image_count);
     let message = if json_count != image_count {
         let recommendation = if json_count > image_count {
             "Do you need to add some images?"

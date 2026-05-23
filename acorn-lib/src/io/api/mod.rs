@@ -818,7 +818,7 @@ pub(crate) fn param_from_query_fields<T: QueryField>(key: &str, separator: &str,
             valid_fields
                 .into_iter()
                 .enumerate()
-                .map(|(i, field)| format!("{}{URL_ENCODED_CARAT}{}.0", field, count + 1 - i))
+                .map(|(i, field)| format!("{}{URL_ENCODED_CARAT}{}.0", field, count.saturating_add(1).saturating_sub(i)))
                 .collect::<Vec<String>>()
                 .join(separator),
         ))

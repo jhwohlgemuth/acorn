@@ -516,7 +516,7 @@ impl PersistentIdentifier for ARK {
         let values = [naan.clone(), name.clone()];
         if values.iter().all(|x| x.is_some()) {
             let value = values.iter().flatten().map(String::from).collect::<Vec<String>>().join("/");
-            noid_check_digit(&value[..value.len() - 1])
+            noid_check_digit(&value[..value.len().saturating_sub(1)])
         } else {
             None
         }
@@ -648,7 +648,7 @@ impl From<DOI> for ISBN {
         let suffix = match doi.suffix() {
             | Some(value) => {
                 let check_digit = value.chars().last().unwrap_or_default().to_string();
-                let title = value[..value.len() - 1].to_string();
+                let title = value[..value.len().saturating_sub(1)].to_string();
                 format!("{title}-{check_digit}")
             }
             | None => "".to_string(),
@@ -1233,6 +1233,7 @@ impl PersistentIdentifierParse for ROR {
 /// The check digit is the last (13th) digit of the identifier
 ///
 /// Each digit, from left to right, is alternately multiplied by 1 or 3, then those products are summed modulo 10
+#[allow(clippy::arithmetic_side_effects)]
 pub fn isbn_check_digit<S>(_value: S) -> Option<Vec<char>>
 where
     S: AsRef<str>,
@@ -1242,7 +1243,6 @@ where
     let sum = working.chars().take(12).enumerate().fold(0, |acc, (index, x)| {
         let digit = x.to_digit(10).unwrap_or_default();
         let multiplier = if index % 2 == 0 { 1 } else { 3 };
-        // dbg!(&digit, &multiplier);
         acc + (digit * multiplier)
     });
     let remainder = sum % MODULUS;
@@ -1260,6 +1260,7 @@ where
 /// ### References
 /// - <https://github.com/internetarchive/arklet>
 /// - <https://github.com/no-reply/pynoid>
+#[allow(clippy::arithmetic_side_effects)]
 pub fn noid_check_digit<S>(value: S) -> Option<Vec<char>>
 where
     S: AsRef<str>,
@@ -1284,6 +1285,7 @@ where
 /// assert_eq!(orcid_check_digit("0000000220579115"), Some(vec!['5']));
 /// assert_eq!(orcid_check_digit("0000-0002-2057-9115"), Some(vec!['5']));
 /// ```
+#[allow(clippy::arithmetic_side_effects)]
 pub fn orcid_check_digit<S>(value: S) -> Option<Vec<char>>
 where
     S: AsRef<str>,
@@ -1316,6 +1318,7 @@ where
 /// ### References
 /// - [ROR community Python implementation](https://github.com/ror-community/ror-api/blob/bd040a0d2558a478c06a89118a29eeb9b6142710/rorapi/management/commands/generaterorid.py)
 /// - [DataCite Ruby implementation](https://github.com/datacite/base32-url/blob/master/lib/base32/url.rb)
+#[allow(clippy::arithmetic_side_effects)]
 pub fn ror_check_digit<S>(value: S) -> Option<Vec<char>>
 where
     S: AsRef<str>,

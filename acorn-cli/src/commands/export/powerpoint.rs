@@ -56,7 +56,7 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
             | None => Relationships::default(),
         };
         let largest_identifier = presentation_xml_rels.largest_revision_identifier().unwrap_or(0);
-        let new_slide_revision_identifier = largest_identifier + 1;
+        let new_slide_revision_identifier = largest_identifier.saturating_add(1);
         let new_slide_relationship = Relationship::init()
             .id(format!("rId{}", new_slide_revision_identifier))
             .target(format!("slides/slide{}.xml", slide_number))
@@ -163,13 +163,13 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandO
     research_activity_data
         .iter()
         .enumerate()
-        .for_each(|(index, _)| add_slide(index + 1, reference_extract_path.clone()));
+        .for_each(|(index, _)| add_slide(index.saturating_add(1), reference_extract_path.clone()));
     izip!(research_activity_data, paths.clone())
         .collect::<Vec<_>>()
         .into_par_iter()
         .enumerate()
         .for_each(|(index, (data, index_path))| {
-            let slide_number = index + 1;
+            let slide_number = index.saturating_add(1);
             let fragments = [
                 format!("ppt/slides/slide{slide_number}.xml"),
                 format!("ppt/notesSlides/notesSlide{slide_number}.xml"),

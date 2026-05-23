@@ -157,6 +157,7 @@ async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> A
     for attempt in 1..=max_attempts {
         let started = Utc::now();
         let result = execute_with_timeout(client.clone(), request.clone()).await;
+        #[allow(clippy::arithmetic_side_effects)]
         let elapsed_ms = (Utc::now() - started).num_milliseconds();
         match result {
             | Ok(response) => {

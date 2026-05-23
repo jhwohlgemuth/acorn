@@ -166,7 +166,7 @@ pub fn sentence_count(text: &str) -> u32 {
     fn next_meaningful(chars: &[char], index: usize) -> Option<char> {
         chars
             .iter()
-            .skip(index + 1)
+            .skip(index.saturating_add(1))
             .copied()
             .find(|character| !(character.is_whitespace() || is_wrapper(*character)))
     }
@@ -209,7 +209,7 @@ pub fn sentence_count(text: &str) -> u32 {
                 let previous = previous_meaningful(&chars, *index);
                 let next = next_meaningful(&chars, *index);
                 let token = token_before(&chars, *index);
-                !matches!(chars.get(index + 1), Some('.'))
+                !matches!(chars.get(index.saturating_add(1)), Some('.'))
                     && !matches!(chars.get(index.wrapping_sub(1)), Some('.'))
                     && !matches!((previous, next), (Some(left), Some(right)) if left.is_ascii_digit() && right.is_ascii_digit())
                     && !matches!(next, Some(value) if value.is_ascii_lowercase())
@@ -399,22 +399,25 @@ pub fn syllable_count(text: &str) -> usize {
                 | None => 0,
             },
             | _ => {
-                let mut count: isize = 0;
-                let mut input = word.to_lowercase();
-                count += 3 * TRIPLE.find_iter(&input).count() as isize;
-                input = TRIPLE.replace_all(&input, "").to_string();
-                count += 2 * DOUBLE.find_iter(&input).count() as isize;
-                input = DOUBLE.replace_all(&input, "").to_string();
-                count += SINGLE.find_iter(&input).count() as isize;
-                input = SINGLE.replace_all(&input, "").to_string();
-                count -= SINGLE_SYLLABIC_ONE.find_iter(&input).count() as isize;
-                count -= SINGLE_SYLLABIC_TWO.find_iter(&input).count() as isize;
-                count += DOUBLE_SYLLABIC_ONE.find_iter(&input).count() as isize;
-                count += DOUBLE_SYLLABIC_TWO.find_iter(&input).count() as isize;
-                count += DOUBLE_SYLLABIC_THREE.find_iter(&input).count() as isize;
-                count += DOUBLE_SYLLABIC_FOUR.find_iter(&input).count() as isize;
-                count += VOWEL.split(&input).filter_map(Result::ok).filter(|x| !x.is_empty()).count() as isize;
-                count.max(1) as usize
+                #[allow(clippy::arithmetic_side_effects)]
+                {
+                    let mut count: isize = 0;
+                    let mut input = word.to_lowercase();
+                    count += 3 * TRIPLE.find_iter(&input).count() as isize;
+                    input = TRIPLE.replace_all(&input, "").to_string();
+                    count += 2 * DOUBLE.find_iter(&input).count() as isize;
+                    input = DOUBLE.replace_all(&input, "").to_string();
+                    count += SINGLE.find_iter(&input).count() as isize;
+                    input = SINGLE.replace_all(&input, "").to_string();
+                    count -= SINGLE_SYLLABIC_ONE.find_iter(&input).count() as isize;
+                    count -= SINGLE_SYLLABIC_TWO.find_iter(&input).count() as isize;
+                    count += DOUBLE_SYLLABIC_ONE.find_iter(&input).count() as isize;
+                    count += DOUBLE_SYLLABIC_TWO.find_iter(&input).count() as isize;
+                    count += DOUBLE_SYLLABIC_THREE.find_iter(&input).count() as isize;
+                    count += DOUBLE_SYLLABIC_FOUR.find_iter(&input).count() as isize;
+                    count += VOWEL.split(&input).filter_map(Result::ok).filter(|x| !x.is_empty()).count() as isize;
+                    count.max(1) as usize
+                }
             }
         }
     }

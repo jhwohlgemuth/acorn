@@ -721,7 +721,7 @@ impl Organization {
         } else {
             let ornl = Organization::load().into_iter().next()?;
             let graph = ornl.clone().to_graph();
-            let name = match b - a {
+            let name = match b.saturating_sub(a) {
                 | 3 => Some(ornl.clone().name),
                 | 2 => node_from_label(&graph, &self.name)
                     .and_then(|node| node_parent(&graph, node))

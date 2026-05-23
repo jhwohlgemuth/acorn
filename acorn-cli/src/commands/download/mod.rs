@@ -52,7 +52,7 @@ pub async fn run(
                             if offline || bucket.code_repository.is_local() {
                                 match bucket.copy_files(&bucket_options).await {
                                     | Ok(count) => {
-                                        total += count;
+                                        total = total.saturating_add(count);
                                     }
                                     | Err(why) => {
                                         error!("=> {} Copy data — {why}", Label::fail());
@@ -62,7 +62,7 @@ pub async fn run(
                             } else {
                                 match bucket.download_files(&bucket_options).await {
                                     | Ok(count) => {
-                                        total += count;
+                                        total = total.saturating_add(count);
                                     }
                                     | Err(why) => {
                                         error!("=> {} Download data — {why}", Label::fail());
@@ -106,7 +106,7 @@ pub async fn run(
             if offline || bucket.code_repository.is_local() {
                 match bucket.copy_files(&bucket_options).await {
                     | Ok(count) => {
-                        total += count;
+                        total = total.saturating_add(count);
                     }
                     | Err(why) => {
                         error!("=> {} Copy data — {why}", Label::fail());
@@ -116,7 +116,7 @@ pub async fn run(
             } else {
                 match bucket.download_files(&bucket_options).await {
                     | Ok(count) => {
-                        total += count;
+                        total = total.saturating_add(count);
                     }
                     | Err(why) => {
                         error!("=> {} Download data — {why}", Label::fail());

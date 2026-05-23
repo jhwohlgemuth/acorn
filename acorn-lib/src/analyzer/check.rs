@@ -324,7 +324,7 @@ impl Check {
                             } = item;
                             let (source, span) = truncate(highlighted(text, span, *line), text, MAX_LENGTH_REPORT_SPAN_PREFIX);
                             let _ = Report::build(severity.into(), (&title, 1..=1))
-                                .with_code(index + i)
+                                .with_code(index.saturating_add(i))
                                 .with_config(Config::default().with_compact(false))
                                 .with_message(check)
                                 .with_label(
@@ -348,7 +348,7 @@ impl Check {
                     let source_text = format!("Prose was analyzed for readability using the {metric} metric ({message})");
                     let source = Source::from(source_text.clone());
                     let start = source_text.find(&message).unwrap_or_default();
-                    let end = start + message.len().saturating_sub(1);
+                    let end = start.saturating_add(message.len().saturating_sub(1));
                     let _ = Report::build(kind, (&title, 1..=1))
                         .with_code(index)
                         .with_config(Config::default().with_compact(false))
@@ -390,7 +390,7 @@ impl Check {
                             };
                             let (source, span) = truncate(full_span, &source_text, MAX_LENGTH_REPORT_SPAN_PREFIX);
                             let _ = Report::build(severity.clone().into(), (&title, 1..=1))
-                                .with_code(index + issue_index)
+                                .with_code(index.saturating_add(issue_index))
                                 .with_config(Config::default().with_compact(false))
                                 .with_message(locator)
                                 .with_label(
@@ -737,16 +737,16 @@ pub fn checks_to_csv(values: &[Check], include_headers: bool) -> PolarsResult<St
 }
 /// Calculate a highlighted byte span for a single line in a source report.
 pub(crate) fn highlighted(text: &str, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
-    let selected = (line_number as usize) - 1;
+    let selected = (line_number as usize).saturating_sub(1);
     let source = Source::from(text);
     let begin = source
         .lines()
         .take(selected)
         .fold((span.first().copied().unwrap_or(1).saturating_sub(1)) as usize, |acc, line| {
-            acc + line.len()
+            acc.saturating_add(line.len())
         });
-    let character_count = (span.get(1).copied().unwrap_or(0) as usize) - (span.first().copied().unwrap_or(0) as usize);
-    let end = begin + character_count;
+    let character_count = (span.get(1).copied().unwrap_or(0) as usize).saturating_sub(span.first().copied().unwrap_or(0) as usize);
+    let end = begin.saturating_add(character_count);
     begin..=end
 }
 /// Calculate a highlighted span for an indexed value in an array-like source.
@@ -756,9 +756,9 @@ pub(crate) fn highlighted_array(source: &Source, params: &HashMap<String, Value>
             | Some(index) => match params.get("value") {
                 | Some(Value::Array(value)) => {
                     const PADDING: u64 = 2;
-                    let end = (value.get(index as usize).map(|v| v.to_string().len() + 1).unwrap_or(0)) as u32;
+                    let end = (value.get(index as usize).map(|v| v.to_string().len().saturating_add(1)).unwrap_or(0)) as u32;
                     let span = &[4, end];
-                    let line = (index + PADDING) as u32;
+                    let line = (index.saturating_add(PADDING)) as u32;
                     Some(highlighted(source.text(), span, line))
                 }
                 | Some(_) | None => None,
@@ -777,7 +777,7 @@ pub(crate) fn highlighted_from_params(source: &Source, code: &ErrorCode, params:
         }
         | ErrorCode::Length => match params.get("max") {
             | Some(Value::Number(max)) => match max.as_u64() {
-                | Some(max) => Some(max as usize..=(source.text().len() - 2)),
+                | Some(max) => Some(max as usize..=source.text().len().saturating_sub(2)),
                 | None => None,
             },
             | None | Some(_) => None,
@@ -796,7 +796,7 @@ pub(crate) fn nearest_space_boundary(value: &str, index: usize) -> Option<usize>
     let boundary = value
         .char_indices()
         .find(|(i, ch)| *i >= index && ch.is_whitespace())
-        .map(|(i, ch)| i + ch.len_utf8());
+        .map(|(i, ch)| i.saturating_add(ch.len_utf8()));
     boundary
 }
 /// Create summary data table from given issues
@@ -834,8 +834,8 @@ pub(crate) fn truncate(span: RangeInclusive<usize>, source_text: &str, max_prefi
         let prefix_start = nearest_space_boundary(source_text, nearest).unwrap_or(nearest);
         let sliced = &source_text[prefix_start..];
         let ellipsis = "...";
-        let adjusted_start = start.saturating_sub(prefix_start) + ellipsis.len();
-        let adjusted_end = end.saturating_sub(prefix_start) + ellipsis.len();
+        let adjusted_start = start.saturating_sub(prefix_start).saturating_add(ellipsis.len());
+        let adjusted_end = end.saturating_sub(prefix_start).saturating_add(ellipsis.len());
         let text = format!("{ellipsis}{sliced}");
         (Source::from(text), adjusted_start..=adjusted_end)
     }
