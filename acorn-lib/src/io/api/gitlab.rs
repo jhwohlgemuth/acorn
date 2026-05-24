@@ -3,7 +3,8 @@
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
 use crate::io::api::{
-    Configuration, DatabasePersistence, EmptyField, Endpoint, RemoteResource, ResponseContent, TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS,
+    Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, RemoteResource, ResponseContent, TreeEntryType, ValueValidator,
+    INCLUDED_ENDPOINTS,
 };
 use crate::io::config::{RunnerDetails, RunnerStatus, RunnerType};
 use crate::io::database::schema::{ProgrammingLanguageRow, Table};
@@ -170,6 +171,19 @@ pub enum SortValue {
     /// Ascending order
     #[serde(rename = "asc")]
     Ascending,
+}
+/// GitLab API error response
+///
+/// Captures error responses from the GitLab API, which can be a message string,
+/// a message object with field-level errors, or an error/error_description pair.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ErrorResponse {
+    /// Error message string or object with field-level errors
+    message: Option<serde_json::Value>,
+    /// Simple error string (OAuth-style)
+    error: Option<String>,
+    /// Detailed error description (OAuth-style)
+    error_description: Option<String>,
 }
 /// Runner group details
 #[skip_serializing_none]
@@ -430,6 +444,7 @@ pub struct ProgrammingLanguageUseResponse {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RunnerCreationResponse {
     /// Numeric ID of the runner
+    #[serde(default)]
     #[serde(rename = "id")]
     pub identifier: u64,
     /// Runner access token
@@ -486,9 +501,10 @@ pub struct RunnerMetadata {
     #[serde(default)]
     pub active: bool,
     /// Whether the runner is online
-    #[builder(default)]
+    ///
+    /// Apparently, GitLab's API may return `null` for this field when the runner has never been contacted, so we use an `Option<bool>` to capture that possibility.
     #[serde(default)]
-    pub online: bool,
+    pub online: Option<bool>,
     /// Whether the runner is paused
     #[builder(default)]
     #[serde(default)]
@@ -670,7 +686,7 @@ impl From<RunnerDetails> for RunnerMetadata {
             maintenance_note: None,
             maximum_timeout: None,
             name: Some(name),
-            online: false,
+            online: Some(false),
             platform: None,
             projects: None,
             revision: None,
@@ -687,7 +703,7 @@ impl RunnerMetadata {
     /// Whether the runner is active and online
     pub fn is_available(&self) -> bool {
         let Self { active, online, paused, .. } = self;
-        *active && *online && !*paused
+        *active && online.unwrap_or(false) && !*paused
     }
     /// Return a copy of runner metadata with project or group identifier set
     pub fn with_identifier(self, value: u64) -> Self {
@@ -928,34 +944,28 @@ impl ValueValidator for PaginationField {
     }
 }
 /// Create a new runner using project or group identifier
-pub async fn create_runner(options: Options) -> ApiResult<RunnerCreationResponse> {
+///
+/// See <https://docs.gitlab.com/api/users/#create-a-runner-linked-to-a-user> for more information on the GitLab API
+pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationResponse> {
     let template = "gitlab::api";
     let action = "runner::create";
-    let Options {
-        token,
-        identifier,
-        domain,
-        runner_metadata,
-        ..
-    } = options;
-    let RunnerMetadata {
-        runner_type,
-        description,
-        tags,
-        run_untagged,
-        ..
-    } = runner_metadata;
-    let id_type_string = runner_type.to_string().replace("type", "id");
-    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
+    let runner_metadata = &options.runner_metadata;
+    let runner_type = &runner_metadata.runner_type;
+    let description = runner_metadata.description.as_deref().unwrap_or_default();
+    let tags = runner_metadata.tags.as_deref().unwrap_or_default();
+    let run_untagged = runner_metadata.run_untagged;
+    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
         | Ok(endpoint) => {
-            let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &token),
-                param!(Body, &id_type_string, &identifier.unwrap_or_default()),
-                param!(Body, "runner_type", &runner_type.to_string()),
-                param!(Body, "description", &description.unwrap_or_default()),
-                param!(Body, "tag_list", &tags.unwrap_or_default().join(",")),
+            let mut params = vec![
+                param!(Header, "PRIVATE-TOKEN", &options.token),
+                param!(Body, "description", &description),
+                param!(Body, &format!("{runner_type}_id"), &options.identifier.as_deref().unwrap_or_default()),
+                param!(Body, "runner_type", &format!("{runner_type}_type")),
                 param!(Body, "run_untagged", &run_untagged.to_string()),
             ];
+            if !tags.is_empty() {
+                params.push(param!(Body, "tag_list", &tags.join(",")));
+            }
             let response = endpoint.invoke(action, Some(params)).await;
             endpoint.handle::<RunnerCreationResponse>(response)
         }
@@ -963,22 +973,19 @@ pub async fn create_runner(options: Options) -> ApiResult<RunnerCreationResponse
     }
 }
 /// Get descendant groups of a group by identifier
-pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
+pub async fn groups(options: &Options) -> ApiResult<GroupsResponse> {
     let template = "gitlab::api";
     let action = "groups";
-    let Options {
-        token, identifier, domain, ..
-    } = options;
-    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
         | Ok(endpoint) => {
             let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &token),
-                param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
+                param!(Header, "PRIVATE-TOKEN", &options.token),
+                param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
                 param!(FieldList, "page", "1"),
                 param!(KeyValuePair, "per_page", "100"),
             ];
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
-            endpoint.handle::<GroupsResponse>(response)
+            endpoint.handle_or::<GroupsResponse, Fallback<ErrorResponse>>(response)
         }
         | Err(why) => Err(why),
     }
@@ -986,17 +993,14 @@ pub async fn groups(options: Options) -> ApiResult<GroupsResponse> {
 /// Get programming languages used by a GitLab project
 ///
 /// See <https://docs.gitlab.com/api/projects/?utm_source=perplexity#retrieve-programming-language-usage-information> for more information on GitLab API.
-pub async fn language_use(options: Options) -> ApiResult<ProgrammingLanguageUseResponse> {
+pub async fn language_use(options: &Options) -> ApiResult<ProgrammingLanguageUseResponse> {
     let template = "gitlab::api";
     let action = "languages";
-    let Options {
-        token, identifier, domain, ..
-    } = options;
-    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
         | Ok(endpoint) => {
             let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &token),
-                param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
+                param!(Header, "PRIVATE-TOKEN", &options.token),
+                param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
             ];
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<ProgrammingLanguageUseResponse>(response)
@@ -1035,25 +1039,21 @@ pub async fn languages() -> ApiResult<ProgrammingLanguagesResponse> {
 /// The GitLab token must be provided in the `CI_JOB_TOKEN` environment variable.
 ///
 /// See <https://docs.gitlab.com/api/notes/#create-a-merge-request-note> for more information on this API endpoint and required parameters
-pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteResponse> {
+pub async fn merge_request_note(options: &Options) -> ApiResult<MergeRequestNoteResponse> {
     let template = "gitlab::api";
     let action = "merge-request-note";
-    let Options {
-        token,
-        identifier,
-        internal_identifier,
-        body,
-        domain,
-        ..
-    } = options;
-    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
         | Ok(endpoint) => {
-            let body = body.unwrap_or_default();
+            let body = options.body.as_deref().unwrap_or_default();
             let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &token),
+                param!(Header, "PRIVATE-TOKEN", &options.token),
                 param!(Body, "body", &body),
-                param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
-                param!(TemplateValue, "internal_identifier", &internal_identifier.unwrap_or_default()),
+                param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
+                param!(
+                    TemplateValue,
+                    "internal_identifier",
+                    &options.internal_identifier.as_deref().unwrap_or_default()
+                ),
             ];
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
             endpoint.handle::<MergeRequestNoteResponse>(response)
@@ -1062,17 +1062,14 @@ pub async fn merge_request_note(options: Options) -> ApiResult<MergeRequestNoteR
     }
 }
 /// Get runner details by identifier
-pub async fn runner(options: Options) -> ApiResult<RunnerMetadata> {
+pub async fn runner(options: &Options) -> ApiResult<RunnerMetadata> {
     let template = "gitlab::api";
     let action = "runner";
-    let Options {
-        token, identifier, domain, ..
-    } = options;
-    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
         | Ok(endpoint) => {
             let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &token),
-                param!(TemplateValue, "identifier", &identifier.unwrap_or_default()),
+                param!(Header, "PRIVATE-TOKEN", &options.token),
+                param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
             ];
             let response = endpoint.invoke(action, Some(params)).await;
             endpoint.handle::<RunnerMetadata>(response)
@@ -1081,20 +1078,18 @@ pub async fn runner(options: Options) -> ApiResult<RunnerMetadata> {
     }
 }
 /// Get runners visible to user associated with given token
-pub async fn runners(options: Options) -> ApiResult<RunnersResponse> {
+pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
     let template = "gitlab::api";
     let action = "runners";
-    let Options { token, domain, .. } = options;
-    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
         | Ok(endpoint) => {
-            let params = vec![param!(Header, "PRIVATE-TOKEN", &token)];
+            let params = vec![param!(Header, "PRIVATE-TOKEN", &options.token)];
             let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
-            endpoint.handle::<RunnersResponse>(response)
+            endpoint.handle_or::<RunnersResponse, Fallback<ErrorResponse>>(response)
         }
         | Err(why) => Err(why),
     }
 }
-
 /// Fetch one page of repository tree blob paths for a GitLab project
 pub(crate) async fn tree_paths(
     host: impl Into<String>,
@@ -1114,7 +1109,7 @@ pub(crate) async fn tree_paths(
             ];
             let response = endpoint.invoke("tree", Some(params)).await;
             endpoint
-                .handle::<TreeResponse>(response)
+                .handle_or::<TreeResponse, Fallback<ErrorResponse>>(response)
                 .map(|entries| entries.into_iter().filter(|e| e.is_blob()).map(|e| e.path()).collect())
         }
         | Err(why) => Err(why),

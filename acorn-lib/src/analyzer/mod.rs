@@ -16,7 +16,7 @@ use crate::schema::research_activity::ResearchActivity;
 use crate::schema::standard::cff::{Cff, Identifier, IdentifierType, Reference};
 use crate::schema::standard::text::{Docx, Text};
 use crate::schema::{Organization, ProgrammingLanguage, Website};
-use crate::util::constants::ornl::APPLICATION;
+use crate::util::constants::app::APPLICATION;
 use crate::util::constants::vale::{CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{is_uri_or_path, Constant, Label, SemanticVersion, StringConversion};
 use crate::{check, check_err, check_ok};

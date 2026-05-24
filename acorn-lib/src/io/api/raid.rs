@@ -2,7 +2,7 @@
 //!
 //! See <https://metadata.raid.org> for more information
 //!
-use crate::io::api::{ApiResult, Configuration, Endpoint, FallbackFor, RemoteResource};
+use crate::io::api::{ApiResult, Configuration, Endpoint, Fallback, RemoteResource};
 use crate::param;
 use crate::prelude::var;
 use crate::schema::pid::raid::Metadata;
@@ -215,7 +215,7 @@ pub async fn create_record(options: Options) -> ApiResult<Metadata> {
                 | Ok(body) => {
                     let params = vec![param!(Header, "Authorization", &format!("Bearer {token}")), param!(Body, &body)];
                     let response = endpoint.invoke(action, Some(params)).await;
-                    endpoint.handle_or::<Metadata, FallbackFor<ErrorResponse>>(response)
+                    endpoint.handle_or::<Metadata, Fallback<ErrorResponse>>(response)
                 }
                 | Err(why) => Err(eyre!("Failed to serialize RAiD metadata to JSON — {why:#?}")),
             },

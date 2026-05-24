@@ -347,7 +347,6 @@ fn test_bagit_verify() {
     if cfg!(target_os = "windows") {
         let path = fixtures_dir().join("bag");
         let result = Bag::verify(path);
-        dbg!(&result);
         assert!(result.is_ok());
     }
 }

@@ -10,6 +10,7 @@ use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::validate::{is_doi, is_iso_639_1_language_code, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
 #[cfg(not(feature = "std"))]
 use crate::util::License;
+use core::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -1072,8 +1073,8 @@ impl PartialEq for GeoLocationPoint {
     }
 }
 impl Eq for GeoLocationPoint {}
-impl core::fmt::Display for GeoLocationPoint {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for GeoLocationPoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { longitude, latitude } = self;
         write!(f, "({longitude}, {latitude})")
     }

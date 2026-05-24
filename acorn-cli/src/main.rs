@@ -258,8 +258,9 @@ async fn main() -> Void {
                 group,
                 project,
                 tags,
+                untagged,
                 verbose,
-            }) => commands::create::run(config, description, group, project, tags, verbose).await,
+            }) => commands::create::runner::run(config, description, group, project, tags, untagged, verbose).await,
             | None => {
                 eprintln!("=> {} No subcommand provided for 'create'", Label::fail());
                 exit(exitcode::USAGE);

@@ -7,8 +7,9 @@ use crate::io::database::{schema::Table, Database};
 use crate::io::http::HttpMethod;
 use crate::io::http::{get, post, put};
 use crate::io::ApiResult;
+use crate::prelude::HashSet;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
-use crate::util::{detect_json, detect_xml, Constant, Searchable};
+use crate::util::{detect_json, detect_xml, Constant, Label, Searchable};
 use crate::{Location, Repository, Scheme};
 use async_trait::async_trait;
 use axum::http::header::{HeaderName, HeaderValue};
@@ -20,8 +21,8 @@ use derive_more::Display;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::collections::HashSet;
 use tera::{Context, Tera};
+use tracing::trace;
 use uriparse::URI;
 use validator::Validate;
 
@@ -210,9 +211,9 @@ pub enum TreeEntryType {
 ///
 /// ### Example
 /// ```ignore
-/// endpoint.handle_or::<Metadata, FallbackFor<ErrorResponse>>(response)
+/// endpoint.handle_or::<Metadata, Fallback<ErrorResponse>>(response)
 /// ```
-pub struct FallbackFor<T>(PhantomData<T>);
+pub struct Fallback<T>(PhantomData<T>);
 /// Default pass-through fallback — no secondary parse is attempted
 pub struct NoFallback;
 /// Represents authentication credentials for accessing an API
@@ -345,7 +346,7 @@ impl FallbackResponse for NoFallback {
         None
     }
 }
-impl<T> FallbackResponse for FallbackFor<T>
+impl<T> FallbackResponse for Fallback<T>
 where
     T: for<'de> Deserialize<'de> + fmt::Debug,
 {
@@ -700,6 +701,7 @@ impl RemoteResource for Endpoint {
                 match request.headers(headers).send().await {
                     | Ok(response) => match response.text().await {
                         | Ok(text) => {
+                            trace!("=> {} Response {text}", Label::using());
                             let content = if detect_json(&text) {
                                 ResponseContent::Json(text)
                             } else if detect_xml(&text) {

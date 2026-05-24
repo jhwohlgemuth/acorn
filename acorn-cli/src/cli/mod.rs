@@ -634,8 +634,18 @@ pub enum CreateCommands {
         #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
         project: Option<u64>,
         /// Tags to register the runner with (alternative to providing a configuration file)
-        #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+        #[arg(
+            short,
+            long,
+            conflicts_with = "untagged",
+            value_name = "LIST",
+            value_delimiter = ',',
+            help_heading = "OPTIONS"
+        )]
         tags: Vec<String>,
+        /// Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
+        #[arg(short, long, conflicts_with = "tags", help_heading = "FLAGS")]
+        untagged: bool,
         #[command(flatten)]
         verbose: Verbosity,
     },

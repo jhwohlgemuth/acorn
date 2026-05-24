@@ -33,9 +33,9 @@ pub async fn run(
     // let langs = gitlab::languages().await?;
     // dbg!(langs);
     // gitlab_merge_request_note_example().await;
-    // gitlab_example().await;
+    gitlab_example().await;
     // orcid_example().await;Hey.
-    raid_example().await;
+    // raid_example().await;
     // ror_example().await;
     Ok(())
 }
@@ -52,7 +52,7 @@ Here is a list
 ( o 0 )
     "#;
     let options = gitlab::Options::from_env().with_body(comment);
-    let response = gitlab::merge_request_note(options).await;
+    let response = gitlab::merge_request_note(&options).await;
     println!("Merge Request Note Response: {:#?}", response);
 }
 #[allow(dead_code)]
@@ -60,33 +60,27 @@ async fn gitlab_example() {
     let group = "24758"; // Research Enablement
     let project = "16689"; // ACORN
     let options = gitlab::Options::from_env();
-    let runners = gitlab::runners(options.clone()).await;
+    let runners = gitlab::runners(&options).await;
     match &runners {
         | Ok(ref values) if !values.is_empty() => {
             let runner_id = values.first().map(|v| v.identifier.unwrap_or_default().to_string()).unwrap_or_default();
             let options = options.clone().with_identifier(runner_id);
-            let runner = gitlab::runner(options).await;
+            let runner = gitlab::runner(&options).await;
             info!("Runner: {runner:#?}");
             println!("# of runners: {:#?}", values.len());
         }
         | Ok(_) => println!("Runner: Ok(None)"),
         | Err(ref why) => panic!("Runner: Err({why:#?})"),
     }
-    let runner_metadata = gitlab::RunnerMetadata::init()
-        .runner_type("group")
-        .description("TEST RUNNER — DELETE ASAP")
-        .tags(&["gpu", "foo"])
-        .build();
-    let options = options.with_identifier(group).with_runner(runner_metadata);
-    let create = gitlab::create_runner(options.clone()).await;
-    println!("Create Runner Response: {create:#?}");
+
     #[allow(clippy::unwrap_used)]
-    let groups = gitlab::groups(options.clone()).await.unwrap();
+    let options = options.with_identifier(group);
+    let groups = gitlab::groups(&options).await.unwrap();
     info!("Groups: {groups:#?}");
     println!("# of groups: {}", groups.len());
-    let options = options.with_identifier(project);
 
-    match gitlab::language_use(options).await {
+    let options = options.with_identifier(project);
+    match gitlab::language_use(&options).await {
         | Ok(response) => println!("Languages: {:#?}", response.entries()),
         | Err(why) => println!("Languages request failed: {why:#?}"),
     }

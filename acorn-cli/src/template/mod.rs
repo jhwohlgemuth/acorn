@@ -1,6 +1,6 @@
 use acorn::schema::research_activity::{Research, ResearchActivity, Sections};
 use acorn::schema::ContactPoint;
-use acorn::util::constants::ornl::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
+use acorn::util::constants::app::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
 use acorn::util::{Label, MimeType};
 use data_encoding::BASE64;
 use derive_more::Display;

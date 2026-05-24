@@ -10,12 +10,13 @@ use crate::io::api::Endpoint;
 use crate::io::http::get;
 use crate::io::ApiResult;
 use crate::io::{files_all, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType};
-use crate::prelude::{self, exit, Arc, PathBuf};
+use crate::prelude::{self, env, exit, Arc, PathBuf};
+use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use color_eyre::eyre::eyre;
-use core::fmt::Debug;
+use core::fmt::{self, Debug};
 use derive_more::Display;
 use fancy_regex::Regex;
 use owo_colors::OwoColorize;
@@ -46,20 +47,17 @@ pub enum RunnerStatus {
 /// Runner types for CI/CD pipelines
 ///
 /// Mostly for GitLab as GitHub only has two types: hosted (by GitHub) and self-hosted
-#[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum RunnerType {
     /// Accessible to a specific group and its projects/subgroups
     #[default]
-    #[display("group_type")]
     #[serde(rename = "group_type", alias = "group")]
     Group,
     /// Available to all projects and groups within an instance
     /// > Also called "shared runners" in GitLab
-    #[display("instance_type")]
     #[serde(rename = "instance_type", alias = "instance")]
     Instance,
     /// Available to a specific project
-    #[display("project_type")]
     #[serde(rename = "project_type", alias = "project")]
     Project,
 }
@@ -165,6 +163,19 @@ pub struct RunnerDetails {
     pub run_untagged: bool,
 }
 impl ApplicationConfiguration {
+    /// Resolve application configuration path
+    ///
+    /// If `path` is an existing file, it is returned.
+    /// Otherwise, the first existing default config file in the current working directory is returned.
+    pub fn resolve(path: &Option<PathBuf>) -> Option<PathBuf> {
+        path.as_ref().filter(|value| value.is_file()).cloned().or_else(|| {
+            let directory = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            DEFAULT_CONFIG_FILENAMES
+                .iter()
+                .map(|name| directory.join(name))
+                .find(|candidate| candidate.exists())
+        })
+    }
     /// Parse ACORN configuration in JSON or YAML format
     pub fn parse(content: impl AsRef<str>) -> ApiResult<Self> {
         let content = content.as_ref();
@@ -450,7 +461,7 @@ impl Bucket {
                                 page = page.saturating_add(1);
                             }
                             | Err(why) => {
-                                return Err::<Vec<String>, _>(why);
+                                return Err::<Vec<String>, _>(eyre!("Failed to get file paths for {bucket_name} bucket — {why}"));
                             }
                         }
                     }
@@ -510,6 +521,16 @@ impl BucketOptions {
             output: Some(output.into()),
             ..self
         }
+    }
+}
+impl fmt::Display for RunnerType {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            | RunnerType::Group => "group",
+            | RunnerType::Instance => "instance",
+            | RunnerType::Project => "project",
+        };
+        formatter.write_str(value)
     }
 }
 impl From<&str> for RunnerType {
@@ -604,7 +625,47 @@ mod tests {
         clippy::arithmetic_side_effects
     )]
     use super::*;
+    use crate::prelude::{create_dir_all, remove_dir_all, write};
 
+    fn temp_resolve_dir(name: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or(core::time::Duration::from_nanos(0))
+            .as_nanos();
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("target")
+            .join("test_artifacts")
+            .join(format!("{name}-{nanos}"))
+    }
+
+    #[test]
+    fn test_resolve_returns_explicit_existing_path() {
+        let directory = temp_resolve_dir("resolve-explicit");
+        create_dir_all(&directory).unwrap();
+        let directory = directory.canonicalize().unwrap();
+        let provided = directory.join("config.yaml");
+        let default = directory.join(".acorn.json");
+        write(&provided, "{}\n").unwrap();
+        write(&default, "{}\n").unwrap();
+        let resolved = ApplicationConfiguration::resolve(&Some(provided.clone()));
+        assert_eq!(resolved, Some(provided));
+        let _ = remove_dir_all(directory);
+    }
+    #[test]
+    fn test_resolve_falls_back_to_default_when_provided_path_missing() {
+        let directory = temp_resolve_dir("resolve-fallback");
+        create_dir_all(&directory).unwrap();
+        let directory = directory.canonicalize().unwrap();
+        let default = directory.join(".acorn.yml");
+        write(&default, "{}\n").unwrap();
+        let previous = env::current_dir().unwrap();
+        env::set_current_dir(&directory).unwrap();
+        let resolved = ApplicationConfiguration::resolve(&Some(directory.join("missing.json")));
+        env::set_current_dir(previous).unwrap();
+        assert_eq!(resolved, Some(default));
+        let _ = remove_dir_all(directory);
+    }
     #[test]
     fn test_count_image_files_counts_supported_extensions() {
         let paths = vec![

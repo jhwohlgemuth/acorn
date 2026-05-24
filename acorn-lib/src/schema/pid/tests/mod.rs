@@ -186,7 +186,6 @@ fn test_isbn() {
     Please check them out!"#
         .to_string();
     let results = ISBN::find_all(&text);
-    dbg!(&results);
     assert_eq!(results.len(), 3);
     VALID_ISBN.iter().enumerate().for_each(|(index, value)| {
         assert!(ISBN::is_valid(value));
