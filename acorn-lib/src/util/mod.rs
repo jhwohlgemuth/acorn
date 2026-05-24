@@ -39,6 +39,8 @@ use similar::{
 };
 use uriparse::URI;
 
+#[cfg(feature = "std")]
+pub mod cmd;
 pub mod constants;
 pub mod macros;
 

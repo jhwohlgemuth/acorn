@@ -5,28 +5,46 @@
 /// Simplifies `Command::new(binary).args(args).output()` patterns.
 /// Thread safe — `Command` is `Send + Sync`.
 ///
-/// Use the `status` prefix to call `.status()` instead of `.output()`.
-/// Use the `sh` prefix to parse a single string as a shell command (splits on whitespace).
+/// Supports several calling conventions:
+///
+/// | Prefix    | Returns                        | Description                             |
+/// |-----------|--------------------------------|-----------------------------------------|
+/// | *(none)*  | `io::Result<Output>`           | Run and capture output                  |
+/// | `status`  | `io::Result<ExitStatus>`       | Exit status only (no output)            |
+/// | `sh`      | `io::Result<Output>`           | Parse string, capture output            |
+/// | `sh status` | `io::Result<ExitStatus>`    | Parse string, exit status only          |
+/// | `try`     | `Result<String, String>`       | Run, return stdout or error message     |
+///
+/// All forms support an optional `; dir: path` suffix to set the working directory.
+///
+/// The `sh` variants use shell-aware word splitting (handles quoted arguments via
+/// the `shell-words` crate).
 ///
 /// # Syntax
 ///
 /// ```ignore
-/// // Parse a single string (supports format! interpolation)
-/// cmd!(sh "git diff-tree --no-commit-id --name-only")
-/// cmd!(sh format!("git diff --name-only {}", branch))
+/// // String form (shell-aware quoting)
+/// cmd!(sh "git diff --name-only")
+/// cmd!(sh format!("git diff --name-only {branch}"))
+/// cmd!(sh "echo 'hello world'")   // handles quotes
 ///
-/// // CLI-style with string literals (returns Result<Output, io::Error>)
+/// // CLI-style literals (fastest)
 /// cmd!("git" "diff-tree" "--no-commit-id" "--name-only")
+/// cmd!("git" "log" "--oneline"; dir: repo_path)
 ///
-/// // Capture output with array or variable
+/// // Array literal (dynamic types)
 /// cmd!("git", ["branch", "--show-current"])
+///
+/// // Variable args
 /// cmd!("git", args)
 ///
-/// // Check exit status only (returns Result<ExitStatus, io::Error>)
-/// cmd!(sh status "vale --config .vale.ini sync")
-/// cmd!(status "vale" "--config" ".vale.ini" "sync")
-/// cmd!(status "vale", ["--config", path, "sync"])
-/// cmd!(status "vale", args)
+/// // Try form — returns Result<String, String>
+/// cmd!(try "git" "rev-parse" "HEAD")
+/// cmd!(try "git", args)
+///
+/// // With working directory
+/// cmd!("git" "status"; dir: project_dir)
+/// cmd!(try sh "npm test"; dir: project_dir)
 /// ```
 ///
 /// # Examples
@@ -35,7 +53,7 @@
 /// use acorn::cmd;
 /// use acorn::prelude::CommandOutput;
 ///
-/// // Parse a full command string — great for interpolated values
+/// // String form with shell-aware quoting
 /// let branch = "main";
 /// match cmd!(sh format!("git diff --name-only {branch}")) {
 ///     Ok(output) if output.status.success() => {
@@ -44,7 +62,7 @@
 ///     _ => {},
 /// }
 ///
-/// // CLI-style — space-separated string literals
+/// // CLI-style
 /// match cmd!("git" "branch" "--show-current") {
 ///     Ok(output) if output.status.success() => {
 ///         println!("{}", output.stdout());
@@ -53,70 +71,169 @@
 ///     Err(why) => eprintln!("Error: {}", why),
 /// }
 ///
-/// // Array-style — for dynamic or mixed-type args
-/// let args = vec!["diff", "--name-only", "main"];
-/// match cmd!("git", args) {
-///     Ok(output) if output.status.success() => {
-///         println!("{}", output.stdout());
-///     }
-///     _ => {},
-/// }
-///
-/// // Status-only check
-/// match cmd!(sh status "vale --config .vale.ini sync") {
-///     Ok(status) if status.success() => println!("synced"),
-///     _ => eprintln!("sync failed"),
+/// // Try form — simplified error handling
+/// match cmd!(try "git" "rev-parse" "HEAD") {
+///     Ok(hash) => println!("{hash}"),
+///     Err(msg) => eprintln!("failed: {msg}"),
 /// }
 /// ```
 #[macro_export]
 macro_rules! cmd {
-    // Parse string and capture output: cmd!(sh "git diff --name-only")
-    (sh $cmd:expr) => {{
-        let cmd_str = $cmd.to_string();
-        let mut parts = cmd_str.split_whitespace();
-        match parts.next() {
-            | Some(binary) => {
-                let args: Vec<&str> = parts.collect();
-                $crate::prelude::Command::new(binary).args(args).output()
-            }
-            | None => Err($crate::prelude::io::Error::other("empty command string")),
+    // ── sh status ──────────────────────────────────────────────
+    // sh status string + dir
+    (sh status $cmd:expr; dir: $dir:expr) => {{
+        match $crate::util::cmd::parse_sh(&$cmd.to_string()) {
+            Ok((binary, args)) => $crate::util::cmd::run_status(&binary, &args, Some($dir.as_ref())),
+            Err(e) => Err(e),
         }
     }};
-    // Parse string and check status: cmd!(sh status "vale --config .vale.ini sync")
+    // sh status string (no dir)
     (sh status $cmd:expr) => {{
-        let cmd_str = $cmd.to_string();
-        let mut parts = cmd_str.split_whitespace();
-        match parts.next() {
-            | Some(binary) => {
-                let args: Vec<&str> = parts.collect();
-                $crate::prelude::Command::new(binary).args(args).status()
-            }
-            | None => Err($crate::prelude::io::Error::other("empty command string")),
+        match $crate::util::cmd::parse_sh(&$cmd.to_string()) {
+            Ok((binary, args)) => $crate::util::cmd::run_status(&binary, &args, None),
+            Err(e) => Err(e),
         }
     }};
-    // Status with array literal: cmd!(status binary, [arg1, arg2])
+    // ── sh output ──────────────────────────────────────────────
+    // sh string + dir
+    (sh $cmd:expr; dir: $dir:expr) => {{
+        match $crate::util::cmd::parse_sh(&$cmd.to_string()) {
+            Ok((binary, args)) => $crate::util::cmd::run_output(&binary, &args, Some($dir.as_ref())),
+            Err(e) => Err(e),
+        }
+    }};
+    // sh string (no dir)
+    (sh $cmd:expr) => {{
+        match $crate::util::cmd::parse_sh(&$cmd.to_string()) {
+            Ok((binary, args)) => $crate::util::cmd::run_output(&binary, &args, None),
+            Err(e) => Err(e),
+        }
+    }};
+    // ── try sh ─────────────────────────────────────────────────
+    // try sh string + dir
+    (try sh $cmd:expr; dir: $dir:expr) => {{
+        match $crate::util::cmd::parse_sh(&$cmd.to_string()) {
+            Ok((binary, args)) => $crate::util::cmd::try_from_output(
+                $crate::util::cmd::run_output(&binary, &args, Some($dir.as_ref())),
+            ),
+            Err(e) => Err(format!("{e}")),
+        }
+    }};
+    // try sh string (no dir)
+    (try sh $cmd:expr) => {{
+        match $crate::util::cmd::parse_sh(&$cmd.to_string()) {
+            Ok((binary, args)) => $crate::util::cmd::try_from_output(
+                $crate::util::cmd::run_output(&binary, &args, None),
+            ),
+            Err(e) => Err(format!("{e}")),
+        }
+    }};
+    // ── status CLI-style ───────────────────────────────────────
+    // status CLI-style + dir
+    (status $binary:literal $($arg:literal)*; dir: $dir:expr) => {{
+        $crate::util::cmd::run_status($binary, [$($arg),*], Some($dir.as_ref()))
+    }};
+    // status CLI-style (no dir)
+    (status $binary:literal $($arg:literal)*) => {{
+        $crate::util::cmd::run_status($binary, [$($arg),*], None)
+    }};
+    // ── status array ───────────────────────────────────────────
+    // status array + dir
+    (status $binary:expr, [ $($arg:expr),* $(,)? ]; dir: $dir:expr) => {{
+        let mut __cmd = $crate::prelude::Command::new($binary);
+        __cmd.args([$($arg),*]);
+        __cmd.current_dir($dir);
+        __cmd.status()
+    }};
+    // status array (no dir)
     (status $binary:expr, [ $($arg:expr),* $(,)? ]) => {{
         $crate::prelude::Command::new($binary).args([$($arg),*]).status()
     }};
-    // Status with args variable: cmd!(status binary, args)
+    // ── status variable ───────────────────────────────────────
+    // status variable + dir
+    (status $binary:expr, $args:expr; dir: $dir:expr) => {{
+        let mut __cmd = $crate::prelude::Command::new($binary);
+        __cmd.args($args);
+        __cmd.current_dir($dir);
+        __cmd.status()
+    }};
+    // status variable (no dir)
     (status $binary:expr, $args:expr) => {{
         $crate::prelude::Command::new($binary).args($args).status()
     }};
-    // Status CLI-style: cmd!(status "vale" "--config" ".vale.ini" "sync")
-    (status $binary:literal $($arg:literal)*) => {{
-        $crate::prelude::Command::new($binary).args([$($arg),*]).status()
+    // ── try CLI-style ──────────────────────────────────────────
+    // try CLI-style + dir
+    (try $binary:literal $($arg:literal)*; dir: $dir:expr) => {{
+        $crate::util::cmd::try_from_output(
+            $crate::util::cmd::run_output($binary, [$($arg),*], Some($dir.as_ref())),
+        )
     }};
-    // Output with array literal: cmd!(binary, [arg1, arg2])
+    // try CLI-style (no dir)
+    (try $binary:literal $($arg:literal)*) => {{
+        $crate::util::cmd::try_from_output(
+            $crate::util::cmd::run_output($binary, [$($arg),*], None),
+        )
+    }};
+    // ── try array ──────────────────────────────────────────────
+    // try array + dir
+    (try $binary:expr, [ $($arg:expr),* $(,)? ]; dir: $dir:expr) => {{
+        let mut __cmd = $crate::prelude::Command::new($binary);
+        __cmd.args([$($arg),*]);
+        __cmd.current_dir($dir);
+        $crate::util::cmd::try_from_output(__cmd.output())
+    }};
+    // try array (no dir)
+    (try $binary:expr, [ $($arg:expr),* $(,)? ]) => {{
+        $crate::util::cmd::try_from_output(
+            $crate::prelude::Command::new($binary).args([$($arg),*]).output(),
+        )
+    }};
+    // ── try variable ───────────────────────────────────────────
+    // try variable + dir
+    (try $binary:expr, $args:expr; dir: $dir:expr) => {{
+        let mut __cmd = $crate::prelude::Command::new($binary);
+        __cmd.args($args);
+        __cmd.current_dir($dir);
+        $crate::util::cmd::try_from_output(__cmd.output())
+    }};
+    // try variable (no dir)
+    (try $binary:expr, $args:expr) => {{
+        $crate::util::cmd::try_from_output(
+            $crate::prelude::Command::new($binary).args($args).output(),
+        )
+    }};
+    // ── default output CLI-style ──────────────────────────────
+    // CLI-style + dir
+    ($binary:literal $($arg:literal)*; dir: $dir:expr) => {{
+        $crate::util::cmd::run_output($binary, [$($arg),*], Some($dir.as_ref()))
+    }};
+    // CLI-style (no dir)
+    ($binary:literal $($arg:literal)*) => {{
+        $crate::util::cmd::run_output($binary, [$($arg),*], None)
+    }};
+    // ── default output array ──────────────────────────────────
+    // array + dir
+    ($binary:expr, [ $($arg:expr),* $(,)? ]; dir: $dir:expr) => {{
+        let mut __cmd = $crate::prelude::Command::new($binary);
+        __cmd.args([$($arg),*]);
+        __cmd.current_dir($dir);
+        __cmd.output()
+    }};
+    // array (no dir)
     ($binary:expr, [ $($arg:expr),* $(,)? ]) => {{
         $crate::prelude::Command::new($binary).args([$($arg),*]).output()
     }};
-    // Output with args variable: cmd!(binary, args)
+    // ── default output variable ───────────────────────────────
+    // variable + dir
+    ($binary:expr, $args:expr; dir: $dir:expr) => {{
+        let mut __cmd = $crate::prelude::Command::new($binary);
+        __cmd.args($args);
+        __cmd.current_dir($dir);
+        __cmd.output()
+    }};
+    // variable (no dir)
     ($binary:expr, $args:expr) => {{
         $crate::prelude::Command::new($binary).args($args).output()
-    }};
-    // CLI-style: cmd!("git" "diff-tree" "--no-commit-id" "--name-only")
-    ($binary:literal $($arg:literal)*) => {{
-        $crate::prelude::Command::new($binary).args([$($arg),*]).output()
     }};
 }
 /// Logging macro for failures

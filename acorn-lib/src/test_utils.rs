@@ -61,3 +61,59 @@ pub(crate) fn unique_path(name: &str, extension: &str) -> PathBuf {
         .join("test_artifacts")
         .join(format!("{name}-{timestamp}.{extension}"))
 }
+/// Command string for `sh` variant that echoes `msg`.
+pub(crate) fn sh_echo(msg: &str) -> String {
+    if cfg!(unix) {
+        format!("echo {msg}")
+    } else {
+        format!("cmd /c echo {msg}")
+    }
+}
+/// Binary for echo in array/variable forms.
+pub(crate) fn echo_bin() -> &'static str {
+    if cfg!(unix) {
+        "echo"
+    } else {
+        "cmd"
+    }
+}
+/// Args to pass after `echo_bin()` to echo `msg`.
+pub(crate) fn echo_args(msg: &str) -> Vec<String> {
+    if cfg!(unix) {
+        vec![msg.to_string()]
+    } else {
+        vec!["/c".into(), "echo".into(), msg.into()]
+    }
+}
+/// Binary for stderr capture.
+pub(crate) fn stderr_bin() -> &'static str {
+    if cfg!(unix) {
+        "sh"
+    } else {
+        "cmd"
+    }
+}
+/// Args to pass after `stderr_bin()` to write `msg` to stderr.
+pub(crate) fn stderr_args(msg: &str) -> Vec<String> {
+    if cfg!(unix) {
+        vec!["-c".into(), format!("echo {msg} >&2")]
+    } else {
+        vec!["/c".into(), format!("echo {msg} 1>&2")]
+    }
+}
+/// Binary for exit code testing.
+pub(crate) fn exit_bin() -> &'static str {
+    if cfg!(unix) {
+        "sh"
+    } else {
+        "cmd"
+    }
+}
+/// Args to pass after `exit_bin()` to exit with `code`.
+pub(crate) fn exit_args(code: i32) -> Vec<String> {
+    if cfg!(unix) {
+        vec!["-c".into(), format!("exit {code}")]
+    } else {
+        vec!["/c".into(), format!("exit /b {code}")]
+    }
+}

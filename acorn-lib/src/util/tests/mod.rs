@@ -11,6 +11,7 @@ use crate::io::{
     FromPath,
 };
 use crate::prelude::{CommandOutput, Path, PathBuf};
+use crate::test_utils::{echo_args, echo_bin, exit_args, exit_bin, sh_echo, stderr_args, stderr_bin};
 use crate::util::*;
 use crate::{cmd, param};
 #[cfg(test)]
@@ -38,113 +39,89 @@ fn test_chunk_string() {
     assert_eq!("abcdefghi".to_string().chunk(3), vec!["abc", "def", "ghi"]);
 }
 #[test]
-fn test_cmd_output() {
-    // Platform-specific shell tests
-    #[cfg(unix)]
-    {
-        // Shell string
-        let output = cmd!(sh "echo sh-output").expect("sh string");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "sh-output");
-        // Shell string with multiple args
-        let output = cmd!(sh "echo one two three").expect("sh multi-arg");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "one two three");
-        // Shell string with format! interpolation
-        let name = "world";
-        let output = cmd!(sh format!("echo hello-{name}")).expect("sh format!");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "hello-world");
-        // Array literal
-        let output = cmd!("echo", ["hello"]).expect("array literal");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "hello");
-        // Args variable
-        let args = vec!["world"];
-        let output = cmd!("echo", args).expect("args variable");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "world");
-        // CLI-style literals
-        let output = cmd!("echo" "cli-style").expect("cli-style");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "cli-style");
-        // Stderr capture
-        let output = cmd!("sh", ["-c", "echo oops >&2"]).expect("stderr");
-        assert_eq!(output.stderr(), "oops");
-        // Non-zero exit code
-        let output = cmd!("sh", ["-c", "exit 42"]).expect("exit code");
-        assert!(!output.status.success());
-    }
-    #[cfg(windows)]
-    {
-        // Windows shell string using cmd /c
-        let output = cmd!(sh "cmd /c echo sh-output").expect("sh string");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "sh-output");
-        // Shell string with multiple args
-        let output = cmd!(sh "cmd /c echo one two three").expect("sh multi-arg");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "one two three");
-        // Shell string with format! interpolation
-        let name = "world";
-        let output = cmd!(sh format!("cmd /c echo hello-{name}")).expect("sh format!");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "hello-world");
-        // Array literal - using 'cargo' which exists as executable
-        let output = cmd!("cargo", ["--version"]).expect("array literal");
-        assert!(output.status.success());
-        assert!(output.stdout().contains("cargo"));
-        // Stderr capture using cmd /c
-        let output = cmd!("cmd", ["/c", "echo oops 1>&2"]).expect("stderr");
-        assert!(output.stderr().contains("oops") || output.stdout().contains("oops"));
-    }
-}
-#[test]
-fn test_cmd_status() {
-    // Platform-specific tests
-    #[cfg(unix)]
-    {
-        // Shell string
-        let status = cmd!(sh status "echo sh-status").expect("sh string");
-        assert!(status.success());
-        // Shell string with format! interpolation
-        let arg = "check";
-        let status = cmd!(sh status format!("echo {arg}")).expect("sh format!");
-        assert!(status.success());
-        // Array literal
-        let status = cmd!(status "echo", ["hello"]).expect("array literal");
-        assert!(status.success());
-        // Args variable
-        let args = vec!["hello"];
-        let status = cmd!(status "echo", args).expect("args variable");
-        assert!(status.success());
-        // CLI-style literals
-        let status = cmd!(status "echo" "status-check").expect("cli-style");
-        assert!(status.success());
-        // Non-zero exit code
-        let status = cmd!(status "sh", ["-c", "exit 42"]).expect("exit code");
-        assert!(!status.success());
-    }
-    #[cfg(windows)]
-    {
-        // Windows shell string using cmd /c
-        let status = cmd!(sh status "cmd /c echo sh-status").expect("sh string");
-        assert!(status.success());
-        // Shell string with format! interpolation
-        let arg = "check";
-        let status = cmd!(sh status format!("cmd /c echo {arg}")).expect("sh format!");
-        assert!(status.success());
-        // Array literal - using 'cargo' which exists as executable
-        let status = cmd!(status "cargo", ["--version"]).expect("array literal");
-        assert!(status.success());
-    }
-}
-#[test]
 fn test_cmd_error() {
     // Nonexistent binary — array style
     assert!(cmd!("not-a-real-command-xyz", ["arg"]).is_err());
     // Nonexistent binary — sh style
     assert!(cmd!(sh "not-a-real-command-xyz arg").is_err());
+}
+#[test]
+fn test_cmd_output() {
+    // Shell string
+    let output = cmd!(sh sh_echo("sh-output")).expect("sh string");
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "sh-output");
+    // Shell string with multiple args
+    let output = cmd!(sh sh_echo("one two three")).expect("sh multi-arg");
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "one two three");
+    // Shell string with format! interpolation (via function call)
+    let name = "world";
+    let output = cmd!(sh sh_echo(&format!("hello-{name}"))).expect("sh format!");
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "hello-world");
+    // Array literal
+    let output = if cfg!(unix) {
+        cmd!("echo", ["hello"]).expect("array literal")
+    } else {
+        cmd!("cmd", ["/c", "echo", "hello"]).expect("array literal")
+    };
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "hello");
+    // Args variable
+    let args = echo_args("world");
+    let output = cmd!(echo_bin(), args).expect("args variable");
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "world");
+    // CLI-style literals
+    let output = if cfg!(unix) {
+        cmd!("echo" "cli-style").expect("cli-style")
+    } else {
+        cmd!("cmd" "/c" "echo" "cli-style").expect("cli-style")
+    };
+    assert!(output.status.success());
+    assert_eq!(output.stdout(), "cli-style");
+    // Stderr capture
+    let output = cmd!(stderr_bin(), stderr_args("oops")).expect("stderr");
+    if cfg!(unix) {
+        assert_eq!(output.stderr(), "oops");
+    } else {
+        assert!(output.stderr().contains("oops") || output.stdout().contains("oops"));
+    }
+    // Non-zero exit code
+    let output = cmd!(exit_bin(), exit_args(42)).expect("exit code");
+    assert!(!output.status.success());
+}
+#[test]
+fn test_cmd_status() {
+    // Shell string
+    let status = cmd!(sh status sh_echo("sh-status")).expect("sh string");
+    assert!(status.success());
+    // Shell string with format! interpolation (via function call)
+    let arg = "check";
+    let status = cmd!(sh status sh_echo(arg)).expect("sh format!");
+    assert!(status.success());
+    // Array literal
+    let status = if cfg!(unix) {
+        cmd!(status "echo", ["hello"]).expect("array literal")
+    } else {
+        cmd!(status "cmd", ["/c", "echo", "hello"]).expect("array literal")
+    };
+    assert!(status.success());
+    // Args variable
+    let args = echo_args("hello");
+    let status = cmd!(status echo_bin(), args).expect("args variable");
+    assert!(status.success());
+    // CLI-style literals
+    let status = if cfg!(unix) {
+        cmd!(status "echo" "status-check").expect("cli-style")
+    } else {
+        cmd!(status "cmd" "/c" "echo" "status-check").expect("cli-style")
+    };
+    assert!(status.success());
+    // Non-zero exit code
+    let status = cmd!(status exit_bin(), exit_args(42)).expect("exit code");
+    assert!(!status.success());
 }
 #[test]
 fn test_last_values() {
