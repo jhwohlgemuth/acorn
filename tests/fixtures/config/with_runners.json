@@ -13,29 +13,32 @@
     ],
     "runners": [
         {
-            "name": "NSSD Runner",
+            "name": "ACORN Runner (DELETE ME)",
+            "description": "ACORN Runner (DELETE ME)",
             "type": "project",
             "repository": {
                 "provider": "gitlab",
-                "id": 1234,
+                "id": 16689,
                 "location": {
                     "scheme": "https",
-                    "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
-                }
-            }
-        },
-        {
-            "name": "Bucket Runner",
-            "type": "project",
-            "repository": {
-                "provider": "gitlab",
-                "id": 5678,
-                "location": {
-                    "scheme": "https",
-                    "uri": "https://code.ornl.gov/research-enablement/buckets"
+                    "uri": "https://code.ornl.gov/research-enablement/acorn"
                 }
             },
-            "gpu": true
+            "tags": ["bucket", "gpu"]
+        },
+        {
+            "name": "Research Enablement Runner (DELETE ME)",
+            "description": "Research Enablement Runner (DELETE ME)",
+            "type": "group",
+            "repository": {
+                "provider": "gitlab",
+                "id": 24758,
+                "location": {
+                    "scheme": "https",
+                    "uri": "https://code.ornl.gov/research-enablement"
+                }
+            },
+            "run_untagged": true
         }
     ]
 }

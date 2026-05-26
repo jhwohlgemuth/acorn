@@ -91,7 +91,7 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
         }
     };
     #[allow(clippy::unwrap_used)]
-    let parent = source.parent().unwrap().canonicalize().unwrap();
+    let parent = source.parent().unwrap().canonicalize().unwrap_or_default();
     let image_url = meta.clone().first_image_content_url();
     let from = parent.join(image_url.clone());
     let name = meta.clone().identifier;
@@ -99,8 +99,7 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
     let to = destination.join(format!("ppt/media/{name}.{extension}"));
     #[allow(clippy::unwrap_used)]
     let re = Regex::new(&target).unwrap();
-    #[allow(clippy::unwrap_used)]
-    let content = read_file(xml_rels_path.clone()).unwrap();
+    let content = read_file(xml_rels_path.clone()).unwrap_or_default();
     let updated = re.replace(&content, format!("../media/{name}.{extension}")).to_string();
     let _ = write_file(xml_rels_path, updated);
     copy(from, to)

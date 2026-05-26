@@ -620,13 +620,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         };
         let builder = Vale::init().version(release).maybe_binary(binary);
-        match config {
-            | Some(value) => builder.config(value).build(),
-            | None => {
-                let config = ValeConfig::default();
-                builder.config(config).build()
-            }
-        }
+        builder.config(config.unwrap_or_default()).build()
     }
     async fn download_checksums(self) -> ApiResult<HashMap<String, String>> {
         let release = match self.version {
@@ -727,8 +721,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 PathBuf::from(DEFAULT_VALE_ROOT).join(command)
             }
         };
-        #[allow(clippy::unwrap_used)]
-        let config_path = self.config.unwrap().path;
+        let config_path = self.config.unwrap_or_default().path;
         let result: ApiResult<()> = if is_offline {
             skip!("Vale sync");
             Ok(())

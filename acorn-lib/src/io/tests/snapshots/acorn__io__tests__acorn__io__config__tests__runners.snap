@@ -5,38 +5,47 @@ expression: "format!(\"{:#?}\", config.runners)"
 Some(
     [
         RunnerDetails {
-            name: "NSSD Runner",
-            runner_type: Project,
-            description: None,
             code_repository: GitLab {
                 id: Some(
-                    1234,
+                    16689,
                 ),
                 location: Detailed {
                     scheme: HTTPS,
-                    uri: "https://code.ornl.gov/research-enablement/buckets/nssd",
+                    uri: "https://code.ornl.gov/research-enablement/acorn",
                 },
             },
+            name: "ACORN Runner (DELETE ME)",
+            runner_type: Project,
+            description: Some(
+                "ACORN Runner (DELETE ME)",
+            ),
             gpu_enabled: false,
-            tags: None,
+            tags: Some(
+                [
+                    "bucket",
+                    "gpu",
+                ],
+            ),
             run_untagged: false,
         },
         RunnerDetails {
-            name: "Bucket Runner",
-            runner_type: Project,
-            description: None,
             code_repository: GitLab {
                 id: Some(
-                    5678,
+                    24758,
                 ),
                 location: Detailed {
                     scheme: HTTPS,
-                    uri: "https://code.ornl.gov/research-enablement/buckets",
+                    uri: "https://code.ornl.gov/research-enablement",
                 },
             },
-            gpu_enabled: true,
+            name: "Research Enablement Runner (DELETE ME)",
+            runner_type: Group,
+            description: Some(
+                "Research Enablement Runner (DELETE ME)",
+            ),
+            gpu_enabled: false,
             tags: None,
-            run_untagged: false,
+            run_untagged: true,
         },
     ],
 )

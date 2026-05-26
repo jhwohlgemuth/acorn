@@ -75,7 +75,7 @@ async fn gitlab_example() {
 
     #[allow(clippy::unwrap_used)]
     let options = options.with_identifier(group);
-    let groups = gitlab::groups(&options).await.unwrap();
+    let groups = gitlab::groups(&options).await.unwrap_or_default();
     info!("Groups: {groups:#?}");
     println!("# of groups: {}", groups.len());
 

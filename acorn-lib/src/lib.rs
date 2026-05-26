@@ -268,21 +268,25 @@ impl Repository {
         match self {
             | Repository::Git { .. } => None,
             | Repository::GitHub { .. } => None,
-            | Repository::GitLab { id, location } => match location.uri() {
-                | Some(value) => {
-                    let mut path = value.path().to_string();
-                    path.remove(0);
-                    let encoded = encode(&path).to_string();
-                    trace!(encoded, "=> {} ID", Label::using());
-                    Some(encoded)
-                }
-                | None => {
-                    warn!("=> {} Parse GitLab URI", Label::fail());
-                    match id {
-                        | Some(value) => Some(value.to_string()),
-                        | None => None,
+            | Repository::GitLab { id, location } => match id {
+                | Some(value) => Some(value.to_string()),
+                | None => match location.uri() {
+                    | Some(value) => {
+                        let path = value.path().to_string();
+                        match path.strip_prefix('/') {
+                            | Some(stripped) if !stripped.is_empty() => {
+                                let encoded = encode(stripped).to_string();
+                                trace!(encoded, "=> {} ID", Label::using());
+                                Some(encoded)
+                            }
+                            | _ => None,
+                        }
                     }
-                }
+                    | None => {
+                        warn!("=> {} Parse GitLab URI", Label::fail());
+                        None
+                    }
+                },
             },
         }
     }
@@ -367,6 +371,36 @@ impl Repository {
             | Repository::GitLab { location, .. } => Some(format!("{location}/-/raw/main/{path}")),
             | Repository::Git { .. } => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Location, Repository};
+
+    #[test]
+    fn test_repository_id_prefers_explicit_gitlab_id() {
+        let repository = Repository::GitLab {
+            id: Some(16689),
+            location: Location::Simple("https://code.ornl.gov/research-enablement/acorn".to_string()),
+        };
+        assert_eq!(repository.id(), Some("16689".to_string()));
+    }
+    #[test]
+    fn test_repository_id_falls_back_to_encoded_gitlab_path() {
+        let repository = Repository::GitLab {
+            id: None,
+            location: Location::Simple("https://code.ornl.gov/research-enablement/acorn".to_string()),
+        };
+        assert_eq!(repository.id(), Some("research-enablement%2Facorn".to_string()));
+    }
+    #[test]
+    fn test_repository_id_returns_none_without_gitlab_id_or_valid_uri() {
+        let repository = Repository::GitLab {
+            id: None,
+            location: Location::Simple("not a uri".to_string()),
+        };
+        assert_eq!(repository.id(), None);
     }
 }
 

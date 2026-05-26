@@ -618,7 +618,7 @@ pub enum Commands {
 #[command(long_about = None)]
 pub enum CreateCommands {
     /// Model context provider (MCP) server
-    Mcp {},
+    Mcp,
     /// GitLab runner
     Runner {
         /// Path to configuration file for creating the resource
@@ -654,9 +654,9 @@ pub enum CreateCommands {
 #[command(long_about = None)]
 pub enum SchemaCommands {
     /// Print research activity data (RAD) JSON schema to stdout
-    Rad {},
+    Rad,
     /// Print research activity identifier (RAiD) metadata JSON schema to stdout
-    Raid {},
+    Raid,
 }
 
 #[cfg(test)]

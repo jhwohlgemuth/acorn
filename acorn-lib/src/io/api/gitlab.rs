@@ -947,6 +947,13 @@ impl ValueValidator for PaginationField {
 ///
 /// See <https://docs.gitlab.com/api/users/#create-a-runner-linked-to-a-user> for more information on the GitLab API
 pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationResponse> {
+    #[derive(Deserialize)]
+    struct StrictRunnerCreationResponse {
+        #[serde(rename = "id")]
+        identifier: u64,
+        token: Option<String>,
+        token_expires_at: Option<String>,
+    }
     let template = "gitlab::api";
     let action = "runner::create";
     let runner_metadata = &options.runner_metadata;
@@ -967,7 +974,24 @@ pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationRespons
                 params.push(param!(Body, "tag_list", &tags.join(",")));
             }
             let response = endpoint.invoke(action, Some(params)).await;
-            endpoint.handle::<RunnerCreationResponse>(response)
+            match response {
+                | Ok(ResponseContent::Json(content)) => match serde_json::from_str::<StrictRunnerCreationResponse>(&content) {
+                    | Ok(parsed) => Ok(RunnerCreationResponse {
+                        identifier: parsed.identifier,
+                        token: parsed.token,
+                        token_expires_at: parsed.token_expires_at,
+                    }),
+                    | Err(_) => {
+                        let rendered = serde_json::from_str::<serde_json::Value>(&content)
+                            .ok()
+                            .and_then(|value| serde_json::to_string_pretty(&value).ok())
+                            .unwrap_or(content);
+                        Err(eyre!("{rendered}"))
+                    }
+                },
+                | Ok(other) => endpoint.handle::<RunnerCreationResponse>(Ok(other)),
+                | Err(why) => Err(why),
+            }
         }
         | Err(why) => Err(why),
     }

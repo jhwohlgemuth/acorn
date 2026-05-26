@@ -709,3 +709,113 @@ After implementing Arc optimizations:
 2. Run `cargo clippy` to catch any new warnings
 3. Consider benchmarking before/after if performance is critical
 
+# Rust Safety Boundary Issues (Bugs Rust Won't Catch)
+
+Analysis of the codebase against rules from [Bugs Rust Won't Catch](https://corrode.dev/blog/bugs-rust-wont-catch/) — patterns that the borrow checker and clippy do not enforce but are common sources of CVEs in Rust systems code.
+
+---
+
+### HIGH IMPACT / LOW DIFFICULTY
+
+#### 1. TOCTOU: `File::create` followed by write — potential symlink race
+
+`File::create` follows symlinks. Between `File::create` and `io::copy`, an attacker with write access to a parent directory can swap the target with a symlink to an arbitrary file.
+
+**Sites:**
+- `acorn-lib/src/io/mod.rs:269` — zip archive creation (`File::create(&zip_file_path)`)
+- `acorn-lib/src/io/mod.rs:455` — zip extraction (`File::create(&target)`)
+- `acorn-lib/src/io/mod.rs:1226` — `write_file_bytes`
+- `acorn-cli/src/commands/export/pdf.rs:36` — temp index.html for Playwright
+
+**Fix:** Replace `File::create` with `OpenOptions::new().write(true).create_new(true).open(path)` which atomically fails if a symlink exists at the target location.
+
+#### 2. Permissions set after creation — TOCTOU window
+
+- `acorn-lib/src/io/mod.rs:853` — `make_executable` calls `set_permissions(0o755)` after the file already exists with default permissions, leaving a window where any user can open the file with default perms.
+
+**Fix:** Use `OpenOptions::new().mode(0o755)` at creation time on Unix.
+
+#### 3. Discarded `Result` values — silent error swallowing
+
+- `acorn-cli/src/commands/export/powerpoint.rs:49,65,71,105` — `let _ = write_file(...)` silently discards write failures
+- `acorn-cli/src/commands/export/powerpoint.rs:182` — `let _ = copy_image(...)` silently discards copy failures
+- `acorn-cli/src/commands/download/mod.rs:81,95,131` — `let _ = database.insert(...)` silently discards insert failures
+- `acorn-lib/src/io/api/gitlab.rs:725` — `let _ = dotenvy::from_filename(".env")`
+- `acorn-lib/src/io/api/raid.rs:165` — `let _ = dotenvy::from_filename(".env")`
+- `acorn-cli/src/commands/export/mod.rs:158` — `let _ = powerpoint::create(...)` silently discarded
+
+**Fix:** Replace `let _ =` with `if let Err(e) = ...` and log or return the error. Add a `// safety:` comment if discarding is intentional.
+
+---
+
+### HIGH IMPACT / MEDIUM DIFFICULTY
+
+#### 4. `unwrap()` on path operations — panic on non-UTF-8 paths
+
+Same pattern as CVE-2026-35348 (uutils `sort --files0-from` panicked on non-UTF-8 filenames).
+
+- `acorn-lib/src/analyzer/vale.rs:192` — `path.to_str().unwrap()` panics on non-UTF-8 paths
+- `acorn-py/src/lib.rs:374` — `path.to_str().unwrap()`
+- `acorn-lib/src/analyzer/mod.rs:878` — `path.parent().unwrap()` panics on root paths
+- `acorn-cli/src/commands/export/powerpoint.rs:94` — `source.parent().unwrap().canonicalize().unwrap()`
+- `acorn-cli/src/commands/export/pdf.rs:35` — `path.parent().unwrap()`
+
+**Fix:** Use `?` to propagate, `unwrap_or_default()` for fallback, or `path.parent().ok_or_else(|| eyre!(...))`?` for paths that must have a parent.
+
+#### 5. Variable-index slice indexing — panic on out-of-bounds
+
+- `acorn-lib/src/analyzer/mod.rs:809` — `stdout[offset..]` on `Vec<u8>` panics if `offset > stdout.len()`
+- `acorn-lib/src/analyzer/check.rs:835` — `source_text[prefix_start..]` panics if `prefix_start > len()`
+- `acorn-lib/src/schema/hardware/memory.rs:150-151` — `s[..split]` and `s[split..]` panics on bad split
+- `acorn-lib/src/schema/pid/mod.rs:519,651` — `value[..value.len().saturating_sub(1)]` panics on empty
+
+**Fix:** Use `.get(..)` or `.get_mut(..)` which return `Option`, or add explicit bounds checks before indexing.
+
+---
+
+### MEDIUM IMPACT / LOW DIFFICULTY
+
+#### 6. `from_utf8_lossy` at Unix boundaries — silent data corruption
+
+- `acorn-lib/src/util/cmd.rs:55,57` — command stdout/stderr lossy-converted, corrupts non-UTF-8 output
+- `acorn-lib/src/prelude.rs:61,64` — `CommandOutput` traits use lossy conversion (widely consumed)
+- `acorn-lib/src/io/http/mod.rs:143` — HTTP response body lossy-converted
+- `acorn-cli/src/template/mod.rs:101` — embedded asset data lossy-converted
+- `acorn-lib/src/schema/prompt/mod.rs:207` — prompt response data lossy-converted
+
+**Fix:** Prefer returning `Vec<u8>` or `OsString` across boundaries, letting callers handle encoding. Avoid lossy UTF-8 round-trips for command output, paths, and env values.
+
+#### 7. `unwrap()` on `Option` — panics on unexpected None
+
+- `acorn-lib/src/analyzer/mod.rs:731` — `self.config.unwrap()` panics if no config set
+- `acorn-lib/src/analyzer/mod.rs:803` — `which(name).unwrap()` panics if binary not found
+- `acorn-lib/src/analyzer/mod.rs:807` — `cmd!(name, ["--version"]).unwrap()` panics on command failure
+- `acorn-lib/src/schema/mod.rs:585,681` — `iter().next().unwrap()` on potentially empty collections
+- `acorn-lib/src/lib.rs:252` — same pattern
+- `acorn-lib/src/util/mod.rs:858` — `.last().unwrap()` on potentially empty segments
+- `acorn-cli/src/commands/export/mod.rs:74,81` — `Option::unwrap()` on CLI options
+
+**Fix:** Use `ok_or_else(|| eyre!(...))`?`, `unwrap_or_default()`, or match with fallback logging.
+
+#### 8. `unwrap()` on I/O operations — crash on transient failures
+
+- `acorn-lib/src/io/mod.rs:853` — `set_permissions(path, 0o755).unwrap()` — dies on permission failure
+- `acorn-cli/src/main.rs:146` — `build_global().unwrap()` — panics if thread pool already initialized
+- `acorn-cli/src/io/mod.rs:56,58` — `stdout.write_all(...).unwrap()` and `stdout.flush().unwrap()` — panics on broken pipe
+- `acorn-lib/src/analyzer/mod.rs:696` — `File::open(path).unwrap()` on download path
+
+**Fix:** Propagate with `?` instead of `unwrap()`. stdout failures can use `let _ =` with a comment if acceptable.
+
+---
+
+### LOW IMPACT / LOW DIFFICULTY
+
+#### 9. Numeric `as` casts — potential truncation on 32-bit platforms
+
+- `acorn-lib/src/analyzer/readability/mod.rs` — 17 casts: `.count() as u32`, `.len() as u32`, `usize as f64`
+- `acorn-lib/src/analyzer/check.rs` — 8 casts: `line_number as usize`, `index as u32`
+- `acorn-lib/src/io/database/schema.rs` — 6 casts: `bool as i32`
+- `acorn-lib/src/util/mod.rs` — 6 casts: `n as usize`, `n as char`, `bytes as f64`
+- `acorn-lib/src/schema/hardware/memory.rs` — 2 casts: `value as f64`
+
+**Fix:** Use `TryFrom<usize>::try_from(n)`?` for truncation-sensitive conversions; `as f64` is generally safe but should use `f64::from(n)` where possible.

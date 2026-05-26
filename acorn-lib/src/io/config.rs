@@ -138,18 +138,18 @@ pub struct BucketOptions {
 #[serde(rename_all = "camelCase")]
 /// CI/CD runner configuration entry
 pub struct RunnerDetails {
+    /// Code repository project/group where runner will be used
+    #[builder(start_fn)]
+    #[serde(alias = "repository")]
+    pub code_repository: Repository,
     /// Runner name
     pub name: String,
     /// Runner type (e.g., group, instance, project)
-    #[builder(with = |method: &str| RunnerType::from(method))]
-    #[builder(default)]
+    #[builder(default, with = |method: &str| RunnerType::from(method))]
     #[serde(rename = "type")]
     pub runner_type: RunnerType,
     /// Optional description of runner
     pub description: Option<String>,
-    /// Code repository project/group where runner will be used
-    #[serde(alias = "repository")]
-    pub code_repository: Repository,
     /// Does the runner need GPU capabilities?
     #[builder(default)]
     #[serde(default, alias = "gpu")]
@@ -159,7 +159,7 @@ pub struct RunnerDetails {
     pub tags: Option<Vec<String>>,
     /// Whether the runner runs untagged jobs (GitLab-specific)
     #[builder(default)]
-    #[serde(default)]
+    #[serde(default, alias = "run_untagged")]
     pub run_untagged: bool,
 }
 impl ApplicationConfiguration {

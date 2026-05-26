@@ -8,7 +8,7 @@
 use crate::analyzer::check::{highlighted, highlighted_array, highlighted_from_params, nearest_space_boundary, truncate};
 use crate::analyzer::error::ErrorCode;
 use crate::analyzer::error::ErrorKind;
-use crate::analyzer::vale::{preprocess_vale_output, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
+use crate::analyzer::vale::{preprocess_vale_output, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
 use crate::analyzer::{checks_to_dataframe, collect_validation_checks, Analysis, Check, CheckCategory, CheckSeverity, StaticAnalyzerConfig};
 use crate::io::License;
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
@@ -278,7 +278,6 @@ fn test_preprocess_vale_output_unix() {
     let parsed: serde_json::Result<serde_json::Value> = serde_json::from_str(&result);
     assert!(parsed.is_ok(), "Preprocessed output should be valid JSON");
 }
-
 #[test]
 #[cfg(windows)]
 fn test_preprocess_vale_output_windows() {
@@ -313,7 +312,6 @@ fn test_preprocess_vale_output_windows() {
     let parsed: serde_json::Result<serde_json::Value> = serde_json::from_str(&result);
     assert!(parsed.is_ok(), "Preprocessed output should be valid JSON");
 }
-
 #[test]
 #[cfg(windows)]
 fn test_preprocess_vale_output_windows_full_example() {
@@ -583,8 +581,137 @@ fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_displa
     );
 }
 #[test]
+fn test_nearest_space_boundary_returns_first_boundary_at_or_after_index() {
+    let value = "Alpha Bravo Charlie";
+    let result = nearest_space_boundary(value, 8);
+    assert_eq!(result, Some(12));
+}
+
+#[test]
+fn test_nearest_space_boundary_returns_none_without_boundary_at_or_after_index() {
+    let value = "Alpha Bravo Charlie";
+    let result = nearest_space_boundary(value, 12);
+    assert_eq!(result, None);
+}
+#[test]
+fn test_process_returns_field_issue_tuple() {
+    use crate::analyzer::error::{ErrorCode, ErrorKind};
+    let value = FieldModel { name: "x".to_string() };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert!(matches!(issue.code, ErrorCode::Length));
+    assert_eq!(issue.path.as_deref(), Some("name"));
+    assert_eq!(issue.message, "length");
+    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("x")));
+    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
+    assert_eq!(issue.params.get("max").and_then(|v| v.as_i64()), Some(3));
+}
+#[test]
+fn test_process_returns_nested_struct_path() {
+    use crate::analyzer::error::{ErrorCode, ErrorKind};
+    let value = ParentModel {
+        child: ChildModel {
+            email: "not-an-email".to_string(),
+        },
+    };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert!(matches!(issue.code, ErrorCode::Email));
+    assert_eq!(issue.path.as_deref(), Some("child.email"));
+    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
+}
+#[test]
+fn test_process_returns_nested_list_index_path() {
+    use crate::analyzer::error::{ErrorCode, ErrorKind};
+    let value = ParentListModel {
+        children: vec![
+            ChildModel {
+                email: "valid@example.com".to_string(),
+            },
+            ChildModel {
+                email: "invalid".to_string(),
+            },
+        ],
+    };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert!(matches!(issue.code, ErrorCode::Email));
+    assert_eq!(issue.path.as_deref(), Some("children[1].email"));
+    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("invalid")));
+}
+#[test]
+fn test_process_returns_none_path_for_root_field_errors() {
+    use crate::analyzer::error::process;
+    use crate::analyzer::error::ErrorCode;
+    let value = FieldModel { name: "x".to_string() };
+    let errors = value.validate().expect_err("expected validation failure");
+    let field_errors = errors
+        .into_errors()
+        .remove("name")
+        .and_then(|kind| match kind {
+            | ValidationErrorsKind::Field(errors) => Some(errors),
+            | _ => None,
+        })
+        .expect("expected field-level validation errors for name");
+    let kind = ValidationErrorsKind::Field(field_errors);
+    let issues = process("", &kind);
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert!(matches!(issue.code, ErrorCode::Length));
+    assert_eq!(issue.path.as_deref(), None);
+    assert_eq!(issue.message, "length");
+    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("x")));
+    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
+}
+#[test]
+fn test_process_serializes_array_param_values() {
+    use crate::analyzer::error::{ErrorCode, ErrorKind};
+    let value = ArrayParamModel {
+        tags: vec!["one".to_string(), "two".to_string()],
+    };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert!(matches!(issue.code, ErrorCode::Length));
+    assert_eq!(issue.path.as_deref(), Some("tags"));
+    assert_eq!(issue.message, "length");
+    assert_eq!(
+        issue.params.get("value").and_then(|v| v.as_array()).map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str())
+                .map(|item| item.to_string())
+                .collect::<Vec<String>>()
+        }),
+        Some(vec!["one".to_string(), "two".to_string()])
+    );
+    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
+}
+#[test]
+fn test_process_preserves_non_wrapper_repeated_segment_paths() {
+    use crate::analyzer::error::ErrorKind;
+    let value = RepeatedNameParentModel {
+        child: RepeatedNameModel {
+            child: RepeatedChildModel {
+                email: "invalid".to_string(),
+            },
+        },
+    };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = &issues[0];
+    assert_eq!(issue.path.as_deref(), Some("child.child.email"));
+}
+#[test]
 fn test_resolve_vale_package_source() {
-    use crate::analyzer::vale::ValeConfig;
     let value = ValeConfig::resolve_package("Google");
     assert_eq!(value, "https://github.com/errata-ai/Google/releases/latest/download/Google.zip");
     let value = ValeConfig::resolve_package("https://example.org/custom-style.zip");
@@ -602,6 +729,30 @@ fn test_resolve_vale_package_source() {
             "https://example.org/custom-style.zip".to_string(),
         ]
     );
+}
+#[test]
+fn test_source_text_formats_array_values_as_markdown_list() {
+    use crate::analyzer::error::{ErrorCode, Location, ValidatorIssue};
+    let mut params: HashMap<String, Value> = HashMap::new();
+    params.insert("value".to_string(), serde_json::json!(["alpha", "beta"]));
+    let issue = ValidatorIssue::init()
+        .code(ErrorCode::Section)
+        .maybe_path(Some("sections.impact".to_string()))
+        .message("section")
+        .params(params)
+        .build();
+    let source = issue.source_text();
+    assert!(source.contains("- \"alpha\""));
+    assert!(source.contains("- \"beta\""));
+}
+#[test]
+fn test_truncate_keeps_prefix_at_or_below_maximum() {
+    let source_text = "Alpha Bravo Charlie Delta Echo";
+    let span = 20..=24;
+    let (result_source, result_span) = truncate(span, source_text, 5);
+    let retained_prefix_length = result_span.start().saturating_sub(3);
+    assert_eq!(result_source.text(), "...Delta Echo");
+    assert!(retained_prefix_length <= 5);
 }
 #[test]
 fn test_truncate_source_before_span_no_truncation() {
@@ -631,160 +782,14 @@ fn test_truncate_source_before_span_uses_nearest_space() {
     assert_eq!(result_text, "...Delta Echo");
     assert_eq!(result_span, 3..=7);
 }
-
 #[test]
-fn test_nearest_space_boundary_returns_first_boundary_at_or_after_index() {
-    let value = "Alpha Bravo Charlie";
-    let result = nearest_space_boundary(value, 8);
-    assert_eq!(result, Some(12));
-}
-
-#[test]
-fn test_nearest_space_boundary_returns_none_without_boundary_at_or_after_index() {
-    let value = "Alpha Bravo Charlie";
-    let result = nearest_space_boundary(value, 12);
-    assert_eq!(result, None);
-}
-#[test]
-fn process_returns_field_issue_tuple() {
-    use crate::analyzer::error::{ErrorCode, ErrorKind};
-    let value = FieldModel { name: "x".to_string() };
-    let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
-    assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
-    assert!(matches!(issue.code, ErrorCode::Length));
-    assert_eq!(issue.path.as_deref(), Some("name"));
-    assert_eq!(issue.message, "length");
-    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("x")));
-    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
-    assert_eq!(issue.params.get("max").and_then(|v| v.as_i64()), Some(3));
-}
-#[test]
-fn process_returns_nested_struct_path() {
-    use crate::analyzer::error::{ErrorCode, ErrorKind};
-    let value = ParentModel {
-        child: ChildModel {
-            email: "not-an-email".to_string(),
-        },
-    };
-    let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
-    assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
-    assert!(matches!(issue.code, ErrorCode::Email));
-    assert_eq!(issue.path.as_deref(), Some("child.email"));
-    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
-}
-#[test]
-fn process_returns_nested_list_index_path() {
-    use crate::analyzer::error::{ErrorCode, ErrorKind};
-    let value = ParentListModel {
-        children: vec![
-            ChildModel {
-                email: "valid@example.com".to_string(),
-            },
-            ChildModel {
-                email: "invalid".to_string(),
-            },
-        ],
-    };
-    let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
-    assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
-    assert!(matches!(issue.code, ErrorCode::Email));
-    assert_eq!(issue.path.as_deref(), Some("children[1].email"));
-    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("invalid")));
-}
-#[test]
-fn process_returns_none_path_for_root_field_errors() {
-    use crate::analyzer::error::process;
-    use crate::analyzer::error::ErrorCode;
-    let value = FieldModel { name: "x".to_string() };
-    let errors = value.validate().expect_err("expected validation failure");
-    let field_errors = errors
-        .into_errors()
-        .remove("name")
-        .and_then(|kind| match kind {
-            | ValidationErrorsKind::Field(errors) => Some(errors),
-            | _ => None,
-        })
-        .expect("expected field-level validation errors for name");
-    let kind = ValidationErrorsKind::Field(field_errors);
-    let issues = process("", &kind);
-    assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
-    assert!(matches!(issue.code, ErrorCode::Length));
-    assert_eq!(issue.path.as_deref(), None);
-    assert_eq!(issue.message, "length");
-    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("x")));
-    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
-}
-#[test]
-fn process_serializes_array_param_values() {
-    use crate::analyzer::error::{ErrorCode, ErrorKind};
-    let value = ArrayParamModel {
-        tags: vec!["one".to_string(), "two".to_string()],
-    };
-    let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
-    assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
-    assert!(matches!(issue.code, ErrorCode::Length));
-    assert_eq!(issue.path.as_deref(), Some("tags"));
-    assert_eq!(issue.message, "length");
-    assert_eq!(
-        issue.params.get("value").and_then(|v| v.as_array()).map(|items| {
-            items
-                .iter()
-                .filter_map(|item| item.as_str())
-                .map(|item| item.to_string())
-                .collect::<Vec<String>>()
-        }),
-        Some(vec!["one".to_string(), "two".to_string()])
-    );
-    assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
-}
-#[test]
-fn source_text_formats_array_values_as_markdown_list() {
-    use crate::analyzer::error::{ErrorCode, Location, ValidatorIssue};
-    let mut params: HashMap<String, Value> = HashMap::new();
-    params.insert("value".to_string(), serde_json::json!(["alpha", "beta"]));
-    let issue = ValidatorIssue::init()
-        .code(ErrorCode::Section)
-        .maybe_path(Some("sections.impact".to_string()))
-        .message("section")
-        .params(params)
-        .build();
-    let source = issue.source_text();
-    assert!(source.contains("- \"alpha\""));
-    assert!(source.contains("- \"beta\""));
-}
-#[test]
-fn process_preserves_non_wrapper_repeated_segment_paths() {
-    use crate::analyzer::error::ErrorKind;
-    let value = RepeatedNameParentModel {
-        child: RepeatedNameModel {
-            child: RepeatedChildModel {
-                email: "invalid".to_string(),
-            },
-        },
-    };
-    let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
-    assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
-    assert_eq!(issue.path.as_deref(), Some("child.child.email"));
-}
-#[test]
-fn test_truncate_keeps_prefix_at_or_below_maximum() {
-    let source_text = "Alpha Bravo Charlie Delta Echo";
-    let span = 20..=24;
-    let (result_source, result_span) = truncate(span, source_text, 5);
-    let retained_prefix_length = result_span.start().saturating_sub(3);
-    assert_eq!(result_source.text(), "...Delta Echo");
-    assert!(retained_prefix_length <= 5);
+fn test_vale_config_unwrap_or_default_uses_default_values() {
+    let value: Option<ValeConfig> = Vec::<ValeConfig>::new().into_iter().next();
+    let config = value.unwrap_or_default();
+    assert_eq!(config.path, PathBuf::from("./.vale/.vale.ini"));
+    assert!(!config.packages.is_empty());
+    assert!(!config.vocabularies.is_empty());
+    assert!(!config.disabled.is_empty());
 }
 #[test]
 fn test_vale_output_item_location_matches_prose_display_format() {

@@ -251,7 +251,7 @@ async fn main() -> Void {
             .await
         }
         | Some(Commands::Create { command, .. }) => match command {
-            | Some(CreateCommands::Mcp {}) => unimplemented!("MCP server creation is not yet implemented"),
+            | Some(CreateCommands::Mcp) => unimplemented!("MCP server creation is not yet implemented"),
             | Some(CreateCommands::Runner {
                 config,
                 description,
@@ -339,8 +339,8 @@ async fn main() -> Void {
             ..
         }) => commands::link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await,
         | Some(Commands::Schema { command, .. }) => match command {
-            | Some(SchemaCommands::Rad {}) | None => print_rad_schema(),
-            | Some(SchemaCommands::Raid {}) => print_raid_schema(),
+            | Some(SchemaCommands::Rad) | None => print_rad_schema(),
+            | Some(SchemaCommands::Raid) => print_raid_schema(),
         },
         | None => {
             let name = "JASON";
