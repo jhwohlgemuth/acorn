@@ -819,3 +819,84 @@ Same pattern as CVE-2026-35348 (uutils `sort --files0-from` panicked on non-UTF-
 - `acorn-lib/src/schema/hardware/memory.rs` — 2 casts: `value as f64`
 
 **Fix:** Use `TryFrom<usize>::try_from(n)`?` for truncation-sensitive conversions; `as f64` is generally safe but should use `f64::from(n)` where possible.
+
+---
+
+# Numeric `as` Cast Refactoring (Phases 2–4)
+
+**Constraints (from AGENTS.md + coding guidelines):**
+- No `?` operator, no `.unwrap()`, no `.expect()`
+- No `return` except as final expression
+- Prefer functional style (combinators, `unwrap_or(fallback)`)
+- `From::from()` only where std provides the impl
+
+## Completed
+
+### ✅ Phase 1 — `From::from()` (lossless, infallible, mechanical)
+
+| File | Change | Rationale |
+|------|--------|-----------|
+| `acorn-lib/src/io/database/schema.rs:675,853` | `bool as i32` → `i32::from(bool)` | `From<bool> for i32` |
+| `acorn-lib/src/io/database/schema.rs:739` | `is_deprecated/.../is_open_source as i32` (×3) → `i32::from(...)` | Same |
+| `acorn-lib/src/io/database/schema.rs:769` | `is_reachable as i32` → `i32::from(is_reachable)` | Same |
+| `acorn-macros/src/lib.rs:68` | macro codegen `value as i32` → `i32::from(value)` | Same |
+| `acorn-lib/src/io/database/tests/mod.rs:106` | test `value as i32` → `i32::from` | Same |
+| `acorn-lib/src/util/mod.rs:758` | `*byte as char` → `char::from(*byte)` | `From<u8> for char` |
+
+**Note:** These are widening casts where `From` is unavailable in std. No clippy lint fires for them. Kept as-is:
+
+| File | Cast | Reason From unavailable |
+|------|------|------------------------|
+| `acorn-lib/src/analyzer/check.rs:740,745,748` (×4) | `u32 as usize` | `From<u32>` for `usize` not implemented |
+| `acorn-lib/src/io/mod.rs:1101` | `count as u64` | `From<usize>` for `u64` not implemented (arch-dependent) |
+| `acorn-cli/src/commands/export/mod.rs:203` | `items.len() as u64` | Same |
+| `acorn-lib/src/util/mod.rs:756,781` | `.len() as u128` | `From<usize>` for `u128` not implemented; also in `const` context |
+| `acorn-lib/src/util/mod.rs:815` | `index as u128` | Same |
+
+---
+
+## Remaining
+
+### Phase 2 — `TryFrom` + `unwrap_or(fallback)` (narrowing, safe saturating fallback)
+
+For non-`Result` functions where truncation **could** theoretically occur but a saturating fallback is safe.
+
+| # | File:Line | Current | Replacement | Fallback rationale |
+|---|----------|---------|------------|--------------------|
+| 10 | `readability/mod.rs:145,153,159,221,231` (×5) | `.count() as u32`, `.len() as u32` | `u32::try_from(count).unwrap_or(u32::MAX)` | Word/letter/sentence counts never exceed 4B in real text |
+| 11 | `readability/mod.rs:406-418` (×10) | `.count() as isize` | `i64::try_from(count).unwrap_or(0)` | Regex match counts are tiny (single word) |
+| 12 | `readability/mod.rs:419` (×1) | `count.max(1) as usize` | `usize::try_from(count.max(1)).unwrap_or(1)` | Always ≥ 1, positive; safe fallback |
+| 13 | `check.rs:759` | `index as usize` (u64→usize) | `usize::try_from(index).unwrap_or(0)` | Index 0 is safe for `.get()` |
+| 14 | `check.rs:780` | `max as usize` (u64→usize) | `usize::try_from(max).unwrap_or(usize::MAX)` | Saturated max length |
+| 15 | `check.rs:761` | `u64 as u32` | `u32::try_from(v).unwrap_or(u32::MAX)` | Saturated line number |
+| 16 | `util/mod.rs:758` | `(n % MODULUS) as usize` (u128→usize) | `usize::try_from(n % MODULUS).unwrap_or(0)` | Result < 32, always fits; `0` is unreachable but harmless |
+| 17 | `database/mod.rs:239` | `DEFAULT_CACHE_TTL_SECONDS as i64` (u64→i64) | `i64::try_from(v).unwrap_or(3600)` | Const = 3600, always fits |
+| 18 | `database/mod.rs:306` | `limit as i64` (usize→i64) | `i64::try_from(limit).unwrap_or(i64::MAX)` | Saturate DB limit at MAX |
+| 19 | `util/mod.rs:904` | `size as u64` (f64→u64) | `u64::try_from(size).unwrap_or(u64::MAX)` | **HIGHEST PRIORITY** — catches NaN/inf/negative |
+
+### Phase 3 — `#[allow(clippy::cast_*)]` with rationale (infallible by invariant)
+
+For cases where the value is **guaranteed** to fit but Rust's type system can't prove it. Per AGENTS.md Strategy 6.
+
+| # | File:Line | Cast | Allow lint | Rationale |
+|---|----------|------|-----------|-----------|
+| 20 | `pid/mod.rs:1275` | `remainder as u8` | `cast_possible_truncation` | `remainder = sum % 29`, always < 29 fits in u8 |
+| 21 | `util/mod.rs:814` | `normalized as u8` (char→u8) | `cast_possible_truncation` | `normalized` is ASCII (0-9, A-Z) after `.to_ascii_uppercase()` + manual substitution |
+| 22 | `util/mod.rs:894,902` | `bytes as f64` (u64→f64) | `cast_precision_loss` | Display formatting; precision loss >2^53 acceptable |
+| 23 | `memory.rs:42,45` | `value as f64` (u64/i64→f64) | `cast_precision_loss` | Memory values are small (< exabytes), always exact in f64 |
+| 24 | `readability/mod.rs:276,291` | `syllables as f64` (usize→f64) | `cast_precision_loss` | No `From` impl; counts never exceed 2^53 syllables |
+| 25 | `readability/mod.rs:246-336` (×7) | `u32 as f64` | **Replace with `f64::from(val)`** — `From<u32> for f64` exists | No allow needed |
+
+### Phase 4 — Enable clippy lints to prevent regressions
+
+Add to `[workspace.lints.clippy]` in root `Cargo.toml`:
+
+```toml
+cast_possible_truncation = "deny"    # Prevents new narrowing as-casts
+cast_sign_loss = "deny"               # Prevents sign-ignoring as-casts
+cast_precision_loss = "deny"          # Prevents new precision-losing casts
+cast_possible_wrap = "deny"           # Prevents wrapping as-casts
+checked_conversions = "deny"          # Suggests TryFrom where possible
+```
+
+After Phases 1–3, these will pass cleanly (every existing cast will be either removed, replaced with `From`, wrapped in `TryFrom + unwrap_or`, or annotated with `#[allow]`). Any new `as` cast will fail CI.
