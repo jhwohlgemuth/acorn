@@ -672,7 +672,7 @@ impl Row for ActivityRow {
             ..
         } = self.clone();
         let executed_at = executed_at.unwrap_or_else(Utc::now).to_rfc3339();
-        let success = success.unwrap_or(true) as i32;
+        let success = i32::from(success.unwrap_or(true));
         let required = required1(command);
         match required {
             | Ok((command,)) => match self.next_row_id(conn) {
@@ -736,7 +736,14 @@ impl Row for LicenseRow {
         match required {
             | Ok((identifier, name, is_deprecated, is_free_software, is_open_source)) => match self.next_row_id(conn) {
                 | Ok(id) => {
-                    let params = backend::params![id, identifier, name, is_deprecated as i32, is_free_software as i32, is_open_source as i32];
+                    let params = backend::params![
+                        id,
+                        identifier,
+                        name,
+                        i32::from(is_deprecated),
+                        i32::from(is_free_software),
+                        i32::from(is_open_source)
+                    ];
                     execute_insert(&self, conn, params)
                 }
                 | Err(why) => Err(why),
@@ -766,7 +773,7 @@ impl Row for LinkCacheRow {
         match required {
             | Ok((url, status_code, is_reachable, expires_at)) => match self.next_row_id(conn) {
                 | Ok(id) => {
-                    let params = backend::params![id, url, status_code, is_reachable as i32, checked_at, expires_at.to_rfc3339()];
+                    let params = backend::params![id, url, status_code, i32::from(is_reachable), checked_at, expires_at.to_rfc3339()];
                     execute_insert(&self, conn, params)
                 }
                 | Err(why) => Err(why),
@@ -850,7 +857,7 @@ impl Row for ValidationRow {
             checked_at,
             ..
         } = self.clone();
-        let success = success.unwrap_or(true) as i32;
+        let success = i32::from(success.unwrap_or(true));
         let checked_at = checked_at.unwrap_or_else(Utc::now).to_rfc3339();
         let required = required3(path, check_type, message);
         match required {

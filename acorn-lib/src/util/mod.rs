@@ -755,7 +755,7 @@ pub fn base32_crockford_encode(value: u128) -> String {
     } else {
         const MODULUS: u128 = CROCKFORD_BASE32_ALPHABET.len() as u128;
         successors(Some(value), |&n| (n >= MODULUS).then_some(n / MODULUS))
-            .map(|n| *CROCKFORD_BASE32_ALPHABET.get((n % MODULUS) as usize).unwrap_or(&0) as char)
+            .map(|n| char::from(*CROCKFORD_BASE32_ALPHABET.get((n % MODULUS) as usize).unwrap_or(&0)))
             .collect::<Vec<_>>()
             .into_iter()
             .rev()

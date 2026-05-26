@@ -65,7 +65,7 @@ fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
         .map(|field| {
             let ident = field.ident.as_ref().unwrap();
             if is_option_bool(&field.ty) {
-                quote! { #ident => |value| value as i32, }
+                quote! { #ident => |value| i32::from(value), }
             } else if is_option_datetime(&field.ty) {
                 quote! { #ident => |value| value.to_rfc3339(), }
             } else {
@@ -266,7 +266,7 @@ mod tests {
         assert!(tokens.contains("pub const FIELDS"));
         assert!(tokens.contains("\"id\"") && tokens.contains("\"command\"") && tokens.contains("\"executed_at\"") && tokens.contains("\"success\""));
         assert!(tokens.contains("executed_at => | value | value . to_rfc3339 ()"));
-        assert!(tokens.contains("success => | value | value as i32"));
+        assert!(tokens.contains("success => | value | i32 :: from (value)"));
     }
     #[test]
     fn test_expand_database_row_uses_explicit_table_name_string() {

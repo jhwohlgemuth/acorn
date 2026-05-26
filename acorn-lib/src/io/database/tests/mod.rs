@@ -103,7 +103,7 @@ fn test_build_query_with_field_mapping() {
     let order_by: Option<&str> = None;
     let (query, params) = build_query!(&row, base, order_by, [
         id,
-        success => |value| value as i32,
+        success => i32::from,
     ]);
     assert_eq!(query, "SELECT * FROM activity WHERE id = ? AND success = ?");
     assert_eq!(params.len(), 2);
