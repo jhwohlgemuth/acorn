@@ -189,7 +189,8 @@ impl Location for ValeOutputItem {
 /// Preprocess Vale output
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 pub(crate) fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
-    output.replace(path.to_str().unwrap(), "items")
+    let input = path.display().to_string();
+    output.replace(&input, "items")
 }
 /// Preprocess Vale output
 #[cfg(windows)]

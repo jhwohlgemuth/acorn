@@ -70,7 +70,7 @@ fn test_cff_validation_issues_invalid_doi() {
         doi: Some("not-a-doi".to_string()),
         ..Cff::default()
     };
-    let issues = collect_validation_checks(cff);
+    let issues = collect_validation_checks(&cff);
     assert!(!issues.is_empty());
     assert_eq!(issues[0].category, CheckCategory::Schema);
 }
@@ -550,7 +550,7 @@ fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
             },
         ],
     };
-    let checks = collect_validation_checks(value);
+    let checks = collect_validation_checks(&value);
     assert_eq!(checks.len(), 1);
     let rendered = format!("{}", checks[0]);
     assert!(
@@ -567,7 +567,7 @@ fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_displa
         license: Some(License::Single("not-a-license".to_string())),
         ..Cff::default()
     };
-    let checks = collect_validation_checks(cff);
+    let checks = collect_validation_checks(&cff);
     let schema_check = checks
         .iter()
         .find(|check| check.category == CheckCategory::Schema)

@@ -14,10 +14,12 @@ pub enum MemoryUnit {
     KB,
     /// Megabytes
     MB,
+    /// Terabytes
+    TB,
 }
 /// Memory amount with explicit unit
 ///
-/// Supports string formats like `"80GB"`, `"2.5GB"`, `"512MB"`, `"64KB"` and plain number (defaults to GB).
+/// Supports string formats like `"80GB"`, `"64KB"`, `"512MB"`, `"1TB"` and plain number (defaults to GB).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Memory {
     /// Numeric amount of memory
@@ -60,7 +62,7 @@ impl JsonSchema for Memory {
     }
     fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         #[allow(clippy::unwrap_used)]
-        serde_json::json!({"type": "string", "pattern": "^\\d+(\\.\\d+)?\\s*(GB|MB|KB)$"})
+        serde_json::json!({"type": "string", "pattern": "^\\d+(\\.\\d+)?\\s*(GB|KB|MB|TB)$"})
             .try_into()
             .unwrap()
     }
@@ -96,6 +98,13 @@ impl Memory {
             unit: MemoryUnit::MB,
         }
     }
+    /// Create a Memory value in TB
+    pub fn tb(amount: impl Into<f64>) -> Self {
+        Memory {
+            amount: amount.into(),
+            unit: MemoryUnit::TB,
+        }
+    }
 }
 impl<'de> Deserialize<'de> for MemoryUnit {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -107,13 +116,14 @@ impl<'de> Deserialize<'de> for MemoryUnit {
             type Value = MemoryUnit;
 
             fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.write_str("a memory unit string (e.g. 'GB', 'MB', 'KB')")
+                f.write_str("a memory unit string (e.g. 'GB', 'KB', 'MB', 'TB')")
             }
             fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<MemoryUnit, E> {
                 match value.trim().to_uppercase().as_str() {
                     | "GB" | "G" | "GIB" => Ok(MemoryUnit::GB),
-                    | "MB" | "M" | "MIB" => Ok(MemoryUnit::MB),
                     | "KB" | "K" | "KIB" => Ok(MemoryUnit::KB),
+                    | "MB" | "M" | "MIB" => Ok(MemoryUnit::MB),
+                    | "TB" | "T" | "TIB" => Ok(MemoryUnit::TB),
                     | other => Err(serde::de::Error::custom(format!("Invalid memory unit: '{other}'"))),
                 }
             }
@@ -127,7 +137,9 @@ impl JsonSchema for MemoryUnit {
     }
     fn json_schema(_gen: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
         #[allow(clippy::unwrap_used)]
-        serde_json::json!({"type": "string", "enum": ["GB", "MB", "KB"]}).try_into().unwrap()
+        serde_json::json!({"type": "string", "enum": ["GB", "KB", "MB", "TB"]})
+            .try_into()
+            .unwrap()
     }
     fn inline_schema() -> bool {
         true

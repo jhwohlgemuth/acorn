@@ -9,7 +9,7 @@ use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::io::http::get;
 use crate::io::InputOutput;
 use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder, ApiResult};
-use crate::prelude::{self, create_dir_all, remove_file, write, Command, CommandOutput, File, HashMap, Path, PathBuf, Stdio};
+use crate::prelude::{self, create_dir_all, remove_file, write, Arc, Command, CommandOutput, File, HashMap, Path, PathBuf, Stdio};
 use crate::schema::pid::raid;
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
 use crate::schema::research_activity::ResearchActivity;
@@ -125,7 +125,8 @@ impl Analysis for Cff {
             .flat_map(|path| match Self::read(path) {
                 | Ok(data) => {
                     let uri = path.file_name_with_parent();
-                    collect_validation_checks(data.clone())
+                    let data = Arc::new(data);
+                    collect_validation_checks(data.as_ref())
                         .into_iter()
                         .map(|issue| issue.with_uri(uri.clone()))
                         .collect::<Vec<_>>()
@@ -296,7 +297,8 @@ impl Analysis for ResearchActivity {
             .flat_map(|path| match Self::read(path) {
                 | Ok(data) => {
                     let uri = path.file_name_with_parent();
-                    collect_validation_checks(data.clone())
+                    let data = Arc::new(data);
+                    collect_validation_checks(data.as_ref())
                         .into_iter()
                         .map(|issue| issue.with_uri(uri.clone()))
                         .collect::<Vec<_>>()
@@ -315,7 +317,8 @@ impl Analysis for ResearchActivity {
             async move {
                 match Self::read(&path) {
                     | Ok(data) => {
-                        let dois = match data.clone().meta.doi {
+                        let data = Arc::new(data);
+                        let dois = match data.meta.doi.clone() {
                             | Some(values) => values
                                 .into_iter()
                                 .enumerate()
@@ -323,7 +326,7 @@ impl Analysis for ResearchActivity {
                                 .collect::<Vec<_>>(),
                             | None => vec![],
                         };
-                        let websites = match data.clone().meta.websites {
+                        let websites = match data.meta.websites.clone() {
                             | Some(values) => values
                                 .into_iter()
                                 .enumerate()
@@ -331,7 +334,7 @@ impl Analysis for ResearchActivity {
                                 .collect::<Vec<_>>(),
                             | None => vec![],
                         };
-                        let contact = [link_check(Some(data.clone().contact.url), Some("contact.url".into()))];
+                        let contact = [link_check(Some(data.contact.url.clone()), Some("contact.url".into()))];
                         let links: Vec<_> = [].into_iter().chain(dois).chain(websites).chain(contact).collect();
                         join_all(links)
                             .await
@@ -420,7 +423,7 @@ impl Analysis for raid::Metadata {
             .flat_map(|path| match Self::read(path.to_path_buf()) {
                 | Ok(data) => {
                     let uri = path.file_name_with_parent();
-                    collect_validation_checks(data)
+                    collect_validation_checks(&data)
                         .into_iter()
                         .map(|issue| issue.with_uri(uri.clone()))
                         .collect::<Vec<_>>()
@@ -888,7 +891,7 @@ impl StaticAnalyzerConfig for ValeConfig {
         self
     }
 }
-pub(crate) fn collect_validation_checks<T>(value: T) -> Vec<Check>
+pub(crate) fn collect_validation_checks<T>(value: &T) -> Vec<Check>
 where
     T: Validate,
 {

@@ -29,12 +29,12 @@ meta:
         architecture: Hopper
         computeCapability: 9.0
         count: 8
-        memory: 640GB
+        memory: 1TB
     - CPU:
         architecture: AArch64
         cores: 128
         threads: 256
-        memory: 1TB
+        memory: 640GB
     - DSP:
         architecture: C66x
         count: 4

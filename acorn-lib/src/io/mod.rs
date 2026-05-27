@@ -850,8 +850,14 @@ pub fn make_executable<P>(path: P) -> bool
 where
     P: Into<PathBuf> + Clone,
 {
-    set_permissions(path.clone().into(), Permissions::from_mode(0o755)).unwrap();
-    path.into().is_executable()
+    let path = path.into();
+    match set_permissions(path.as_path(), Permissions::from_mode(0o755)) {
+        | Ok(()) => path.is_executable(),
+        | Err(why) => {
+            debug!(path = path.to_absolute_string(), "=> {} Set permissions — {why}", Label::fail());
+            false
+        }
+    }
 }
 /// Makes the given file executable.
 ///

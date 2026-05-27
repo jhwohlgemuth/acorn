@@ -259,6 +259,8 @@ fn test_sensor_modality_bridge_to_data_modality() {
 fn test_memory_deserialize() {
     let mem: Memory = serde_json::from_str("\"200GB\"").unwrap();
     assert_eq!(mem, Memory::gb(200));
+    let mem: Memory = serde_json::from_str("\"2TB\"").unwrap();
+    assert_eq!(mem, Memory::tb(2));
     let mem: Memory = serde_json::from_str("\"100KB\"").unwrap();
     assert_eq!(mem, Memory::kb(100));
     let mem: Memory = serde_json::from_str("\"512MB\"").unwrap();
@@ -282,6 +284,9 @@ fn test_memory_deserialize_float() {
     let mem: Memory = serde_json::from_str("\"2.5GB\"").unwrap();
     assert!((mem.amount - 2.5).abs() < f64::EPSILON);
     assert_eq!(mem.unit, MemoryUnit::GB);
+    let mem: Memory = serde_json::from_str("\"1.5TB\"").unwrap();
+    assert!((mem.amount - 1.5).abs() < f64::EPSILON);
+    assert_eq!(mem.unit, MemoryUnit::TB);
     let mem: Memory = serde_json::from_str("\"1.2MB\"").unwrap();
     assert!((mem.amount - 1.2).abs() < f64::EPSILON);
     assert_eq!(mem.unit, MemoryUnit::MB);
@@ -297,6 +302,13 @@ fn test_memory_deserialize_float() {
     let parsed: Memory = serde_json::from_str(&json).unwrap();
     assert!((parsed.amount - 2.5).abs() < f64::EPSILON);
     assert_eq!(parsed.unit, MemoryUnit::GB);
+
+    let mem = Memory::tb(3.75);
+    let json = serde_json::to_string(&mem).unwrap();
+    assert_eq!(json, "\"3.75TB\"");
+    let parsed: Memory = serde_json::from_str(&json).unwrap();
+    assert!((parsed.amount - 3.75).abs() < f64::EPSILON);
+    assert_eq!(parsed.unit, MemoryUnit::TB);
 }
 #[test]
 fn test_memory_in_resource_with_string() {
