@@ -267,7 +267,7 @@ pub fn coleman_liau_index(text: &str) -> f64 {
 ///
 /// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
 ///
-/// [^cite]: Flesch, R. (1948). A new readability yardstick. Journal of Applied Psychology, 32(3), 221–233. <https://doi.org/10.1037/h0057532>
+/// [^cite]: Flesch, R. (1948). A new readability yardstick. Journal of Applied Psychology, 32(3), 221-233. <https://doi.org/10.1037/h0057532>
 pub fn flesch_kincaid_grade_level(text: &str) -> f64 {
     let words = word_count(text);
     let sentences = sentence_count(text);
