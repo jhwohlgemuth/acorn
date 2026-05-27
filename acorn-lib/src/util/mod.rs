@@ -901,7 +901,7 @@ pub fn format_bytes(bytes: u64) -> String {
     .last()
     .unwrap_or((bytes as f64, 0));
     if index == 0 {
-        format!("{} {}", size as u64, units.get(index).unwrap_or(&""))
+        format!("{} {}", bytes, units.get(index).unwrap_or(&""))
     } else {
         format!("{:.2} {}", size, units.get(index).unwrap_or(&""))
     }

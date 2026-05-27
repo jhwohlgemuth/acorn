@@ -416,7 +416,7 @@ pub fn syllable_count(text: &str) -> usize {
                     count += DOUBLE_SYLLABIC_THREE.find_iter(&input).count() as isize;
                     count += DOUBLE_SYLLABIC_FOUR.find_iter(&input).count() as isize;
                     count += VOWEL.split(&input).filter_map(Result::ok).filter(|x| !x.is_empty()).count() as isize;
-                    count.max(1) as usize
+                    count.max(1).cast_unsigned()
                 }
             }
         }
