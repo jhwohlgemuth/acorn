@@ -367,46 +367,45 @@ impl PyPatent {
 impl PyResearchActivity {
     #[staticmethod]
     fn read(path: PathBuf) -> PyResult<PyResearchActivity> {
-        let data = match ResearchActivity::read(path.clone()) {
-            | Ok(value) => value,
-            | Err(why) => {
-                return Err(PyValueError::new_err(format!(
-                    "Failed to read research activity data from {} — {why}",
-                    path.to_absolute_string(),
-                )))
+        match ResearchActivity::read(path.clone()) {
+            | Ok(data) => {
+                let metadata = PyMetadata {
+                    identifier: data.meta.identifier.clone(),
+                };
+                let ResearchActivity { title, subtitle, .. } = data;
+                let sections = PySections {};
+                let ContactPoint {
+                    job_title,
+                    given_name,
+                    family_name,
+                    email,
+                    telephone,
+                    url,
+                    organization,
+                    ..
+                } = data.contact;
+                let contact = PyContactPoint {
+                    job_title,
+                    given_name,
+                    family_name,
+                    email,
+                    telephone,
+                    url,
+                    organization,
+                };
+                Ok(PyResearchActivity {
+                    metadata,
+                    title,
+                    subtitle,
+                    sections,
+                    contact,
+                })
             }
-        };
-        let metadata = PyMetadata {
-            identifier: data.meta.identifier.clone(),
-        };
-        let ResearchActivity { title, subtitle, .. } = data;
-        let sections = PySections {};
-        let ContactPoint {
-            job_title,
-            given_name,
-            family_name,
-            email,
-            telephone,
-            url,
-            organization,
-            ..
-        } = data.contact;
-        let contact = PyContactPoint {
-            job_title,
-            given_name,
-            family_name,
-            email,
-            telephone,
-            url,
-            organization,
-        };
-        Ok(PyResearchActivity {
-            metadata,
-            title,
-            subtitle,
-            sections,
-            contact,
-        })
+            | Err(why) => Err(PyValueError::new_err(format!(
+                "Failed to read research activity data from {} — {why}",
+                path.to_absolute_string(),
+            ))),
+        }
     }
     #[getter]
     fn metadata(&self) -> PyMetadata {

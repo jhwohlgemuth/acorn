@@ -52,9 +52,15 @@ where
 #[doc(hidden)]
 pub fn try_from_output(result: io::Result<Output>) -> Result<String, String> {
     match result {
-        | Ok(output) if output.status.success() => Ok(String::from_utf8_lossy(&output.stdout).trim().to_string()),
+        | Ok(output) if output.status.success() => match String::from_utf8(output.stdout) {
+            | Ok(value) => Ok(value.trim().to_string()),
+            | Err(why) => Err(format!("stdout is not valid UTF-8: {why}")),
+        },
         | Ok(output) => {
-            let msg = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let msg = match String::from_utf8(output.stderr) {
+                | Ok(value) => value.trim().to_string(),
+                | Err(_) => String::new(),
+            };
             if msg.is_empty() {
                 Err(format!("process exited with status {}", output.status))
             } else {

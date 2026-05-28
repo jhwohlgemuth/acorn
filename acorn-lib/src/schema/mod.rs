@@ -580,10 +580,8 @@ impl ContactPoint {
                     Some(DEFAULT_AFFILIATION.to_string())
                 }
             },
-            | None => {
-                #[allow(clippy::unwrap_used)]
-                let ornl = Organization::load().into_iter().next().unwrap();
-                match ornl.member(&updated_organization) {
+            | None => match Organization::load().into_iter().next() {
+                | Some(ornl) => match ornl.member(&updated_organization) {
                     | Some(organization) => match organization.nearest(OrganizationType::Directorate) {
                         | Some(Organization { name, .. }) => Some(name),
                         | None => Some(DEFAULT_AFFILIATION.to_string()),
@@ -592,8 +590,12 @@ impl ContactPoint {
                         error!("=> {} Nearest directorate", Label::not_found());
                         Some(DEFAULT_AFFILIATION.to_string())
                     }
+                },
+                | None => {
+                    error!("=> {} Organization hierarchy", Label::not_found());
+                    Some(DEFAULT_AFFILIATION.to_string())
                 }
-            }
+            },
         };
         let updated_telephone = match format_phone_number(&telephone) {
             | Ok(value) => value,
@@ -677,13 +679,14 @@ impl MediaObject {
 impl Organization {
     /// Return list of all alternative names
     pub fn alternative_names() -> Vec<String> {
-        #[allow(clippy::unwrap_used)]
-        let members = Organization::load().into_iter().next().unwrap().members();
-
-        members
-            .into_iter()
-            .flat_map(|Organization { alternative_name, .. }| alternative_name)
-            .collect::<Vec<String>>()
+        match Organization::load().into_iter().next() {
+            | Some(organization) => organization
+                .members()
+                .into_iter()
+                .flat_map(|Organization { alternative_name, .. }| alternative_name)
+                .collect::<Vec<String>>(),
+            | None => vec![],
+        }
     }
     /// Returns a list of all organizations, loaded from the organization.json asset file
     pub fn load() -> Vec<Organization> {

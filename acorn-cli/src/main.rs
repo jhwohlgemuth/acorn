@@ -142,9 +142,15 @@ async fn main() -> Void {
         env::set_var(CACHE_TTL, ttl.to_string());
     }
     if threads > 0 {
-        #[allow(clippy::unwrap_used)]
-        rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
-        debug!("{} {} threads", Label::using(), threads.cyan().bold());
+        match rayon::ThreadPoolBuilder::new().num_threads(threads).build_global() {
+            | Ok(()) => {
+                debug!("{} {} threads", Label::using(), threads.cyan().bold());
+            }
+            | Err(why) => {
+                eprintln!("=> {} Initialize thread pool — {why}", Label::fail());
+                exit(exitcode::SOFTWARE);
+            }
+        }
     }
     let database_initialization = if no_local_database {
         Ok(())

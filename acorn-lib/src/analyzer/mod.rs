@@ -707,27 +707,36 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     }
                 }
             },
-            | "gz" => {
-                #[allow(clippy::unwrap_used)]
-                let tar_gz = File::open(path).unwrap();
-                let tar = GzDecoder::new(tar_gz);
-                let mut archive = Archive::new(tar);
-                match archive.unpack(parent.clone()) {
-                    | Ok(_) => {
-                        debug!(parent, "=> {} Extracted {command} binary", Label::using());
-                        PathBuf::from(format!("{parent}/{command}"))
-                    }
-                    | Err(why) => {
-                        error!("=> {} {command} extract — {why}", Label::fail());
-                        let path = PathBuf::from(DEFAULT_VALE_ROOT).join(command);
-                        if cfg!(windows) {
-                            path.with_extension("exe")
-                        } else {
-                            path
+            | "gz" => match File::open(path) {
+                | Ok(tar_gz) => {
+                    let tar = GzDecoder::new(tar_gz);
+                    let mut archive = Archive::new(tar);
+                    match archive.unpack(parent.clone()) {
+                        | Ok(_) => {
+                            debug!(parent, "=> {} Extracted {command} binary", Label::using());
+                            PathBuf::from(format!("{parent}/{command}"))
+                        }
+                        | Err(why) => {
+                            error!("=> {} {command} extract — {why}", Label::fail());
+                            let path = PathBuf::from(DEFAULT_VALE_ROOT).join(command);
+                            if cfg!(windows) {
+                                path.with_extension("exe")
+                            } else {
+                                path
+                            }
                         }
                     }
                 }
-            }
+                | Err(why) => {
+                    error!("=> {} {command} extract — {why}", Label::fail());
+                    let path = PathBuf::from(DEFAULT_VALE_ROOT).join(command);
+                    if cfg!(windows) {
+                        path.with_extension("exe")
+                    } else {
+                        path
+                    }
+                }
+            },
             | _ => {
                 error!("=> {} {command} extract — Unsupported format", Label::fail());
                 PathBuf::from(DEFAULT_VALE_ROOT).join(command)
@@ -814,21 +823,31 @@ impl StaticAnalyzer<ValeConfig> for Vale {
     fn with_system_command(mut self) -> Self {
         let name = self.command();
         if command_exists(name.clone()) {
-            #[allow(clippy::unwrap_used)]
-            let path = which(name.clone()).unwrap().to_path_buf();
-            self.binary = Some(path.clone());
-            #[allow(clippy::unwrap_used)]
-            let output = cmd!(name.clone(), ["--version"]).unwrap();
-            let stdout = output.stdout();
-            let version = stdout.strip_prefix("vale version ").unwrap_or(stdout.as_str()).trim().to_string();
-            self.version = Some(SemanticVersion::from(version.as_ref()));
-            debug!(
-                path = path.to_absolute_string(),
-                "=> {} System {} (v{}) command",
-                Label::using(),
-                name.green().bold(),
-                version
-            );
+            match which(name.clone()) {
+                | Ok(path) => {
+                    let path = path.to_path_buf();
+                    self.binary = Some(path.clone());
+                    match cmd!(name.clone(), ["--version"]) {
+                        | Ok(output) => {
+                            let stdout = output.stdout();
+                            let version = stdout.strip_prefix("vale version ").unwrap_or(stdout.as_str()).trim().to_string();
+                            self.version = Some(SemanticVersion::from(version.as_ref()));
+                            debug!(
+                                path = path.to_absolute_string(),
+                                "=> {} System {} (v{version}) command",
+                                Label::using(),
+                                name.green().bold(),
+                            );
+                        }
+                        | Err(why) => {
+                            error!("=> {} Resolve {name} version — {why}", Label::fail());
+                        }
+                    }
+                }
+                | Err(why) => {
+                    error!("=> {} Resolve {name} binary — {why}", Label::fail());
+                }
+            }
         }
         self
     }

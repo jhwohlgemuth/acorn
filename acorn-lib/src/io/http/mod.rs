@@ -140,7 +140,10 @@ impl HttpResponse {
     }
     /// Read response body as text.
     pub async fn text(self) -> ApiResult<String> {
-        Ok(String::from_utf8_lossy(&self.body).into_owned())
+        match String::from_utf8(self.body) {
+            | Ok(value) => Ok(value),
+            | Err(why) => Err(eyre!("HTTP response body is not valid UTF-8 — {why}")),
+        }
     }
 }
 #[async_trait]

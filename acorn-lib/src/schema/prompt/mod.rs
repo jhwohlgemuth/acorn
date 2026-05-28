@@ -7,7 +7,7 @@ use crate::prelude::{Error, ErrorKind};
 use crate::util::{SemanticVersion, ToMarkdown};
 use bon::Builder;
 use color_eyre::eyre::Report;
-use core::fmt;
+use core::{fmt, str::from_utf8};
 use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -204,7 +204,7 @@ impl PromptTemplate {
     /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
     pub fn from_asset(file_name: &str) -> Option<String> {
         match Self::get(file_name) {
-            | Some(value) => Some(String::from_utf8_lossy(value.data.as_ref()).into()),
+            | Some(value) => from_utf8(value.data.as_ref()).ok().map(String::from),
             | None => None,
         }
     }

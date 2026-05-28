@@ -58,10 +58,16 @@ pub trait CommandOutput {
 #[cfg(feature = "std")]
 impl CommandOutput for Output {
     fn stdout(&self) -> String {
-        String::from_utf8_lossy(&self.stdout).trim().to_string()
+        match String::from_utf8(self.stdout.clone()) {
+            | Ok(value) => value.trim().to_string(),
+            | Err(why) => format!("<non-utf8-bytes:{:?}>", why.into_bytes()),
+        }
     }
     fn stderr(&self) -> String {
-        String::from_utf8_lossy(&self.stderr).trim().to_string()
+        match String::from_utf8(self.stderr.clone()) {
+            | Ok(value) => value.trim().to_string(),
+            | Err(why) => format!("<non-utf8-bytes:{:?}>", why.into_bytes()),
+        }
     }
 }
 /// Get Vale release filename for a given platform operating system (e.g., linux, windows, macos)

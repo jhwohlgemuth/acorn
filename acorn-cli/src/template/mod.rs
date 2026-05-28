@@ -2,6 +2,7 @@ use acorn::schema::research_activity::{Research, ResearchActivity, Sections};
 use acorn::schema::ContactPoint;
 use acorn::util::constants::app::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
 use acorn::util::{Label, MimeType};
+use core::str::from_utf8;
 use data_encoding::BASE64;
 use derive_more::Display;
 use fast_qr::convert::image::ImageBuilder;
@@ -98,7 +99,13 @@ impl Style {
                 unimplemented!()
             }
         };
-        String::from_utf8_lossy(data.as_ref()).into_owned()
+        match from_utf8(data.as_ref()) {
+            | Ok(value) => value.to_string(),
+            | Err(why) => {
+                error!(file_name, "=> {} Decode style asset as UTF-8 — {why}", Label::fail());
+                String::new()
+            }
+        }
     }
 }
 impl TargetLabel {

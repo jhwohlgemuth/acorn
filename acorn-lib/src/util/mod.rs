@@ -854,14 +854,18 @@ where
     let filename = value.into();
     let segments = filename.split('.').filter(|x| !x.is_empty()).collect::<Vec<_>>();
     if !segments.is_empty() {
-        #[allow(clippy::unwrap_used)]
-        let last_segment = segments.clone().last().unwrap().to_string();
+        let last_segment = segments.last().map(|value| (*value).to_string());
         let has_extension = filename.contains(".") && segments.len() > 1;
-        let is_filename = !(last_segment.contains("/") || last_segment.is_empty());
-        if has_extension && is_filename {
-            Some(last_segment)
-        } else {
-            None
+        match last_segment {
+            | Some(value) => {
+                let is_filename = !(value.contains("/") || value.is_empty());
+                if has_extension && is_filename {
+                    Some(value)
+                } else {
+                    None
+                }
+            }
+            | None => None,
         }
     } else {
         None

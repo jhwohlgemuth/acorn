@@ -247,12 +247,13 @@ impl Repository {
     pub async fn latest_release(self) -> Option<Release> {
         match self.releases().await {
             | releases if releases.is_empty() => None,
-            | releases => {
-                #[allow(clippy::unwrap_used)]
-                let release = releases.into_iter().next().unwrap();
-                trace!("=> {} Latest {:#?}", Label::using(), release);
-                Some(release)
-            }
+            | releases => match releases.into_iter().next() {
+                | Some(release) => {
+                    trace!("=> {} Latest {:#?}", Label::using(), release);
+                    Some(release)
+                }
+                | None => None,
+            },
         }
     }
     /// Get repository location
@@ -295,13 +296,16 @@ impl Repository {
         let maybe_url = match &self {
             | Repository::Git { .. } => None,
             | Repository::GitHub { location } => match location.uri() {
-                | Some(uri) => {
-                    #[allow(clippy::unwrap_used)]
-                    let host = uri.host().unwrap().to_string();
-                    let path = uri.path();
-                    let endpoint = Some(format!("https://api.{host}/repos{path}/releases"));
-                    endpoint
-                }
+                | Some(uri) => match uri.host() {
+                    | Some(host) => {
+                        let path = uri.path();
+                        Some(format!("https://api.{host}/repos{path}/releases"))
+                    }
+                    | None => {
+                        error!("=> {} Parse GitHub URI host", Label::fail());
+                        None
+                    }
+                },
                 | None => {
                     error!("=> {} Parse GitHub URI", Label::fail());
                     None
@@ -309,11 +313,13 @@ impl Repository {
             },
             | Repository::GitLab { location, .. } => match self.id() {
                 | Some(id) => match location.uri() {
-                    | Some(uri) => {
-                        #[allow(clippy::unwrap_used)]
-                        let host = uri.host().unwrap().to_string();
-                        Some(format!("https://{host}/api/v4/projects/{id}/releases"))
-                    }
+                    | Some(uri) => match uri.host() {
+                        | Some(host) => Some(format!("https://{host}/api/v4/projects/{id}/releases")),
+                        | None => {
+                            error!("=> {} Parse GitLab URI host", Label::fail());
+                            None
+                        }
+                    },
                     | None => {
                         error!("=> {} Parse GitLab URI", Label::fail());
                         None

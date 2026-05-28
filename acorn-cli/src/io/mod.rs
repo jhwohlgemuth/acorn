@@ -52,10 +52,8 @@ where
     S: Into<String>,
 {
     let mut stdout = io::stdout().lock();
-    #[allow(clippy::unwrap_used)]
-    stdout.write_all(value.into().as_bytes()).unwrap();
-    #[allow(clippy::unwrap_used)]
-    stdout.flush().unwrap();
+    let _ = stdout.write_all(value.into().as_bytes());
+    let _ = stdout.flush();
     drop(stdout);
 }
 fn stdin_piped_status() -> InputOutputStreamState {

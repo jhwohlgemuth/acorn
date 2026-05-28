@@ -9,7 +9,7 @@ use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{format_bytes, regex_join, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
-use color_eyre::eyre::{Report, Result};
+use color_eyre::eyre::{eyre, Report, Result};
 use core::iter::once;
 use owo_colors::OwoColorize;
 #[cfg(feature = "pdf")]
@@ -69,46 +69,44 @@ pub async fn run(
         | FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml => {
             export_convert(path, options, format, &extension, |p, ext| p.with_extension(ext), progress_type).await
         }
-        | FileFormat::Bag => {
-            #[allow(clippy::unwrap_used)]
-            let base = path.clone().unwrap().display().to_string();
-            let date = current_date();
-            let size = format_bytes(folder_size(base.clone()));
-            let info = BagInfo::init().date(date).size(size).build();
-            debug!("=> {} {:#?}", Label::using(), info);
-            let bag = Bag::init().base_directory(base).info(info).build();
-            #[allow(clippy::unwrap_used)]
-            let destination = output.clone().unwrap();
-            bag.save(destination.clone())
-                .and_then(|_| Bag::verify(destination.clone()))
-                .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
-        }
+        | FileFormat::Bag => match (path.clone(), output.clone()) {
+            | (Some(path), Some(destination)) => {
+                let base = path.display().to_string();
+                let date = current_date();
+                let size = format_bytes(folder_size(base.clone()));
+                let info = BagInfo::init().date(date).size(size).build();
+                debug!("=> {} {:#?}", Label::using(), info);
+                let bag = Bag::init().base_directory(base).info(info).build();
+                bag.save(destination.clone())
+                    .and_then(|_| Bag::verify(destination.clone()))
+                    .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
+            }
+            | (None, _) => Err(eyre!("Missing input path for bag export")),
+            | (_, None) => Err(eyre!("Missing output directory for bag export")),
+        },
         | FileFormat::Pdf => {
             #[cfg(feature = "pdf")]
             {
-                use color_eyre::eyre::eyre;
                 let items = resolve_paths(path, &options).await;
-                let playwright = match Playwright::initialize().await {
-                    | Ok(playwright) => playwright,
-                    | Err(why) => return Err(eyre!("Failed to initialize Playwright — {why}")),
-                };
-                match playwright.install_chromium() {
-                    | Ok(_) => (),
-                    | Err(why) => return Err(eyre!("Failed to install Chromium for Playwright — {why}")),
-                };
-                let chromium = playwright.chromium();
-                let browser = match chromium.launcher().headless(true).launch().await {
-                    | Ok(browser) => browser,
-                    | Err(why) => return Err(eyre!("Failed to launch Chromium — {why}")),
-                };
-                let context = match browser.context_builder().build().await {
-                    | Ok(context) => context,
-                    | Err(why) => return Err(eyre!("Failed to create browser context — {why}")),
-                };
-                let page = match context.new_page().await {
-                    | Ok(page) => page,
-                    | Err(why) => return Err(eyre!("Failed to create browser page — {why}")),
-                };
+                let playwright = Playwright::initialize()
+                    .await
+                    .map_err(|why| eyre!("Failed to initialize Playwright — {why}"))?;
+                playwright
+                    .install_chromium()
+                    .map_err(|why| eyre!("Failed to install Chromium for Playwright — {why}"))?;
+                let browser = playwright
+                    .chromium()
+                    .launcher()
+                    .headless(true)
+                    .launch()
+                    .await
+                    .map_err(|why| eyre!("Failed to launch Chromium — {why}"))?;
+                let context = browser
+                    .context_builder()
+                    .build()
+                    .await
+                    .map_err(|why| eyre!("Failed to create browser context — {why}"))?;
+                let page = context.new_page().await.map_err(|why| eyre!("Failed to create browser page — {why}"))?;
                 let page = &page;
                 let progress = with_progress(
                     items,
