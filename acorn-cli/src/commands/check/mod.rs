@@ -79,13 +79,13 @@ fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, option
         quiet,
         terse,
         ..
-    } = options.clone();
-    let filtered_results = filter_by_visibility(&results, all);
+    } = options;
+    let filtered_results = filter_by_visibility(&results, *all);
     let issue_count = failure_count(&filtered_results);
-    if exit_on_first_error && issue_count > 0 {
-        if !quiet {
+    if *exit_on_first_error && issue_count > 0 {
+        if !*quiet {
             fail!("ACORN found {} {} issues", issue_count, category);
-            render(&filtered_results, terse);
+            render(&filtered_results, *terse);
         }
         exit(exitcode::DATAERR);
     }
@@ -114,7 +114,7 @@ async fn collect_checks_for<T: Analysis + Send + Sync>(paths: &[PathBuf], option
         .await
 }
 fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result<(), Report> {
-    let CheckOptions { quiet, no_fail, terse, .. } = options.clone();
+    let CheckOptions { quiet, no_fail, terse, .. } = options;
     let print_summary = || {
         let file_count = paths.len();
         let headers = vec!["", "Count"];
@@ -125,9 +125,9 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
             .collect();
         print_values_as_table::<String>(headers, rows, None);
     };
-    if !quiet {
-        render(issues, terse);
-        if !(no_fail || terse || issues.is_empty()) {
+    if !*quiet {
+        render(issues, *terse);
+        if !(*no_fail || *terse || issues.is_empty()) {
             print_summary();
         }
     }
@@ -142,7 +142,7 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
                 Err(why.into())
             }
         }
-    } else if !no_fail && has_failures(issues) {
+    } else if !*no_fail && has_failures(issues) {
         exit(exitcode::DATAERR)
     } else {
         Ok(())
@@ -203,11 +203,11 @@ fn resolve_skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
         offline,
         skip,
         ..
-    } = options.clone();
+    } = options;
     skip.iter()
         .map(CheckCategory::from)
         .chain(once(CheckCategory::Quality))
-        .chain((offline || disable_website_checks).then_some(CheckCategory::Link))
+        .chain((*offline || *disable_website_checks).then_some(CheckCategory::Link))
         .collect()
 }
 fn resolve_standard(paths: &[PathBuf], standard: &Standard) -> AnalyzerStandard {

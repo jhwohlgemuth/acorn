@@ -189,7 +189,7 @@ impl Location {
         }
         match scheme {
             | Scheme::HTTPS | Scheme::HTTP => match uri {
-                | Some(uri) => match link_check(Some(uri.into()), None).await {
+                | Some(uri) => match link_check(Some(uri.to_string()), None).await {
                     | Check { success, .. } if success => true,
                     | _ => false,
                 },

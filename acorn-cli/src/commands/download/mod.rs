@@ -44,9 +44,9 @@ pub async fn run(
             | Ok(content) => {
                 let mut total: usize = 0;
                 if let Some(buckets) = content.buckets {
-                    for bucket in buckets {
-                        if let Some(path) = output.clone() {
-                            let bucket_options = options.clone().with_output(path);
+                    if let Some(path) = output.clone() {
+                        let bucket_options = options.clone().with_output(path);
+                        for bucket in buckets {
                             if offline || bucket.code_repository.is_local() {
                                 match bucket.copy_files(&bucket_options).await {
                                     | Ok(count) => {

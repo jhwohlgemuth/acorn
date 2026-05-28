@@ -365,8 +365,9 @@ impl Bucket {
             ignore,
         } = options;
         let output = Arc::new(output.clone().unwrap_or_default());
-        let Bucket { name, code_repository, .. } = self.clone();
-        let items = match self.clone().file_paths("").await {
+        let name = self.name.clone();
+        let code_repository = self.code_repository.clone();
+        let items = match self.file_paths("").await {
             | Ok(paths) => paths
                 .into_iter()
                 .filter(|path| !is_ignored_path(path, ignore) && is_filtered_path(path, filter))
@@ -419,9 +420,9 @@ impl Bucket {
             | Err(why) => Err(why),
         }
     }
-    async fn file_paths(self: Bucket, directory: &str) -> ApiResult<Vec<String>> {
-        let Bucket { code_repository, name, .. } = self.clone();
-        let bucket_name = name.clone().unwrap_or_else(|| "Bucket".to_string()).to_uppercase();
+    async fn file_paths(&self, directory: &str) -> ApiResult<Vec<String>> {
+        let code_repository = self.code_repository.clone();
+        let bucket_name = self.name.clone().unwrap_or_else(|| "Bucket".to_string()).to_uppercase();
         match &code_repository {
             | Repository::Git { .. } => {
                 let path = match code_repository.location().uri() {
@@ -445,7 +446,7 @@ impl Bucket {
                     .await
                     .map_err(|why| eyre!("Failed to get file paths for {bucket_name} bucket - {why}"))
             }
-            | Repository::GitLab { .. } => match self.code_repository.id() {
+            | Repository::GitLab { .. } => match code_repository.id() {
                 | Some(id) => {
                     let host = match self.domain() {
                         | Ok(value) => value,

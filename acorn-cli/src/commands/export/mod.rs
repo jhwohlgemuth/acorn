@@ -4,7 +4,7 @@ use crate::commands::preflight;
 use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::current_date;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, with_progress, FromPath, InputOutput, ProgressType};
-use acorn::prelude::{exit, remove_dir_all, HashSet, PathBuf};
+use acorn::prelude::{exit, remove_dir_all, Arc, HashSet, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{format_bytes, regex_join, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
@@ -140,12 +140,13 @@ pub async fn run(
             }
         }
         | FileFormat::Powerpoint => {
-            let paths = resolve_paths(path, &options.clone()).await;
-            let options = CommandOptions::init()
+            let paths = resolve_paths(path, &options).await;
+            let _options = CommandOptions::init()
                 .maybe_path(path.clone())
                 .maybe_output(output.clone())
                 .maybe_reference(reference.clone())
                 .build();
+            let create_options = Arc::new(_options);
             if *combine {
                 let progress = create_progress_bar(
                     1,
@@ -155,7 +156,7 @@ pub async fn run(
                     },
                 );
                 progress.set_message("Generating combined PowerPoint artifact");
-                let _ = powerpoint::create(paths, Some(options));
+                let _ = powerpoint::create(paths, Some(Arc::clone(&create_options)));
                 progress.inc(1);
                 finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
                 Ok(())
@@ -164,7 +165,7 @@ pub async fn run(
                     paths,
                     |path| format!("Generating PowerPoint for {}", path.file_name_with_parent()),
                     |path| {
-                        let options = options.clone();
+                        let options = Arc::clone(&create_options);
                         async move { powerpoint::create(once(path), Some(options)).map(|_| ()) }
                     },
                     |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),

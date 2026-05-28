@@ -105,11 +105,12 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
 }
 /// Create PowerPoint presentation from Research Activity data
 #[allow(clippy::unwrap_used)]
-pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandOptions>) -> ApiResult<PathBuf> {
-    let CommandOptions { output, path, reference, .. } = options.unwrap();
-    let paths: Arc<Vec<PathBuf>> = Arc::new(paths.into_iter().collect());
-    let count = paths.len();
-    let research_activity_data = paths
+pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<Arc<CommandOptions>>) -> ApiResult<PathBuf> {
+    let options = options.unwrap_or_default();
+    let CommandOptions { output, path, reference, .. } = options.as_ref();
+    let _paths: Arc<Vec<PathBuf>> = Arc::new(paths.into_iter().collect());
+    let count = _paths.len();
+    let research_activity_data = _paths
         .iter()
         .map(|path| match ResearchActivity::read(path.clone()) {
             | Ok(value) => {
@@ -162,7 +163,7 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandO
         .enumerate()
         .for_each(|(index, _)| add_slide(index.saturating_add(1), reference_extract_path.as_ref()));
     let reference_extract_path_for_workers = Arc::clone(&reference_extract_path);
-    izip!(research_activity_data, paths.iter().cloned())
+    izip!(research_activity_data, _paths.iter().cloned())
         .collect::<Vec<_>>()
         .into_par_iter()
         .enumerate()
@@ -181,7 +182,7 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandO
             let _ = copy_image(slide_number, &data, &index_path, &reference_extract_path);
         });
     let folder = if count == 1 {
-        paths
+        _paths
             .first()
             .map(|p| p.parent().unwrap_or(Path::new(".")).canonicalize().unwrap_or(PathBuf::from(".")))
             .unwrap_or(PathBuf::from("."))
@@ -189,7 +190,7 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandO
         path.as_ref().unwrap_or(&PathBuf::from(".")).to_path_buf()
     };
     let folder_name = folder.file_name_with_parent();
-    prepare_destination(&output, &folder_name).and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination)))
+    prepare_destination(output, &folder_name).and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination)))
 }
 fn prepare_destination(output: &Option<PathBuf>, name: &str) -> ApiResult<PathBuf> {
     const EXTENSION: &str = "pptx";

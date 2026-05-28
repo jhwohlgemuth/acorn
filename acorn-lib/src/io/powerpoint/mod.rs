@@ -149,12 +149,7 @@ pub fn interpolate_values(path: PathBuf, data: &ResearchActivity) {
                 Replacement::String("partners", data.meta.partners.clone().unwrap_or_default().join(", ")),
                 Replacement::String(
                     "portability",
-                    data.aspect
-                        .clone()
-                        .unwrap_or_default()
-                        .portability
-                        .unwrap_or_default()
-                        .to_string(),
+                    data.aspect.clone().unwrap_or_default().portability.unwrap_or_default().to_string(),
                 ),
                 Replacement::String("programs", programs.join(" and ")),
                 Replacement::String("subtitle", data.subtitle.clone().unwrap_or_default()),

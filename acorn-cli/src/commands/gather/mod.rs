@@ -59,12 +59,12 @@ Here is a list
 async fn gitlab_example() {
     let group = "24758"; // Research Enablement
     let project = "16689"; // ACORN
-    let options = gitlab::Options::from_env();
+    let mut options = gitlab::Options::from_env();
     let runners = gitlab::runners(&options).await;
     match &runners {
         | Ok(ref values) if !values.is_empty() => {
             let runner_id = values.first().map(|v| v.identifier.unwrap_or_default().to_string()).unwrap_or_default();
-            let options = options.clone().with_identifier(runner_id);
+            options.identifier = Some(runner_id);
             let runner = gitlab::runner(&options).await;
             info!("Runner: {runner:#?}");
             println!("# of runners: {:#?}", values.len());
@@ -73,13 +73,12 @@ async fn gitlab_example() {
         | Err(ref why) => panic!("Runner: Err({why:#?})"),
     }
 
-    #[allow(clippy::unwrap_used)]
-    let options = options.with_identifier(group);
+    options.identifier = Some(group.to_string());
     let groups = gitlab::groups(&options).await.unwrap_or_default();
     info!("Groups: {groups:#?}");
     println!("# of groups: {}", groups.len());
 
-    let options = options.with_identifier(project);
+    options.identifier = Some(project.to_string());
     match gitlab::language_use(&options).await {
         | Ok(response) => println!("Languages: {:#?}", response.entries()),
         | Err(why) => println!("Languages request failed: {why:#?}"),

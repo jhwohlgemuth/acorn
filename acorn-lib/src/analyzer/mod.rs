@@ -28,7 +28,7 @@ use color_eyre::eyre::eyre;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
 use flate2::read::GzDecoder;
-use futures::future::join_all;
+use futures::future::{join_all, BoxFuture, FutureExt};
 use ini::Ini;
 use lychee_lib::{CacheStatus, Response, Status};
 #[cfg(feature = "analysis")]
@@ -59,7 +59,7 @@ use vale::{Vale, ValeConfig};
 #[async_trait]
 pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Get command name (e.g. "vale")
-    fn command(self) -> String;
+    fn command(&self) -> String;
     /// Download binary
     async fn download(self, config: Option<Config>, skip_verify_checksum: bool) -> Self;
     /// Download checksum values
@@ -145,6 +145,7 @@ impl Analysis for Cff {
             async move {
                 match Self::read(&path) {
                     | Ok(data) => {
+                        let _data = Arc::new(data);
                         let Cff {
                             identifiers,
                             license_url,
@@ -154,34 +155,38 @@ impl Analysis for Cff {
                             repository_code,
                             url,
                             ..
-                        } = data;
+                        } = _data.as_ref();
                         let root_futures = vec![
-                            url.map(|u| link_check(Some(u), Some("url".into()))),
-                            license_url.map(|u| link_check(Some(u), Some("license_url".into()))),
-                            repository.map(|u| link_check(Some(u), Some("repository".into()))),
-                            repository_artifact.map(|u| link_check(Some(u), Some("repository_artifact".into()))),
-                            repository_code.map(|u| link_check(Some(u), Some("repository_code".into()))),
+                            url.as_deref().map(|u| link_check(Some(u), Some("url".into()))),
+                            license_url.as_deref().map(|u| link_check(Some(u), Some("license_url".into()))),
+                            repository.as_deref().map(|u| link_check(Some(u), Some("repository".into()))),
+                            repository_artifact
+                                .as_deref()
+                                .map(|u| link_check(Some(u), Some("repository_artifact".into()))),
+                            repository_code.as_deref().map(|u| link_check(Some(u), Some("repository_code".into()))),
                         ]
                         .into_iter()
                         .flatten()
                         .collect::<Vec<_>>();
                         let identifier_futures = identifiers
-                            .unwrap_or_default()
+                            .as_ref()
                             .into_iter()
+                            .flatten()
                             .enumerate()
                             .filter_map(|(i, Identifier { kind, value, .. })| match kind {
                                 | IdentifierType::Doi => {
-                                    let maybe_doi = DOI::from_string(value.clone()).url();
-                                    let maybe_url = if maybe_doi.is_empty() { Some(value) } else { Some(maybe_doi) };
-                                    Some(link_check(maybe_url, Some(format!("identifiers[{i}].value"))))
+                                    let maybe_doi = DOI::from_string(value).url();
+                                    let url = if maybe_doi.is_empty() { value.to_owned() } else { maybe_doi };
+                                    Some(link_check(Some(url), Some(format!("identifiers[{i}].value"))))
                                 }
-                                | IdentifierType::Url => Some(link_check(Some(value), Some(format!("identifiers[{i}].value")))),
+                                | IdentifierType::Url => Some(link_check(Some(value.as_str()), Some(format!("identifiers[{i}].value")))),
                                 | _ => None,
                             })
                             .collect::<Vec<_>>();
                         let reference_futures = references
-                            .unwrap_or_default()
+                            .as_ref()
                             .into_iter()
+                            .flatten()
                             .enumerate()
                             .flat_map(
                                 |(
@@ -198,14 +203,27 @@ impl Analysis for Cff {
                                     },
                                 )| {
                                     vec![
-                                        doi.map(|d| link_check(Some(DOI::from_string(d).url()), Some(format!("references[{i}].doi")))),
-                                        collection_doi
-                                            .map(|d| link_check(Some(DOI::from_string(d).url()), Some(format!("references[{i}].collection_doi")))),
-                                        url.map(|u| link_check(Some(u), Some(format!("references[{i}].url")))),
-                                        license_url.map(|u| link_check(Some(u), Some(format!("references[{i}].license_url")))),
-                                        repository.map(|u| link_check(Some(u), Some(format!("references[{i}].repository")))),
-                                        repository_artifact.map(|u| link_check(Some(u), Some(format!("references[{i}].repository_artifact")))),
-                                        repository_code.map(|u| link_check(Some(u), Some(format!("references[{i}].repository_code")))),
+                                        doi.as_deref().map(|d| {
+                                            let url = DOI::from_string(d).url();
+                                            link_check(Some(url), Some(format!("references[{i}].doi")))
+                                        }),
+                                        collection_doi.as_deref().map(|d| {
+                                            let url = DOI::from_string(d).url();
+                                            link_check(Some(url), Some(format!("references[{i}].collection_doi")))
+                                        }),
+                                        license_url
+                                            .as_deref()
+                                            .map(|u| link_check(Some(u), Some(format!("references[{i}].license_url")))),
+                                        repository
+                                            .as_deref()
+                                            .map(|u| link_check(Some(u), Some(format!("references[{i}].repository")))),
+                                        repository_artifact
+                                            .as_deref()
+                                            .map(|u| link_check(Some(u), Some(format!("references[{i}].repository_artifact")))),
+                                        repository_code
+                                            .as_deref()
+                                            .map(|u| link_check(Some(u), Some(format!("references[{i}].repository_code")))),
+                                        url.as_deref().map(|u| link_check(Some(u), Some(format!("references[{i}].url")))),
                                     ]
                                     .into_iter()
                                     .flatten()
@@ -318,23 +336,27 @@ impl Analysis for ResearchActivity {
                 match Self::read(&path) {
                     | Ok(data) => {
                         let data = Arc::new(data);
-                        let dois = match data.meta.doi.clone() {
+                        let ResearchActivity { meta, contact, .. } = data.as_ref();
+                        let dois = match &meta.doi {
                             | Some(values) => values
-                                .into_iter()
+                                .iter()
                                 .enumerate()
-                                .map(|(i, doi)| link_check(Some(format!("https://doi.org/{doi}")), Some(format!("meta.doi[{i}]"))))
+                                .map(|(i, doi)| {
+                                    let url = format!("https://doi.org/{doi}");
+                                    link_check(Some(url), Some(format!("meta.doi[{i}]")))
+                                })
                                 .collect::<Vec<_>>(),
                             | None => vec![],
                         };
-                        let websites = match data.meta.websites.clone() {
+                        let websites = match &meta.websites {
                             | Some(values) => values
-                                .into_iter()
+                                .iter()
                                 .enumerate()
-                                .map(|(i, Website { url, .. })| link_check(Some(url), Some(format!("meta.websites[{i}].url"))))
+                                .map(|(i, Website { url, .. })| link_check(Some(url.as_str()), Some(format!("meta.websites[{i}].url"))))
                                 .collect::<Vec<_>>(),
                             | None => vec![],
                         };
-                        let contact = [link_check(Some(data.contact.url.clone()), Some("contact.url".into()))];
+                        let contact = [link_check(Some(contact.url.as_str()), Some("contact.url".into()))];
                         let links: Vec<_> = [].into_iter().chain(dois).chain(websites).chain(contact).collect();
                         join_all(links)
                             .await
@@ -445,7 +467,7 @@ impl Analysis for raid::Metadata {
 }
 #[async_trait]
 impl StaticAnalyzer<ValeConfig> for Vale {
-    fn command(self) -> String {
+    fn command(&self) -> String {
         "vale".to_string()
     }
     /// Resolve Vale
@@ -505,7 +527,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         let binary = match &self.binary {
             | Some(value) => value,
             | None => {
-                error!("=> {} {} binary", Label::not_found(), self.clone().command());
+                error!("=> {} {} binary", Label::not_found(), self.command());
                 &PathBuf::from("./.vale/vale")
             }
         };
@@ -572,7 +594,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 }
             }
             | None => {
-                let title = self.clone().command().to_case(Case::Title);
+                let title = self.command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
                 vec![check_err!(CheckCategory::Prose, message: uri)]
             }
@@ -584,7 +606,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | Some(value) => value,
             | None => SemanticVersion::from(VALE_VERSION),
         };
-        let url = format!("{VALE_RELEASES_URL}/download/v{release}/{}_{release}_{platform}", self.clone().command());
+        let url = format!("{VALE_RELEASES_URL}/download/v{release}/{}_{release}_{platform}", self.command());
         info!(url, "=> {} Vale release v{release}", Label::using());
         let binary = match download_binary(&url, ".").await {
             | Ok(path) => {
@@ -630,10 +652,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | Some(value) => value,
             | None => SemanticVersion::from(VALE_VERSION),
         };
-        let url = format!(
-            "{VALE_RELEASES_URL}/download/v{release}/{}_{release}_checksums.txt",
-            self.clone().command()
-        );
+        let url = format!("{VALE_RELEASES_URL}/download/v{release}/{}_{release}_checksums.txt", self.command());
         let checksums = match get(url).send().await {
             | Ok(response) => match response.text().await {
                 | Ok(content) => Ok(content.lines().clone().fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
@@ -662,7 +681,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         }
     }
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
-        let command = self.clone().command();
+        let command = self.command();
         let parent = match destination {
             | Some(value) => value.to_absolute_string(),
             | None => format!("./.{command}/"),
@@ -716,7 +735,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         }
     }
     async fn sync(self, is_offline: bool, quiet: bool) -> ApiResult<()> {
-        let command = self.clone().command();
+        let command = self.command();
         let binary_path = match self.binary {
             | Some(value) => value,
             | None => {
@@ -793,7 +812,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         self
     }
     fn with_system_command(mut self) -> Self {
-        let name = self.clone().command();
+        let name = self.command();
         if command_exists(name.clone()) {
             #[allow(clippy::unwrap_used)]
             let path = which(name.clone()).unwrap().to_path_buf();
@@ -998,18 +1017,24 @@ pub(crate) fn convert_lychee_response(value: Response) -> Check {
     }
 }
 /// Perform link check on given URL using Lychee
-pub async fn link_check(uri: Option<String>, locator: Option<String>) -> Check {
-    match uri {
-        | Some(value) => {
-            let context = value.clone();
-            let result = lychee_lib::check(value.as_str()).await;
-            match result {
-                | Ok(response) => convert_lychee_response(response).with_context(context).with_locator(locator),
-                | Err(_) => check_err!(CheckCategory::Link, context: context, message: "Unreachable").with_locator(locator),
+pub fn link_check<'a, T>(uri: Option<T>, locator: Option<String>) -> BoxFuture<'a, Check>
+where
+    T: Into<String> + Send + 'a,
+{
+    async move {
+        match uri {
+            | Some(value) => {
+                let context = value.into();
+                let result = lychee_lib::check(context.as_str()).await;
+                match result {
+                    | Ok(response) => convert_lychee_response(response).with_context(context).with_locator(locator),
+                    | Err(_) => check_err!(CheckCategory::Link, context: context, message: "Unreachable").with_locator(locator),
+                }
             }
+            | None => check_err!(CheckCategory::Link, message: "Missing URL").with_locator(locator),
         }
-        | None => check_err!(CheckCategory::Link, message: "Missing URL").with_locator(locator),
     }
+    .boxed()
 }
 /// Prints `text` to stdout using syntax highlighting for the specified `syntax`.
 ///
