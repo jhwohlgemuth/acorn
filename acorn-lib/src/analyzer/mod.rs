@@ -817,11 +817,10 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             #[allow(clippy::unwrap_used)]
             let path = which(name.clone()).unwrap().to_path_buf();
             self.binary = Some(path.clone());
-            let offset = "vale version ".len();
             #[allow(clippy::unwrap_used)]
             let output = cmd!(name.clone(), ["--version"]).unwrap();
             let stdout = output.stdout();
-            let version = stdout[offset..].trim().to_string();
+            let version = stdout.strip_prefix("vale version ").unwrap_or(stdout.as_str()).trim().to_string();
             self.version = Some(SemanticVersion::from(version.as_ref()));
             debug!(
                 path = path.to_absolute_string(),
@@ -889,8 +888,7 @@ impl StaticAnalyzerConfig for ValeConfig {
     }
     async fn save(self) -> ValeConfig {
         let path = self.clone().path;
-        #[allow(clippy::unwrap_used)]
-        let parent = path.parent().unwrap().to_path_buf();
+        let parent = path.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
         match create_dir_all(parent.clone()) {
             | Ok(_) => {}
             | Err(why) => error!(directory = parent.to_absolute_string(), "=> {} Create — {why}", Label::fail()),

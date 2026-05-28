@@ -158,27 +158,22 @@ fn memory_from_number<E: serde::de::Error>(amount: f64) -> Result<Memory, E> {
 fn parse_memory_string<E: serde::de::Error>(value: &str) -> Result<Memory, E> {
     let s = value.trim();
     match s.find(|c: char| !c.is_ascii_digit() && c != '.') {
-        | Some(split) => {
-            let num_str = s[..split].trim();
-            let unit_str = s[split..].trim();
-
-            match num_str.parse::<f64>() {
+        | Some(split) => match (s.get(..split), s.get(split..)) {
+            | (Some(value), Some(unit)) => match value.trim().parse::<f64>() {
                 | Ok(amount) => {
                     if amount < 0.0 {
                         Err(serde::de::Error::custom("Memory amount cannot be negative"))
                     } else {
-                        match MemoryUnit::deserialize(serde::de::value::StrDeserializer::new(unit_str)) {
+                        match MemoryUnit::deserialize(serde::de::value::StrDeserializer::new(unit.trim())) {
                             | Ok(unit) => Ok(Memory { amount, unit }),
                             | Err(why) => Err(why),
                         }
                     }
                 }
-                | Err(why) => {
-                    let _ = why;
-                    Err(serde::de::Error::custom(format!("Invalid memory amount: '{num_str}'")))
-                }
-            }
-        }
-        | None => Err(serde::de::Error::custom(format!("Missing unit in memory value: '{s}'"))),
+                | Err(_) => Err(serde::de::Error::custom(format!("Invalid memory amount — '{value}'"))),
+            },
+            | _ => Err(serde::de::Error::custom(format!("Invalid memory value — '{s}'"))),
+        },
+        | None => Err(serde::de::Error::custom(format!("Missing unit in memory value — '{s}'"))),
     }
 }

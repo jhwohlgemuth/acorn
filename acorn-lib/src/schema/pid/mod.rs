@@ -516,7 +516,12 @@ impl PersistentIdentifier for ARK {
         let values = [naan.clone(), name.clone()];
         if values.iter().all(|x| x.is_some()) {
             let value = values.iter().flatten().map(String::from).collect::<Vec<String>>().join("/");
-            noid_check_digit(&value[..value.len().saturating_sub(1)])
+            if value.is_empty() {
+                None
+            } else {
+                let trimmed = value.get(..value.len().saturating_sub(1)).unwrap_or_default();
+                noid_check_digit(trimmed)
+            }
         } else {
             None
         }
@@ -648,7 +653,7 @@ impl From<DOI> for ISBN {
         let suffix = match doi.suffix() {
             | Some(value) => {
                 let check_digit = value.chars().last().unwrap_or_default().to_string();
-                let title = value[..value.len().saturating_sub(1)].to_string();
+                let title = value.get(..value.len().saturating_sub(1)).unwrap_or_default().to_string();
                 format!("{title}-{check_digit}")
             }
             | None => "".to_string(),

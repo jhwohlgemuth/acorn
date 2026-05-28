@@ -107,8 +107,11 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
             exit(exitcode::NOINPUT);
         }
     };
-    #[allow(clippy::unwrap_used)]
-    let parent = source.parent().unwrap().canonicalize().unwrap_or_default();
+    let parent = source
+        .parent()
+        .map(Path::to_path_buf)
+        .and_then(|value| value.canonicalize().ok())
+        .unwrap_or_else(|| PathBuf::from("."));
     let image_url = meta.clone().first_image_content_url();
     let from = parent.join(image_url.clone());
     let name = meta.clone().identifier;

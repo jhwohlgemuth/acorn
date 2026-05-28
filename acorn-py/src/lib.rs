@@ -4,6 +4,7 @@ use acorn::schema::pid::{Patent, PersistentIdentifier, ARK, DOI, ISBN, ORCID, RO
 use acorn::io::InputOutput;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::{self, ContactPoint};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 /// Python bindings for ACORN
@@ -369,9 +370,9 @@ impl PyResearchActivity {
         let data = match ResearchActivity::read(path.clone()) {
             | Ok(value) => value,
             | Err(why) => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Failed to read research activity data from {}: {why}",
-                    path.to_str().unwrap(),
+                return Err(PyValueError::new_err(format!(
+                    "Failed to read research activity data from {} — {why}",
+                    path.to_absolute_string(),
                 )))
             }
         };
@@ -517,7 +518,7 @@ fn format_orcid(value: &str) -> String {
 fn format_phone_number(value: &str) -> PyResult<String> {
     match schema::validate::format_phone_number(value) {
         | Ok(value) => Ok(value),
-        | Err(err) => Err(pyo3::exceptions::PyValueError::new_err(err.to_string())),
+        | Err(err) => Err(PyValueError::new_err(err.to_string())),
     }
 }
 /// Convert a ROR into a standard format

@@ -26,23 +26,46 @@ pub async fn create(page: &Page, options: CommandOptions) {
             value.format_with(context)
         }
         | Err(why) => {
-            error!(path = path.to_absolute_string(), "=> {} Read data for PDF export - {why}", Label::fail());
+            error!(path = path.to_absolute_string(), "=> {} Read data for PDF export — {why}", Label::fail());
             exit(exitcode::UNAVAILABLE);
         }
     };
     let content = data.to_html().to_string();
     // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
-    let index = absolute(path.parent().unwrap().join("index.html")).unwrap();
-    let index_created_or_exists = match OpenOptions::new().write(true).create_new(true).open(&index) {
-        | Ok(_) => true,
-        | Err(why) if why.kind() == ErrorKind::AlreadyExists => true,
-        | Err(why) => {
-            error!(path = index.to_absolute_string(), "=> {} Create temporary index - {why}", Label::fail());
-            false
+    let parent = match path.parent() {
+        | Some(value) => value.to_path_buf(),
+        | None => {
+            error!(
+                path = path.to_absolute_string(),
+                "=> {} Cannot resolve parent directory for PDF export input",
+                Label::fail()
+            );
+            exit(exitcode::DATAERR);
         }
     };
-    if index_created_or_exists {
-        page.goto_builder(&format!("file://{}", index.display())).goto().await.unwrap();
+    let cleanup = match absolute(parent.join("index.html")) {
+        | Ok(index) => {
+            let can_navigate = match OpenOptions::new().write(true).create_new(true).open(&index) {
+                | Ok(_) => true,
+                | Err(why) if why.kind() == ErrorKind::AlreadyExists => true,
+                | Err(why) => {
+                    error!(path = index.to_absolute_string(), "=> {} Create temporary index — {why}", Label::fail());
+                    false
+                }
+            };
+            if can_navigate {
+                page.goto_builder(&format!("file://{}", index.display())).goto().await.unwrap();
+            }
+            Some(index)
+        }
+        | Err(why) => {
+            error!(
+                path = path.to_absolute_string(),
+                "=> {} Resolve temporary index path — {why}",
+                Label::fail()
+            );
+            None
+        }
     };
     page.set_content_builder(&content).set_content().await.unwrap();
     match output {
@@ -62,12 +85,14 @@ pub async fn create(page: &Page, options: CommandOptions) {
             | Err(err) => {
                 error!(
                     path = output_dir.clone().into_os_string().into_string().unwrap(),
-                    "=> {} Create directory - {err}",
+                    "=> {} Create directory — {err}",
                     Label::fail()
                 );
             }
         },
         | None => unreachable!(),
     };
-    let _remove = remove_file(index);
+    if let Some(index) = cleanup {
+        let _remove = remove_file(index);
+    }
 }

@@ -274,34 +274,9 @@ Analysis of the codebase against rules from [Bugs Rust Won't Catch](https://corr
 
 ---
 
-### HIGH IMPACT / MEDIUM DIFFICULTY
-
-#### 4. `unwrap()` on path operations — panic on non-UTF-8 paths
-
-Same pattern as CVE-2026-35348 (uutils `sort --files0-from` panicked on non-UTF-8 filenames).
-
-- `acorn-lib/src/analyzer/vale.rs:192` — `path.to_str().unwrap()` panics on non-UTF-8 paths
-- `acorn-py/src/lib.rs:374` — `path.to_str().unwrap()`
-- `acorn-lib/src/analyzer/mod.rs:878` — `path.parent().unwrap()` panics on root paths
-- `acorn-cli/src/commands/export/powerpoint.rs:94` — `source.parent().unwrap().canonicalize().unwrap()`
-- `acorn-cli/src/commands/export/pdf.rs:35` — `path.parent().unwrap()`
-
-**Fix:** Use `?` to propagate, `unwrap_or_default()` for fallback, or `path.parent().ok_or_else(|| eyre!(...))`?` for paths that must have a parent.
-
-#### 5. Variable-index slice indexing — panic on out-of-bounds
-
-- `acorn-lib/src/analyzer/mod.rs:809` — `stdout[offset..]` on `Vec<u8>` panics if `offset > stdout.len()`
-- `acorn-lib/src/analyzer/check.rs:835` — `source_text[prefix_start..]` panics if `prefix_start > len()`
-- `acorn-lib/src/schema/hardware/memory.rs:150-151` — `s[..split]` and `s[split..]` panics on bad split
-- `acorn-lib/src/schema/pid/mod.rs:519,651` — `value[..value.len().saturating_sub(1)]` panics on empty
-
-**Fix:** Use `.get(..)` or `.get_mut(..)` which return `Option`, or add explicit bounds checks before indexing.
-
----
-
 ### MEDIUM IMPACT / LOW DIFFICULTY
 
-#### 6. `from_utf8_lossy` at Unix boundaries — silent data corruption
+#### 1. `from_utf8_lossy` at Unix boundaries — silent data corruption
 
 - `acorn-lib/src/util/cmd.rs:55,57` — command stdout/stderr lossy-converted, corrupts non-UTF-8 output
 - `acorn-lib/src/prelude.rs:61,64` — `CommandOutput` traits use lossy conversion (widely consumed)
@@ -311,7 +286,7 @@ Same pattern as CVE-2026-35348 (uutils `sort --files0-from` panicked on non-UTF-
 
 **Fix:** Prefer returning `Vec<u8>` or `OsString` across boundaries, letting callers handle encoding. Avoid lossy UTF-8 round-trips for command output, paths, and env values.
 
-#### 7. `unwrap()` on `Option` — panics on unexpected None
+#### 2. `unwrap()` on `Option` — panics on unexpected None
 
 - `acorn-lib/src/analyzer/mod.rs:731` — `self.config.unwrap()` panics if no config set
 - `acorn-lib/src/analyzer/mod.rs:803` — `which(name).unwrap()` panics if binary not found
@@ -321,9 +296,9 @@ Same pattern as CVE-2026-35348 (uutils `sort --files0-from` panicked on non-UTF-
 - `acorn-lib/src/util/mod.rs:858` — `.last().unwrap()` on potentially empty segments
 - `acorn-cli/src/commands/export/mod.rs:74,81` — `Option::unwrap()` on CLI options
 
-**Fix:** Use `ok_or_else(|| eyre!(...))`?`, `unwrap_or_default()`, or match with fallback logging.
+**Fix:** Use `ok_or_else(|| eyre!(...))`, `unwrap_or_default()`, or match with fallback logging.
 
-#### 8. `unwrap()` on I/O operations — crash on transient failures
+#### 3. `unwrap()` on I/O operations — crash on transient failures
 
 - `acorn-lib/src/io/mod.rs:853` — `set_permissions(path, 0o755).unwrap()` — dies on permission failure
 - `acorn-cli/src/main.rs:146` — `build_global().unwrap()` — panics if thread pool already initialized
@@ -336,7 +311,7 @@ Same pattern as CVE-2026-35348 (uutils `sort --files0-from` panicked on non-UTF-
 
 ### LOW IMPACT / LOW DIFFICULTY
 
-#### 9. Numeric `as` casts — potential truncation on 32-bit platforms
+#### 4. Numeric `as` casts — potential truncation on 32-bit platforms
 
 - `acorn-lib/src/analyzer/readability/mod.rs` — 17 casts: `.count() as u32`, `.len() as u32`, `usize as f64`
 - `acorn-lib/src/analyzer/check.rs` — 8 casts: `line_number as usize`, `index as u32`
@@ -364,16 +339,16 @@ For non-`Result` functions where truncation **could** theoretically occur but a 
 
 | # | File:Line | Current | Replacement | Fallback rationale |
 |---|----------|---------|------------|--------------------|
-| 10 | `readability/mod.rs:145,153,159,221,231` (×5) | `.count() as u32`, `.len() as u32` | `u32::try_from(count).unwrap_or(u32::MAX)` | Word/letter/sentence counts never exceed 4B in real text |
-| 11 | `readability/mod.rs:406-418` (×10) | `.count() as isize` | `i64::try_from(count).unwrap_or(0)` | Regex match counts are tiny (single word) |
-| 12 | `readability/mod.rs:419` (×1) | `count.max(1) as usize` | `usize::try_from(count.max(1)).unwrap_or(1)` | Always ≥ 1, positive; safe fallback |
-| 13 | `check.rs:759` | `index as usize` (u64→usize) | `usize::try_from(index).unwrap_or(0)` | Index 0 is safe for `.get()` |
-| 14 | `check.rs:780` | `max as usize` (u64→usize) | `usize::try_from(max).unwrap_or(usize::MAX)` | Saturated max length |
-| 15 | `check.rs:761` | `u64 as u32` | `u32::try_from(v).unwrap_or(u32::MAX)` | Saturated line number |
-| 16 | `util/mod.rs:758` | `(n % MODULUS) as usize` (u128→usize) | `usize::try_from(n % MODULUS).unwrap_or(0)` | Result < 32, always fits; `0` is unreachable but harmless |
-| 17 | `database/mod.rs:239` | `DEFAULT_CACHE_TTL_SECONDS as i64` (u64→i64) | `i64::try_from(v).unwrap_or(3600)` | Const = 3600, always fits |
-| 18 | `database/mod.rs:306` | `limit as i64` (usize→i64) | `i64::try_from(limit).unwrap_or(i64::MAX)` | Saturate DB limit at MAX |
-| 19 | `util/mod.rs:904` | `size as u64` (f64→u64) | `u64::try_from(size).unwrap_or(u64::MAX)` | **HIGHEST PRIORITY** — catches NaN/inf/negative |
+| 5 | `readability/mod.rs:145,153,159,221,231` (×5) | `.count() as u32`, `.len() as u32` | `u32::try_from(count).unwrap_or(u32::MAX)` | Word/letter/sentence counts never exceed 4B in real text |
+| 6 | `readability/mod.rs:406-418` (×10) | `.count() as isize` | `i64::try_from(count).unwrap_or(0)` | Regex match counts are tiny (single word) |
+| 7 | `readability/mod.rs:419` (×1) | `count.max(1) as usize` | `usize::try_from(count.max(1)).unwrap_or(1)` | Always ≥ 1, positive; safe fallback |
+| 8 | `check.rs:759` | `index as usize` (u64→usize) | `usize::try_from(index).unwrap_or(0)` | Index 0 is safe for `.get()` |
+| 9 | `check.rs:780` | `max as usize` (u64→usize) | `usize::try_from(max).unwrap_or(usize::MAX)` | Saturated max length |
+| 10 | `check.rs:761` | `u64 as u32` | `u32::try_from(v).unwrap_or(u32::MAX)` | Saturated line number |
+| 11 | `util/mod.rs:758` | `(n % MODULUS) as usize` (u128→usize) | `usize::try_from(n % MODULUS).unwrap_or(0)` | Result < 32, always fits; `0` is unreachable but harmless |
+| 12 | `database/mod.rs:239` | `DEFAULT_CACHE_TTL_SECONDS as i64` (u64→i64) | `i64::try_from(v).unwrap_or(3600)` | Const = 3600, always fits |
+| 13 | `database/mod.rs:306` | `limit as i64` (usize→i64) | `i64::try_from(limit).unwrap_or(i64::MAX)` | Saturate DB limit at MAX |
+| 14 | `util/mod.rs:904` | `size as u64` (f64→u64) | `u64::try_from(size).unwrap_or(u64::MAX)` | **HIGHEST PRIORITY** — catches NaN/inf/negative |
 
 ### Phase 3 — `#[allow(clippy::cast_*)]` with rationale (infallible by invariant)
 
@@ -381,12 +356,12 @@ For cases where the value is **guaranteed** to fit but Rust's type system can't 
 
 | # | File:Line | Cast | Allow lint | Rationale |
 |---|----------|------|-----------|-----------|
-| 20 | `pid/mod.rs:1275` | `remainder as u8` | `cast_possible_truncation` | `remainder = sum % 29`, always < 29 fits in u8 |
-| 21 | `util/mod.rs:814` | `normalized as u8` (char→u8) | `cast_possible_truncation` | `normalized` is ASCII (0-9, A-Z) after `.to_ascii_uppercase()` + manual substitution |
-| 22 | `util/mod.rs:894,902` | `bytes as f64` (u64→f64) | `cast_precision_loss` | Display formatting; precision loss >2^53 acceptable |
-| 23 | `memory.rs:42,45` | `value as f64` (u64/i64→f64) | `cast_precision_loss` | Memory values are small (< exabytes), always exact in f64 |
-| 24 | `readability/mod.rs:276,291` | `syllables as f64` (usize→f64) | `cast_precision_loss` | No `From` impl; counts never exceed 2^53 syllables |
-| 25 | `readability/mod.rs:246-336` (×7) | `u32 as f64` | **Replace with `f64::from(val)`** — `From<u32> for f64` exists | No allow needed |
+| 15 | `pid/mod.rs:1275` | `remainder as u8` | `cast_possible_truncation` | `remainder = sum % 29`, always < 29 fits in u8 |
+| 16 | `util/mod.rs:814` | `normalized as u8` (char→u8) | `cast_possible_truncation` | `normalized` is ASCII (0-9, A-Z) after `.to_ascii_uppercase()` + manual substitution |
+| 17 | `util/mod.rs:894,902` | `bytes as f64` (u64→f64) | `cast_precision_loss` | Display formatting; precision loss >2^53 acceptable |
+| 18 | `memory.rs:42,45` | `value as f64` (u64/i64→f64) | `cast_precision_loss` | Memory values are small (< exabytes), always exact in f64 |
+| 19 | `readability/mod.rs:276,291` | `syllables as f64` (usize→f64) | `cast_precision_loss` | No `From` impl; counts never exceed 2^53 syllables |
+| 20 | `readability/mod.rs:246-336` (×7) | `u32 as f64` | **Replace with `f64::from(val)`** — `From<u32> for f64` exists | No allow needed |
 
 ### Phase 4 — Enable clippy lints to prevent regressions
 

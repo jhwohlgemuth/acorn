@@ -833,7 +833,7 @@ pub(crate) fn truncate(span: RangeInclusive<usize>, source_text: &str, max_prefi
     } else {
         let nearest = floor_char_boundary(source_text, start.saturating_sub(max_prefix));
         let prefix_start = nearest_space_boundary(source_text, nearest).unwrap_or(nearest);
-        let sliced = &source_text[prefix_start..];
+        let sliced = source_text.get(prefix_start..).unwrap_or_default();
         let ellipsis = "...";
         let adjusted_start = start.saturating_sub(prefix_start).saturating_add(ellipsis.len());
         let adjusted_end = end.saturating_sub(prefix_start).saturating_add(ellipsis.len());
