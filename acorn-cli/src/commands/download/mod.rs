@@ -78,7 +78,9 @@ pub async fn run(
                         .user_path(path.to_absolute_string())
                         .success(true)
                         .build();
-                    let _ = database.insert(activity);
+                    if let Err(why) = database.insert(activity) {
+                        error!("=> {} Save download activity — {why}", Label::fail());
+                    }
                 }
                 if !quiet {
                     println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
@@ -92,7 +94,9 @@ pub async fn run(
                     .user_path(path.file_name_with_parent())
                     .success(false)
                     .build();
-                let _ = database.insert(activity);
+                if let Err(why) = database.insert(activity) {
+                    error!("=> {} Save download activity — {why}", Label::fail());
+                }
                 exit(exitcode::DATAERR);
             }
         };
@@ -128,7 +132,9 @@ pub async fn run(
                 .user_path(path.to_absolute_string())
                 .success(true)
                 .build();
-            let _ = database.insert(activity);
+            if let Err(why) = database.insert(activity) {
+                error!("=> {} Save download activity — {why}", Label::fail());
+            }
             if !quiet {
                 println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
             }

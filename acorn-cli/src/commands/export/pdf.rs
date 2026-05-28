@@ -5,7 +5,7 @@
 use crate::cli::CommandOptions;
 use crate::template::Convert;
 use acorn::io::InputOutput;
-use acorn::prelude::{absolute, create_dir_all, remove_file, File};
+use acorn::prelude::{absolute, create_dir_all, remove_file, ErrorKind, OpenOptions};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{Label, StringConversion};
 use playwright::api::Page;
@@ -33,7 +33,15 @@ pub async fn create(page: &Page, options: CommandOptions) {
     let content = data.to_html().to_string();
     // NOTE: Create temporary index.html because rust-playwright does not support setting baseURL
     let index = absolute(path.parent().unwrap().join("index.html")).unwrap();
-    if File::create(&index).is_ok() {
+    let index_created_or_exists = match OpenOptions::new().write(true).create_new(true).open(&index) {
+        | Ok(_) => true,
+        | Err(why) if why.kind() == ErrorKind::AlreadyExists => true,
+        | Err(why) => {
+            error!(path = index.to_absolute_string(), "=> {} Create temporary index - {why}", Label::fail());
+            false
+        }
+    };
+    if index_created_or_exists {
         page.goto_builder(&format!("file://{}", index.display())).goto().await.unwrap();
     };
     page.set_content_builder(&content).set_content().await.unwrap();

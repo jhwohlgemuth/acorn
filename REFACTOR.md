@@ -274,39 +274,6 @@ Analysis of the codebase against rules from [Bugs Rust Won't Catch](https://corr
 
 ---
 
-### HIGH IMPACT / LOW DIFFICULTY
-
-#### 1. TOCTOU: `File::create` followed by write — potential symlink race
-
-`File::create` follows symlinks. Between `File::create` and `io::copy`, an attacker with write access to a parent directory can swap the target with a symlink to an arbitrary file.
-
-**Sites:**
-- `acorn-lib/src/io/mod.rs:269` — zip archive creation (`File::create(&zip_file_path)`)
-- `acorn-lib/src/io/mod.rs:455` — zip extraction (`File::create(&target)`)
-- `acorn-lib/src/io/mod.rs:1226` — `write_file_bytes`
-- `acorn-cli/src/commands/export/pdf.rs:36` — temp index.html for Playwright
-
-**Fix:** Replace `File::create` with `OpenOptions::new().write(true).create_new(true).open(path)` which atomically fails if a symlink exists at the target location.
-
-#### 2. Permissions set after creation — TOCTOU window
-
-- `acorn-lib/src/io/mod.rs:853` — `make_executable` calls `set_permissions(0o755)` after the file already exists with default permissions, leaving a window where any user can open the file with default perms.
-
-**Fix:** Use `OpenOptions::new().mode(0o755)` at creation time on Unix.
-
-#### 3. Discarded `Result` values — silent error swallowing
-
-- `acorn-cli/src/commands/export/powerpoint.rs:49,65,71,105` — `let _ = write_file(...)` silently discards write failures
-- `acorn-cli/src/commands/export/powerpoint.rs:182` — `let _ = copy_image(...)` silently discards copy failures
-- `acorn-cli/src/commands/download/mod.rs:81,95,131` — `let _ = database.insert(...)` silently discards insert failures
-- `acorn-lib/src/io/api/gitlab.rs:725` — `let _ = dotenvy::from_filename(".env")`
-- `acorn-lib/src/io/api/raid.rs:165` — `let _ = dotenvy::from_filename(".env")`
-- `acorn-cli/src/commands/export/mod.rs:158` — `let _ = powerpoint::create(...)` silently discarded
-
-**Fix:** Replace `let _ =` with `if let Err(e) = ...` and log or return the error. Add a `// safety:` comment if discarding is intentional.
-
----
-
 ### HIGH IMPACT / MEDIUM DIFFICULTY
 
 #### 4. `unwrap()` on path operations — panic on non-UTF-8 paths
@@ -381,38 +348,13 @@ Same pattern as CVE-2026-35348 (uutils `sort --files0-from` panicked on non-UTF-
 
 ---
 
-# Numeric `as` Cast Refactoring (Phases 2–4)
+# Numeric `as` Cast Refactoring (Phases 2-4)
 
 **Constraints (from AGENTS.md + coding guidelines):**
 - No `?` operator, no `.unwrap()`, no `.expect()`
 - No `return` except as final expression
 - Prefer functional style (combinators, `unwrap_or(fallback)`)
 - `From::from()` only where std provides the impl
-
-## Completed
-
-### ✅ Phase 1 — `From::from()` (lossless, infallible, mechanical)
-
-| File | Change | Rationale |
-|------|--------|-----------|
-| `acorn-lib/src/io/database/schema.rs:675,853` | `bool as i32` → `i32::from(bool)` | `From<bool> for i32` |
-| `acorn-lib/src/io/database/schema.rs:739` | `is_deprecated/.../is_open_source as i32` (×3) → `i32::from(...)` | Same |
-| `acorn-lib/src/io/database/schema.rs:769` | `is_reachable as i32` → `i32::from(is_reachable)` | Same |
-| `acorn-macros/src/lib.rs:68` | macro codegen `value as i32` → `i32::from(value)` | Same |
-| `acorn-lib/src/io/database/tests/mod.rs:106` | test `value as i32` → `i32::from` | Same |
-| `acorn-lib/src/util/mod.rs:758` | `*byte as char` → `char::from(*byte)` | `From<u8> for char` |
-
-**Note:** These are widening casts where `From` is unavailable in std. No clippy lint fires for them. Kept as-is:
-
-| File | Cast | Reason From unavailable |
-|------|------|------------------------|
-| `acorn-lib/src/analyzer/check.rs:740,745,748` (×4) | `u32 as usize` | `From<u32>` for `usize` not implemented |
-| `acorn-lib/src/io/mod.rs:1101` | `count as u64` | `From<usize>` for `u64` not implemented (arch-dependent) |
-| `acorn-cli/src/commands/export/mod.rs:203` | `items.len() as u64` | Same |
-| `acorn-lib/src/util/mod.rs:756,781` | `.len() as u128` | `From<usize>` for `u128` not implemented; also in `const` context |
-| `acorn-lib/src/util/mod.rs:815` | `index as u128` | Same |
-
----
 
 ## Remaining
 
@@ -458,4 +400,4 @@ cast_possible_wrap = "deny"           # Prevents wrapping as-casts
 checked_conversions = "deny"          # Suggests TryFrom where possible
 ```
 
-After Phases 1–3, these will pass cleanly (every existing cast will be either removed, replaced with `From`, wrapped in `TryFrom + unwrap_or`, or annotated with `#[allow]`). Any new `as` cast will fail CI.
+After Phases 1-3, these will pass cleanly (every existing cast will be either removed, replaced with `From`, wrapped in `TryFrom + unwrap_or`, or annotated with `#[allow]`). Any new `as` cast will fail CI.

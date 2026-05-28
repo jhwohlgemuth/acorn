@@ -156,10 +156,17 @@ pub async fn run(
                     },
                 );
                 progress.set_message("Generating combined PowerPoint artifact");
-                let _ = powerpoint::create(paths, Some(Arc::clone(&create_options)));
-                progress.inc(1);
-                finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
-                Ok(())
+                match powerpoint::create(paths, Some(Arc::clone(&create_options))) {
+                    | Ok(_) => {
+                        progress.inc(1);
+                        finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
+                        Ok(())
+                    }
+                    | Err(why) => {
+                        fail!("Generate combined PowerPoint — {}", why);
+                        exit(exitcode::DATAERR);
+                    }
+                }
             } else {
                 let progress = with_progress(
                     paths,

@@ -6,12 +6,12 @@ mod std {
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
     pub use std::env::{self, consts, var};
     pub use std::ffi::OsStr;
-    pub use std::fs::{canonicalize, copy, create_dir_all, read, remove_dir_all, remove_file, write, File};
+    pub use std::fs::{canonicalize, copy, create_dir_all, read, remove_dir_all, remove_file, write, File, OpenOptions};
     #[cfg(unix)]
     pub use std::fs::{set_permissions, Permissions};
     pub use std::io::{self, BufRead, BufReader, Cursor, Error, ErrorKind, Read, Write};
-    #[cfg(unix)]
-    pub use std::os::unix::fs::PermissionsExt;
+    #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
+    pub use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
     pub use std::path::{absolute, Path, PathBuf};
     pub use std::process::{exit, Command, ExitStatus, Output, Stdio};
     pub use std::sync::{Mutex, OnceLock};

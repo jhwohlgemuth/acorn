@@ -21,6 +21,7 @@ use core::fmt;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use tracing::debug;
 
 /// Trait for adding creation and registration functionality (e.g., runners, issues, merge requests, etc.)
 pub trait Create {
@@ -722,7 +723,9 @@ impl Configuration for Options {
     ///
     /// See <https://docs.gitlab.com/ci/variables/predefined_variables> for more information on available GitLab CI environment variables
     fn from_env() -> Self {
-        let _ = dotenvy::from_filename(".env");
+        if let Err(why) = dotenvy::from_filename(".env") {
+            debug!("=> {} Load .env — {why}", Label::skip());
+        }
         Self {
             token: first_env_var(&["CI_JOB_TOKEN", "GITLAB_TOKEN"]).unwrap_or_default(),
             identifier: var("CI_PROJECT_ID").ok(),

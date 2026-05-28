@@ -45,7 +45,13 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) {
                 let content = result
                     .replace("slides/slide1", &format!("slides/slide{}", slide_number))
                     .replace("notesSlides/notesSlide1", &format!("notesSlides/notesSlide{}", slide_number));
-                let _ = write_file(new_slide_path, content);
+                if let Err(why) = write_file(new_slide_path.clone(), content) {
+                    error!(
+                        path = new_slide_path.to_absolute_string(),
+                        "=> {} Write slide file — {why}",
+                        Label::fail()
+                    );
+                }
             }
         });
         // Add new slide relationship to presentation.xml.rels
@@ -61,13 +67,25 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) {
             .target(format!("slides/slide{}.xml", slide_number))
             .build();
         let updated_presentation_xml_rels = presentation_xml_rels.add_relationship(new_slide_relationship);
-        let _ = write_file(presentation_xml_rels_path, format!("{updated_presentation_xml_rels}"));
+        if let Err(why) = write_file(presentation_xml_rels_path.clone(), format!("{updated_presentation_xml_rels}")) {
+            error!(
+                path = presentation_xml_rels_path.to_absolute_string(),
+                "=> {} Write presentation relationships — {why}",
+                Label::fail()
+            );
+        }
         // Add new slide element to presentation.xml
         let presentation_xml_path = reference_extract_path.join("ppt/presentation.xml");
         #[allow(clippy::unwrap_used)]
         let presentation_xml = read_file(&presentation_xml_path).unwrap();
         let updated_presentation_xml = add_slide_element(&presentation_xml, new_slide_revision_identifier);
-        let _ = write_file(&presentation_xml_path, updated_presentation_xml.to_string());
+        if let Err(why) = write_file(&presentation_xml_path, updated_presentation_xml.to_string()) {
+            error!(
+                path = presentation_xml_path.to_absolute_string(),
+                "=> {} Write presentation XML — {why}",
+                Label::fail()
+            );
+        }
     }
 }
 fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination: &Path) -> std::io::Result<u64> {
@@ -100,7 +118,13 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
     let re = Regex::new(&target).unwrap();
     let content = read_file(xml_rels_path.clone()).unwrap_or_default();
     let updated = re.replace(&content, format!("../media/{name}.{extension}")).to_string();
-    let _ = write_file(xml_rels_path, updated);
+    if let Err(why) = write_file(xml_rels_path.clone(), updated) {
+        error!(
+            path = xml_rels_path.to_absolute_string(),
+            "=> {} Write slide relationship XML — {why}",
+            Label::fail()
+        );
+    }
     copy(from, to)
 }
 /// Create PowerPoint presentation from Research Activity data
@@ -179,7 +203,13 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<Arc<Comm
                 .iter()
                 .map(|fragment| reference_extract_path.join(fragment))
                 .for_each(|path| interpolate_values(path, &data));
-            let _ = copy_image(slide_number, &data, &index_path, &reference_extract_path);
+            if let Err(why) = copy_image(slide_number, &data, &index_path, &reference_extract_path) {
+                error!(
+                    path = index_path.to_absolute_string(),
+                    "=> {} Copy image for slide {slide_number} — {why}",
+                    Label::fail()
+                );
+            }
         });
     let folder = if count == 1 {
         _paths

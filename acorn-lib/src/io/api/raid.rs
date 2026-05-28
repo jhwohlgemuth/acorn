@@ -7,10 +7,12 @@ use crate::param;
 use crate::prelude::var;
 use crate::schema::pid::raid::Metadata;
 use crate::schema::validate::is_ror;
+use crate::util::Label;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use dotenvy;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 use validator::Validate;
 
 /// Server response for RAiD API errors
@@ -162,7 +164,9 @@ impl Configuration for Options {
     /// - `RAID_API_TOKEN` -> `token` (defaults to empty string when unset)
     /// - `RAID_SERVER_HOST` -> `domain` (defaults to api.raid.org when unset)
     fn from_env() -> Self {
-        let _ = dotenvy::from_filename(".env");
+        if let Err(why) = dotenvy::from_filename(".env") {
+            debug!("=> {} Load .env — {why}", Label::skip());
+        }
         Self {
             token: var("RAID_API_TOKEN").unwrap_or_default(),
             body: None,

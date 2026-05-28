@@ -21,9 +21,11 @@
 //!
 use crate::cmd;
 use crate::prelude::CommandOutput;
-use crate::prelude::{canonicalize, create_dir_all, io, var, write, BufReader, Cursor, File, HashSet, PathBuf, Read, Write};
+use crate::prelude::{
+    canonicalize, create_dir_all, io, remove_file, var, write, BufReader, Cursor, File, HashSet, OpenOptions, PathBuf, Read, Write,
+};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-use crate::prelude::{set_permissions, Permissions, PermissionsExt};
+use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
 use crate::util::constants::app::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
@@ -266,16 +268,45 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf
         | Some(value) => value,
         | None => path.with_extension("zip"),
     };
-    let zip_file = match File::create(&zip_file_path) {
-        | Ok(zip_file) => Some(ZipWriter::new(zip_file)),
-        | Err(why) => {
-            error!(
-                file = path.clone().to_absolute_string(),
-                "=> {} Create zip archive - {why}",
-                Label::fail()
-            );
-            None
+    info!("=> {} Create archive at {}", Label::using(), zip_file_path.to_absolute_string());
+    let prepared = if zip_file_path.exists() {
+        match zip_file_path.symlink_metadata() {
+            | Ok(metadata) => {
+                let file_type = metadata.file_type();
+                if file_type.is_symlink() {
+                    error!("=> {} Create zip archive — destination cannot be a symlink", Label::fail());
+                    false
+                } else if metadata.is_file() {
+                    match remove_file(zip_file_path.clone()) {
+                        | Ok(_) => true,
+                        | Err(why) => {
+                            error!("=> {} Prepare zip destination — {why}", Label::fail());
+                            false
+                        }
+                    }
+                } else {
+                    error!("=> {} Create zip archive — destination exists and is not a file", Label::fail());
+                    false
+                }
+            }
+            | Err(why) => {
+                error!("=> {} Inspect zip destination — {why}", Label::fail());
+                false
+            }
         }
+    } else {
+        true
+    };
+    let zip_file = if prepared {
+        match OpenOptions::new().write(true).create_new(true).open(&zip_file_path) {
+            | Ok(zip_file) => Some(ZipWriter::new(zip_file)),
+            | Err(why) => {
+                error!("=> {} Create zip archive — {why}", Label::fail());
+                None
+            }
+        }
+    } else {
+        None
     };
     if let Some(mut zip) = zip_file {
         let files = files_all(path.clone(), None).into_iter().filter(|x| x.is_file());
@@ -297,7 +328,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf
                             | Ok(_) => match zip.write_all(&buffer) {
                                 | Ok(_) => {}
                                 | Err(why) => {
-                                    error!(file = file_path.to_absolute_string(), "=> {} Write zip archive - {why}", Label::fail())
+                                    error!(file = file_path.to_absolute_string(), "=> {} Write zip archive — {why}", Label::fail())
                                 }
                             },
                             | Err(why) => {
@@ -452,7 +483,7 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<Pat
                                 | Err(why) => error!(path = parent.to_path_buf().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
                             }
                         }
-                        match File::create(&target) {
+                        match OpenOptions::new().write(true).create_new(true).open(&target) {
                             | Ok(mut output_file) => match io::copy(&mut file, &mut output_file) {
                                 | Ok(_) => true,
                                 | Err(why) => {
@@ -851,11 +882,22 @@ where
     P: Into<PathBuf> + Clone,
 {
     let path = path.into();
-    match set_permissions(path.as_path(), Permissions::from_mode(0o755)) {
-        | Ok(()) => path.is_executable(),
+    let create_with_mode = OpenOptions::new().write(true).create_new(true).mode(0o755).open(path.as_path());
+    match create_with_mode {
+        | Ok(_) => path.is_executable(),
         | Err(why) => {
-            debug!(path = path.to_absolute_string(), "=> {} Set permissions — {why}", Label::fail());
-            false
+            if why.kind() == io::ErrorKind::AlreadyExists {
+                match set_permissions(path.as_path(), Permissions::from_mode(0o755)) {
+                    | Ok(()) => path.is_executable(),
+                    | Err(why) => {
+                        debug!(path = path.to_absolute_string(), "=> {} Set permissions — {why}", Label::fail());
+                        false
+                    }
+                }
+            } else {
+                debug!(path = path.to_absolute_string(), "=> {} Create executable file — {why}", Label::fail());
+                false
+            }
         }
     }
 }
@@ -1229,7 +1271,7 @@ where
         | Some(parent) => {
             let folder = parent.display().to_string();
             match create_dir_all(folder.clone()) {
-                | Ok(_) => match File::create(&path) {
+                | Ok(_) => match OpenOptions::new().write(true).create_new(true).open(&path) {
                     | Ok(mut file) => match get_bytes().await.map_err(Into::into) {
                         | Ok(bytes) => {
                             let mut content = Cursor::new(bytes);
