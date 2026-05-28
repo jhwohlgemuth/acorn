@@ -8,7 +8,7 @@ use super::{to_dataframe, StaticAnalyzer, StaticAnalyzerConfig};
 use crate::io::InputOutput;
 #[cfg(feature = "analysis")]
 use crate::prelude::Cursor;
-use crate::prelude::{HashMap, Path, PathBuf};
+use crate::prelude::{Arc, HashMap, Path, PathBuf};
 use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
 use crate::util::{Label, StringConversion, ToProse};
 use crate::{check, check_err, check_ok};
@@ -639,8 +639,9 @@ where
     let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
     match vale.clone().sync(offline, quiet).await {
         | Ok(_) => {
+            let vale = Arc::new(vale);
             let results = paths.iter().map(|path| {
-                let vale = vale.clone();
+                let vale = Arc::clone(&vale);
                 let path = path.clone();
                 async move {
                     match T::read(&path) {

@@ -5,9 +5,8 @@
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::io::{read_file, write_file};
 use crate::prelude::PathBuf;
-use crate::schema::research_activity::aspect::AspectFramework;
-use crate::schema::research_activity::{Research, ResearchActivity, ResearchActivityMetadata, Sections};
-use crate::schema::{ContactPoint, Notes, Other};
+use crate::schema::research_activity::ResearchActivity;
+use crate::schema::{Notes, Other};
 use crate::util::{Label, StringInterpolation};
 use fancy_regex::Regex;
 use quick_xml::events::Event;
@@ -93,42 +92,11 @@ where
     }
 }
 /// Interpolate research activity data into PowerPoint template
-pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
+pub fn interpolate_values(path: PathBuf, data: &ResearchActivity) {
     let updated = match read_file(path.clone()) {
         | Ok(content) => {
-            let ResearchActivity {
-                contact,
-                meta,
-                notes,
-                title,
-                subtitle,
-                sections,
-                aspect,
-                ..
-            } = data.clone();
-            let ResearchActivityMetadata { doi, partners, .. } = meta.clone();
-            let AspectFramework { portability, .. } = match aspect {
-                | Some(value) => value,
-                | None => AspectFramework::default(),
-            };
-            let Sections {
-                achievement,
-                impact,
-                approach,
-                mission,
-                challenge,
-                research,
-                ..
-            } = sections;
-            let Research { focus, areas } = research;
-            let ContactPoint {
-                given_name: first,
-                family_name: last,
-                email,
-                ..
-            } = contact;
-            let caption = meta.first_image_caption();
-            let presentation_notes = match notes.clone() {
+            let caption = data.meta.clone().first_image_caption();
+            let presentation_notes = match data.notes.clone() {
                 | Some(value) => match value {
                     | Other::Formatted(Notes { presentation, .. }) => match presentation {
                         | Some(value) => value,
@@ -138,7 +106,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 },
                 | None => "".to_string(),
             };
-            let managers = match notes.clone() {
+            let managers = match data.notes.clone() {
                 | Some(value) => match value {
                     | Other::Formatted(Notes { managers, .. }) => match managers {
                         | Some(value) => value,
@@ -148,7 +116,7 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
                 },
                 | None => vec![],
             };
-            let programs = match notes {
+            let programs = match data.notes.clone() {
                 | Some(value) => match value {
                     | Other::Formatted(Notes { programs, .. }) => match programs {
                         | Some(value) => value,
@@ -165,25 +133,36 @@ pub fn interpolate_values(path: PathBuf, data: ResearchActivity) {
             }
             let replacements = vec![
                 Replacement::String("caption", caption),
-                Replacement::String("challenge", challenge),
+                Replacement::String("challenge", data.sections.challenge.clone()),
                 // TODO: Use CiteAs API to get in Chicago format
-                Replacement::String("citation", doi.as_ref().and_then(|d| d.first().cloned()).unwrap_or_default()),
-                Replacement::String("email", email),
-                Replacement::String("first", first),
-                Replacement::String("focus", focus),
-                Replacement::String("last", last),
+                Replacement::String(
+                    "citation",
+                    data.meta.doi.as_ref().and_then(|values| values.first().cloned()).unwrap_or_default(),
+                ),
+                Replacement::String("email", data.contact.email.clone()),
+                Replacement::String("first", data.contact.given_name.clone()),
+                Replacement::String("focus", data.sections.research.focus.clone()),
+                Replacement::String("last", data.contact.family_name.clone()),
                 Replacement::String("managers", managers.join(" and ")),
-                Replacement::String("mission", mission),
+                Replacement::String("mission", data.sections.mission.clone()),
                 Replacement::String("notes", presentation_notes),
-                Replacement::String("partners", partners.unwrap_or_default().join(", ")),
-                Replacement::String("portability", portability.unwrap_or_default().to_string()),
+                Replacement::String("partners", data.meta.partners.clone().unwrap_or_default().join(", ")),
+                Replacement::String(
+                    "portability",
+                    data.aspect
+                        .clone()
+                        .unwrap_or_default()
+                        .portability
+                        .unwrap_or_default()
+                        .to_string(),
+                ),
                 Replacement::String("programs", programs.join(" and ")),
-                Replacement::String("subtitle", subtitle.unwrap_or_else(|| "".to_string())),
-                Replacement::String("title", title),
-                Replacement::Bullets("achievement", achievement.unwrap_or_else(Vec::new)),
-                Replacement::Bullets("areas", areas),
-                Replacement::Bullets("impact", impact),
-                Replacement::Bullets("technical", approach),
+                Replacement::String("subtitle", data.subtitle.clone().unwrap_or_default()),
+                Replacement::String("title", data.title.clone()),
+                Replacement::Bullets("achievement", data.sections.achievement.clone().unwrap_or_default()),
+                Replacement::Bullets("areas", data.sections.research.areas.clone()),
+                Replacement::Bullets("impact", data.sections.impact.clone()),
+                Replacement::Bullets("technical", data.sections.approach.clone()),
             ];
             let result = replacements.iter().fold(content.clone(), |acc, replacement| match replacement {
                 | Replacement::String(name, value) => acc.replace_placeholder_with_string(name, value),

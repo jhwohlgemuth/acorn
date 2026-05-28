@@ -6,7 +6,7 @@ use crate::cli::CommandOptions;
 use acorn::io::powerpoint::ooxml::{Relationship, Relationships};
 use acorn::io::powerpoint::{interpolate_values, read_xml_rel};
 use acorn::io::{archive, extract_zip, read_file, write_file, ApiResult, InputOutput};
-use acorn::prelude::{copy, create_dir_all, exit, Path, PathBuf};
+use acorn::prelude::{copy, create_dir_all, exit, Arc, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{Label, StringConversion};
 use color_eyre::eyre::eyre;
@@ -16,7 +16,7 @@ use nanoid::nanoid;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use tracing::error;
 
-fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
+fn add_slide(slide_number: usize, reference_extract_path: &Path) {
     fn add_slide_element(xml: &str, revision_identifier: u32) -> String {
         let pattern = r#"<p:sldIdLst>(?<first_slide><p:sldId id="(?<identifier>\d+)" r:id="rId(?<revision>\d+)"/>)(?<new_slides>.*)</p:sldIdLst>"#;
         #[allow(clippy::unwrap_used)]
@@ -38,10 +38,9 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
         .map(|x| root.join(x))
         .collect::<Vec<PathBuf>>()
     }
-    let root = reference_extract_path.clone();
-    let new_slide_paths = slide_paths(slide_number, &root);
+    let new_slide_paths = slide_paths(slide_number, reference_extract_path);
     if !new_slide_paths.iter().all(|x| x.exists()) {
-        izip!(slide_paths(1, &root), new_slide_paths).for_each(|(first_slide_path, new_slide_path)| {
+        izip!(slide_paths(1, reference_extract_path), new_slide_paths).for_each(|(first_slide_path, new_slide_path)| {
             if let Ok(result) = read_file(first_slide_path) {
                 let content = result
                     .replace("slides/slide1", &format!("slides/slide{}", slide_number))
@@ -50,7 +49,7 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
             }
         });
         // Add new slide relationship to presentation.xml.rels
-        let presentation_xml_rels_path = reference_extract_path.clone().join("ppt/_rels/presentation.xml.rels");
+        let presentation_xml_rels_path = reference_extract_path.join("ppt/_rels/presentation.xml.rels");
         let presentation_xml_rels = match read_xml_rel(presentation_xml_rels_path.clone()) {
             | Some(value) => value,
             | None => Relationships::default(),
@@ -64,7 +63,7 @@ fn add_slide(slide_number: usize, reference_extract_path: PathBuf) {
         let updated_presentation_xml_rels = presentation_xml_rels.add_relationship(new_slide_relationship);
         let _ = write_file(presentation_xml_rels_path, format!("{updated_presentation_xml_rels}"));
         // Add new slide element to presentation.xml
-        let presentation_xml_path = reference_extract_path.clone().join("ppt/presentation.xml");
+        let presentation_xml_path = reference_extract_path.join("ppt/presentation.xml");
         #[allow(clippy::unwrap_used)]
         let presentation_xml = read_file(&presentation_xml_path).unwrap();
         let updated_presentation_xml = add_slide_element(&presentation_xml, new_slide_revision_identifier);
@@ -107,11 +106,10 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
 /// Create PowerPoint presentation from Research Activity data
 #[allow(clippy::unwrap_used)]
 pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandOptions>) -> ApiResult<PathBuf> {
-    let CommandOptions { output, path, reference, .. } = options.clone().unwrap();
-    let paths: Vec<PathBuf> = paths.into_iter().collect();
-    let count = paths.clone().len();
+    let CommandOptions { output, path, reference, .. } = options.unwrap();
+    let paths: Arc<Vec<PathBuf>> = Arc::new(paths.into_iter().collect());
+    let count = paths.len();
     let research_activity_data = paths
-        .clone()
         .iter()
         .map(|path| match ResearchActivity::read(path.clone()) {
             | Ok(value) => {
@@ -153,7 +151,7 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandO
         | None => unimplemented!(),
     };
     let reference_extract_path = match extract_zip(reference_path.clone(), None) {
-        | Ok(value) => value,
+        | Ok(value) => Arc::new(value),
         | Err(_) => {
             error!(path = reference_path.to_absolute_string(), "=> {} Extract reference", Label::fail());
             exit(exitcode::UNAVAILABLE);
@@ -162,12 +160,14 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandO
     research_activity_data
         .iter()
         .enumerate()
-        .for_each(|(index, _)| add_slide(index.saturating_add(1), reference_extract_path.clone()));
-    izip!(research_activity_data, paths.clone())
+        .for_each(|(index, _)| add_slide(index.saturating_add(1), reference_extract_path.as_ref()));
+    let reference_extract_path_for_workers = Arc::clone(&reference_extract_path);
+    izip!(research_activity_data, paths.iter().cloned())
         .collect::<Vec<_>>()
         .into_par_iter()
         .enumerate()
-        .for_each(|(index, (data, index_path))| {
+        .for_each(move |(index, (data, index_path))| {
+            let reference_extract_path = Arc::clone(&reference_extract_path_for_workers);
             let slide_number = index.saturating_add(1);
             let fragments = [
                 format!("ppt/slides/slide{slide_number}.xml"),
@@ -177,19 +177,19 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<CommandO
             fragments
                 .iter()
                 .map(|fragment| reference_extract_path.join(fragment))
-                .for_each(|path| interpolate_values(path, data.clone()));
+                .for_each(|path| interpolate_values(path, &data));
             let _ = copy_image(slide_number, &data, &index_path, &reference_extract_path);
         });
     let folder = if count == 1 {
         paths
             .first()
-            .map(|p| p.clone().parent().unwrap_or(Path::new(".")).canonicalize().unwrap_or(PathBuf::from(".")))
+            .map(|p| p.parent().unwrap_or(Path::new(".")).canonicalize().unwrap_or(PathBuf::from(".")))
             .unwrap_or(PathBuf::from("."))
     } else {
         path.as_ref().unwrap_or(&PathBuf::from(".")).to_path_buf()
     };
     let folder_name = folder.file_name_with_parent();
-    prepare_destination(&output, &folder_name).and_then(|destination| archive(reference_extract_path.clone(), Some(destination)))
+    prepare_destination(&output, &folder_name).and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination)))
 }
 fn prepare_destination(output: &Option<PathBuf>, name: &str) -> ApiResult<PathBuf> {
     const EXTENSION: &str = "pptx";

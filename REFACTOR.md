@@ -272,89 +272,7 @@ pub fn run(path: PathBuf, offline: bool, verbose: Verbosity) {
 
 This document lists locations in the ACORN codebase where `clone()` calls could be replaced with `Arc` for better performance and memory management, organized by impact level.
 
-> **Note:** High Impact #1 (Bucket/BucketOptions in `acorn-lib/src/io/config.rs`) has already been implemented.
-
----
-
-## HIGH IMPACT
-
-These are the most impactful changes: large data structures being cloned in parallel contexts, or structs cloned many times across the codebase.
-
----
-
-### 1. PowerPoint export redundant clones
-
-**File:** `acorn-cli/src/commands/export/powerpoint.rs`
-**Lines:** 104-179
-
-**What is cloned:**
-- Line 104: `options.clone().unwrap()` -- `CommandOptions` (contains 3x `Option<PathBuf>`, 3x `Option<String>`)
-- Line 106: `paths.clone()` -- `Vec<PathBuf>` cloned just for `.len()`
-- Line 108: `paths.clone()` -- same `Vec` cloned again for `.iter()`
-- Line 110: `path.clone()` -- per-item `PathBuf` clone
-- Line 112: `path.clone()` -- same path cloned again for context
-- Line 125: `path.clone()` -- options field cloned
-- Line 145: `reference_path.clone()`
-- Line 155: `reference_extract_path.clone()` -- per slide in iteration
-- Line 156: `paths.clone()` -- same `Vec` cloned a third time
-- Line 170: `data.clone()` -- `ResearchActivity` cloned per item in parallel iteration
-- Line 174: `paths[0].clone()` -- yet another clone
-- Line 179: `reference_extract_path.clone()` -- another clone
-
-**Why Arc is better:** `paths` is cloned 4 times in this function. `CommandOptions` is cloned for destructuring. `ResearchActivity` is cloned inside a `par_iter` block. Using `Arc<PathBuf>` for paths and `&ResearchActivity` (or `Arc<ResearchActivity>`) would eliminate most of these. The `reference_extract_path` is cloned once per slide -- an `Arc<PathBuf>` would reduce this to a pointer copy.
-
-**Estimated impact:** **HIGH** -- Many redundant clones in the same function, plus `ResearchActivity` clone in parallel context.
-
-**Suggested approach:**
-```rust
-// Wrap paths in Arc once
-let paths = Arc::new(paths);
-
-// Use Arc::clone instead of .clone() for Vec<PathBuf>
-let paths_len = paths.len();  // No clone needed
-for path in paths.iter() {    // No clone needed
-    // ...
-}
-
-// For ResearchActivity in par_iter
-let data = Arc::new(data);
-paths.par_iter().for_each(|path| {
-    let data = Arc::clone(&data);
-    // ...
-});
-```
-
----
-
-### 2. Vale struct in prose checking
-
-**File:** `acorn-lib/src/analyzer/check.rs`
-**Lines:** 629-633
-
-**What is cloned:**
-- Line 629: `vale.clone()` -- `Vale` struct cloned (contains `Option<SemanticVersion>`, `Option<PathBuf>`, `Option<ValeConfig>`)
-- Line 632: `vale.clone()` -- cloned again inside the `.map()` closure for each path
-
-**Why Arc is better:** `Vale` is cloned once, then cloned again per path in the async iterator. The cloned `Vale` is only used to call `.run()`, which takes `&self`. Wrapping in `Arc<Vale>` would reduce per-path cloning to a pointer copy.
-
-**Estimated impact:** **HIGH** -- `Vale` cloning happens for every file being prose-checked, and prose checking is one of the more expensive operations.
-
-**Suggested approach:**
-```rust
-// Before
-let vale = Vale::new(...);
-items.iter().map(|path| {
-    let vale = vale.clone();
-    async move { vale.run(path).await }
-})
-
-// After
-let vale = Arc::new(Vale::new(...));
-items.iter().map(|path| {
-    let vale = Arc::clone(&vale);
-    async move { vale.run(path).await }
-})
-```
+> **Note:** Completed high-impact Arc items were removed from this list.
 
 ---
 
@@ -591,8 +509,6 @@ Small structs, single clones, or clones of types that are already cheap (e.g., `
 
 | Priority | File | Lines | Struct Being Cloned | Context | Impact |
 |----------|------|-------|-------------------|---------|--------|
-| 1 | acorn-cli/src/commands/export/powerpoint.rs | 104-179 | CommandOptions, paths, ResearchActivity | Export pipeline | HIGH |
-| 2 | acorn-lib/src/analyzer/check.rs | 629, 632 | Vale | Parallel prose checks | HIGH |
 | 3 | acorn-cli/src/commands/check/mod.rs | 80, 113, 199 | CheckOptions (3x) | Check command hot path | MED-HIGH |
 | 4 | acorn-cli/src/commands/export/mod.rs | 141, 165 | CommandOptions | Export parallel processing | MEDIUM |
 | 5 | acorn-cli/src/commands/download/mod.rs | 51, 105 | BucketOptions | Bucket loop | MEDIUM |
