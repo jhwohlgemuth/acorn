@@ -268,7 +268,7 @@ pub fn run(path: PathBuf, offline: bool, verbose: Verbosity) {
 
 ---
 
-# Arc Optimization Opportunities
+# Arc Optimization
 
 This document lists locations in the ACORN codebase where `clone()` calls could be replaced with `Arc` for better performance and memory management, organized by impact level.
 
