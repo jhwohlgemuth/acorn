@@ -282,79 +282,7 @@ These are the most impactful changes: large data structures being cloned in para
 
 ---
 
-### 2. ResearchActivity in parallel schema validation
-
-**File:** `acorn-lib/src/analyzer/mod.rs`
-**Lines:** 129, 265
-
-**What is cloned:**
-- Line 129: `data.clone()` -- `Cff` struct passed to `collect_validation_checks`
-- Line 265: `data.clone()` -- `ResearchActivity` struct passed to `collect_validation_checks`
-
-Both occur inside `.par_iter().flat_map()` closures. `ResearchActivity` is a very large struct containing nested `ResearchActivityMetadata`, `Sections`, `ContactPoint`, `AspectFramework`, and `Other` -- all with many `String`, `Vec<String>`, and nested struct fields.
-
-**Why Arc is better:** These are parallel iterations over file paths. Each path is read, deserialized into a potentially large `ResearchActivity` or `Cff`, then immediately cloned for validation. Using `Arc<ResearchActivity>` would allow the validation checks to share ownership without deep-copying the entire struct. The `collect_validation_checks` function only needs read access.
-
-**Estimated impact:** **HIGH** -- `ResearchActivity` is the central data model; cloning it in parallel processing is one of the most expensive operations in the codebase.
-
-**Suggested approach:**
-```rust
-// Before
-.par_iter().flat_map(|path| {
-    let data = ResearchActivity::read(path)?;
-    collect_validation_checks(data.clone())
-})
-
-// After
-.par_iter().flat_map(|path| {
-    let data = Arc::new(ResearchActivity::read(path)?);
-    collect_validation_checks(Arc::clone(&data))
-})
-```
-
----
-
-### 3. ResearchActivity triple-cloned in website checks
-
-**File:** `acorn-lib/src/analyzer/mod.rs`
-**Lines:** 284, 292, 300
-
-**What is cloned:**
-- Line 284: `data.clone().meta.doi`
-- Line 292: `data.clone().meta.websites`
-- Line 300: `data.clone().contact.url`
-
-Three separate clones of the full `ResearchActivity` struct within the same async closure, each to access a single nested field.
-
-**Why Arc is better:** Three clones of a large struct to access individual fields. With `Arc<ResearchActivity>`, you'd clone only the `Arc` pointer (16 bytes on 64-bit) instead of the entire struct. Or simply borrow the fields directly since they're only read.
-
-**Estimated impact:** **HIGH** -- Three unnecessary full struct clones in a loop over paths.
-
-**Suggested approach:**
-```rust
-// Before
-async move {
-    let doi = data.clone().meta.doi;
-    let websites = data.clone().meta.websites;
-    let url = data.clone().contact.url;
-    // ...
-}
-
-// After (Option 1: Arc)
-async move {
-    let doi = data.meta.doi.clone();
-    let websites = data.meta.websites.clone();
-    let url = data.contact.url.clone();
-    // ...
-}
-
-// After (Option 2: References if lifetimes allow)
-// Borrow fields directly without cloning the parent struct
-```
-
----
-
-### 4. PowerPoint export redundant clones
+### 1. PowerPoint export redundant clones
 
 **File:** `acorn-cli/src/commands/export/powerpoint.rs`
 **Lines:** 104-179
@@ -398,7 +326,7 @@ paths.par_iter().for_each(|path| {
 
 ---
 
-### 5. Vale struct in prose checking
+### 2. Vale struct in prose checking
 
 **File:** `acorn-lib/src/analyzer/check.rs`
 **Lines:** 629-633
@@ -436,7 +364,7 @@ Structs that are cloned repeatedly but are smaller, or clones that occur less fr
 
 ---
 
-### 6. CheckOptions cloned 3x in check command
+### 3. CheckOptions cloned 3x in check command
 
 **File:** `acorn-cli/src/commands/check/mod.rs`
 **Lines:** 80, 113, 199
@@ -452,7 +380,7 @@ Structs that are cloned repeatedly but are smaller, or clones that occur less fr
 
 ---
 
-### 7. CommandOptions in export
+### 4. CommandOptions in export
 
 **File:** `acorn-cli/src/commands/export/mod.rs`
 **Lines:** 141, 165
@@ -467,7 +395,7 @@ Structs that are cloned repeatedly but are smaller, or clones that occur less fr
 
 ---
 
-### 8. BucketOptions in download command
+### 5. BucketOptions in download command
 
 **File:** `acorn-cli/src/commands/download/mod.rs`
 **Lines:** 51, 105
@@ -482,7 +410,7 @@ Structs that are cloned repeatedly but are smaller, or clones that occur less fr
 
 ---
 
-### 9. GitLab Options cloned 4x
+### 6. GitLab Options cloned 4x
 
 **File:** `acorn-cli/src/commands/gather/mod.rs`
 **Lines:** 60, 64, 78, 80
@@ -499,7 +427,7 @@ Structs that are cloned repeatedly but are smaller, or clones that occur less fr
 
 ---
 
-### 10. Cff in website checks
+### 7. Cff in website checks
 
 **File:** `acorn-lib/src/analyzer/mod.rs`
 **Lines:** 144, 174
@@ -514,7 +442,7 @@ Structs that are cloned repeatedly but are smaller, or clones that occur less fr
 
 ---
 
-### 11. Bucket in file_paths method
+### 8. Bucket in file_paths method
 
 **File:** `acorn-lib/src/io/config.rs`
 **Lines:** 397-401
@@ -530,7 +458,7 @@ Structs that are cloned repeatedly but are smaller, or clones that occur less fr
 
 ---
 
-### 12. Vale cloned 7x across trait implementations
+### 9. Vale cloned 7x across trait implementations
 
 **File:** `acorn-lib/src/analyzer/mod.rs`
 **Lines:** 413, 498, 517, 547, 567, 609, 686
@@ -569,7 +497,7 @@ Small structs, single clones, or clones of types that are already cheap (e.g., `
 
 ---
 
-### 13. PathBuf cloned in format command (per file, parallel)
+### 10. PathBuf cloned in format command (per file, parallel)
 
 **File:** `acorn-cli/src/commands/format/mod.rs`
 **Lines:** 37, 47, 57
@@ -585,7 +513,7 @@ Small structs, single clones, or clones of types that are already cheap (e.g., `
 
 ---
 
-### 14. PathBuf cloned in link command (per file, parallel)
+### 11. PathBuf cloned in link command (per file, parallel)
 
 **File:** `acorn-cli/src/commands/link/mod.rs`
 **Lines:** 29, 39, 49, 55
@@ -602,7 +530,7 @@ Small structs, single clones, or clones of types that are already cheap (e.g., `
 
 ---
 
-### 15. Options cloned in resolve_paths
+### 12. Options cloned in resolve_paths
 
 **File:** `acorn-cli/src/cli/mod.rs`
 **Lines:** 96
@@ -616,7 +544,7 @@ Small structs, single clones, or clones of types that are already cheap (e.g., `
 
 ---
 
-### 16. Check struct cloned in render function
+### 13. Check struct cloned in render function
 
 **File:** `acorn-cli/src/commands/check/mod.rs`
 **Lines:** 171, 176
@@ -631,7 +559,7 @@ Small structs, single clones, or clones of types that are already cheap (e.g., `
 
 ---
 
-### 17. Check struct cloned in filter_by_visibility
+### 14. Check struct cloned in filter_by_visibility
 
 **File:** `acorn-cli/src/commands/check/mod.rs`
 **Line:** 151
@@ -645,7 +573,7 @@ Small structs, single clones, or clones of types that are already cheap (e.g., `
 
 ---
 
-### 18. Database path cloned in main.rs
+### 15. Database path cloned in main.rs
 
 **File:** `acorn-cli/src/main.rs`
 **Line:** 169
@@ -663,19 +591,21 @@ Small structs, single clones, or clones of types that are already cheap (e.g., `
 
 | Priority | File | Lines | Struct Being Cloned | Context | Impact |
 |----------|------|-------|-------------------|---------|--------|
-| ~~1~~ | ~~acorn-lib/src/io/config.rs~~ | ~~279-311, 344-383~~ | ~~BucketOptions, Bucket~~ | ~~Parallel file operations~~ | ~~HIGH (DONE)~~ |
-| 2 | acorn-lib/src/analyzer/mod.rs | 129, 265 | ResearchActivity, Cff | Parallel schema checks | HIGH |
-| 3 | acorn-lib/src/analyzer/mod.rs | 284, 292, 300 | ResearchActivity (3x) | Parallel website checks | HIGH |
-| 4 | acorn-cli/src/commands/export/powerpoint.rs | 104-179 | CommandOptions, paths, ResearchActivity | Export pipeline | HIGH |
-| 5 | acorn-lib/src/analyzer/check.rs | 629, 632 | Vale | Parallel prose checks | HIGH |
-| 6 | acorn-cli/src/commands/check/mod.rs | 80, 113, 199 | CheckOptions (3x) | Check command hot path | MED-HIGH |
-| 7 | acorn-cli/src/commands/export/mod.rs | 141, 165 | CommandOptions | Export parallel processing | MEDIUM |
-| 8 | acorn-cli/src/commands/download/mod.rs | 51, 105 | BucketOptions | Bucket loop | MEDIUM |
-| 9 | acorn-cli/src/commands/gather/mod.rs | 60, 64, 78, 80 | gitlab::Options (4x) | API call chain | MEDIUM |
-| 10 | acorn-lib/src/analyzer/mod.rs | 144, 174 | Cff | Website checks | MEDIUM |
-| 11 | acorn-lib/src/io/config.rs | 397-401 | Bucket | file_paths method | MEDIUM |
-| 12 | acorn-lib/src/analyzer/mod.rs | 413, 498, 517, 547, 567, 609, 686 | Vale (7x) | Trait implementations | MEDIUM |
-| 13-18 | Various | Various | PathBuf, Check, Option<String> | Per-file parallel ops | LOW |
+| 1 | acorn-cli/src/commands/export/powerpoint.rs | 104-179 | CommandOptions, paths, ResearchActivity | Export pipeline | HIGH |
+| 2 | acorn-lib/src/analyzer/check.rs | 629, 632 | Vale | Parallel prose checks | HIGH |
+| 3 | acorn-cli/src/commands/check/mod.rs | 80, 113, 199 | CheckOptions (3x) | Check command hot path | MED-HIGH |
+| 4 | acorn-cli/src/commands/export/mod.rs | 141, 165 | CommandOptions | Export parallel processing | MEDIUM |
+| 5 | acorn-cli/src/commands/download/mod.rs | 51, 105 | BucketOptions | Bucket loop | MEDIUM |
+| 6 | acorn-cli/src/commands/gather/mod.rs | 60, 64, 78, 80 | gitlab::Options (4x) | API call chain | MEDIUM |
+| 7 | acorn-lib/src/analyzer/mod.rs | 144, 174 | Cff | Website checks | MEDIUM |
+| 8 | acorn-lib/src/io/config.rs | 397-401 | Bucket | file_paths method | MEDIUM |
+| 9 | acorn-lib/src/analyzer/mod.rs | 413, 498, 517, 547, 567, 609, 686 | Vale (7x) | Trait implementations | MEDIUM |
+| 10 | acorn-cli/src/commands/format/mod.rs | 37, 47, 57 | PathBuf | Per-file parallel ops | LOW |
+| 11 | acorn-cli/src/commands/link/mod.rs | 29, 39, 49, 55 | PathBuf | Per-file parallel ops | LOW |
+| 12 | acorn-cli/src/cli/mod.rs | 96 | Option<String> | resolve_paths options | LOW |
+| 13 | acorn-cli/src/commands/check/mod.rs | 171, 176 | Check | Render path | LOW |
+| 14 | acorn-cli/src/commands/check/mod.rs | 151 | Check | Visibility filter | LOW |
+| 15 | acorn-cli/src/main.rs | 169 | Option<PathBuf> | Startup path handling | LOW |
 
 ---
 
