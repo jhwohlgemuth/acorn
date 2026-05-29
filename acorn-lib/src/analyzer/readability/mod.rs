@@ -1,22 +1,25 @@
 //! # Readability utilities
 //!
 //! Analyze readabilty of prose using modern readability metrics.
+use crate::prelude::HashMap;
 use crate::util::constants::app::{
     MAX_ALLOWED_ARI, MAX_ALLOWED_CLI, MAX_ALLOWED_FKGL, MAX_ALLOWED_FRES, MAX_ALLOWED_GFI, MAX_ALLOWED_LIX, MAX_ALLOWED_SMOG,
 };
 use crate::util::find_first;
 use crate::util::Label;
+use aho_corasick::{AhoCorasickBuilder, MatchKind};
 use derive_more::Display;
 use dotenvy::dotenv;
 use fancy_regex::Regex;
+use itertools::Itertools;
 use tracing::warn;
 use tracing::{debug, trace};
 
 pub mod constants;
 use constants::{
-    DOUBLE, DOUBLE_SYLLABIC_FOUR, DOUBLE_SYLLABIC_ONE, DOUBLE_SYLLABIC_THREE, DOUBLE_SYLLABIC_TWO, IRREGULAR_NOUNS, IRREGULAR_NOUNS_INVERTED,
-    NEED_TO_BE_FIXED, NON_ALPHABETIC, PLURAL_TO_SINGULAR, PROBLEMATIC_WORDS, SAME_SINGULAR_PLURAL, SINGLE, SINGLE_SYLLABIC_ONE, SINGLE_SYLLABIC_TWO,
-    TRIPLE, VOWEL, WORD_SYLLABLES,
+    ACRONYM_TOKEN, DOUBLE, DOUBLE_SYLLABIC_FOUR, DOUBLE_SYLLABIC_ONE, DOUBLE_SYLLABIC_THREE, DOUBLE_SYLLABIC_TWO, IRREGULAR_NOUNS,
+    IRREGULAR_NOUNS_INVERTED, NEED_TO_BE_FIXED, NON_ALPHABETIC, PLURAL_TO_SINGULAR, PROBLEMATIC_WORDS, SAME_SINGULAR_PLURAL, SINGLE,
+    SINGLE_SYLLABIC_ONE, SINGLE_SYLLABIC_TWO, TRIPLE, VOWEL, WORD_SYLLABLES,
 };
 
 /// Readability Type
@@ -135,6 +138,80 @@ impl ReadabilityType {
                 }
             }
             | Err(_) => None,
+        }
+    }
+}
+/// Expand acronyms in a given text using the provided acronym map
+/// ### Example
+/// ```rust
+/// use acorn::analyzer::readability::expand_acronyms;
+/// use acorn::prelude::HashMap;
+///
+/// let acronyms = HashMap::from([("CLI".to_string(), "Command Line Interface".to_string())]);
+/// let text = "Use the CLI for automation.";
+/// let expanded = expand_acronyms(text, &acronyms);
+/// assert_eq!(expanded, "Use the Command Line Interface for automation.");
+/// ```
+pub fn expand_acronyms(text: &str, acronyms: &HashMap<String, String>) -> String {
+    const AHO_MAP_THRESHOLD: usize = 32;
+    const AHO_TEXT_THRESHOLD: usize = 256;
+    fn expand_with_regex(text: &str, normalized: &HashMap<String, String>) -> String {
+        ACRONYM_TOKEN
+            .replace_all(text, |captures: &fancy_regex::Captures<'_>| {
+                captures.get(0).map_or(String::new(), |value| {
+                    let token = value.as_str();
+                    normalized.get(&token.to_lowercase()).cloned().unwrap_or_else(|| token.to_string())
+                })
+            })
+            .to_string()
+    }
+    fn is_word_character(character: char) -> bool {
+        character == '_' || character.is_alphanumeric()
+    }
+    fn is_token_boundary(text: &str, start: usize, end: usize) -> bool {
+        let previous = text.get(..start).and_then(|segment| segment.chars().next_back());
+        let next = text.get(end..).and_then(|segment| segment.chars().next());
+        !matches!(previous, Some(value) if is_word_character(value)) && !matches!(next, Some(value) if is_word_character(value))
+    }
+    let normalized = acronyms
+        .iter()
+        .map(|(key, value)| (key.to_lowercase(), value.clone()))
+        .collect::<HashMap<String, String>>();
+    match normalized.is_empty() {
+        | true => text.to_string(),
+        | false if normalized.len() <= AHO_MAP_THRESHOLD || text.len() < AHO_TEXT_THRESHOLD => expand_with_regex(text, &normalized),
+        | false => {
+            let patterns = normalized
+                .keys()
+                .map(String::as_str)
+                .sorted_by(|left, right| right.len().cmp(&left.len()).then_with(|| left.cmp(right)))
+                .collect::<Vec<_>>();
+            let matcher = AhoCorasickBuilder::new()
+                .ascii_case_insensitive(true)
+                .match_kind(MatchKind::LeftmostLongest)
+                .build(patterns);
+            match matcher {
+                | Ok(value) => {
+                    let (result, last) = value
+                        .find_iter(text)
+                        .fold((String::with_capacity(text.len()), 0usize), |(result, last), found| {
+                            let start = found.start();
+                            let end = found.end();
+                            let replacement = is_token_boundary(text, start, end)
+                                .then(|| normalized.get(&text[start..end].to_lowercase()).cloned())
+                                .flatten();
+                            match replacement {
+                                | Some(value) => {
+                                    let chunk = [result, text[last..start].to_string(), value];
+                                    (chunk.concat(), end)
+                                }
+                                | None => (result, last),
+                            }
+                        });
+                    [result, text[last..].to_string()].concat()
+                }
+                | Err(_) => expand_with_regex(text, &normalized),
+            }
         }
     }
 }

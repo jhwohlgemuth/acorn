@@ -9,6 +9,7 @@ use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::readability::*;
 use crate::analyzer::{checks_to_dataframe, CheckCategory};
 use crate::check_ok;
+use crate::prelude::HashMap;
 use crate::util::Constant;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -51,6 +52,74 @@ fn test_checks_to_dataframe() {
     let df = checks_to_dataframe(&checks);
     let reason = "Failed to convert checks to dataframe";
     assert_eq!(df.expect(reason).shape(), (checks.len(), 7));
+}
+#[test]
+fn test_expand_acronyms() {
+    let acronyms = HashMap::from([
+        ("CLI".to_string(), "Command Line Interface".to_string()),
+        ("HPC".to_string(), "High Performance Computing".to_string()),
+    ]);
+    let text = "ACORN is a CLI for HPC workloads.";
+    let expected = "ACORN is a Command Line Interface for High Performance Computing workloads.";
+    assert_eq!(expected, expand_acronyms(text, &acronyms));
+}
+#[test]
+fn test_expand_acronyms_case_insensitive_and_preserves_unknown_terms() {
+    let acronyms = HashMap::from([("cli".to_string(), "Command Line Interface".to_string())]);
+    let text = "cli, CLI, and NASA are terms.";
+    let expected = "Command Line Interface, Command Line Interface, and NASA are terms.";
+    assert_eq!(expected, expand_acronyms(text, &acronyms));
+}
+#[test]
+fn test_expand_acronyms_with_empty_map() {
+    let acronyms = HashMap::new();
+    let text = "No replacements should happen here.";
+    assert_eq!(text, expand_acronyms(text, &acronyms));
+}
+#[test]
+fn test_expand_acronyms_large_map_uses_same_word_boundary_behavior() {
+    let mut acronyms = HashMap::from([
+        ("CLI".to_string(), "Command Line Interface".to_string()),
+        ("HPC".to_string(), "High Performance Computing".to_string()),
+    ]);
+    (0..40).for_each(|index| {
+        let key = format!("A{index}");
+        let value = format!("Expansion {index}");
+        acronyms.insert(key, value);
+    });
+    let text = "CLI and HPC are used. preCLIx should stay, CLI! should expand.";
+    let expected = "Command Line Interface and High Performance Computing are used. preCLIx should stay, Command Line Interface! should expand.";
+    assert_eq!(expected, expand_acronyms(text, &acronyms));
+}
+#[test]
+fn test_expand_acronyms_aho_branch_large_map_and_large_text() {
+    let mut acronyms = HashMap::from([
+        ("CLI".to_string(), "Command Line Interface".to_string()),
+        ("HPC".to_string(), "High Performance Computing".to_string()),
+        ("GPU".to_string(), "Graphics Processing Unit".to_string()),
+    ]);
+    (0..40).for_each(|index| {
+        let key = format!("A{index}");
+        let value = format!("Expansion {index}");
+        acronyms.insert(key, value);
+    });
+    let prefix = "This sentence creates enough text to force the large-input branch. ".repeat(6);
+    let text = format!("{prefix}CLI, HPC, and GPU are core terms.");
+    let expected = format!("{prefix}Command Line Interface, High Performance Computing, and Graphics Processing Unit are core terms.");
+    assert_eq!(expected, expand_acronyms(&text, &acronyms));
+}
+#[test]
+fn test_expand_acronyms_aho_branch_respects_token_boundaries_on_long_text() {
+    let mut acronyms = HashMap::from([("HPC".to_string(), "High Performance Computing".to_string())]);
+    (0..40).for_each(|index| {
+        let key = format!("B{index}");
+        let value = format!("Term {index}");
+        acronyms.insert(key, value);
+    });
+    let prefix = "Padding text to exceed threshold and exercise aho-corasick matching repeatedly. ".repeat(5);
+    let text = format!("{prefix}HPC should expand, preHPC should not, and HPC! should expand.");
+    let expected = format!("{prefix}High Performance Computing should expand, preHPC should not, and High Performance Computing! should expand.");
+    assert_eq!(expected, expand_acronyms(&text, &acronyms));
 }
 #[test]
 fn test_readability_type() {

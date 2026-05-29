@@ -8,6 +8,8 @@ use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
 lazy_static! {
+    /// Token pattern for acronym expansion
+    pub static ref ACRONYM_TOKEN: Regex = Regex::new(r#"\b[\p{L}\p{N}][\p{L}\p{N}-]*\b"#).expect("ACRONYM_TOKEN should compile as a valid regex");
     /// Apostrophe
     pub static ref APOSTROPHE: Regex = Regex::new(r#"['’]"#).expect("APOSTROPHE should compile as a valid regex");
     /// Non-alphabetic
