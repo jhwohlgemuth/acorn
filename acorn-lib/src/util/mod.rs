@@ -243,6 +243,9 @@ pub enum MimeType {
     /// OpenType Font (OTF)
     #[display("font/otf")]
     Otf,
+    /// TrueType Font (TTF)
+    #[display("font/ttf")]
+    Ttf,
     /// Portable Document Format (PDF)
     #[display("application/pdf")]
     Pdf,
@@ -587,6 +590,7 @@ where
     /// | jsonld | application/ld+json |
     /// | md | text/markdown |
     /// | otf | font/otf |
+    /// | ttf | font/ttf |
     /// | pdf | application/pdf |
     /// | png | image/png |
     /// | pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |
@@ -607,6 +611,7 @@ where
                 | "jsonld" | "json-ld" => MimeType::LdJson,
                 | "md" | "markdown" => MimeType::Markdown,
                 | "otf" => MimeType::Otf,
+                | "ttf" => MimeType::Ttf,
                 | "png" => MimeType::Png,
                 | "pptx" | "ppt" => MimeType::Powerpoint,
                 | "rs" => MimeType::Rust,
@@ -638,6 +643,7 @@ impl MimeType {
             | MimeType::LdJson => "jsonld",
             | MimeType::Markdown => "md",
             | MimeType::Otf => "otf",
+            | MimeType::Ttf => "ttf",
             | MimeType::Pdf => "pdf",
             | MimeType::Png => "png",
             | MimeType::Powerpoint => "pptx",

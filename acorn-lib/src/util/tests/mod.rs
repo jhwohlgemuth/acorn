@@ -310,11 +310,14 @@ fn test_mimetype() {
     assert_eq!(mime, MimeType::Text);
     let mime = MimeType::from("font.otf".to_string());
     assert_eq!(mime, MimeType::Otf);
+    let mime = MimeType::from("font.ttf");
+    assert_eq!(mime, MimeType::Ttf);
     let mime = MimeType::from_path(Path::new("a.json"));
     assert_eq!(mime, MimeType::Json);
     let mime = MimeType::from_path(PathBuf::from("file.yaml"));
     assert_eq!(mime, MimeType::Yaml);
     assert_eq!(MimeType::Json.file_type(), "json");
+    assert_eq!(MimeType::Ttf.file_type(), "ttf");
     assert_eq!(MimeType::Yaml.file_type(), "yaml");
 }
 #[test]

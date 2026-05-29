@@ -63,7 +63,7 @@ impl DataUri {
     fn from_asset(value: &str) -> String {
         let mime = MimeType::from(value);
         match mime {
-            | MimeType::Otf => match Font::get(value) {
+            | MimeType::Otf | MimeType::Ttf => match Font::get(value) {
                 | Some(binding) => {
                     let data = binding.data.as_ref();
                     DataUri::from_bytes(data, mime)
@@ -259,19 +259,15 @@ impl Convert for ResearchActivity {
 fn generate_font_faces() -> String {
     format!(
         r#"
-        @font-face {{font-family:"myriad_pro_light";src:url("{}") format("opentype");font-style:normal;font-weight:300;}}
-        @font-face {{font-family:"myriad_pro_semibold";src:url({}) format("opentype");font-style:normal;font-weight:300;}}
-        @font-face {{font-family:"proxima";src:url({}) format("opentype");font-weight:normal;font-style:normal;}}
-        @font-face {{font-family:"proxima_nova_bold";src: url({}) format("opentype");font-weight:bold;font-style:normal;}}
-        @font-face {{font-family:"proxima_nova_semibold";src:url({}) format("opentype");font-weight:bold;font-style:normal;}}
-        @font-face {{font-family:"proxima";src:url({}) format("opentype");font-weight:normal;font-style:italic;}}
+        @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:normal;font-weight:400;}}
+        @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:normal;font-weight:600;}}
+        @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:normal;font-weight:700;}}
+        @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:italic;font-weight:400;}}
         "#,
-        DataUri::from_asset("myriad_pro_light.otf"),
-        DataUri::from_asset("myriad_pro_semibold.otf"),
-        DataUri::from_asset("proxima_nova_light.otf"),
-        DataUri::from_asset("proxima_nova_bold.otf"),
-        DataUri::from_asset("proxima_nova_semibold.otf"),
-        DataUri::from_asset("proxima_nova_regular_italic.otf"),
+        DataUri::from_asset("aptos.ttf"),
+        DataUri::from_asset("aptos_bold.ttf"),
+        DataUri::from_asset("aptos_bold.ttf"),
+        DataUri::from_asset("aptos_italic.ttf"),
     )
 }
 fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
