@@ -44,8 +44,6 @@ pub trait Create {
 pub type GroupsResponse = Vec<GroupDetails>;
 /// Type for GitLab API all runners response
 pub type RunnersResponse = Vec<RunnerMetadata>;
-/// Type for GitLab API response for a tree
-pub type TreeResponse = Vec<TreeEntry>;
 /// Type for GitLab programming language entries
 pub type ProgrammingLanguageEntries = Vec<ProgrammingLanguageMetadata>;
 /// Type for GitLab project programming language usage entries
@@ -377,6 +375,11 @@ pub struct Options {
     pub domain: String,
     /// Project or group identifier
     pub identifier: Option<String>,
+    /// Repository path used for tree requests
+    pub path: Option<String>,
+    /// Page number to retrieve
+    #[builder(default = 1)]
+    pub page: u32,
     /// Internal resource identifier (e.g., merge request IID)
     pub internal_identifier: Option<String>,
     /// GitLab runner metadata necessary for creation
@@ -620,6 +623,15 @@ pub struct TreeEntry {
     /// Mode of tree entry
     pub mode: String,
 }
+#[derive(Clone, Debug, Default, Serialize)]
+/// GitLab tree response normalized to blob file paths
+pub struct TreeResponse {
+    /// Blob file paths extracted from the tree response payload
+    pub paths: Vec<String>,
+    /// Embedded GitLab error response when the API returns an error object
+    #[serde(skip_serializing)]
+    pub(crate) error: Option<ErrorResponse>,
+}
 /// User details
 /// ### Example JSON response
 /// ```json
@@ -732,6 +744,8 @@ impl Configuration for Options {
             internal_identifier: var("CI_MERGE_REQUEST_IID").ok(),
             domain: var("CI_SERVER_HOST").unwrap_or_else(|_| "gitlab.com".to_string()),
             body: None,
+            path: None,
+            page: 1,
             runner_metadata: RunnerMetadata::default(),
         }
     }
@@ -755,6 +769,17 @@ impl Options {
     pub fn with_identifier(self, value: impl Into<String>) -> Self {
         Self {
             identifier: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with page number set
+    pub fn with_page(self, value: u32) -> Self {
+        Self { page: value, ..self }
+    }
+    /// Return a copy of options with repository path set
+    pub fn with_path(self, value: impl Into<String>) -> Self {
+        Self {
+            path: Some(value.into()),
             ..self
         }
     }
@@ -840,6 +865,27 @@ impl<'de> serde::Deserialize<'de> for ProgrammingLanguagesResponse {
 impl<'de> serde::Deserialize<'de> for ProgrammingLanguageUseResponse {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         HashMap::<String, f64>::deserialize(deserializer).map(Self::parse)
+    }
+}
+impl<'de> serde::Deserialize<'de> for TreeResponse {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum TreeResponseValue {
+            Entries(Vec<TreeEntry>),
+            Error(ErrorResponse),
+        }
+
+        match TreeResponseValue::deserialize(deserializer)? {
+            | TreeResponseValue::Entries(entries) => Ok(Self {
+                paths: entries.into_iter().filter(|entry| entry.is_blob()).map(|entry| entry.path()).collect(),
+                error: None,
+            }),
+            | TreeResponseValue::Error(why) => Ok(Self {
+                paths: vec![],
+                error: Some(why),
+            }),
+        }
     }
 }
 #[async_trait]
@@ -932,6 +978,42 @@ impl TreeEntry {
     pub fn is_blob(&self) -> bool {
         let Self { entry_type, .. } = self;
         entry_type.eq(&TreeEntryType::Blob)
+    }
+}
+impl ErrorResponse {
+    fn is_terminal_pagination_message(message: &str) -> bool {
+        let message = message.to_lowercase();
+        let invalid_page =
+            message.contains("page") && (message.contains("invalid") || message.contains("out of range") || message.contains("not found"));
+        let forbidden_page = message.contains("403") && message.contains("forbidden");
+        invalid_page || forbidden_page
+    }
+    fn is_terminal_pagination_error(&self) -> bool {
+        Self::is_terminal_pagination_message(&self.message())
+    }
+    fn message(&self) -> String {
+        let message = self
+            .message
+            .as_ref()
+            .and_then(|value| serde_json::to_string(value).ok())
+            .unwrap_or_default();
+        let error = self.error.clone().unwrap_or_default();
+        let description = self.error_description.clone().unwrap_or_default();
+        [message, error, description]
+            .into_iter()
+            .filter(|value| !value.trim().is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}
+pub(crate) fn handle_tree_paths_response(response: ApiResult<TreeResponse>, page: u32) -> ApiResult<TreeResponse> {
+    match response {
+        | Ok(value) => match value.error {
+            | Some(why) if page > 1 && why.is_terminal_pagination_error() => Ok(TreeResponse::default()),
+            | Some(why) => Err(eyre!(why.message())),
+            | None => Ok(value),
+        },
+        | Err(why) => Err(why),
     }
 }
 impl ValueValidator for PaginationField {
@@ -1118,26 +1200,28 @@ pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
     }
 }
 /// Fetch one page of repository tree blob paths for a GitLab project
-pub(crate) async fn tree_paths(
-    host: impl Into<String>,
-    identifier: impl Into<String>,
-    directory: impl Into<String>,
-    page: u32,
-) -> ApiResult<Vec<String>> {
+pub(crate) async fn tree_paths(options: &Options) -> ApiResult<TreeResponse> {
     let template = "gitlab::api";
-    match Endpoint::from_template(template).map(|e| e.with_domain(host.into())) {
+    let action = "tree";
+    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
         | Ok(endpoint) => {
-            let params = vec![
-                param!(TemplateValue, "identifier", &identifier.into()),
+            let mut params = vec![
+                param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
                 param!(KeyValuePair, "per_page", "100"),
-                param!(KeyValuePair, "page", &page.to_string()),
+                param!(KeyValuePair, "page", &options.page.to_string()),
                 param!(KeyValuePair, "recursive", "true"),
-                param!(KeyValuePair, "path", &directory.into()),
+                param!(KeyValuePair, "path", &options.path.as_deref().unwrap_or_default()),
             ];
-            let response = endpoint.invoke("tree", Some(params)).await;
-            endpoint
-                .handle_or::<TreeResponse, Fallback<ErrorResponse>>(response)
-                .map(|entries| entries.into_iter().filter(|e| e.is_blob()).map(|e| e.path()).collect())
+            let token = if options.token.trim().is_empty() {
+                first_env_var(&["GITLAB_TOKEN", "CI_JOB_TOKEN", "PRIVATE_TOKEN"])
+            } else {
+                Some(options.token.clone())
+            };
+            if let Some(token) = token.filter(|value| !value.trim().is_empty()) {
+                params.push(param!(Header, "PRIVATE-TOKEN", &token));
+            }
+            let response = endpoint.invoke(action, Some(params)).await;
+            handle_tree_paths_response(endpoint.handle_or::<TreeResponse, Fallback<ErrorResponse>>(response), options.page)
         }
         | Err(why) => Err(why),
     }

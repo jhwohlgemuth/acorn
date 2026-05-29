@@ -6,7 +6,7 @@
 //!
 use crate::io::api::github;
 use crate::io::api::gitlab;
-use crate::io::api::Endpoint;
+use crate::io::api::{Configuration, Endpoint};
 use crate::io::http::get;
 use crate::io::ApiResult;
 use crate::io::{files_all, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType};
@@ -452,13 +452,15 @@ impl Bucket {
                         | Ok(value) => value,
                         | Err(why) => return Err(why),
                     };
+                    let options = gitlab::Options::from_env().with_domain(host).with_identifier(id).with_path(directory);
                     let mut page = 1_u32;
                     let mut all_paths: Vec<String> = vec![];
                     loop {
-                        match gitlab::tree_paths(host.clone(), id.to_string(), directory, page).await {
-                            | Ok(paths) if paths.is_empty() => break,
-                            | Ok(paths) => {
-                                all_paths.extend(paths);
+                        let page_options = options.clone().with_page(page);
+                        match gitlab::tree_paths(&page_options).await {
+                            | Ok(response) if response.paths.is_empty() => break,
+                            | Ok(response) => {
+                                all_paths.extend(response.paths);
                                 page = page.saturating_add(1);
                             }
                             | Err(why) => {

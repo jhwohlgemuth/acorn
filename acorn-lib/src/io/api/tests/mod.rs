@@ -291,7 +291,10 @@ mod github_api {
 #[cfg(test)]
 mod gitlab_api {
     use super::*;
-    use crate::io::api::gitlab::{PaginationField, ProgrammingLanguageDetails, ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse};
+    use crate::io::api::gitlab::{
+        handle_tree_paths_response, PaginationField, ProgrammingLanguageDetails, ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse,
+        TreeResponse,
+    };
 
     #[test]
     fn test_query_string() {
@@ -356,6 +359,36 @@ mod gitlab_api {
         assert_eq!(response.languages[0].percentage, 0.5);
         assert_eq!(response.languages[1].name, "Python");
         assert_eq!(response.languages[2].name, "Rust");
+    }
+    #[test]
+    fn test_parse_tree_paths_response_filters_blob_entries() {
+        let json = r#"[
+            {"id":"1","name":"README.md","type":"blob","path":"README.md","mode":"100644"},
+            {"id":"2","name":"content","type":"tree","path":"content","mode":"040000"}
+        ]"#;
+        let response: TreeResponse = serde_json::from_str(json).expect("tree entries should parse");
+        assert_eq!(response.paths, vec!["README.md".to_string()]);
+    }
+    #[test]
+    fn test_parse_tree_paths_response_treats_later_page_403_as_terminal() {
+        let json = r#"{"message":"403 Forbidden"}"#;
+        let response: TreeResponse = serde_json::from_str(json).expect("error payload should deserialize as tree response");
+        assert!(response.error.is_some());
+        let response = handle_tree_paths_response(Ok(response), 3).expect("later-page forbidden should be terminal");
+        assert!(response.paths.is_empty());
+    }
+    #[test]
+    fn test_parse_tree_paths_response_returns_error_on_first_page_403() {
+        let json = r#"{"message":"403 Forbidden"}"#;
+        let response: TreeResponse = serde_json::from_str(json).expect("error payload should deserialize as tree response");
+        let why = handle_tree_paths_response(Ok(response), 1).expect_err("first-page forbidden should fail");
+        assert!(why.to_string().contains("403 Forbidden"));
+    }
+    #[test]
+    fn test_parse_tree_paths_response_returns_actionable_error_for_non_json() {
+        let html = "<!doctype html><html><body>403 Forbidden</body></html>";
+        let why = serde_json::from_str::<TreeResponse>(html).expect_err("non-json response should fail with parse error");
+        assert!(why.to_string().contains("expected value"));
     }
 }
 #[cfg(test)]
