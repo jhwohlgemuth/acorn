@@ -1,6 +1,6 @@
 # Command Refactor Items: Descriptions and Examples
 
-This document captures the five prioritized refactor items discussed for the command layer, with concrete Rust examples.
+This document captures the remaining prioritized refactor items discussed for the command layer, with concrete Rust examples.
 
 ## 1. Read-Transform Pipeline
 
@@ -54,52 +54,7 @@ process_activity_file(&path, &mime, |data| {
 })?;
 ```
 
-## 2. Export Strategy
-
-### Description
-Split export format behavior into separate strategy implementations. Instead of a large format switch in a single function, each export format owns its own implementation.
-
-This keeps format-specific code isolated and makes new export formats easier to add.
-
-### Example
-```rust
-use std::path::Path;
-use color_eyre::eyre;
-
-pub trait ExportHandler {
-    fn export(&self, data: &ResearchActivity, output: &Path) -> eyre::Result<()>;
-}
-
-pub struct PdfExporter {
-    pub options: CommandLineOptions,
-}
-
-impl ExportHandler for PdfExporter {
-    fn export(&self, data: &ResearchActivity, output: &Path) -> eyre::Result<()> {
-        let html = render_template(data, &self.options);
-        generate_pdf(&html, output)
-    }
-}
-
-pub struct PowerPointExporter {
-    pub options: CommandLineOptions,
-}
-
-impl ExportHandler for PowerPointExporter {
-    fn export(&self, data: &ResearchActivity, output: &Path) -> eyre::Result<()> {
-        create_presentation(data, output, &self.options)
-    }
-}
-
-pub fn make_exporter(format: &ExportFormat, options: CommandLineOptions) -> Box<dyn ExportHandler> {
-    match format {
-        ExportFormat::Pdf => Box::new(PdfExporter { options }),
-        ExportFormat::Powerpoint => Box::new(PowerPointExporter { options }),
-    }
-}
-```
-
-## 3. Download Decomposition
+## 2. Download Decomposition
 
 ### Description
 Break the download command into focused helper functions so each step does one thing: transfer a single bucket, collect status, and report summary.
@@ -141,7 +96,7 @@ pub fn log_download_activity(results: &[(&str, bool)]) {
 }
 ```
 
-## 4. Reporting Facade
+## 3. Reporting Facade
 
 ### Description
 Introduce a small report object that accumulates pass/fail entries and prints them consistently.
@@ -205,7 +160,7 @@ impl Report {
 }
 ```
 
-## 5. Execution Template
+## 4. Execution Template
 
 ### Description
 Use one execution template that standardizes command flow: preflight, setup, run, and mapped exit behavior.

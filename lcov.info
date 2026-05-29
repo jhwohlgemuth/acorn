@@ -97,20 +97,6 @@ LF:43
 LH:37
 end_of_record
 TN:
-SF:/Users/o9w/dev/re/acorn/acorn-cli/src/cli/tests/mod.rs
-FN:13,has_suffix
-FN:16,fixture_content_root
-FNF:2
-FNDA:12,has_suffix
-FNDA:5,fixture_content_root
-DA:13,12
-DA:14,36
-DA:16,5
-DA:17,5
-LF:4
-LH:4
-end_of_record
-TN:
 SF:/Users/o9w/dev/re/acorn/acorn-cli/src/commands/check/mod.rs
 FN:26,run
 FN:75,apply_early_exit_policy
@@ -463,7 +449,7 @@ DA:45,3
 DA:46,2
 DA:47,2
 DA:48,5
-DA:49,2
+DA:49,3
 DA:50,3
 DA:51,4
 DA:52,2
@@ -529,162 +515,209 @@ LF:83
 LH:47
 end_of_record
 TN:
-SF:/Users/o9w/dev/re/acorn/acorn-cli/src/commands/download/tests/mod.rs
-FN:22,has_any_file
-FNF:1
-FNDA:2,has_any_file
-DA:22,2
-DA:23,2
-DA:24,4
-DA:25,6
-DA:26,6
-DA:27,4
-DA:28,1
-DA:29,2
-DA:31,0
-LF:9
-LH:8
-end_of_record
-TN:
 SF:/Users/o9w/dev/re/acorn/acorn-cli/src/commands/export/mod.rs
-FN:24,run
-FN:191,export_convert
-FNF:2
+FN:44,<impl ExportHandler for CffExportHandler>::export
+FN:59,<impl ExportHandler for StructuredExportHandler>::export
+FN:75,<impl ExportHandler for BagExportHandler>::export
+FN:96,<impl ExportHandler for PdfExportHandler>::export
+FN:152,<impl ExportHandler for PowerPointExportHandler>::export
+FN:205,run
+FN:250,export_as_format
+FN:306,exporter_for
+FNF:8
+FNDA:0,<impl ExportHandler for CffExportHandler>::export
+FNDA:4,<impl ExportHandler for StructuredExportHandler>::export
+FNDA:1,<impl ExportHandler for BagExportHandler>::export
+FNDA:0,<impl ExportHandler for PdfExportHandler>::export
+FNDA:1,<impl ExportHandler for PowerPointExportHandler>::export
 FNDA:6,run
-FNDA:4,export_convert
-DA:24,6
-DA:40,18
-DA:41,12
-DA:42,6
-DA:43,0
-DA:45,12
-DA:46,18
-DA:47,18
-DA:48,18
-DA:49,18
-DA:50,12
-DA:51,12
-DA:52,12
-DA:53,12
-DA:55,12
-DA:56,18
-DA:57,6
-DA:60,0
-DA:61,0
-DA:62,0
-DA:63,0
-DA:64,0
-DA:65,0
-DA:67,0
-DA:70,46
-DA:72,4
-DA:73,2
-DA:74,3
-DA:75,2
-DA:76,5
-DA:77,7
-DA:78,1
-DA:79,7
-DA:80,4
-DA:81,4
-DA:82,4
-DA:84,0
-DA:85,0
+FNDA:4,export_as_format
+FNDA:6,exporter_for
+DA:44,0
+DA:45,0
+DA:46,0
+DA:47,0
+DA:48,0
+DA:49,0
+DA:50,0
+DA:51,0
+DA:52,0
+DA:54,0
+DA:59,4
+DA:60,8
+DA:61,12
+DA:62,4
+DA:63,4
+DA:64,4
+DA:65,4
+DA:66,4
+DA:67,18
+DA:68,4
+DA:70,4
+DA:75,1
+DA:76,2
+DA:77,4
+DA:78,2
+DA:79,3
+DA:80,2
+DA:81,5
+DA:82,7
+DA:83,1
+DA:84,7
+DA:85,4
+DA:86,4
+DA:87,4
+DA:89,0
 DA:90,0
-DA:91,0
-DA:92,0
-DA:93,0
-DA:94,0
 DA:96,0
 DA:97,0
+DA:98,0
+DA:100,0
+DA:101,0
 DA:102,0
 DA:103,0
 DA:104,0
+DA:105,0
+DA:106,0
 DA:107,0
 DA:108,0
 DA:109,0
 DA:110,0
+DA:111,0
 DA:112,0
 DA:113,0
 DA:114,0
 DA:115,0
 DA:116,0
 DA:117,0
+DA:118,0
 DA:119,0
 DA:120,0
 DA:121,0
+DA:122,0
 DA:123,0
+DA:124,0
 DA:125,0
 DA:126,0
-DA:128,0
+DA:127,0
 DA:129,0
 DA:130,0
-DA:141,4
-DA:142,2
-DA:143,3
-DA:144,3
-DA:145,3
-DA:147,3
-DA:148,1
-DA:151,0
-DA:152,0
-DA:153,0
-DA:156,0
-DA:157,0
-DA:159,0
-DA:160,0
-DA:161,0
+DA:131,0
+DA:133,0
+DA:134,0
+DA:135,0
+DA:136,0
+DA:138,0
+DA:139,0
+DA:140,0
+DA:144,0
+DA:146,0
+DA:152,1
+DA:153,2
+DA:154,4
+DA:155,2
+DA:156,3
+DA:157,3
+DA:158,3
+DA:159,1
+DA:160,3
+DA:161,1
+DA:162,0
 DA:163,0
 DA:164,0
 DA:165,0
-DA:170,1
-DA:171,3
-DA:172,1
-DA:173,3
-DA:174,7
+DA:166,0
+DA:169,0
+DA:170,0
+DA:171,0
+DA:172,0
+DA:173,0
+DA:174,0
 DA:176,0
-DA:177,1
-DA:178,1
-DA:180,2
-DA:181,1
-DA:182,0
-DA:183,0
-DA:184,0
-DA:191,4
-DA:199,8
-DA:200,16
-DA:201,16
-DA:203,19
-DA:204,10
-DA:205,2
-DA:207,8
-DA:208,40
-DA:209,8
-DA:210,12
-DA:212,4
-DA:213,6
-DA:214,3
-DA:215,9
-DA:216,3
-DA:217,9
-DA:218,3
-DA:219,9
-DA:220,3
-DA:222,0
-DA:225,0
-DA:226,0
-DA:227,0
-DA:232,0
-DA:233,4
-DA:234,4
-DA:236,8
-DA:238,4
-DA:239,4
-DA:241,0
-DA:242,0
-DA:243,0
-LF:131
-LH:69
+DA:177,0
+DA:178,0
+DA:182,2
+DA:183,1
+DA:184,4
+DA:185,1
+DA:186,3
+DA:187,7
+DA:189,0
+DA:190,1
+DA:191,1
+DA:193,2
+DA:194,1
+DA:195,0
+DA:196,0
+DA:197,0
+DA:205,6
+DA:221,18
+DA:222,12
+DA:223,6
+DA:224,0
+DA:226,12
+DA:227,18
+DA:228,18
+DA:229,18
+DA:230,18
+DA:231,12
+DA:232,12
+DA:233,12
+DA:234,12
+DA:236,12
+DA:237,18
+DA:238,12
+DA:239,12
+DA:240,12
+DA:241,12
+DA:242,12
+DA:243,12
+DA:244,12
+DA:245,6
+DA:246,6
+DA:248,6
+DA:250,4
+DA:258,8
+DA:259,16
+DA:260,16
+DA:262,19
+DA:263,10
+DA:264,2
+DA:266,8
+DA:267,40
+DA:268,8
+DA:269,12
+DA:271,4
+DA:272,9
+DA:273,3
+DA:274,9
+DA:275,3
+DA:276,9
+DA:277,3
+DA:278,9
+DA:279,3
+DA:281,0
+DA:284,0
+DA:285,0
+DA:286,0
+DA:291,0
+DA:292,4
+DA:293,4
+DA:295,8
+DA:297,4
+DA:298,4
+DA:300,0
+DA:301,0
+DA:302,0
+DA:306,6
+DA:307,6
+DA:308,0
+DA:309,4
+DA:310,1
+DA:311,0
+DA:312,1
+LF:183
+LH:99
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-cli/src/commands/export/pdf.rs
@@ -707,6 +740,7 @@ DA:35,0
 DA:36,0
 DA:38,0
 DA:39,0
+DA:40,0
 DA:41,0
 DA:43,0
 DA:46,0
@@ -723,6 +757,7 @@ DA:59,0
 DA:61,0
 DA:62,0
 DA:63,0
+DA:64,0
 DA:65,0
 DA:67,0
 DA:70,0
@@ -737,10 +772,11 @@ DA:82,0
 DA:85,0
 DA:86,0
 DA:87,0
+DA:88,0
 DA:89,0
 DA:95,0
 DA:96,0
-LF:49
+LF:52
 LH:0
 end_of_record
 TN:
@@ -766,9 +802,9 @@ DA:25,0
 DA:26,0
 DA:27,0
 DA:30,1
-DA:32,2
-DA:33,2
-DA:34,1
+DA:32,3
+DA:33,3
+DA:34,3
 DA:35,1
 DA:38,13
 DA:41,4
@@ -781,6 +817,7 @@ DA:47,0
 DA:48,0
 DA:49,0
 DA:50,0
+DA:51,0
 DA:52,0
 DA:58,0
 DA:59,0
@@ -795,6 +832,7 @@ DA:69,0
 DA:70,0
 DA:71,0
 DA:72,0
+DA:73,0
 DA:74,0
 DA:78,0
 DA:80,0
@@ -802,10 +840,11 @@ DA:81,0
 DA:82,0
 DA:83,0
 DA:84,0
+DA:85,0
 DA:86,0
 DA:91,1
 DA:92,2
-DA:93,4
+DA:93,5
 DA:94,3
 DA:95,2
 DA:97,0
@@ -824,13 +863,14 @@ DA:115,4
 DA:116,4
 DA:117,2
 DA:118,8
-DA:119,4
+DA:119,5
 DA:121,4
 DA:122,5
-DA:123,5
+DA:123,6
 DA:124,3
 DA:125,0
 DA:126,0
+DA:127,0
 DA:128,0
 DA:131,3
 DA:135,1
@@ -875,8 +915,8 @@ DA:197,2
 DA:198,3
 DA:199,3
 DA:200,2
-DA:201,2
-DA:202,1
+DA:201,3
+DA:202,3
 DA:203,1
 DA:205,1
 DA:206,1
@@ -900,18 +940,8 @@ DA:231,6
 DA:232,4
 DA:233,0
 DA:235,0
-LF:142
+LF:146
 LH:77
-end_of_record
-TN:
-SF:/Users/o9w/dev/re/acorn/acorn-cli/src/commands/export/tests/mod.rs
-FN:24,silent
-FNF:1
-FNDA:6,silent
-DA:24,6
-DA:25,6
-LF:2
-LH:2
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-cli/src/commands/format/mod.rs
@@ -945,7 +975,7 @@ DA:51,0
 DA:52,0
 DA:53,0
 DA:56,6
-DA:57,3
+DA:57,4
 DA:59,10
 DA:60,0
 DA:61,0
@@ -1384,32 +1414,6 @@ LF:144
 LH:0
 end_of_record
 TN:
-SF:/Users/o9w/dev/re/acorn/acorn-cli/src/test_utils.rs
-FN:11,fixture_path
-FN:20,temp_test_dir
-FN:35,TestCleanup::new
-FN:40,<impl Drop for TestCleanup>::drop
-FNF:4
-FNDA:21,fixture_path
-FNDA:13,temp_test_dir
-FNDA:13,TestCleanup::new
-FNDA:13,<impl Drop for TestCleanup>::drop
-DA:11,21
-DA:12,42
-DA:17,21
-DA:20,13
-DA:21,39
-DA:26,13
-DA:27,13
-DA:28,13
-DA:35,13
-DA:40,13
-DA:41,26
-DA:42,13
-LF:12
-LH:12
-end_of_record
-TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/analyzer/check.rs
 FN:41,Analysis::check
 FN:218,Check::count_validation_errors
@@ -1584,6 +1588,7 @@ DA:362,0
 DA:365,0
 DA:366,0
 DA:367,0
+DA:368,0
 DA:369,0
 DA:370,0
 DA:371,0
@@ -1620,7 +1625,7 @@ DA:428,4
 DA:432,10
 DA:433,10
 DA:437,2
-DA:441,4
+DA:441,6
 DA:442,2
 DA:445,0
 DA:446,0
@@ -1668,8 +1673,8 @@ DA:503,8
 DA:504,8
 DA:505,6
 DA:506,6
-DA:507,12
-DA:508,14
+DA:507,14
+DA:508,16
 DA:509,8
 DA:512,0
 DA:520,0
@@ -1778,7 +1783,7 @@ DA:681,0
 DA:682,0
 DA:684,16
 DA:686,8
-DA:687,24
+DA:687,32
 DA:688,8
 DA:689,16
 DA:690,8
@@ -1878,9 +1883,9 @@ DA:836,15
 DA:837,6
 DA:838,21
 DA:839,21
-DA:840,6
+DA:840,9
 DA:841,9
-LF:404
+LF:405
 LH:217
 end_of_record
 TN:
@@ -1932,7 +1937,7 @@ DA:131,0
 DA:137,15
 DA:138,15
 DA:139,60
-DA:140,4
+DA:140,6
 DA:141,26
 DA:143,0
 DA:147,2
@@ -1968,7 +1973,7 @@ DA:187,116
 DA:188,0
 DA:189,28
 DA:190,2
-DA:191,14
+DA:191,28
 DA:193,87
 DA:196,22
 DA:198,4
@@ -1984,15 +1989,129 @@ end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/analyzer/mod.rs
 FN:100,<impl Analysis for Cff>::standard
-FNF:1
+FN:103,<impl Analysis for Cff>::check_prose
+FN:106,<impl Analysis for Cff>::check_quality
+FN:119,<impl Analysis for Cff>::check_readability
+FN:122,<impl Analysis for Cff>::check_schema
+FN:142,<impl Analysis for Cff>::check_websites
+FN:249,<impl Analysis for Cff>::output_path
+FN:255,<impl Analysis for Docx>::standard
+FN:258,<impl Analysis for Docx>::check_prose
+FN:261,<impl Analysis for Docx>::check_quality
+FN:274,<impl Analysis for Docx>::check_readability
+FN:277,<impl Analysis for Docx>::check_schema
+FN:281,<impl Analysis for Docx>::check_websites
+FN:284,<impl Analysis for Docx>::output_path
+FN:290,<impl Analysis for ResearchActivity>::standard
+FN:293,<impl Analysis for ResearchActivity>::check_prose
+FN:296,<impl Analysis for ResearchActivity>::check_quality
+FN:309,<impl Analysis for ResearchActivity>::check_readability
+FN:312,<impl Analysis for ResearchActivity>::check_schema
+FN:332,<impl Analysis for ResearchActivity>::check_websites
+FN:376,<impl Analysis for ResearchActivity>::output_path
+FN:385,<impl Analysis for Text>::standard
+FN:388,<impl Analysis for Text>::check_prose
+FN:391,<impl Analysis for Text>::check_quality
+FN:404,<impl Analysis for Text>::check_readability
+FN:407,<impl Analysis for Text>::check_schema
+FN:411,<impl Analysis for Text>::check_websites
+FN:414,<impl Analysis for Text>::output_path
+FN:420,<impl Analysis for raid::Metadata>::standard
+FN:423,<impl Analysis for raid::Metadata>::check_prose
+FN:426,<impl Analysis for raid::Metadata>::check_quality
+FN:439,<impl Analysis for raid::Metadata>::check_readability
+FN:442,<impl Analysis for raid::Metadata>::check_schema
+FN:461,<impl Analysis for raid::Metadata>::check_websites
+FN:464,<impl Analysis for raid::Metadata>::output_path
+FN:470,<impl StaticAnalyzer for Vale>::command
+FN:478,<impl StaticAnalyzer for Vale>::resolve
+FN:479,<impl StaticAnalyzer for Vale>::resolve::any_exist
+FN:506,<impl StaticAnalyzer for Vale>::run
+FN:603,<impl StaticAnalyzer for Vale>::download
+FN:650,<impl StaticAnalyzer for Vale>::download_checksums
+FN:683,<impl StaticAnalyzer for Vale>::extract
+FN:746,<impl StaticAnalyzer for Vale>::sync
+FN:812,<impl StaticAnalyzer for Vale>::with_binary
+FN:819,<impl StaticAnalyzer for Vale>::with_config
+FN:823,<impl StaticAnalyzer for Vale>::with_system_command
+FN:854,<impl StaticAnalyzer for Vale>::with_version
+FN:861,<impl StaticAnalyzerConfig for ValeConfig>::ini
+FN:900,<impl StaticAnalyzerConfig for ValeConfig>::resolve_package
+FN:908,<impl StaticAnalyzerConfig for ValeConfig>::save
+FN:925,<impl StaticAnalyzerConfig for ValeConfig>::with_path
+FN:930,collect_validation_checks
+FN:960,convert_lychee_response
+FN:1037,link_check
+FN:1059,pretty_print
+FN:1082,to_dataframe
+FNF:56
 FNDA:0,<impl Analysis for Cff>::standard
+FNDA:0,<impl Analysis for Cff>::check_prose
+FNDA:1,<impl Analysis for Cff>::check_quality
+FNDA:0,<impl Analysis for Cff>::check_readability
+FNDA:1,<impl Analysis for Cff>::check_schema
+FNDA:0,<impl Analysis for Cff>::check_websites
+FNDA:0,<impl Analysis for Cff>::output_path
+FNDA:0,<impl Analysis for Docx>::standard
+FNDA:0,<impl Analysis for Docx>::check_prose
+FNDA:0,<impl Analysis for Docx>::check_quality
+FNDA:0,<impl Analysis for Docx>::check_readability
+FNDA:0,<impl Analysis for Docx>::check_schema
+FNDA:0,<impl Analysis for Docx>::check_websites
+FNDA:0,<impl Analysis for Docx>::output_path
+FNDA:0,<impl Analysis for ResearchActivity>::standard
+FNDA:7,<impl Analysis for ResearchActivity>::check_prose
+FNDA:0,<impl Analysis for ResearchActivity>::check_quality
+FNDA:8,<impl Analysis for ResearchActivity>::check_readability
+FNDA:7,<impl Analysis for ResearchActivity>::check_schema
+FNDA:0,<impl Analysis for ResearchActivity>::check_websites
+FNDA:7,<impl Analysis for ResearchActivity>::output_path
+FNDA:0,<impl Analysis for Text>::standard
+FNDA:0,<impl Analysis for Text>::check_prose
+FNDA:0,<impl Analysis for Text>::check_quality
+FNDA:0,<impl Analysis for Text>::check_readability
+FNDA:0,<impl Analysis for Text>::check_schema
+FNDA:0,<impl Analysis for Text>::check_websites
+FNDA:0,<impl Analysis for Text>::output_path
+FNDA:0,<impl Analysis for raid::Metadata>::standard
+FNDA:0,<impl Analysis for raid::Metadata>::check_prose
+FNDA:0,<impl Analysis for raid::Metadata>::check_quality
+FNDA:0,<impl Analysis for raid::Metadata>::check_readability
+FNDA:0,<impl Analysis for raid::Metadata>::check_schema
+FNDA:0,<impl Analysis for raid::Metadata>::check_websites
+FNDA:0,<impl Analysis for raid::Metadata>::output_path
+FNDA:14,<impl StaticAnalyzer for Vale>::command
+FNDA:7,<impl StaticAnalyzer for Vale>::resolve
+FNDA:0,<impl StaticAnalyzer for Vale>::resolve::any_exist
+FNDA:7,<impl StaticAnalyzer for Vale>::run
+FNDA:0,<impl StaticAnalyzer for Vale>::download
+FNDA:0,<impl StaticAnalyzer for Vale>::download_checksums
+FNDA:0,<impl StaticAnalyzer for Vale>::extract
+FNDA:7,<impl StaticAnalyzer for Vale>::sync
+FNDA:0,<impl StaticAnalyzer for Vale>::with_binary
+FNDA:7,<impl StaticAnalyzer for Vale>::with_config
+FNDA:7,<impl StaticAnalyzer for Vale>::with_system_command
+FNDA:0,<impl StaticAnalyzer for Vale>::with_version
+FNDA:7,<impl StaticAnalyzerConfig for ValeConfig>::ini
+FNDA:34,<impl StaticAnalyzerConfig for ValeConfig>::resolve_package
+FNDA:7,<impl StaticAnalyzerConfig for ValeConfig>::save
+FNDA:0,<impl StaticAnalyzerConfig for ValeConfig>::with_path
+FNDA:11,collect_validation_checks
+FNDA:4,convert_lychee_response
+FNDA:4,link_check
+FNDA:0,pretty_print
+FNDA:2,to_dataframe
 DA:100,0
 DA:101,0
+DA:103,0
+DA:106,1
 DA:109,1
 DA:110,2
 DA:111,0
 DA:112,0
 DA:114,0
+DA:119,0
+DA:122,1
 DA:125,1
 DA:126,1
 DA:127,3
@@ -2004,6 +2123,7 @@ DA:132,1
 DA:134,0
 DA:135,0
 DA:136,0
+DA:142,0
 DA:143,0
 DA:144,0
 DA:145,0
@@ -2084,20 +2204,29 @@ DA:249,0
 DA:250,0
 DA:255,0
 DA:256,0
+DA:258,0
+DA:261,0
 DA:264,0
 DA:265,0
 DA:266,0
 DA:267,0
 DA:269,0
+DA:274,0
+DA:277,0
+DA:281,0
 DA:284,0
 DA:285,0
 DA:290,0
 DA:291,0
+DA:293,7
+DA:296,0
 DA:299,0
 DA:300,0
 DA:301,0
 DA:302,0
 DA:304,0
+DA:309,8
+DA:312,7
 DA:315,7
 DA:316,7
 DA:317,21
@@ -2109,6 +2238,7 @@ DA:322,7
 DA:324,0
 DA:325,0
 DA:326,0
+DA:332,0
 DA:333,0
 DA:334,0
 DA:335,0
@@ -2149,20 +2279,29 @@ DA:379,21
 DA:380,7
 DA:385,0
 DA:386,0
+DA:388,0
+DA:391,0
 DA:394,0
 DA:395,0
 DA:396,0
 DA:397,0
 DA:399,0
+DA:404,0
+DA:407,0
+DA:411,0
 DA:414,0
 DA:415,0
 DA:420,0
 DA:421,0
+DA:423,0
+DA:426,0
 DA:429,0
 DA:430,0
 DA:431,0
 DA:432,0
 DA:434,0
+DA:439,0
+DA:442,0
 DA:445,0
 DA:446,0
 DA:447,0
@@ -2173,6 +2312,7 @@ DA:451,0
 DA:453,0
 DA:454,0
 DA:455,0
+DA:461,0
 DA:464,0
 DA:465,0
 DA:470,14
@@ -2260,6 +2400,7 @@ DA:833,35
 DA:834,14
 DA:835,7
 DA:836,0
+DA:837,0
 DA:838,0
 DA:839,0
 DA:842,0
@@ -2277,7 +2418,7 @@ DA:900,34
 DA:901,102
 DA:902,68
 DA:903,8
-DA:905,30
+DA:905,60
 DA:908,7
 DA:910,0
 DA:925,0
@@ -2373,8 +2514,8 @@ DA:1090,12
 DA:1091,2
 DA:1092,0
 DA:1094,0
-LF:387
-LH:103
+LF:413
+LH:108
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/analyzer/readability/constants.rs
@@ -2714,7 +2855,7 @@ DA:172,0
 DA:173,0
 DA:178,1
 DA:179,4
-DA:180,1
+DA:180,2
 DA:182,1
 DA:183,1
 DA:184,0
@@ -2751,7 +2892,7 @@ FNDA:9,<impl TableFormatPrint for SystemInformation>::init
 FNDA:8,<impl TableFormatPrint for SystemInformation>::print
 FNDA:3,<impl TableFormatPrint for SystemSoftwareInformation>::init
 FNDA:3,<impl TableFormatPrint for SystemSoftwareInformation>::print
-FNDA:168,parse_network_addresses
+FNDA:175,parse_network_addresses
 DA:136,21
 DA:138,21
 DA:142,21
@@ -2771,7 +2912,7 @@ DA:167,16
 DA:169,32
 DA:170,32
 DA:171,32
-DA:172,48
+DA:172,56
 DA:175,7
 DA:177,7
 DA:178,7
@@ -2788,20 +2929,20 @@ DA:189,28
 DA:193,7
 DA:194,14
 DA:196,7
-DA:197,336
-DA:198,336
-DA:199,336
+DA:197,350
+DA:198,350
+DA:199,350
 DA:204,6
 DA:205,24
 DA:206,12
 DA:207,6
-DA:209,150
-DA:210,288
-DA:211,126
-DA:213,54
-DA:214,36
-DA:215,36
-DA:216,54
+DA:209,156
+DA:210,300
+DA:211,138
+DA:213,36
+DA:214,24
+DA:215,24
+DA:216,36
 DA:220,24
 DA:224,9
 DA:225,18
@@ -2856,10 +2997,10 @@ DA:285,9
 DA:286,9
 DA:287,9
 DA:289,12
-DA:292,168
-DA:293,168
-DA:295,434
-DA:296,434
+DA:292,175
+DA:293,175
+DA:295,371
+DA:296,371
 LF:108
 LH:108
 end_of_record
@@ -3000,7 +3141,7 @@ DA:135,0
 DA:137,5
 DA:138,10
 DA:139,6
-DA:141,2
+DA:141,4
 LF:52
 LH:15
 end_of_record
@@ -3008,41 +3149,48 @@ TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/io/api/gitlab.rs
 FN:29,Create::create
 FN:36,Create::register
-FN:661,<impl Default for RunnerMetadata>::default
-FN:666,<impl From for RunnerMetadata>::from
-FN:705,RunnerMetadata::is_available
-FN:710,RunnerMetadata::with_identifier
-FN:725,<impl Configuration for Options>::from_env
-FN:739,<impl Configuration for Options>::with_body
-FN:746,<impl Configuration for Options>::with_domain
-FN:755,Options::with_identifier
-FN:762,Options::with_runner
-FN:770,<impl From for ProgrammingLanguageRow>::from
-FN:789,ProgrammingLanguagesResponse::parse
-FN:812,ProgrammingLanguageUseResponse::parse
-FN:821,ProgrammingLanguageUseResponse::entries
-FN:831,ProgrammingLanguageUseResponse::names
-FN:836,<impl Deserialize for ProgrammingLanguagesResponse>::deserialize
-FN:841,<impl Deserialize for ProgrammingLanguageUseResponse>::deserialize
-FN:848,<impl DatabasePersistence for ProgrammingLanguagesResponse>::persist
-FN:860,<impl Default for Options>::default
-FN:865,<impl Display for PaginationField>::fmt
-FN:879,<impl TryFrom for PaginationField>::try_from
-FN:893,<impl TryFrom for OrderByValue>::try_from
-FN:918,<impl TryFrom for SortValue>::try_from
-FN:928,TreeEntry::path
-FN:932,TreeEntry::is_blob
-FN:939,<impl ValueValidator for PaginationField>::is_valid
-FN:952,create_runner
-FN:1003,groups
-FN:1023,language_use
-FN:1039,languages
-FN:1042,languages::fetch
-FN:1069,merge_request_note
-FN:1092,runner
-FN:1108,runners
-FN:1121,tree_paths
-FNF:36
+FN:673,<impl Default for RunnerMetadata>::default
+FN:678,<impl From for RunnerMetadata>::from
+FN:717,RunnerMetadata::is_available
+FN:722,RunnerMetadata::with_identifier
+FN:737,<impl Configuration for Options>::from_env
+FN:753,<impl Configuration for Options>::with_body
+FN:760,<impl Configuration for Options>::with_domain
+FN:769,Options::with_identifier
+FN:776,Options::with_page
+FN:780,Options::with_path
+FN:787,Options::with_runner
+FN:795,<impl From for ProgrammingLanguageRow>::from
+FN:814,ProgrammingLanguagesResponse::parse
+FN:837,ProgrammingLanguageUseResponse::parse
+FN:846,ProgrammingLanguageUseResponse::entries
+FN:856,ProgrammingLanguageUseResponse::names
+FN:861,<impl Deserialize for ProgrammingLanguagesResponse>::deserialize
+FN:866,<impl Deserialize for ProgrammingLanguageUseResponse>::deserialize
+FN:871,<impl Deserialize for TreeResponse>::deserialize
+FN:894,<impl DatabasePersistence for ProgrammingLanguagesResponse>::persist
+FN:906,<impl Default for Options>::default
+FN:911,<impl Display for PaginationField>::fmt
+FN:925,<impl TryFrom for PaginationField>::try_from
+FN:939,<impl TryFrom for OrderByValue>::try_from
+FN:964,<impl TryFrom for SortValue>::try_from
+FN:974,TreeEntry::path
+FN:978,TreeEntry::is_blob
+FN:984,ErrorResponse::is_terminal_pagination_message
+FN:991,ErrorResponse::is_terminal_pagination_error
+FN:994,ErrorResponse::message
+FN:1009,handle_tree_paths_response
+FN:1021,<impl ValueValidator for PaginationField>::is_valid
+FN:1034,create_runner
+FN:1085,groups
+FN:1105,language_use
+FN:1121,languages
+FN:1124,languages::fetch
+FN:1151,merge_request_note
+FN:1174,runner
+FN:1190,runners
+FN:1203,tree_paths
+FNF:43
 FNDA:0,Create::create
 FNDA:0,Create::register
 FNDA:0,<impl Default for RunnerMetadata>::default
@@ -3053,6 +3201,8 @@ FNDA:0,<impl Configuration for Options>::from_env
 FNDA:0,<impl Configuration for Options>::with_body
 FNDA:0,<impl Configuration for Options>::with_domain
 FNDA:0,Options::with_identifier
+FNDA:0,Options::with_page
+FNDA:0,Options::with_path
 FNDA:0,Options::with_runner
 FNDA:0,<impl From for ProgrammingLanguageRow>::from
 FNDA:1,ProgrammingLanguagesResponse::parse
@@ -3061,14 +3211,19 @@ FNDA:0,ProgrammingLanguageUseResponse::entries
 FNDA:0,ProgrammingLanguageUseResponse::names
 FNDA:0,<impl Deserialize for ProgrammingLanguagesResponse>::deserialize
 FNDA:1,<impl Deserialize for ProgrammingLanguageUseResponse>::deserialize
+FNDA:4,<impl Deserialize for TreeResponse>::deserialize
 FNDA:0,<impl DatabasePersistence for ProgrammingLanguagesResponse>::persist
 FNDA:0,<impl Default for Options>::default
 FNDA:5,<impl Display for PaginationField>::fmt
 FNDA:9,<impl TryFrom for PaginationField>::try_from
 FNDA:0,<impl TryFrom for OrderByValue>::try_from
 FNDA:0,<impl TryFrom for SortValue>::try_from
-FNDA:1,TreeEntry::path
-FNDA:1,TreeEntry::is_blob
+FNDA:2,TreeEntry::path
+FNDA:3,TreeEntry::is_blob
+FNDA:1,ErrorResponse::is_terminal_pagination_message
+FNDA:1,ErrorResponse::is_terminal_pagination_error
+FNDA:2,ErrorResponse::message
+FNDA:2,handle_tree_paths_response
 FNDA:8,<impl ValueValidator for PaginationField>::is_valid
 FNDA:0,create_runner
 FNDA:0,groups
@@ -3081,264 +3236,302 @@ FNDA:0,runners
 FNDA:0,tree_paths
 DA:29,0
 DA:36,0
-DA:661,0
-DA:662,0
-DA:666,0
-DA:668,0
-DA:669,0
-DA:670,0
-DA:671,0
 DA:673,0
-DA:689,0
-DA:690,0
-DA:694,0
-DA:705,0
+DA:674,0
+DA:678,0
+DA:680,0
+DA:681,0
+DA:682,0
+DA:683,0
+DA:685,0
+DA:701,0
+DA:702,0
 DA:706,0
-DA:707,0
-DA:710,0
-DA:712,0
-DA:725,0
-DA:726,0
-DA:727,0
-DA:730,0
-DA:731,0
-DA:732,0
-DA:733,0
-DA:735,0
+DA:717,0
+DA:718,0
+DA:719,0
+DA:722,0
+DA:724,0
+DA:737,0
+DA:738,0
 DA:739,0
-DA:741,0
-DA:746,0
-DA:748,0
+DA:742,0
+DA:743,0
+DA:744,0
+DA:745,0
+DA:749,0
+DA:753,0
 DA:755,0
-DA:757,0
+DA:760,0
 DA:762,0
-DA:770,0
-DA:772,0
-DA:773,0
-DA:774,0
-DA:775,0
+DA:769,0
+DA:771,0
 DA:776,0
-DA:777,0
-DA:778,0
-DA:779,0
 DA:780,0
-DA:781,0
 DA:782,0
-DA:783,0
-DA:789,1
-DA:790,2
-DA:792,3
-DA:793,2
-DA:794,2
-DA:795,2
-DA:796,8
-DA:797,2
-DA:798,2
-DA:799,1
-DA:800,1
-DA:801,1
-DA:802,1
-DA:803,1
-DA:812,1
-DA:813,2
-DA:815,10
-DA:817,11
-DA:821,0
-DA:822,0
-DA:823,0
-DA:825,0
-DA:827,0
-DA:828,0
-DA:831,0
-DA:832,0
-DA:836,0
-DA:837,0
-DA:841,1
-DA:842,3
+DA:787,0
+DA:795,0
+DA:797,0
+DA:798,0
+DA:799,0
+DA:800,0
+DA:801,0
+DA:802,0
+DA:803,0
+DA:804,0
+DA:805,0
+DA:806,0
+DA:807,0
+DA:808,0
+DA:814,1
+DA:815,2
+DA:817,3
+DA:818,2
+DA:819,2
+DA:820,2
+DA:821,8
+DA:822,2
+DA:823,2
+DA:824,1
+DA:825,1
+DA:826,1
+DA:827,1
+DA:828,1
+DA:837,1
+DA:838,2
+DA:840,10
+DA:842,11
+DA:846,0
+DA:847,0
 DA:848,0
 DA:850,0
-DA:851,0
 DA:852,0
-DA:855,0
-DA:860,0
+DA:853,0
+DA:856,0
+DA:857,0
 DA:861,0
-DA:865,5
-DA:866,10
-DA:867,0
-DA:868,2
-DA:869,0
-DA:870,3
-DA:871,0
-DA:873,10
+DA:862,0
+DA:866,1
+DA:867,3
+DA:871,4
 DA:879,9
-DA:880,9
-DA:881,9
-DA:882,13
-DA:883,5
-DA:884,9
-DA:885,1
-DA:886,1
-DA:893,0
+DA:880,1
+DA:881,11
+DA:882,1
+DA:884,4
+DA:885,2
+DA:886,2
 DA:894,0
-DA:895,0
 DA:896,0
 DA:897,0
 DA:898,0
-DA:899,0
-DA:900,0
 DA:901,0
-DA:902,0
-DA:903,0
-DA:904,0
-DA:905,0
 DA:906,0
 DA:907,0
-DA:908,0
-DA:909,0
-DA:910,0
-DA:911,0
-DA:918,0
-DA:919,0
-DA:920,0
-DA:921,0
-DA:922,0
-DA:928,1
-DA:929,1
+DA:911,5
+DA:912,10
+DA:913,0
+DA:914,2
+DA:915,0
+DA:916,3
+DA:917,0
+DA:919,15
+DA:925,9
+DA:926,9
+DA:927,9
+DA:928,13
+DA:929,5
+DA:930,9
+DA:931,1
 DA:932,1
-DA:933,2
-DA:934,3
-DA:939,8
-DA:940,8
+DA:939,0
+DA:940,0
 DA:941,0
-DA:942,8
-DA:943,8
+DA:942,0
+DA:943,0
 DA:944,0
 DA:945,0
+DA:946,0
+DA:947,0
+DA:948,0
+DA:949,0
+DA:950,0
+DA:951,0
 DA:952,0
-DA:960,0
-DA:961,0
-DA:962,0
-DA:963,0
+DA:953,0
+DA:954,0
+DA:955,0
+DA:956,0
+DA:957,0
 DA:964,0
 DA:965,0
 DA:966,0
 DA:967,0
 DA:968,0
-DA:969,0
-DA:970,0
-DA:971,0
-DA:972,0
-DA:973,0
-DA:974,0
-DA:976,0
-DA:977,0
-DA:979,0
-DA:980,0
-DA:981,0
-DA:982,0
-DA:983,0
-DA:984,0
-DA:985,0
-DA:988,0
-DA:990,0
-DA:991,0
-DA:992,0
-DA:995,0
-DA:996,0
-DA:999,0
-DA:1003,0
-DA:1004,0
-DA:1005,0
-DA:1006,0
-DA:1007,0
-DA:1008,0
-DA:1009,0
-DA:1010,0
-DA:1011,0
-DA:1012,0
+DA:974,2
+DA:975,2
+DA:978,3
+DA:979,6
+DA:980,9
+DA:984,1
+DA:985,3
+DA:986,1
+DA:987,1
+DA:988,3
+DA:989,2
+DA:991,1
+DA:992,2
+DA:994,2
+DA:995,4
+DA:996,2
+DA:998,8
+DA:1000,8
+DA:1001,8
+DA:1002,4
+DA:1004,14
+DA:1009,2
+DA:1010,2
+DA:1011,4
+DA:1012,7
+DA:1013,3
 DA:1014,0
-DA:1015,0
-DA:1017,0
+DA:1016,0
+DA:1021,8
+DA:1022,8
 DA:1023,0
-DA:1024,0
-DA:1025,0
+DA:1024,8
+DA:1025,8
 DA:1026,0
 DA:1027,0
-DA:1028,0
-DA:1029,0
-DA:1030,0
-DA:1032,0
-DA:1033,0
-DA:1035,0
-DA:1039,0
-DA:1040,0
-DA:1041,0
+DA:1034,0
 DA:1042,0
 DA:1043,0
 DA:1044,0
 DA:1045,0
 DA:1046,0
 DA:1047,0
+DA:1048,0
 DA:1049,0
+DA:1050,0
 DA:1051,0
+DA:1052,0
+DA:1053,0
 DA:1054,0
 DA:1055,0
 DA:1056,0
-DA:1057,0
 DA:1058,0
+DA:1059,0
 DA:1061,0
-DA:1069,0
+DA:1062,0
+DA:1063,0
+DA:1064,0
+DA:1065,0
+DA:1066,0
+DA:1067,0
 DA:1070,0
-DA:1071,0
 DA:1072,0
 DA:1073,0
 DA:1074,0
-DA:1075,0
-DA:1076,0
 DA:1077,0
 DA:1078,0
-DA:1079,0
-DA:1082,0
+DA:1081,0
 DA:1085,0
 DA:1086,0
+DA:1087,0
 DA:1088,0
+DA:1089,0
+DA:1090,0
+DA:1091,0
 DA:1092,0
 DA:1093,0
 DA:1094,0
-DA:1095,0
 DA:1096,0
 DA:1097,0
-DA:1098,0
 DA:1099,0
-DA:1101,0
-DA:1102,0
-DA:1104,0
+DA:1105,0
+DA:1106,0
+DA:1107,0
 DA:1108,0
 DA:1109,0
 DA:1110,0
 DA:1111,0
 DA:1112,0
-DA:1113,0
 DA:1114,0
 DA:1115,0
 DA:1117,0
 DA:1121,0
+DA:1122,0
+DA:1123,0
+DA:1124,0
+DA:1125,0
+DA:1126,0
 DA:1127,0
 DA:1128,0
 DA:1129,0
-DA:1130,0
 DA:1131,0
-DA:1132,0
 DA:1133,0
-DA:1134,0
-DA:1135,0
+DA:1136,0
 DA:1137,0
 DA:1138,0
 DA:1139,0
 DA:1140,0
-DA:1142,0
-LF:258
-LH:42
+DA:1143,0
+DA:1151,0
+DA:1152,0
+DA:1153,0
+DA:1154,0
+DA:1155,0
+DA:1156,0
+DA:1157,0
+DA:1158,0
+DA:1159,0
+DA:1160,0
+DA:1161,0
+DA:1164,0
+DA:1167,0
+DA:1168,0
+DA:1170,0
+DA:1174,0
+DA:1175,0
+DA:1176,0
+DA:1177,0
+DA:1178,0
+DA:1179,0
+DA:1180,0
+DA:1181,0
+DA:1183,0
+DA:1184,0
+DA:1186,0
+DA:1190,0
+DA:1191,0
+DA:1192,0
+DA:1193,0
+DA:1194,0
+DA:1195,0
+DA:1196,0
+DA:1197,0
+DA:1199,0
+DA:1203,0
+DA:1204,0
+DA:1205,0
+DA:1206,0
+DA:1207,0
+DA:1208,0
+DA:1209,0
+DA:1210,0
+DA:1211,0
+DA:1212,0
+DA:1213,0
+DA:1215,0
+DA:1216,0
+DA:1218,0
+DA:1220,0
+DA:1221,0
+DA:1223,0
+DA:1224,0
+DA:1226,0
+LF:296
+LH:71
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/io/api/mod.rs
@@ -3460,15 +3653,15 @@ DA:308,3
 DA:309,9
 DA:310,18
 DA:311,12
-DA:312,16
-DA:313,3
+DA:312,17
+DA:313,6
 DA:316,4
 DA:318,12
 DA:328,4
 DA:329,12
 DA:330,8
 DA:331,4
-DA:332,5
+DA:332,6
 DA:336,5
 DA:337,15
 DA:338,120
@@ -3493,13 +3686,13 @@ DA:376,0
 DA:377,0
 DA:378,0
 DA:384,2
-DA:385,4
+DA:385,6
 DA:389,0
 DA:390,0
 DA:394,0
 DA:395,0
 DA:399,5
-DA:400,45
+DA:400,50
 DA:401,35
 DA:402,25
 DA:406,5
@@ -3526,7 +3719,7 @@ DA:446,143
 DA:447,127
 DA:448,127
 DA:451,21
-DA:452,18
+DA:452,36
 DA:454,3
 DA:465,14
 DA:466,28
@@ -3679,7 +3872,7 @@ DA:755,9
 DA:756,9
 DA:757,8
 DA:758,24
-DA:759,10
+DA:759,15
 DA:761,3
 DA:764,1
 DA:768,20
@@ -3690,12 +3883,12 @@ DA:773,117
 DA:774,39
 DA:775,35
 DA:776,105
-DA:777,64
+DA:777,96
 DA:779,3
 DA:782,4
 DA:786,40
 DA:787,1
-DA:789,57
+DA:789,76
 DA:793,17
 DA:794,51
 DA:796,45
@@ -3705,19 +3898,19 @@ DA:799,48
 DA:800,4
 DA:804,34
 DA:805,9
-DA:807,24
+DA:807,32
 DA:811,18
 DA:812,159
 DA:813,36
 DA:814,12
 DA:816,18
 DA:817,6
-DA:818,0
+DA:818,6
 DA:819,0
 DA:820,6
 DA:821,6
 DA:822,6
-DA:823,66
+DA:823,78
 DA:824,6
 DA:825,12
 DA:829,4
@@ -3746,7 +3939,7 @@ DA:881,2
 DA:882,0
 DA:885,5
 LF:310
-LH:206
+LH:207
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/io/api/orcid.rs
@@ -3787,7 +3980,7 @@ DA:209,2
 DA:210,0
 DA:211,2
 DA:212,0
-DA:214,86
+DA:214,129
 DA:218,23
 DA:219,46
 DA:220,5
@@ -3798,7 +3991,7 @@ DA:224,1
 DA:225,7
 DA:226,1
 DA:227,1
-DA:229,46
+DA:229,69
 DA:235,55
 DA:236,55
 DA:237,60
@@ -4010,9 +4203,9 @@ DA:77,1454
 DA:83,0
 DA:84,0
 DA:100,1
-DA:102,727
+DA:102,1454
 DA:103,5089
-DA:104,1
+DA:104,2
 DA:107,3
 DA:118,2
 DA:119,1
@@ -4022,16 +4215,6 @@ DA:122,3
 DA:124,0
 LF:26
 LH:23
-end_of_record
-TN:
-SF:/Users/o9w/dev/re/acorn/acorn-lib/src/io/api/tests/mod.rs
-FN:20,fixtures_dir
-FNF:1
-FNDA:2,fixtures_dir
-DA:20,2
-DA:21,4
-LF:2
-LH:2
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/io/bagit.rs
@@ -4066,7 +4249,7 @@ DA:125,15
 DA:127,1
 DA:128,5
 DA:132,1
-DA:134,4
+DA:134,5
 DA:135,5
 DA:136,2
 DA:138,10
@@ -4132,7 +4315,7 @@ DA:225,0
 DA:226,0
 DA:227,0
 DA:228,0
-DA:233,4
+DA:233,6
 DA:234,4
 DA:235,2
 DA:237,35
@@ -4140,7 +4323,7 @@ DA:238,124
 DA:239,93
 DA:240,93
 DA:241,31
-DA:242,31
+DA:242,62
 DA:244,0
 DA:245,0
 DA:246,0
@@ -4150,7 +4333,7 @@ DA:253,4
 DA:254,10
 DA:255,0
 DA:257,4
-DA:258,4
+DA:258,6
 DA:259,6
 DA:260,12
 DA:262,10
@@ -4184,7 +4367,7 @@ DA:301,47
 DA:302,67
 DA:304,29
 DA:305,10
-DA:306,4
+DA:306,6
 DA:308,20
 DA:310,43
 DA:311,30
@@ -4193,7 +4376,7 @@ DA:316,0
 DA:320,4
 DA:324,16
 DA:325,8
-DA:328,22
+DA:328,36
 DA:329,16
 DA:333,3
 DA:334,3
@@ -4227,17 +4410,17 @@ FN:271,Bucket::domain
 FN:291,Bucket::copy_files
 FN:359,Bucket::download_files
 FN:423,Bucket::file_paths
-FN:477,<impl From for Bucket>::from
-FN:508,<impl Default for BucketOptions>::default
-FN:520,BucketOptions::with_output
-FN:528,<impl Display for RunnerType>::fmt
-FN:548,<impl From for RunnerType>::from
-FN:552,count_json_files
-FN:555,count_image_files
-FN:558,is_ignored_path
-FN:569,is_filtered_path
-FN:579,operations_complete_message
-FN:615,has_image_extension
+FN:479,<impl From for Bucket>::from
+FN:510,<impl Default for BucketOptions>::default
+FN:522,BucketOptions::with_output
+FN:530,<impl Display for RunnerType>::fmt
+FN:550,<impl From for RunnerType>::from
+FN:554,count_json_files
+FN:557,count_image_files
+FN:560,is_ignored_path
+FN:571,is_filtered_path
+FN:581,operations_complete_message
+FN:617,has_image_extension
 FNF:25
 FNDA:6,ApplicationConfiguration::resolve
 FNDA:1,ApplicationConfiguration::parse
@@ -4298,6 +4481,7 @@ DA:217,20
 DA:218,25
 DA:220,0
 DA:221,0
+DA:222,0
 DA:223,0
 DA:225,0
 DA:228,15
@@ -4306,6 +4490,7 @@ DA:232,3
 DA:233,2
 DA:235,0
 DA:236,0
+DA:237,0
 DA:238,0
 DA:240,0
 DA:243,3
@@ -4353,7 +4538,7 @@ DA:309,10
 DA:311,16
 DA:313,4
 DA:315,35
-DA:317,8
+DA:317,12
 DA:318,6
 DA:319,2
 DA:320,6
@@ -4453,92 +4638,94 @@ DA:452,0
 DA:453,0
 DA:455,0
 DA:456,0
-DA:458,0
+DA:457,0
 DA:459,0
 DA:460,0
 DA:461,0
 DA:462,0
+DA:463,0
 DA:464,0
-DA:465,0
-DA:469,0
+DA:466,0
+DA:467,0
 DA:471,0
-DA:477,1
-DA:478,2
+DA:473,0
 DA:479,1
-DA:480,1
-DA:481,2
-DA:484,0
-DA:485,0
+DA:480,2
+DA:481,1
+DA:482,1
+DA:483,2
+DA:486,0
 DA:487,0
-DA:488,0
-DA:491,0
-DA:494,0
-DA:499,4
-DA:502,0
-DA:508,0
-DA:513,0
-DA:514,0
-DA:520,2
+DA:489,0
+DA:490,0
+DA:493,0
+DA:496,0
+DA:501,4
+DA:504,0
+DA:510,0
+DA:515,0
+DA:516,0
 DA:522,2
-DA:528,0
-DA:529,0
+DA:524,2
 DA:530,0
 DA:531,0
 DA:532,0
+DA:533,0
 DA:534,0
-DA:538,0
-DA:539,0
+DA:536,0
 DA:540,0
 DA:541,0
 DA:542,0
 DA:543,0
-DA:548,0
-DA:549,0
-DA:552,3
-DA:553,26
-DA:555,3
-DA:556,28
-DA:558,12
-DA:559,216
-DA:560,24
-DA:562,18
-DA:563,10
-DA:564,1
-DA:566,32
-DA:567,23
-DA:569,9
-DA:570,18
-DA:571,4
-DA:572,4
-DA:573,10
-DA:574,10
-DA:575,1
-DA:577,24
-DA:579,2
-DA:580,8
-DA:581,4
-DA:582,2
-DA:583,1
-DA:585,0
-DA:587,1
-DA:589,2
-DA:590,2
+DA:544,0
+DA:545,0
+DA:550,0
+DA:551,0
+DA:554,3
+DA:555,26
+DA:557,3
+DA:558,28
+DA:560,12
+DA:561,216
+DA:562,24
+DA:564,18
+DA:565,10
+DA:566,1
+DA:568,32
+DA:569,23
+DA:571,9
+DA:572,18
+DA:573,4
+DA:574,4
+DA:575,10
+DA:576,10
+DA:577,1
+DA:579,24
+DA:581,2
+DA:582,8
+DA:583,4
+DA:584,2
+DA:585,1
+DA:587,0
+DA:589,1
 DA:591,2
 DA:592,2
 DA:593,2
-DA:596,2
-DA:598,4
-DA:599,4
-DA:600,2
+DA:594,2
+DA:595,2
+DA:598,2
+DA:600,4
+DA:601,5
 DA:602,2
-DA:604,4
-DA:605,2
-DA:606,2
+DA:604,2
+DA:606,4
+DA:607,2
 DA:608,2
-DA:610,4
-DA:615,11
-DA:616,20
-LF:274
+DA:610,2
+DA:612,4
+DA:617,11
+DA:618,20
+LF:278
 LH:127
 end_of_record
 TN:
@@ -4579,22 +4766,22 @@ TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/io/database/macros.rs
 FNF:0
 DA:89,5
-DA:90,11
+DA:90,12
 DA:91,8
 DA:92,2
 DA:97,2
-DA:99,5
-DA:100,5
-DA:101,5
+DA:99,6
+DA:100,6
+DA:101,6
 DA:103,5
 DA:104,2
 DA:105,0
 DA:106,0
 DA:111,2
 DA:113,4
-DA:114,5
-DA:115,5
-DA:116,5
+DA:114,6
+DA:115,6
+DA:116,6
 DA:118,7
 DA:119,0
 DA:120,2
@@ -4678,7 +4865,7 @@ DA:76,4
 DA:81,12
 DA:82,12
 DA:83,16
-DA:84,8
+DA:84,12
 DA:85,16
 DA:86,24
 DA:89,4
@@ -5362,7 +5549,7 @@ DA:895,2190
 DA:896,1460
 DA:897,2920
 DA:898,5110
-DA:899,1460
+DA:899,2190
 DA:900,2920
 DA:901,730
 DA:903,1
@@ -5371,11 +5558,11 @@ DA:906,4
 DA:907,4
 DA:909,4
 DA:913,4
-DA:914,12
+DA:914,16
 DA:915,0
 DA:918,6
 DA:919,6
-DA:920,36
+DA:920,42
 DA:921,0
 DA:931,14
 DA:932,14
@@ -5461,8 +5648,8 @@ DA:104,2
 DA:116,0
 DA:123,10
 DA:127,30
-DA:128,54
-DA:129,38
+DA:128,56
+DA:129,41
 DA:130,10
 DA:131,5
 DA:132,5
@@ -5481,43 +5668,6 @@ DA:151,0
 DA:155,5
 LF:76
 LH:62
-end_of_record
-TN:
-SF:/Users/o9w/dev/re/acorn/acorn-lib/src/io/docx/tests/mod.rs
-FN:15,write_docx
-FNF:1
-FNDA:2,write_docx
-DA:15,2
-DA:16,4
-DA:17,8
-DA:18,6
-DA:19,8
-DA:20,4
-DA:21,2
-DA:22,2
-DA:23,2
-DA:24,2
-DA:25,2
-DA:26,4
-DA:27,2
-DA:28,2
-DA:29,2
-DA:30,4
-DA:31,2
-DA:32,2
-DA:33,2
-DA:34,8
-DA:35,8
-DA:36,8
-DA:37,8
-DA:38,8
-DA:39,8
-DA:40,8
-DA:41,8
-DA:42,6
-DA:43,2
-LF:29
-LH:29
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/io/http/mod.rs
@@ -5609,8 +5759,10 @@ DA:166,8
 DA:167,32
 DA:168,8
 DA:169,0
+DA:174,0
 DA:175,0
 DA:178,8
+DA:183,0
 DA:184,0
 DA:186,8
 DA:189,0
@@ -5657,7 +5809,7 @@ DA:246,0
 DA:249,0
 DA:252,17
 DA:253,51
-LF:101
+LF:103
 LH:66
 end_of_record
 TN:
@@ -5752,7 +5904,7 @@ FNDA:0,InputOutput::read_markdown
 FNDA:0,InputOutput::write_cff
 FNDA:0,InputOutput::write_markdown
 FNDA:24,<impl FromCommand for SemanticVersion>::from_command
-FNDA:67,<impl FromPath for MimeType>::from_path
+FNDA:61,<impl FromPath for MimeType>::from_path
 FNDA:4,<impl ToStrings for Vec<P>>::to_strings
 FNDA:0,<impl ToStrings for Vec<P>>::to_absolute_strings
 FNDA:2,ProgressType::template
@@ -5810,8 +5962,8 @@ DA:205,40
 DA:206,125
 DA:207,3
 DA:210,4
-DA:226,67
-DA:230,201
+DA:226,61
+DA:230,183
 DA:234,4
 DA:235,4
 DA:236,31
@@ -5863,13 +6015,14 @@ DA:305,0
 DA:309,0
 DA:311,8
 DA:312,334
-DA:313,105
+DA:313,206
 DA:314,303
 DA:315,202
 DA:316,404
 DA:317,0
 DA:319,101
 DA:320,0
+DA:321,0
 DA:322,0
 DA:324,303
 DA:326,202
@@ -6000,7 +6153,7 @@ DA:590,30
 DA:591,730
 DA:593,19
 DA:594,38
-DA:595,76
+DA:595,95
 DA:596,19
 DA:597,19
 DA:599,34
@@ -6011,7 +6164,7 @@ DA:604,95
 DA:605,38
 DA:607,49
 DA:608,11
-DA:611,33
+DA:611,44
 DA:612,33
 DA:613,0
 DA:614,0
@@ -6019,6 +6172,7 @@ DA:615,0
 DA:620,24
 DA:621,11
 DA:622,0
+DA:623,0
 DA:624,0
 DA:627,24
 DA:636,1
@@ -6058,6 +6212,7 @@ DA:687,0
 DA:688,0
 DA:689,0
 DA:692,1
+DA:693,0
 DA:694,0
 DA:695,0
 DA:696,0
@@ -6092,7 +6247,7 @@ DA:745,6
 DA:746,6
 DA:747,12
 DA:750,6
-DA:751,91
+DA:751,61
 DA:753,0
 DA:767,0
 DA:768,0
@@ -6131,7 +6286,7 @@ DA:839,0
 DA:856,13
 DA:860,52
 DA:861,26
-DA:863,273
+DA:863,338
 DA:864,143
 DA:867,13
 DA:868,13
@@ -6164,7 +6319,7 @@ DA:936,75
 DA:937,75
 DA:939,50
 DA:940,0
-DA:942,25
+DA:942,50
 DA:947,13
 DA:951,26
 DA:952,26
@@ -6304,7 +6459,7 @@ DA:1283,2
 DA:1285,0
 DA:1287,0
 DA:1290,0
-LF:509
+LF:512
 LH:292
 end_of_record
 TN:
@@ -6328,7 +6483,7 @@ DA:35,199
 DA:36,199
 DA:40,26
 DA:41,13
-DA:42,73
+DA:42,133
 DA:43,300
 DA:44,0
 DA:46,8
@@ -6512,26 +6667,6 @@ LF:24
 LH:0
 end_of_record
 TN:
-SF:/Users/o9w/dev/re/acorn/acorn-lib/src/io/powerpoint/tests/mod.rs
-FN:13,fixtures_dir
-FNF:1
-FNDA:2,fixtures_dir
-DA:13,2
-DA:14,4
-LF:2
-LH:2
-end_of_record
-TN:
-SF:/Users/o9w/dev/re/acorn/acorn-lib/src/io/tests/mod.rs
-FN:116,fixtures_dir
-FNF:1
-FNDA:13,fixtures_dir
-DA:116,13
-DA:117,26
-LF:2
-LH:2
-end_of_record
-TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/lib.rs
 FN:138,Location::hash
 FN:168,Location::scheme
@@ -6608,10 +6743,10 @@ DA:222,6
 DA:223,10
 DA:224,10
 DA:225,4
-DA:226,10
+DA:226,12
 DA:227,0
 DA:229,4
-DA:232,4
+DA:232,6
 DA:233,4
 DA:241,4
 DA:242,8
@@ -6967,7 +7102,7 @@ DA:65,0
 DA:69,0
 DA:70,0
 DA:74,19
-DA:75,38
+DA:75,57
 DA:76,57
 DA:81,14
 DA:83,28
@@ -7060,7 +7195,7 @@ DA:700,4
 DA:701,8
 DA:1276,20
 DA:1277,60
-DA:1278,40
+DA:1278,60
 DA:1280,120
 DA:1281,120
 DA:1282,120
@@ -7732,7 +7867,7 @@ DA:338,10
 DA:339,132
 DA:340,24
 DA:341,5
-DA:342,2
+DA:342,3
 DA:343,5
 DA:344,2
 DA:345,3
@@ -7955,7 +8090,7 @@ DA:807,2
 DA:808,2
 DA:819,31
 DA:820,93
-DA:821,31
+DA:821,62
 DA:825,11
 DA:826,11
 DA:827,33
@@ -8290,13 +8425,13 @@ DA:412,16
 DA:413,64
 DA:414,48
 DA:415,176
-DA:416,32
+DA:416,48
 DA:421,18
 DA:422,54
-DA:423,36
+DA:423,54
 DA:428,10
 DA:429,30
-DA:430,20
+DA:430,30
 DA:435,16
 DA:436,48
 DA:437,48
@@ -8307,16 +8442,16 @@ DA:441,1
 DA:443,32
 DA:445,76
 DA:446,16
-DA:449,32
+DA:449,48
 DA:454,6
 DA:455,18
-DA:456,12
+DA:456,18
 DA:461,11
 DA:462,33
 DA:463,33
 DA:464,22
-DA:465,6
-DA:467,16
+DA:465,9
+DA:467,24
 DA:472,0
 DA:473,0
 DA:475,1
@@ -8331,7 +8466,7 @@ DA:487,83
 DA:488,17
 DA:492,18
 DA:493,72
-DA:494,68
+DA:494,85
 DA:495,1
 DA:498,18
 DA:499,54
@@ -8385,7 +8520,7 @@ DA:578,8
 DA:579,1
 DA:581,9
 DA:582,12
-DA:583,3
+DA:583,6
 DA:588,0
 DA:589,0
 DA:591,0
@@ -8460,7 +8595,7 @@ DA:718,11
 DA:719,22
 DA:720,11
 DA:723,21
-DA:727,11
+DA:727,22
 DA:729,91
 DA:730,273
 DA:732,0
@@ -8533,7 +8668,7 @@ DA:853,3
 DA:854,9
 DA:864,37
 DA:865,185
-DA:866,74
+DA:866,111
 DA:867,111
 DA:868,259
 DA:869,111
@@ -8568,7 +8703,7 @@ DA:932,5
 DA:933,10
 DA:944,71
 DA:945,284
-DA:946,142
+DA:946,213
 DA:947,213
 DA:948,497
 DA:949,71
@@ -8592,7 +8727,7 @@ DA:991,0
 DA:992,0
 DA:1002,29
 DA:1003,116
-DA:1004,58
+DA:1004,87
 DA:1005,87
 DA:1006,203
 DA:1007,29
@@ -8618,7 +8753,7 @@ DA:1055,4
 DA:1056,8
 DA:1066,44
 DA:1067,88
-DA:1068,88
+DA:1068,132
 DA:1069,132
 DA:1070,308
 DA:1071,44
@@ -8644,7 +8779,7 @@ DA:1125,3
 DA:1126,6
 DA:1131,7
 DA:1132,21
-DA:1133,14
+DA:1133,21
 DA:1134,21
 DA:1135,49
 DA:1136,35
@@ -8670,7 +8805,7 @@ DA:1178,4
 DA:1179,12
 DA:1189,90
 DA:1190,180
-DA:1191,180
+DA:1191,270
 DA:1192,270
 DA:1193,630
 DA:1194,90
@@ -8724,7 +8859,7 @@ DA:1342,74
 DA:1343,148
 DA:1344,148
 DA:1345,148
-DA:1346,16
+DA:1346,24
 DA:1348,132
 DA:1350,74
 DA:1352,0
@@ -8804,7 +8939,7 @@ DA:219,10
 DA:221,5
 DA:222,5
 DA:223,5
-DA:225,25
+DA:225,30
 DA:227,0
 DA:228,0
 DA:229,0
@@ -8815,8 +8950,8 @@ DA:237,5
 DA:238,5
 DA:240,20
 DA:241,9
-DA:242,8
-DA:244,2
+DA:242,12
+DA:244,3
 DA:251,0
 DA:252,0
 DA:256,0
@@ -8843,7 +8978,7 @@ DA:295,22
 DA:296,0
 DA:297,22
 DA:301,88
-DA:303,44
+DA:303,66
 DA:304,88
 DA:305,66
 DA:307,22
@@ -9053,7 +9188,7 @@ DA:146,8
 DA:147,5
 DA:148,5
 DA:149,4
-DA:152,70
+DA:152,105
 DA:156,10
 DA:157,10
 DA:158,21
@@ -9071,14 +9206,14 @@ DA:179,0
 DA:180,0
 DA:184,1
 DA:185,1
-DA:186,4
-DA:187,4
+DA:186,5
+DA:187,5
 DA:188,3
-DA:189,4
-DA:190,3
+DA:189,5
+DA:190,4
 DA:196,2
 DA:197,0
-DA:199,3
+DA:199,4
 DA:205,16
 DA:206,16
 DA:207,75
@@ -9086,7 +9221,7 @@ DA:208,1
 DA:220,4
 DA:224,12
 DA:225,8
-DA:226,7
+DA:226,8
 DA:227,4
 DA:228,7
 DA:229,6
@@ -9094,21 +9229,6 @@ DA:230,3
 DA:231,15
 LF:48
 LH:43
-end_of_record
-TN:
-SF:/Users/o9w/dev/re/acorn/acorn-lib/src/schema/prompt/tests/mod.rs
-FN:3,all_known_assets
-FNF:1
-FNDA:4,all_known_assets
-DA:3,4
-DA:5,8
-DA:6,8
-DA:7,8
-DA:8,8
-DA:9,4
-DA:10,4
-LF:7
-LH:7
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/schema/research_activity/aspect/data.rs
@@ -9135,20 +9255,20 @@ DA:206,0
 DA:207,0
 DA:212,2
 DA:213,2
-DA:214,4
+DA:214,5
 DA:215,0
 DA:216,2
 DA:217,0
-DA:218,4
+DA:218,5
 DA:224,1
 DA:225,1
-DA:226,4
-DA:227,4
-DA:228,4
-DA:229,4
+DA:226,5
+DA:227,5
+DA:228,5
+DA:229,5
 DA:234,2
 DA:235,0
-DA:237,3
+DA:237,4
 DA:242,0
 DA:244,0
 DA:253,0
@@ -9193,18 +9313,18 @@ DA:231,0
 DA:232,0
 DA:237,1
 DA:238,1
-DA:239,4
-DA:240,4
-DA:241,4
-DA:242,4
+DA:239,5
+DA:240,5
+DA:241,5
+DA:242,5
 DA:247,2
 DA:248,1
 DA:250,4
 DA:251,3
-DA:252,4
+DA:252,5
 DA:255,2
 DA:256,0
-DA:258,3
+DA:258,4
 DA:263,0
 DA:264,0
 DA:265,0
@@ -9670,7 +9790,7 @@ DA:987,22
 DA:990,59
 DA:991,13
 DA:992,6
-DA:993,8
+DA:993,10
 DA:995,22
 DA:998,5
 DA:1000,5
@@ -9683,7 +9803,7 @@ DA:1013,12
 DA:1014,6
 DA:1015,6
 DA:1016,2
-DA:1018,2
+DA:1018,4
 DA:1019,2
 DA:1020,2
 DA:1023,8
@@ -9703,7 +9823,7 @@ DA:1050,87
 DA:1051,17
 DA:1052,6
 DA:1053,2
-DA:1055,2
+DA:1055,4
 DA:1056,2
 DA:1057,2
 DA:1060,28
@@ -9727,16 +9847,6 @@ DA:1084,20
 DA:1086,30
 LF:401
 LH:322
-end_of_record
-TN:
-SF:/Users/o9w/dev/re/acorn/acorn-lib/src/schema/research_activity/tests/mod.rs
-FN:18,fixtures_dir
-FNF:1
-FNDA:5,fixtures_dir
-DA:18,5
-DA:19,10
-LF:2
-LH:2
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/schema/standard/cff.rs
@@ -9851,33 +9961,6 @@ DA:1130,0
 DA:1131,0
 LF:21
 LH:2
-end_of_record
-TN:
-SF:/Users/o9w/dev/re/acorn/acorn-lib/src/schema/standard/tests/datacite.rs
-FN:17,load_fixture_text
-FN:21,load_xml_fixture_text
-FNF:2
-FNDA:9,load_fixture_text
-FNDA:1,load_xml_fixture_text
-DA:17,9
-DA:18,27
-DA:19,36
-DA:21,1
-DA:22,3
-DA:23,4
-LF:6
-LH:6
-end_of_record
-TN:
-SF:/Users/o9w/dev/re/acorn/acorn-lib/src/schema/standard/tests/huwise.rs
-FN:13,load_fixture_text
-FNF:1
-FNDA:2,load_fixture_text
-DA:13,2
-DA:14,6
-DA:15,8
-LF:3
-LH:3
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-lib/src/schema/standard/text.rs
@@ -10087,7 +10170,7 @@ DA:246,2
 DA:247,6
 DA:251,13
 DA:253,52
-DA:254,26
+DA:254,39
 DA:255,26
 DA:256,8
 DA:257,15
@@ -10109,7 +10192,7 @@ DA:289,8576
 DA:290,8576
 DA:291,2142
 DA:293,18
-DA:294,1
+DA:294,2
 DA:296,8
 DA:297,4
 DA:298,32
@@ -10181,7 +10264,7 @@ DA:436,3
 DA:442,11
 DA:445,33
 DA:446,22
-DA:447,18
+DA:447,25
 DA:448,39
 DA:449,25
 DA:450,7
@@ -10282,7 +10365,7 @@ DA:32,3
 DA:33,2
 DA:34,1
 DA:36,3
-DA:40,1
+DA:40,2
 DA:41,2
 DA:42,2
 DA:44,3
@@ -10292,14 +10375,14 @@ DA:47,1
 DA:49,4
 DA:50,8
 DA:51,16
-DA:52,8
+DA:52,12
 DA:53,8
 DA:56,7
 DA:57,28
 DA:58,14
-DA:62,7
+DA:62,14
 DA:65,5
-DA:67,5
+DA:67,10
 DA:69,0
 DA:73,2
 DA:75,2
@@ -10311,13 +10394,13 @@ DA:89,1
 DA:91,1
 DA:93,0
 DA:97,1
-DA:99,4
+DA:99,5
 DA:101,0
 DA:105,2
 DA:107,2
 DA:109,0
 DA:113,2
-DA:115,8
+DA:115,10
 DA:117,0
 LF:47
 LH:40
@@ -10381,11 +10464,11 @@ DA:570,38
 DA:571,76
 DA:572,60
 DA:573,36
-DA:580,142
-DA:581,284
-DA:582,351
-DA:583,50
-DA:584,50
+DA:580,107
+DA:581,214
+DA:582,267
+DA:583,36
+DA:584,36
 DA:616,2
 DA:617,2
 DA:618,2
@@ -10504,8 +10587,8 @@ FNDA:34,Label::fmt_using
 FNDA:0,<impl From for License>::from
 FNDA:0,License::from_technology
 FNDA:0,License::is_open_source
-FNDA:75,<impl From for MimeType>::from
-FNDA:19,MimeType::file_type
+FNDA:69,<impl From for MimeType>::from
+FNDA:13,MimeType::file_type
 FNDA:7,<impl Default for SemanticVersion>::default
 FNDA:42,<impl From for SemanticVersion>::from
 FNDA:48,<impl StringInterpolation for T>::replace_placeholder_with_string
@@ -10520,7 +10603,7 @@ FNDA:8,contains_any_with_prefix
 FNDA:447,crockford_digit
 FNDA:23,detect_json
 FNDA:19,detect_xml
-FNDA:89,file_extension
+FNDA:83,file_extension
 FNDA:11,find_first
 FNDA:1,format_bytes
 FNDA:5,frontmatter_and_body
@@ -10557,10 +10640,10 @@ DA:358,274
 DA:359,548
 DA:360,1090
 DA:368,260
-DA:369,1040
+DA:369,1300
 DA:371,74651
 DA:378,1
-DA:382,4
+DA:382,5
 DA:383,4
 DA:401,1
 DA:402,4
@@ -10662,45 +10745,45 @@ DA:565,0
 DA:566,0
 DA:567,0
 DA:568,0
-DA:599,75
-DA:600,150
-DA:601,75
-DA:602,146
-DA:603,76
-DA:604,76
-DA:605,128
-DA:606,109
-DA:607,38
-DA:608,38
-DA:609,18
-DA:610,16
-DA:611,32
-DA:612,22
-DA:613,8
-DA:614,8
-DA:615,11
-DA:616,14
-DA:617,1
+DA:599,69
+DA:600,138
+DA:601,69
+DA:602,134
+DA:603,70
+DA:604,70
+DA:605,116
+DA:606,103
+DA:607,26
+DA:608,26
+DA:609,13
+DA:610,11
+DA:611,22
+DA:612,10
+DA:613,10
+DA:614,10
+DA:615,13
+DA:616,18
+DA:617,3
 DA:619,2
-DA:632,19
-DA:633,19
+DA:632,13
+DA:633,13
 DA:634,0
 DA:635,6
 DA:636,0
 DA:637,1
 DA:638,0
-DA:639,1
+DA:639,0
 DA:640,0
 DA:641,0
 DA:642,0
 DA:643,0
-DA:644,7
+DA:644,0
 DA:645,0
 DA:646,0
 DA:647,0
 DA:648,1
 DA:649,0
-DA:650,3
+DA:650,5
 DA:656,7
 DA:657,14
 DA:670,42
@@ -10716,7 +10799,7 @@ DA:682,32
 DA:683,10
 DA:684,5
 DA:692,48
-DA:693,48
+DA:693,96
 DA:694,240
 DA:695,0
 DA:696,0
@@ -10729,7 +10812,7 @@ DA:710,62
 DA:711,124
 DA:712,0
 DA:714,62
-DA:715,512
+DA:715,662
 DA:722,0
 DA:723,0
 DA:724,0
@@ -10780,24 +10863,24 @@ DA:830,10
 DA:831,3
 DA:832,76
 DA:836,6
-DA:850,89
-DA:854,267
-DA:855,732
-DA:856,89
-DA:857,435
-DA:858,259
-DA:859,87
-DA:860,87
-DA:861,340
-DA:862,169
-DA:863,80
+DA:850,83
+DA:854,249
+DA:855,684
+DA:856,83
+DA:857,405
+DA:858,241
+DA:859,81
+DA:860,81
+DA:861,316
+DA:862,157
+DA:863,74
 DA:865,7
 DA:868,0
 DA:871,2
 DA:884,11
 DA:885,22
-DA:888,1099
-DA:889,1595
+DA:888,1259
+DA:889,1835
 DA:890,11
 DA:891,4
 DA:892,9
@@ -10810,7 +10893,7 @@ DA:902,1
 DA:906,2
 DA:907,1
 DA:908,0
-DA:910,6
+DA:910,7
 DA:929,5
 DA:933,15
 DA:934,10
@@ -10831,7 +10914,7 @@ DA:970,4
 DA:971,22
 DA:972,1
 DA:973,0
-DA:975,147
+DA:975,220
 DA:976,73
 DA:986,24
 DA:990,48
@@ -10840,10 +10923,10 @@ DA:992,72
 DA:993,48
 DA:994,24
 DA:995,48
-DA:996,187
-DA:997,345
+DA:996,181
+DA:997,327
 DA:999,24
-DA:1000,96
+DA:1000,120
 DA:1001,0
 DA:1020,306
 DA:1025,1224
@@ -10861,12 +10944,12 @@ DA:1042,306
 DA:1045,52
 DA:1046,104
 DA:1048,72
-DA:1049,60
+DA:1049,68
 DA:1051,52
 DA:1052,47
 DA:1053,10
 DA:1057,3
-DA:1058,9
+DA:1058,12
 DA:1068,5
 DA:1072,15
 DA:1084,7
@@ -10876,14 +10959,14 @@ DA:1107,2
 DA:1109,74
 DA:1110,219
 DA:1111,146
-DA:1112,26
-DA:1113,16
-DA:1114,104
+DA:1112,39
+DA:1113,24
+DA:1114,156
 DA:1116,73
 DA:1121,98
 DA:1122,772
 LF:347
-LH:219
+LH:217
 end_of_record
 TN:
 SF:/Users/o9w/dev/re/acorn/acorn-macros/src/lib.rs
@@ -10957,12 +11040,12 @@ DA:141,0
 DA:144,9
 DA:145,18
 DA:146,18
-DA:147,15
+DA:147,21
 DA:148,18
 DA:149,12
 DA:150,6
 DA:151,12
-DA:152,13
+DA:152,20
 DA:153,21
 DA:155,2
 DA:156,2

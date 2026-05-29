@@ -10,7 +10,9 @@ use acorn::util::{format_bytes, regex_join, suffix, Label, MimeType, StringConve
 use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
+use core::future::Future;
 use core::iter::once;
+use core::pin::Pin;
 use owo_colors::OwoColorize;
 #[cfg(feature = "pdf")]
 use playwright::Playwright;
@@ -20,6 +22,185 @@ use tracing::{debug, info};
 mod pdf;
 mod powerpoint;
 
+type ExportFuture<'a> = Pin<Box<dyn Future<Output = Result<(), Report>> + 'a>>;
+trait ExportHandler {
+    fn export<'a>(&'a self, request: ExportRequest<'a>) -> ExportFuture<'a>;
+}
+struct ExportRequest<'a> {
+    output: &'a Option<PathBuf>,
+    path: &'a Option<PathBuf>,
+    format: &'a FileFormat,
+    reference: &'a Option<PathBuf>,
+    combine: bool,
+    progress_type: ProgressType,
+    options: CommandOptions,
+}
+struct CffExportHandler;
+struct StructuredExportHandler;
+struct BagExportHandler;
+struct PdfExportHandler;
+struct PowerPointExportHandler;
+impl ExportHandler for CffExportHandler {
+    fn export<'a>(&'a self, request: ExportRequest<'a>) -> ExportFuture<'a> {
+        Box::pin(async move {
+            export_as_format(
+                request.path,
+                request.options,
+                request.format,
+                "cff",
+                |p, ext| p.with_file_name("CITATION").with_extension(ext),
+                request.progress_type,
+            )
+            .await
+        })
+    }
+}
+impl ExportHandler for StructuredExportHandler {
+    fn export<'a>(&'a self, request: ExportRequest<'a>) -> ExportFuture<'a> {
+        Box::pin(async move {
+            let extension = request.format.to_string();
+            export_as_format(
+                request.path,
+                request.options,
+                request.format,
+                &extension,
+                |p, ext| p.with_extension(ext),
+                request.progress_type,
+            )
+            .await
+        })
+    }
+}
+impl ExportHandler for BagExportHandler {
+    fn export<'a>(&'a self, request: ExportRequest<'a>) -> ExportFuture<'a> {
+        Box::pin(async move {
+            match (request.path.clone(), request.output.clone()) {
+                | (Some(path), Some(destination)) => {
+                    let base = path.display().to_string();
+                    let date = current_date();
+                    let size = format_bytes(folder_size(base.clone()));
+                    let info = BagInfo::init().date(date).size(size).build();
+                    debug!("=> {} {:#?}", Label::using(), info);
+                    let bag = Bag::init().base_directory(base).info(info).build();
+                    bag.save(destination.clone())
+                        .and_then(|_| Bag::verify(destination.clone()))
+                        .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
+                }
+                | (None, _) => Err(eyre!("Missing input path for bag export")),
+                | (_, None) => Err(eyre!("Missing output directory for bag export")),
+            }
+        })
+    }
+}
+impl ExportHandler for PdfExportHandler {
+    fn export<'a>(&'a self, request: ExportRequest<'a>) -> ExportFuture<'a> {
+        Box::pin(async move {
+            #[cfg(feature = "pdf")]
+            {
+                let items = resolve_paths(request.path, &request.options).await;
+                let playwright = Playwright::initialize()
+                    .await
+                    .map_err(|why| eyre!("Failed to initialize Playwright — {why}"))?;
+                playwright
+                    .install_chromium()
+                    .map_err(|why| eyre!("Failed to install Chromium for Playwright — {why}"))?;
+                let browser = playwright
+                    .chromium()
+                    .launcher()
+                    .headless(true)
+                    .launch()
+                    .await
+                    .map_err(|why| eyre!("Failed to launch Chromium — {why}"))?;
+                let context = browser
+                    .context_builder()
+                    .build()
+                    .await
+                    .map_err(|why| eyre!("Failed to create browser context — {why}"))?;
+                let page = context.new_page().await.map_err(|why| eyre!("Failed to create browser page — {why}"))?;
+                let page = &page;
+                let progress = with_progress(
+                    items,
+                    |path| format!("Generating PDF for {}", path.file_name_with_parent()),
+                    |path| async move {
+                        let pdf_options = CommandOptions::init().path(path.clone()).maybe_output(request.output.clone()).build();
+                        pdf::create(page, pdf_options).await;
+                        Ok(())
+                    },
+                    |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
+                    Some(1),
+                    request.progress_type,
+                );
+                match progress.await {
+                    | Ok(_) => {
+                        let _close = page.close(Some(false)).await;
+                        Ok(())
+                    }
+                    | Err(why) => {
+                        fail!("Generate PDF — {}", why);
+                        exit(exitcode::DATAERR);
+                    }
+                }
+            }
+            #[cfg(not(feature = "pdf"))]
+            {
+                Err(eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
+            }
+        })
+    }
+}
+impl ExportHandler for PowerPointExportHandler {
+    fn export<'a>(&'a self, request: ExportRequest<'a>) -> ExportFuture<'a> {
+        Box::pin(async move {
+            let paths = resolve_paths(request.path, &request.options).await;
+            let _options = CommandOptions::init()
+                .maybe_path(request.path.clone())
+                .maybe_output(request.output.clone())
+                .maybe_reference(request.reference.clone())
+                .build();
+            let create_options = Arc::new(_options);
+            if request.combine {
+                let progress = create_progress_bar(
+                    1,
+                    match request.progress_type {
+                        | ProgressType::Silent => ProgressType::Silent,
+                        | _ => ProgressType::Spinner,
+                    },
+                );
+                progress.set_message("Generating combined PowerPoint artifact");
+                match powerpoint::create(paths, Some(Arc::clone(&create_options))) {
+                    | Ok(_) => {
+                        progress.inc(1);
+                        finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
+                        Ok(())
+                    }
+                    | Err(why) => {
+                        fail!("Generate combined PowerPoint — {}", why);
+                        exit(exitcode::DATAERR);
+                    }
+                }
+            } else {
+                let progress = with_progress(
+                    paths,
+                    |path| format!("Generating PowerPoint for {}", path.file_name_with_parent()),
+                    |path| {
+                        let options = Arc::clone(&create_options);
+                        async move { powerpoint::create(once(path), Some(options)).map(|_| ()) }
+                    },
+                    |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),
+                    Some(1),
+                    request.progress_type,
+                );
+                match progress.await {
+                    | Ok(_) => Ok(()),
+                    | Err(why) => {
+                        fail!("Generate PowerPoint — {}", why);
+                        exit(exitcode::DATAERR);
+                    }
+                }
+            }
+        })
+    }
+}
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     output: &Option<PathBuf>,
@@ -53,142 +234,20 @@ pub async fn run(
         .threads(threads)
         .build();
     preflight!(&options);
-    let extension = format.to_string();
-    match format {
-        | FileFormat::Cff => {
-            export_convert(
-                path,
-                options,
-                format,
-                &extension,
-                |p, ext| p.with_file_name("CITATION").with_extension(ext),
-                progress_type,
-            )
-            .await
-        }
-        | FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml => {
-            export_convert(path, options, format, &extension, |p, ext| p.with_extension(ext), progress_type).await
-        }
-        | FileFormat::Bag => match (path.clone(), output.clone()) {
-            | (Some(path), Some(destination)) => {
-                let base = path.display().to_string();
-                let date = current_date();
-                let size = format_bytes(folder_size(base.clone()));
-                let info = BagInfo::init().date(date).size(size).build();
-                debug!("=> {} {:#?}", Label::using(), info);
-                let bag = Bag::init().base_directory(base).info(info).build();
-                bag.save(destination.clone())
-                    .and_then(|_| Bag::verify(destination.clone()))
-                    .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
-            }
-            | (None, _) => Err(eyre!("Missing input path for bag export")),
-            | (_, None) => Err(eyre!("Missing output directory for bag export")),
-        },
-        | FileFormat::Pdf => {
-            #[cfg(feature = "pdf")]
-            {
-                let items = resolve_paths(path, &options).await;
-                let playwright = Playwright::initialize()
-                    .await
-                    .map_err(|why| eyre!("Failed to initialize Playwright — {why}"))?;
-                playwright
-                    .install_chromium()
-                    .map_err(|why| eyre!("Failed to install Chromium for Playwright — {why}"))?;
-                let browser = playwright
-                    .chromium()
-                    .launcher()
-                    .headless(true)
-                    .launch()
-                    .await
-                    .map_err(|why| eyre!("Failed to launch Chromium — {why}"))?;
-                let context = browser
-                    .context_builder()
-                    .build()
-                    .await
-                    .map_err(|why| eyre!("Failed to create browser context — {why}"))?;
-                let page = context.new_page().await.map_err(|why| eyre!("Failed to create browser page — {why}"))?;
-                let page = &page;
-                let progress = with_progress(
-                    items,
-                    |path| format!("Generating PDF for {}", path.file_name_with_parent()),
-                    |path| async move {
-                        let pdf_options = CommandOptions::init().path(path.clone()).maybe_output(output.clone()).build();
-                        pdf::create(page, pdf_options).await;
-                        Ok(())
-                    },
-                    |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
-                    Some(1),
-                    progress_type,
-                );
-                match progress.await {
-                    | Ok(_) => {
-                        let _close = page.close(Some(false)).await;
-                        Ok(())
-                    }
-                    | Err(why) => {
-                        fail!("Generate PDF — {}", why);
-                        exit(exitcode::DATAERR);
-                    }
-                }
-            }
-            #[cfg(not(feature = "pdf"))]
-            {
-                use color_eyre::eyre::eyre;
-                Err(eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
-            }
-        }
-        | FileFormat::Powerpoint => {
-            let paths = resolve_paths(path, &options).await;
-            let _options = CommandOptions::init()
-                .maybe_path(path.clone())
-                .maybe_output(output.clone())
-                .maybe_reference(reference.clone())
-                .build();
-            let create_options = Arc::new(_options);
-            if *combine {
-                let progress = create_progress_bar(
-                    1,
-                    match progress_type {
-                        | ProgressType::Silent => ProgressType::Silent,
-                        | _ => ProgressType::Spinner,
-                    },
-                );
-                progress.set_message("Generating combined PowerPoint artifact");
-                match powerpoint::create(paths, Some(Arc::clone(&create_options))) {
-                    | Ok(_) => {
-                        progress.inc(1);
-                        finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
-                        Ok(())
-                    }
-                    | Err(why) => {
-                        fail!("Generate combined PowerPoint — {}", why);
-                        exit(exitcode::DATAERR);
-                    }
-                }
-            } else {
-                let progress = with_progress(
-                    paths,
-                    |path| format!("Generating PowerPoint for {}", path.file_name_with_parent()),
-                    |path| {
-                        let options = Arc::clone(&create_options);
-                        async move { powerpoint::create(once(path), Some(options)).map(|_| ()) }
-                    },
-                    |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),
-                    Some(1),
-                    progress_type,
-                );
-                match progress.await {
-                    | Ok(_) => Ok(()),
-                    | Err(why) => {
-                        fail!("Generate PowerPoint — {}", why);
-                        exit(exitcode::DATAERR);
-                    }
-                }
-            }
-        }
-    }
+    let exporter = exporter_for(format);
+    exporter
+        .export(ExportRequest {
+            output,
+            path,
+            format,
+            reference,
+            combine: *combine,
+            progress_type,
+            options,
+        })
+        .await
 }
-async fn export_convert(
+async fn export_as_format(
     path: &Option<PathBuf>,
     options: CommandOptions,
     format: &FileFormat,
@@ -242,6 +301,15 @@ async fn export_convert(
             fail!("Generate {} - {}", format, why);
             exit(exitcode::DATAERR);
         }
+    }
+}
+fn exporter_for(format: &FileFormat) -> Box<dyn ExportHandler> {
+    match format {
+        | FileFormat::Cff => Box::new(CffExportHandler),
+        | FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml => Box::new(StructuredExportHandler),
+        | FileFormat::Bag => Box::new(BagExportHandler),
+        | FileFormat::Pdf => Box::new(PdfExportHandler),
+        | FileFormat::Powerpoint => Box::new(PowerPointExportHandler),
     }
 }
 
