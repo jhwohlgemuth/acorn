@@ -93,6 +93,56 @@ fn test_cmd_output() {
     assert!(!output.status.success());
 }
 #[test]
+fn test_cmd_shell_selection_output() {
+    if command_exists("bash") {
+        match cmd!(status bash "echo shell-bash-check") {
+            | Ok(status) if status.success() => {
+                let output = cmd!(bash "echo shell-bash-output").expect("bash output");
+                assert!(output.status.success());
+                assert_eq!(output.stdout(), "shell-bash-output");
+            }
+            | _ => {}
+        }
+    }
+    if command_exists("pwsh") {
+        match cmd!(status pwsh "Write-Output 'shell-pwsh-check'") {
+            | Ok(status) if status.success() => {
+                let output = cmd!(pwsh "Write-Output 'shell-pwsh-output'").expect("pwsh output");
+                assert!(output.status.success());
+                assert_eq!(output.stdout(), "shell-pwsh-output");
+            }
+            | _ => {}
+        }
+    }
+}
+#[test]
+fn test_cmd_shell_selection_status_and_try() {
+    if command_exists("bash") {
+        match cmd!(bash status "echo shell-bash-check") {
+            | Ok(status) if status.success() => {
+                let status = cmd!(bash status "echo shell-bash-status").expect("bash status");
+                assert!(status.success());
+
+                let value = cmd!(try bash "echo shell-bash-try").expect("bash try");
+                assert_eq!(value, "shell-bash-try");
+            }
+            | _ => {}
+        }
+    }
+    if command_exists("pwsh") {
+        match cmd!(pwsh status "Write-Output 'shell-pwsh-check'") {
+            | Ok(status) if status.success() => {
+                let status = cmd!(pwsh status "Write-Output 'shell-pwsh-status'").expect("pwsh status");
+                assert!(status.success());
+
+                let value = cmd!(try pwsh "Write-Output 'shell-pwsh-try'").expect("pwsh try");
+                assert_eq!(value, "shell-pwsh-try");
+            }
+            | _ => {}
+        }
+    }
+}
+#[test]
 fn test_cmd_status() {
     // Shell string
     let status = cmd!(sh status sh_echo("sh-status")).expect("sh string");

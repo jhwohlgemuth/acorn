@@ -46,6 +46,28 @@ where
     }
     cmd.status()
 }
+/// Run a command string using a shell, capture output, with optional working directory.
+#[doc(hidden)]
+pub fn run_shell_output(shell: &str, shell_args: &[&str], command: &str, dir: Option<&Path>) -> io::Result<Output> {
+    let mut cmd = Command::new(shell);
+    cmd.args(shell_args);
+    cmd.arg(command);
+    if let Some(dir) = dir {
+        cmd.current_dir(dir);
+    }
+    cmd.output()
+}
+/// Run a command string using a shell, check status only, with optional working directory.
+#[doc(hidden)]
+pub fn run_shell_status(shell: &str, shell_args: &[&str], command: &str, dir: Option<&Path>) -> io::Result<ExitStatus> {
+    let mut cmd = Command::new(shell);
+    cmd.args(shell_args);
+    cmd.arg(command);
+    if let Some(dir) = dir {
+        cmd.current_dir(dir);
+    }
+    cmd.status()
+}
 /// Convert a command result to `Result<String, String>`.
 ///
 /// Returns stdout (trimmed) on success, or a descriptive error message on failure.

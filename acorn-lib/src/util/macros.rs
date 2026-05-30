@@ -13,6 +13,8 @@
 /// | `status`  | `io::Result<ExitStatus>`       | Exit status only (no output)            |
 /// | `sh`      | `io::Result<Output>`           | Parse string, capture output            |
 /// | `sh status` | `io::Result<ExitStatus>`    | Parse string, exit status only          |
+/// | `bash`    | `io::Result<Output>`           | Run via `bash -c <command>`             |
+/// | `pwsh`    | `io::Result<Output>`           | Run via `pwsh -NoProfile -Command ...`  |
 /// | `try`     | `Result<String, String>`       | Run, return stdout or error message     |
 ///
 /// All forms support an optional `; dir: path` suffix to set the working directory.
@@ -27,6 +29,8 @@
 /// cmd!(sh "git diff --name-only")
 /// cmd!(sh format!("git diff --name-only {branch}"))
 /// cmd!(sh "echo 'hello world'")   // handles quotes
+/// cmd!(bash "echo 'hello world'")
+/// cmd!(pwsh "Write-Output 'hello world'")
 ///
 /// // CLI-style literals (fastest)
 /// cmd!("git" "diff-tree" "--no-commit-id" "--name-only")
@@ -45,6 +49,8 @@
 /// // With working directory
 /// cmd!("git" "status"; dir: project_dir)
 /// cmd!(try sh "npm test"; dir: project_dir)
+/// cmd!(status bash "echo hello"; dir: project_dir)
+/// cmd!(try pwsh "Write-Output 'hello'"; dir: project_dir)
 /// ```
 ///
 /// # Examples
@@ -76,6 +82,10 @@
 ///     Ok(hash) => println!("{hash}"),
 ///     Err(msg) => eprintln!("failed: {msg}"),
 /// }
+///
+/// // Explicit shell selection
+/// let output = cmd!(bash "echo bash-mode")?;
+/// let output = cmd!(pwsh "Write-Output 'pwsh-mode'")?;
 /// ```
 #[macro_export]
 macro_rules! cmd {
@@ -109,6 +119,58 @@ macro_rules! cmd {
             Err(e) => Err(e),
         }
     }};
+    // ── bash status ────────────────────────────────────────────
+    // status bash string + dir
+    (status bash $cmd:expr; dir: $dir:expr) => {{
+        $crate::util::cmd::run_shell_status("bash", &["-c"], &$cmd.to_string(), Some($dir.as_ref()))
+    }};
+    // status bash string (no dir)
+    (status bash $cmd:expr) => {{
+        $crate::util::cmd::run_shell_status("bash", &["-c"], &$cmd.to_string(), None)
+    }};
+    // bash status string + dir
+    (bash status $cmd:expr; dir: $dir:expr) => {{
+        $crate::util::cmd::run_shell_status("bash", &["-c"], &$cmd.to_string(), Some($dir.as_ref()))
+    }};
+    // bash status string (no dir)
+    (bash status $cmd:expr) => {{
+        $crate::util::cmd::run_shell_status("bash", &["-c"], &$cmd.to_string(), None)
+    }};
+    // ── bash output ────────────────────────────────────────────
+    // bash string + dir
+    (bash $cmd:expr; dir: $dir:expr) => {{
+        $crate::util::cmd::run_shell_output("bash", &["-c"], &$cmd.to_string(), Some($dir.as_ref()))
+    }};
+    // bash string (no dir)
+    (bash $cmd:expr) => {{
+        $crate::util::cmd::run_shell_output("bash", &["-c"], &$cmd.to_string(), None)
+    }};
+    // ── pwsh status ────────────────────────────────────────────
+    // status pwsh string + dir
+    (status pwsh $cmd:expr; dir: $dir:expr) => {{
+        $crate::util::cmd::run_shell_status("pwsh", &["-NoProfile", "-Command"], &$cmd.to_string(), Some($dir.as_ref()))
+    }};
+    // status pwsh string (no dir)
+    (status pwsh $cmd:expr) => {{
+        $crate::util::cmd::run_shell_status("pwsh", &["-NoProfile", "-Command"], &$cmd.to_string(), None)
+    }};
+    // pwsh status string + dir
+    (pwsh status $cmd:expr; dir: $dir:expr) => {{
+        $crate::util::cmd::run_shell_status("pwsh", &["-NoProfile", "-Command"], &$cmd.to_string(), Some($dir.as_ref()))
+    }};
+    // pwsh status string (no dir)
+    (pwsh status $cmd:expr) => {{
+        $crate::util::cmd::run_shell_status("pwsh", &["-NoProfile", "-Command"], &$cmd.to_string(), None)
+    }};
+    // ── pwsh output ────────────────────────────────────────────
+    // pwsh string + dir
+    (pwsh $cmd:expr; dir: $dir:expr) => {{
+        $crate::util::cmd::run_shell_output("pwsh", &["-NoProfile", "-Command"], &$cmd.to_string(), Some($dir.as_ref()))
+    }};
+    // pwsh string (no dir)
+    (pwsh $cmd:expr) => {{
+        $crate::util::cmd::run_shell_output("pwsh", &["-NoProfile", "-Command"], &$cmd.to_string(), None)
+    }};
     // ── try sh ─────────────────────────────────────────────────
     // try sh string + dir
     (try sh $cmd:expr; dir: $dir:expr) => {{
@@ -127,6 +189,32 @@ macro_rules! cmd {
             ),
             Err(e) => Err(format!("{e}")),
         }
+    }};
+    // ── try bash ───────────────────────────────────────────────
+    // try bash string + dir
+    (try bash $cmd:expr; dir: $dir:expr) => {{
+        $crate::util::cmd::try_from_output(
+            $crate::util::cmd::run_shell_output("bash", &["-c"], &$cmd.to_string(), Some($dir.as_ref())),
+        )
+    }};
+    // try bash string (no dir)
+    (try bash $cmd:expr) => {{
+        $crate::util::cmd::try_from_output(
+            $crate::util::cmd::run_shell_output("bash", &["-c"], &$cmd.to_string(), None),
+        )
+    }};
+    // ── try pwsh ───────────────────────────────────────────────
+    // try pwsh string + dir
+    (try pwsh $cmd:expr; dir: $dir:expr) => {{
+        $crate::util::cmd::try_from_output(
+            $crate::util::cmd::run_shell_output("pwsh", &["-NoProfile", "-Command"], &$cmd.to_string(), Some($dir.as_ref())),
+        )
+    }};
+    // try pwsh string (no dir)
+    (try pwsh $cmd:expr) => {{
+        $crate::util::cmd::try_from_output(
+            $crate::util::cmd::run_shell_output("pwsh", &["-NoProfile", "-Command"], &$cmd.to_string(), None),
+        )
     }};
     // ── status CLI-style ───────────────────────────────────────
     // status CLI-style + dir
