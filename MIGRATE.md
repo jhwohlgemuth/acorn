@@ -36,7 +36,7 @@ Ironpress supports `static/relative/absolute` but not `fixed`. Since the fact sh
 | # | File | Change |
 |---|------|--------|
 | 1 | `acorn-cli/Cargo.toml` | Replace `playwright` dep with `ironpress = { version = "1.4", optional = true }`; change `pdf = ["dep:ironpress"]` |
-| 2 | `acorn-cli/src/commands/export/mod.rs` | Remove Playwright init/launch/context/page boilerplate (~40 lines). Remove `Page` parameter from `pdf::create` call. Closure becomes sync. |
+| 2 | `acorn-cli/src/commands/export/mod.rs` | Remove Playwright init/launch/context/page boilerplate (~40 lines). Remove `Page` parameter from `pdf::create` call. Keep async call path for PDF export. |
 | 3 | `acorn-cli/src/commands/export/pdf.rs` | Rewrite: remove `Page` param, `goto_builder`, `set_content_builder`, temp file workaround. Use `HtmlConverter::new().page_size(PageSize::LETTER).convert(&content)`. Write PDF bytes via `acorn::prelude::write`. |
 | 4 | `acorn-cli/src/template/mod.rs` | Keep `generate_font_faces()` and define Aptos TTF `@font-face` entries only (remove Myriad/Proxima OTF references). |
 | 5 | `acorn-cli/assets/styles/project.css` | Use Aptos `font-family` values throughout. Change all `position: fixed` to `position: absolute`. |
@@ -52,8 +52,8 @@ New `pdf.rs` uses `acorn::prelude::{create_dir_all, exit, write}` instead of `st
 ## Async/Sync Transition
 
 - `export::run` stays `async` (outer progress machinery)
-- `pdf::create` becomes sync (`fn create(options: CommandOptions)` instead of `async fn create(page: &Page, ...)`)
-- `with_progress` closure changes from `async move { pdf::create(page, pdf_options).await }` to `{ pdf::create(pdf_options); Ok(()) }`
+- `pdf::create` stays `async` (`async fn create(options: CommandOptions)`), while removing the Playwright `Page` parameter
+- `with_progress` closure remains async and awaits PDF creation (for example: `async move { pdf::create(pdf_options).await }`)
 
 ## Architecture Before/After
 
