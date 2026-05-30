@@ -9,6 +9,7 @@ use crate::schema::research_activity::ResearchActivity;
 use crate::schema::{Notes, Other};
 use crate::util::{Label, StringInterpolation};
 use fancy_regex::Regex;
+use quick_xml::escape::escape;
 use quick_xml::events::Event;
 use quick_xml::{Reader, Writer};
 use tracing::{debug, error};
@@ -91,6 +92,9 @@ where
         }
     }
 }
+fn escape_xml_text(value: &str) -> String {
+    escape(value).into_owned()
+}
 /// Interpolate research activity data into PowerPoint template
 pub fn interpolate_values(path: PathBuf, data: &ResearchActivity) {
     let updated = match read_file(path.clone()) {
@@ -160,7 +164,7 @@ pub fn interpolate_values(path: PathBuf, data: &ResearchActivity) {
                 Replacement::Bullets("technical", data.sections.approach.clone()),
             ];
             let result = replacements.iter().fold(content.clone(), |acc, replacement| match replacement {
-                | Replacement::String(name, value) => acc.replace_placeholder_with_string(name, value),
+                | Replacement::String(name, value) => acc.replace_placeholder_with_string(name, &escape_xml_text(value)),
                 | Replacement::Bullets(name, values) => acc.replace_placeholder_with_bullets(name, values.clone()),
             });
             Some(result)

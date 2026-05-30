@@ -5,6 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+use super::escape_xml_text;
 use crate::io::powerpoint::*;
 use crate::io::read_file;
 use crate::prelude::PathBuf;
@@ -168,4 +169,10 @@ fn test_replace_placeholder_with_bullets() {
         }
         | Err(_) => {}
     }
+}
+
+#[test]
+fn test_escape_xml_text() {
+    let result = escape_xml_text(r#"AT&T <alpha> "quoted""#);
+    assert_eq!(result, "AT&amp;T &lt;alpha&gt; &quot;quoted&quot;");
 }
