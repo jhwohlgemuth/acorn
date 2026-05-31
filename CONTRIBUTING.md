@@ -1,3 +1,5 @@
+[[_TOC_]]
+
 # Getting Started
 - Read this guide (including the [Code of Conduct](CODE_OF_CONDUCT.md))
 - Fork this repository and clone your fork locally
@@ -46,6 +48,63 @@ If you would like to generously provide a pull request to correct a verified iss
 
 **Linux Development within Docker Container**
 - [Follow the instructions of this article](https://code.visualstudio.com/docs/remote/containers)
+
+## Fuzz Testing
+
+ACORN includes a dedicated cargo-fuzz harness in [fuzz/Cargo.toml](fuzz/Cargo.toml) with an initial target focused on `ResearchActivity` parsing and validation across JSON and YAML inputs.
+
+Available targets:
+- `research_activity`
+- `location_repository`
+
+Seed corpora:
+- `fuzz/corpus/research_activity`
+- `fuzz/corpus/location_repository`
+
+### Install tooling
+
+```bash
+make setup
+```
+
+### Run fuzzing
+
+```bash
+make fuzz
+```
+
+Optional runtime arguments can be passed through `FUZZ_ARGS`, for example:
+
+```bash
+make fuzz FUZZ_ARGS='-- -max_total_time=60'
+```
+
+Choose a non-default target when needed:
+
+```bash
+make fuzz FUZZ_TARGET=location_repository FUZZ_ARGS='-- -max_total_time=60'
+```
+
+### Reproduce a crash artifact
+
+```bash
+make fuzz-repro FUZZ_CRASH='fuzz/artifacts/research_activity/crash-...'
+```
+
+## Homebrew Tap Maintenance
+
+- This repository includes a formula generator script:
+  ```sh
+  ./scripts/homebrew/generate-formula.sh 0.1.56 ./Formula/acorn-cli.rb
+  ```
+- The GitLab release pipeline can update your tap automatically when a version tag is created.
+- Required CI variables:
+  - `HOMEBREW_TAP_REPO_URL` (authenticated clone URL for your tap repo)
+  - `HOMEBREW_TAP_BRANCH` (optional, defaults to `main`)
+  - `HOMEBREW_TAP_FORMULA_PATH` (formula file path in the tap repo)
+
+> [!TIP]
+> This flow updates the tap repository formula; it does not install `acorn` onto the CI runner.
 
 ## Project Standards
 - Running `make lint` should not introduce any new lint and all format results should be included in proposed changes

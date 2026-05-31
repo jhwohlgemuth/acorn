@@ -82,6 +82,9 @@ test-ci: clean lint
 	@cargo test --lib --bins --tests
 	@cargo test --lib --bins --tests --no-default-features
 
+homebrew-formula:
+	@./scripts/homebrew/generate-formula.sh $(VERSION) ./Formula/acorn-cli.rb
+
 fuzz:
 	@cargo +nightly fuzz run --fuzz-dir fuzz $(FUZZ_TARGET) $(FUZZ_ARGS)
 
@@ -227,6 +230,7 @@ TASKS = \
 	lint \
 	fuzz \
 	fuzz-repro \
+	homebrew-formula \
 	publish-book \
 	setup \
 	test \
