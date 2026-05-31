@@ -725,3 +725,75 @@ Sort order:
 1. Start with item 1 and item 2 to reduce duplication quickly in analyzer/mod.rs.
 2. Follow with item 5 to simplify and stabilize validation error flattening.
 3. Then apply item 9 if broad standard-level deduplication is desired.
+
+## io::api Improvement Ideas (Sorted by Difficulty and Impact)
+
+### Low Difficulty
+
+#### 1. Standardize Auth Header Construction Across API Modules
+- Difficulty: Low
+- Impact: High
+- Opportunity:
+  1. Add one shared helper in `acorn-lib/src/io/api/mod.rs` for bearer token headers.
+  2. Replace per-module duplicated header creation in `gitlab`, `raid`, and `openai`.
+  3. Add focused tests for empty-token behavior and header map output.
+
+#### 2. Add Shared Request Builders for Common API Shapes
+- Difficulty: Low
+- Impact: High
+- Opportunity:
+  1. Add utility helpers for `{token + template value}` and `{token + JSON body}` parameter sets.
+  2. Remove repeated `param!` vector assembly boilerplate from individual modules.
+  3. Keep module-specific logic focused on action names and response types.
+
+#### 3. Normalize Environment Variable Discovery Rules
+- Difficulty: Low
+- Impact: Medium
+- Opportunity:
+  1. Define a consistent fallback sequence for token/domain variables across modules.
+  2. Expose one helper for required vs optional secrets.
+  3. Keep `.env` loading behavior uniform and testable.
+
+### Medium Difficulty
+
+#### 4. Introduce Shared API Error Envelope Traits
+- Difficulty: Medium
+- Impact: High
+- Opportunity:
+  1. Define a trait for extracting user-facing error strings from provider-specific error payloads.
+  2. Implement for `gitlab`, `raid`, and `openai` error responses.
+  3. Centralize fallback error rendering in `handle_or` helpers.
+
+#### 5. Add OpenAPI-Aware Endpoint Validation Utilities
+- Difficulty: Medium
+- Impact: High
+- Opportunity:
+  1. Add utility functions that check endpoint template names and required template keys.
+  2. Validate key mappings for action names at startup or in unit tests.
+  3. Catch template drift early when `application.json` changes.
+
+#### 6. Add Lightweight Response DTO Layer for Evolving APIs
+- Difficulty: Medium
+- Impact: Medium
+- Opportunity:
+  1. Keep baseline raw `serde_json::Value` support for broad schemas.
+  2. Layer optional typed DTOs for stable subfields (`id`, `object`, usage metadata).
+  3. Improve compile-time safety without losing forward compatibility.
+
+### High Difficulty
+
+#### 7. Generate API Module Skeletons from OpenAPI Specs
+- Difficulty: High
+- Impact: High
+- Opportunity:
+  1. Create an internal codegen path that emits endpoint definitions and baseline DTOs.
+  2. Use generated modules as a starting point, then keep hand-written ergonomic wrappers.
+  3. Reduce maintenance drift for rapidly evolving APIs.
+
+#### 8. Unified Capability Matrix for io::api Providers
+- Difficulty: High
+- Impact: Medium
+- Opportunity:
+  1. Define one capability descriptor (`supports_pagination`, `supports_streaming`, `requires_token`, etc.).
+  2. Drive command-layer behavior from capability metadata instead of per-provider conditionals.
+  3. Enable cleaner extension as additional providers are introduced.
