@@ -145,9 +145,19 @@
           "template": "{{ base }}/chat/completions"
         },
         {
+          "name": "chat-completion::delete",
+          "method": "delete",
+          "template": "{{ base }}/chat/completions/{{ identifier }}{{ query }}"
+        },
+        {
           "name": "chat-completion::list",
           "method": "get",
           "template": "{{ base }}/chat/completions{{ query }}"
+        },
+        {
+          "name": "chat-completion::messages",
+          "method": "get",
+          "template": "{{ base }}/chat/completions/{{ identifier }}/messages{{ query }}"
         },
         {
           "name": "chat-completion::retrieve",
@@ -155,8 +165,18 @@
           "template": "{{ base }}/chat/completions/{{ identifier }}{{ query }}"
         },
         {
+          "name": "chat-completion::update",
+          "method": "post",
+          "template": "{{ base }}/chat/completions/{{ identifier }}{{ query }}"
+        },
+        {
           "name": "model",
           "method": "get",
+          "template": "{{ base }}/models/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "model::delete",
+          "method": "delete",
           "template": "{{ base }}/models/{{ identifier }}{{ query }}"
         },
         {
@@ -168,6 +188,11 @@
           "name": "response",
           "method": "post",
           "template": "{{ base }}/responses"
+        },
+        {
+          "name": "response::cancel",
+          "method": "post",
+          "template": "{{ base }}/responses/{{ identifier }}/cancel"
         },
         {
           "name": "response::delete",

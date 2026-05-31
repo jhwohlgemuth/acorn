@@ -5,7 +5,7 @@
 use crate::io::config::ApplicationConfiguration;
 use crate::io::database::{schema::Table, Database};
 use crate::io::http::HttpMethod;
-use crate::io::http::{get, post, put};
+use crate::io::http::{delete, get, post, put};
 use crate::io::ApiResult;
 use crate::prelude::HashSet;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
@@ -694,10 +694,11 @@ impl RemoteResource for Endpoint {
                 let headers = params.clone().into_headers();
                 let body = params.into_body();
                 let request = match method {
+                    | HttpMethod::Delete => delete(path),
                     | HttpMethod::Get => get(path),
                     | HttpMethod::Post => post(path).json(&body),
                     | HttpMethod::Put => put(path).json(&body),
-                    | _ => unimplemented!("Only GET, POST, and PUT methods are currently implemented"),
+                    | _ => unimplemented!("Only GET, POST, PUT, and DELETE methods are currently implemented"),
                 };
                 match request.headers(headers).send().await {
                     | Ok(response) => match response.text().await {

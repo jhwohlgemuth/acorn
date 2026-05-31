@@ -402,12 +402,17 @@ mod openai_api {
         assert!(endpoint.resources.iter().any(|r| r.name == "models"));
         assert!(endpoint.resources.iter().any(|r| r.name == "model"));
         assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::delete"));
         assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::list"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::messages"));
         assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::retrieve"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::update"));
         assert!(endpoint.resources.iter().any(|r| r.name == "response"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "response::cancel"));
         assert!(endpoint.resources.iter().any(|r| r.name == "response::delete"));
         assert!(endpoint.resources.iter().any(|r| r.name == "response::input-items"));
         assert!(endpoint.resources.iter().any(|r| r.name == "response::retrieve"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "model::delete"));
     }
     #[test]
     fn test_from_template_with_domain() {

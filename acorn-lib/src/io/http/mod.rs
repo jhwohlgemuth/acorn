@@ -213,6 +213,10 @@ async fn execute_with_timeout(client: reqwest::Client, request: HttpRequest) -> 
 pub fn get(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Get, url)
 }
+/// Utility method to employ best practices when using a Reqwest client to make async HTTP DELETE requests.
+pub fn delete(url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(HttpMethod::Delete, url)
+}
 /// Utility method to employ best practices when using a Reqwest client to make async HTTP POST requests.
 pub fn post(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Post, url)

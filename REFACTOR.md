@@ -893,3 +893,231 @@ This section captures concrete extraction opportunities identified by scanning t
 3. Add required-input validators + optional query param composition helper.
 4. Introduce invoke-and-parse wrappers with fallback support.
 5. Normalize environment bootstrap and health-check helpers.
+
+## OpenAI OpenAPI Remaining Endpoint Templates (Grouped by Feature Area)
+
+Snapshot details:
+1. Source spec: https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml
+2. Total path templates in spec: 162
+3. Path templates currently covered in acorn openai module: 9
+4. Remaining path templates: 153
+
+### assistants (2)
+
+1. /assistants
+2. /assistants/{assistant_id}
+
+### audio (6)
+
+1. /audio/speech
+2. /audio/transcriptions
+3. /audio/translations
+4. /audio/voice_consents
+5. /audio/voice_consents/{consent_id}
+6. /audio/voices
+
+### batches (3)
+
+1. /batches
+2. /batches/{batch_id}
+3. /batches/{batch_id}/cancel
+
+### chatkit (5)
+
+1. /chatkit/sessions
+2. /chatkit/sessions/{session_id}/cancel
+3. /chatkit/threads
+4. /chatkit/threads/{thread_id}
+5. /chatkit/threads/{thread_id}/items
+
+### completions (1)
+
+1. /completions
+
+### containers (5)
+
+1. /containers
+2. /containers/{container_id}
+3. /containers/{container_id}/files
+4. /containers/{container_id}/files/{file_id}
+5. /containers/{container_id}/files/{file_id}/content
+
+### conversations (4)
+
+1. /conversations
+2. /conversations/{conversation_id}
+3. /conversations/{conversation_id}/items
+4. /conversations/{conversation_id}/items/{item_id}
+
+### embeddings (1)
+
+1. /embeddings
+
+### evals (6)
+
+1. /evals
+2. /evals/{eval_id}
+3. /evals/{eval_id}/runs
+4. /evals/{eval_id}/runs/{run_id}
+5. /evals/{eval_id}/runs/{run_id}/output_items
+6. /evals/{eval_id}/runs/{run_id}/output_items/{output_item_id}
+
+### files (3)
+
+1. /files
+2. /files/{file_id}
+3. /files/{file_id}/content
+
+### fine_tuning (11)
+
+1. /fine_tuning/alpha/graders/run
+2. /fine_tuning/alpha/graders/validate
+3. /fine_tuning/checkpoints/{fine_tuned_model_checkpoint}/permissions
+4. /fine_tuning/checkpoints/{fine_tuned_model_checkpoint}/permissions/{permission_id}
+5. /fine_tuning/jobs
+6. /fine_tuning/jobs/{fine_tuning_job_id}
+7. /fine_tuning/jobs/{fine_tuning_job_id}/cancel
+8. /fine_tuning/jobs/{fine_tuning_job_id}/checkpoints
+9. /fine_tuning/jobs/{fine_tuning_job_id}/events
+10. /fine_tuning/jobs/{fine_tuning_job_id}/pause
+11. /fine_tuning/jobs/{fine_tuning_job_id}/resume
+
+### images (3)
+
+1. /images/edits
+2. /images/generations
+3. /images/variations
+
+### moderations (1)
+
+1. /moderations
+
+### organization (46)
+
+1. /organization/admin_api_keys
+2. /organization/admin_api_keys/{key_id}
+3. /organization/audit_logs
+4. /organization/certificates
+5. /organization/certificates/{certificate_id}
+6. /organization/certificates/activate
+7. /organization/certificates/deactivate
+8. /organization/costs
+9. /organization/groups
+10. /organization/groups/{group_id}
+11. /organization/groups/{group_id}/roles
+12. /organization/groups/{group_id}/roles/{role_id}
+13. /organization/groups/{group_id}/users
+14. /organization/groups/{group_id}/users/{user_id}
+15. /organization/invites
+16. /organization/invites/{invite_id}
+17. /organization/projects
+18. /organization/projects/{project_id}
+19. /organization/projects/{project_id}/api_keys
+20. /organization/projects/{project_id}/api_keys/{api_key_id}
+21. /organization/projects/{project_id}/archive
+22. /organization/projects/{project_id}/certificates
+23. /organization/projects/{project_id}/certificates/activate
+24. /organization/projects/{project_id}/certificates/deactivate
+25. /organization/projects/{project_id}/groups
+26. /organization/projects/{project_id}/groups/{group_id}
+27. /organization/projects/{project_id}/rate_limits
+28. /organization/projects/{project_id}/rate_limits/{rate_limit_id}
+29. /organization/projects/{project_id}/service_accounts
+30. /organization/projects/{project_id}/service_accounts/{service_account_id}
+31. /organization/projects/{project_id}/users
+32. /organization/projects/{project_id}/users/{user_id}
+33. /organization/roles
+34. /organization/roles/{role_id}
+35. /organization/usage/audio_speeches
+36. /organization/usage/audio_transcriptions
+37. /organization/usage/code_interpreter_sessions
+38. /organization/usage/completions
+39. /organization/usage/embeddings
+40. /organization/usage/images
+41. /organization/usage/moderations
+42. /organization/usage/vector_stores
+43. /organization/users
+44. /organization/users/{user_id}
+45. /organization/users/{user_id}/roles
+46. /organization/users/{user_id}/roles/{role_id}
+
+### projects (6)
+
+1. /projects/{project_id}/groups/{group_id}/roles
+2. /projects/{project_id}/groups/{group_id}/roles/{role_id}
+3. /projects/{project_id}/roles
+4. /projects/{project_id}/roles/{role_id}
+5. /projects/{project_id}/users/{user_id}/roles
+6. /projects/{project_id}/users/{user_id}/roles/{role_id}
+
+### realtime (9)
+
+1. /realtime/calls
+2. /realtime/calls/{call_id}/accept
+3. /realtime/calls/{call_id}/hangup
+4. /realtime/calls/{call_id}/refer
+5. /realtime/calls/{call_id}/reject
+6. /realtime/client_secrets
+7. /realtime/sessions
+8. /realtime/transcription_sessions
+9. /realtime/translations/client_secrets
+
+### responses (2)
+
+1. /responses/compact
+2. /responses/input_tokens
+
+### skills (6)
+
+1. /skills
+2. /skills/{skill_id}
+3. /skills/{skill_id}/content
+4. /skills/{skill_id}/versions
+5. /skills/{skill_id}/versions/{version}
+6. /skills/{skill_id}/versions/{version}/content
+
+### threads (11)
+
+1. /threads
+2. /threads/{thread_id}
+3. /threads/{thread_id}/messages
+4. /threads/{thread_id}/messages/{message_id}
+5. /threads/{thread_id}/runs
+6. /threads/{thread_id}/runs/{run_id}
+7. /threads/{thread_id}/runs/{run_id}/cancel
+8. /threads/{thread_id}/runs/{run_id}/steps
+9. /threads/{thread_id}/runs/{run_id}/steps/{step_id}
+10. /threads/{thread_id}/runs/{run_id}/submit_tool_outputs
+11. /threads/runs
+
+### uploads (4)
+
+1. /uploads
+2. /uploads/{upload_id}/cancel
+3. /uploads/{upload_id}/complete
+4. /uploads/{upload_id}/parts
+
+### vector_stores (10)
+
+1. /vector_stores
+2. /vector_stores/{vector_store_id}
+3. /vector_stores/{vector_store_id}/file_batches
+4. /vector_stores/{vector_store_id}/file_batches/{batch_id}
+5. /vector_stores/{vector_store_id}/file_batches/{batch_id}/cancel
+6. /vector_stores/{vector_store_id}/file_batches/{batch_id}/files
+7. /vector_stores/{vector_store_id}/files
+8. /vector_stores/{vector_store_id}/files/{file_id}
+9. /vector_stores/{vector_store_id}/files/{file_id}/content
+10. /vector_stores/{vector_store_id}/search
+
+### videos (8)
+
+1. /videos
+2. /videos/{video_id}
+3. /videos/{video_id}/content
+4. /videos/{video_id}/remix
+5. /videos/characters
+6. /videos/characters/{character_id}
+7. /videos/edits
+8. /videos/extensions
+
