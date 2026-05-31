@@ -1,0 +1,18 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate a=nd generate rezzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzsearch content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+   project",
+  e: https://www.ornl.gov/staff-profile/jason-h-wohlgemuth
+  organization: GSHS

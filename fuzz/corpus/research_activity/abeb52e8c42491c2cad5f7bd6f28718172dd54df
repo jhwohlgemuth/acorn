@@ -1,0 +1,16 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams valiDate and generate research content.
+      href  sponsors:
+    - DOD
+  technology:
+    - JavaScron features, tend edi profile: htt                       -profile/jason-h-wohlgemuth
+  organization: GSHS

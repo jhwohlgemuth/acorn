@@ -1,0 +1,34 @@
+{
+  "meta": {
+"media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link[
+           "astro",tigator",
+    "fiatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resource  "GPU": {
+          "architecture": "Ampere",
+          "count": 4,
+          "memory": "80GB"
+        }
+      },
+      {
+        "CPU": {
+          "architecture": "x86_64",
+          "cores": 64,
+          "threads": 128,
+          "memory": "256GB"
+        }
+      },
+      {
+        "TPU": {
+          "architecture": "TPU v4",
+          "count":-40620- 8

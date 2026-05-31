@@ -1,0 +1,21 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: httts://example.com
+    - title: Project Re{
+  "meta": { "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title"? "Project   ],
+    "technology": [
+      "astro",
+      count: 4
+        frequency: 1200
+title: Invalid Pr  o

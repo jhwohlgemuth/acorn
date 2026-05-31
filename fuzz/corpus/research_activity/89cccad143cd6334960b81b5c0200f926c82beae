@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url" ":https://code.ornl.gov/resea "Some$random link",
+        "url"ry Investigator",
+    "first": "Audson",
+    "last": "Cargohlmuth",
+    "email": "woghemluthjh@ornl.gov",
+    "phone": on": "GSHS"
+  }
+}

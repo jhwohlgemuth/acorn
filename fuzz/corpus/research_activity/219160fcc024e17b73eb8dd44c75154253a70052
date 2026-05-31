@@ -1,0 +1,27 @@
+meta:
+  id: invalid-project-b
+  archheteta:
+ea:
+!ct-HHHHH:HHHHHive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://ex  - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TP`
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture': AArch64
+        cores: 128
+        threads: 256
+    SHHHHHHHHHHHHubti

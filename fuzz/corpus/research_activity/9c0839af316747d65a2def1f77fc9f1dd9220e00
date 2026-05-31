@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+        "sponsors": [
+      "ORNL",
+    "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarabz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+   {
+  "meta": {
+    "id": "va   "Quantum"lid-priject",
+    "archive": false,
+   ,
+      "Neuromorphic",
+      " "draft":c faol

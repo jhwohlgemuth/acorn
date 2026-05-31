@@ -1,0 +1,49 @@
+{
+  "meta": {
+ords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/res\arch-eent/acorn"
+      },
+   "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/res\arch-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://fot.real.link"
+      }
+    ],
+    "media": [
+      {
+     "CPU": {
+          "architecture": "x86_64",
+          "cores": 64,
+  [
+                 }
+      },
+      {
+        "TPU          ": {
+          "arch-1"
+    ],
+ "TPU v4"  ,

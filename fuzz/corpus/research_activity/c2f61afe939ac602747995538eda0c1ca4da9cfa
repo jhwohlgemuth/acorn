@@ -1,0 +1,45 @@
+meta:
+  id: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+        threads: 256
+        memory: 640GB
+    - DSP:
+        architectute: C66x
+        count: 4
+        frequency: 1200
+title: Invalid Project B
+subtitle: Subtitle for this project
+sections:
+  mission: ACORN standardizes and automates the research content creation process to better communicate projects, capabilities, technology and, therefore the people at ORNL.
+  challenge: Research project communication mediums    - Communications team end-to-end editorial oversight.
+    - Findable Accessible Indexable Reusable (FAIR) data standards and governance through sustainable workflow processes
+    - Should use geospatial instead of geo-spatial
+  rinvalid-project-b
+  archive: false
+  draft: falsmeta:
+  id: invalid-project-b
+  ae
+  webrchive: fas

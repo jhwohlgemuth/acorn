@@ -1,0 +1,22 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: s: 128
+        threads: here is often no version control, stewardship or central content repose: Primary Investigator
+  first: Jasdrey
+  last: Wohlson
+  email: Not an email
+  phone: 555.555.5555
+  profile: https://www.ornl.gov/staff-preloiajf/son-h-wohlgemuth
+  organization: GSHS

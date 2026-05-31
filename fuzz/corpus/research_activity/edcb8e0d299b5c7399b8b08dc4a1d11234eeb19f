@@ -1,0 +1,35 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project RepoMitory
+      url: Not! a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research coontent.
+      href: 16.iilvnad
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        ar       architecture: AArch64
+        cores: 128
+        threads: 256
+        memory: 640  }
+    ],
+     "media": [
+ be 

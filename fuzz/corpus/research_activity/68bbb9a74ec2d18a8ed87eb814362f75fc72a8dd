@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "htteople at ORNL.",
+   s": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "htteople at ORNL.",
+    "challenge": "Research project communication mediums should be straightforward and standardized. However, the creation process is often cumbersome, involving multiple editing rounds among different teams. On\e created, there is often no version control, stewardship, or central content repository.",
+    "apes and automates the research content creation process to better communicate projects, capabilities, technology and, therefore, the people at ORNL.",
+    "challenge": "Research project communication mediums should be straightforward and standardized. However, the creation process is often cumbersome, involving multiple editing rounds among different teams. On\e created, there is often no version control, stewardship, or central content repository.",
+    "approach": [
+      "ACORN encompasses a project workflow with automated JSON schema builds, language and structure validation, and GitLab accessibility.",
+      "Through ACORN's automation and collaboration features, teams can maintain accurate, creative, standardized content products aalid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "htteople at ORNL.",
+   s": [
+      "978-0-306-40ng rounds among different teams. On\e created, there is often no version control, stewardship, or central content repository.",
+    "apes and automates the research content creation process to better communicate projects, capabilities, technology and, therefore, the people at ORNL.",
+    "challenge": "Research project communication mediums should be straightforward and standardized. However, the creation process is often cumbersome, involving multiple editing rounds among different teams. On\e created, there is often no nd repositories."
+    ],
+    "impact": [
+      "Project owner stewardship ournl.gov/staff-profile/jason-hEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE-wohlgemuth",
+    "organization": "GSHS"
+  }
+}

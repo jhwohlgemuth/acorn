@@ -1,0 +1,8 @@
+Meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+"archive":      url: false,
+    "draft": false,
+    "status": "active

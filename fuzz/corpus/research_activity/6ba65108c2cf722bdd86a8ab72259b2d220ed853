@@ -1,0 +1,56 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN worklid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPUbtitle for this project
+sections:
+ersion control, stewardship or central content repository.
+  approach:
+    - AC#ORN encompasses a project workflow with automated JSON schema builds, language and structure validation, and GitLab accessibi@lity.
+    - Through ACORN's automation and  "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 4,
+          "memory": "80GB"
+        }
+      },
+      {
+        "CPU": {
+          "architecture": "x86_64",
+          "cores": 64,
+          "threads": 128,
+          "memory": "256GB"
+        }
+      },
+      {
+        "TPmuth
+  organization: GSHS

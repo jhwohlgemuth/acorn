@@ -1,0 +1,52 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Re{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "ht GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+ count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch2age about the project",
+        "contentUrl"> "01.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+     
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+       4
+        cores: 128
+        threa 1200
+title: Invalid Pr  o

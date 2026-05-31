@@ -1,0 +1,71 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+ "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospa˜ial Data Abstraction Lib"
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC4",
+          "cores": 64,
+          "threads": 128,
+          "memory": "256GB"
+        }
+      },
+      {
+        "TPU": {
+          "architecture": "TPU v4",
+          "co" tu:n8,
+          "memory": "256GB"
+        }
+    mmunications team end-to-end editorial ovemeta:
+  md: invalid-project-b
+  achi/ standl": "wohlgemugh sustainable workflow proce/jason-h-wohlgemuth",
+    IC",
+      {
+       S"
+  }
+}

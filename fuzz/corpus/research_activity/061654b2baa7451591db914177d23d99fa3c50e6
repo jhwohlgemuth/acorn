@@ -1,0 +1,161 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        com
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+puteCapability: 8.0
+`       count: 8
+        memory: 1TB
+    - CPU:
+        arching different teams. Once created, there is often no version control, stewardship or central content repository.
+  approac':
+    - ACORN encompasses a project workflow with automated JSON schema builds, lducts and repositorieeospatial instead of geo-spatial
+  research:
+    focus: Optimizing research content through scientific processes
+    areas:
+      - apabilities, technology Workflow automation
+      - Science communication
+contact:
+  title: Primary Investigator
+  first: Jasdrey
+  last: Wohlson
+  email: Not an email
+  phone: 554.555.5555
+  profile: https://www.ornl.gov/staff-profile/jason-h-wohlgemuth
+  organization: GSHS

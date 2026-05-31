@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+     rgy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+ "        "architecture": "Ampere",
+          "count": 4,
+          "memory": "80GB"
+ },
+      {
+        "TPU": {
+          "architecture": "TPU v4",
+          "count": 8,
+          "memory": "25 "organization": "GSHS"
+  }
+}

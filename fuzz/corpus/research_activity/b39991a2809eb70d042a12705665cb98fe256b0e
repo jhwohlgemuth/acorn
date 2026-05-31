@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/reserach-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+    0 {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "c  "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿof         }
+      },
+      {
+        "FPGA": {
+          "architecture": "Versal",
+          "count": 2
+        }
+      }
+    ]
+ {
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": tent repository.",
+    "approach": [
+      "ACORN encompasses a project workflow with automated JSON schema builds, language and structure validation, and GitLab accessibility.",
+      "ThroughAIR data ORNL.",
+    standards"ch andall goengev

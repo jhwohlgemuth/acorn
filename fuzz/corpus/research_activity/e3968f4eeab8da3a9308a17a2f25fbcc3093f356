@@ -1,0 +1,68 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "captichoose this project",
+  "sections": {
+    "mission": "ACORN standardizest/acorn"
+      },
+      {
+        "title"     },
+      {
+        "FPGA": {
+          "architentent creation process to better cle editing rounds among different teams. Once created, there is often no version control, stewardship, or central content repository.",
+    "approach",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 3,
+          "memory": "80GB"
+        }
+      },
+      {
+        "CPU": {
+          "archit
+      "Dept. of En{
+  "meta": {
+    "id": "valid-project",
+    "archive": falseergy",
+      "DHS ",
+      "darpa",
+   ",
+      "Dept of Energy",
+      "Dept. of Energy",
+         "threads": 128,
+          "memory": "256GB"
+        }{      },
+      {
+        "TPU": {
+          "architecture": "TPU v4",
+          "count": 8,
+          "memor,
+    "draft": false,
+    y": "256GB"
+        }
+      },
+     "status":  {
+    "

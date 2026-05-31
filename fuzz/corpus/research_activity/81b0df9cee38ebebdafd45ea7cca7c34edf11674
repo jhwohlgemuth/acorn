@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "AS$C",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 4,
+          "memory": "80GB"
+        }
+      },
+      {
+        "CPU": {
+          "architecture": "x86_64",
+          "cores": 64,
+          "threads": 128,
+          "memory": "256GB"
+        }
+      },
+      {
+        "TPU": {
+          "architecture": "TPU v4",
+          "c/unt": 8,
+          "memory": "256GB"
+        }
+      },
+      {
+        "FPGA": {
+          "architecture": "Versal",
+          "count": 2
+        }
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Econtent.
+      href: 00.invalid
+  keywords:
+  ntent prodrcts and repositories.
+  impact:
+    - Project owner stewardship&&&&&&&&&&&&&&&&&&&&&&&s:
+    - automatin
+  sponsors:
+    - DOD
+  te&&chnology:

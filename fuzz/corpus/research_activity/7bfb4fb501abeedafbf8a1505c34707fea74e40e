@@ -1,0 +1,40 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU owner stewardship of content crkation andl": "https://not.real.link"
+      }
+    ],
+    "media": [
+    {
+  "meta": {
+    "id": "valid-project"chive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+      "web{
+        "casites": [
+      ptio{

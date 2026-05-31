@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+         {
+        "caption": "Another image about the project",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-ktomation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+ -  meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+    {
+  "meta": {
+    "id": "valid-pwebro

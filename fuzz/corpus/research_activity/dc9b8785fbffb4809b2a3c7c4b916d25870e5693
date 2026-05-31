@@ -1,0 +1,45 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and ge00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+   mpasses a project workflow with automated JSON schema builds, language and structure; validation, and GitLab accessibility.
+    - Through ACORN's automation and collaboratio. features, teams can maintain accurate, creative, standardized content products and repositories.
+  i    - Communications team end-to-end editoria  - caption: The ACORN workflow helps teams validate and ge00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+   mpasses a project workflow with automated JSON schema builds, language and stru[ture; validation, and GitLab accessibility.
+    - Through ACORN's automation and collaboratio.   - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+   mpasses a project workflow with automated JSON schema builds, language and structure; validation, and GitLab accessibility.
+    - Through ACORN's automation and collaboratio. features,: https://www.ornl.gov/staff-profile/jason-h-wohlgemuth
+  goranization: GSHS

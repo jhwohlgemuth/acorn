@@ -1,0 +1,29 @@
+{
+  "meta": {
+    "id": "va,id-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "h|tps://code.ornl.gov/research-enablement/andom link",
+}
+    ],
+    "keywords": [
+      "automation",js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+  T   "rs "
+    ],
+    r"esources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+ SHS"
+  }
+}

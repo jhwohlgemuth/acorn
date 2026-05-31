@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 4,
+          "memory": "80GB"
+ontent creation and maintenanemail": "wohlgemuthjh@ornl.gov",
+    "phone": "(432) 576-7658",
+    "profile": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+    IC",
+      {
+       S"
+  }
+}

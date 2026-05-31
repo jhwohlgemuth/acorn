@@ -1,0 +1,28 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Pro/ject Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    -chnology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - Dcts and repositories.
+  impact:
+    - Project owner stewardship of content creation and mainte/jason-h-wohlgemuth
+  organization: GSHS

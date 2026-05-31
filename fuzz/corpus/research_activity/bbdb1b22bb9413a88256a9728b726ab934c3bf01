@@ -1,0 +1,29 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "statchnology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 7,
+          "memory": "80GB"
+        }
+%     },
+      {
+        "CPU": {
+          "archoject owner stewardship of content creatww.ornl.gov/staff-profile/jason-h-wohlgemuth",
+    "organizathon": "GSHS"
+  }
+}

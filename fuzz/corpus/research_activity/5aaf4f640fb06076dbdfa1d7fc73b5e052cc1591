@@ -1,0 +1,51 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TP`
+    - NPU
+    - DPU
+    - FPGA
+    - s:
+    - DOD
+  technology:
+    -GPU:
+        architecture: Hopper
+   ?    computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architta:
+  id: invalid-project-ores: 128
+        threads: 256
+        memory: 640GB
+    - DSP:$        architecture: C66x
+        {
+  "meta": {
+    "id": "valid-project",
+ "a   rcount: 4
+        frequency: 1200
+titlchive": false,
+ "dra   ft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40e: 62I0

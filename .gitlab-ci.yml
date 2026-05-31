@@ -76,6 +76,35 @@ test-python:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
     - source $HOME/.local/bin/env && cd ${BINARY_NAME}-py && pixi run test
 
+fuzz-smoke:
+  stage: test
+  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  tags:
+    - cpu
+  cache:
+    key: rust-cache-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cargo/registry/
+      - .cargo/git/
+      - target/
+  inherit:
+    variables: true
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - acorn-lib/**/*
+        - fuzz/**/*
+        - Cargo.toml
+        - .gitlab-ci.yml
+  script:
+    - cargo check --manifest-path fuzz/Cargo.toml
+    - cargo install cargo-fuzz --locked
+    - rustup toolchain install nightly --profile minimal
+    - cargo +nightly fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=10
+    - cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=10
+
 build-release:
   stage: build
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest

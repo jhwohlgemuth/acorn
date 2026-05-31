@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project R]pository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUrl": "00.project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+    reation and maintenance",
+ $    "Communications team end-to-end editorial ovensors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. o  "as"GSHS"
+  }
+}

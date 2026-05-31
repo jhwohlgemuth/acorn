@@ -1,0 +1,68 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/resear02.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 4,
+          "memory": "80GB"
+        }
+      },
+      {
+       re, the people at ORNL.",
+    "challenge": "Research project communication mediums should be straightforward and standardized. However, the cr\ation process is often cumbersome, involving multiple editing rounds among different teams. Once created, there is often no version control, stewardship, or central content repository.",
+    "approach": [
+      "ACORN encompasses a project workflow with automated JSON schema builds, language and structure validatioation",
+        "Science communication"
+      ]
+    }
+  },
+  "contact": {
+    "title": "Primary Investigator",
+    "first": "Audson",
+    "last": "Cargohlmuth",
+    "email": "wohlgemuthjh@ornl.gov",
+    "phone": "(866) 576-765ate, creative, standardized content products and repositories."
+    ],
+    "{
+  "meta": 2{{
+ impact": [
+      "Proj "ect owmet

@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "urL": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {        "memory",
+        "Science communication"
+      ]
+    }
+  },
+  "contact": {
+    "title": "Primary Investigator",
+    "first":ÿÿÿ "Audson",
+  one": "(865) 576-7658",
+    "profile": "https://www.ornLl.gov/staff-profile/jason-h-wohlgemuth",
+    "organization": "GSHS"
+  }
+}

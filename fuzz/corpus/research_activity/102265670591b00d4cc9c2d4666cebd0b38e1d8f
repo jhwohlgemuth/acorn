@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "956-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https/:/code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+        }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keywordib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+  t.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "NeGPU": {
+          "architecture": "Ampere",
+          "count": 3,
+          "memory": "80GB"
+        }
+      {
+  "meta": {{
+communication"
+      ]
+    }
+  }}
+      },
+      {
+        "CPU": {
+          "archit!%1Are": "x86_64",
+          "cores": 64,
+          "threads": 128,
+          "meSHS"
+  }
+}

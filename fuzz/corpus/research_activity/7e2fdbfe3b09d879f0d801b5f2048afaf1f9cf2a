@@ -1,0 +1,25 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+        threads: 256
+     {
+  "meta\\\\   memory: 640GB
+    - DSP:
+        architecture: C66x
+        count: 4
+       SSSS

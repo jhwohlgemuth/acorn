@@ -1,0 +1,29 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and geng different teams. Once created, there is often no version control, stewardship or central content repository.
+  approach:
+    - ACORN encompasses a(FAIR      - Scienceediting rounds among different teams. Once created, there is often no version control, stewardship or central content repository.
+  approach:
+    - ACORN encompasses a project workflow with autod collaboration features, teams can maintain accurate, creative, standardized content products and repositories.
+  impact:
+    - Project owner stewardship of content creation and maintenance
+    - Communications team end-to-end editorial oversight.
+    - Findable Accessible Indexable Reusable (FAInd maintenance
+    - Communications team end-to-end editorial oversight.
+    - Findable Accessible Indexable Reusable (FAIR      - Science communication
+contact:
+  title: Primary Investigator
+  first: Jasdrey
+  last: Wohlson
+  email: Not an email
+  phone: 554.555.5555
+  profile: htt                       -profile/jason-h-wohlgemuth
+  organization: GSHS

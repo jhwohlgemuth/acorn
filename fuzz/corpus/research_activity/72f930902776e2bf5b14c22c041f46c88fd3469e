@@ -1,0 +1,50 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://.eoodcrnl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    -draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-4$620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repositorement/acorn"
+      [},
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "activ         "count": 4,
+        "caption": "An image about t": {
+      "focchitecture   {
+       S"
+  }
+}

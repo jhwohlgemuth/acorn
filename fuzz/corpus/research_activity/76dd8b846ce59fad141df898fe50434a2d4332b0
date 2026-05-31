@@ -1,0 +1,51 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - autoreact
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+        threads: 256
+        memory: 640GB
+    - DSP:
+        architecture: C66x
+        coun?t: 4
+        frequency: 1200
+title: Invalid Project B
+subtitle: Subtitle for this project
+sections:
+  mission: ACORN standardizes and automates the research content creation process to better communicate projects, capabilities, technology and, therefore the people at instead of geo-spatial
+  research:
+    focus: Optimizing research content through scientific pro     core!: 128
+        threads: 256
+        memory: 640GB
+   omation
+      - Science communication
+contact:
+  title: Primary Investigator
+  first: Jasdrey
+  last: Wohlson
+  email: Not an email
+  phone: 555.555.5555
+  profile: https://www.ornl.gov/staff-profile/jason-h-wohlgemuth/  organization: GSHS

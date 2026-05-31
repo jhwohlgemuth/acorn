@@ -1,0 +1,17 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 0 there is often no version control, stewardship o0.invalid
+  keywords:
+    - automatin
+  sponsors:
+  o0.        "title": "Promory: 6ject40GB
+    - DSP

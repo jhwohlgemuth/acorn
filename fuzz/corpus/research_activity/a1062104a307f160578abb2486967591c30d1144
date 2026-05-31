@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+    valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 2,
+          "memory": "80GB"
+        }
+      },
+      {
+        "CPU": {
+          "architecture": "x86_64",
+          "cores": 64,
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+  /  "technology": [
+      "astro",
+      "React.js",
+      "foobrabaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Qua,
+ ": " 

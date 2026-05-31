@@ -1,5 +1,4 @@
 #!make
-.PHONY: $(TASKS)
 -include .env
 
 setup:
@@ -82,6 +81,13 @@ test-all:
 test-ci: clean lint
 	@cargo test --lib --bins --tests
 	@cargo test --lib --bins --tests --no-default-features
+
+fuzz:
+	@cargo +nightly fuzz run --fuzz-dir fuzz $(FUZZ_TARGET) $(FUZZ_ARGS)
+
+fuzz-repro:
+	@test -n "$(FUZZ_CRASH)" || (echo "Set FUZZ_CRASH to an artifact file path" && exit 1)
+	@cargo +nightly fuzz run --fuzz-dir fuzz $(FUZZ_TARGET) $(FUZZ_CRASH)
 
 version: 
 	@echo $(VERSION)
@@ -184,6 +190,7 @@ DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["\r]/, "", $$2);
 DEFAULT_WINDOWS_TARGET = x86_64-pc-windows-gnu
 ARTIFACT_TARGET_DIR = $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),target)
 DEV_DEPENDENCIES = \
+	cargo-fuzz \
 	cargo-audit \
 	cargo-auditable \
 	cargo-deny \
@@ -206,6 +213,8 @@ TARGETS = \
 	x86_64-unknown-linux-gnu \
 	x86_64-unknown-linux-musl \
 	x86_64-pc-windows-gnu
+FUZZ_TARGET = research_activity
+FUZZ_ARGS =
 TASKS = \
 	audit \
 	book \
@@ -216,6 +225,8 @@ TASKS = \
 	cover \
 	doc \
 	lint \
+	fuzz \
+	fuzz-repro \
 	publish-book \
 	setup \
 	test \
@@ -232,3 +243,5 @@ TASKS = \
 	bucket-push \
 	bucket-push-docker \
 	bucket-push-ghcr
+
+.PHONY: $(TASKS)

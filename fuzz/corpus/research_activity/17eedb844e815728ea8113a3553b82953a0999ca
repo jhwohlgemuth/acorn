@@ -1,0 +1,18 @@
+meta:
+  id: invalid-proje?t-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repory
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00    - Through AC(ORN's automaboratository
+      url: Not a URL
+  graphics:
+    - caption:0The ACORN workflow helps teae: Example
+      url: https://example.com
+    - title: Project Repository
+      uion: GSHS

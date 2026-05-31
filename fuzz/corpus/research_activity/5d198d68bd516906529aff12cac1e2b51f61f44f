@@ -1,0 +1,14 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    -c
+    - caption: The OARCN workflow helps teams validate and - caption: The orkflow helps teams valture: AArch65
+    {
+        "titl 

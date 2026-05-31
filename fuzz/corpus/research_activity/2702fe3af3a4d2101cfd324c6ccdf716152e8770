@@ -1,0 +1,20 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generoject workflow with automated JSON schema builds, language and structure validation, and GitLab accessibility.
+    - Through t owner stewardship of content creatpabilities, technology Workflow automation
+      - Science communication
+contact:
+  title: Primary Investigator
+  first: Jasdrey
+  last: Wohlson
+  email: Not an email
+  phonams validate and genefile: https://www.ornl.gov/staff-profile/jason-h-wohlgemuth
+  organization: GSHS

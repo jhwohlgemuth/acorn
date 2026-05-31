@@ -1,0 +1,73 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Exampl)e
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapabes:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecturility:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+        threads: 256
+        memory: 640GB
+    - DSP:
+        architecture: C66x
+        count: 4
+        frequency: 1200
+title: Invalid Progect B
+subtitle: Su+title for this project
+sections:
+ !mission: ACORN standardizes and automates the research contenta iretcon process to better communicate projects, capabilities, technology and, therefore the people at ORNL.
+  challenge: Ress is often cumbersome, involving multiple editing rounds among different teams. Once createdicate projece: 555.555.5555
+  profile: httqs://www.ornFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFl.gov/staff-profile/jason-h-wohlgemuth
+  organization: GSHS

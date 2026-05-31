@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/resAearch-enablement/acorn"
+      },
+      {
+        "title"     },
+      {
+        "FPGA": {
+       rofile": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+    "organization": "GSHS"
+  }
+}

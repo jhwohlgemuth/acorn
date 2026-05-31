@@ -1,0 +1,33 @@
+meta:
+  id: invalid-proje2ct-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      urtechnology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU]J    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 0.0
+        count: 8
+  |
+  ta":id":} 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+        threads: 256
+        mem":c a"tive",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "wwebsites": s a project workflow with automated JSON schema builds, langua Throu[
+      {
+        "title":P "roject Repfh ACORN's automation osktoray

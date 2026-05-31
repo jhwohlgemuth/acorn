@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://czde.ornl.gov/research-enablement/acorn"
+      },
+   !    "Geospatial Data* Abstraction Lib",
+      "rs "
+    ],
+  {
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/re
+        "tit  "resourcenabSome$random link",
+        "url": "https://not.oreal.link"
+   ject"
+   }      
+},

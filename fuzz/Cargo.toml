@@ -1,0 +1,32 @@
+[package]
+name = "acorn-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+acorn = { package = "acorn-lib", path = "../acorn-lib", default-features = true }
+libfuzzer-sys = "0.4"
+serde_json = "1"
+serde_yml = "0.0.12"
+validator = "0.20"
+
+[[bin]]
+name = "research_activity"
+path = "fuzz_targets/research_activity.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "location_repository"
+path = "fuzz_targets/location_repository.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]

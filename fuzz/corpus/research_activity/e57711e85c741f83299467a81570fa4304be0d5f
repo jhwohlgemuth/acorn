@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title":""Project Reposito+y",
+        "url": "https://code.ornl.gov/researcgemuth",
+    "organization": "GSHS"
+  }
+}

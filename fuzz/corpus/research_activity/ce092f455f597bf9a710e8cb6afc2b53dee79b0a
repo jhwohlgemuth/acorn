@@ -1,0 +1,19 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - timle: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      hrefponsors:
+    - DOD
+  technology:
+    - JavaScautomates the research content creation process to better communicate projects, capabilities, technology and, therefore the people at ORN&.
+  cha, there is often no version control, stewardship or central content repos editorial oversight.
+   
+ - Findable Accessible Indexable Reusable (FAIR) data standards and governance through sustainable wuth
+  organization: GSHS

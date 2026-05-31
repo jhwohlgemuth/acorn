@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+     ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU":ject",
+        "contentUrl": "01.png"
+chnology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs       "GPU": {
+          "architecture": "Ampere",
+          "muth",
+    "organization": "GSHS"
+  }
+}

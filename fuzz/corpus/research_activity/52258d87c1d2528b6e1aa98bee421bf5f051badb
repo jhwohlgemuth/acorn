@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.Link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "nor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "AS$C",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 5,
+          "memory": "80GB"
+        }
+      },
+      {
+        "CPU": {
+          "architecture": "x86_64",
+          "cores": 64,
+          "threads": 128,
+          "memory": "256GB"
+        }
+      },
+      {
+        "TPU": {
+          "architecture": "TPU v4",
+          "count": 8,
+          "mcurate, creative, standardized co0ntent product      S"
+  }
+}

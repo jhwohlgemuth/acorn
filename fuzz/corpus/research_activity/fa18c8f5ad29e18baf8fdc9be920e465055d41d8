@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUrl": "02.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 9,
+          "memory":08 GB""
+        }
+    0-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+    Û },
+      {
+        "title": "Some random link",
+        "url": "https://not.creation process is often cumbersome, involving multiple editing rounds among different teams. Once creat communicate projnd, therefore, the people at ORNL.",
+    "challenge": "Research project communication medium;s should be straightforward and standardized.raightforward and standardized. However, the creation process is often cumbersome,       },
+      {
+        "FPGA": {
+          "architecture": "Vmeta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+   ersal" 

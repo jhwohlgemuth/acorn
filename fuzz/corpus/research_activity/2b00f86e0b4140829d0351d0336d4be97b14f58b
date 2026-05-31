@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    rch content through scientific processes",
+      "areas": [
+        "Data governance",
+        "Workflow automation",
+        "Science communication"
+      ]
+    }
+  },
+  "contact": {
+    "title": "Primary Investigator",
+    "first": "Audson",
+    "last": "Cargohlmuth",
+    "email": "wohlgemuthjh@ornl.gov",
+    "phone":  "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+    team end-to-end editorial oversight",
+      "FAIR data standards and governance through sustainable workflow processes"
+    ],
+    "research": {
+      "focus": "Optimizing research content through scientific processes",
+      "areas": [
+        "Data governance",
+        "Workflow automation",
+        "Science communication"
+      ]
+    }
+  },
+  "contact": {
+    "title": "Primary Investigator",
+    "first": "Audson",
+    "last": "Cargohlmuth",
+    "email": "wohlgemuthjh@ornl.gov",
+    "phone": "(730) 576-7658",
+    "profile": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+    "organization": "GSHS"
+` }
+}

@@ -1,0 +1,39 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Ptory
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:   
+D-  OD
+  technology:
+    - JavaScpipt
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+ {
+  "meta": {
+    "   - GPU:
+        architecture: Hopper
+        computeCapabil_tid": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0ecture: AArch64
+    {
+        "titl 

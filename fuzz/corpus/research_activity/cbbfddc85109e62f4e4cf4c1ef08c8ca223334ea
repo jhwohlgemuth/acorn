@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "512-0-346-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUunt": 4,
+          "memory": "80GB"
+        }
+      },
+      {ure": "TPU v4",
+          "count": 8,
+     sibility.",
+      "Through ACORN's automation and colla   "organization": "GSHS"
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "..............Dept of Energy",
+      "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quannnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnurate, creative, standardized content products and repositories.
+  impact:
+    - Project o.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+ ntum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+   g    with automated JSON schema builds, language and structure validation, and GitLab accessibility.
+    - Through ACORN's automation and collaboration features, teams can maintain accurate, creative, standardized content products and repositories.
+  128,
+          "memory": "256GB"
+        }
+      },
+      {
+        "TPU": {
+          "architecture": "TPU v4",
+          "count": 8,H
+          "memory": "256GB"
+        }
+      },
+      {
+        "FPGA": {
+          "architecture": "Versal",
+          "count": 2
+        }
+      }
+    ]
+  },
+  "title": "Valid Project",
+  "subtitle": "When you need validity choose this project",
+  "sections": {
+    "mission": "ACORN standardizes and automates the research content cr{
+  "meta": {
+    "id": "valid-project",
+    "archive": eationf

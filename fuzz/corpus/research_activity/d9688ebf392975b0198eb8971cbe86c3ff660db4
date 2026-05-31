@@ -1,0 +1,14 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+   xample.com
+    - title: Project Repository
+{
+  "meta": {
+    "id": "valid-projecve":      url: false,
+    "draft": false,
+    "status": "active

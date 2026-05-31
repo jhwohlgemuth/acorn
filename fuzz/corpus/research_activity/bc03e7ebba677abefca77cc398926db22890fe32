@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.osnl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+     "   caption": "An image about the project"
+      },
+      {
+    
+    "boive": false,
+    "draft": false
+    "status":  ct Repository",[
+ 
+     JavaScript
+    - TypeSpec
+    - assro
+    - react
+    - rs
+  resources:
+    - TPU
+  -   NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapabiligy and, ther: "Some random link",
+        "url": "https:Õ/not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        hlgemuth",
+    "organization": "GSHS"
+` }
+}

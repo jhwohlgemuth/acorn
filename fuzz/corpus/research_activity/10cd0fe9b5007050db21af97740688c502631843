@@ -1,0 +1,36 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  '''sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPmeta:
+  id: invalid-proje-tcb
+  archive: false
+  draft: false
+  websites:
+    - title: Ems validate and geSP:
+        architecturonsors:
+    - DOD
+  technology:
+    - JavaScReusable (FAIript
+    - TypeSpec
+ R) d a

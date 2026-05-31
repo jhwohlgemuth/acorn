@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/resAearch-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+       "draft": false,
+    "status": "active",
+    "books": [
+   #   "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        tti"le": "Pmoject Repository",
+ TPU": -306-40620-1"
+    ],
+    "websites": [
+      {
+        "titl     "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+       "draft": false,
+   ttu" sas": "active",
+    "books": [
+   #   "977-0-306-40620-1"
+    ],
+    "websites": [U v4",
+          "count": 8,
+      EEEEEEEEEEEENNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNEEEEEEEEEEEEE    "organization": "GSHS"
+  }
+}

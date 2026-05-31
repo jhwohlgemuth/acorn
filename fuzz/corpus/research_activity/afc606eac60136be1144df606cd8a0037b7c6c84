@@ -1,0 +1,16 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - cap:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - hallenge: Research project communicaautomated JSON schema bu`il often no versi t  n: GSHS

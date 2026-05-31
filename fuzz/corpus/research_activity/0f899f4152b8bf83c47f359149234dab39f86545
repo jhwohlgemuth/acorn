@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft"
+        {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image abo.ornl.gov/staff-profile/jason-h-wohlgemuth",": "GSHS"
+  }
+}

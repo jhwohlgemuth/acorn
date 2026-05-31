@@ -1,0 +1,39 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com   - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+        threads: 256
+       !memory: 640GB
+    - DSP:
+        architecture: C66x
+        count: 4
+        frequeble Accessible Indexable Reusable (FAIR) data standards and governance through sustainable workflow processes
+    - Should use geospatial instead of geo-spatial
+  resear\h:
+    focus: Optilizing research content through scientific processes
+    areas:
+      - apabilities, technology Workflow automation
+      - Science communication
+contact:
+  title: Primary Investigator
+  first: Jaslson
+  email: Not an email
+  phone: 555.555.5555
+  profile: https://www.ornl.gov/staff-profile/jason-h-wohlgemuth
+  organization: GSHS

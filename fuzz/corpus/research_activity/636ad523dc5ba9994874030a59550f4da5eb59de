@@ -1,0 +1,12 @@
+%caption: The ACORN workflow helps teams validript
+    - TypeSpec
+    - ast
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        cture: Hopper
+        computeCapability: 9.0
+ n:s to better communicate projects, capabilities, technology and, therefore the people at ORNL.
+  challenge: Research project communication mediums should be straightforward and standardized. However, the creation process is often cumbersome3

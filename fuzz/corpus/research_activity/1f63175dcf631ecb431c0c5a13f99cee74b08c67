@@ -1,0 +1,17 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Reposi]tory
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helory
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.eams validate and generate research content.
+ Meta:
+      idi href: : 0nva0l.

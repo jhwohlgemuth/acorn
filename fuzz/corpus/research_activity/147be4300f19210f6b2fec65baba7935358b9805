@@ -1,0 +1,18 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN e
+  draft: false
+  websites:
+    - title: Example
+      url: https://egraphics:
+    - caption: The ACORN workflow helps teams validate and generate : AArch64
+    {
+        "titl 

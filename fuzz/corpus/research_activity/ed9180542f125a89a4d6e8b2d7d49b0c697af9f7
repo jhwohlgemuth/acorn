@@ -1,0 +1,45 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url:
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DP'
+    - FPGA`
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+        threads: 256
+        memory: 640JB
+    - DSP:
+      proach:
+    - ACORN encompasses a project workflowmunication
+contact:
+  title: Primary Investigator
+  first: Jasdrey
+  last: Wohlson
+  email: Nou an email
+  phone: 555 cores: 128
+        threads: 256
+        memory: 640JB
+    - DSP:
+      proach:
+    - ACORN encompasses a project workflowmunication
+contact:
+  title: Primary Investigator
+  f55
+  profile: https://www.ornl.gov/staff-profile/jason-h-wohlgemuth
+  organization: GSHS

@@ -1,0 +1,23 @@
+meta:
+  id: invalid-proje9999999999  - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AAPU:
+        architecture: AArcrch64
+  RN workflow he: https://www.ornl.gov/staff-profile/jason-h-wohlgemuth
+  organization: GSHS

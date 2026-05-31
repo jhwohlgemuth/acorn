@@ -1,0 +1,22 @@
+meta:
+  id: invalid-project-b
+   - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+     ce created, there is often CPU:
+        architecture: ory
+    emuth
+  organization: GSHS

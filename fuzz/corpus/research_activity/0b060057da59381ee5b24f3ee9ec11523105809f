@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornlgvo./research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media"   :[ 
+   {
+        "captio       computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        archone": "(432) 576-7658",
+    "profile": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+    "organization": "GSHS"
+  }
+}

@@ -1,0 +1,17 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00    - Through AC(ORN's automation and collaboration fnnnnnnitories.
+  impact:
+    - Project owtent creation and maintenance
+    - Communications team end-to-end editorial oversight.
+    - Findable AccessiblFAIR) data standards and governance through sustainable wuth
+  organization: GSHS

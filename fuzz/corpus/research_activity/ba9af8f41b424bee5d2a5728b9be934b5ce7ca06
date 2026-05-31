@@ -1,0 +1,13 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Eroject Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+ nge: Reseums should be straightfow.ornl.gov/staff-prodile/jason-h-wohlgemuth
+  organization: GSHS

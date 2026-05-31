@@ -1,0 +1,52 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https:/expa/mle.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    -
+    - rs
+  resources:
+    - TPU
+    - NPU: {
+ d i"  ": "valid-project","
+    archive
+    - DPU
+    - FPGA
+    - ogy:
+    -
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 0.0
+        count: 8
+     JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 0.0
+        coujt: 8
+        memory: 1S

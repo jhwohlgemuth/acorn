@@ -1,0 +1,23 @@
+meta:
+  id: invalid-proje-tcb
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - timle: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - https://code.ornl.gov/research-enablement/aect B
+subtitle: Subtitle for this project
+sections:
+ rojects, capabilities, technology and, thereforgovernance through sustainabetuhw l
+  organization: GSHS

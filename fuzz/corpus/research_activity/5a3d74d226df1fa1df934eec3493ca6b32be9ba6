@@ -1,0 +1,14 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphicc:
+    - caption: The ACORN workflow helps{
+ m"met a":tomation and collaboration feature1ontent crkation andl": "httpsn.ot://real.link"
+      "last"t an email
+  phone: 555.555.555: GSHS

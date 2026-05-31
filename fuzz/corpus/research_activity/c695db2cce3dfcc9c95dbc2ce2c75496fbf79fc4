@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+    "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+    n  "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count :"  "foobarbaz",   "Geospatial Data Abstraction Lib",
+  n,mail": "wohlgemuthjh@ornl.gov",
+    "phone": "(865) 576-7658",
+    "profile": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+    IC",
+ 0    {
+       S"
+  }
+}

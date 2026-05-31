@@ -1,0 +1,62 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapabilit*y: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+        threads: 	{
+    "id": "valid-project",
+    "archive": false,
+     }
+      },
+      {
+ $      "{
+    "id": "va
+        }{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft
+      }   "FPGA": {
+          "architentent
+  "i" creation ,
+pd":!!@1!!-1q@5555555555
+    "id"to better communicate projects, capabilities, technology and, therefore the people at ORNL.
+  challenge: Research project communication mediums should be straightforward and standardized. However, the creation process is often cumbersome, involving multiple edit.5555
+  profile: https://www.ornld-project",
+    "archive": false,
+     }
+      },
+      {
+ $      "{
+    "id": "va
+   5555   5  5}{

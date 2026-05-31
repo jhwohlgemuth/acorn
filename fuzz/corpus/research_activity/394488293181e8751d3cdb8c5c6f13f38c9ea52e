@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+    "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 4,
+          "memory": "80GB"
+        }
+      },
+      {
+        "CPU": {
+          "architecture": "x86_64",
+          "cores": 64,
+      "Science communication"
+      ]
+    }
+  },
+  "contact": {
+    "title": "Primary Investigator",
+    "first": "Audson",
+    "last": "Cargohlmuth",
+    "email": "wohlgemuthjh@ornl.gov",
+    "phone":  "Dept. of Energù",
+      "DHS ",
+      "darpa",
+      " epa",
+    team end-to-end editorial oversight",
+      "FAIR data standards and governancealid Project" through,
+   

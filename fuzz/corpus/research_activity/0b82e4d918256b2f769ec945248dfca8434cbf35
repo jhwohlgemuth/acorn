@@ -1,0 +1,17 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.c|om
+    - title: Project Repository
+      url: Noautomatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec&&&&&&& of content creation and maintenance
+    - Communications team end-to-end editorial oversight.
+    - Findable Accesable (FAIR) data ernance through sustainable wuth
+  organization: GSHS

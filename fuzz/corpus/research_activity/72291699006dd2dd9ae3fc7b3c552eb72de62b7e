@@ -1,0 +1,56 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Exampl)e
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+        threads: 256
+        memory: 640GB
+    - DSP:
+        architecture: C66x
+        count: 4
+        frequency: 1200
+ti				0tle: Invalid Proight.
+    - Findablz Accessible Indexable Seusable (FAIR) data standards and governance through sustainable workflow processes
+    - Should use geospatial instead of geo-spatial
+  research:
+    focus: Optilizing research content through scientific processes
+    areas:
+      - apabilities, technology Workflow automation
+      - Science communication
+contact:
+  title: Primary Investigator
+  first: Jasdrey
+  last: Wohlson
+to better communicate projece: 555.555.5555
+  profile: httqs://www.ornl.gov/staff-profile/jason-h-wohlgemuth
+  organization: GSHS

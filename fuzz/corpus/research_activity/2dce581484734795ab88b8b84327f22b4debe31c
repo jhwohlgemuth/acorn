@@ -1,0 +1,44 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - auamtotin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 8.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch64
+        cores: 128
+        threads: 256
+        memory: 640 often cumbersome, involving multiple editing rounds among different teams. Once created, there is often no version control, stewardship, or central content repository.",
+    "approach": [
+      "ACORN ant: Jasdrey
+  last: Wohlson
+  email: Not an email
+  phone: 555.555.5555
+  profile: https://www.ornl.gov/staff-profile/jason-h-wohlgemuth
+  goranization: GSHS

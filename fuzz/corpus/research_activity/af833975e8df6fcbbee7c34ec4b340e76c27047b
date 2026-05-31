@@ -1,0 +1,29 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORNelps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    -0JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resod generate research content.
+      urces:
+    - TPU
+    - NPU
+    - DPUy: 9.0
+        countGS
+HS

@@ -1,0 +1,75 @@
+meta:
+  -40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+  le: Primary Investigator
+  first: Jasdrey
+  last: Wohlson
+  email: Not an email
+  phone: 277.555.5555
+  profile: https://www.ornl.gov/ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx     architecture: C66x
+products and repositories.
+  impact:
+    - Project owner stewardship of content creation and mainble Indexable Reusable (FAIR) data standards and governance through sustainable workflow processes
+    - Should use geospatial instead of geo-spatial
+  research:
+    focus: Optimizing research content through scientific processes
+    areas:
+      - Data governance
+      - Wsearch content through scientific processes
+    areas:
+      - Data governance
+      - Workflow automation
+      - Science communication
+contact:
+  title: Primary Investigator
+  first: Jasdrey
+  last: Wohlson
+  email: Not an email
+  phone: 555.555.5555
+  profile: https://www.ornl.gov/staff-profile/jason-h-wohlgemuth
+  organization: GSHS

@@ -1,0 +1,15 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - cartion: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invaom
+    - title: 00.btitle: Subtitle for th^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^is project
+sections:
+  mission: ACORN to better communicaw.ornl.gov/sta: GSHS

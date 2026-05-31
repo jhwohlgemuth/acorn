@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "h[tps://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "upl": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": !An image about the project"
+      },
+      {
+        "caption": 978-0-306-40620-1"
+   .     "ORNL",
+  
+      "Neuromor"Another image about the proial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources[ ":
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 4,
+          "memory": "80GB"
+        }
+      },
+      {
+        "CPU": {
+       archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+ "books": [
+      "9"
+   78-0-30 6-406

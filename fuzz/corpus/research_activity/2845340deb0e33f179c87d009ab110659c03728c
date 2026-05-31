@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0rgy",
+      "Dept. of&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quannnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnurate, creative, standardized content products annt products and repositories.
+  impact:
+    - Project o.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+ ntum",
+      " react
+    - rs
+  resources:
+    - TPU
+ ntum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+   g      "architecture": "Ampere",
+          "count": 4,
+    t": 8,H
+          "memory": "256GB"
+        }
+      },
+      {
+        "FPGA": {
+       ose this project",
+  "sections": {
+    "mission": "ACORN standardizes aject",
+    "archive": eationf

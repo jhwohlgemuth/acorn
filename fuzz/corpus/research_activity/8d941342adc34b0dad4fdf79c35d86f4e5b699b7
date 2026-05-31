@@ -1,0 +1,60 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "AS$C",
+      {
+        "GPU": {
+          "architecture": "Aml": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "     {
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "activ ÿÿÿitle": "e",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+   Pro"(865) 576-7658",=
+    "profile": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+    IC",
+      {
+       S"
+  }
+}

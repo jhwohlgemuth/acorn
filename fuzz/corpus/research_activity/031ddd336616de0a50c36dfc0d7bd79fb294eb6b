@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40&. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 3,
+",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+     CPU": {
+          "archoject owner stewardship of content creatww.ornl.gov/staff-profile/jason-h-woMhlgemuth",
+    "organization": "GSHS"
+  }
+}

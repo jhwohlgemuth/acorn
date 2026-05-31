@@ -1,0 +1,49 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture:  !AArch64
+        cores: 128
+        threads: 256
+        memory: 640GB
+    - DSP:
+        architecture: C66x
+        count: 4
+        frequency: 1200
+title: Ina project workflow with automated JSON schema builds, language and structure validation, and GitLab accessibility.
+    - Through ACORN's automation and collaboration features, teams can maintain accurate, creative, standardized content products and repositories.
+  impact:
+    - Project ownerAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA s*aH rctewardship of content creation and maintenance
+    - Communications team end-to-end editorial gh scientific processes
+ea    ras:
+      - apabilities, techsnology Workflow automation
+      - Science communication

@@ -1,0 +1,13 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.c,om
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACow helps teaes:
+    - title: Example
+      url: httpe": falset,ie

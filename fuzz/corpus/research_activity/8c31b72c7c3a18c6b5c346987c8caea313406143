@@ -1,0 +1,43 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https:/expa/mle.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    -
+    - rs
+  resources:
+    - TPU
+    - NPU: {
+    "id": "valid-project","
+    archive
+    - DPU
+    - FPGA
+    - ogy:
+    -
+    - rs
+  resources:
+    - TPW
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+   
+    - TPU
+        architecture: Hopper
+        comp technology and, therefore, the people at ORNL.",
+    "challenge": "ResearchuteCapability: 0.0
+  er
+        computeCapability: 0.0
+        coujt: 8
+        memory: 1S

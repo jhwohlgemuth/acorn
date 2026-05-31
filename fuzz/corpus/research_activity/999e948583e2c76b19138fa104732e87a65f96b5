@@ -1,0 +1,16 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    -
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopperid Project B
+subtitle: Subtitle for this project	sections:
+  mission: ACORN standardizes and automates the research content creation process to better communiojects, capabilities, technology and, therefore the people at Oil
+  pption: The ACORN workflow he: https://www.ornl.gov/staff-profile/jason-h-wohlgemds: 256
+   ization: GSHS

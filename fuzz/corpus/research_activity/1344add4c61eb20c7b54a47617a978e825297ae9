@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data AbstractiioL nb",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 4,
+          "memory": "80GB"
+        }
+      },
+      {
+       " CPU": {Optimizing research content through scientific processes",
+      "areas": [
+        "Data governance",
+        "W "architecture": "x86_64",
+          "cores": 64,
+          "threads": 128,
+          "memory": "256GB"
+        } 
+     },
+      {
+        "TPU": {
+   orkflow automation",
+        "Science communication"
+      ]
+    }
+  },
+  "contact": {
+    "title": "Primary Investigator",
+    "first": "Audson",
+    "last": "Cargohlmuth",
+    "email": "woghemluthjh@ornl.gov",
+    "phone": on": "GSHS"
+  }
+}

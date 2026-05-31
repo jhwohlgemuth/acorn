@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {2
+        "title": "Some random link",
+        "url@": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Anotheggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg[gggggggggggggggggggggggggggggggggggggggggr image about the project",
+        "cmntentUrl": "01.png"
+      }
+    ],
+  gggggggggggggggggggggggggggggggggggggggggg[gggggggggggggggggggggggggggggggggggggggggr image about the project",
+        "cmntentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+      "aol, stewardship or central content repository.
+  approach:
+    - ACORN enc}

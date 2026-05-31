@@ -1,0 +1,39 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACOR- rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPsources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        EEEEEEEEEEEEEEEEEEEEEEEEEation, and GitLab accessibility.
+    - Through AC(ORN's automation and collaboration features, teams can maintain accurate, creative, standardized content products and repositories
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        EEEEEEEEEEEEEEEEEEEEEEEEEation, and GitLab accessibility.
+    - Through AC(ORN's aut through sustainable wuth
+  organization: GSHS

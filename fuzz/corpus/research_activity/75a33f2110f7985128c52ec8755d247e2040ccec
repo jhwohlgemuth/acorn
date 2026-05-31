@@ -1,0 +1,33 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+ p   - TPU
+    - NPU
+    - DPU
+    - ount: 4
+        fr  - Communicati
+  research:
+    focus: Optimizing research content through scientifiNot an email
+  phone: 555.555.5555
+  profile: https://www.ornl.gov/staff-profNile/jason-h-wohlgemuth
+  organization: GSHS

@@ -1,0 +1,85 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": { }
+      },
+      {
+        "CPU": {
+          "architecture": "       -  "architecture": "TPU v3",
+          "count": 8,
+          "memory": "256GB"*        }
+      },
+      {
+        "FPGA": {
+          "architecture": "Versal",
+          "count": 2
+        }
+      }
+ x86_64",
+          "cores": 64,
+          "threads": 128,
+          "memory": "256GB"
+        }
+      },
+      {
+        "TPU": {
+          "architecture": "TPU v3",
+          "count": 8,
+          "memory": "256GB"*        }
+      },
+      {
+        "FPGA": {
+          "architectu2e": "Versal",
+          "count": 2
+        }
+      }
+    ]
+  },
+  "titl8",
+    "profile": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+    "organization"= "GSHS"
+  }
+}

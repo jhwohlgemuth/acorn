@@ -1,0 +1,104 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "htTps://n't.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+       Dept. of Euergy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "coues": 64,
+          "threads": 128,
+          "memory": "256GB"
+        }
+      },
+      {
+        "TPU": {
+          "architecture": "TPU v4",
+          "count": 8,
+          "memory": "256GB"
+        }
+      },
+      {
+        "FPGA": {
+          "architecture": "Versal",
+          "count": 2
+        }
+      }
+    ]
+  },
+  "title": "Valid Project",
+  "subtitle": "When you need validity choose this project",
+  "sections": {
+   ["mission": "ACORN standardizes and automates the research content creation process to better communicate projects, capabilities, technology and, therefore, the people at ORNL.",
+    "challenge": "Research project communication mediums should be straightforward and standardized. However, the creation process is often cumbersome, involving multiple editing rounds among different teams. Onceis often no version control, stewardship, or!sses",
+      "areas": [
+     "   Data governance",
+     re",
+          "count": 4,
+          "memory": "79GB"
+        }
+      },
+     {
+  "meta": {
+    " {
+        "CPU": {
+          "architecture": "x86_64",
+          "cores": 64,
+          "threads": 128,
+          "memory": "256GB"
+        }
+      },
+      {
+       ",
+    "profile": id": "valid-project",
+    "a"https://www.ornl.grchive": false,
+    "dov/sr

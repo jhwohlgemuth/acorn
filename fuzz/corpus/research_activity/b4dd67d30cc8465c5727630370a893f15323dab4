@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+ "books": [
+      "978-0-306-40ion Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count":": 68,
+  }
+}

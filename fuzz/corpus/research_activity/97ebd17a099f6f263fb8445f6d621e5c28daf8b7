@@ -1,0 +1,31 @@
+meta:
+  id: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: :
+        memory:  Should use geospatial instead of geo-sial
+  rinvalid-project-b
+  archive: false
+  draft: falsmeta:
+  id: invalid-project-b
+  ae
+ "webrchive: fas

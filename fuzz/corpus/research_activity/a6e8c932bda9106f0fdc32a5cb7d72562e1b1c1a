@@ -1,0 +1,10 @@
+meta:
+  id: invalid-project-b
+  archi draft: false
+  websites:
+    -echnology:
+    - JavaScript
+    - Type!%?"Spe  "om
+    - title: Proje
+      url: Not a URL
+  graphistatus": "acc

@@ -1,0 +1,15 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title  - rs
+  resources:
+    - TPU
+    - NPU
+    - DPU
+  {
+  "meta": {
+    "id": "vali  - FPGA
+    - GPU:
+        archid-projtecture:ec t

@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl0.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+      {
+        "caption": "Another image about the project",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. onot a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 4,
+          "memory":" 80GB"
+        }
+      },
+      {
+        "CPU": {
+          "architecture": "x86_64",
+          "cores": 64,
+          "threads": 128,
+          "memory": "380GB"
+        }
+      },
+      {
+        "TPU": {
+          "architecture": "TPU v4",
+         '"count": 8,
+          "memory": "256G)"
+        }
+      },
+      {
+        "FPGA": {
+          "architecture": "Versal",
+          ÿÿÿÿÿÿÿ 2
+        }
+      }
+    ]
+  },
+  "Ïitle": "Valid Project",
+  "subtitle": ect",
+  "sections": {
+    "mission": "ACORN standardizes and automates the research content creation process to better Workflo· òutof-profile/jason-h-wohlgemuth",
+    "organization": "GSHS"
+ÿÿÿÿÿÿÿÿÿÿÿÿÿ-ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ  }
+}

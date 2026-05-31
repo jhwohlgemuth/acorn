@@ -1,0 +1,13 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Project Repository
+      url: Not a URL
+  graphics:
+    - capion: The ACORN workflow helps teams validate and generate reseyou need validity choose this project"ontent creation and maintenance
+    - Communications tea(FAIR) data standards and governance through sustainable wuth
+  organization: GSHS

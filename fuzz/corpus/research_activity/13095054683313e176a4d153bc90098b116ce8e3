@@ -1,0 +1,63 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-0-306-40620-1"
+    ],
+    "websites": [
+      {
+        "title": "Project Repository",
+        "url": "https://code.ornl.gov/research-enablement/acorn"
+      },
+      {
+        "title": "Some random link",
+        "url": "https://not.real.link"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An image about the project"
+      },
+     { 
+        "caption": "Another image about the project",
+        "contentUrl": "01.png"
+      }
+    ],
+    "keywords": [
+      "automation",
+      "cybr",
+      "gearssss",
+      "not-a-valid-keyword"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+      "Dept. of Ener'y",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsxr"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstractionurces": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "AmPere",
+         nds among different teams. Once created, there is often no version control, stewardship, or central content repository.",
+    "approach": [
+      "ACO\N encompasses a project workflow with automated JSOCargohlmuth",
+    "email": "wohlgemuthjh@ornl.gov",
+  g "phone": "(787) 576-7658",
+    "profile": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+    "organiztniao": "GSHS"
+  }
+}

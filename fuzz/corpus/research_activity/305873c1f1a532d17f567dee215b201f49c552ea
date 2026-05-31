@@ -1,0 +1,54 @@
+meta:
+  id: invalid-project-b
+  archive: false
+  draft: false
+  websites:
+    - title: Example
+      url: https://example.com
+    - title: Pro/ject Repository
+      url: Not a URL
+  graphics:
+    - caption: The ACORN workflow helps teams validate and generate research content.
+      href: 00.invalid
+  keywords:
+    - automatin
+  sponsors:
+    - DOD
+  technology:
+    - JavaScript
+    - TypeSpec
+    - astro
+    - react
+    - rc
+  resources:
+    - TPU
+    - NPU
+    - DPU
+    - FPGA
+    - GPU:
+        architecture: Hopper
+        computeCapability: 9.0
+        count: 8
+        memory: 1TB
+    - CPU:
+        architecture: AArch28
+        cores: 128
+        threads: 256
+        memory: 640GB
+    - DSP:
+        architecture: C66x
+        count: 4
+        frequency: 1200
+title: Invalid Project B
+subtitle: Subtitle for this project
+sections:
+  mission: ACORN standardizes and automates the research content creation process to better communicate projects, capabili{
+  "meta": {
+    "id": "valid-project",
+    "archiORNL.
+  challenge: Research projectle": "Project Repository",
+        "url": "https://code.ornl.gov/reaersch-enablement/acorn"
+      },
+      {
+        "title": "Some random lihk",
+        "url": "https://notnd standardized. However, the creation process is often cumbersome, involving multiple editing rounds among different teams. Once created, there is often no versi.real.linokn

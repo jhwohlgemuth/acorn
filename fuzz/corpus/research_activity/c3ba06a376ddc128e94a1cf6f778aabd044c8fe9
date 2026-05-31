@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "books": [
+      "978-rd"
+    ],
+    "sponsors": [
+      "ORNL",
+      "Dept of Energy",
+!     "Dept. of Energy",
+      "DHS ",
+      "darpa",
+      " epa",
+      "not a valid sponsor"
+    ],
+    "technology": [
+      "astro",
+      "React.js",
+      "foobarbaz",
+      "Geospatial Data Abstraction Lib",
+      "rs "
+    ],
+    "resources": [
+      "Quantum",
+      "Neuromorphic",
+      "ASIC",
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "count": 8,
+          "memory": "80GB"
+        }
+      },
+      {
+        "CPU": {
+   |      "architecture": "x86_64",
+          "cores": 64,
+          "threads": 128,
+          "memory": "256GB"
+        }
+      },
+      {
+        "TPU-": {
+          "architecture": "TPU v4",
+          "count": 8,
+         m "emory": "256GB"
+        }
+      },
+   ardship of content creo aatnind maintenanemail": "wohlgemuthjh@ornlchnology Workflow automation
+      - Science communicatioitecture   {
+       S"
+  }
+}

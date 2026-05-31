@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "id":?"valid-project",
+    "arch{
+  "meta": {
+    "id": "valid-project",
+    "archive": false,
+    "draft": false,
+    "status": "k"
+      }
+    ],
+    "media": [
+      {
+        "caption": "An imageNL",
+          "GPU": {
+          "architecture": "Ampere",
+          "count": 4,
+          "memory": "80GB"
+        }
+       
