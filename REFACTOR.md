@@ -797,3 +797,99 @@ Sort order:
   1. Define one capability descriptor (`supports_pagination`, `supports_streaming`, `requires_token`, etc.).
   2. Drive command-layer behavior from capability metadata instead of per-provider conditionals.
   3. Enable cleaner extension as additional providers are introduced.
+
+## io::api Reuse Opportunities (Module Scan)
+
+This section captures concrete extraction opportunities identified by scanning the existing API modules (`openai`, `gitlab`, `raid`, `orcid`, `ror`, `citeas`, `geonames`, `spdx`) with a focus on code that can move into `acorn-lib/src/io/api/mod.rs` and be reused.
+
+### Critical
+
+#### 1. Complete HTTP method dispatch in root invoke path
+- Difficulty: Low
+- Impact: Critical
+- Evidence:
+  - `acorn-lib/src/io/api/mod.rs` currently dispatches only `GET`, `POST`, and `PUT` and falls through to `unimplemented!` for other methods.
+  - `openai::api` now includes `DELETE` resources.
+- Opportunity:
+  1. Add full `HttpMethod` dispatch support in `RemoteResource::invoke_with`.
+  2. Remove `unimplemented!` fallback for declared resource methods.
+  3. Add tests for method routing parity between template methods and request dispatch.
+
+### High Impact
+
+#### 2. Extract endpoint resolution helpers
+- Difficulty: Low
+- Impact: High
+- Evidence:
+  - Repeated `Endpoint::from_template(template).map(|e| e.with_domain(...))` across `openai`, `gitlab`, and `raid`.
+  - Repeated `INCLUDED_ENDPOINTS.find_by_name(name)` across `orcid`, `ror`, `citeas`, `geonames`, and `spdx`.
+- Opportunity:
+  1. Add root helpers for template+domain endpoint resolution and named endpoint lookup.
+  2. Centralize endpoint-not-found error message formatting.
+
+#### 3. Extract auth-header parameter builders
+- Difficulty: Low
+- Impact: High
+- Evidence:
+  - Repeated `Authorization: Bearer` parameter construction in `openai` and `raid`.
+  - Repeated `PRIVATE-TOKEN` parameter construction in `gitlab`.
+- Opportunity:
+  1. Add reusable helpers for common header param styles.
+  2. Standardize token handling and reduce per-module header string literals.
+
+#### 4. Extract required-input validators
+- Difficulty: Low
+- Impact: High
+- Evidence:
+  - Repeated required `identifier` and required `body` match branches in `openai`.
+  - Similar identifier branching in `raid` and parts of `gitlab`.
+- Opportunity:
+  1. Add root validators for required non-empty identifier/body values.
+  2. Return uniform, provider-specific error messages via helper formatting.
+
+#### 5. Extract invoke-and-parse convenience wrappers
+- Difficulty: Medium
+- Impact: High
+- Evidence:
+  - Repeated sequence: build params → invoke/invoke_with → handle/handle_or across most provider functions.
+- Opportunity:
+  1. Add wrappers that combine invocation and parse strategy.
+  2. Allow optional fallback parser type where error envelopes differ by provider.
+
+### Medium Impact
+
+#### 6. Extract optional query parameter composition helper
+- Difficulty: Low
+- Impact: Medium
+- Evidence:
+  - Repeated optional list parameter insertion (`after`, `limit`, `order`, `model`) in `openai`.
+  - Similar optional query assembly in other modules.
+- Opportunity:
+  1. Add helper to append optional key/value query params when present and non-empty.
+  2. Keep module logic focused on endpoint actions rather than param plumbing.
+
+#### 7. Normalize environment configuration bootstrap
+- Difficulty: Medium
+- Impact: Medium
+- Evidence:
+  - Repeated `.env` load + env var fallback patterns in `openai`, `raid`, and `gitlab` options.
+- Opportunity:
+  1. Add root helper for consistent env loading and prioritized var resolution.
+  2. Reduce duplicated configuration boilerplate in provider `Configuration::from_env` implementations.
+
+#### 8. Extract status/health helper pattern
+- Difficulty: Low
+- Impact: Medium
+- Evidence:
+  - Similar `is_healthy` wrappers in `orcid`, `ror`, and `citeas` that map status result to bool.
+- Opportunity:
+  1. Add root utility for status-to-health checks with pluggable predicate.
+  2. Reduce repetitive status wrapper code in providers.
+
+### Recommended Extraction Order
+
+1. Implement critical method dispatch support for all declared `HttpMethod` variants.
+2. Add endpoint resolution + auth/header builders.
+3. Add required-input validators + optional query param composition helper.
+4. Introduce invoke-and-parse wrappers with fallback support.
+5. Normalize environment bootstrap and health-check helpers.
