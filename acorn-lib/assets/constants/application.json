@@ -135,6 +135,58 @@
       ]
     },
     {
+      "name": "openai::api",
+      "domain": "api.openai.com",
+      "root": "v1",
+      "resources": [
+        {
+          "name": "chat-completion",
+          "method": "post",
+          "template": "{{ base }}/chat/completions"
+        },
+        {
+          "name": "chat-completion::list",
+          "method": "get",
+          "template": "{{ base }}/chat/completions{{ query }}"
+        },
+        {
+          "name": "chat-completion::retrieve",
+          "method": "get",
+          "template": "{{ base }}/chat/completions/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "model",
+          "method": "get",
+          "template": "{{ base }}/models/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "models",
+          "method": "get",
+          "template": "{{ base }}/models{{ query }}"
+        },
+        {
+          "name": "response",
+          "method": "post",
+          "template": "{{ base }}/responses"
+        },
+        {
+          "name": "response::delete",
+          "method": "delete",
+          "template": "{{ base }}/responses/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "response::input-items",
+          "method": "get",
+          "template": "{{ base }}/responses/{{ identifier }}/input_items{{ query }}"
+        },
+        {
+          "name": "response::retrieve",
+          "method": "get",
+          "template": "{{ base }}/responses/{{ identifier }}{{ query }}"
+        }
+      ]
+    },
+    {
       "name": "orcid",
       "domain": "pub.orcid.org",
       "root": "v3.0",

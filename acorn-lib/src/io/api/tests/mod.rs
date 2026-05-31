@@ -23,7 +23,7 @@ fn fixtures_dir() -> PathBuf {
 
 #[test]
 fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 10);
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 11);
 }
 #[tokio::test]
 #[ignore = "Requires internet connection and citeas.org to be up"]
@@ -389,6 +389,33 @@ mod gitlab_api {
         let html = "<!doctype html><html><body>403 Forbidden</body></html>";
         let why = serde_json::from_str::<TreeResponse>(html).expect_err("non-json response should fail with parse error");
         assert!(why.to_string().contains("expected value"));
+    }
+}
+#[cfg(test)]
+mod openai_api {
+    use super::*;
+
+    #[test]
+    fn test_template_endpoint_for() {
+        let endpoint = Endpoint::from_template("openai::api").map(|e| e.with_domain("api.openai.com")).unwrap();
+        assert_eq!(endpoint.base(), "https://api.openai.com/v1");
+        assert!(endpoint.resources.iter().any(|r| r.name == "models"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "model"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::list"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::retrieve"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "response"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "response::delete"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "response::input-items"));
+        assert!(endpoint.resources.iter().any(|r| r.name == "response::retrieve"));
+    }
+    #[test]
+    fn test_from_template_with_domain() {
+        let result = Endpoint::from_template("openai::api").map(|e| e.with_domain("proxy.openai.example.com"));
+        assert!(result.is_ok());
+        let endpoint = result.unwrap();
+        assert_eq!(endpoint.domain, "proxy.openai.example.com");
+        assert_eq!(endpoint.root, Some("v1".to_string()));
     }
 }
 #[cfg(test)]
