@@ -3,6 +3,7 @@
 //! Module that defines the research activity schema
 //!
 use crate::fail;
+#[cfg(feature = "std")]
 use crate::io::ApiResult;
 #[cfg(feature = "std")]
 use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutput};
@@ -890,10 +891,16 @@ impl ToMarkdown for Sections {
         )
     }
 }
+#[cfg(feature = "std")]
 pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
     let data = Constant::csv(&name);
     resolve_from_list_of_lists(value, data, name)
 }
+#[cfg(not(feature = "std"))]
+pub(crate) fn resolve_from_csv_asset(_name: String, value: String) -> Option<String> {
+    Some(value)
+}
+#[cfg(feature = "std")]
 pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I, name: String) -> Option<String> {
     fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
         let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
@@ -950,6 +957,10 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
         .map(|(x, _)| x.to_string());
     print_resolution(output.clone(), value, name);
     output
+}
+#[cfg(not(feature = "std"))]
+pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, _data: I, _name: String) -> Option<String> {
+    Some(value)
 }
 fn validation_error_with_index(code: &'static str, message: String, index: usize) -> ValidationError {
     let mut err = ValidationError::new(code).with_message(message.into());

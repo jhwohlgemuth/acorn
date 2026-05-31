@@ -307,6 +307,7 @@ pub fn is_license(value: &str) -> Result<(), ValidationError> {
     }
 }
 #[cfg(not(feature = "std"))]
+/// Check if value is a non-empty SPDX license identifier string in no-std mode.
 pub fn is_license(value: &str) -> Result<(), ValidationError> {
     const CODE: &str = "license";
     const MESSAGE: &str = "Provide valid SPDX license identifier";
@@ -452,9 +453,14 @@ pub fn is_year(value: impl ToString) -> Result<(), ValidationError> {
         | _ => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
 }
+#[cfg(feature = "std")]
 fn is_viable_year(year: i32) -> bool {
     let now: DateTime<Utc> = Utc::now();
     year <= now.year()
+}
+#[cfg(not(feature = "std"))]
+fn is_viable_year(_year: i32) -> bool {
+    true
 }
 impl Validate for IntegerOrString {
     fn validate(&self) -> Result<(), ValidationErrors> {

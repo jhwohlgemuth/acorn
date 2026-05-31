@@ -553,6 +553,7 @@ pub struct Website {
 }
 impl ContactPoint {
     /// Fix, resolve, and augment contact point data
+    #[cfg(feature = "std")]
     pub fn format(self) -> Self {
         let ContactPoint {
             affiliation,
@@ -617,6 +618,11 @@ impl ContactPoint {
             .telephone(updated_telephone)
             .url(url)
             .build()
+    }
+    #[cfg(not(feature = "std"))]
+    /// Fix, resolve, and augment contact point data
+    pub fn format(self) -> Self {
+        self
     }
     /// Fix, resolve, and augment research activity metadata with access to filesystem and/or remote resources
     #[cfg(feature = "std")]
@@ -856,6 +862,7 @@ impl View for ContactPoint {
         }
     }
 }
+#[cfg(feature = "std")]
 pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I, name: String) -> Option<String> {
     fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
         let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
@@ -913,6 +920,12 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
     print_resolution(output.clone(), value, name);
     output
 }
+#[cfg(not(feature = "std"))]
+pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, _data: I, _name: String) -> Option<String> {
+    Some(value)
+}
+
+#[cfg(feature = "std")]
 pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
     let organization = Organization::load().into_iter().next()?;
     let items: Vec<Organization> = once(organization.clone())
@@ -933,6 +946,11 @@ pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
         })
         .collect::<Vec<Vec<String>>>();
     resolve_from_list_of_lists(value, data, "organization".to_string())
+}
+
+#[cfg(not(feature = "std"))]
+pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
+    Some(value)
 }
 
 #[cfg(test)]

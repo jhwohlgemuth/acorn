@@ -1,4 +1,5 @@
 use crate::schema::namespaces::{codemeta, schema_org};
+#[cfg(feature = "std")]
 use crate::schema::prompt::Model;
 use crate::util::{LinkedData, StringInterpolation, ToMarkdown};
 use bon::Builder;
@@ -37,6 +38,7 @@ pub enum Data {
     /// Data that has been artificially created by computer algorithms
     Synthetic(DataDescription),
     /// Opaque data artifact
+    #[cfg(feature = "std")]
     Model(Model),
 }
 /// Framework for assessing the readiness of a data set
@@ -213,6 +215,7 @@ impl ToMarkdown for Data {
         match self {
             | Self::Real(description) => format!("- Real{}", description.to_markdown()),
             | Self::Synthetic(description) => format!("- Synthetic{}", description.to_markdown()),
+            #[cfg(feature = "std")]
             | Self::Model(model) => match model {
                 | Model::SLM(details) => format!("- Model\n  - Kind: SLM{}", details.to_markdown()),
                 | Model::LLM(details) => format!("- Model\n  - Kind: LLM{}", details.to_markdown()),

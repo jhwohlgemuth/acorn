@@ -15,7 +15,7 @@
 //! }
 //! ```
 //!
-use crate::prelude::{HashMap, Path};
+use crate::prelude::HashMap;
 use crate::{fail, skip};
 use aho_corasick::AhoCorasick;
 use bon::Builder;
@@ -964,7 +964,16 @@ pub fn generate_guid() -> String {
 }
 /// Check if value is a URI or filesystem path
 pub fn is_uri_or_path(value: &str) -> bool {
-    URI::try_from(value).is_ok() || Path::new(value).is_absolute() || value.starts_with('/') || value.starts_with("./") || value.starts_with("../")
+    URI::try_from(value).is_ok() || value.starts_with('/') || value.starts_with("./") || value.starts_with("../") || {
+        #[cfg(feature = "std")]
+        {
+            std::path::Path::new(value).is_absolute()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            false
+        }
+    }
 }
 /// Prints a diff of changes between two strings.
 ///

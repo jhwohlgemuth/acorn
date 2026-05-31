@@ -14,6 +14,7 @@ use tracing::{error, trace, warn};
 use uriparse::URI;
 use urlencoding::encode;
 
+#[cfg(feature = "analysis")]
 pub mod analyzer;
 #[cfg(feature = "doctor")]
 pub mod doctor;
@@ -23,7 +24,7 @@ pub mod prelude;
 pub mod schema;
 pub mod util;
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "analysis"))]
 use crate::analyzer::{link_check, Check};
 #[cfg(feature = "std")]
 use crate::io::http::get;
@@ -180,7 +181,7 @@ impl Location {
         }
     }
     /// Check if a location exists (i.e., is reachable and accessible)
-    #[cfg(feature = "std")]
+    #[cfg(all(feature = "std", feature = "analysis"))]
     pub async fn exists(self) -> bool {
         let uri = self.uri();
         let scheme = self.scheme();
