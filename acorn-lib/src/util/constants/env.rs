@@ -8,3 +8,5 @@ pub const DATABASE_PATH: &str = "ACORN_DATABASE_PATH";
 pub const NO_LOCAL_DATABASE: &str = "ACORN_NO_LOCAL_DATABASE";
 /// Environment variable used to select readability metric for readability checks at runtime.
 pub const READABILITY_METRIC: &str = "ACORN_READABILITY_METRIC";
+/// Environment variable used to set minimum shell-lint severity.
+pub const SHELL_LINT_MIN_SEVERITY: &str = "ACORN_SHELL_LINT_MIN_SEVERITY";

@@ -10,14 +10,15 @@ use crate::io::{
     command_exists, extract_zip, file_name_with_parent, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand,
     FromPath,
 };
-use crate::prelude::{CommandOutput, Path, PathBuf};
-use crate::test_utils::{echo_args, echo_bin, exit_args, exit_bin, sh_echo, stderr_args, stderr_bin};
+use crate::param;
+use crate::prelude::{Path, PathBuf};
 use crate::util::*;
-use crate::{cmd, param};
 #[cfg(test)]
 use similar_asserts::assert_eq;
 
 const FIXTURES: &str = "../tests/fixtures";
+
+mod cmd;
 
 #[test]
 fn test_base32_crockford() {
@@ -37,141 +38,6 @@ fn test_chunk_string() {
     assert_eq!("abcdefghi".chunk(3), vec!["abc", "def", "ghi"]);
     assert_eq!("abcdefghi".chunk(2), vec!["ab", "cd", "ef", "gh", "i"]);
     assert_eq!("abcdefghi".to_string().chunk(3), vec!["abc", "def", "ghi"]);
-}
-#[test]
-fn test_cmd_error() {
-    // Nonexistent binary — array style
-    assert!(cmd!("not-a-real-command-xyz", ["arg"]).is_err());
-    // Nonexistent binary — sh style
-    assert!(cmd!(sh "not-a-real-command-xyz arg").is_err());
-}
-#[test]
-fn test_cmd_output() {
-    // Shell string
-    let output = cmd!(sh sh_echo("sh-output")).expect("sh string");
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "sh-output");
-    // Shell string with multiple args
-    let output = cmd!(sh sh_echo("one two three")).expect("sh multi-arg");
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "one two three");
-    // Shell string with format! interpolation (via function call)
-    let name = "world";
-    let output = cmd!(sh sh_echo(&format!("hello-{name}"))).expect("sh format!");
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "hello-world");
-    // Array literal
-    let output = if cfg!(unix) {
-        cmd!("echo", ["hello"]).expect("array literal")
-    } else {
-        cmd!("cmd", ["/c", "echo", "hello"]).expect("array literal")
-    };
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "hello");
-    // Args variable
-    let args = echo_args("world");
-    let output = cmd!(echo_bin(), args).expect("args variable");
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "world");
-    // CLI-style literals
-    let output = if cfg!(unix) {
-        cmd!("echo" "cli-style").expect("cli-style")
-    } else {
-        cmd!("cmd" "/c" "echo" "cli-style").expect("cli-style")
-    };
-    assert!(output.status.success());
-    assert_eq!(output.stdout(), "cli-style");
-    // Stderr capture
-    let output = cmd!(stderr_bin(), stderr_args("oops")).expect("stderr");
-    if cfg!(unix) {
-        assert_eq!(output.stderr(), "oops");
-    } else {
-        assert!(output.stderr().contains("oops") || output.stdout().contains("oops"));
-    }
-    // Non-zero exit code
-    let output = cmd!(exit_bin(), exit_args(42)).expect("exit code");
-    assert!(!output.status.success());
-}
-#[test]
-fn test_cmd_shell_selection_output() {
-    if command_exists("bash") {
-        match cmd!(status bash "echo shell-bash-check") {
-            | Ok(status) if status.success() => {
-                let output = cmd!(bash "echo shell-bash-output").expect("bash output");
-                assert!(output.status.success());
-                assert_eq!(output.stdout(), "shell-bash-output");
-            }
-            | _ => {}
-        }
-    }
-    if command_exists("pwsh") {
-        match cmd!(status pwsh "Write-Output 'shell-pwsh-check'") {
-            | Ok(status) if status.success() => {
-                let output = cmd!(pwsh "Write-Output 'shell-pwsh-output'").expect("pwsh output");
-                assert!(output.status.success());
-                assert_eq!(output.stdout(), "shell-pwsh-output");
-            }
-            | _ => {}
-        }
-    }
-}
-#[test]
-fn test_cmd_shell_selection_status_and_try() {
-    if command_exists("bash") {
-        match cmd!(bash status "echo shell-bash-check") {
-            | Ok(status) if status.success() => {
-                let status = cmd!(bash status "echo shell-bash-status").expect("bash status");
-                assert!(status.success());
-
-                let value = cmd!(try bash "echo shell-bash-try").expect("bash try");
-                assert_eq!(value, "shell-bash-try");
-            }
-            | _ => {}
-        }
-    }
-    if command_exists("pwsh") {
-        match cmd!(pwsh status "Write-Output 'shell-pwsh-check'") {
-            | Ok(status) if status.success() => {
-                let status = cmd!(pwsh status "Write-Output 'shell-pwsh-status'").expect("pwsh status");
-                assert!(status.success());
-
-                let value = cmd!(try pwsh "Write-Output 'shell-pwsh-try'").expect("pwsh try");
-                assert_eq!(value, "shell-pwsh-try");
-            }
-            | _ => {}
-        }
-    }
-}
-#[test]
-fn test_cmd_status() {
-    // Shell string
-    let status = cmd!(sh status sh_echo("sh-status")).expect("sh string");
-    assert!(status.success());
-    // Shell string with format! interpolation (via function call)
-    let arg = "check";
-    let status = cmd!(sh status sh_echo(arg)).expect("sh format!");
-    assert!(status.success());
-    // Array literal
-    let status = if cfg!(unix) {
-        cmd!(status "echo", ["hello"]).expect("array literal")
-    } else {
-        cmd!(status "cmd", ["/c", "echo", "hello"]).expect("array literal")
-    };
-    assert!(status.success());
-    // Args variable
-    let args = echo_args("hello");
-    let status = cmd!(status echo_bin(), args).expect("args variable");
-    assert!(status.success());
-    // CLI-style literals
-    let status = if cfg!(unix) {
-        cmd!(status "echo" "status-check").expect("cli-style")
-    } else {
-        cmd!(status "cmd" "/c" "echo" "status-check").expect("cli-style")
-    };
-    assert!(status.success());
-    // Non-zero exit code
-    let status = cmd!(status exit_bin(), exit_args(42)).expect("exit code");
-    assert!(!status.success());
 }
 #[test]
 fn test_last_values() {

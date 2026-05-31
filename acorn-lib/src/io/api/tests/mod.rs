@@ -450,10 +450,7 @@ paths:
             operationId: updateWidgetPart
 "#;
         let resources = api::openapi::import_resources_from_openapi(spec).unwrap();
-        insta::assert_json_snapshot!(
-                resources,
-            @"\n[\n  {\n    \"name\": \"create-widget\",\n    \"method\": \"post\",\n    \"template\": \"{{ base }}/widgets{{ query }}\"\n  },\n  {\n    \"name\": \"delete-widget\",\n    \"method\": \"delete\",\n    \"template\": \"{{ base }}/widgets/{{ widget_id }}{{ query }}\"\n  },\n  {\n    \"name\": \"get-widget\",\n    \"method\": \"get\",\n    \"template\": \"{{ base }}/widgets/{{ widget_id }}{{ query }}\"\n  },\n  {\n    \"name\": \"list-widgets\",\n    \"method\": \"get\",\n    \"template\": \"{{ base }}/widgets{{ query }}\"\n  },\n  {\n    \"name\": \"update-widget-part\",\n    \"method\": \"patch\",\n    \"template\": \"{{ base }}/widgets/{{ widget_id }}/parts/{{ part_id }}{{ query }}\"\n  }\n]\n"
-        );
+        insta::assert_json_snapshot!("import_resources_from_openapi_snapshot", resources);
     }
 }
 #[cfg(test)]

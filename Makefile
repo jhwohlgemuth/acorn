@@ -42,7 +42,7 @@ build-in-image: clean
 
 clean:
 	@cargo clean
-	@pwsh -Command "if (Test-Path './bin') { Remove-Item -Path './bin' -Recurse -Force }"
+	@rm -rf ./bin
 
 changelog:
 	@git pull origin main --tags
