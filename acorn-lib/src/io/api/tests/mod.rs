@@ -424,6 +424,39 @@ mod openai_api {
     }
 }
 #[cfg(test)]
+mod openapi_import {
+    use super::*;
+
+    #[test]
+    fn test_import_resources_from_openapi_snapshot() {
+        let spec = r#"
+openapi: 3.1.0
+info:
+    title: Test API
+    version: 1.0.0
+paths:
+    /widgets:
+        get:
+            operationId: listWidgets
+        post:
+            operationId: createWidget
+    /widgets/{widget_id}:
+        delete:
+            operationId: deleteWidget
+        get:
+            operationId: getWidget
+    /widgets/{widget_id}/parts/{part_id}:
+        patch:
+            operationId: updateWidgetPart
+"#;
+        let resources = api::openapi::import_resources_from_openapi(spec).unwrap();
+        insta::assert_json_snapshot!(
+                resources,
+            @"\n[\n  {\n    \"name\": \"create-widget\",\n    \"method\": \"post\",\n    \"template\": \"{{ base }}/widgets{{ query }}\"\n  },\n  {\n    \"name\": \"delete-widget\",\n    \"method\": \"delete\",\n    \"template\": \"{{ base }}/widgets/{{ widget_id }}{{ query }}\"\n  },\n  {\n    \"name\": \"get-widget\",\n    \"method\": \"get\",\n    \"template\": \"{{ base }}/widgets/{{ widget_id }}{{ query }}\"\n  },\n  {\n    \"name\": \"list-widgets\",\n    \"method\": \"get\",\n    \"template\": \"{{ base }}/widgets{{ query }}\"\n  },\n  {\n    \"name\": \"update-widget-part\",\n    \"method\": \"patch\",\n    \"template\": \"{{ base }}/widgets/{{ widget_id }}/parts/{{ part_id }}{{ query }}\"\n  }\n]\n"
+        );
+    }
+}
+#[cfg(test)]
 mod orcid_api {
     use super::*;
     use crate::io::api::orcid::{OutputColumn, SearchField};

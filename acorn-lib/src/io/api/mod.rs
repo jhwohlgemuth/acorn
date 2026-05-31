@@ -31,6 +31,7 @@ pub mod geonames;
 pub mod github;
 pub mod gitlab;
 pub mod openai;
+pub mod openapi;
 pub mod orcid;
 pub mod raid;
 pub mod ror;

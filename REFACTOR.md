@@ -1121,3 +1121,43 @@ Snapshot details:
 7. /videos/edits
 8. /videos/extensions
 
+## OpenAPI Interface Import Remaining Steps
+
+This section captures follow-up work after the first-pass importer scaffold that generates `Resource` entries from OpenAPI path operations.
+
+### Phase 1: Wire Importer Into CLI Workflow
+
+1. Add a dedicated CLI command to import OpenAPI specs from file path or URL.
+2. Accept provider metadata input (`endpoint` name, domain, root, auth defaults).
+3. Render generated resources into a proposed endpoint object for `application.json`.
+4. Support `--dry-run` mode that prints diff-style output without writing.
+
+### Phase 2: Improve Naming and Template Fidelity
+
+1. Add configurable naming strategies:
+2. `operation-id` preferred.
+3. Path-based fallback.
+4. Action namespace option (for example, `response::retrieve`).
+5. Include optional per-provider rename overrides to align with existing naming style.
+6. Preserve parameter names while handling normalization collisions deterministically.
+
+### Phase 3: Add Schema-Aware Interface Output
+
+1. Parse request and response schema references for each operation.
+2. Generate baseline DTO interfaces for stable schemas.
+3. Keep polymorphic or unresolved schemas as `serde_json::Value` with explicit annotations.
+4. Add an option to emit function stubs in provider modules using `Endpoint::invoke` patterns.
+
+### Phase 4: Add Drift and Regression Safety
+
+1. Add fixture-based snapshot tests for small, medium, and large OpenAPI specs.
+2. Add checks ensuring generated resource templates always contain `{{ base }}` and valid HTTP methods.
+3. Add a drift check mode that compares imported operations against current templates.
+4. Add CI coverage for importer tests and deterministic output across platforms.
+
+### Phase 5: Provider Integration and Documentation
+
+1. Use the importer to bootstrap additional OpenAI families (`responses/compact`, `responses/input_tokens`).
+2. Pilot import flow for another provider to validate generality.
+3. Document importer behavior, limitations, and extension points in docs and command help.
+
