@@ -13,7 +13,6 @@ use crate::io::{
 use crate::param;
 use crate::prelude::{Path, PathBuf};
 use crate::util::*;
-use crate::{cmd, param};
 use proptest::prelude::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;

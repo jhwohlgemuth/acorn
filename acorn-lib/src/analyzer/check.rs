@@ -1,5 +1,4 @@
 //! Check result types and helpers for analyzer output.
-
 use super::error::{process, ErrorCode, ErrorKind, Location};
 use super::readability::ReadabilityType;
 use super::vale::{Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
@@ -485,7 +484,10 @@ impl fmt::Display for Check {
                 match &errors {
                     | Some(ErrorKind::Readability((_readability_index, _readability_type))) => {
                         let details = format!("Simplify language for a general audience {}", message.dimmed());
-                        f.write_fmt(format_args!("{}", format_row("".to_string(), severity.colored(), details)))
+                        f.write_fmt(format_args!(
+                            "{}",
+                            format_row("Overall reading level".to_string(), severity.colored(), details)
+                        ))
                     }
                     | None | Some(_) => write!(f, ""),
                 }
@@ -543,6 +545,16 @@ impl From<&str> for CheckCategory {
         }
     }
 }
+impl From<&CheckCategory> for u8 {
+    fn from(value: &CheckCategory) -> Self {
+        match value {
+            | CheckCategory::Schema | CheckCategory::Link => 0,
+            | CheckCategory::Prose => 1,
+            | CheckCategory::Quality => 2,
+            | CheckCategory::Readability => 3,
+        }
+    }
+}
 impl CheckSeverity {
     /// Returns a colored string representation of the severity level
     pub fn colored(&self) -> String {
@@ -567,6 +579,16 @@ impl CheckSeverity {
             | Self::Error | Self::Warning => true,
             | Self::Suggestion => matches!(level, Some(2..=u8::MAX)),
             | Self::Info => matches!(level, Some(3..=u8::MAX)),
+        }
+    }
+}
+impl From<&CheckSeverity> for u8 {
+    fn from(value: &CheckSeverity) -> Self {
+        match value {
+            | CheckSeverity::Error => 0,
+            | CheckSeverity::Warning => 1,
+            | CheckSeverity::Suggestion => 2,
+            | CheckSeverity::Info => 3,
         }
     }
 }

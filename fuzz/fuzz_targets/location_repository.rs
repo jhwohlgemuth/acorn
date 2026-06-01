@@ -1,5 +1,4 @@
 #![no_main]
-
 use acorn::{Location, Repository};
 use libfuzzer_sys::fuzz_target;
 
@@ -10,14 +9,12 @@ fn exercise_location(location: &Location) {
         let _ = location.hash();
     }
 }
-
 fn exercise_repository(repository: &Repository) {
     let _ = repository.is_local();
     let _ = repository.id();
     let _ = repository.raw_url("README.md".to_string());
     exercise_location(&repository.clone().location());
 }
-
 fuzz_target!(|data: &[u8]| {
     if let Ok(location) = serde_json::from_slice::<Location>(data) {
         exercise_location(&location);

@@ -173,14 +173,22 @@ fn infer_standard(paths: &[PathBuf]) -> AnalyzerStandard {
     }
 }
 fn render(issues: &[Check], terse: bool) {
+    let mut sorted_issues = issues.to_vec();
+    sorted_issues.sort_by_cached_key(|issue| {
+        (
+            u8::from(&issue.severity),
+            u8::from(&issue.category),
+            issue.locator.clone().unwrap_or_default().to_lowercase(),
+        )
+    });
     if terse {
-        issues.iter().for_each(|issue| {
-            let uri = issue.clone().uri.unwrap_or_default();
+        sorted_issues.iter().for_each(|issue| {
+            let uri = issue.uri.clone().unwrap_or_default();
             println!("{issue}{}", format!(", path={uri}").dimmed());
         });
     } else {
-        issues.iter().enumerate().for_each(|(index, issue)| {
-            issue.clone().with_index(index).report();
+        sorted_issues.into_iter().enumerate().for_each(|(index, issue)| {
+            issue.with_index(index).report();
         });
     }
 }

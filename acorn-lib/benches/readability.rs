@@ -1,12 +1,11 @@
 #![allow(missing_docs)]
-
 use acorn::analyzer::readability::{
     automated_readability_index, coleman_liau_index, expand_acronyms, flesch_kincaid_grade_level, flesch_reading_ease_score, gunning_fog_index, lix,
     smog, syllable_count, word_count,
 };
 use acorn::prelude::HashMap;
+use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::hint::black_box;
 
 const SAMPLE_TEXT: &str = "ACORN standardizes and automates the research content creation process to better communicate projects, capabilities, and technology. Research project communication mediums should be straightforward and standardized, but the creation process is often cumbersome and involves multiple editing rounds among different teams.";
 

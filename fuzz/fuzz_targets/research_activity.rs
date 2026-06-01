@@ -1,5 +1,4 @@
 #![no_main]
-
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::ToProse;
 use libfuzzer_sys::fuzz_target;
@@ -10,7 +9,6 @@ fuzz_target!(|data: &[u8]| {
         let _ = rad.validate();
         let _ = rad.format().to_prose();
     }
-
     if let Ok(text) = core::str::from_utf8(data) {
         // libyml 0.0.5 can panic on crafted YAML inputs (overflow guard).
         // Suppress the libfuzzer_sys abort hook so catch_unwind can intercept.
