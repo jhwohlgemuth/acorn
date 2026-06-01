@@ -624,6 +624,7 @@ impl<'a> IntoRow<'a> for Check {
         Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
     }
 }
+#[cfg(feature = "analysis")]
 pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>
 where
     T: Analysis + InputOutput + ToProse,

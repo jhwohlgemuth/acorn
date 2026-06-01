@@ -100,6 +100,7 @@ criterion = "0.8.2"
 insta = { workspace = true, features = ["json", "yaml"] }
 mockall = "0.14.0"
 pretty_assertions = "1.4.1"
+proptest = "1.9.0"
 similar-asserts = "2.0.0"
 temp-env = "0.3.6"
 zench = "0.2.0"

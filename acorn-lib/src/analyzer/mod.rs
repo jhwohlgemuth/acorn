@@ -23,6 +23,7 @@ use crate::{check, check_err, check_ok};
 use crate::{cmd, skip};
 use crate::{Location, Repository};
 use async_trait::async_trait;
+#[cfg(feature = "analysis")]
 use bat::PrettyPrinter;
 use color_eyre::eyre::eyre;
 use color_eyre::owo_colors::OwoColorize;
@@ -47,8 +48,10 @@ pub mod error;
 pub mod readability;
 pub mod vale;
 
+pub use check::{Check, CheckCategory, CheckOptions, CheckSeverity, Standard};
+
 #[cfg(feature = "analysis")]
-pub use check::{checks_to_csv, checks_to_dataframe, summary, Analysis, Check, CheckCategory, CheckOptions, CheckSeverity, IntoRow, Standard};
+pub use check::{checks_to_csv, checks_to_dataframe, summary, Analysis, IntoRow};
 
 #[cfg(feature = "analysis")]
 use check::{check_prose_for, check_readability_for};
@@ -95,6 +98,7 @@ pub trait StaticAnalyzerConfig {
     /// Resolve package source: convert bare package name to download URL or pass through existing URL/path
     fn resolve_package(value: impl AsRef<str>) -> String;
 }
+#[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for Cff {
     fn standard() -> Standard {
@@ -250,6 +254,7 @@ impl Analysis for Cff {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
+#[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for Docx {
     fn standard() -> Standard {
@@ -285,6 +290,7 @@ impl Analysis for Docx {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
+#[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for ResearchActivity {
     fn standard() -> Standard {
@@ -380,6 +386,7 @@ impl Analysis for ResearchActivity {
             .join(filename)
     }
 }
+#[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for Text {
     fn standard() -> Standard {
@@ -415,6 +422,7 @@ impl Analysis for Text {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
+#[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for raid::Metadata {
     fn standard() -> Standard {
@@ -1056,6 +1064,7 @@ where
 /// Prints `text` to stdout using syntax highlighting for the specified `syntax`.
 ///
 /// `highlight` is an iterator of line numbers to highlight in the output.
+#[cfg(feature = "analysis")]
 pub fn pretty_print<I: IntoIterator<Item = usize>>(text: &str, syntax: ProgrammingLanguage, highlight: I) {
     let input = format!("{text}\n");
     let language = syntax.to_string();

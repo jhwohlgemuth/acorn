@@ -41,7 +41,6 @@ use futures::Future;
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
-use itertools::Itertools;
 use ring::digest::{Context, SHA256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -598,16 +597,23 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     }
     if path.is_dir() {
         match extensions {
-            | Some(values) => values
-                .into_iter()
-                .map(|extension| {
-                    let glob_pattern = pattern(path.clone(), extension);
-                    glob(&glob_pattern)
-                })
-                .filter_map(|x| x.ok())
-                .flat_map(paths_to_vec)
-                .unique()
-                .collect::<Vec<PathBuf>>(),
+            | Some(values) => {
+                values
+                    .into_iter()
+                    .map(|extension| {
+                        let glob_pattern = pattern(path.clone(), extension);
+                        glob(&glob_pattern)
+                    })
+                    .filter_map(|x| x.ok())
+                    .flat_map(paths_to_vec)
+                    .fold((HashSet::new(), Vec::new()), |(mut seen, mut ordered), path| {
+                        if seen.insert(path.clone()) {
+                            ordered.push(path);
+                        }
+                        (seen, ordered)
+                    })
+                    .1
+            }
             | None => match glob(&format!("{}/**/*", path.to_absolute_string())) {
                 | Ok(paths) => paths_to_vec(paths),
                 | Err(why) => {

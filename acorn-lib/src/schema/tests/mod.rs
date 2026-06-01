@@ -14,6 +14,7 @@ use crate::util::constants::env::DATABASE_PATH;
 use crate::util::{Constant, Searchable};
 use glob::glob;
 use pretty_assertions::assert_eq;
+use proptest::prelude::*;
 
 const VALID_ARK_VALUES: [&str; 8] = [
     "https://n2t.net/ark:99166/w66d60p2",
@@ -622,6 +623,28 @@ fn test_is_latlon() {
     let invalid_longitude = [-180.5_f64, 180.5_f64];
     for x in invalid_longitude.iter() {
         assert!(is_longitude(*x).is_err(), "=> [REASON] \"{x}\" IS a valid longitude value");
+    }
+}
+proptest! {
+    #[test]
+    fn prop_is_latitude_accepts_values_in_range(value in -90.0f64..=90.0f64) {
+        prop_assert!(is_latitude(value).is_ok());
+    }
+    #[test]
+    fn prop_is_latitude_rejects_values_out_of_range(
+        value in prop_oneof![-1000000.0f64..-90.0000001f64, 90.0000001f64..1000000.0f64]
+    ) {
+        prop_assert!(is_latitude(value).is_err());
+    }
+    #[test]
+    fn prop_is_longitude_accepts_values_in_range(value in -180.0f64..=180.0f64) {
+        prop_assert!(is_longitude(value).is_ok());
+    }
+    #[test]
+    fn prop_is_longitude_rejects_values_out_of_range(
+        value in prop_oneof![-1000000.0f64..-180.0000001f64, 180.0000001f64..1000000.0f64]
+    ) {
+        prop_assert!(is_longitude(value).is_err());
     }
 }
 #[tokio::test]

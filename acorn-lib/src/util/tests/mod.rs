@@ -13,6 +13,8 @@ use crate::io::{
 use crate::param;
 use crate::prelude::{Path, PathBuf};
 use crate::util::*;
+use crate::{cmd, param};
+use proptest::prelude::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;
 
@@ -476,4 +478,51 @@ fn test_is_uri_or_path() {
     assert!(!is_uri_or_path("Google"));
     assert!(!is_uri_or_path("proselint"));
     assert!(!is_uri_or_path("write-good"));
+}
+proptest! {
+    #[test]
+    fn prop_base32_round_trip(value in any::<u128>()) {
+        let encoded = base32_crockford_encode(value);
+        prop_assert_eq!(base32_crockford_decode(&encoded), Some(value));
+    }
+    #[test]
+    fn prop_base32_decode_is_separator_and_case_insensitive(value in any::<u128>()) {
+        let encoded = base32_crockford_encode(value).to_ascii_uppercase();
+        let decorated = format!("  {encoded}-_  ");
+        prop_assert_eq!(base32_crockford_decode(decorated), Some(value));
+    }
+    #[test]
+    fn prop_file_extension_extracts_suffix_for_simple_names(
+        stem in "[a-zA-Z0-9_]{1,32}",
+        ext in "[a-zA-Z0-9]{1,10}"
+    ) {
+        let name = format!("{stem}.{ext}");
+        prop_assert_eq!(file_extension(name), Some(ext));
+    }
+    #[test]
+    fn prop_file_extension_returns_none_without_dot(name in "[a-zA-Z0-9_/-]{1,64}") {
+        prop_assume!(!name.contains('.'));
+        prop_assert_eq!(file_extension(name), None);
+    }
+    #[test]
+    fn prop_suffix_only_singular_is_empty(value in any::<u16>()) {
+        let expected = if value == 1 { "" } else { "s" };
+        prop_assert_eq!(suffix(value), expected.to_string());
+    }
+    #[test]
+    fn prop_regex_join_none_iff_all_patterns_empty(patterns in prop::collection::vec(".*", 0..20)) {
+        let joined = regex_join(&patterns);
+        let has_any_non_empty = patterns.iter().any(|x| !x.is_empty());
+        prop_assert_eq!(joined.is_some(), has_any_non_empty);
+    }
+    #[test]
+    fn prop_format_bytes_has_known_unit(value in any::<u64>()) {
+        let formatted = format_bytes(value);
+        let unit = formatted.split_whitespace().last();
+        prop_assert!(matches!(unit, Some("B" | "KB" | "MB" | "GB" | "TB")));
+    }
+    #[test]
+    fn prop_format_bytes_below_1024_stays_in_bytes(value in 0u64..1024) {
+        prop_assert_eq!(format_bytes(value), format!("{value} B"));
+    }
 }
