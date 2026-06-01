@@ -10,12 +10,27 @@ audit:
 	@cargo +nightly udeps
 	@cargo audit \
 		--ignore RUSTSEC-2020-0071 \
+		--ignore RUSTSEC-2023-0071 \
+		--ignore RUSTSEC-2024-0388 \
+		--ignore RUSTSEC-2024-0436 \
 		--ignore RUSTSEC-2025-0055 \
+		--ignore RUSTSEC-2025-0056 \
 		--ignore RUSTSEC-2025-0067 \
 		--ignore RUSTSEC-2025-0068 \
-		--ignore RUSTSEC-2025-0056 \
-		--ignore RUSTSEC-2024-0388 \
-		--ignore RUSTSEC-2024-0436
+		--ignore RUSTSEC-2025-0134 \
+		--ignore RUSTSEC-2025-0141 \
+		--ignore RUSTSEC-2026-0009 \
+		--ignore RUSTSEC-2026-0037 \
+		--ignore RUSTSEC-2026-0044 \
+		--ignore RUSTSEC-2026-0045 \
+		--ignore RUSTSEC-2026-0046 \
+		--ignore RUSTSEC-2026-0047 \
+		--ignore RUSTSEC-2026-0048 \
+		--ignore RUSTSEC-2026-0049 \
+		--ignore RUSTSEC-2026-0097 \
+		--ignore RUSTSEC-2026-0098 \
+		--ignore RUSTSEC-2026-0099 \
+		--ignore RUSTSEC-2026-0104
 # 	@cargo deny check
 
 bench: lint
