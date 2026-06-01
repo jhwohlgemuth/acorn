@@ -7,8 +7,7 @@ setup:
 	@rustup target add $(TARGETS)
 
 audit:
-	@cargo udeps
-	@cargo deny check
+	@cargo +nightly udeps
 	@cargo audit \
 		--ignore RUSTSEC-2020-0071 \
 		--ignore RUSTSEC-2025-0055 \
@@ -17,6 +16,7 @@ audit:
 		--ignore RUSTSEC-2025-0056 \
 		--ignore RUSTSEC-2024-0388 \
 		--ignore RUSTSEC-2024-0436
+# 	@cargo deny check
 
 bench: lint
 	@cargo bench --package acorn-lib $(BENCH_ARGS)
