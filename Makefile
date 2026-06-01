@@ -19,7 +19,13 @@ audit:
 		--ignore RUSTSEC-2024-0436
 
 bench: lint
-	@cargo test bench --release --package acorn-lib
+	@cargo bench --package acorn-lib $(BENCH_ARGS)
+
+bench-baseline:
+	@$(MAKE) bench BENCH_ARGS="-- --save-baseline $(BENCH_BASELINE)"
+
+bench-compare:
+	@$(MAKE) bench BENCH_ARGS="-- --baseline $(BENCH_BASELINE)"
 
 book:
 	@mdbook clean docs
@@ -218,6 +224,7 @@ TARGETS = \
 	x86_64-pc-windows-gnu
 FUZZ_TARGET = research_activity
 FUZZ_ARGS =
+BENCH_BASELINE = $(VERSION)
 TASKS = \
 	audit \
 	book \
@@ -227,6 +234,9 @@ TASKS = \
 	clean \
 	cover \
 	doc \
+	bench \
+	bench-baseline \
+	bench-compare \
 	lint \
 	fuzz \
 	fuzz-repro \

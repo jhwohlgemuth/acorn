@@ -96,12 +96,21 @@ which = { version = "8.0.0", features = ["real-sys"], default-features = false, 
 zip = { version = "8.5.1", features = ["deflate"], default-features = false }
 
 [dev-dependencies]
+criterion = "0.8.2"
 insta = { workspace = true, features = ["json", "yaml"] }
 mockall = "0.14.0"
 pretty_assertions = "1.4.1"
 similar-asserts = "2.0.0"
 temp-env = "0.3.6"
 zench = "0.2.0"
+
+[[bench]]
+name = "research_activity"
+harness = false
+
+[[bench]]
+name = "readability"
+harness = false
 
 [features]
 agentic = ["dep:axum", "dep:rmcp", "dep:tower"]

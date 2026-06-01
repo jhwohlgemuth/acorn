@@ -37,9 +37,56 @@ If you would like to generously provide a pull request to correct a verified iss
 | Lint **ALL** code and run **ALL** tests  | `make lint test`   |
 | Run **ALL** tests                        | `make test`        |
 | Run **ALL** tests with coverage          | `make cover`       |
+| Run benchmarks                           | `make bench`       |
+| Save benchmark baseline                  | `make bench-baseline` |
+| Compare to saved baseline                | `make bench-compare` |
 | Run security audit on dependencies       | `make audit`       |
 | Generate documentation                   | `make doc`         |
 | Generate CHANGELOG<sup>[[1]](#1)</sup>   | `make changelog`   |
+
+### Benchmarking
+
+ACORN uses Criterion benchmarks for repeatable micro-performance measurements in `acorn-lib/benches/`.
+
+Run all library benchmarks:
+
+```shell
+make bench
+```
+
+Run only the research activity benchmark target:
+
+```shell
+cargo bench --package acorn-lib --bench research_activity
+```
+
+Run only the readability benchmark target:
+
+```shell
+cargo bench --package acorn-lib --bench readability
+```
+
+During local iteration, reduce runtime while preserving relative signal:
+
+```shell
+cargo bench --package acorn-lib --bench research_activity -- --sample-size 10
+```
+
+Analyze benchmark performance over time by saving and reusing Criterion baselines:
+
+```shell
+make bench-baseline
+make bench-compare
+```
+
+Use a named baseline for branch or release tracking:
+
+```shell
+make bench-baseline BENCH_BASELINE=release-0.1.56
+make bench-compare BENCH_BASELINE=release-0.1.56
+```
+
+Criterion stores benchmark history and comparisons under `target/criterion/`, including HTML reports and baseline deltas.
 
 ### Visual Studio Code Configuration
 **General Development**
