@@ -7,7 +7,8 @@
 )]
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
-    self, extract_template_keys, orcid, ror, Endpoint, IntoBody, Param, ParamStyle, RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,
+    self, extract_template_keys, orcid, require_non_empty_secret, ror, Endpoint, IntoBody, Param, ParamStyle, RemoteResource, Resource,
+    ResponseContent, INCLUDED_ENDPOINTS,
 };
 use crate::io::read_file;
 use crate::param;
@@ -187,6 +188,19 @@ fn test_extract_template_keys() {
     let keys = extract_template_keys(template);
     let expected: Vec<String> = vec![];
     assert_eq!(keys, expected);
+}
+#[test]
+fn test_require_non_empty_secret_rejects_empty_values() {
+    let why = require_non_empty_secret("   ", "GitLab", &["CI_JOB_TOKEN", "GITLAB_TOKEN"]).expect_err("empty token must fail");
+    let message = why.to_string();
+    assert!(message.contains("Missing required GitLab API token"));
+    assert!(message.contains("CI_JOB_TOKEN"));
+    assert!(message.contains("GITLAB_TOKEN"));
+}
+#[test]
+fn test_require_non_empty_secret_trims_and_accepts_value() {
+    let token = require_non_empty_secret("  secret-token  ", "RAiD", &["RAID_API_TOKEN"]).expect("non-empty token must pass");
+    assert_eq!(token, "secret-token");
 }
 #[test]
 fn test_into_body() {

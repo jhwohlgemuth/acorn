@@ -3,8 +3,8 @@
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
 use crate::io::api::{
-    Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, RemoteResource, ResponseContent, TreeEntryType, ValueValidator,
-    INCLUDED_ENDPOINTS,
+    require_non_empty_secret, Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, RemoteResource, ResponseContent, TreeEntryType,
+    ValueValidator, INCLUDED_ENDPOINTS,
 };
 use crate::io::config::{RunnerDetails, RunnerStatus, RunnerType};
 use crate::io::database::schema::{ProgrammingLanguageRow, Table};
@@ -13,6 +13,7 @@ use crate::io::{first_env_var, with_progress, ApiResult, ProgressType};
 use crate::param;
 use crate::prelude::var;
 use crate::prelude::HashMap;
+use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use crate::util::{Label, Searchable};
 use async_trait::async_trait;
 use bon::Builder;
@@ -23,6 +24,14 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::debug;
 
+/// Type for GitLab API descendent groups response
+pub type GroupsResponse = Vec<GroupDetails>;
+/// Type for GitLab API all runners response
+pub type RunnersResponse = Vec<RunnerMetadata>;
+/// Type for GitLab programming language entries
+pub type ProgrammingLanguageEntries = Vec<ProgrammingLanguageMetadata>;
+/// Type for GitLab project programming language usage entries
+pub type ProgrammingLanguageUseEntries = Vec<ProgrammingLanguageUseMetadata>;
 /// Trait for adding creation and registration functionality (e.g., runners, issues, merge requests, etc.)
 pub trait Create {
     /// Create a new instance of the struct with default values
@@ -40,14 +49,6 @@ pub trait Create {
         unimplemented!()
     }
 }
-/// Type for GitLab API descendent groups response
-pub type GroupsResponse = Vec<GroupDetails>;
-/// Type for GitLab API all runners response
-pub type RunnersResponse = Vec<RunnerMetadata>;
-/// Type for GitLab programming language entries
-pub type ProgrammingLanguageEntries = Vec<ProgrammingLanguageMetadata>;
-/// Type for GitLab project programming language usage entries
-pub type ProgrammingLanguageUseEntries = Vec<ProgrammingLanguageUseMetadata>;
 /// Access level of the runner
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -728,7 +729,7 @@ impl RunnerMetadata {
 }
 impl Configuration for Options {
     /// Build options from common GitLab CI environment variables.
-    /// - `CI_JOB_TOKEN` -> `token` (defaults to empty string when unset)
+    /// - `CI_JOB_TOKEN` or `GITLAB_TOKEN` -> `token`
     /// - `CI_PROJECT_ID` -> `identifier`
     /// - `CI_MERGE_REQUEST_IID` -> `internal_identifier`
     /// - `CI_SERVER_HOST` -> `domain` (defaults to gitlab.com when unset)
@@ -739,7 +740,7 @@ impl Configuration for Options {
             debug!("=> {} Load .env — {why}", Label::skip());
         }
         Self {
-            token: first_env_var(&["CI_JOB_TOKEN", "GITLAB_TOKEN"]).unwrap_or_default(),
+            token: first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES).unwrap_or_default(),
             identifier: var("CI_PROJECT_ID").ok(),
             internal_identifier: var("CI_MERGE_REQUEST_IID").ok(),
             domain: var("CI_SERVER_HOST").unwrap_or_else(|_| "gitlab.com".to_string()),
@@ -1041,43 +1042,47 @@ pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationRespons
     }
     let template = "gitlab::api";
     let action = "runner::create";
+    let path = format!("{template}::{action}");
     let runner_metadata = &options.runner_metadata;
     let runner_type = &runner_metadata.runner_type;
     let description = runner_metadata.description.as_deref().unwrap_or_default();
     let tags = runner_metadata.tags.as_deref().unwrap_or_default();
     let run_untagged = runner_metadata.run_untagged;
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
-        | Ok(endpoint) => {
-            let mut params = vec![
-                param!(Header, "PRIVATE-TOKEN", &options.token),
-                param!(Body, "description", &description),
-                param!(Body, &format!("{runner_type}_id"), &options.identifier.as_deref().unwrap_or_default()),
-                param!(Body, "runner_type", &format!("{runner_type}_type")),
-                param!(Body, "run_untagged", &run_untagged.to_string()),
-            ];
-            if !tags.is_empty() {
-                params.push(param!(Body, "tag_list", &tags.join(",")));
+    match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+            | Ok(endpoint) => {
+                let mut params = vec![
+                    param!(Header, "PRIVATE-TOKEN", &token),
+                    param!(Body, "description", &description),
+                    param!(Body, &format!("{runner_type}_id"), &options.identifier.as_deref().unwrap_or_default()),
+                    param!(Body, "runner_type", &format!("{runner_type}_type")),
+                    param!(Body, "run_untagged", &run_untagged.to_string()),
+                ];
+                if !tags.is_empty() {
+                    params.push(param!(Body, "tag_list", &tags.join(",")));
+                }
+                let response = endpoint.invoke(action, Some(params)).await;
+                match response {
+                    | Ok(ResponseContent::Json(content)) => match serde_json::from_str::<StrictRunnerCreationResponse>(&content) {
+                        | Ok(parsed) => Ok(RunnerCreationResponse {
+                            identifier: parsed.identifier,
+                            token: parsed.token,
+                            token_expires_at: parsed.token_expires_at,
+                        }),
+                        | Err(_) => {
+                            let rendered = serde_json::from_str::<serde_json::Value>(&content)
+                                .ok()
+                                .and_then(|value| serde_json::to_string_pretty(&value).ok())
+                                .unwrap_or(content);
+                            Err(eyre!("{rendered}"))
+                        }
+                    },
+                    | Ok(other) => endpoint.handle::<RunnerCreationResponse>(Ok(other)),
+                    | Err(why) => Err(why),
+                }
             }
-            let response = endpoint.invoke(action, Some(params)).await;
-            match response {
-                | Ok(ResponseContent::Json(content)) => match serde_json::from_str::<StrictRunnerCreationResponse>(&content) {
-                    | Ok(parsed) => Ok(RunnerCreationResponse {
-                        identifier: parsed.identifier,
-                        token: parsed.token,
-                        token_expires_at: parsed.token_expires_at,
-                    }),
-                    | Err(_) => {
-                        let rendered = serde_json::from_str::<serde_json::Value>(&content)
-                            .ok()
-                            .and_then(|value| serde_json::to_string_pretty(&value).ok())
-                            .unwrap_or(content);
-                        Err(eyre!("{rendered}"))
-                    }
-                },
-                | Ok(other) => endpoint.handle::<RunnerCreationResponse>(Ok(other)),
-                | Err(why) => Err(why),
-            }
-        }
+            | Err(why) => Err(why),
+        },
         | Err(why) => Err(why),
     }
 }
@@ -1085,17 +1090,21 @@ pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationRespons
 pub async fn groups(options: &Options) -> ApiResult<GroupsResponse> {
     let template = "gitlab::api";
     let action = "groups";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
-        | Ok(endpoint) => {
-            let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &options.token),
-                param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-                param!(FieldList, "page", "1"),
-                param!(KeyValuePair, "per_page", "100"),
-            ];
-            let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
-            endpoint.handle_or::<GroupsResponse, Fallback<ErrorResponse>>(response)
-        }
+    let path = format!("{template}::{action}");
+    match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+            | Ok(endpoint) => {
+                let params = vec![
+                    param!(Header, "PRIVATE-TOKEN", &token),
+                    param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
+                    param!(FieldList, "page", "1"),
+                    param!(KeyValuePair, "per_page", "100"),
+                ];
+                let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+                endpoint.handle_or::<GroupsResponse, Fallback<ErrorResponse>>(response)
+            }
+            | Err(why) => Err(why),
+        },
         | Err(why) => Err(why),
     }
 }
@@ -1105,15 +1114,19 @@ pub async fn groups(options: &Options) -> ApiResult<GroupsResponse> {
 pub async fn language_use(options: &Options) -> ApiResult<ProgrammingLanguageUseResponse> {
     let template = "gitlab::api";
     let action = "languages";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
-        | Ok(endpoint) => {
-            let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &options.token),
-                param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-            ];
-            let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
-            endpoint.handle::<ProgrammingLanguageUseResponse>(response)
-        }
+    let path = format!("{template}::{action}");
+    match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+            | Ok(endpoint) => {
+                let params = vec![
+                    param!(Header, "PRIVATE-TOKEN", &token),
+                    param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
+                ];
+                let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+                endpoint.handle::<ProgrammingLanguageUseResponse>(response)
+            }
+            | Err(why) => Err(why),
+        },
         | Err(why) => Err(why),
     }
 }
@@ -1133,14 +1146,22 @@ pub async fn languages() -> ApiResult<ProgrammingLanguagesResponse> {
             | None => Err(eyre!("{name} API endpoint not found")),
         }
     }
+    let mut response: Option<ProgrammingLanguagesResponse> = None;
     let mut errors = Vec::new();
     for name in names {
+        let path = format!("{name}::{action}");
         match fetch(name, action).await {
-            | Ok(response) => return Ok(response),
-            | Err(why) => errors.push(format!("{name}={why}")),
+            | Ok(value) => {
+                response = Some(value);
+                break;
+            }
+            | Err(why) => errors.push(format!("{path}={why}")),
         }
     }
-    Err(eyre!("Failed to download and parse language metadata — {}", errors.join("; ")))
+    match response {
+        | Some(value) => Ok(value),
+        | None => Err(eyre!("Failed to download and parse language metadata — {}", errors.join("; "))),
+    }
 }
 /// Add a note (comment) to a merge request using project identifier and merge request IID
 ///
@@ -1151,22 +1172,26 @@ pub async fn languages() -> ApiResult<ProgrammingLanguagesResponse> {
 pub async fn merge_request_note(options: &Options) -> ApiResult<MergeRequestNoteResponse> {
     let template = "gitlab::api";
     let action = "merge-request-note";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
-        | Ok(endpoint) => {
-            let body = options.body.as_deref().unwrap_or_default();
-            let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &options.token),
-                param!(Body, "body", &body),
-                param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-                param!(
-                    TemplateValue,
-                    "internal_identifier",
-                    &options.internal_identifier.as_deref().unwrap_or_default()
-                ),
-            ];
-            let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
-            endpoint.handle::<MergeRequestNoteResponse>(response)
-        }
+    let path = format!("{template}::{action}");
+    match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+            | Ok(endpoint) => {
+                let body = options.body.as_deref().unwrap_or_default();
+                let params = vec![
+                    param!(Header, "PRIVATE-TOKEN", &token),
+                    param!(Body, "body", &body),
+                    param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
+                    param!(
+                        TemplateValue,
+                        "internal_identifier",
+                        &options.internal_identifier.as_deref().unwrap_or_default()
+                    ),
+                ];
+                let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+                endpoint.handle::<MergeRequestNoteResponse>(response)
+            }
+            | Err(why) => Err(why),
+        },
         | Err(why) => Err(why),
     }
 }
@@ -1174,15 +1199,19 @@ pub async fn merge_request_note(options: &Options) -> ApiResult<MergeRequestNote
 pub async fn runner(options: &Options) -> ApiResult<RunnerMetadata> {
     let template = "gitlab::api";
     let action = "runner";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
-        | Ok(endpoint) => {
-            let params = vec![
-                param!(Header, "PRIVATE-TOKEN", &options.token),
-                param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-            ];
-            let response = endpoint.invoke(action, Some(params)).await;
-            endpoint.handle::<RunnerMetadata>(response)
-        }
+    let path = format!("{template}::{action}");
+    match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+            | Ok(endpoint) => {
+                let params = vec![
+                    param!(Header, "PRIVATE-TOKEN", &token),
+                    param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
+                ];
+                let response = endpoint.invoke(action, Some(params)).await;
+                endpoint.handle::<RunnerMetadata>(response)
+            }
+            | Err(why) => Err(why),
+        },
         | Err(why) => Err(why),
     }
 }
@@ -1190,12 +1219,16 @@ pub async fn runner(options: &Options) -> ApiResult<RunnerMetadata> {
 pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
     let template = "gitlab::api";
     let action = "runners";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
-        | Ok(endpoint) => {
-            let params = vec![param!(Header, "PRIVATE-TOKEN", &options.token)];
-            let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
-            endpoint.handle_or::<RunnersResponse, Fallback<ErrorResponse>>(response)
-        }
+    let path = format!("{template}::{action}");
+    match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+            | Ok(endpoint) => {
+                let params = vec![param!(Header, "PRIVATE-TOKEN", &token)];
+                let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+                endpoint.handle_or::<RunnersResponse, Fallback<ErrorResponse>>(response)
+            }
+            | Err(why) => Err(why),
+        },
         | Err(why) => Err(why),
     }
 }
@@ -1213,7 +1246,7 @@ pub(crate) async fn tree_paths(options: &Options) -> ApiResult<TreeResponse> {
                 param!(KeyValuePair, "path", &options.path.as_deref().unwrap_or_default()),
             ];
             let token = if options.token.trim().is_empty() {
-                first_env_var(&["GITLAB_TOKEN", "CI_JOB_TOKEN", "PRIVATE_TOKEN"])
+                first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES)
             } else {
                 Some(options.token.clone())
             };

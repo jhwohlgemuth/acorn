@@ -98,20 +98,9 @@ Excluded:
   1. Extract setup units: logging, runtime/thread pool, database bootstrap, command dispatch.
   2. Keep main as orchestration glue with uniform error boundary.
 
-### 8. Enforce required API token contracts (avoid silent empty defaults)
-- Difficulty: Medium
-- Why: Empty-token defaults produce ambiguous auth failures and weaker security posture.
-- Evidence:
-  - `acorn-lib/src/io/api/raid.rs`
-  - `acorn-lib/src/io/api/gitlab.rs`
-  - `acorn-lib/src/io/api/mod.rs`
-- Recommendation:
-  1. Replace permissive defaults with explicit required-secret checks where mandatory.
-  2. Redact sensitive values from surfaced error context.
-
 ## Medium Impact
 
-### 9. Standardize export handler error/progress contract
+### 8. Standardize export handler error/progress contract
 - Difficulty: Low
 - Why: Handler pattern exists but per-format error paths and progress treatment remain inconsistent.
 - Evidence:
@@ -120,7 +109,7 @@ Excluded:
   1. Keep `ExportHandler` pattern.
   2. Normalize failure mapping and progress completion in one adapter layer.
 
-### 10. Consolidate interpolation primitives under one shared utility
+### 9. Consolidate interpolation primitives under one shared utility
 - Difficulty: Low
 - Why: Placeholder logic is split between generic interpolation and PowerPoint-specific behavior.
 - Evidence:
@@ -130,7 +119,7 @@ Excluded:
   1. Extend shared interpolation trait(s) for list/bullet use-cases.
   2. Remove parallel interpolation stacks.
 
-### 11. Introduce stronger shared API-client contract
+### 10. Introduce stronger shared API-client contract
 - Difficulty: Medium
 - Why: API modules repeat health/auth/endpoint patterns without a fully unified contract.
 - Evidence:
@@ -141,7 +130,7 @@ Excluded:
   1. Expand common trait surface for health, auth, endpoint rendering, and error normalization.
   2. Move duplicated logic behind shared helper modules.
 
-### 12. Reduce binding-layer repetition in Python wrapper
+### 11. Reduce binding-layer repetition in Python wrapper
 - Difficulty: Medium
 - Why: Wrapper boilerplate increases maintenance cost and schema drift risk.
 - Evidence:
@@ -152,7 +141,7 @@ Excluded:
 
 ## Lower Impact
 
-### 13. Tighten schema I/O and format validation handoff between CLI and library
+### 12. Tighten schema I/O and format validation handoff between CLI and library
 - Difficulty: High
 - Why: CLI and library each carry partial format assumptions and validation behavior.
 - Evidence:
@@ -163,7 +152,7 @@ Excluded:
   1. Extend `InputOutput` with stricter read/validate variants.
   2. Make CLI rely on library-side strict format validation consistently.
 
-### 14. Replace unfinished stubs with explicit unsupported-capability errors
+### 13. Replace unfinished stubs with explicit unsupported-capability errors
 - Difficulty: Low
 - Why: Placeholder stubs are less predictable than explicit capability contracts.
 - Evidence:
@@ -174,7 +163,7 @@ Excluded:
   1. Return explicit unsupported errors with actionable messages.
   2. Gate partially implemented capabilities behind feature flags/capability checks.
 
-### 15. Separate parsed CLI model from execution options model
+### 14. Separate parsed CLI model from execution options model
 - Difficulty: Medium
 - Why: Routing and options conversion remain repetitive and tightly coupled.
 - Evidence:

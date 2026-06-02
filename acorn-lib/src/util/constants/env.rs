@@ -10,3 +10,7 @@ pub const NO_LOCAL_DATABASE: &str = "ACORN_NO_LOCAL_DATABASE";
 pub const READABILITY_METRIC: &str = "ACORN_READABILITY_METRIC";
 /// Environment variable used to set minimum shell-lint severity.
 pub const SHELL_LINT_MIN_SEVERITY: &str = "ACORN_SHELL_LINT_MIN_SEVERITY";
+/// Environment variable names used to resolve GitLab API tokens.
+pub const GITLAB_TOKEN_VARIABLE_NAMES: [&str; 3] = ["CI_JOB_TOKEN", "GITLAB_TOKEN", "PRIVATE_TOKEN"];
+/// Environment variable names used to resolve RAiD API tokens.
+pub const RAID_TOKEN_VARIABLE_NAMES: [&str; 1] = ["RAID_API_TOKEN"];

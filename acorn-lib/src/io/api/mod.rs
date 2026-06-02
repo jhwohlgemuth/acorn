@@ -887,6 +887,18 @@ pub(crate) fn render(template: &str, context: &mut Context) -> String {
     });
     tera.render_str(template, context).unwrap_or_default()
 }
+/// Validate that a required secret is present and non-empty
+/// ### Note
+/// The returned error intentionally excludes secret values
+pub(crate) fn require_non_empty_secret(secret: &str, path: &str, names: &[&str]) -> ApiResult<String> {
+    let value = secret.trim();
+    if value.is_empty() {
+        let env_list = names.join(", ");
+        Err(eyre!("Missing required token for {path} request. Set one of: {env_list}"))
+    } else {
+        Ok(value.to_string())
+    }
+}
 
 #[cfg(test)]
 mod tests;

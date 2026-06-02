@@ -2,11 +2,12 @@
 //!
 //! See <https://metadata.raid.org> for more information
 //!
-use crate::io::api::{ApiResult, Configuration, Endpoint, Fallback, RemoteResource};
+use crate::io::api::{require_non_empty_secret, ApiResult, Configuration, Endpoint, Fallback, RemoteResource};
 use crate::param;
 use crate::prelude::var;
 use crate::schema::pid::raid::Metadata;
 use crate::schema::validate::is_ror;
+use crate::util::constants::env::RAID_TOKEN_VARIABLE_NAMES;
 use crate::util::Label;
 use bon::Builder;
 use color_eyre::eyre::eyre;
@@ -161,7 +162,7 @@ pub struct ServicePointResponse {
 }
 impl Configuration for Options {
     /// Build options from RAiD environment variables
-    /// - `RAID_API_TOKEN` -> `token` (defaults to empty string when unset)
+    /// - `RAID_API_TOKEN` -> `token`
     /// - `RAID_SERVER_HOST` -> `domain` (defaults to api.raid.org when unset)
     fn from_env() -> Self {
         if let Err(why) = dotenvy::from_filename(".env") {
@@ -212,18 +213,22 @@ impl Options {
 pub async fn create_record(options: Options) -> ApiResult<Metadata> {
     let template = "raid::api";
     let action = "record::create";
+    let path = format!("{template}::{action}");
     let Options { token, domain, metadata, .. } = options;
-    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
-        | Ok(endpoint) => match metadata {
-            | Some(value) => match serde_json::to_string(&value) {
-                | Ok(body) => {
-                    let params = vec![param!(Header, "Authorization", &format!("Bearer {token}")), param!(Body, &body)];
-                    let response = endpoint.invoke(action, Some(params)).await;
-                    endpoint.handle_or::<Metadata, Fallback<ErrorResponse>>(response)
-                }
-                | Err(why) => Err(eyre!("Failed to serialize RAiD metadata to JSON — {why:#?}")),
+    match require_non_empty_secret(&token, &path, &RAID_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
+            | Ok(endpoint) => match metadata {
+                | Some(value) => match serde_json::to_string(&value) {
+                    | Ok(body) => {
+                        let params = vec![param!(Header, "Authorization", &format!("Bearer {token}")), param!(Body, &body)];
+                        let response = endpoint.invoke(action, Some(params)).await;
+                        endpoint.handle_or::<Metadata, Fallback<ErrorResponse>>(response)
+                    }
+                    | Err(why) => Err(eyre!("Failed to serialize RAiD metadata to JSON — {why:#?}")),
+                },
+                | None => Err(eyre!("RAiD metadata is required for creating a record")),
             },
-            | None => Err(eyre!("RAiD metadata is required for creating a record")),
+            | Err(why) => Err(why),
         },
         | Err(why) => Err(why),
     }
@@ -242,24 +247,28 @@ pub async fn create_record(options: Options) -> ApiResult<Metadata> {
 pub async fn record(options: Options) -> ApiResult<Vec<Metadata>> {
     let template = "raid::api";
     let action = "record";
+    let path = format!("{template}::{action}");
     let Options {
         identifier, token, domain, ..
     } = options;
-    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
-        | Ok(endpoint) => match identifier {
-            | Some(value) if !value.is_empty() => {
-                let params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle::<Metadata>(response).map(|r| vec![r])
-            }
-            | Some(_) | None => {
-                let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle::<Vec<Metadata>>(response)
-            }
+    match require_non_empty_secret(&token, &path, &RAID_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
+            | Ok(endpoint) => match identifier {
+                | Some(value) if !value.is_empty() => {
+                    let params = vec![
+                        param!(Header, "Authorization", &format!("Bearer {token}")),
+                        param!(TemplateValue, "identifier", &value),
+                    ];
+                    let response = endpoint.invoke(action, Some(params)).await;
+                    endpoint.handle::<Metadata>(response).map(|r| vec![r])
+                }
+                | Some(_) | None => {
+                    let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
+                    let response = endpoint.invoke(action, Some(params)).await;
+                    endpoint.handle::<Vec<Metadata>>(response)
+                }
+            },
+            | Err(why) => Err(why),
         },
         | Err(why) => Err(why),
     }
@@ -278,24 +287,28 @@ pub async fn record(options: Options) -> ApiResult<Vec<Metadata>> {
 pub async fn service_point(options: Options) -> ApiResult<Vec<ServicePointResponse>> {
     let template = "raid::api";
     let action = "service-point";
+    let path = format!("{template}::{action}");
     let Options {
         token, domain, identifier, ..
     } = options;
-    match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
-        | Ok(endpoint) => match identifier {
-            | Some(value) if !value.is_empty() => {
-                let params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle::<ServicePointResponse>(response).map(|r| vec![r])
-            }
-            | Some(_) | None => {
-                let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle::<Vec<ServicePointResponse>>(response)
-            }
+    match require_non_empty_secret(&token, &path, &RAID_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
+            | Ok(endpoint) => match identifier {
+                | Some(value) if !value.is_empty() => {
+                    let params = vec![
+                        param!(Header, "Authorization", &format!("Bearer {token}")),
+                        param!(TemplateValue, "identifier", &value),
+                    ];
+                    let response = endpoint.invoke(action, Some(params)).await;
+                    endpoint.handle::<ServicePointResponse>(response).map(|r| vec![r])
+                }
+                | Some(_) | None => {
+                    let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
+                    let response = endpoint.invoke(action, Some(params)).await;
+                    endpoint.handle::<Vec<ServicePointResponse>>(response)
+                }
+            },
+            | Err(why) => Err(why),
         },
         | Err(why) => Err(why),
     }
