@@ -1,4 +1,6 @@
-use acorn::io::{files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored};
+use acorn::io::{
+    files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored, filter_ignored_with_root, ApiResult,
+};
 use acorn::prelude::PathBuf;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
 use acorn::util::{regex_inverse, regex_join};
@@ -9,8 +11,6 @@ use clap::builder::{
 };
 use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
-use fancy_regex::Regex;
-use tracing::error;
 
 pub mod arguments;
 use arguments::{CheckCategoryArgument, DatabaseBackend, Diagnostic, FileFormat, ReadabilityTypeArgument, Standard};
@@ -66,7 +66,7 @@ pub struct CommandOptions {
 /// If none of the above options are set, the files in the given path are returned.
 /// If the options include a filter regex, only matching files are returned.
 /// If the options include an ignore regex, it is applied to the files returned.
-pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> Vec<PathBuf> {
+pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> ApiResult<Vec<PathBuf>> {
     let extensions = Some(vec!["JSON", "YAML"]);
     let CommandOptions {
         branch,
@@ -97,39 +97,13 @@ pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> 
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
+
     match regex_join(&patterns) {
         | Some(pattern) => match local_base {
-            | Some(root) => filter_by_pattern(files, pattern, root),
+            | Some(root) => filter_ignored_with_root(files, Some(pattern), root),
             | None => filter_ignored(files, Some(pattern)),
         },
-        | None => files,
-    }
-}
-fn filter_by_pattern(paths: Vec<PathBuf>, pattern: String, root: PathBuf) -> Vec<PathBuf> {
-    let root = if root.is_file() {
-        root.parent().map(|value| value.to_path_buf()).unwrap_or(root)
-    } else {
-        root
-    };
-    let normalized_root = root.canonicalize().unwrap_or(root);
-    match Regex::new(&pattern) {
-        | Ok(re) => paths
-            .into_iter()
-            .filter(|path| {
-                let value = path
-                    .canonicalize()
-                    .unwrap_or_else(|_| path.clone())
-                    .strip_prefix(&normalized_root)
-                    .map(|relative| relative.to_string_lossy().to_string())
-                    .unwrap_or_else(|_| path.to_string_lossy().to_string())
-                    .replace('\\', "/");
-                !re.is_match(&value).unwrap_or(false)
-            })
-            .collect(),
-        | Err(why) => {
-            error!("=> Filter ignored - {why}");
-            vec![]
-        }
+        | None => Ok(files),
     }
 }
 /// "Plant an ACORN and grow your science"

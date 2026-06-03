@@ -768,23 +768,59 @@ pub fn filter_git_command_result(value: String, extensions: Option<Vec<&str>>) -
 /// let paths = vec![PathBuf::from("/path/to/foo.txt"), PathBuf::from("/path/to/bar.txt")];
 /// let ignore = Some("*.txt".to_string());
 /// let result = filter_ignored(paths, ignore);
-/// assert!(result.is_empty());
+/// assert!(result.unwrap().is_empty());
 /// ```
-pub fn filter_ignored(paths: Vec<PathBuf>, ignore: Option<String>) -> Vec<PathBuf> {
+pub fn filter_ignored(paths: Vec<PathBuf>, ignore: Option<String>) -> ApiResult<Vec<PathBuf>> {
     match ignore {
         | Some(ignore_pattern) => match Regex::new(&ignore_pattern) {
-            | Ok(re) => paths
+            | Ok(re) => Ok(paths
                 .into_iter()
                 .map(to_absolute_string)
                 .filter(|x| !re.is_match(x).unwrap_or(false))
                 .map(PathBuf::from)
-                .collect(),
-            | Err(why) => {
-                error!("=> {} Filter ignored - {why}", Label::fail());
-                vec![]
-            }
+                .collect()),
+            | Err(why) => Err(eyre!("Invalid regex/filter pattern: {why}")),
         },
-        | None => paths,
+        | None => Ok(paths),
+    }
+}
+/// Return file paths that do not match an ignore pattern relative to a local root path.
+///
+/// This applies root containment checks and normalized relative-path matching.
+pub fn filter_ignored_with_root(paths: Vec<PathBuf>, ignore: Option<String>, root: PathBuf) -> ApiResult<Vec<PathBuf>> {
+    match ignore {
+        | Some(ignore_pattern) => match Regex::new(&ignore_pattern) {
+            | Ok(re) => {
+                let root = if root.is_file() {
+                    root.parent().map(|value| value.to_path_buf()).unwrap_or(root)
+                } else {
+                    root
+                };
+                let normalized_root = canonicalize(root.clone()).unwrap_or(root);
+                let mut filtered: Vec<PathBuf> = vec![];
+                for path in paths {
+                    let normalized_path = canonicalize(path.clone()).unwrap_or(path.clone());
+                    match normalized_path.strip_prefix(&normalized_root) {
+                        | Ok(relative) => {
+                            let value = relative.to_string_lossy().to_string().replace('\\', "/");
+                            if !re.is_match(&value).unwrap_or(false) {
+                                filtered.push(path);
+                            }
+                        }
+                        | Err(_) => {
+                            return Err(eyre!(
+                                "Path '{}' is outside resolved root '{}'",
+                                normalized_path.to_absolute_string(),
+                                normalized_root.to_absolute_string()
+                            ));
+                        }
+                    }
+                }
+                Ok(filtered)
+            }
+            | Err(why) => Err(eyre!("Invalid regex/filter pattern: {why}")),
+        },
+        | None => Ok(paths),
     }
 }
 /// Returns the value of the first environment variable in the list that is set

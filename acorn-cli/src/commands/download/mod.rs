@@ -39,52 +39,55 @@ pub async fn run(
         .quiet(quiet)
         .threads(threads)
         .build();
-    if let Some(path) = ApplicationConfiguration::resolve(config) {
+    let result: Result<(), Report> = if let Some(path) = ApplicationConfiguration::resolve(config) {
         match ApplicationConfiguration::read(path.clone()) {
             | Ok(content) => {
                 let mut total: usize = 0;
+                let mut branch_result: Result<(), Report> = Ok(());
                 if let Some(buckets) = content.buckets {
-                    if let Some(path) = output.clone() {
-                        let bucket_options = options.clone().with_output(path);
+                    if let Some(output_path) = output.clone() {
+                        let bucket_options = options.clone().with_output(output_path);
                         for bucket in buckets {
-                            if offline || bucket.code_repository.is_local() {
-                                match bucket.copy_files(&bucket_options).await {
-                                    | Ok(count) => {
-                                        total = total.saturating_add(count);
-                                    }
-                                    | Err(why) => {
-                                        error!("=> {} Copy data — {why}", Label::fail());
-                                        return Err(why);
-                                    }
-                                }
+                            let is_local = offline || bucket.code_repository.is_local();
+                            let bucket_result = if is_local {
+                                bucket.copy_files(&bucket_options).await
                             } else {
-                                match bucket.download_files(&bucket_options).await {
-                                    | Ok(count) => {
-                                        total = total.saturating_add(count);
-                                    }
-                                    | Err(why) => {
+                                bucket.download_files(&bucket_options).await
+                            };
+                            match bucket_result {
+                                | Ok(count) => {
+                                    total = total.saturating_add(count);
+                                }
+                                | Err(why) => {
+                                    if is_local {
+                                        error!("=> {} Copy data — {why}", Label::fail());
+                                    } else {
                                         error!("=> {} Download data — {why}", Label::fail());
-                                        return Err(why);
                                     }
+                                    branch_result = Err(why);
+                                    break;
                                 }
                             }
                         }
                     }
                 }
-                if let Some(path) = output {
-                    let activity = ActivityRow::init()
-                        .command("download")
-                        .executed_at(chrono::Utc::now())
-                        .user_path(path.to_absolute_string())
-                        .success(true)
-                        .build();
-                    if let Err(why) = database.insert(activity) {
-                        error!("=> {} Save download activity — {why}", Label::fail());
+                if branch_result.is_ok() {
+                    if let Some(path) = output {
+                        let activity = ActivityRow::init()
+                            .command("download")
+                            .executed_at(chrono::Utc::now())
+                            .user_path(path.to_absolute_string())
+                            .success(true)
+                            .build();
+                        if let Err(why) = database.insert(activity) {
+                            error!("=> {} Save download activity — {why}", Label::fail());
+                        }
+                    }
+                    if !quiet {
+                        println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
                     }
                 }
-                if !quiet {
-                    println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
-                }
+                branch_result
             }
             | Err(why) => {
                 error!("=> {} Download data — {why}", Label::fail());
@@ -99,56 +102,60 @@ pub async fn run(
                 }
                 exit(exitcode::DATAERR);
             }
-        };
+        }
     } else if let Some(value) = url {
         let mut total: usize = 0;
         let bucket = Bucket::from(value.as_ref());
+        let mut branch_result: Result<(), Report> = Ok(());
         if let Some(path) = output.clone() {
             let bucket_options = options.clone().with_output(path.clone());
-            if offline || bucket.code_repository.is_local() {
-                match bucket.copy_files(&bucket_options).await {
-                    | Ok(count) => {
-                        total = total.saturating_add(count);
-                    }
-                    | Err(why) => {
-                        error!("=> {} Copy data — {why}", Label::fail());
-                        return Err(why);
-                    }
-                }
+            let is_local = offline || bucket.code_repository.is_local();
+            let bucket_result = if is_local {
+                bucket.copy_files(&bucket_options).await
             } else {
-                match bucket.download_files(&bucket_options).await {
-                    | Ok(count) => {
-                        total = total.saturating_add(count);
-                    }
-                    | Err(why) => {
+                bucket.download_files(&bucket_options).await
+            };
+            match bucket_result {
+                | Ok(count) => {
+                    total = total.saturating_add(count);
+                }
+                | Err(why) => {
+                    if is_local {
+                        error!("=> {} Copy data — {why}", Label::fail());
+                    } else {
                         error!("=> {} Download data — {why}", Label::fail());
-                        return Err(why);
                     }
+                    branch_result = Err(why);
                 }
             }
-            let activity = ActivityRow::init()
-                .command("download")
-                .executed_at(chrono::Utc::now())
-                .user_path(path.to_absolute_string())
-                .success(true)
-                .build();
-            if let Err(why) = database.insert(activity) {
-                error!("=> {} Save download activity — {why}", Label::fail());
-            }
-            if !quiet {
-                println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
+            if branch_result.is_ok() {
+                let activity = ActivityRow::init()
+                    .command("download")
+                    .executed_at(chrono::Utc::now())
+                    .user_path(path.to_absolute_string())
+                    .success(true)
+                    .build();
+                if let Err(why) = database.insert(activity) {
+                    error!("=> {} Save download activity — {why}", Label::fail());
+                }
+                if !quiet {
+                    println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
+                }
             }
         }
+        branch_result
     } else if !quiet {
         println!(
             "\n\n   => {} No URL or configuration file found. Provide a URL or create one of: {}\n",
             Label::fail(),
             DEFAULT_CONFIG_FILENAMES.join(", ")
         );
+        Ok(())
     } else {
         error!("=> {} No URL or configuration file found for download command", Label::fail());
-    }
-    Ok(())
+        Ok(())
+    };
+    result
 }
 
 #[cfg(test)]

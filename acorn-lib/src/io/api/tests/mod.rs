@@ -193,7 +193,7 @@ fn test_extract_template_keys() {
 fn test_require_non_empty_secret_rejects_empty_values() {
     let why = require_non_empty_secret("   ", "GitLab", &["CI_JOB_TOKEN", "GITLAB_TOKEN"]).expect_err("empty token must fail");
     let message = why.to_string();
-    assert!(message.contains("Missing required GitLab API token"));
+    assert!(message.contains("Missing required token for"));
     assert!(message.contains("CI_JOB_TOKEN"));
     assert!(message.contains("GITLAB_TOKEN"));
 }

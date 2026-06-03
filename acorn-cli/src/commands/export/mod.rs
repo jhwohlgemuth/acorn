@@ -97,48 +97,52 @@ impl ExportHandler for PdfExportHandler {
         Box::pin(async move {
             #[cfg(feature = "pdf")]
             {
-                let items = resolve_paths(request.path, &request.options).await;
-                let playwright = Playwright::initialize()
-                    .await
-                    .map_err(|why| eyre!("Failed to initialize Playwright — {why}"))?;
-                playwright
-                    .install_chromium()
-                    .map_err(|why| eyre!("Failed to install Chromium for Playwright — {why}"))?;
-                let browser = playwright
-                    .chromium()
-                    .launcher()
-                    .headless(true)
-                    .launch()
-                    .await
-                    .map_err(|why| eyre!("Failed to launch Chromium — {why}"))?;
-                let context = browser
-                    .context_builder()
-                    .build()
-                    .await
-                    .map_err(|why| eyre!("Failed to create browser context — {why}"))?;
-                let page = context.new_page().await.map_err(|why| eyre!("Failed to create browser page — {why}"))?;
-                let page = &page;
-                let progress = with_progress(
-                    items,
-                    |path| format!("Generating PDF for {}", path.file_name_with_parent()),
-                    |path| async move {
-                        let pdf_options = CommandOptions::init().path(path.clone()).maybe_output(request.output.clone()).build();
-                        pdf::create(page, pdf_options).await;
-                        Ok(())
-                    },
-                    |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
-                    Some(1),
-                    request.progress_type,
-                );
-                match progress.await {
-                    | Ok(_) => {
-                        let _close = page.close(Some(false)).await;
-                        Ok(())
+                match resolve_paths(request.path, &request.options).await {
+                    | Ok(paths) => {
+                        let playwright = Playwright::initialize()
+                            .await
+                            .map_err(|why| eyre!("Failed to initialize Playwright — {why}"))?;
+                        playwright
+                            .install_chromium()
+                            .map_err(|why| eyre!("Failed to install Chromium for Playwright — {why}"))?;
+                        let browser = playwright
+                            .chromium()
+                            .launcher()
+                            .headless(true)
+                            .launch()
+                            .await
+                            .map_err(|why| eyre!("Failed to launch Chromium — {why}"))?;
+                        let context = browser
+                            .context_builder()
+                            .build()
+                            .await
+                            .map_err(|why| eyre!("Failed to create browser context — {why}"))?;
+                        let page = context.new_page().await.map_err(|why| eyre!("Failed to create browser page — {why}"))?;
+                        let page = &page;
+                        let progress = with_progress(
+                            paths,
+                            |path| format!("Generating PDF for {}", path.file_name_with_parent()),
+                            |path| async move {
+                                let pdf_options = CommandOptions::init().path(path.clone()).maybe_output(request.output.clone()).build();
+                                pdf::create(page, pdf_options).await;
+                                Ok(())
+                            },
+                            |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
+                            Some(1),
+                            request.progress_type,
+                        );
+                        match progress.await {
+                            | Ok(_) => {
+                                let _close = page.close(Some(false)).await;
+                                Ok(())
+                            }
+                            | Err(why) => {
+                                fail!("Generate PDF — {}", why);
+                                exit(exitcode::DATAERR);
+                            }
+                        }
                     }
-                    | Err(why) => {
-                        fail!("Generate PDF — {}", why);
-                        exit(exitcode::DATAERR);
-                    }
+                    | Err(why) => Err(why),
                 }
             }
             #[cfg(not(feature = "pdf"))]
@@ -151,52 +155,56 @@ impl ExportHandler for PdfExportHandler {
 impl ExportHandler for PowerPointExportHandler {
     fn export<'a>(&'a self, request: ExportRequest<'a>) -> ExportFuture<'a> {
         Box::pin(async move {
-            let paths = resolve_paths(request.path, &request.options).await;
-            let _options = CommandOptions::init()
-                .maybe_path(request.path.clone())
-                .maybe_output(request.output.clone())
-                .maybe_reference(request.reference.clone())
-                .build();
-            let create_options = Arc::new(_options);
-            if request.combine {
-                let progress = create_progress_bar(
-                    1,
-                    match request.progress_type {
-                        | ProgressType::Silent => ProgressType::Silent,
-                        | _ => ProgressType::Spinner,
-                    },
-                );
-                progress.set_message("Generating combined PowerPoint artifact");
-                match powerpoint::create(paths, Some(Arc::clone(&create_options))) {
-                    | Ok(_) => {
-                        progress.inc(1);
-                        finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
-                        Ok(())
-                    }
-                    | Err(why) => {
-                        fail!("Generate combined PowerPoint — {}", why);
-                        exit(exitcode::DATAERR);
+            match resolve_paths(request.path, &request.options).await {
+                | Ok(paths) => {
+                    let _options = CommandOptions::init()
+                        .maybe_path(request.path.clone())
+                        .maybe_output(request.output.clone())
+                        .maybe_reference(request.reference.clone())
+                        .build();
+                    let create_options = Arc::new(_options);
+                    if request.combine {
+                        let progress = create_progress_bar(
+                            1,
+                            match request.progress_type {
+                                | ProgressType::Silent => ProgressType::Silent,
+                                | _ => ProgressType::Spinner,
+                            },
+                        );
+                        progress.set_message("Generating combined PowerPoint artifact");
+                        match powerpoint::create(paths, Some(Arc::clone(&create_options))) {
+                            | Ok(_) => {
+                                progress.inc(1);
+                                finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
+                                Ok(())
+                            }
+                            | Err(why) => {
+                                fail!("Generate combined PowerPoint — {}", why);
+                                exit(exitcode::DATAERR);
+                            }
+                        }
+                    } else {
+                        let progress = with_progress(
+                            paths,
+                            |path| format!("Generating PowerPoint for {}", path.file_name_with_parent()),
+                            |path| {
+                                let options = Arc::clone(&create_options);
+                                async move { powerpoint::create(once(path), Some(options)).map(|_| ()) }
+                            },
+                            |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),
+                            Some(1),
+                            request.progress_type,
+                        );
+                        match progress.await {
+                            | Ok(_) => Ok(()),
+                            | Err(why) => {
+                                fail!("Generate PowerPoint — {}", why);
+                                exit(exitcode::DATAERR);
+                            }
+                        }
                     }
                 }
-            } else {
-                let progress = with_progress(
-                    paths,
-                    |path| format!("Generating PowerPoint for {}", path.file_name_with_parent()),
-                    |path| {
-                        let options = Arc::clone(&create_options);
-                        async move { powerpoint::create(once(path), Some(options)).map(|_| ()) }
-                    },
-                    |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),
-                    Some(1),
-                    request.progress_type,
-                );
-                match progress.await {
-                    | Ok(_) => Ok(()),
-                    | Err(why) => {
-                        fail!("Generate PowerPoint — {}", why);
-                        exit(exitcode::DATAERR);
-                    }
-                }
+                | Err(why) => Err(why),
             }
         })
     }
@@ -256,51 +264,55 @@ async fn export_as_format(
     progress_type: ProgressType,
 ) -> Result<(), Report> {
     let threads = options.threads;
-    let from_options = resolve_paths(path, &options).await;
-    let (skipped, paths): (Vec<_>, Vec<_>) = from_options
-        .iter()
-        .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
-    skipped.iter().for_each(|path| {
-        skip!("{} is already in {format} format", path.display());
-    });
-    let mut seen = HashSet::new();
-    let items: Vec<_> = paths.into_iter().filter(|&p| seen.insert(output_path(p, extension))).cloned().collect();
-    let count = items.len() as u64;
-    let ext = extension.to_owned();
-    let progress = with_progress(
-        items,
-        |item| format!("Generating {format} for {}", item.display()),
-        |item| {
-            let ext = ext.clone();
-            async move {
-                let output = output_path(&item, &ext);
-                match ResearchActivity::read(&item) {
-                    | Ok(data) => match data.write(output) {
-                        | Ok(_) => Ok(()),
-                        | Err(_) => {
-                            exit(exitcode::UNAVAILABLE);
+    match resolve_paths(path, &options).await {
+        | Ok(resolved_paths) => {
+            let (skipped, paths): (Vec<_>, Vec<_>) = resolved_paths
+                .iter()
+                .partition(|path| MimeType::from_path(path) == MimeType::from(format.clone()));
+            skipped.iter().for_each(|path| {
+                skip!("{} is already in {format} format", path.display());
+            });
+            let mut seen = HashSet::new();
+            let items: Vec<_> = paths.into_iter().filter(|&p| seen.insert(output_path(p, extension))).cloned().collect();
+            let count = items.len() as u64;
+            let ext = extension.to_owned();
+            let progress = with_progress(
+                items,
+                |item| format!("Generating {format} for {}", item.display()),
+                |item| {
+                    let ext = ext.clone();
+                    async move {
+                        let output = output_path(&item, &ext);
+                        match ResearchActivity::read(&item) {
+                            | Ok(data) => match data.write(output) {
+                                | Ok(_) => Ok(()),
+                                | Err(_) => {
+                                    exit(exitcode::UNAVAILABLE);
+                                }
+                            },
+                            | Err(why) => {
+                                fail!("Read research activity data — {}", why);
+                                exit(exitcode::DATAERR);
+                            }
                         }
-                    },
-                    | Err(why) => {
-                        fail!("Read research activity data — {}", why);
-                        exit(exitcode::DATAERR);
                     }
+                },
+                |count| format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count)),
+                Some(threads),
+                progress_type,
+            );
+            match progress.await {
+                | Ok(_) => {
+                    info!("=> {} Exported {} {format} file{}", Label::pass(), count.green(), suffix(count));
+                    Ok(())
+                }
+                | Err(why) => {
+                    fail!("Generate {} - {}", format, why);
+                    exit(exitcode::DATAERR);
                 }
             }
-        },
-        |count| format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count)),
-        Some(threads),
-        progress_type,
-    );
-    match progress.await {
-        | Ok(_) => {
-            info!("=> {} Exported {} {format} file{}", Label::pass(), count.green(), suffix(count));
-            Ok(())
         }
-        | Err(why) => {
-            fail!("Generate {} - {}", format, why);
-            exit(exitcode::DATAERR);
-        }
+        | Err(why) => Err(why),
     }
 }
 fn exporter_for(format: &FileFormat) -> Box<dyn ExportHandler> {

@@ -504,13 +504,13 @@ fn test_filter_ignored() {
     if cfg!(target_os = "linux") {
         let extensions = Some(vec!["json"]);
         let files = files_all(fixtures_dir().join("glob"), extensions.clone());
-        let filtered = filter_ignored(files, Some("[/]a.json$".to_string()));
+        let filtered = filter_ignored(files, Some("[/]a.json$".to_string())).unwrap();
         assert_eq!(filtered.len(), 2);
         let files = files_all(fixtures_dir().join("glob"), extensions);
-        let filtered = filter_ignored(files, Some("[/](a|b).json$".to_string()));
+        let filtered = filter_ignored(files, Some("[/](a|b).json$".to_string())).unwrap();
         assert_eq!(filtered.len(), 1);
         let files = files_all(fixtures_dir().join("glob/a.txt"), None);
-        let filtered = filter_ignored(files, None);
+        let filtered = filter_ignored(files, None).unwrap();
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].file_name().unwrap().to_str().unwrap(), "a.txt");
     }

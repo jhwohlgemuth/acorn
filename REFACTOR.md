@@ -67,18 +67,7 @@ Excluded:
   2. Bubble failures into export command errors.
   3. Add one integration check for required embedded assets.
 
-### 5. Make path filtering/normalization explicit and safe
-- Difficulty: Low
-- Why: Current filtering behavior can fail ambiguously and weaken operator confidence in included/excluded files.
-- Evidence:
-  - `acorn-cli/src/cli/mod.rs`
-  - `acorn-lib/src/io/mod.rs`
-- Recommendation:
-  1. Return error on invalid regex/filter patterns.
-  2. Introduce root-containment checks and centralized normalization.
-  3. Reuse the same utility in check/export/link/download workflows.
-
-### 6. Eliminate duplicate export field extraction across HTML and PPTX paths
+### 5. Eliminate duplicate export field extraction across HTML and PPTX paths
 - Difficulty: Medium
 - Why: Same `ResearchActivity` fields are mapped in multiple places, increasing drift risk.
 - Evidence:
@@ -89,7 +78,7 @@ Excluded:
   2. Extract fields once and consume in all format-specific renderers.
   3. Validate required placeholders up front.
 
-### 7. Split CLI startup concerns out of `main`
+### 6. Split CLI startup concerns out of `main`
 - Difficulty: Medium
 - Why: Logging/env/runtime/database/bootstrap/dispatch concerns are tightly mixed.
 - Evidence:
@@ -100,7 +89,7 @@ Excluded:
 
 ## Medium Impact
 
-### 8. Standardize export handler error/progress contract
+### 7. Standardize export handler error/progress contract
 - Difficulty: Low
 - Why: Handler pattern exists but per-format error paths and progress treatment remain inconsistent.
 - Evidence:
@@ -109,7 +98,7 @@ Excluded:
   1. Keep `ExportHandler` pattern.
   2. Normalize failure mapping and progress completion in one adapter layer.
 
-### 9. Consolidate interpolation primitives under one shared utility
+### 8. Consolidate interpolation primitives under one shared utility
 - Difficulty: Low
 - Why: Placeholder logic is split between generic interpolation and PowerPoint-specific behavior.
 - Evidence:
@@ -119,7 +108,7 @@ Excluded:
   1. Extend shared interpolation trait(s) for list/bullet use-cases.
   2. Remove parallel interpolation stacks.
 
-### 10. Introduce stronger shared API-client contract
+### 9. Introduce stronger shared API-client contract
 - Difficulty: Medium
 - Why: API modules repeat health/auth/endpoint patterns without a fully unified contract.
 - Evidence:
@@ -130,7 +119,7 @@ Excluded:
   1. Expand common trait surface for health, auth, endpoint rendering, and error normalization.
   2. Move duplicated logic behind shared helper modules.
 
-### 11. Reduce binding-layer repetition in Python wrapper
+### 10. Reduce binding-layer repetition in Python wrapper
 - Difficulty: Medium
 - Why: Wrapper boilerplate increases maintenance cost and schema drift risk.
 - Evidence:
@@ -141,7 +130,7 @@ Excluded:
 
 ## Lower Impact
 
-### 12. Tighten schema I/O and format validation handoff between CLI and library
+### 11. Tighten schema I/O and format validation handoff between CLI and library
 - Difficulty: High
 - Why: CLI and library each carry partial format assumptions and validation behavior.
 - Evidence:
@@ -152,7 +141,7 @@ Excluded:
   1. Extend `InputOutput` with stricter read/validate variants.
   2. Make CLI rely on library-side strict format validation consistently.
 
-### 13. Replace unfinished stubs with explicit unsupported-capability errors
+### 12. Replace unfinished stubs with explicit unsupported-capability errors
 - Difficulty: Low
 - Why: Placeholder stubs are less predictable than explicit capability contracts.
 - Evidence:
@@ -163,7 +152,7 @@ Excluded:
   1. Return explicit unsupported errors with actionable messages.
   2. Gate partially implemented capabilities behind feature flags/capability checks.
 
-### 14. Separate parsed CLI model from execution options model
+### 13. Separate parsed CLI model from execution options model
 - Difficulty: Medium
 - Why: Routing and options conversion remain repetitive and tightly coupled.
 - Evidence:

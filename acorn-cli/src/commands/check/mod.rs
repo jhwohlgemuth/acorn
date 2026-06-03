@@ -55,22 +55,27 @@ pub async fn run(
         .supported(true)
         .build();
     preflight!(&command_options);
-    let paths = resolve_paths(path, &command_options).await;
-    let options = CheckOptions::init()
-        .all(*all)
-        .disable_website_checks(*disable_website_checks)
-        .exit_on_first_error(*exit_on_first_error)
-        .offline(offline)
-        .no_fail(*no_fail)
-        .quiet(is_silent || *raw)
-        .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
-        .skip_verify_checksum(*skip_verify_checksum)
-        .standard(resolve_standard(&paths, standard))
-        .terse(*terse)
-        .readability_metric(resolve_readability_metric(readability_metric))
-        .build();
-    let issues = filter_by_visibility(&collect(&paths, &options).await, options.all);
-    handle(&issues, &paths, &options)
+    let result: Result<(), Report> = match resolve_paths(path, &command_options).await {
+        | Ok(paths) => {
+            let options = CheckOptions::init()
+                .all(*all)
+                .disable_website_checks(*disable_website_checks)
+                .exit_on_first_error(*exit_on_first_error)
+                .offline(offline)
+                .no_fail(*no_fail)
+                .quiet(is_silent || *raw)
+                .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
+                .skip_verify_checksum(*skip_verify_checksum)
+                .standard(resolve_standard(&paths, standard))
+                .terse(*terse)
+                .readability_metric(resolve_readability_metric(readability_metric))
+                .build();
+            let issues = filter_by_visibility(&collect(&paths, &options).await, options.all);
+            handle(&issues, &paths, &options)
+        }
+        | Err(why) => Err(why),
+    };
+    result
 }
 fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, options: &CheckOptions) -> Vec<Check> {
     let CheckOptions {

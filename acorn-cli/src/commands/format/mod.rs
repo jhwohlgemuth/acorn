@@ -33,57 +33,61 @@ pub async fn run(
         .quiet(verbose.is_silent())
         .build();
     preflight!(&options);
-    let paths = resolve_paths(path, &options).await;
-    paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
-        | Ok(data) => {
-            let mime = MimeType::from_path(path);
-            let old_content = match data.serialize_as(&mime) {
-                | Ok(content) => content,
-                | Err(why) => {
-                    fail!("Serialize original content - {}", why);
-                    exit(exitcode::UNAVAILABLE);
-                }
-            };
-            let context = Some(path.clone());
-            let formatted = data.format_with(context);
-            let new_content = match formatted.serialize_as(&mime) {
-                | Ok(content) => content,
-                | Err(why) => {
-                    fail!("Serialize formatted content - {}", why);
-                    exit(exitcode::UNAVAILABLE);
-                }
-            };
-            if dry_run {
-                println!("{} Format {}", Label::dry_run(), path.clone().to_absolute_string().yellow());
-            }
-            match verbose.log_level() {
-                | Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace) => {
-                    print_changes(&old_content, &new_content);
-                }
-                | _ => {
+    match resolve_paths(path, &options).await {
+        | Ok(paths) => {
+            paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
+                | Ok(data) => {
+                    let mime = MimeType::from_path(path);
+                    let old_content = match data.serialize_as(&mime) {
+                        | Ok(content) => content,
+                        | Err(why) => {
+                            fail!("Serialize original content - {}", why);
+                            exit(exitcode::UNAVAILABLE);
+                        }
+                    };
+                    let context = Some(path.clone());
+                    let formatted = data.format_with(context);
+                    let new_content = match formatted.serialize_as(&mime) {
+                        | Ok(content) => content,
+                        | Err(why) => {
+                            fail!("Serialize formatted content - {}", why);
+                            exit(exitcode::UNAVAILABLE);
+                        }
+                    };
                     if dry_run {
-                        print_changes(&old_content, &new_content);
+                        println!("{} Format {}", Label::dry_run(), path.clone().to_absolute_string().yellow());
+                    }
+                    match verbose.log_level() {
+                        | Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace) => {
+                            print_changes(&old_content, &new_content);
+                        }
+                        | _ => {
+                            if dry_run {
+                                print_changes(&old_content, &new_content);
+                            }
+                        }
+                    }
+                    if !dry_run {
+                        match write(path, new_content.as_bytes()) {
+                            | Ok(_) => {
+                                info!("=> {} Formatted", Label::pass());
+                            }
+                            | Err(why) => {
+                                fail!("Write - {}", why);
+                                exit(exitcode::UNAVAILABLE);
+                            }
+                        }
                     }
                 }
-            }
-            if !dry_run {
-                match write(path, new_content.as_bytes()) {
-                    | Ok(_) => {
-                        info!("=> {} Formatted", Label::pass());
-                    }
-                    | Err(why) => {
-                        fail!("Write - {}", why);
-                        exit(exitcode::UNAVAILABLE);
-                    }
+                | Err(why) => {
+                    fail!("Read research activity data - {}", why);
+                    exit(exitcode::DATAERR);
                 }
-            }
+            });
+            Ok(())
         }
-        | Err(why) => {
-            fail!("Read research activity data - {}", why);
-            exit(exitcode::DATAERR);
-        }
-    });
-    Ok(())
+        | Err(why) => Err(why),
+    }
 }
 
 #[cfg(test)]
