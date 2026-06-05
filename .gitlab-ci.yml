@@ -221,8 +221,8 @@ publish-homebrew-formula:
     - git config user.name "${USER}"
     - git config user.email "${EMAIL}"
     - git add "${HOMEBREW_TAP_FORMULA_PATH}"
-    - git commit -m "chore(homebrew): update acorn-cli ${CI_COMMIT_TAG}"
-    - git push origin "HEAD:${TAP_BRANCH}"
+    - 'git commit -m "chore(homebrew): update acorn-cli ${CI_COMMIT_TAG}"'
+    - 'git push origin "HEAD:${TAP_BRANCH}"'
 
 publish-book:
   stage: docs
