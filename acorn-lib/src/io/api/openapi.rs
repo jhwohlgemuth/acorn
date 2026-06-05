@@ -5,7 +5,7 @@ use crate::prelude::HashSet;
 use color_eyre::eyre::eyre;
 use convert_case::{Case, Casing};
 use itertools::Itertools;
-use serde_yml::Value;
+use serde_norway::Value;
 
 /// Parse an OpenAPI document and generate ACORN `Resource` entries.
 ///
@@ -13,7 +13,7 @@ use serde_yml::Value;
 /// and URL template) so generated items can be dropped into
 /// `application.json` endpoint resources.
 pub fn import_resources_from_openapi(spec: &str) -> ApiResult<Vec<Resource>> {
-    match serde_yml::from_str::<Value>(spec).map_err(|why| eyre!("Failed to parse OpenAPI YAML: {why}")) {
+    match serde_norway::from_str::<Value>(spec).map_err(|why| eyre!("Failed to parse OpenAPI YAML: {why}")) {
         | Ok(document) => import_resources_from_value(&document),
         | Err(why) => Err(why),
     }

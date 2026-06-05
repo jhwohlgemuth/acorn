@@ -556,7 +556,7 @@ impl Default for Cff {
 }
 impl ToMarkdown for Cff {
     fn to_markdown(&self) -> String {
-        serde_yml::to_string(self).unwrap_or_default()
+        serde_norway::to_string(self).unwrap_or_default()
     }
 }
 impl ToProse for Cff {
@@ -585,7 +585,7 @@ impl InputOutput for Cff {
         read_file(path.clone()).and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to parse JSON CFF — {why}")))
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Cff> {
-        read_file(path.clone()).and_then(|content| serde_yml::from_str(&content).map_err(|why| eyre!("Failed to parse YAML CFF — {why}")))
+        read_file(path.clone()).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML CFF — {why}")))
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
@@ -598,7 +598,7 @@ impl InputOutput for Cff {
     }
     fn write_cff(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("cff");
-        serde_yml::to_string(self)
+        serde_norway::to_string(self)
             .map_err(|why| eyre!("Failed to serialize CFF — {why}"))
             .and_then(|content| write_file(output, content))
     }
@@ -610,7 +610,7 @@ impl InputOutput for Cff {
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("yaml");
-        serde_yml::to_string(self)
+        serde_norway::to_string(self)
             .map_err(|why| eyre!("Failed to serialize YAML CFF — {why}"))
             .and_then(|content| write_file(output, content))
     }

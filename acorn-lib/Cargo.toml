@@ -78,7 +78,7 @@ serde_json = { workspace = true }
 serde_repr = { workspace = true }
 serde_trim = { version = "1.1.0", default-features = false }
 serde_with = { version = "3.15.1", features = ["macros"], default-features = false }
-serde_yml = { workspace = true }
+serde_norway = { workspace = true }
 similar = { version = "3.1.0", features = ["text"], default-features = false}
 sophia = { workspace = true }
 sysinfo = { version = "0.38.2", features = ["network", "system"], default-features = false}

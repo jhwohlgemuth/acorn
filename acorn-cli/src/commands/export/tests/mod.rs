@@ -149,7 +149,7 @@ async fn test_export_json_format() -> Result<()> {
     let dest = test_data_dir.join("index.yaml");
     let content = fs::read_to_string(&source)?;
     let json: serde_json::Value = serde_json::from_str(&content)?;
-    let yaml_content = serde_yml::to_string(&json)?;
+    let yaml_content = serde_norway::to_string(&json)?;
     fs::write(&dest, yaml_content)?;
     let result = run(
         &None,

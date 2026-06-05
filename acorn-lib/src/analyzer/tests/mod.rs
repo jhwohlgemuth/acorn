@@ -86,7 +86,7 @@ async fn test_cff_check_schema_returns_errors_for_invalid_file() {
         doi: Some("not-a-doi".to_string()),
         ..Cff::default()
     };
-    let yaml = serde_yml::to_string(&cff).expect("failed to serialize CFF fixture");
+    let yaml = serde_norway::to_string(&cff).expect("failed to serialize CFF fixture");
     write(path.clone(), yaml).expect("failed to write CFF fixture");
     let checks = Cff::check_schema(core::slice::from_ref(&path), None).await;
     assert!(!checks.is_empty());
@@ -104,7 +104,7 @@ async fn test_cff_check_quality_returns_ok_for_readable_file() {
         message: "Message".to_string(),
         ..Cff::default()
     };
-    let yaml = serde_yml::to_string(&cff).expect("failed to serialize CFF fixture");
+    let yaml = serde_norway::to_string(&cff).expect("failed to serialize CFF fixture");
     write(path.clone(), yaml).expect("failed to write CFF fixture");
     let checks = Cff::check_quality(core::slice::from_ref(&path), None).await;
     assert_eq!(checks.len(), 1);

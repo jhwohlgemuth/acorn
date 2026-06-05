@@ -485,7 +485,7 @@ impl InputOutput for ResearchActivity {
         };
         let (frontmatter, _body) = frontmatter_and_body(&content);
         let _meta: ResearchActivityMetadata = match frontmatter {
-            | Some(value) => match serde_yml::from_str(&value) {
+            | Some(value) => match serde_norway::from_str(&value) {
                 | Ok(data) => data,
                 | Err(why) => {
                     fail!("Parse RAD frontmatter - {}", why.red());
@@ -497,7 +497,7 @@ impl InputOutput for ResearchActivity {
         None
     }
     fn read_yaml(path: PathBuf) -> ApiResult<ResearchActivity> {
-        read_file(path.clone()).and_then(|content| serde_yml::from_str(&content).map_err(|why| eyre!("Failed to parse YAML RAD — {why}")))
+        read_file(path.clone()).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML RAD — {why}")))
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
@@ -515,7 +515,7 @@ impl InputOutput for ResearchActivity {
     fn write_cff(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("cff");
         let data: Cff = self.into();
-        serde_yml::to_string(&data)
+        serde_norway::to_string(&data)
             .map_err(|why| eyre!("Failed to serialize RAD CITATION.cff — {why}"))
             .and_then(|content| write_file(output, content))
     }
@@ -532,8 +532,9 @@ impl InputOutput for ResearchActivity {
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("yaml");
-        serde_yml::to_string(&self)
-            .map_err(|why| eyre!("Failed to serialize YAML RAD — {why}"))
+        serde_json::to_value(self)
+            .map_err(|why| eyre!("Failed to convert RAD to value for YAML serialization — {why}"))
+            .and_then(|value| serde_norway::to_string(&value).map_err(|why| eyre!("Failed to serialize YAML RAD — {why}")))
             .and_then(|content| write_file(output, content))
     }
 }
@@ -547,7 +548,9 @@ impl ResearchActivity {
     pub fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
         match mime {
             | MimeType::Json => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON RAD — {why}")),
-            | MimeType::Yaml => serde_yml::to_string(self).map_err(|why| eyre!("Failed to serialize YAML RAD — {why}")),
+            | MimeType::Yaml => serde_json::to_value(self)
+                .map_err(|why| eyre!("Failed to convert RAD to value for YAML serialization — {why}"))
+                .and_then(|value| serde_norway::to_string(&value).map_err(|why| eyre!("Failed to serialize YAML RAD — {why}"))),
             | _ => Err(eyre!("Unsupported mime type for research activity serialization: {mime:?}")),
         }
     }
@@ -687,7 +690,7 @@ impl ToMarkdown for ResearchActivity {
             ..
         } = self;
         let classification = meta.clone().classification.unwrap_or_default();
-        let frontmatter = serde_yml::to_string(&meta).unwrap_or_default();
+        let frontmatter = serde_norway::to_string(&meta).unwrap_or_default();
         let sections = sections.to_markdown();
         let contact = self.contact.to_markdown();
         match &subtitle {

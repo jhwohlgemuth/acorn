@@ -198,8 +198,8 @@ impl ApplicationConfiguration {
     fn parse_json(content: impl AsRef<str>) -> serde_json::Result<Self> {
         serde_json::from_str(content.as_ref())
     }
-    fn parse_yaml(content: impl AsRef<str>) -> serde_yml::Result<Self> {
-        serde_yml::from_str(content.as_ref())
+    fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
+        serde_norway::from_str(content.as_ref())
     }
 }
 impl InputOutput for ApplicationConfiguration {
@@ -261,7 +261,7 @@ impl InputOutput for ApplicationConfiguration {
     /// Write configuration as YAML to specified path
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let target = path.into();
-        serde_yml::to_string(&self)
+        serde_norway::to_string(&self)
             .map_err(|why| eyre!("Failed to serialize YAML config — {why}"))
             .and_then(|content| write_file(target.clone(), content))
     }

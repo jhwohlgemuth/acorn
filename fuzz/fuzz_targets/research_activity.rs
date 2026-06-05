@@ -10,11 +10,11 @@ fuzz_target!(|data: &[u8]| {
         let _ = rad.format().to_prose();
     }
     if let Ok(text) = core::str::from_utf8(data) {
-        // libyml 0.0.5 can panic on crafted YAML inputs (overflow guard).
+        // YAML parser internals can panic on crafted inputs in edge cases.
         // Suppress the libfuzzer_sys abort hook so catch_unwind can intercept.
         let prev = std::panic::take_hook();
         std::panic::set_hook(Box::new(|_| {}));
-        let result = std::panic::catch_unwind(|| serde_yml::from_str::<ResearchActivity>(text));
+            let result = std::panic::catch_unwind(|| serde_norway::from_str::<ResearchActivity>(text));
         std::panic::set_hook(prev);
         if let Ok(Ok(rad)) = result {
             let _ = rad.validate();

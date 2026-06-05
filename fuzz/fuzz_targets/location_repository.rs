@@ -25,11 +25,11 @@ fuzz_target!(|data: &[u8]| {
     }
 
     if let Ok(text) = core::str::from_utf8(data) {
-        if let Ok(location) = serde_yml::from_str::<Location>(text) {
+        if let Ok(location) = serde_norway::from_str::<Location>(text) {
             exercise_location(&location);
         }
 
-        if let Ok(repository) = serde_yml::from_str::<Repository>(text) {
+        if let Ok(repository) = serde_norway::from_str::<Repository>(text) {
             exercise_repository(&repository);
         }
     }

@@ -851,7 +851,7 @@ pub(crate) fn parse_yaml<R>(content: &str) -> ApiResult<R>
 where
     R: for<'de> Deserialize<'de>,
 {
-    match serde_yml::from_str::<R>(content) {
+    match serde_norway::from_str::<R>(content) {
         | Ok(response) => Ok(response),
         | Err(why) => Err(eyre!(why)),
     }

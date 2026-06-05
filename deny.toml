@@ -13,8 +13,6 @@ feature-depth = 1
 ignore = [
     # [vulnerability] Potential segfault in the time crate
     "RUSTSEC-2020-0071",
-    # [vulnerability] Logging user input may result in poisoning logs with ANSI escape sequences
-    "RUSTSEC-2025-0055",
     # [unsound] `libyml::string::yaml_string_extend` is unsound and unmaintained
     "RUSTSEC-2025-0067",
     # [unsound] serde_yml crate is unsound and unmaintained

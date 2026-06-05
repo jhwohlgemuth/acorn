@@ -82,9 +82,9 @@ const TYPICAL_JSON: &str = r#"
 "#;
 #[test]
 fn test_cff_minimal_yaml_round_trip() {
-    let parsed: Cff = serde_yml::from_str(MINIMAL_YAML).expect("failed to parse minimal CFF yaml");
-    let encoded = serde_yml::to_string(&parsed).expect("failed to serialize minimal CFF yaml");
-    let reparsed: Cff = serde_yml::from_str(&encoded).expect("failed to deserialize serialized minimal CFF yaml");
+    let parsed: Cff = serde_norway::from_str(MINIMAL_YAML).expect("failed to parse minimal CFF yaml");
+    let encoded = serde_norway::to_string(&parsed).expect("failed to serialize minimal CFF yaml");
+    let reparsed: Cff = serde_norway::from_str(&encoded).expect("failed to deserialize serialized minimal CFF yaml");
     assert_eq!(parsed, reparsed);
     assert_eq!(parsed.cff_version, "1.2.0");
     assert_eq!(parsed.title, "My Research Software");
