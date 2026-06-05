@@ -13,7 +13,6 @@
     ],
     "runners": [
         {
-            "name": "ACORN Runner (DELETE ME)",
             "description": "ACORN Runner (DELETE ME)",
             "type": "project",
             "repository": {
@@ -27,7 +26,6 @@
             "tags": ["bucket", "gpu"]
         },
         {
-            "name": "Research Enablement Runner (DELETE ME)",
             "description": "Research Enablement Runner (DELETE ME)",
             "type": "group",
             "repository": {

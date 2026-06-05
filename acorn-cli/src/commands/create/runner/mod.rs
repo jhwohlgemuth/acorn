@@ -67,7 +67,7 @@ pub async fn run(
                 let mut created = 0usize;
                 let mut failures = Vec::<String>::new();
                 for runner in runners {
-                    let runner_name = runner.name.clone();
+                    let name = runner.name.as_deref().unwrap_or("<unnamed runner>");
                     let target = build_target(Some(&runner));
                     let result = match target {
                         | Ok((desired_description, runner_type, identifier, desired_run_untagged, desired_tags)) => {
@@ -82,7 +82,7 @@ pub async fn run(
                                 },
                             };
                             let details = RunnerDetails::at(repository)
-                                .name(runner_name.clone())
+                                .name(name)
                                 .description(desired_description)
                                 .runner_type(&runner_type.to_string())
                                 .gpu_enabled(runner.gpu_enabled)
@@ -98,7 +98,7 @@ pub async fn run(
                             created = created.saturating_add(1);
                         }
                         | Err(why) => {
-                            failures.push(format!("{runner_name}: {why}"));
+                            failures.push(format!("{name}: {why}"));
                         }
                     }
                 }

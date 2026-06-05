@@ -14,7 +14,7 @@ Some(
                     uri: "https://code.ornl.gov/research-enablement/acorn",
                 },
             },
-            name: "ACORN Runner (DELETE ME)",
+            name: None,
             runner_type: Project,
             description: Some(
                 "ACORN Runner (DELETE ME)",
@@ -38,7 +38,7 @@ Some(
                     uri: "https://code.ornl.gov/research-enablement",
                 },
             },
-            name: "Research Enablement Runner (DELETE ME)",
+            name: None,
             runner_type: Group,
             description: Some(
                 "Research Enablement Runner (DELETE ME)",

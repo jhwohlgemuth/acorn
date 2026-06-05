@@ -1,0 +1,16 @@
+# Cargo configuration for ACORN project
+# This file is automatically read by Cargo
+
+# On macOS, PyO3 extension modules must NOT link Python at build time.
+# Python symbols are resolved at runtime when Python loads the .dylib.
+# The -undefined dynamic_lookup flag tells the linker to allow this.
+# maturin adds this automatically; direct cargo build requires it explicitly.
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+
+[env]
+PYTHON_SYS_EXECUTABLE = { value = "/opt/homebrew/bin/python3", relative = false }
+

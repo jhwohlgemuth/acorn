@@ -699,7 +699,7 @@ impl From<RunnerDetails> for RunnerMetadata {
             paused: false,
             maintenance_note: None,
             maximum_timeout: None,
-            name: Some(name),
+            name,
             online: Some(false),
             platform: None,
             projects: None,

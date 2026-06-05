@@ -143,7 +143,9 @@ pub struct RunnerDetails {
     #[serde(alias = "repository")]
     pub code_repository: Repository,
     /// Runner name
-    pub name: String,
+    /// ### Note
+    /// Primarily for identification in the GitLab UI
+    pub name: Option<String>,
     /// Runner type (e.g., group, instance, project)
     #[builder(default, with = |method: &str| RunnerType::from(method))]
     #[serde(rename = "type")]
