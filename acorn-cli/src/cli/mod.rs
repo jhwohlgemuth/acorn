@@ -604,6 +604,9 @@ pub enum CreateCommands {
         /// GitLab group ID to create a runner for (alternative to providing a configuration file)
         #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
         group: Option<u64>,
+        /// GitLab host/domain (e.g., code.ornl.gov). Defaults to gitlab.com
+        #[arg(short = 'H', long, alias = "domain", value_name = "HOST", help_heading = "OPTIONS")]
+        host: Option<String>,
         /// GitLab project ID to create a runner for (alternative to providing a configuration file)
         #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
         project: Option<u64>,

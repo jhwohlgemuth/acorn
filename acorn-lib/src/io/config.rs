@@ -163,6 +163,8 @@ pub struct RunnerDetails {
     #[builder(default)]
     #[serde(default, alias = "run_untagged")]
     pub run_untagged: bool,
+    /// Optional GitLab host/domain override (for self-managed instances)
+    host: Option<String>,
 }
 impl ApplicationConfiguration {
     /// Resolve application configuration path
@@ -556,6 +558,12 @@ impl BucketOptions {
             output: Some(output.into()),
             ..self
         }
+    }
+}
+impl RunnerDetails {
+    /// Get optional GitLab host/domain override for this runner
+    pub fn host(&self) -> Option<&str> {
+        self.host.as_deref()
     }
 }
 impl fmt::Display for RunnerType {

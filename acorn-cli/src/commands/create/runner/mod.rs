@@ -8,18 +8,14 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use color_eyre::eyre::{Report, Result};
+use futures::future::join_all;
 use tracing::{error, info};
 
-fn gitlab_identifier(repository: &Repository) -> Option<String> {
-    match repository {
-        | Repository::GitLab { id: Some(value), .. } => Some(value.to_string()),
-        | _ => None,
-    }
-}
-
+#[allow(clippy::too_many_arguments)]
 pub async fn run(
     config: &Option<PathBuf>,
     description: &Option<String>,
+    host: &Option<String>,
     group: &Option<u64>,
     project: &Option<u64>,
     tags: &[String],
@@ -48,7 +44,7 @@ pub async fn run(
             },
         };
         let identifier_result = runner
-            .and_then(|value| gitlab_identifier(&value.code_repository))
+            .and_then(|value| value.code_repository.id())
             .map(Ok)
             .unwrap_or_else(|| match (group, project) {
                 | (Some(value), None) | (None, Some(value)) => Ok(value.to_string()),
@@ -61,47 +57,48 @@ pub async fn run(
             | (Err(why), _, _) | (_, Err(why), _) | (_, _, Err(why)) => Err(why),
         }
     };
-    let response = match gitlab::runners(&gitlab::Options::from_env()).await {
+    let options = match host.as_deref() {
+        | Some(value) => gitlab::Options::from_env().with_domain(value),
+        | None => gitlab::Options::from_env(),
+    };
+    let response = match gitlab::runners(&options).await {
         | Ok(existing) => match config {
             | Some(runners) => {
-                let mut created = 0usize;
-                let mut failures = Vec::<String>::new();
-                for runner in runners {
-                    let name = runner.name.as_deref().unwrap_or("<unnamed runner>");
+                let outcomes = join_all(runners.into_iter().map(|runner| {
+                    let existing = &existing;
                     let target = build_target(Some(&runner));
-                    let result = match target {
-                        | Ok((desired_description, runner_type, identifier, desired_run_untagged, desired_tags)) => {
-                            let repository = match runner.code_repository.clone() {
-                                | Repository::GitLab { location, .. } => Repository::GitLab {
-                                    id: identifier.parse::<u64>().ok(),
-                                    location,
-                                },
-                                | _ => Repository::GitLab {
-                                    id: identifier.parse::<u64>().ok(),
-                                    location: Location::Simple("https://code.ornl.gov".to_string()),
-                                },
-                            };
-                            let details = RunnerDetails::at(repository)
-                                .name(name)
-                                .description(desired_description)
-                                .runner_type(&runner_type.to_string())
-                                .gpu_enabled(runner.gpu_enabled)
-                                .maybe_tags(desired_tags)
-                                .run_untagged(desired_run_untagged)
-                                .build();
-                            create_runner(details, &existing).await
-                        }
-                        | Err(why) => Err(why),
-                    };
-                    match result {
-                        | Ok(_) => {
-                            created = created.saturating_add(1);
-                        }
-                        | Err(why) => {
-                            failures.push(format!("{name}: {why}"));
+                    async move {
+                        let name = runner.name.clone().unwrap_or_else(|| "<unnamed runner>".to_string());
+                        match target {
+                            | Ok((desired_description, runner_type, identifier, desired_run_untagged, desired_tags)) => {
+                                let target_host = host.clone().or_else(|| runner.host().map(|value| value.to_string()));
+                                let repository = match runner.code_repository.clone() {
+                                    | Repository::GitLab { location, .. } => Repository::GitLab {
+                                        id: identifier.parse::<u64>().ok(),
+                                        location,
+                                    },
+                                    | _ => unimplemented!("Only GitLab repositories are supported for runner configuration"),
+                                };
+                                let details = RunnerDetails::at(repository)
+                                    .name(name.clone())
+                                    .description(desired_description)
+                                    .runner_type(&runner_type.to_string())
+                                    .gpu_enabled(runner.gpu_enabled)
+                                    .maybe_tags(desired_tags)
+                                    .run_untagged(desired_run_untagged)
+                                    .maybe_host(target_host)
+                                    .build();
+                                create_runner(details, existing).await.map_err(|why| format!("{name}: {why}"))
+                            }
+                            | Err(why) => Err(format!("{name}: {why}")),
                         }
                     }
-                }
+                }))
+                .await;
+                let (successful, failed): (Vec<Result<(), String>>, Vec<Result<(), String>>) =
+                    outcomes.into_iter().partition(|result| result.is_ok());
+                let created = successful.len();
+                let failures = failed.into_iter().filter_map(|result| result.err()).collect::<Vec<String>>();
                 if failures.is_empty() {
                     Ok(())
                 } else {
@@ -118,7 +115,7 @@ pub async fn run(
                 | Ok((desired_description, runner_type, identifier, desired_run_untagged, desired_tags)) => {
                     let repository = Repository::GitLab {
                         id: identifier.parse::<u64>().ok(),
-                        location: Location::Simple("https://code.ornl.gov".to_string()),
+                        location: Location::Simple("https://gitlab.com".to_string()),
                     };
                     let details = RunnerDetails::at(repository)
                         .name("GitLab Runner".to_string())
@@ -127,6 +124,7 @@ pub async fn run(
                         .gpu_enabled(false)
                         .maybe_tags(desired_tags)
                         .run_untagged(desired_run_untagged)
+                        .maybe_host(host.clone())
                         .build();
                     create_runner(details, &existing).await
                 }
@@ -143,19 +141,11 @@ pub async fn run(
     }
 }
 async fn create_runner(details: RunnerDetails, existing: &[gitlab::RunnerMetadata]) -> Result<(), Report> {
-    let RunnerDetails {
-        description,
-        runner_type,
-        code_repository,
-        run_untagged,
-        tags,
-        ..
-    } = details;
-    let description_result = match description {
+    let description_result = match details.description.clone() {
         | Some(value) => Ok(value),
         | None => Err(eyre!("GitLab runner description is required to detect existing runners")),
     };
-    let identifier_result = match gitlab_identifier(&code_repository) {
+    let identifier_result = match details.code_repository.id() {
         | Some(value) => Ok(value),
         | None => Err(eyre!(
             "Missing GitLab runner target identifier. Provide --group/--project or repository.id in config"
@@ -170,17 +160,20 @@ async fn create_runner(details: RunnerDetails, existing: &[gitlab::RunnerMetadat
                 Err(eyre!("A GitLab runner with the description, '{description}', already exists"))
             } else {
                 let runner_builder = gitlab::RunnerMetadata::init()
-                    .runner_type(&runner_type.to_string())
+                    .runner_type(&details.runner_type.to_string())
                     .description(description.clone())
-                    .run_untagged(run_untagged);
-                let metadata = match tags {
+                    .run_untagged(details.run_untagged);
+                let metadata = match details.tags.clone() {
                     | Some(values) if !values.is_empty() => {
                         let tag_refs = values.iter().map(String::as_str).collect::<Vec<_>>();
                         runner_builder.tags(&tag_refs).build()
                     }
                     | _ => runner_builder.build(),
                 };
-                let options = gitlab::Options::from_env();
+                let options = match details.host() {
+                    | Some(value) => gitlab::Options::from_env().with_domain(value),
+                    | None => gitlab::Options::from_env(),
+                };
                 let create_options = options.clone().with_identifier(identifier).with_runner(metadata);
                 match gitlab::create_runner(&create_options).await {
                     | Ok(response) => {

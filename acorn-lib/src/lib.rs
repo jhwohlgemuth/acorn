@@ -237,6 +237,13 @@ impl Location {
         }
     }
 }
+impl Default for Repository {
+    fn default() -> Self {
+        Self::Git {
+            location: Location::Simple("file:///".to_string()),
+        }
+    }
+}
 impl Repository {
     /// Return whether or not the associated URI for a repository is local (e.g., has "file" scheme)
     pub fn is_local(&self) -> bool {
@@ -385,6 +392,17 @@ impl Repository {
 mod tests {
     use super::{Location, Repository};
 
+    #[test]
+    fn test_repository_default_is_local_git() {
+        let repository = Repository::default();
+        assert!(repository.is_local());
+        match repository {
+            | Repository::Git { location } => {
+                assert_eq!(location.to_string(), "file:///");
+            }
+            | _ => panic!("Repository default should be Git with local file URI"),
+        }
+    }
     #[test]
     fn test_repository_id_prefers_explicit_gitlab_id() {
         let repository = Repository::GitLab {

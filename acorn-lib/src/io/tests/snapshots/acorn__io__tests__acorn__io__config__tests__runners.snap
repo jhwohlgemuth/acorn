@@ -27,6 +27,7 @@ Some(
                 ],
             ),
             run_untagged: false,
+            host: None,
         },
         RunnerDetails {
             code_repository: GitLab {
@@ -46,6 +47,7 @@ Some(
             gpu_enabled: false,
             tags: None,
             run_untagged: true,
+            host: None,
         },
     ],
 )
