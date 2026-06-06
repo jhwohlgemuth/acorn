@@ -245,6 +245,13 @@ impl Default for Repository {
     }
 }
 impl Repository {
+    /// Get repository domain (e.g., "github.com" or "code.ornl.gov")
+    pub fn domain(&self) -> Option<String> {
+        match self.location().uri() {
+            | Some(value) => value.host().map(|value| value.to_string()),
+            | None => None,
+        }
+    }
     /// Return whether or not the associated URI for a repository is local (e.g., has "file" scheme)
     pub fn is_local(&self) -> bool {
         let local_schemes = [Scheme::File];
@@ -265,8 +272,8 @@ impl Repository {
         }
     }
     /// Get repository location
-    pub fn location(self) -> Location {
-        match self {
+    pub fn location(&self) -> Location {
+        match self.clone() {
             | Repository::Git { location, .. } => location,
             | Repository::GitHub { location, .. } => location,
             | Repository::GitLab { location, .. } => location,
@@ -390,6 +397,13 @@ impl Repository {
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::arithmetic_side_effects,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic,
+        clippy::unwrap_used
+    )]
     use super::{Location, Repository};
 
     #[test]

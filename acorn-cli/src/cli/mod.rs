@@ -11,17 +11,19 @@ use clap::builder::{
 };
 use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
+use color_eyre::eyre;
 
 pub mod arguments;
 use arguments::{CheckCategoryArgument, DatabaseBackend, Diagnostic, FileFormat, ReadabilityTypeArgument, Standard};
 
+/// Return type for main function
+pub type Void = eyre::Result<(), eyre::Report>;
 const PRIMARY_COLOR: u8 = 135;
 const STYLES: Styles = Styles::styled()
     .header(Ansi256Color(PRIMARY_COLOR).on_default().bold())
     .usage(Ansi256Color(PRIMARY_COLOR).on_default().bold())
     .literal(AnsiColor::White.on_default())
     .placeholder(Ansi256Color(183).on_default());
-
 /// Container struct for working with subcommand run functions
 #[derive(Builder, Clone, Debug, Default)]
 #[builder(start_fn = init)]
@@ -604,12 +606,15 @@ pub enum CreateCommands {
         /// GitLab group ID to create a runner for (alternative to providing a configuration file)
         #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
         group: Option<u64>,
-        /// GitLab host/domain (e.g., code.ornl.gov). Defaults to gitlab.com
-        #[arg(short = 'H', long, alias = "domain", value_name = "HOST", help_heading = "OPTIONS")]
-        host: Option<String>,
+        /// GitLab repository domain override for runner creation (e.g., code.ornl.gov)
+        #[arg(short = 'r', long, alias = "domain", value_name = "REPO", help_heading = "OPTIONS")]
+        repo: Option<String>,
         /// GitLab project ID to create a runner for (alternative to providing a configuration file)
         #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
         project: Option<u64>,
+        /// Hosting server location (for use during registration)
+        #[arg(short, long, value_name = "SERVER", help_heading = "OPTIONS")]
+        server: Option<String>,
         /// Tags to register the runner with (alternative to providing a configuration file)
         #[arg(
             short,

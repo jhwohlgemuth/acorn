@@ -31,10 +31,7 @@
             "repository": {
                 "provider": "gitlab",
                 "id": 24758,
-                "location": {
-                    "scheme": "https",
-                    "uri": "https://code.ornl.gov/research-enablement"
-                }
+                "location": "https://code.ornl.gov/research-enablement"
             },
             "run_untagged": true
         }

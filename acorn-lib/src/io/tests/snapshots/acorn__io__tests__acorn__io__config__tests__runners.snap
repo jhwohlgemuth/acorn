@@ -34,10 +34,9 @@ Some(
                 id: Some(
                     24758,
                 ),
-                location: Detailed {
-                    scheme: HTTPS,
-                    uri: "https://code.ornl.gov/research-enablement",
-                },
+                location: Simple(
+                    "https://code.ornl.gov/research-enablement",
+                ),
             },
             name: None,
             runner_type: Group,

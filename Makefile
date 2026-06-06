@@ -60,7 +60,7 @@ build-in-image: clean
 
 clean:
 	@cargo clean
-	@rm -rf ./bin
+	@$(CLEAN_BIN_CMD)
 
 changelog:
 	@git pull origin main --tags
@@ -202,6 +202,11 @@ rust-push:
 #
 # Variables
 #
+ifeq ($(OS),Windows_NT)
+CLEAN_BIN_CMD = pwsh -NoProfile -Command "if (Test-Path ./bin) { Remove-Item -Recurse -Force ./bin }"
+else
+CLEAN_BIN_CMD = rm -rf ./bin
+endif
 # PLATFORM = linux/amd64,linux/arm64
 PLATFORM = linux/amd64
 VERSION = `awk -F ' = ' '$$1 ~ /^version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`

@@ -20,16 +20,12 @@
 //! The ACORN command line interface (CLI) is a metascience multi-tool made for cross-domain research.
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
-use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::io::database::{backend, resolve_database_path, schema::Table, Database, Operations};
 use acorn::io::env_var_is_truthy;
 use acorn::prelude::env;
-use acorn::schema::pid::raid::Metadata;
-use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
 use acorn::util::Label;
 use clap::{crate_version, Parser};
-use color_eyre::eyre;
 use dotenvy::dotenv;
 use futures::future::ready;
 use futures::TryFutureExt;
@@ -49,10 +45,8 @@ mod commands;
 mod io;
 mod template;
 
-use cli::{Arguments, Commands, CreateCommands, SchemaCommands};
-
-/// Return type for main function
-pub type Void = eyre::Result<(), eyre::Report>;
+use cli::{Arguments, Void};
+use commands::run;
 
 // Environment variables
 const LOG_LEVEL: &str = "ACORN_LOG_LEVEL";
@@ -62,14 +56,6 @@ const DISPLAY_TARGET: bool = false;
 const DISPLAY_THREAD_ID: bool = false;
 const DISPLAY_THREAD_NAME: bool = false;
 
-fn print_rad_schema() -> Void {
-    ResearchActivity::to_schema();
-    exit(exitcode::OK);
-}
-fn print_raid_schema() -> Void {
-    Metadata::to_schema();
-    exit(exitcode::OK);
-}
 #[instrument]
 #[tokio::main]
 async fn main() -> Void {
@@ -124,8 +110,8 @@ async fn main() -> Void {
         offline,
         threads,
         no_local_database: no_local_database_flag,
-        database_backend,
-        database_path,
+        database_backend: ref selected_database_backend,
+        database_path: ref configured_database_path,
         clear_cache,
         reset_database,
         no_clear_cache,
@@ -133,7 +119,7 @@ async fn main() -> Void {
         ..
     } = args;
     let no_local_database = no_local_database_flag || env_var_is_truthy(NO_LOCAL_DATABASE).unwrap_or(false);
-    let mut database_path = database_path;
+    let mut database_path = configured_database_path.clone();
     if no_local_database && (reset_database || clear_cache) {
         eprintln!("{} Cannot use --reset-database or --clear-cache with --no-local-database", Label::fail());
         exit(exitcode::USAGE);
@@ -166,7 +152,7 @@ async fn main() -> Void {
         if database_path.is_none() {
             database_path = Some(resolved_database_path);
         }
-        if let Some(selected) = database_backend {
+        if let Some(selected) = *selected_database_backend {
             env::set_var(DATABASE_BACKEND, selected.to_string());
         }
         if let Err(why) = backend::validate_backend_selection() {
@@ -213,157 +199,7 @@ async fn main() -> Void {
         eprintln!("=> {} Failed to initialize database — {why}", Label::fail());
         exit(exitcode::SOFTWARE);
     }
-    match &args.command {
-        | Some(Commands::Check {
-            path,
-            branch,
-            commit,
-            filter,
-            ignore,
-            skip,
-            disable_website_checks,
-            all,
-            exit_on_first_error,
-            merge_request,
-            skip_verify_checksum,
-            no_fail,
-            raw,
-            terse,
-            standard,
-            readability_metric,
-            verbose,
-            ..
-        }) => {
-            commands::check::run(
-                path,
-                branch,
-                commit,
-                filter,
-                ignore,
-                skip,
-                disable_website_checks,
-                all,
-                exit_on_first_error,
-                merge_request,
-                skip_verify_checksum,
-                no_fail,
-                raw,
-                terse,
-                standard,
-                readability_metric,
-                verbose,
-                offline,
-            )
-            .await
-        }
-        | Some(Commands::Create { command, .. }) => match command {
-            | Some(CreateCommands::Mcp) => unimplemented!("MCP server creation is not yet implemented"),
-            | Some(CreateCommands::Runner {
-                config,
-                description,
-                host,
-                group,
-                project,
-                tags,
-                untagged,
-                verbose,
-            }) => commands::create::runner::run(config, description, host, group, project, tags, untagged, verbose).await,
-            | None => {
-                eprintln!("=> {} No subcommand provided for 'create'", Label::fail());
-                exit(exitcode::USAGE);
-            }
-        },
-        | Some(Commands::Doctor { fix, interactive, check, .. }) => commands::doctor::run(fix, interactive, check, offline).await,
-        | Some(Commands::Download {
-            config,
-            url,
-            filter,
-            ignore,
-            output,
-            verbose,
-            ..
-        }) => commands::download::run(config, url, filter, ignore, output, &database_path, threads, verbose, offline).await,
-        | Some(Commands::Export {
-            output,
-            path,
-            branch,
-            commit,
-            filter,
-            ignore,
-            format,
-            reference,
-            combine,
-            merge_request,
-            raw,
-            verbose,
-            ..
-        }) => {
-            commands::export::run(
-                output,
-                path,
-                branch,
-                commit,
-                filter,
-                ignore,
-                format,
-                reference,
-                combine,
-                merge_request,
-                raw,
-                threads,
-                verbose,
-                offline,
-            )
-            .await
-        }
-        | Some(Commands::Format {
-            path,
-            branch,
-            commit,
-            filter,
-            ignore,
-            dry_run,
-            merge_request,
-            verbose,
-            ..
-        }) => commands::format::run(path, branch, commit, filter, ignore, *dry_run, merge_request, verbose, offline).await,
-        | Some(Commands::Gather {
-            path,
-            filter,
-            ignore,
-            merge_request,
-            verbose,
-            ..
-        }) => commands::gather::run(path, filter, ignore, merge_request, &database_path, verbose, offline).await,
-        | Some(Commands::Link {
-            path,
-            branch,
-            commit,
-            ignore,
-            dry_run,
-            merge_request,
-            verbose,
-            ..
-        }) => commands::link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await,
-        | Some(Commands::Schema { command, .. }) => match command {
-            | Some(SchemaCommands::Rad) | None => print_rad_schema(),
-            | Some(SchemaCommands::Raid) => print_raid_schema(),
-        },
-        | None => {
-            let name = "JASON";
-            acorn::fail!("FOOBAR {} RABOOF", name);
-            if let Some(value) = read_stdin() {
-                println!("stdin: {value}");
-                info!(value, "=> {} Input from stdin", Label::using());
-            }
-            // acorn -vv | bat
-            if is_stdout_piped() {
-                println!("stdout is piped");
-                write_stdout("stdout is piped");
-            }
-            Ok(())
-        }
-    }
+    Box::pin(run(&args, offline, &database_path, threads)).await
 }
 
 #[cfg(test)]

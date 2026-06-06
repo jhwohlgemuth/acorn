@@ -1,6 +1,11 @@
-use crate::cli::CommandOptions;
+use crate::cli::{Arguments, CommandOptions, Commands, CreateCommands, SchemaCommands, Void};
+use crate::io::{is_stdout_piped, read_stdin, write_stdout};
+use acorn::fail;
+use acorn::prelude::{exit, PathBuf};
+use acorn::schema::pid::raid::Metadata;
+use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::Label;
-use std::process::exit;
+use tracing::info;
 
 pub mod check;
 pub mod create;
@@ -48,4 +53,204 @@ fn preflight_inner(command: &str, options: &CommandOptions) {
             exit(exitcode::UNAVAILABLE);
         }
     }
+}
+pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf>, threads: usize) -> Void {
+    match &args.command {
+        | Some(Commands::Check {
+            path,
+            branch,
+            commit,
+            filter,
+            ignore,
+            skip,
+            disable_website_checks,
+            all,
+            exit_on_first_error,
+            merge_request,
+            skip_verify_checksum,
+            no_fail,
+            raw,
+            terse,
+            standard,
+            readability_metric,
+            verbose,
+            ..
+        }) => {
+            Box::pin(check::run(
+                path,
+                branch,
+                commit,
+                filter,
+                ignore,
+                skip,
+                disable_website_checks,
+                all,
+                exit_on_first_error,
+                merge_request,
+                skip_verify_checksum,
+                no_fail,
+                raw,
+                terse,
+                standard,
+                readability_metric,
+                verbose,
+                offline,
+            ))
+            .await
+        }
+        | Some(Commands::Create { command, .. }) => match command {
+            | Some(CreateCommands::Mcp) => unimplemented!("MCP server creation is not yet implemented"),
+            | Some(CreateCommands::Runner {
+                config,
+                description,
+                server,
+                repo,
+                group,
+                project,
+                tags,
+                untagged,
+                verbose,
+            }) => {
+                Box::pin(create::runner::run(
+                    config,
+                    description,
+                    server,
+                    repo,
+                    group,
+                    project,
+                    tags,
+                    untagged,
+                    verbose,
+                ))
+                .await
+            }
+            | None => {
+                eprintln!("=> {} No subcommand provided for 'create'", Label::fail());
+                exit(exitcode::USAGE);
+            }
+        },
+        | Some(Commands::Doctor { fix, interactive, check, .. }) => Box::pin(doctor::run(fix, interactive, check, offline)).await,
+        | Some(Commands::Download {
+            config,
+            url,
+            filter,
+            ignore,
+            output,
+            verbose,
+            ..
+        }) => {
+            Box::pin(download::run(
+                config,
+                url,
+                filter,
+                ignore,
+                output,
+                database_path,
+                threads,
+                verbose,
+                offline,
+            ))
+            .await
+        }
+        | Some(Commands::Export {
+            output,
+            path,
+            branch,
+            commit,
+            filter,
+            ignore,
+            format,
+            reference,
+            combine,
+            merge_request,
+            raw,
+            verbose,
+            ..
+        }) => {
+            Box::pin(export::run(
+                output,
+                path,
+                branch,
+                commit,
+                filter,
+                ignore,
+                format,
+                reference,
+                combine,
+                merge_request,
+                raw,
+                threads,
+                verbose,
+                offline,
+            ))
+            .await
+        }
+        | Some(Commands::Format {
+            path,
+            branch,
+            commit,
+            filter,
+            ignore,
+            dry_run,
+            merge_request,
+            verbose,
+            ..
+        }) => {
+            Box::pin(format::run(
+                path,
+                branch,
+                commit,
+                filter,
+                ignore,
+                *dry_run,
+                merge_request,
+                verbose,
+                offline,
+            ))
+            .await
+        }
+        | Some(Commands::Gather {
+            path,
+            filter,
+            ignore,
+            merge_request,
+            verbose,
+            ..
+        }) => Box::pin(gather::run(path, filter, ignore, merge_request, database_path, verbose, offline)).await,
+        | Some(Commands::Link {
+            path,
+            branch,
+            commit,
+            ignore,
+            dry_run,
+            merge_request,
+            verbose,
+            ..
+        }) => Box::pin(link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose)).await,
+        | Some(Commands::Schema { command, .. }) => match command {
+            | Some(SchemaCommands::Rad) | None => print_rad_schema(),
+            | Some(SchemaCommands::Raid) => print_raid_schema(),
+        },
+        | None => {
+            let name = "JASON";
+            fail!("FOOBAR {} RABOOF", name);
+            if let Some(value) = read_stdin() {
+                println!("stdin: {value}");
+                info!(value, "=> {} Input from stdin", Label::using());
+            }
+            if is_stdout_piped() {
+                println!("stdout is piped");
+                write_stdout("stdout is piped");
+            }
+            Ok(())
+        }
+    }
+}
+fn print_rad_schema() -> Void {
+    ResearchActivity::to_schema();
+    exit(exitcode::OK);
+}
+fn print_raid_schema() -> Void {
+    Metadata::to_schema();
+    exit(exitcode::OK);
 }
