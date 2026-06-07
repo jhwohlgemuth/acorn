@@ -219,17 +219,17 @@ where
     }
     cmd
 }
-fn shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Option<&Path>) -> Command {
-    let mut cmd = command_with_args(shell, shell_args, dir);
-    cmd.arg(command);
-    cmd
+fn escape(value: &str) -> String {
+    if value.is_empty() {
+        "\"\"".to_string()
+    } else if value.chars().any(|ch| ch.is_whitespace() || matches!(ch, '"' | '\'' | '\\')) {
+        format!("\"{}\"", value.replace('"', "\\\""))
+    } else {
+        value.to_string()
+    }
 }
 fn log_command(binary: &str, args: &[OsString], dir: Option<&Path>) {
-    let rendered_args = args
-        .iter()
-        .map(|arg| shell_escape(&arg.to_string_lossy()))
-        .collect::<Vec<String>>()
-        .join(" ");
+    let rendered_args = redact(args);
     let rendered = if rendered_args.is_empty() {
         binary.to_string()
     } else {
@@ -246,12 +246,30 @@ fn log_shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Optio
         .collect::<Vec<OsString>>();
     log_command(shell, &args, dir);
 }
-fn shell_escape(value: &str) -> String {
-    if value.is_empty() {
-        "\"\"".to_string()
-    } else if value.chars().any(|ch| ch.is_whitespace() || matches!(ch, '"' | '\'' | '\\')) {
-        format!("\"{}\"", value.replace('"', "\\\""))
-    } else {
-        value.to_string()
-    }
+pub(crate) fn redact(args: &[OsString]) -> String {
+    let sensitive_flags = ["--api-key", "--password", "--registration-token", "--secret", "--token"];
+    args.iter()
+        .scan(false, |redact_next, arg| {
+            let raw = arg.to_string_lossy();
+            let rendered = if *redact_next {
+                *redact_next = false;
+                "[REDACTED]".to_string()
+            } else {
+                match raw.split_once('=') {
+                    | Some((flag, _)) if sensitive_flags.contains(&flag) => format!("{flag}=[REDACTED]"),
+                    | _ => {
+                        *redact_next = sensitive_flags.contains(&raw.as_ref());
+                        escape(&raw)
+                    }
+                }
+            };
+            Some(rendered)
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+fn shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Option<&Path>) -> Command {
+    let mut cmd = command_with_args(shell, shell_args, dir);
+    cmd.arg(command);
+    cmd
 }

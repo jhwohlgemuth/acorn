@@ -1,7 +1,9 @@
 use crate::cmd;
 use crate::io::command_exists;
 use crate::prelude::CommandOutput;
+use crate::prelude::OsString;
 use crate::test_utils::{echo_args, echo_bin, exit_args, exit_bin, sh_echo, stderr_args, stderr_bin};
+use crate::util::cmd::redact;
 #[cfg(feature = "shell-lint")]
 use crate::util::cmd::Severity as CmdSeverity;
 #[cfg(feature = "shell-lint")]
@@ -197,4 +199,33 @@ fn test_cmd_status() {
     assert!(status.success());
     let status = cmd!(status exit_bin(), exit_args(42)).expect("exit code");
     assert!(!status.success());
+}
+#[test]
+fn test_redact() {
+    let cases: &[(&[&str], &str)] = &[
+        (&[], ""),
+        (&["hello", "world"], "hello world"),
+        (&["hello world", "foo"], "\"hello world\" foo"),
+        (&["--api-key=mysecret"], "--api-key=[REDACTED]"),
+        (&["--password=mysecret"], "--password=[REDACTED]"),
+        (&["--registration-token=mysecret"], "--registration-token=[REDACTED]"),
+        (&["--secret=mysecret"], "--secret=[REDACTED]"),
+        (&["--token=mysecret"], "--token=[REDACTED]"),
+        (&["--token", "mysecret"], "--token [REDACTED]"),
+        (&["--api-key", "key123", "--token", "tok456"], "--api-key [REDACTED] --token [REDACTED]"),
+        (
+            &["--output", "file.txt", "--token=secret", "--verbose"],
+            "--output file.txt --token=[REDACTED] --verbose",
+        ),
+        (&["--token"], "--token"),
+        (&["--token="], "--token=[REDACTED]"),
+        (&["--username", "admin", "--host=localhost"], "--username admin --host=localhost"),
+        (&["--token=first", "--password=second"], "--token=[REDACTED] --password=[REDACTED]"),
+        (&["--not-token=value", "--my-secret=value"], "--not-token=value --my-secret=value"),
+    ];
+
+    for (args, expected) in cases {
+        let oss_args: Vec<OsString> = args.iter().map(OsString::from).collect();
+        assert_eq!(redact(&oss_args), *expected, "failed for args: {args:?}");
+    }
 }
