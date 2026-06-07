@@ -934,6 +934,18 @@ impl TryFrom<&str> for PaginationField {
         }
     }
 }
+impl ValueValidator for PaginationField {
+    /// Validate pagination field values according to GitLab API documentation
+    fn is_valid(&self, value: &str) -> bool {
+        match self {
+            | PaginationField::OrderBy => OrderByValue::try_from(value).is_ok(),
+            | PaginationField::Page => value.parse::<u64>().is_ok(),
+            | PaginationField::PerPage => value.parse::<u64>().is_ok(),
+            | PaginationField::Sort => SortValue::try_from(value).is_ok(),
+            | _ => true,
+        }
+    }
+}
 impl TryFrom<&str> for OrderByValue {
     type Error = String;
 
@@ -1015,18 +1027,6 @@ pub(crate) fn handle_tree_paths_response(response: ApiResult<TreeResponse>, page
             | None => Ok(value),
         },
         | Err(why) => Err(why),
-    }
-}
-impl ValueValidator for PaginationField {
-    /// Validate pagination field values according to GitLab API documentation
-    fn is_valid(&self, value: &str) -> bool {
-        match self {
-            | PaginationField::OrderBy => OrderByValue::try_from(value).is_ok(),
-            | PaginationField::Page => value.parse::<u64>().is_ok(),
-            | PaginationField::PerPage => value.parse::<u64>().is_ok(),
-            | PaginationField::Sort => SortValue::try_from(value).is_ok(),
-            | _ => true,
-        }
     }
 }
 /// Create a new runner using project or group identifier

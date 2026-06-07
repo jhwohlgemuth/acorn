@@ -103,6 +103,7 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
             | Some(CreateCommands::Runner {
                 config,
                 description,
+                name,
                 server,
                 repo,
                 group,
@@ -114,6 +115,7 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
                 Box::pin(create::runner::run(
                     config,
                     description,
+                    name,
                     server,
                     repo,
                     group,

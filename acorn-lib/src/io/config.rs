@@ -165,6 +165,16 @@ pub struct RunnerDetails {
     pub run_untagged: bool,
     /// Optional GitLab host/domain override (for self-managed instances)
     pub host: Option<String>,
+    /// Default Docker image for the runner itself
+    #[builder(default = String::from("gitlab/gitlab-runner:latest"))]
+    #[serde(default = "default_docker_image")]
+    pub docker_image: String,
+    /// Runner identifier assigned by GitLab during creation
+    #[serde(default)]
+    pub identifier: Option<u64>,
+    /// Runner authentication token returned from GitLab API
+    #[serde(default)]
+    pub token: Option<String>,
 }
 impl ApplicationConfiguration {
     /// Resolve application configuration path
@@ -570,6 +580,23 @@ impl fmt::Display for RunnerType {
         formatter.write_str(value)
     }
 }
+impl RunnerDetails {
+    /// Set the runner identifier (assigned by GitLab after creation)
+    pub fn with_id(self, value: u64) -> Self {
+        Self {
+            identifier: Some(value),
+            ..self
+        }
+    }
+    /// Set the runner name (used as Docker container name)
+    pub fn with_name(self, value: String) -> Self {
+        Self { name: Some(value), ..self }
+    }
+    /// Set the runner authentication token
+    pub fn with_token(self, value: Option<String>) -> Self {
+        Self { token: value, ..self }
+    }
+}
 impl From<&str> for RunnerType {
     fn from(value: &str) -> Self {
         match value.to_uppercase().as_str() {
@@ -600,6 +627,13 @@ fn count_json_files(paths: &[String]) -> usize {
 }
 fn count_image_files(paths: &[String]) -> usize {
     paths.iter().filter(|&x| has_image_extension(x)).count()
+}
+fn default_docker_image() -> String {
+    "gitlab/gitlab-runner:latest".to_string()
+}
+#[allow(clippy::ptr_arg)]
+fn has_image_extension(path: &String) -> bool {
+    path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg")
 }
 fn is_ignored_path(path: &str, ignore: &[Regex]) -> bool {
     let is_builtin_ignored = IGNORE.iter().any(|value| path.ends_with(value));
@@ -643,10 +677,6 @@ fn operations_complete_message(name: Option<String>, json_count: usize, image_co
         suffix(total),
         message,
     )
-}
-#[allow(clippy::ptr_arg)]
-fn has_image_extension(path: &String) -> bool {
-    path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg")
 }
 
 #[cfg(test)]

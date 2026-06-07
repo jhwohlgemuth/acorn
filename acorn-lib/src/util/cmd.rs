@@ -3,13 +3,16 @@
 //! These are `#[doc(hidden)]` and not part of the public API.
 #[cfg(feature = "shell-lint")]
 use crate::prelude::env;
-use crate::prelude::{io, Command, ExitStatus, Output, Path};
+use crate::prelude::{io, Command, ExitStatus, OsString, Output, Path};
 #[cfg(feature = "shell-lint")]
 use crate::util::constants::env::SHELL_LINT_MIN_SEVERITY;
+use crate::util::Label;
+use core::iter::once;
 #[cfg(feature = "shell-lint")]
 use shuck_linter::{lint, AnalysisRequest, Diagnostic, LinterSettings, Severity as LintSeverity, ShellDialect};
 #[cfg(feature = "shell-lint")]
 use shuck_parser::parser::Parser;
+use tracing::warn;
 
 #[cfg(feature = "shell-lint")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -123,17 +126,21 @@ pub fn parse_sh(cmd: &str) -> io::Result<(String, Vec<String>)> {
 }
 /// Run a command, capture output, with optional working directory.
 #[doc(hidden)]
-pub fn run_output<I, S>(binary: &str, args: I, dir: Option<&Path>) -> io::Result<Output>
+pub fn run_output<I, S>(binary: impl AsRef<str>, args: I, dir: Option<&Path>) -> io::Result<Output>
 where
     I: IntoIterator<Item = S>,
     S: AsRef<std::ffi::OsStr>,
 {
-    let mut cmd = command_with_args(binary, args, dir);
+    let binary = binary.as_ref();
+    let args = args.into_iter().map(|value| value.as_ref().to_os_string()).collect::<Vec<OsString>>();
+    log_command(binary, &args, dir);
+    let mut cmd = command_with_args(binary, &args, dir);
     cmd.output()
 }
 /// Run a command string using a shell, capture output, with optional working directory.
 #[doc(hidden)]
 pub fn run_shell_output(shell: &str, shell_args: &[&str], command: &str, dir: Option<&Path>) -> io::Result<Output> {
+    log_shell_command(shell, shell_args, command, dir);
     #[cfg(feature = "shell-lint")]
     {
         Linter::run(shell, command).and_then(|()| {
@@ -150,6 +157,7 @@ pub fn run_shell_output(shell: &str, shell_args: &[&str], command: &str, dir: Op
 /// Run a command string using a shell, check status only, with optional working directory.
 #[doc(hidden)]
 pub fn run_shell_status(shell: &str, shell_args: &[&str], command: &str, dir: Option<&Path>) -> io::Result<ExitStatus> {
+    log_shell_command(shell, shell_args, command, dir);
     #[cfg(feature = "shell-lint")]
     {
         Linter::run(shell, command).and_then(|()| {
@@ -170,7 +178,9 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<std::ffi::OsStr>,
 {
-    let mut cmd = command_with_args(binary, args, dir);
+    let args = args.into_iter().map(|value| value.as_ref().to_os_string()).collect::<Vec<OsString>>();
+    log_command(binary, &args, dir);
+    let mut cmd = command_with_args(binary, &args, dir);
     cmd.status()
 }
 /// Convert a command result to `Result<String, String>`.
@@ -213,4 +223,35 @@ fn shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Option<&P
     let mut cmd = command_with_args(shell, shell_args, dir);
     cmd.arg(command);
     cmd
+}
+fn log_command(binary: &str, args: &[OsString], dir: Option<&Path>) {
+    let rendered_args = args
+        .iter()
+        .map(|arg| shell_escape(&arg.to_string_lossy()))
+        .collect::<Vec<String>>()
+        .join(" ");
+    let rendered = if rendered_args.is_empty() {
+        binary.to_string()
+    } else {
+        format!("{binary} {rendered_args}")
+    };
+    let cwd = dir.map(|path| path.display().to_string()).unwrap_or_else(|| "<current>".to_string());
+    warn!(cwd, "=> {} {rendered}", Label::run());
+}
+fn log_shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Option<&Path>) {
+    let args = shell_args
+        .iter()
+        .map(|value| OsString::from(*value))
+        .chain(once(OsString::from(command)))
+        .collect::<Vec<OsString>>();
+    log_command(shell, &args, dir);
+}
+fn shell_escape(value: &str) -> String {
+    if value.is_empty() {
+        "\"\"".to_string()
+    } else if value.chars().any(|ch| ch.is_whitespace() || matches!(ch, '"' | '\'' | '\\')) {
+        format!("\"{}\"", value.replace('"', "\\\""))
+    } else {
+        value.to_string()
+    }
 }

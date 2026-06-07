@@ -612,6 +612,9 @@ pub enum CreateCommands {
         /// GitLab project ID to create a runner for (alternative to providing a configuration file)
         #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
         project: Option<u64>,
+        /// Runner name (used as Docker container name)
+        #[arg(short = 'n', long, value_name = "NAME", help_heading = "OPTIONS")]
+        name: Option<String>,
         /// Hosting server location (for use during registration)
         #[arg(short, long, value_name = "SERVER", help_heading = "OPTIONS")]
         server: Option<String>,

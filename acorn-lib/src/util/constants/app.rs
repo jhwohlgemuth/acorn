@@ -16,6 +16,8 @@ pub const LARGE_FILE_THRESHOLD_BYTES: u64 = 100 * 1024 * 1024;
 pub const DEFAULT_CONFIG_FILENAMES: [&str; 3] = [".acorn.json", ".acorn.yaml", ".acorn.yml"];
 /// Default affiliation.
 pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
+/// Default base name used for configured GitLab runner containers.
+pub const DEFAULT_RUNNER_NAME: &str = "acorn-runner";
 /// RGB ORNL brand primary color.
 ///
 /// See <https://www.olcf.ornl.gov/about-olcf/media-assets/>.

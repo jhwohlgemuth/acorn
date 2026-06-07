@@ -489,7 +489,7 @@ impl Label {
     /// "Run" label formatting
     pub fn fmt_run(value: &str) -> String {
         let style = Style::new().black().on_yellow();
-        format!("{value} ▶ ").style(style).to_string()
+        format!(" {value} ▶ ").style(style).to_string()
     }
     /// "Skip" label
     pub fn skip() -> String {

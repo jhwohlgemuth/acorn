@@ -302,26 +302,20 @@ macro_rules! cmd {
     // ── default output array ──────────────────────────────────
     // array + dir
     ($binary:expr, [ $($arg:expr),* $(,)? ]; dir: $dir:expr) => {{
-        let mut __cmd = $crate::prelude::Command::new($binary);
-        __cmd.args([$($arg),*]);
-        __cmd.current_dir($dir);
-        __cmd.output()
+        $crate::util::cmd::run_output($binary, [$($arg),*], Some($dir.as_ref()))
     }};
     // array (no dir)
     ($binary:expr, [ $($arg:expr),* $(,)? ]) => {{
-        $crate::prelude::Command::new($binary).args([$($arg),*]).output()
+        $crate::util::cmd::run_output($binary, [$($arg),*], None)
     }};
     // ── default output variable ───────────────────────────────
     // variable + dir
     ($binary:expr, $args:expr; dir: $dir:expr) => {{
-        let mut __cmd = $crate::prelude::Command::new($binary);
-        __cmd.args($args);
-        __cmd.current_dir($dir);
-        __cmd.output()
+        $crate::util::cmd::run_output($binary, $args, Some($dir.as_ref()))
     }};
     // variable (no dir)
     ($binary:expr, $args:expr) => {{
-        $crate::prelude::Command::new($binary).args($args).output()
+        $crate::util::cmd::run_output($binary, $args, None)
     }};
 }
 /// Logging macro for failures

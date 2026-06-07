@@ -28,6 +28,9 @@ Some(
             ),
             run_untagged: false,
             host: None,
+            docker_image: "gitlab/gitlab-runner:latest",
+            identifier: None,
+            token: None,
         },
         RunnerDetails {
             code_repository: GitLab {
@@ -47,6 +50,9 @@ Some(
             tags: None,
             run_untagged: true,
             host: None,
+            docker_image: "gitlab/gitlab-runner:latest",
+            identifier: None,
+            token: None,
         },
     ],
 )
