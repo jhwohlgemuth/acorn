@@ -444,4 +444,4 @@ mod tests {
 }
 
 #[cfg(all(test, feature = "std"))]
-mod test_utils;
+mod test;

@@ -1,3 +1,4 @@
+use acorn::args;
 use acorn::cmd;
 use acorn::io::api::gitlab::{self, RunnerCreationResponse};
 use acorn::io::api::Configuration;
@@ -222,46 +223,55 @@ async fn register_runner(details: RunnerDetails) -> Result<(), Report> {
         | (false, _) => Err(eyre!("Docker is required to register a GitLab runner but was not found")),
         | (true, None) => Err(eyre!("GitLab runner creation did not return a registration token")),
         | (true, Some(token)) => {
-            let passthru = "/var/run/docker.sock:/var/run/docker.sock".to_string();
-            let gpu_args = if details.gpu_enabled {
-                vec!["--gpus".to_string(), "all".to_string()]
-            } else {
-                vec![]
-            };
-            let args: Vec<String> = [
-                vec!["run".to_string()],
-                vec!["--detach".to_string()],
-                vec!["--name".to_string(), container_name.clone()],
-                vec!["--restart".to_string(), "always".to_string()],
-                vec!["-v".to_string(), "/srv/gitlab-runner/config:/etc/gitlab-runner".to_string()],
-                vec!["-v".to_string(), passthru.clone()],
-                gpu_args,
-                vec!["gitlab/gitlab-runner:latest".to_string()],
-            ]
-            .concat();
-            match cmd!("docker", args) {
+            let passthru = "/var/run/docker.sock:/var/run/docker.sock";
+            let gpu_args = if details.gpu_enabled { vec!["--gpus", "all"] } else { vec![] };
+            match cmd!(
+                "docker",
+                args![
+                    "run",
+                    "--detach",
+                    "--name",
+                    container_name.clone(),
+                    "--restart",
+                    "always",
+                    "-v",
+                    "/srv/gitlab-runner/config:/etc/gitlab-runner",
+                    "-v",
+                    passthru,
+                    ..gpu_args,
+                    "gitlab/gitlab-runner:latest",
+                ]
+            ) {
                 | Err(why) => Err(eyre!("Failed to spawn docker run — {why}")),
                 | Ok(output) if !output.status.success() => {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     Err(eyre!("Failed to create GitLab runner container: {stderr}"))
                 }
                 | Ok(_) => {
-                    let args: Vec<String> = [
-                        vec!["exec".to_string()],
-                        vec![container_name],
-                        vec!["gitlab-runner".to_string()],
-                        vec!["--log-level".to_string(), "debug".to_string()],
-                        vec!["register".to_string()],
-                        vec!["--non-interactive".to_string()],
-                        vec!["--url".to_string(), url],
-                        vec!["--token".to_string(), token],
-                        vec!["--executor".to_string(), "docker".to_string()],
-                        vec!["--docker-image".to_string(), "docker".to_string()],
-                        vec!["--docker-volumes".to_string(), passthru],
-                        vec!["--description".to_string(), format!("GitLab Runner [{identifier}]")],
-                    ]
-                    .concat();
-                    match cmd!("docker", args) {
+                    match cmd!(
+                        "docker",
+                        args![
+                            "exec",
+                            container_name,
+                            "gitlab-runner",
+                            "--log-level",
+                            "debug",
+                            "register",
+                            "--non-interactive",
+                            "--url",
+                            url,
+                            "--token",
+                            token,
+                            "--executor",
+                            "docker",
+                            "--docker-image",
+                            "docker",
+                            "--docker-volumes",
+                            passthru,
+                            "--description",
+                            format!("GitLab Runner [{identifier}]"),
+                        ]
+                    ) {
                         | Ok(output) if output.status.success() => {
                             info!("=> {} GitLab runner registered", Label::pass());
                             Ok(())

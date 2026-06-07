@@ -649,7 +649,7 @@ proptest! {
 }
 #[tokio::test]
 async fn test_is_license() {
-    let path = crate::test_utils::temp_database_with_licenses()
+    let path = crate::test::utils::temp_database_with_licenses()
         .await
         .expect("failed to initialize temporary test database");
     let path_string = path.to_string_lossy().to_string();

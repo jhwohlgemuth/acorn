@@ -13,7 +13,7 @@ use crate::analyzer::{checks_to_dataframe, collect_validation_checks, Analysis, 
 use crate::io::License;
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
-use crate::test_utils::unique_path;
+use crate::test::utils::unique_path;
 use crate::{check, check_ok};
 use ariadne::Color;
 use ariadne::ReportKind;

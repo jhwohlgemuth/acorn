@@ -6,9 +6,11 @@
     clippy::unwrap_used
 )]
 //! Shared test utilities for `acorn-lib` unit tests.
+use crate::cmd;
+use crate::io::command_exists;
 use crate::io::database::{schema::Table, Database, Operations};
 use crate::io::ApiResult;
-use crate::prelude::{create_dir_all, write, PathBuf};
+use crate::prelude::{create_dir_all, write, CommandOutput, PathBuf};
 use chrono::Utc;
 use core::time::Duration;
 use std::time::SystemTime;
@@ -115,5 +117,21 @@ pub(crate) fn exit_args(code: i32) -> Vec<String> {
         vec!["-c".into(), format!("exit {code}")]
     } else {
         vec!["/c".into(), format!("exit /b {code}")]
+    }
+}
+pub(crate) fn pwsh_is_healthy() -> bool {
+    if !command_exists("pwsh") {
+        return false;
+    }
+    match cmd!(pwsh "Write-Output 'shell-pwsh-health'") {
+        | Ok(output) => {
+            let stdout = output.stdout();
+            let stderr = output.stderr();
+            output.status.success()
+                && stdout.contains("shell-pwsh-health")
+                && !stdout.contains("Unhandled exception")
+                && !stderr.contains("Unhandled exception")
+        }
+        | Err(_) => false,
     }
 }

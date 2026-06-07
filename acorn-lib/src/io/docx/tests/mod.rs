@@ -8,7 +8,7 @@
 use crate::analyzer::readability::flesch_kincaid_grade_level;
 use crate::io::docx::extract_text_from_path;
 use crate::prelude::{write, File, PathBuf, Write};
-use crate::test_utils::{cleanup, fixture_path, temp_file};
+use crate::test::utils::{cleanup, fixture_path, temp_file};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
