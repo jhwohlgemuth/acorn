@@ -318,44 +318,52 @@ macro_rules! cmd {
         $crate::util::cmd::run_output($binary, $args, None)
     }};
 }
-/// Logging macro for failures
+/// Build a [`Vec<OsString>`] of command arguments with automatic `.into()` conversion
+/// and `..` spread for conditional sub-vectors.
+///
+/// Eliminates the `[vec!["x".to_string()], vec![y], ..].concat()` pattern by
+/// accepting bare string literals, expressions, and spread iterables in a flat list.
+///
+/// # Syntax
+///
+/// ```ignore
+/// // Literals and variables — auto-converted via Into<OsString>
+/// let args = args!["--name", container_name, "--url", url];
+///
+/// // Spread — injects all items from an IntoIterator
+/// let extra = vec!["--gpus", "all"];
+/// let args = args!["run", "--detach", ..extra, "image"];
+///
+/// // Empty
+/// let args: Vec<OsString> = args![];
+/// ```
+///
+/// Internally composes iterator chains and collects — no mutable state.
 #[macro_export]
-macro_rules! fail {
-    ($msg:literal, $($rest:tt)*) => {
-        tracing::error!(
-            "{}",
-            format!(
-                "=> {} {}",
-                $crate::util::Label::fail(),
-                format!($msg, $($rest)*)
-            )
-        );
+macro_rules! args {
+    // Spread with trailing items
+    (@build $acc:expr; .. $item:expr, $($rest:tt)*) => {
+        $crate::args!(@build ($acc.chain($item.into_iter().map(|s| s.into()))); $($rest)*)
     };
-    ($msg:literal) => {
-        tracing::error!("{}", format!("=> {} {}", $crate::util::Label::fail(), $msg));
+    // Spread, last item
+    (@build $acc:expr; .. $item:expr) => {
+        $acc.chain($item.into_iter().map(|s| s.into())).collect::<Vec<std::ffi::OsString>>()
     };
-    ($($args:tt)*) => {
-        tracing::error!($($args)*);
+    // Regular expression, trailing items follow
+    (@build $acc:expr; $item:expr, $($rest:tt)*) => {
+        $crate::args!(@build ($acc.chain(core::iter::once($item.into()))); $($rest)*)
     };
-}
-/// Logging macro for skipped operations
-#[macro_export]
-macro_rules! skip {
-    ($msg:literal, $($rest:tt)*) => {
-        tracing::warn!(
-            "{}",
-            format!(
-                "=> {}{}",
-                $crate::util::Label::skip(),
-                format!($msg, $($rest)*)
-            )
-        );
+    // Regular expression, last item
+    (@build $acc:expr; $item:expr) => {
+        $acc.chain(core::iter::once($item.into())).collect::<Vec<std::ffi::OsString>>()
     };
-    ($msg:literal) => {
-        tracing::warn!("{}", format!("=> {}{}", $crate::util::Label::skip(), $msg));
+    // Base case — no more tokens
+    (@build $acc:expr;) => {
+        $acc.collect::<Vec<std::ffi::OsString>>()
     };
-    ($($args:tt)*) => {
-        tracing::warn!($($args)*);
+    // Entry point
+    ($($tt:tt)*) => {
+        $crate::args!(@build (core::iter::empty::<std::ffi::OsString>()); $($tt)*)
     };
 }
 /// Build an analyzer [`Check`] with required category/success and optional fields.
@@ -420,6 +428,46 @@ macro_rules! check_ok {
 macro_rules! check_err {
     ($category:expr $(, $field:ident : $value:expr )* $(,)?) => {
         $crate::check!($category, false, severity: $crate::analyzer::CheckSeverity::Error $(, $field : $value )*)
+    };
+}
+/// Logging macro for failures
+#[macro_export]
+macro_rules! fail {
+    ($msg:literal, $($rest:tt)*) => {
+        tracing::error!(
+            "{}",
+            format!(
+                "=> {} {}",
+                $crate::util::Label::fail(),
+                format!($msg, $($rest)*)
+            )
+        );
+    };
+    ($msg:literal) => {
+        tracing::error!("{}", format!("=> {} {}", $crate::util::Label::fail(), $msg));
+    };
+    ($($args:tt)*) => {
+        tracing::error!($($args)*);
+    };
+}
+/// Logging macro for skipped operations
+#[macro_export]
+macro_rules! skip {
+    ($msg:literal, $($rest:tt)*) => {
+        tracing::warn!(
+            "{}",
+            format!(
+                "=> {}{}",
+                $crate::util::Label::skip(),
+                format!($msg, $($rest)*)
+            )
+        );
+    };
+    ($msg:literal) => {
+        tracing::warn!("{}", format!("=> {}{}", $crate::util::Label::skip(), $msg));
+    };
+    ($($args:tt)*) => {
+        tracing::warn!($($args)*);
     };
 }
 /// Creates a `Param` with the given style, name, and values.
@@ -722,53 +770,5 @@ macro_rules! list_validator {
                 })
                 .map_or(Ok(()), Err)
         }
-    };
-}
-/// Build a [`Vec<OsString>`] of command arguments with automatic `.into()` conversion
-/// and `..` spread for conditional sub-vectors.
-///
-/// Eliminates the `[vec!["x".to_string()], vec![y], ..].concat()` pattern by
-/// accepting bare string literals, expressions, and spread iterables in a flat list.
-///
-/// # Syntax
-///
-/// ```ignore
-/// // Literals and variables — auto-converted via Into<OsString>
-/// let args = args!["--name", container_name, "--url", url];
-///
-/// // Spread — injects all items from an IntoIterator
-/// let extra = vec!["--gpus", "all"];
-/// let args = args!["run", "--detach", ..extra, "image"];
-///
-/// // Empty
-/// let args: Vec<OsString> = args![];
-/// ```
-///
-/// Internally composes iterator chains and collects — no mutable state.
-#[macro_export]
-macro_rules! args {
-    // Spread with trailing items
-    (@build $acc:expr; .. $item:expr, $($rest:tt)*) => {
-        $crate::args!(@build ($acc.chain($item.into_iter().map(|s| s.into()))); $($rest)*)
-    };
-    // Spread, last item
-    (@build $acc:expr; .. $item:expr) => {
-        $acc.chain($item.into_iter().map(|s| s.into())).collect::<Vec<std::ffi::OsString>>()
-    };
-    // Regular expression, trailing items follow
-    (@build $acc:expr; $item:expr, $($rest:tt)*) => {
-        $crate::args!(@build ($acc.chain(core::iter::once($item.into()))); $($rest)*)
-    };
-    // Regular expression, last item
-    (@build $acc:expr; $item:expr) => {
-        $acc.chain(core::iter::once($item.into())).collect::<Vec<std::ffi::OsString>>()
-    };
-    // Base case — no more tokens
-    (@build $acc:expr;) => {
-        $acc.collect::<Vec<std::ffi::OsString>>()
-    };
-    // Entry point
-    ($($tt:tt)*) => {
-        $crate::args!(@build (core::iter::empty::<std::ffi::OsString>()); $($tt)*)
     };
 }
