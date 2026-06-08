@@ -671,36 +671,6 @@ pub enum SensorModality {
     #[display("{}", _0)]
     Other(String),
 }
-impl From<&SensorModality> for Modality {
-    fn from(value: &SensorModality) -> Self {
-        match value {
-            | SensorModality::Audio => Modality::Audio,
-            | SensorModality::Image | SensorModality::Event | SensorModality::Depth => Modality::Video,
-            | SensorModality::Lidar
-            | SensorModality::Radar
-            | SensorModality::Radio
-            | SensorModality::NetworkTraffic
-            | SensorModality::Webhook
-            | SensorModality::Hyperspectral
-            | SensorModality::Seismic
-            | SensorModality::ServerSideEvent
-            | SensorModality::Sonar
-            | SensorModality::Inertial
-            | SensorModality::Magnetic
-            | SensorModality::Navigation
-            | SensorModality::Pressure
-            | SensorModality::Temperature
-            | SensorModality::Ultrasonic
-            | SensorModality::Chemical
-            | SensorModality::Other(_) => Modality::Signal,
-        }
-    }
-}
-impl From<SensorModality> for Modality {
-    fn from(value: SensorModality) -> Self {
-        (&value).into()
-    }
-}
 /// CPU instruction set architectures
 #[derive(Clone, Debug, Display, Deserialize, PartialEq, Serialize, JsonSchema)]
 pub enum CpuArchitecture {
@@ -1548,6 +1518,36 @@ impl<'de> Deserialize<'de> for Architecture {
             }
         }
         deserializer.deserialize_str(ArchitectureVisitor)
+    }
+}
+impl From<&SensorModality> for Modality {
+    fn from(value: &SensorModality) -> Self {
+        match value {
+            | SensorModality::Audio => Modality::Audio,
+            | SensorModality::Image | SensorModality::Event | SensorModality::Depth => Modality::Video,
+            | SensorModality::Lidar
+            | SensorModality::Radar
+            | SensorModality::Radio
+            | SensorModality::NetworkTraffic
+            | SensorModality::Webhook
+            | SensorModality::Hyperspectral
+            | SensorModality::Seismic
+            | SensorModality::ServerSideEvent
+            | SensorModality::Sonar
+            | SensorModality::Inertial
+            | SensorModality::Magnetic
+            | SensorModality::Navigation
+            | SensorModality::Pressure
+            | SensorModality::Temperature
+            | SensorModality::Ultrasonic
+            | SensorModality::Chemical
+            | SensorModality::Other(_) => Modality::Signal,
+        }
+    }
+}
+impl From<SensorModality> for Modality {
+    fn from(value: SensorModality) -> Self {
+        (&value).into()
     }
 }
 impl<'de> Deserialize<'de> for Resource {
