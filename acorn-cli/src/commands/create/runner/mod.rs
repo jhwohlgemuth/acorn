@@ -29,7 +29,7 @@ pub async fn run(
     project: &Option<u64>,
     tags: &[String],
     untagged: &bool,
-    _verbose: &Verbosity,
+    verbose: &Verbosity,
 ) -> Result<(), Report> {
     let config = ApplicationConfiguration::resolve(config)
         .and_then(|path| ApplicationConfiguration::read(path).ok())
@@ -102,7 +102,10 @@ pub async fn run(
                                     let RunnerCreationResponse { identifier, token, .. } = response;
                                     let container_name = format!("{base_name}-{identifier}");
                                     let details = details.with_name(container_name).with_id(identifier).with_token(token);
-                                    register_runner(details).await.map(|_| ()).map_err(|why| format!("{base_name} — {why}"))
+                                    register_runner(details, verbose)
+                                        .await
+                                        .map(|_| ())
+                                        .map_err(|why| format!("{base_name} — {why}"))
                                 }
                                 | Err(why) => Err(format!("{base_name} — {why}")),
                             }
@@ -143,7 +146,7 @@ pub async fn run(
                         let RunnerCreationResponse { identifier, token, .. } = response;
                         let container_name = format!("{base_name}-{identifier}");
                         let details = details.with_name(container_name).with_id(identifier).with_token(token);
-                        register_runner(details).await
+                        register_runner(details, verbose).await
                     }
                     | Err(why) => Err(why),
                 }
@@ -213,76 +216,76 @@ async fn create_runner(details: &RunnerDetails) -> Result<RunnerCreationResponse
         | (_, _, Err(why)) => Err(why).wrap_err("GitLab list runners request failed"),
     }
 }
-async fn register_runner(details: RunnerDetails) -> Result<(), Report> {
+async fn register_runner(details: RunnerDetails, verbose: &Verbosity) -> Result<(), Report> {
+    let executor = "docker";
     let maybe_token = details.token.clone();
     let identifier = details.identifier.unwrap_or_default();
     let gitlab_url = details.host.as_deref().unwrap_or("gitlab.com");
     let url = format!("https://{gitlab_url}/");
-    let container_name = details.name.clone().unwrap_or_else(|| "gitlab-runner".to_string());
-    match (command_exists("docker"), maybe_token) {
-        | (false, _) => Err(eyre!("Docker is required to register a GitLab runner but was not found")),
+    let name = &details.name.unwrap_or_else(|| "gitlab-runner".to_string());
+    match (command_exists(executor), maybe_token) {
+        | (false, _) => Err(eyre!("{executor} is required to register a GitLab runner but was not found")),
         | (true, None) => Err(eyre!("GitLab runner creation did not return a registration token")),
         | (true, Some(token)) => {
             let passthru = "/var/run/docker.sock:/var/run/docker.sock";
+            let description = format!("GitLab Runner [{identifier}]");
+            let log_level = vec!["--log-level", if verbose.is_silent() { "panic" } else { "debug" }];
             let gpu_args = if details.gpu_enabled { vec!["--gpus", "all"] } else { vec![] };
-            match cmd!(
-                "docker",
-                args![
-                    "run",
-                    "--detach",
-                    "--name",
-                    container_name.clone(),
-                    "--restart",
-                    "always",
-                    "-v",
-                    "/srv/gitlab-runner/config:/etc/gitlab-runner",
-                    "-v",
-                    passthru,
-                    ..gpu_args,
-                    "gitlab/gitlab-runner:latest",
-                ]
-            ) {
+            let config_mount: Vec<&str> = {
+                #[cfg(not(target_os = "macos"))]
+                {
+                    vec!["-v", "/srv/gitlab-runner/config:/etc/gitlab-runner"]
+                }
+                #[cfg(target_os = "macos")]
+                {
+                    vec!["-v", "/Users/Shared/gitlab-runner/config:/etc/gitlab-runner"]
+                }
+            };
+            let executor_options = vec!["--executor", executor, "--docker-image", "docker", "--docker-volumes", passthru];
+            let gitlab_runner_args = args![
+                "gitlab-runner",
+                ..log_level,
+                "register",
+                "--non-interactive",
+                "--url",
+                url,
+                "--description",
+                description,
+                "--token",
+                token,
+                ..executor_options,
+            ];
+            let create = args![
+                "run",
+                "--detach",
+                "--name",
+                name,
+                "--restart",
+                "always",
+                ..config_mount,
+                "-v",
+                passthru,
+                ..gpu_args,
+                "gitlab/gitlab-runner:latest",
+            ];
+            let register = args!["exec", name, ..gitlab_runner_args];
+            match cmd!(executor, create) {
                 | Err(why) => Err(eyre!("Failed to spawn docker run — {why}")),
                 | Ok(output) if !output.status.success() => {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     Err(eyre!("Failed to create GitLab runner container: {stderr}"))
                 }
-                | Ok(_) => {
-                    match cmd!(
-                        "docker",
-                        args![
-                            "exec",
-                            container_name,
-                            "gitlab-runner",
-                            "--log-level",
-                            "debug",
-                            "register",
-                            "--non-interactive",
-                            "--url",
-                            url,
-                            "--token",
-                            token,
-                            "--executor",
-                            "docker",
-                            "--docker-image",
-                            "docker",
-                            "--docker-volumes",
-                            passthru,
-                            "--description",
-                            format!("GitLab Runner [{identifier}]"),
-                        ]
-                    ) {
-                        | Ok(output) if output.status.success() => {
-                            info!("=> {} GitLab runner registered", Label::pass());
-                            Ok(())
-                        }
-                        | Ok(output) => {
-                            let stderr = String::from_utf8_lossy(&output.stderr);
-                            Err(eyre!("gitlab-runner register failed: {stderr}"))
-                        }
-                        | Err(why) => Err(eyre!("Failed to execute docker exec — {why}")),
+                | Ok(_) => match cmd!(executor, register) {
+                    | Ok(output) if output.status.success() => {
+                        info!("=> {} GitLab runner registered", Label::pass());
+                        Ok(())
                     }
-                }
+                    | Ok(output) => {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        Err(eyre!("gitlab-runner register failed: {stderr}"))
+                    }
+                    | Err(why) => Err(eyre!("Failed to execute docker exec — {why}")),
+                },
             }
         }
     }
