@@ -1,6 +1,6 @@
-use crate::schema::namespaces::{codemeta, schema_org};
 #[cfg(feature = "std")]
-use crate::schema::prompt::Model;
+use crate::schema::agent::Model;
+use crate::schema::namespaces::{codemeta, schema_org};
 use crate::util::{LinkedData, StringInterpolation, ToMarkdown};
 use bon::Builder;
 use core::str::FromStr;

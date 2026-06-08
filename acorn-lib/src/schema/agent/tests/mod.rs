@@ -1,4 +1,4 @@
-use crate::schema::prompt::{PromptFileAsset, PromptTemplate, PromptTemplateConfiguration};
+use crate::schema::agent::{PromptFileAsset, PromptTemplate, PromptTemplateConfiguration};
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
     [

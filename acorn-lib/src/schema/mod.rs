@@ -44,12 +44,12 @@ use serde_with::skip_serializing_none;
 use tracing::{debug, error, trace};
 use validator::Validate;
 
+#[cfg(feature = "std")]
+pub mod agent;
 pub mod geonames;
 pub mod graph;
 pub mod namespaces;
 pub mod pid;
-#[cfg(feature = "std")]
-pub mod prompt;
 pub mod research_activity;
 pub mod standard;
 pub mod validate;

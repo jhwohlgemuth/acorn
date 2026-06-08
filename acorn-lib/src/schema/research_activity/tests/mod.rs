@@ -7,8 +7,8 @@
 )]
 use crate::io::InputOutput;
 use crate::prelude::PathBuf;
+use crate::schema::agent::{LanguageModelDetails, Model};
 use crate::schema::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
-use crate::schema::prompt::{LanguageModelDetails, Model};
 use crate::schema::research_activity::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};
 use crate::schema::research_activity::*;
 use crate::schema::standard::cff::{Agent, Cff, IdentifierType};
