@@ -2,18 +2,97 @@
 //!
 //! Aims to support Google [dotprompt](https://github.com/google/dotprompt) and [agent skills](https://agentskills.io/specification) specificaitons
 use crate::io::ApiResult;
+#[cfg(not(feature = "std"))]
+use crate::io::License;
+#[cfg(feature = "std")]
 use crate::io::License;
 use crate::prelude::{Error, ErrorKind};
+use crate::schema::research_activity::aspect::data::Modality;
+use crate::schema::validate::is_partial_date;
 use crate::util::{SemanticVersion, ToMarkdown};
 use bon::Builder;
 use color_eyre::eyre::Report;
 use core::{fmt, str::from_utf8};
+use derive_more::Display;
 use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tera::{Context, Tera};
+use validator::{Validate, ValidationError};
 
+/// Benchmark evaluation harness or framework
+#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+pub enum Harness {
+    /// Anthropic's Claude Code agent
+    #[display("Claude Code")]
+    #[serde(rename = "Claude Code")]
+    ClaudeCode,
+    /// OpenAI Codex
+    #[display("Codex")]
+    #[serde(rename = "Codex")]
+    Codex,
+    /// OpenAI Codex CLI
+    #[display("Codex CLI")]
+    #[serde(rename = "Codex CLI")]
+    CodexCli,
+    /// Cursor CLI agent
+    #[display("Cursor CLI")]
+    #[serde(rename = "Cursor CLI")]
+    CursorCli,
+    /// Google Gemini CLI agent
+    #[display("Gemini CLI")]
+    #[serde(rename = "Gemini CLI")]
+    GeminiCli,
+    /// Mini-SWE-Agent framework
+    #[display("Mini-SWE-Agent")]
+    #[serde(rename = "Mini-SWE-Agent")]
+    MiniSweAgent,
+    /// OpenCode open source harness
+    #[display("OpenCode")]
+    #[serde(rename = "OpenCode")]
+    OpenCode,
+    /// Terminus-2 evaluation harness
+    #[display("Terminus-2")]
+    #[serde(rename = "Terminus-2")]
+    Terminus2,
+}
+/// Metric type for benchmark evaluation results
+#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+pub enum Metric {
+    /// Average pass@1 across multiple coding tasks
+    #[display("average pass@1")]
+    #[serde(rename = "average pass@1")]
+    AveragePassAt1,
+    /// Index score
+    #[display("index")]
+    #[serde(rename = "index")]
+    Index,
+    /// Pass@1 score
+    #[display("pass@1")]
+    #[serde(rename = "pass@1")]
+    PassAt1,
+    /// Percentage of correct answers
+    #[display("percent correct")]
+    #[serde(rename = "percent correct")]
+    PercentCorrect,
+    /// Rate at which issues are resolved
+    #[display("resolve rate")]
+    #[serde(rename = "resolve rate")]
+    ResolveRate,
+    /// Percentage of tasks resolved
+    #[display("resolved")]
+    #[serde(rename = "resolved")]
+    Resolved,
+    /// Numeric score
+    #[display("score")]
+    #[serde(rename = "score")]
+    Score,
+    /// Rate of successful task completions
+    #[display("success rate")]
+    #[serde(rename = "success rate")]
+    SuccessRate,
+}
 /// Opaque data artifact that is consumed by a given technology
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub enum Model {
@@ -40,11 +119,146 @@ pub enum PromptFileAsset {
     /// Fallback for unknown file names.
     Unknown(String),
 }
+/// Benchmark evaluation result
+#[skip_serializing_none]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
+pub struct Benchmark {
+    /// Name of the benchmark
+    pub name: String,
+    /// Numeric score achieved
+    #[validate(range(min = 0.0))]
+    pub score: f64,
+    /// Metric type for the score
+    pub metric: Metric,
+    /// Source URL for the benchmark result
+    #[validate(url)]
+    pub source: String,
+    /// Date of the benchmark result
+    #[validate(custom(function = "is_partial_date"))]
+    pub date: Option<String>,
+    /// Dataset used for evaluation
+    pub dataset: Option<String>,
+    /// Harness or framework used for evaluation
+    pub harness: Option<Harness>,
+    /// Variant of the harness configuration
+    pub variant: Option<String>,
+    /// Version of the benchmark or harness
+    pub version: Option<String>,
+}
+/// YAML compliant prompt file front matter
+/// ### Notes
+/// - Opencode only supports `name`, `description`, `license`, `compatibility`, and `metadata`
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate)]
+#[serde(rename_all = "kebab-case")]
+#[builder(start_fn = init)]
+pub struct FrontMatter {
+    /// Name of the prompt
+    #[builder(default = String::new())]
+    pub name: String,
+    /// Short description of the prompt
+    #[builder(default = String::new())]
+    pub description: String,
+    /// Prompt configuration
+    pub config: Option<PromptTemplateConfiguration>,
+    /// SPDX license identifier for the prompt (could also specify path to LICENSE file)
+    #[validate(nested)]
+    pub license: Option<License>,
+    /// Intended product, system, packages, network access, etc.
+    pub compatibility: Option<String>,
+    /// Model used to generate prompt
+    ///
+    /// Ideally, will be created from a `LargeLanguageModel` struct
+    pub model: Option<String>,
+    /// Additional metadata
+    /// ### Note
+    /// Value is serialized as a key-value map
+    pub metadata: Option<Vec<(String, String)>>,
+    /// List of tools that are pre-approved to run
+    /// ### Note
+    /// Value is serialized as a space-delimited string
+    pub allowed_tools: Option<Vec<String>>,
+}
+/// Describe a language model (LM)
+///
+/// This struct strives to accommodate the wide myriad varieties of language models in the wild.
+/// As such, version is a string instead of a `SemanticVersion` because versions are attached to models inconsistently.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Default, Deserialize, Serialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[validate(schema(function = "validate_open_weights", skip_on_field_errors = false))]
+pub struct LanguageModelDetails {
+    /// Whether the model supports file attachment
+    pub attachment: Option<bool>,
+    /// Benchmark evaluation results
+    pub benchmarks: Option<Vec<Benchmark>>,
+    /// Model family that generally describes model architecture (e.g., llama, gemma, qwen, etc.)
+    pub family: Option<String>,
+    /// Unique identifier for the model
+    pub id: Option<String>,
+    /// Knowledge cutoff date for the model
+    #[validate(custom(function = "is_partial_date"))]
+    pub knowledge: Option<String>,
+    /// Date the model was last updated
+    #[validate(custom(function = "is_partial_date"))]
+    pub last_updated: Option<String>,
+    /// Token limits for the model
+    pub limit: Option<LimitDetails>,
+    /// Input/output modalities
+    pub modalities: Option<Modalities>,
+    /// String value to override full model string descriptor in cases of ambiguity and inconsistency
+    pub name: Option<String>,
+    /// Indicates whether the model weights are openly available
+    pub open_weights: Option<bool>,
+    /// Number of parameters (in billions) (e.g., 14 for "14B")
+    pub parameters: Option<i64>,
+    /// Whether the model supports extended reasoning/thinking
+    pub reasoning: Option<bool>,
+    /// Release date of the model
+    #[validate(custom(function = "is_partial_date"))]
+    pub release_date: Option<String>,
+    /// Whether the model supports structured output
+    pub structured_output: Option<bool>,
+    /// Whether the model supports temperature configuration
+    pub temperature: Option<bool>,
+    /// Whether the model supports tool calling
+    pub tool_call: Option<bool>,
+    /// Value that describes niche application of a given model family (e.g., "coder" in "qwen-coder")
+    pub variant: Option<String>,
+    /// Version of the model
+    pub version: Option<SemanticVersion>,
+    /// Download sources for model weights
+    pub weights: Option<Vec<Weight>>,
+}
+/// Token limits for context and output
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+pub struct LimitDetails {
+    /// Maximum context window size in tokens
+    pub context: u64,
+    /// Maximum output token count
+    pub output: u64,
+    /// Maximum input token count (if different from context)
+    pub input: Option<u64>,
+}
+/// Input/output modalities supported by the model
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+pub struct Modalities {
+    /// Input modalities the model accepts
+    pub input: Vec<Modality>,
+    /// Output modalities the model produces
+    pub output: Vec<Modality>,
+}
+/// Struct for using and sharing prompt templates
+///
+/// See <https://git.sr.ht/~pyrossh/rust-embed>
+#[derive(Embed)]
+#[folder = "assets/prompts/"]
+pub struct PromptTemplate;
 /// Prompt configuration
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[builder(start_fn = init)]
-pub struct Configuration {
+pub struct PromptTemplateConfiguration {
     /// Include analogy or example in explanation prompts
     pub include_analogy: Option<bool>,
     /// Include examples in teaching prompts
@@ -79,64 +293,16 @@ pub struct Configuration {
     #[builder(default)]
     pub version: SemanticVersion,
 }
-/// YAML compliant prompt file front matter
-/// ### Notes
-/// - Opencode only supports `name`, `description`, `license`, `compatibility`, and `metadata`
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-#[builder(start_fn = init)]
-pub struct FrontMatter {
-    /// Name of the prompt
-    #[builder(default = String::new())]
-    pub name: String,
-    /// Short description of the prompt
-    #[builder(default = String::new())]
-    pub description: String,
-    /// Prompt configuration
-    pub config: Option<Configuration>,
-    /// SPDX license identifier for the prompt (could also specify path to LICENSE file)
-    // TODO: validate with is_license
-    pub license: Option<License>,
-    /// Intended product, system, packages, network access, etc.
-    pub compatibility: Option<String>,
-    /// Model used to generate prompt
-    ///
-    /// Ideally, will be created from a `LargeLanguageModel` struct
-    pub model: Option<String>,
-    /// Additional metadata
-    /// ### Note
-    /// Value is serialized as a key-value map
-    pub metadata: Option<Vec<(String, String)>>,
-    /// List of tools that are pre-approved to run
-    /// ### Note
-    /// Value is serialized as a space-delimited string
-    pub allowed_tools: Option<Vec<String>>,
+/// Source for downloading model weights
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+pub struct Weight {
+    /// Display label for the weight source
+    pub label: String,
+    /// URL to download the weights
+    pub url: String,
+    /// Whether the weights are openly available
+    pub is_open: Option<bool>,
 }
-/// Describe a large language model (LLM)
-///
-/// This struct strives to accommodate the wide myriad varieties of the LLMs in the wild.
-/// As such, version is a string instead of a `SemanticVersion` because versions are attached to LLMs inconsistently.
-#[derive(Builder, Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
-#[builder(start_fn = init)]
-pub struct LanguageModelDetails {
-    /// Model family that generally describes model architecture (e.g., llama, gemma, qwen, etc.)
-    pub family: Option<String>,
-    /// String value to override full model string descriptor in cases of ambiguity and inconsistency
-    pub name: Option<String>,
-    /// Value that describes niche application of a given model family (e.g., "coder" in "qwen-coder")
-    pub variant: Option<String>,
-    /// Version of model
-    pub version: Option<String>,
-    /// Number of parameters (in billions) (e.g., 14 for "14B")
-    pub parameters: Option<i64>,
-}
-/// Struct for using and sharing prompt templates
-///
-/// See <https://git.sr.ht/~pyrossh/rust-embed>
-#[derive(Embed)]
-#[folder = "assets/prompts/"]
-pub struct PromptTemplate;
 impl fmt::Display for PromptFileAsset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
@@ -175,19 +341,29 @@ impl Default for FrontMatter {
         FrontMatter::init().build()
     }
 }
-impl Default for Configuration {
+impl Default for PromptTemplateConfiguration {
     fn default() -> Self {
-        Configuration::init().build()
+        PromptTemplateConfiguration::init().build()
     }
 }
 impl ToMarkdown for LanguageModelDetails {
     fn to_markdown(&self) -> String {
         let lines = [
+            self.attachment.map(|value| format!("  - Attachment: {value}")),
             self.family.as_ref().map(|value| format!("  - Family: {value}")),
+            self.id.as_ref().map(|value| format!("  - ID: {value}")),
+            self.knowledge.as_ref().map(|value| format!("  - Knowledge: {value}")),
+            self.last_updated.as_ref().map(|value| format!("  - Last Updated: {value}")),
             self.name.as_ref().map(|value| format!("  - Name: {value}")),
+            self.open_weights.map(|value| format!("  - Open Weights: {value}")),
+            self.parameters.map(|value| format!("  - Parameters: {value}B")),
+            self.reasoning.map(|value| format!("  - Reasoning: {value}")),
+            self.release_date.as_ref().map(|value| format!("  - Release Date: {value}")),
+            self.structured_output.map(|value| format!("  - Structured Output: {value}")),
+            self.temperature.map(|value| format!("  - Temperature: {value}")),
+            self.tool_call.map(|value| format!("  - Tool Call: {value}")),
             self.variant.as_ref().map(|value| format!("  - Variant: {value}")),
             self.version.as_ref().map(|value| format!("  - Version: {value}")),
-            self.parameters.map(|value| format!("  - Parameters: {value}B")),
         ]
         .into_iter()
         .flatten()
@@ -217,7 +393,7 @@ impl PromptTemplate {
     ///     .build();
     /// let rendered = PromptTemplate::render(PromptFileAsset::Summarize, &config);
     /// ```
-    pub fn render<T>(asset: T, config: &Configuration) -> ApiResult<String>
+    pub fn render<T>(asset: T, config: &PromptTemplateConfiguration) -> ApiResult<String>
     where
         T: Into<PromptFileAsset>,
     {
@@ -231,6 +407,15 @@ impl PromptTemplate {
                     .and_then(|context| Tera::one_off(&template, &context, false).map_err(Report::from))
             })
     }
+}
+fn validate_open_weights(details: &LanguageModelDetails) -> Result<(), ValidationError> {
+    if let Some(weights) = &details.weights {
+        let has_open_weight = weights.iter().any(|w| w.is_open == Some(true));
+        if has_open_weight && details.open_weights != Some(true) {
+            return Err(ValidationError::new("open_weights").with_message("open_weights must be true when any weight has is_open: true".into()));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

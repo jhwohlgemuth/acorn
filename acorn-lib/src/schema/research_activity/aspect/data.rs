@@ -134,6 +134,7 @@ pub enum GeospatialDataProcessingLevel {
 }
 /// Specific type or form of data that a system can process and learn from
 #[derive(Clone, Debug, Default, Display, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
 pub enum Modality {
     /// Textual data that includes text and tabular data
     #[default]
@@ -151,6 +152,12 @@ pub enum Modality {
     /// Graph data or generally data with relational structure
     #[display("graph")]
     Graph,
+    /// Image data such as PNG, JPEG
+    #[display("image")]
+    Image,
+    /// PDF document data
+    #[display("pdf")]
+    Pdf,
 }
 /// Framework for partitioning data by quality using metaphor of mined metals
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]

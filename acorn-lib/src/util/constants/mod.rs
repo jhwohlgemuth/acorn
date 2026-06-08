@@ -130,6 +130,13 @@ lazy_static! {
     /// > `2025-06-04`
     pub static ref RE_ISO_8601_DATE: Regex = Regex::new(r#"^(?<year>(19[5-9][0-9]|20[0-2][0-9]))-(?<month>(((0[13578]|(10|12)))-(?<day>(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30))))$"#)
         .expect("RE_ISO_8601_DATE should compile as a valid regex");
+    /// Regex that should match a partial ISO 8601 date (e.g., `YYYY-MM-DD` or `YYYY-MM`)
+    /// ### Examples
+    /// > `2025-06-04`
+    /// > `2025-09`
+    pub static ref RE_PARTIAL_DATE: Regex = Regex::new(
+        r#"^(?<year>(19[5-9][0-9]|20[0-2][0-9]))-(?<month>(0[1-9]|1[0-2]))(?:-(?<day>(0[1-9]|[1-2][0-9]|3[0-1])))?$"#
+    ).expect("RE_PARTIAL_DATE should compile as a valid regex");
     /// Regex that should match an ISO 8601 year from modern times, 1950 through 2029
     /// ### Example
     /// > `2025`

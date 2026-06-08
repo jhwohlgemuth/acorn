@@ -1,4 +1,4 @@
-use crate::schema::prompt::{Configuration, PromptFileAsset, PromptTemplate};
+use crate::schema::prompt::{PromptFileAsset, PromptTemplate, PromptTemplateConfiguration};
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
     [
@@ -34,7 +34,7 @@ fn from_asset_returns_some_for_all_known_assets() {
 }
 #[test]
 fn render_accepts_prompt_asset_str_and_string_inputs() {
-    let config = Configuration::init().build();
+    let config = PromptTemplateConfiguration::init().build();
     let from_enum = PromptTemplate::render(PromptFileAsset::Summarize, &config);
     let from_str = PromptTemplate::render("summarize", &config);
     let from_string = PromptTemplate::render("summarize.prompt".to_string(), &config);
@@ -43,7 +43,7 @@ fn render_accepts_prompt_asset_str_and_string_inputs() {
 }
 #[test]
 fn render_unknown_asset_returns_error() {
-    let config = Configuration::init().build();
+    let config = PromptTemplateConfiguration::init().build();
     let result = PromptTemplate::render("unknown.prompt", &config);
     assert!(result.is_err());
 }

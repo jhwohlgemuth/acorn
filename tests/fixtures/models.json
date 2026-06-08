@@ -1,0 +1,237 @@
+{
+    "deepseek/deepseek-reasoner": {
+        "id": "deepseek/deepseek-reasoner",
+        "name": "DeepSeek Reasoner",
+        "family": "deepseek-thinking",
+        "attachment": true,
+        "reasoning": true,
+        "tool_call": true,
+        "temperature": true,
+        "knowledge": "2025-09",
+        "release_date": "2025-12-01",
+        "last_updated": "2026-02-28",
+        "modalities": {
+            "input": [
+                "text"
+            ],
+            "output": [
+                "text"
+            ]
+        },
+        "open_weights": true,
+        "limit": {
+            "context": 1000000,
+            "output": 384000
+        },
+        "weights": [
+            {
+                "label": "Hugging Face",
+                "url": "https://huggingface.co/deepseek-ai/DeepSeek-V3.2"
+            }
+        ],
+        "benchmarks": [
+            {
+                "name": "Aider Polyglot",
+                "score": 74.2,
+                "metric": "percent correct",
+                "source": "https://aider.chat/docs/leaderboards/",
+                "date": "2025-10-03"
+            }
+        ]
+    },
+    "anthropic/claude-opus-4-1": {
+        "id": "anthropic/claude-opus-4-1",
+        "name": "Claude Opus 4.1 (latest)",
+        "family": "claude-opus",
+        "attachment": true,
+        "reasoning": true,
+        "tool_call": true,
+        "temperature": true,
+        "knowledge": "2025-03-31",
+        "release_date": "2025-08-05",
+        "last_updated": "2025-08-05",
+        "modalities": {
+            "input": [
+                "text",
+                "image",
+                "pdf"
+            ],
+            "output": [
+                "text"
+            ]
+        },
+        "open_weights": false,
+        "limit": {
+            "context": 200000,
+            "output": 32000
+        }
+    },
+    "anthropic/claude-opus-4-6": {
+        "id": "anthropic/claude-opus-4-6",
+        "name": "Claude Opus 4.6",
+        "family": "claude-opus",
+        "attachment": true,
+        "reasoning": true,
+        "tool_call": true,
+        "temperature": true,
+        "knowledge": "2025-05-31",
+        "release_date": "2026-02-05",
+        "last_updated": "2026-03-13",
+        "modalities": {
+            "input": [
+                "text",
+                "image",
+                "pdf"
+            ],
+            "output": [
+                "text"
+            ]
+        },
+        "open_weights": false,
+        "limit": {
+            "context": 1000000,
+            "output": 128000
+        },
+        "benchmarks": [
+            {
+                "name": "SWE-Bench Pro",
+                "score": 51.9,
+                "metric": "resolve rate",
+                "dataset": "public",
+                "source": "https://labs.scale.com/leaderboard/swe_bench_pro_public"
+            },
+            {
+                "name": "SWE-Atlas Codebase QnA",
+                "score": 33.3,
+                "metric": "score",
+                "harness": "Claude Code",
+                "source": "https://labs.scale.com/leaderboard/sweatlas-qna"
+            },
+            {
+                "name": "SWE-Atlas Codebase QnA",
+                "score": 30,
+                "metric": "score",
+                "harness": "Mini-SWE-Agent",
+                "source": "https://labs.scale.com/leaderboard/sweatlas-qna"
+            },
+            {
+                "name": "SWE-Atlas Refactoring",
+                "score": 35.58,
+                "metric": "score",
+                "harness": "Claude Code",
+                "source": "https://labs.scale.com/leaderboard/sweatlas-refactoring"
+            },
+            {
+                "name": "SWE-Atlas Test Writing",
+                "score": 36.67,
+                "metric": "score",
+                "harness": "Claude Code",
+                "source": "https://labs.scale.com/leaderboard/sweatlas-tw"
+            },
+            {
+                "name": "SWE-Atlas Test Writing",
+                "score": 36.08,
+                "metric": "score",
+                "harness": "Mini-SWE-Agent",
+                "source": "https://labs.scale.com/leaderboard/sweatlas-tw"
+            },
+            {
+                "name": "Artificial Analysis Coding Agent Index",
+                "score": 51.3,
+                "metric": "average pass@1",
+                "harness": "Claude Code",
+                "variant": "medium",
+                "source": "https://artificialanalysis.ai/agents/coding-agents"
+            },
+            {
+                "name": "SWE-Atlas Codebase QnA",
+                "score": 71.9,
+                "metric": "pass@1",
+                "harness": "Claude Code",
+                "variant": "medium",
+                "source": "https://artificialanalysis.ai/agents/coding-agents"
+            },
+            {
+                "name": "SWE-Bench Pro",
+                "score": 11.8,
+                "metric": "pass@1",
+                "harness": "Claude Code",
+                "variant": "medium",
+                "dataset": "hard-aa",
+                "source": "https://artificialanalysis.ai/agents/coding-agents"
+            },
+            {
+                "name": "Terminal-Bench",
+                "score": 70.2,
+                "metric": "pass@1",
+                "harness": "Claude Code",
+                "variant": "medium",
+                "version": "2.1",
+                "source": "https://artificialanalysis.ai/agents/coding-agents"
+            }
+        ]
+    },
+    "zhipuai/glm-5.1": {
+        "id": "zhipuai/glm-5.1",
+        "name": "GLM-5.1",
+        "family": "glm",
+        "attachment": false,
+        "reasoning": true,
+        "tool_call": true,
+        "structured_output": true,
+        "temperature": true,
+        "release_date": "2026-03-27",
+        "last_updated": "2026-03-27",
+        "modalities": {
+            "input": [
+                "text"
+            ],
+            "output": [
+                "text"
+            ]
+        },
+        "open_weights": true,
+        "limit": {
+            "context": 200000,
+            "output": 131072
+        },
+        "weights": [
+            {
+                "label": "Hugging Face",
+                "url": "https://huggingface.co/zai-org/GLM-5.1"
+            }
+        ],
+        "benchmarks": [
+            {
+                "name": "Artificial Analysis Coding Agent Index",
+                "score": 52.7,
+                "metric": "average pass@1",
+                "harness": "Claude Code",
+                "source": "https://artificialanalysis.ai/agents/coding-agents"
+            },
+            {
+                "name": "SWE-Atlas Codebase QnA",
+                "score": 73.2,
+                "metric": "pass@1",
+                "harness": "Claude Code",
+                "source": "https://artificialanalysis.ai/agents/coding-agents"
+            },
+            {
+                "name": "SWE-Bench Pro",
+                "score": 19.8,
+                "metric": "pass@1",
+                "harness": "Claude Code",
+                "dataset": "hard-aa",
+                "source": "https://artificialanalysis.ai/agents/coding-agents"
+            },
+            {
+                "name": "Terminal-Bench",
+                "score": 65.1,
+                "metric": "pass@1",
+                "harness": "Claude Code",
+                "version": "2.1",
+                "source": "https://artificialanalysis.ai/agents/coding-agents"
+            }
+        ]
+    }
+}

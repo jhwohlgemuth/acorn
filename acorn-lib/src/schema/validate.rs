@@ -13,7 +13,7 @@ use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::schema::standard::datacite::GeoLocationPoint;
 #[cfg(feature = "std")]
 use crate::util::constants::env::DATABASE_PATH;
-use crate::util::constants::{RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_PHONE, RE_RAID, RE_UNIX_EPOCH};
+use crate::util::constants::{RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_PARTIAL_DATE, RE_PHONE, RE_RAID, RE_UNIX_EPOCH};
 use crate::util::Constant;
 #[cfg(not(feature = "std"))]
 use crate::util::License;
@@ -41,6 +41,12 @@ regex_validator!(
     "Provide path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension"
 );
 regex_validator!(is_date, RE_ISO_8601_DATE, "date", "Provide valid ISO 8601 date (e.g., YYYY-MM-DD)");
+regex_validator!(
+    is_partial_date,
+    RE_PARTIAL_DATE,
+    "date",
+    "Provide valid date (e.g., YYYY-MM-DD or YYYY-MM)"
+);
 list_validator!(
     /// Custom validator function for validating list of state abbreviations
     is_states,

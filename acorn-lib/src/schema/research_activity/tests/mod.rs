@@ -13,6 +13,7 @@ use crate::schema::research_activity::aspect::{Autonomy, Availability, Data, Dat
 use crate::schema::research_activity::*;
 use crate::schema::standard::cff::{Agent, Cff, IdentifierType};
 use crate::schema::*;
+use crate::util::SemanticVersion;
 use pretty_assertions::assert_eq;
 
 fn fixtures_dir() -> PathBuf {
@@ -105,7 +106,7 @@ fn test_aspect_to_markdown() {
                 LanguageModelDetails::init()
                     .family("llama".to_string())
                     .name("llama-3.1".to_string())
-                    .version("8B".to_string())
+                    .version(SemanticVersion::from("2.1"))
                     .parameters(8)
                     .build(),
             )),
@@ -132,8 +133,8 @@ fn test_aspect_to_markdown() {
   - Kind: LLM
   - Family: llama
   - Name: llama-3.1
-  - Version: 8B
-  - Parameters: 8B"#;
+  - Parameters: 8B
+  - Version: 2.1.0"#;
 
     assert_eq!(aspect.to_markdown().replace("\r\n", "\n").trim_end(), expected);
 }
