@@ -229,11 +229,12 @@ fn escape(value: &str) -> String {
     }
 }
 fn log_command(binary: &str, args: &[OsString], dir: Option<&Path>) {
-    let rendered_args = redact(args);
-    let rendered = if rendered_args.is_empty() {
+    let redacted = redact(args);
+    let rendered = if redacted.is_empty() {
         binary.to_string()
     } else {
-        format!("{binary} {rendered_args}")
+        let oneline = redacted.join(" ");
+        format!("{binary} {oneline}")
     };
     let cwd = dir.map(|path| path.display().to_string()).unwrap_or_else(|| "<current>".to_string());
     warn!(cwd, "=> {} {rendered}", Label::run());
@@ -246,8 +247,8 @@ fn log_shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Optio
         .collect::<Vec<OsString>>();
     log_command(shell, &args, dir);
 }
-pub(crate) fn redact(args: &[OsString]) -> String {
-    let sensitive_flags = ["--api-key", "--password", "--registration-token", "--secret", "--token"];
+pub(crate) fn redact(args: &[OsString]) -> Vec<String> {
+    let sensitive_flags = ["--api-key", "--api-token", "--password", "--registration-token", "--secret", "--token"];
     args.iter()
         .scan(false, |redact_next, arg| {
             let raw = arg.to_string_lossy();
@@ -266,7 +267,6 @@ pub(crate) fn redact(args: &[OsString]) -> String {
             Some(rendered)
         })
         .collect::<Vec<_>>()
-        .join(" ")
 }
 fn shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Option<&Path>) -> Command {
     let mut cmd = command_with_args(shell, shell_args, dir);

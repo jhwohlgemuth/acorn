@@ -39,10 +39,9 @@ fn test_redact() {
         (&["--token=first", "--password=second"], "--token=[REDACTED] --password=[REDACTED]"),
         (&["--not-token=value", "--my-secret=value"], "--not-token=value --my-secret=value"),
     ];
-
     for (args, expected) in cases {
         let oss_args: Vec<OsString> = args.iter().map(OsString::from).collect();
-        assert_eq!(redact(&oss_args), *expected, "failed for args: {args:?}");
+        assert_eq!(redact(&oss_args).join(" "), *expected, "failed for args: {args:?}");
     }
 }
 mod args_macro {
