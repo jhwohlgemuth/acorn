@@ -3,7 +3,7 @@ members = ["acorn-cli", "acorn-lib", "acorn-macros", "acorn-py"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.56"
+version = "0.1.57"
 rust-version = "1.95.0"
 license = "MIT"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
