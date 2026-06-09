@@ -163,7 +163,7 @@ The workspace enables `unwrap_used = "warn"` in Cargo.toml. Test modules suppres
 ### Strategy 1: Arithmetic rounding
 `format!("{val:.2}").parse().unwrap()` → `(val * 100.0).round() / 100.0`
 
-### Strategy 2: `?` operator
+### Strategy 2: Avoid `?` operator
 When the function already returns `Result<T, E>` or `Option<T>`, propagate errors instead of panicking.
 
 ### Strategy 3: `unwrap_or_default()` / `unwrap_or(fallback)`
