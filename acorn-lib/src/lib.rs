@@ -137,19 +137,16 @@ impl Location {
     /// assert_eq!(location.hash(), "code_ornl_gov_research-enablement_buckets_nssd");
     /// ```
     pub fn hash(&self) -> String {
-        #[allow(clippy::unwrap_used)]
-        let uri = self.uri().unwrap();
-        let host = match uri.host() {
-            | Some(value) => value.clone().to_string().replace('.', "_"),
-            | None => "".to_string(),
-        };
-        let segments = uri
+        let host = self.host().unwrap_or_default().replace('.', "_");
+        let segments = self
             .path()
-            .segments()
-            .iter()
-            .map(|s| s.to_string())
-            .filter(|s| !(s.is_empty() || s.eq(".")))
-            .collect::<Vec<_>>();
+            .map(|p| {
+                p.split('/')
+                    .filter(|s| !(s.is_empty() || *s == "."))
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
         [host, segments.join("_").to_lowercase()]
             .into_iter()
             .filter(|x| !x.is_empty())
@@ -190,50 +187,62 @@ impl Location {
         }
         match scheme {
             | Scheme::HTTPS | Scheme::HTTP => match uri {
-                | Some(uri) => match link_check(Some(uri.to_string()), None).await {
+                | Some(uri) => match link_check(Some(uri), None).await {
                     | Check { success, .. } if success => true,
                     | _ => false,
                 },
                 | None => false,
             },
             | Scheme::File => match uri {
-                | Some(value) => PathBuf::from(value.path().to_string()).exists(),
+                | Some(_) => PathBuf::from(self.path().unwrap_or_default()).exists(),
                 | None => false,
             },
             | Scheme::Unsupported => false,
         }
     }
-    /// Extract and return URI from a location value
-    pub fn uri(&self) -> Option<URI<'static>> {
-        fn parse_uri(value: String) -> Option<URI<'static>> {
-            let leaked: &'static str = Box::leak(value.into_boxed_str());
-            match URI::try_from(leaked) {
-                | Ok(value) => Some(value),
-                | Err(why) => {
-                    warn!("=> {} Parse URI - {why}", Label::fail());
-                    None
-                }
-            }
-        }
+    /// Extract and return URI string from a location value
+    pub fn uri(&self) -> Option<String> {
         match self {
-            | Location::Simple(value) => parse_uri(value.clone()),
+            | Location::Simple(value) => Some(value.clone()),
             | Location::Detailed { scheme, uri } => match URI::try_from(uri.as_str()) {
                 | Ok(parsed) => {
                     let authority = parsed.authority().map(|auth| auth.to_string());
                     let path = parsed.path().to_string();
                     let query = parsed.query().map(|q| format!("?{q}")).unwrap_or_default();
                     let fragment = parsed.fragment().map(|f| format!("#{f}")).unwrap_or_default();
-                    let rebuilt = match authority {
+                    Some(match authority {
                         | Some(auth) if !auth.is_empty() => format!("{scheme}://{auth}{path}{query}{fragment}"),
                         | _ => format!("{scheme}:{path}{query}{fragment}"),
-                    };
-                    parse_uri(rebuilt)
+                    })
                 }
                 | Err(_) => {
-                    let rebuilt = format!("{scheme}://{uri}");
-                    parse_uri(rebuilt)
+                    warn!("=> {} Parse URI - {uri}", Label::fail());
+                    Some(format!("{scheme}://{uri}"))
                 }
             },
+        }
+    }
+    /// Get host from location URI
+    pub fn host(&self) -> Option<String> {
+        match self.uri() {
+            | Some(value) => URI::try_from(value.as_str()).ok().and_then(|uri| uri.host().map(|h| h.to_string())),
+            | None => None,
+        }
+    }
+    /// Get path from location URI
+    pub fn path(&self) -> Option<String> {
+        match self.uri() {
+            | Some(value) => URI::try_from(value.as_str()).ok().map(|uri| uri.path().to_string()),
+            | None => None,
+        }
+    }
+    /// Get port from location URI
+    pub fn port(&self) -> Option<u16> {
+        match self.uri() {
+            | Some(value) => URI::try_from(value.as_str())
+                .ok()
+                .and_then(|uri| uri.authority().and_then(|auth| auth.port())),
+            | None => None,
         }
     }
 }
@@ -247,10 +256,7 @@ impl Default for Repository {
 impl Repository {
     /// Get repository domain (e.g., "github.com" or "code.ornl.gov")
     pub fn domain(&self) -> Option<String> {
-        match self.location().uri() {
-            | Some(value) => value.host().map(|value| value.to_string()),
-            | None => None,
-        }
+        self.location().host()
     }
     /// Return whether or not the associated URI for a repository is local (e.g., has "file" scheme)
     pub fn is_local(&self) -> bool {
@@ -286,18 +292,15 @@ impl Repository {
             | Repository::GitHub { .. } => None,
             | Repository::GitLab { id, location } => match id {
                 | Some(value) => Some(value.to_string()),
-                | None => match location.uri() {
-                    | Some(value) => {
-                        let path = value.path().to_string();
-                        match path.strip_prefix('/') {
-                            | Some(stripped) if !stripped.is_empty() => {
-                                let encoded = encode(stripped).to_string();
-                                trace!(encoded, "=> {} ID", Label::using());
-                                Some(encoded)
-                            }
-                            | _ => None,
+                | None => match location.path() {
+                    | Some(path) => match path.strip_prefix('/') {
+                        | Some(stripped) if !stripped.is_empty() => {
+                            let encoded = encode(stripped).to_string();
+                            trace!(encoded, "=> {} ID", Label::using());
+                            Some(encoded)
                         }
-                    }
+                        | _ => None,
+                    },
                     | None => {
                         warn!("=> {} Parse GitLab URI", Label::fail());
                         None
@@ -310,33 +313,26 @@ impl Repository {
     async fn releases(self) -> Vec<Release> {
         let maybe_url = match &self {
             | Repository::Git { .. } => None,
-            | Repository::GitHub { location } => match location.uri() {
-                | Some(uri) => match uri.host() {
-                    | Some(host) => {
-                        let path = uri.path();
-                        Some(format!("https://api.{host}/repos{path}/releases"))
-                    }
-                    | None => {
+            | Repository::GitHub { location } => {
+                let host = location.host();
+                let path = location.path();
+                match (host, path) {
+                    | (Some(host), Some(path)) => Some(format!("https://api.{host}/repos{path}/releases")),
+                    | (None, _) => {
                         error!("=> {} Parse GitHub URI host", Label::fail());
                         None
                     }
-                },
-                | None => {
-                    error!("=> {} Parse GitHub URI", Label::fail());
-                    None
+                    | (_, None) => {
+                        error!("=> {} Parse GitHub URI", Label::fail());
+                        None
+                    }
                 }
-            },
+            }
             | Repository::GitLab { location, .. } => match self.id() {
-                | Some(id) => match location.uri() {
-                    | Some(uri) => match uri.host() {
-                        | Some(host) => Some(format!("https://{host}/api/v4/projects/{id}/releases")),
-                        | None => {
-                            error!("=> {} Parse GitLab URI host", Label::fail());
-                            None
-                        }
-                    },
+                | Some(id) => match location.host() {
+                    | Some(host) => Some(format!("https://{host}/api/v4/projects/{id}/releases")),
                     | None => {
-                        error!("=> {} Parse GitLab URI", Label::fail());
+                        error!("=> {} Parse GitLab URI host", Label::fail());
                         None
                     }
                 },
@@ -382,8 +378,8 @@ impl Repository {
     /// Get URL for raw data of a file at a given path
     pub fn raw_url(&self, path: String) -> Option<String> {
         match self {
-            | Repository::GitHub { location, .. } => match location.uri() {
-                | Some(ref value) => Some(format!("https://raw.githubusercontent.com{}/refs/heads/main/{path}", value.path())),
+            | Repository::GitHub { location, .. } => match location.path() {
+                | Some(ref value) => Some(format!("https://raw.githubusercontent.com{value}/refs/heads/main/{path}")),
                 | None => {
                     error!("=> {} Parse GitHub URI", Label::fail());
                     None

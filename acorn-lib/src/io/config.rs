@@ -287,15 +287,9 @@ impl Bucket {
             | Repository::GitHub { location } | Repository::GitLab { location, .. } => location,
             | Repository::Git { .. } => return Err(eyre!("Domain is unsupported for generic Git repositories")),
         };
-        match location.uri() {
-            | Some(uri) => match uri.scheme() {
-                | uriparse::Scheme::HTTPS => uri
-                    .host()
-                    .map(|value| value.to_string())
-                    .ok_or_else(|| eyre!("Failed to parse repository host from URI")),
-                | _ => Err(eyre!("Unsupported repository URI scheme")),
-            },
-            | None => Err(eyre!("Failed to parse repository URI")),
+        match location.scheme() {
+            | Scheme::HTTPS => location.host().ok_or_else(|| eyre!("Failed to parse repository host from URI")),
+            | _ => Err(eyre!("Unsupported repository URI scheme")),
         }
     }
     /// Copy files from (local) bucket to local directory
@@ -322,9 +316,8 @@ impl Bucket {
             | Ok((ignore_patterns, filter_patterns)) => {
                 let Bucket { name, code_repository, .. } = self.clone();
                 if code_repository.is_local() {
-                    let uri = code_repository.location().uri();
-                    let bucket_root = match uri {
-                        | Some(value) => PathBuf::from(value.path().to_string()).to_absolute_string(),
+                    let bucket_root = match code_repository.location().path() {
+                        | Some(value) => PathBuf::from(value).to_absolute_string(),
                         | None => {
                             unimplemented!()
                         }
@@ -470,17 +463,17 @@ impl Bucket {
         let bucket_name = self.name.clone().unwrap_or_else(|| "Bucket".to_string()).to_uppercase();
         match &code_repository {
             | Repository::Git { .. } => {
-                let path = match code_repository.location().uri() {
-                    | Some(value) => PathBuf::from(value.path().to_string()),
+                let path = match code_repository.location().path() {
+                    | Some(value) => PathBuf::from(value),
                     | None => {
                         unimplemented!()
                     }
                 };
                 Ok(files_all(path, None).into_iter().map(|x| x.display().to_string()).collect())
             }
-            | Repository::GitHub { location } => match location.uri() {
-                | Some(uri) => {
-                    let path = uri.path().to_string().trim_start_matches('/').to_string();
+            | Repository::GitHub { location } => match location.path() {
+                | Some(path) => {
+                    let path = path.trim_start_matches('/').to_string();
                     match self.domain() {
                         | Ok(host) => github::tree_paths(format!("api.{}", host), path, "main")
                             .await
@@ -522,32 +515,28 @@ impl Bucket {
 impl From<&str> for Bucket {
     fn from(value: &str) -> Self {
         let location = Location::Simple(value.to_string());
-        match location.uri() {
-            | Some(uri) => {
-                let repository = match location.scheme() {
-                    | Scheme::File => Repository::Git { location },
-                    | _ => {
-                        let host = match uri.host() {
-                            | Some(value) => value.to_string().to_lowercase(),
-                            | None => {
-                                error!(value, "=> {} Parse URI - No host", Label::fail());
-                                exit(exitcode::DATAERR);
-                            }
-                        };
-                        if host.contains("github.com") {
-                            Repository::GitHub { location }
-                        } else {
-                            let id = None;
-                            Repository::GitLab { id, location }
-                        }
+        if location.uri().is_none() {
+            exit(exitcode::DATAERR);
+        }
+        let repository = match location.scheme() {
+            | Scheme::File => Repository::Git { location },
+            | _ => {
+                let host = match location.host() {
+                    | Some(value) => value.to_lowercase(),
+                    | None => {
+                        error!(value, "=> {} Parse URI - No host", Label::fail());
+                        exit(exitcode::DATAERR);
                     }
                 };
-                Bucket::init().code_repository(repository).build()
+                if host.contains("github.com") {
+                    Repository::GitHub { location }
+                } else {
+                    let id = None;
+                    Repository::GitLab { id, location }
+                }
             }
-            | None => {
-                exit(exitcode::DATAERR);
-            }
-        }
+        };
+        Bucket::init().code_repository(repository).build()
     }
 }
 impl Default for BucketOptions {

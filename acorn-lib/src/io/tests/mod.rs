@@ -22,6 +22,7 @@ use color_eyre::Report;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use uriparse::URI as UriParse;
 
 const ENDPOINTS: &str = r#"{
     "endpoints": [
@@ -222,7 +223,8 @@ fn test_location_hash() {
 fn test_location_uri() {
     let location = Location::Simple("https://code.ornl.gov/GSHS/GDS/Common/PIPE/module-a".into());
     match location.uri() {
-        | Some(uri) => {
+        | Some(value) => {
+            let uri = UriParse::try_from(value.as_str()).unwrap();
             assert_eq!(uri.scheme(), "HTTPS");
             assert_eq!(uri.path(), "/GSHS/GDS/Common/PIPE/module-a");
         }
@@ -230,7 +232,8 @@ fn test_location_uri() {
     }
     let location = Location::Simple("ssh://git@code.ornl.gov/GSHS/GDS/Common/PIPE/module-a.git".into());
     match location.uri() {
-        | Some(uri) => {
+        | Some(value) => {
+            let uri = UriParse::try_from(value.as_str()).unwrap();
             assert_eq!(uri.scheme(), "SSH");
             assert_eq!(uri.path(), "/GSHS/GDS/Common/PIPE/module-a.git");
         }

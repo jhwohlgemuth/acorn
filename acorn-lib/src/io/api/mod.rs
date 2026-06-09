@@ -406,13 +406,9 @@ impl<'a> From<URI<'a>> for Endpoint {
 }
 impl From<Location> for Endpoint {
     fn from(value: Location) -> Self {
-        match value.uri() {
-            | Some(uri) => {
-                let endpoint: Endpoint = uri.into();
-                endpoint
-            }
-            | None => Endpoint::default(),
-        }
+        let domain = value.host().map(|h| format!("{}://{}", value.scheme(), h)).unwrap_or_default();
+        let port = value.port();
+        Endpoint::at(domain).maybe_port(port).build()
     }
 }
 impl From<Repository> for Endpoint {
