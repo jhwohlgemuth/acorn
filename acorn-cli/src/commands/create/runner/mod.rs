@@ -1,13 +1,13 @@
-use acorn::args;
-use acorn::cmd;
+use crate::cli::arguments::ExecutorArgument;
 use acorn::io::api::gitlab::{self, RunnerCreationResponse};
 use acorn::io::api::Configuration;
 use acorn::io::command_exists;
 use acorn::io::config::{ApplicationConfiguration, RunnerDetails, RunnerType};
-use acorn::io::InputOutput;
-use acorn::prelude::PathBuf;
+use acorn::io::{Executor, InputOutput};
+use acorn::prelude::{create_dir_all, remove_file, write, OsString, PathBuf};
 use acorn::util::constants::app::DEFAULT_RUNNER_NAME;
 use acorn::util::Label;
+use acorn::{args, cmd};
 use acorn::{Location, Repository};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
@@ -29,6 +29,7 @@ pub async fn run(
     project: &Option<u64>,
     tags: &[String],
     untagged: &bool,
+    _executor: &Option<ExecutorArgument>,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
     let config = ApplicationConfiguration::resolve(config)
@@ -217,44 +218,39 @@ async fn create_runner(details: &RunnerDetails) -> Result<RunnerCreationResponse
     }
 }
 async fn register_runner(details: RunnerDetails, verbose: &Verbosity) -> Result<(), Report> {
-    let executor = "docker";
-    let maybe_token = details.token.clone();
+    let executor = details.executor;
     let identifier = details.identifier.unwrap_or_default();
     let gitlab_url = details.host.as_deref().unwrap_or("gitlab.com");
     let url = format!("https://{gitlab_url}/");
     let name = &details.name.unwrap_or_else(|| "gitlab-runner".to_string());
-    match (command_exists(executor), maybe_token) {
-        | (false, _) => Err(eyre!("{executor} is required to register a GitLab runner but was not found")),
-        | (true, None) => Err(eyre!("GitLab runner creation did not return a registration token")),
-        | (true, Some(token)) => {
-            let passthru = "/var/run/docker.sock:/var/run/docker.sock";
-            let description = format!("GitLab Runner [{identifier}]");
-            let log_level = vec!["--log-level", if verbose.is_silent() { "panic" } else { "debug" }];
-            let gpu_args = if details.gpu_enabled { vec!["--gpus", "all"] } else { vec![] };
-            let config_mount: Vec<&str> = {
-                #[cfg(not(target_os = "macos"))]
-                {
-                    vec!["-v", "/srv/gitlab-runner/config:/etc/gitlab-runner"]
-                }
-                #[cfg(target_os = "macos")]
-                {
-                    vec!["-v", "/Users/Shared/gitlab-runner/config:/etc/gitlab-runner"]
-                }
-            };
-            let executor_options = vec!["--executor", executor, "--docker-image", "docker", "--docker-volumes", passthru];
-            let gitlab_runner_args = args![
-                "gitlab-runner",
-                ..log_level,
-                "register",
-                "--non-interactive",
-                "--url",
-                url,
-                "--description",
-                description,
-                "--token",
-                token,
-                ..executor_options,
-            ];
+    let binary = executor.command_name();
+    let description = format!("GitLab Runner [{identifier}]");
+    let log_level = if verbose.is_silent() { "panic" } else { "debug" };
+    command_exists(binary)
+        .then_some(())
+        .ok_or_else(|| eyre!("{binary} is required to register a GitLab runner but was not found"))?;
+    let token = details
+        .token
+        .clone()
+        .ok_or_else(|| eyre!("GitLab runner creation did not return a registration token"))?;
+    let config_host_dir = if cfg!(target_os = "macos") {
+        "/Users/Shared/gitlab-runner/config"
+    } else {
+        "/srv/gitlab-runner/config"
+    };
+    let gpu_template_inside = if details.gpu_enabled {
+        let template_path = PathBuf::from(config_host_dir).join("gpu.template.toml");
+        let content = "[[runners]]\n  [runners.docker]\n    gpus = \"all\"\n";
+        if let Some(parent) = template_path.parent() {
+            let _ = create_dir_all(parent);
+        }
+        let _ = write(&template_path, content);
+        Some("/etc/gitlab-runner/gpu.template.toml".to_string())
+    } else {
+        None
+    };
+    let result = match executor {
+        | Executor::Docker => {
             let create = args![
                 "run",
                 "--detach",
@@ -262,31 +258,216 @@ async fn register_runner(details: RunnerDetails, verbose: &Verbosity) -> Result<
                 name,
                 "--restart",
                 "always",
-                ..config_mount,
                 "-v",
-                passthru,
-                ..gpu_args,
-                "gitlab/gitlab-runner:latest",
+                format!("{config_host_dir}:/etc/gitlab-runner"),
+                "-v",
+                "/var/run/docker.sock:/var/run/docker.sock",
+                &details.docker_image,
             ];
-            let register = args!["exec", name, ..gitlab_runner_args];
-            match cmd!(executor, create) {
-                | Err(why) => Err(eyre!("Failed to spawn docker run — {why}")),
+            match cmd!("docker", create) {
+                | Err(why) => Err(eyre!("Failed to spawn docker container — {why}")),
                 | Ok(output) if !output.status.success() => {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     Err(eyre!("Failed to create GitLab runner container: {stderr}"))
                 }
-                | Ok(_) => match cmd!(executor, register) {
-                    | Ok(output) if output.status.success() => {
-                        info!("=> {} GitLab runner registered", Label::pass());
-                        Ok(())
+                | Ok(_) => {
+                    let register = build_container_register_cmd(name, &url, &description, &token, log_level, &gpu_template_inside);
+                    match cmd!("docker", register) {
+                        | Ok(output) if output.status.success() => {
+                            info!("=> {} GitLab runner registered", Label::pass());
+                            Ok(())
+                        }
+                        | Ok(output) => {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            Err(eyre!("gitlab-runner register failed: {stderr}"))
+                        }
+                        | Err(why) => Err(eyre!("Failed to execute docker exec — {why}")),
                     }
-                    | Ok(output) => {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        Err(eyre!("gitlab-runner register failed: {stderr}"))
-                    }
-                    | Err(why) => Err(eyre!("Failed to execute docker exec — {why}")),
-                },
+                }
             }
         }
+        | Executor::Podman => {
+            let socket = detect_podman_socket()
+                .ok_or_else(|| eyre!("Podman socket not found. Start Podman with 'podman system service --time=0' then retry"))?;
+            let socket_str = socket.to_string_lossy().to_string();
+            let create = args![
+                "run",
+                "--detach",
+                "--name",
+                name,
+                "--restart",
+                "always",
+                "-v",
+                format!("{config_host_dir}:/etc/gitlab-runner"),
+                "-v",
+                format!("{socket_str}:/var/run/docker.sock"),
+                &details.docker_image,
+            ];
+            match cmd!("podman", create) {
+                | Err(why) => Err(eyre!("Failed to spawn podman container — {why}")),
+                | Ok(output) if !output.status.success() => {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    Err(eyre!("Failed to create GitLab runner container: {stderr}"))
+                }
+                | Ok(_) => {
+                    let register = build_container_register_cmd(name, &url, &description, &token, log_level, &gpu_template_inside);
+                    match cmd!("podman", register) {
+                        | Ok(output) if output.status.success() => {
+                            info!("=> {} GitLab runner registered", Label::pass());
+                            Ok(())
+                        }
+                        | Ok(output) => {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            Err(eyre!("gitlab-runner register failed: {stderr}"))
+                        }
+                        | Err(why) => Err(eyre!("Failed to execute podman exec — {why}")),
+                    }
+                }
+            }
+        }
+        | Executor::Apptainer => {
+            let instance = args![
+                "instance",
+                "start",
+                "--bind",
+                format!("{config_host_dir}:/etc/gitlab-runner"),
+                "--bind",
+                "/var/run/docker.sock:/var/run/docker.sock",
+                format!("docker://{}", details.docker_image),
+                name,
+            ];
+            match cmd!("apptainer", instance) {
+                | Err(why) => Err(eyre!("Failed to spawn apptainer instance — {why}")),
+                | Ok(output) if !output.status.success() => {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    Err(eyre!("Failed to create Apptainer instance: {stderr}"))
+                }
+                | Ok(_) => {
+                    let register_args: Vec<OsString> = {
+                        let base: Vec<OsString> = vec![
+                            "exec".into(),
+                            format!("instance://{name}").into(),
+                            "gitlab-runner".into(),
+                            "--log-level".into(),
+                            log_level.into(),
+                            "register".into(),
+                            "--non-interactive".into(),
+                            "--url".into(),
+                            url.clone().into(),
+                            "--description".into(),
+                            description.clone().into(),
+                            "--token".into(),
+                            token.into(),
+                            "--executor".into(),
+                            "apptainer".into(),
+                        ];
+                        match &gpu_template_inside {
+                            | Some(template) => base.into_iter().chain(["--template-config".into(), template.into()]).collect(),
+                            | None => base,
+                        }
+                    };
+                    match cmd!("apptainer", register_args) {
+                        | Ok(output) if output.status.success() => {
+                            info!("=> {} GitLab runner registered", Label::pass());
+                            Ok(())
+                        }
+                        | Ok(output) => {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            Err(eyre!("gitlab-runner register failed: {stderr}"))
+                        }
+                        | Err(why) => Err(eyre!("Failed to execute apptainer exec — {why}")),
+                    }
+                }
+            }
+        }
+        | Executor::Shell | Executor::Ssh | Executor::Kubernetes | Executor::Sandbox | Executor::VirtualMachine | Executor::Other => {
+            let register_args: Vec<OsString> = {
+                let base: Vec<OsString> = vec![
+                    "gitlab-runner".into(),
+                    "--log-level".into(),
+                    log_level.into(),
+                    "register".into(),
+                    "--non-interactive".into(),
+                    "--url".into(),
+                    url.into(),
+                    "--description".into(),
+                    description.into(),
+                    "--token".into(),
+                    token.into(),
+                    "--executor".into(),
+                    executor.gitlab_executor_name().into(),
+                ];
+                match &gpu_template_inside {
+                    | Some(template) => base.into_iter().chain(["--template-config".into(), template.into()]).collect(),
+                    | None => base,
+                }
+            };
+            match cmd!("gitlab-runner", register_args) {
+                | Err(why) => Err(eyre!("Failed to spawn gitlab-runner register — {why}")),
+                | Ok(output) if output.status.success() => {
+                    info!("=> {} GitLab runner registered", Label::pass());
+                    Ok(())
+                }
+                | Ok(output) => {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    Err(eyre!("gitlab-runner register failed: {stderr}"))
+                }
+            }
+        }
+    };
+    if details.gpu_enabled {
+        let template_path = PathBuf::from(config_host_dir).join("gpu.template.toml");
+        let _ = remove_file(template_path);
+    }
+    result
+}
+/// Detect the Podman socket path, preferring rootless.
+fn detect_podman_socket() -> Option<PathBuf> {
+    if let Some(runtime_dir) = std::env::var_os("XDG_RUNTIME_DIR") {
+        let path = PathBuf::from(runtime_dir).join("podman").join("podman.sock");
+        if path.exists() {
+            return Some(path);
+        }
+    }
+    let rootful = PathBuf::from("/run/podman/podman.sock");
+    if rootful.exists() {
+        return Some(rootful);
+    }
+    None
+}
+/// Build the `exec <name> gitlab-runner register ...` argument list for
+/// Docker/Podman container-based executors.
+fn build_container_register_cmd(
+    name: &str,
+    url: &str,
+    description: &str,
+    token: &str,
+    log_level: &str,
+    gpu_template: &Option<String>,
+) -> Vec<OsString> {
+    let base: Vec<OsString> = vec![
+        "exec".into(),
+        name.into(),
+        "gitlab-runner".into(),
+        "--log-level".into(),
+        log_level.into(),
+        "register".into(),
+        "--non-interactive".into(),
+        "--url".into(),
+        url.into(),
+        "--description".into(),
+        description.into(),
+        "--token".into(),
+        token.into(),
+        "--executor".into(),
+        "docker".into(),
+        "--docker-image".into(),
+        "docker".into(),
+        "--docker-volumes".into(),
+        "/var/run/docker.sock:/var/run/docker.sock".into(),
+    ];
+    match gpu_template {
+        | Some(template) => base.into_iter().chain(["--template-config".into(), template.into()]).collect(),
+        | None => base,
     }
 }

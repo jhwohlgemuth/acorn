@@ -14,7 +14,7 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre;
 
 pub mod arguments;
-use arguments::{CheckCategoryArgument, DatabaseBackend, Diagnostic, FileFormat, ReadabilityTypeArgument, Standard};
+use arguments::{CheckCategoryArgument, DatabaseBackend, Diagnostic, ExecutorArgument, FileFormat, ReadabilityTypeArgument, Standard};
 
 /// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
@@ -603,6 +603,9 @@ pub enum CreateCommands {
         /// Runner description (alternative to providing a configuration file)
         #[arg(short, long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
         description: Option<String>,
+        /// GitLab runner executor type
+        #[arg(short, long, value_name = "TYPE", help_heading = "OPTIONS")]
+        executor: Option<ExecutorArgument>,
         /// GitLab group ID to create a runner for (alternative to providing a configuration file)
         #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
         group: Option<u64>,

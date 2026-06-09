@@ -1,4 +1,5 @@
 use acorn::analyzer;
+use acorn::io::Executor;
 use acorn::util::MimeType;
 use clap::ValueEnum;
 use derive_more::Display;
@@ -37,6 +38,29 @@ pub enum Diagnostic {
     Network,
     Gpu,
     Software,
+}
+/// Executor types available when creating GitLab runners
+#[derive(Clone, Copy, Debug, Default, Display, PartialEq, ValueEnum)]
+pub enum ExecutorArgument {
+    #[default]
+    #[display("docker")]
+    Docker,
+    #[display("apptainer")]
+    Apptainer,
+    #[display("kubernetes")]
+    Kubernetes,
+    #[display("podman")]
+    Podman,
+    #[display("sandbox")]
+    Sandbox,
+    #[display("shell")]
+    Shell,
+    #[display("ssh")]
+    Ssh,
+    #[display("virtual-machine")]
+    VirtualMachine,
+    #[display("other")]
+    Other,
 }
 /// Target export file formats available when exporting research activity data
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
@@ -153,6 +177,21 @@ impl From<analyzer::CheckCategory> for CheckCategoryArgument {
             | analyzer::CheckCategory::Quality => CheckCategoryArgument::Quality,
             | analyzer::CheckCategory::Readability => CheckCategoryArgument::Readability,
             | analyzer::CheckCategory::Schema => CheckCategoryArgument::Schema,
+        }
+    }
+}
+impl From<Executor> for ExecutorArgument {
+    fn from(value: Executor) -> Self {
+        match value {
+            | Executor::Apptainer => ExecutorArgument::Apptainer,
+            | Executor::Docker => ExecutorArgument::Docker,
+            | Executor::Podman => ExecutorArgument::Podman,
+            | Executor::Sandbox => ExecutorArgument::Sandbox,
+            | Executor::Shell => ExecutorArgument::Shell,
+            | Executor::Ssh => ExecutorArgument::Ssh,
+            | Executor::Kubernetes => ExecutorArgument::Kubernetes,
+            | Executor::VirtualMachine => ExecutorArgument::VirtualMachine,
+            | Executor::Other => ExecutorArgument::Other,
         }
     }
 }

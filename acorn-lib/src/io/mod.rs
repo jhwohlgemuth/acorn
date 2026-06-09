@@ -32,6 +32,7 @@ use crate::util::file_extension;
 use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, StringConversion, ToStrings};
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Report, Result};
+use core::fmt;
 use core::time::Duration;
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
@@ -44,6 +45,7 @@ use is_executable::IsExecutable;
 use ring::digest::{Context, SHA256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use strum::AsRefStr;
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, trace, warn};
 use which::which;
@@ -108,6 +110,50 @@ pub trait InputOutput: Sized {
     }
     /// Write data as YAML to specified path
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
+}
+/// The "engine" or "execution method" that determines where and how to run (e.g., "execute") code
+/// ### Note
+/// At a minimum, choosing an executor also determines level of isolation and security for code execution.
+#[derive(AsRefStr, Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged, rename_all = "snake_case")]
+pub enum Executor {
+    /// Simplifies the creation and execution of containers, ensuring software components are encapsulated for portability and reproducibility
+    /// ### Note
+    /// Formerly Singularity
+    #[serde(alias = "Singularity", alias = "singularity")]
+    Apptainer,
+    /// Container engine and ecosystem for building, running, and managing containers
+    ///
+    /// See <https://www.docker.com/products/docker-desktop> for more information
+    Docker,
+    /// Daemonless, open-source container engine for building, running, and managing containers, with a Docker-like command line
+    /// ### Note
+    /// Podman is rootless by default
+    ///
+    /// See <https://podman.io/> for more information
+    Podman,
+    /// Secure execution environment that leverages technology other than containerization to achieve isolation
+    Sandbox,
+    /// Local command-line interface that interprets and runs commands for the operating system directly
+    #[serde(alias = "zsh", alias = "pwsh", alias = "cmd", alias = "local")]
+    Shell,
+    /// Secure Shell (SSH) protocol for remote command execution
+    #[serde(alias = "remote")]
+    Ssh,
+    /// Portable, extensible, open source platform for managing containerized workloads and services that facilitate both declarative configuration and automation
+    ///
+    /// See <https://kubernetes.io/> for more information
+    #[serde(alias = "k8s")]
+    Kubernetes,
+    /// Software-based computers that run an operating system inside another host system, with stronger isolation than containers
+    /// ### Examples
+    /// - [Oracle VirtualBox](https://www.oracle.com/virtualization/virtualbox/)
+    /// - [Vagrant](https://www.vagrantup.com/)
+    /// - [Amazon Firecracker](https://firecracker-microvm.github.io/)
+    #[serde(alias = "vm")]
+    VirtualMachine,
+    /// Custom or unspecified execution method
+    Other,
 }
 /// Root-level or reference-level license declaration.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -181,6 +227,77 @@ pub struct GitlabMergeRequestDiffResponse {
 }
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
+impl fmt::Display for Executor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            | Executor::Apptainer => "apptainer",
+            | Executor::Docker => "docker",
+            | Executor::Podman => "podman",
+            | Executor::Sandbox => "sandbox",
+            | Executor::Shell => "shell",
+            | Executor::Ssh => "ssh",
+            | Executor::Kubernetes => "kubernetes",
+            | Executor::VirtualMachine => "virtual_machine",
+            | Executor::Other => "other",
+        };
+        write!(f, "{value}")
+    }
+}
+impl From<&str> for Executor {
+    /// Parses a string into a `Executor` value
+    fn from(value: &str) -> Self {
+        match value.to_lowercase().as_str() {
+            | "apptainer" | "singularity" => Executor::Apptainer,
+            | "docker" => Executor::Docker,
+            | "podman" => Executor::Podman,
+            | "sandbox" => Executor::Sandbox,
+            | "shell" => Executor::Shell,
+            | "ssh" => Executor::Ssh,
+            | "kubernetes" | "k8s" => Executor::Kubernetes,
+            | "virtual machine" | "virtual_machine" | "vm" => Executor::VirtualMachine,
+            | _ => Executor::Other,
+        }
+    }
+}
+impl From<Executor> for std::ffi::OsString {
+    fn from(value: Executor) -> Self {
+        Self::from(value.to_string())
+    }
+}
+impl From<Executor> for String {
+    fn from(value: Executor) -> Self {
+        value.to_string()
+    }
+}
+impl Executor {
+    /// Returns the OS binary name used to manage this executor.
+    ///
+    /// Returns `"docker"`, `"podman"`, `"apptainer"` for container-based
+    /// executors, or `"gitlab-runner"` for all others.
+    pub fn command_name(&self) -> &'static str {
+        match self {
+            | Executor::Docker => "docker",
+            | Executor::Podman => "podman",
+            | Executor::Apptainer => "apptainer",
+            | Executor::Shell | Executor::Ssh | Executor::Kubernetes | Executor::Sandbox | Executor::VirtualMachine | Executor::Other => {
+                "gitlab-runner"
+            }
+        }
+    }
+    /// Returns the value passed to `gitlab-runner register --executor`.
+    pub fn gitlab_executor_name(&self) -> &'static str {
+        match self {
+            | Executor::Docker | Executor::Podman => "docker",
+            | Executor::Apptainer => "apptainer",
+            | Executor::Shell => "shell",
+            | Executor::Ssh => "ssh",
+            | Executor::Kubernetes => "kubernetes",
+            | Executor::Sandbox => "sandbox",
+            | Executor::VirtualMachine => "virtualbox",
+            | Executor::Other => "docker",
+        }
+    }
+}
 impl FromCommand for SemanticVersion {
     /// Returns a `SemanticVersion` value based on the output of the `--version` command-line flag
     /// of the given executable name. Tested with [cargo](https://rustup.rs/), [git](https://git-scm.com/book/en/v2/Getting-Started-The-Command-Line), and [pandoc](https://pandoc.org/).

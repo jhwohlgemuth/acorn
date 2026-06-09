@@ -8,8 +8,8 @@ use crate::io::api::github;
 use crate::io::api::gitlab;
 use crate::io::api::{Configuration, Endpoint};
 use crate::io::http::get;
-use crate::io::ApiResult;
 use crate::io::{files_all, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType};
+use crate::io::{ApiResult, Executor};
 use crate::prelude::{self, env, exit, Arc, PathBuf};
 use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
@@ -152,6 +152,10 @@ pub struct RunnerDetails {
     pub runner_type: RunnerType,
     /// Optional description of runner
     pub description: Option<String>,
+    /// Runner executor type (e.g., Docker, Kubernetes, Shell)
+    #[builder(default = Executor::Docker)]
+    #[serde(default = "default_executor")]
+    pub executor: Executor,
     /// Does the runner need GPU capabilities?
     #[builder(default)]
     #[serde(default, alias = "gpu")]
@@ -619,6 +623,9 @@ fn count_image_files(paths: &[String]) -> usize {
 }
 fn default_docker_image() -> String {
     "gitlab/gitlab-runner:latest".to_string()
+}
+fn default_executor() -> Executor {
+    Executor::Docker
 }
 #[allow(clippy::ptr_arg)]
 fn has_image_extension(path: &String) -> bool {

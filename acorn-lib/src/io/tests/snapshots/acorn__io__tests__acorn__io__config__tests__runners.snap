@@ -19,6 +19,7 @@ Some(
             description: Some(
                 "ACORN Runner (DELETE ME)",
             ),
+            executor: Docker,
             gpu_enabled: false,
             tags: Some(
                 [
@@ -46,6 +47,7 @@ Some(
             description: Some(
                 "Research Enablement Runner (DELETE ME)",
             ),
+            executor: Docker,
             gpu_enabled: false,
             tags: None,
             run_untagged: true,

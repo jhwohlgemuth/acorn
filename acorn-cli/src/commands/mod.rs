@@ -110,6 +110,7 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
                 project,
                 tags,
                 untagged,
+                executor,
                 verbose,
             }) => {
                 Box::pin(create::runner::run(
@@ -122,6 +123,7 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
                     project,
                     tags,
                     untagged,
+                    executor,
                     verbose,
                 ))
                 .await

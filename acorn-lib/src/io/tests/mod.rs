@@ -14,8 +14,9 @@ use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, read_file, read_large_file,
-    unique_file_extensions, uri_to_path, write_file_bytes, InputOutput,
+    unique_file_extensions, uri_to_path, write_file_bytes, Executor, InputOutput,
 };
+use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::{Location, Repository, Scheme};
 use color_eyre::Report;
@@ -400,6 +401,67 @@ fn test_env_var_is_truthy() {
     temp_env::with_vars([(NO_LOCAL_DATABASE, None::<&str>)], || {
         assert_eq!(env_var_is_truthy(NO_LOCAL_DATABASE), None);
     });
+}
+#[test]
+fn test_executor_display() {
+    assert_eq!(Executor::Apptainer.to_string(), "apptainer");
+    assert_eq!(Executor::Docker.to_string(), "docker");
+    assert_eq!(Executor::Podman.to_string(), "podman");
+    assert_eq!(Executor::Sandbox.to_string(), "sandbox");
+    assert_eq!(Executor::Shell.to_string(), "shell");
+    assert_eq!(Executor::Ssh.to_string(), "ssh");
+    assert_eq!(Executor::Kubernetes.to_string(), "kubernetes");
+    assert_eq!(Executor::VirtualMachine.to_string(), "virtual_machine");
+    assert_eq!(Executor::Other.to_string(), "other");
+}
+#[test]
+fn test_executor_into_string() {
+    let s: String = Executor::Docker.into();
+    assert_eq!(s, "docker");
+    let os: OsString = Executor::Docker.into();
+    assert_eq!(os, OsString::from("docker"));
+}
+#[test]
+fn test_executor_roundtrip() {
+    for executor in &[
+        Executor::Apptainer,
+        Executor::Docker,
+        Executor::Podman,
+        Executor::Sandbox,
+        Executor::Shell,
+        Executor::Ssh,
+        Executor::Kubernetes,
+        Executor::VirtualMachine,
+        Executor::Other,
+    ] {
+        let s = executor.to_string();
+        let restored = Executor::from(s.as_str());
+        assert_eq!(*executor, restored);
+    }
+}
+#[test]
+fn test_executor_command_name() {
+    assert_eq!(Executor::Docker.command_name(), "docker");
+    assert_eq!(Executor::Podman.command_name(), "podman");
+    assert_eq!(Executor::Apptainer.command_name(), "apptainer");
+    assert_eq!(Executor::Shell.command_name(), "gitlab-runner");
+    assert_eq!(Executor::Ssh.command_name(), "gitlab-runner");
+    assert_eq!(Executor::Kubernetes.command_name(), "gitlab-runner");
+    assert_eq!(Executor::Sandbox.command_name(), "gitlab-runner");
+    assert_eq!(Executor::VirtualMachine.command_name(), "gitlab-runner");
+    assert_eq!(Executor::Other.command_name(), "gitlab-runner");
+}
+#[test]
+fn test_executor_gitlab_name() {
+    assert_eq!(Executor::Docker.gitlab_executor_name(), "docker");
+    assert_eq!(Executor::Podman.gitlab_executor_name(), "docker");
+    assert_eq!(Executor::Apptainer.gitlab_executor_name(), "apptainer");
+    assert_eq!(Executor::Shell.gitlab_executor_name(), "shell");
+    assert_eq!(Executor::Ssh.gitlab_executor_name(), "ssh");
+    assert_eq!(Executor::Kubernetes.gitlab_executor_name(), "kubernetes");
+    assert_eq!(Executor::Sandbox.gitlab_executor_name(), "sandbox");
+    assert_eq!(Executor::VirtualMachine.gitlab_executor_name(), "virtualbox");
+    assert_eq!(Executor::Other.gitlab_executor_name(), "docker");
 }
 #[test]
 fn test_first_env_var() {
