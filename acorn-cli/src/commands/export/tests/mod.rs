@@ -15,7 +15,7 @@
 //! Note: Tests run in online mode as export command doesn't support offline yet.
 use crate::cli::arguments::FileFormat;
 use crate::commands::export::run;
-use crate::test_utils::{fixture_path, temp_test_dir, TestCleanup};
+use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::prelude::{copy, create_dir_all, PathBuf};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;

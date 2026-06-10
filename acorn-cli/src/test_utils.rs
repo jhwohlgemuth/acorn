@@ -5,10 +5,10 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use acorn::prelude::{create_dir_all, remove_dir_all, PathBuf};
+use acorn::prelude::{create_dir_all, read_dir, remove_dir_all, PathBuf};
 
 /// Get path to test fixtures relative to workspace root
-pub fn fixture_path(path: &str) -> PathBuf {
+pub(crate) fn fixture_path(path: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -16,8 +16,21 @@ pub fn fixture_path(path: &str) -> PathBuf {
         .join("fixtures")
         .join(path)
 }
+/// Test helper to recursively check if a directory contains any files
+pub(crate) fn has_any_file(path: &PathBuf) -> bool {
+    match read_dir(path) {
+        | Ok(entries) => entries
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .any(|entry_path| match entry_path.is_file() {
+                | true => true,
+                | false => has_any_file(&entry_path),
+            }),
+        | Err(_) => false,
+    }
+}
 /// Create a temporary test directory under target/test_artifacts
-pub fn temp_test_dir(test_name: &str) -> PathBuf {
+pub(crate) fn temp_test_dir(test_name: &str) -> PathBuf {
     let temp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -28,7 +41,7 @@ pub fn temp_test_dir(test_name: &str) -> PathBuf {
     temp
 }
 /// RAII cleanup helper for test directories
-pub struct TestCleanup {
+pub(crate) struct TestCleanup {
     path: PathBuf,
 }
 impl TestCleanup {

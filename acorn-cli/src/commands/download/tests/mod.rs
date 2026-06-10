@@ -9,9 +9,9 @@
     clippy::arithmetic_side_effects
 )]
 use super::run;
-use crate::test_utils::{fixture_path, temp_test_dir, TestCleanup};
+use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::config::ApplicationConfiguration;
-use acorn::prelude::{create_dir_all, env, write, PathBuf};
+use acorn::prelude::{create_dir_all, env, write};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 use std::fs;
@@ -19,22 +19,9 @@ use std::fs;
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
 
-fn has_any_file(path: &PathBuf) -> bool {
-    match fs::read_dir(path) {
-        | Ok(entries) => entries
-            .filter_map(|entry| entry.ok())
-            .map(|entry| entry.path())
-            .any(|entry_path| match entry_path.is_file() {
-                | true => true,
-                | false => has_any_file(&entry_path),
-            }),
-        | Err(_) => false,
-    }
-}
 #[test]
 fn test_resolve_default_config_path_prefers_standard_names() -> Result<()> {
     let temp_dir = temp_test_dir("download_default_config_resolution");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
     let previous_dir = env::current_dir()?;
     let expected = temp_dir.join(".acorn.json");
     write(&expected, "{}")?;
@@ -42,6 +29,7 @@ fn test_resolve_default_config_path_prefers_standard_names() -> Result<()> {
     let resolved = ApplicationConfiguration::resolve(&None);
     env::set_current_dir(previous_dir)?;
     assert_eq!(resolved, Some(expected));
+    let _cleanup = TestCleanup::new(temp_dir.clone());
     Ok(())
 }
 #[test]

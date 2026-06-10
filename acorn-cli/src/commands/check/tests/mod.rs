@@ -17,7 +17,7 @@
 )]
 use crate::cli::arguments::{CheckCategoryArgument, ReadabilityTypeArgument, Standard};
 use crate::commands::check::run;
-use crate::test_utils::fixture_path;
+use crate::test::util::fixture_path;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 

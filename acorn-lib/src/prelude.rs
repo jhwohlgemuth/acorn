@@ -1,12 +1,11 @@
 //! Wrapper module isolate `std` usage and enable `no_std` support
-
 /// Module that provides `std` support
 #[allow(unused_imports)]
 mod std {
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
     pub use std::env::{self, consts, var, var_os};
     pub use std::ffi::{OsStr, OsString};
-    pub use std::fs::{canonicalize, copy, create_dir_all, read, remove_dir_all, remove_file, write, File, OpenOptions};
+    pub use std::fs::{canonicalize, copy, create_dir_all, read, read_dir, remove_dir_all, remove_file, write, File, OpenOptions};
     #[cfg(unix)]
     pub use std::fs::{set_permissions, Permissions};
     pub use std::io::{self, BufRead, BufReader, Cursor, Error, ErrorKind, Read, Write};

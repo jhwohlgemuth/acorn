@@ -11,7 +11,7 @@
 //!
 //! Note: Tests run in online mode as format command doesn't support offline yet.
 use crate::commands::format::run;
-use crate::test_utils::{fixture_path, temp_test_dir, TestCleanup};
+use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::prelude::copy;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
