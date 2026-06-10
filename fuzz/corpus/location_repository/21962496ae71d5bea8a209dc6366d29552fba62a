@@ -1,0 +1,4 @@
+pr=: github
+location:
+  qcheme: https
+  u-lan0ri: githung/rust

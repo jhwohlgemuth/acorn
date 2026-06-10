@@ -7,11 +7,11 @@
 extern crate alloc;
 
 use derive_more::Display;
+use fluent_uri::Uri;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use tracing::debug;
 use tracing::{error, trace, warn};
-use uriparse::URI;
 use urlencoding::encode;
 
 #[cfg(feature = "analysis")]
@@ -165,11 +165,11 @@ impl Location {
     /// ```
     pub fn scheme(&self) -> Scheme {
         match self {
-            | Location::Simple(value) => match URI::try_from(value.as_str()) {
-                | Ok(uri) => match uri.scheme() {
-                    | uriparse::Scheme::HTTPS => Scheme::HTTPS,
-                    | uriparse::Scheme::HTTP => Scheme::HTTP,
-                    | uriparse::Scheme::File => Scheme::File,
+            | Location::Simple(value) => match Uri::parse(value.as_str()) {
+                | Ok(uri) => match uri.scheme().as_str().to_ascii_lowercase().as_str() {
+                    | "https" => Scheme::HTTPS,
+                    | "http" => Scheme::HTTP,
+                    | "file" => Scheme::File,
                     | _ => Scheme::Unsupported,
                 },
                 | Err(_) => Scheme::Unsupported,
@@ -204,9 +204,9 @@ impl Location {
     pub fn uri(&self) -> Option<String> {
         match self {
             | Location::Simple(value) => Some(value.clone()),
-            | Location::Detailed { scheme, uri } => match URI::try_from(uri.as_str()) {
+            | Location::Detailed { scheme, uri } => match Uri::parse(uri.as_str()) {
                 | Ok(parsed) => {
-                    let authority = parsed.authority().map(|auth| auth.to_string());
+                    let authority = parsed.authority().map(|auth| auth.as_str().to_string());
                     let path = parsed.path().to_string();
                     let query = parsed.query().map(|q| format!("?{q}")).unwrap_or_default();
                     let fragment = parsed.fragment().map(|f| format!("#{f}")).unwrap_or_default();
@@ -225,23 +225,25 @@ impl Location {
     /// Get host from location URI
     pub fn host(&self) -> Option<String> {
         match self.uri() {
-            | Some(value) => URI::try_from(value.as_str()).ok().and_then(|uri| uri.host().map(|h| h.to_string())),
+            | Some(value) => Uri::parse(value.as_str())
+                .ok()
+                .and_then(|uri| uri.authority().map(|auth| auth.host().to_string())),
             | None => None,
         }
     }
     /// Get path from location URI
     pub fn path(&self) -> Option<String> {
         match self.uri() {
-            | Some(value) => URI::try_from(value.as_str()).ok().map(|uri| uri.path().to_string()),
+            | Some(value) => Uri::parse(value.as_str()).ok().map(|uri| uri.path().to_string()),
             | None => None,
         }
     }
     /// Get port from location URI
     pub fn port(&self) -> Option<u16> {
         match self.uri() {
-            | Some(value) => URI::try_from(value.as_str())
+            | Some(value) => Uri::parse(value.as_str())
                 .ok()
-                .and_then(|uri| uri.authority().and_then(|auth| auth.port())),
+                .and_then(|uri| uri.authority().and_then(|auth| auth.port_to_u16().ok()).flatten()),
             | None => None,
         }
     }

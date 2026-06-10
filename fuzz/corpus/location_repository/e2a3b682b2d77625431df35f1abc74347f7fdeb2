@@ -1,0 +1,4 @@
+provider: github
+location:
+  scheme: https
+  uri: github.com/zrust-lang/rust

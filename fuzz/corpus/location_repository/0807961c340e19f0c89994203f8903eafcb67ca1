@@ -1,0 +1,5 @@
+provider: github
+location:
+ n:
+  scheme: httst
+  uri: ub.com/rust-lang/rust

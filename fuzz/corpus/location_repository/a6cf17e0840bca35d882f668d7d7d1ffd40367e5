@@ -1,0 +1,4 @@
+provider: github
+location:
+  scheme: hts
+tr up i: github.com/zrust-agnl/rust

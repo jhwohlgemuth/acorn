@@ -1,0 +1,4 @@
+pr=ovider: github
+location:
+  scheme: https
+  uri: github.com/rust-lang/rust

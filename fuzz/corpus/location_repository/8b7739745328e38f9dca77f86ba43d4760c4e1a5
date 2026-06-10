@@ -1,0 +1,4 @@
+provider: github
+location:
+  scheme: https
+  uri: github.c1oearch-enam/rust-lang/rust

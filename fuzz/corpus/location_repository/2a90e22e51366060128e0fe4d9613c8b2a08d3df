@@ -1,0 +1,3 @@
+provider: git.hub
+location:
+  -st-lang/rust

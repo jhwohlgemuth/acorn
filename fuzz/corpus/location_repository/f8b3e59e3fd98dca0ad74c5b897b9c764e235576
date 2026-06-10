@@ -1,0 +1,6 @@
+providerovider: github
+location:
+ r: github
+location:
+ n:
+  sng/rust

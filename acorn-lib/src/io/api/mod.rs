@@ -18,12 +18,12 @@ use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::{fmt, marker::PhantomData};
 use derive_more::Display;
+use fluent_uri::Uri;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tera::{Context, Tera};
 use tracing::trace;
-use uriparse::URI;
 use validator::Validate;
 
 pub mod citeas;
@@ -397,10 +397,13 @@ impl Default for Endpoint {
         Endpoint::at("https://example.com").build()
     }
 }
-impl<'a> From<URI<'a>> for Endpoint {
-    fn from(value: URI<'a>) -> Self {
-        let domain: String = value.host().map(|h| format!("{}://{}", value.scheme(), h)).unwrap_or_default();
-        let port: Option<u16> = value.authority().and_then(|auth| auth.port());
+impl<'a> From<Uri<&'a str>> for Endpoint {
+    fn from(value: Uri<&'a str>) -> Self {
+        let domain: String = value
+            .authority()
+            .map(|auth| format!("{}://{}", value.scheme().as_str(), auth.host()))
+            .unwrap_or_default();
+        let port: Option<u16> = value.authority().and_then(|auth| auth.port_to_u16().ok()).flatten();
         Endpoint::at(domain).maybe_port(port).build()
     }
 }

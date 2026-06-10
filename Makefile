@@ -110,6 +110,10 @@ fuzz-repro:
 	@test -n "$(FUZZ_CRASH)" || (echo "Set FUZZ_CRASH to an artifact file path" && exit 1)
 	@cargo +nightly fuzz run --fuzz-dir fuzz $(FUZZ_TARGET) $(FUZZ_CRASH)
 
+fuzz-smoke:
+	@cargo +nightly fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=10
+	@cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=10
+
 version: 
 	@echo $(VERSION)
 

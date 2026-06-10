@@ -22,9 +22,9 @@ use crate::{list_validator, method_validator, regex_validator};
 use chrono::{DateTime, Datelike, NaiveDate, SecondsFormat, Utc};
 use convert_case::{Case, Casing};
 use core::iter::once;
+use fluent_uri::UriRef;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use uriparse::URI;
 use validator::{Validate, ValidationError, ValidationErrors};
 
 method_validator!(is_ark, "ARK");
@@ -438,7 +438,7 @@ pub fn is_url(value: impl ToString) -> Result<(), ValidationError> {
     const CODE: &str = "url";
     const MESSAGE: &str = "Provide valid URL";
     let x = value.to_string();
-    match URI::try_from(x.as_str()) {
+    match UriRef::parse(x.as_str()) {
         | Ok(_) => Ok(()),
         | Err(_) => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }

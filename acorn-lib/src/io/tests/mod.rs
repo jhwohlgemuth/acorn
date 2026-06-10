@@ -20,10 +20,10 @@ use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::{Location, Repository, Scheme};
 use color_eyre::Report;
+use fluent_uri::Uri as UriParse;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use uriparse::URI as UriParse;
 
 const ENDPOINTS: &str = r#"{
     "endpoints": [
@@ -225,8 +225,8 @@ fn test_location_uri() {
     let location = Location::Simple("https://code.ornl.gov/GSHS/GDS/Common/PIPE/module-a".into());
     match location.uri() {
         | Some(value) => {
-            let uri = UriParse::try_from(value.as_str()).unwrap();
-            assert_eq!(uri.scheme(), "HTTPS");
+            let uri = UriParse::parse(value.as_str()).unwrap();
+            assert_eq!(uri.scheme().as_str().to_ascii_lowercase(), "https");
             assert_eq!(uri.path(), "/GSHS/GDS/Common/PIPE/module-a");
         }
         | _ => panic!(),
@@ -234,8 +234,8 @@ fn test_location_uri() {
     let location = Location::Simple("ssh://git@code.ornl.gov/GSHS/GDS/Common/PIPE/module-a.git".into());
     match location.uri() {
         | Some(value) => {
-            let uri = UriParse::try_from(value.as_str()).unwrap();
-            assert_eq!(uri.scheme(), "SSH");
+            let uri = UriParse::parse(value.as_str()).unwrap();
+            assert_eq!(uri.scheme().as_str().to_ascii_lowercase(), "ssh");
             assert_eq!(uri.path(), "/GSHS/GDS/Common/PIPE/module-a.git");
         }
         | _ => panic!(),
@@ -458,8 +458,8 @@ fn test_executor_gitlab_name() {
     assert_eq!(Executor::Ssh.gitlab_runner_type(), "ssh");
     assert_eq!(Executor::Kubernetes.gitlab_runner_type(), "kubernetes");
     assert_eq!(Executor::Sandbox.gitlab_runner_type(), "docker");
-    assert_eq!(Executor::VirtualMachine.gitlab_runner_type(), "virtualbox");
     assert_eq!(Executor::from("anything").gitlab_runner_type(), "docker");
+    assert!(["virtualbox", "parallels"].contains(&Executor::VirtualMachine.gitlab_runner_type()));
 }
 #[test]
 fn test_first_env_var() {

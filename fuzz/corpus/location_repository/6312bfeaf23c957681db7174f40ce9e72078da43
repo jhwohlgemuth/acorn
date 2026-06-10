@@ -1,0 +1,3 @@
+provider: github
+location:
+  ust-lang/rust

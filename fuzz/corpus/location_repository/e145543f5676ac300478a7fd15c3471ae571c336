@@ -1,0 +1,4 @@
+prer: github
+location:
+  !sam/rust-la:
+  !sam/rust-lang/rustng/rust

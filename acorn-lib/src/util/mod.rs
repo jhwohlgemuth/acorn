@@ -15,7 +15,7 @@
 //! }
 //! ```
 //!
-use crate::prelude::HashMap;
+use crate::prelude::{HashMap, Path};
 use crate::{fail, skip};
 use aho_corasick::AhoCorasick;
 use bon::Builder;
@@ -27,6 +27,7 @@ use convert_case::{Case, Casing};
 use core::iter::successors;
 use derive_more::Display;
 use fancy_regex::Regex;
+use fluent_uri::UriRef;
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
 use rust_embed::Embed;
@@ -37,8 +38,6 @@ use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
 };
-use uriparse::URI;
-
 #[cfg(feature = "std")]
 pub mod cmd;
 pub mod constants;
@@ -964,16 +963,24 @@ pub fn generate_guid() -> String {
 }
 /// Check if value is a URI or filesystem path
 pub fn is_uri_or_path(value: &str) -> bool {
-    URI::try_from(value).is_ok() || value.starts_with('/') || value.starts_with("./") || value.starts_with("../") || {
-        #[cfg(feature = "std")]
-        {
-            std::path::Path::new(value).is_absolute()
+    value.starts_with('/')
+        || value.starts_with("./")
+        || value.starts_with("../")
+        || {
+            #[cfg(feature = "std")]
+            {
+                Path::new(value).is_absolute()
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                false
+            }
         }
-        #[cfg(not(feature = "std"))]
-        {
+        || (if let Ok(uri) = UriRef::parse(value) {
+            uri.scheme().is_some()
+        } else {
             false
-        }
-    }
+        })
 }
 /// Prints a diff of changes between two strings.
 ///

@@ -1,0 +1,5 @@
+provider: git.hub
+losation:
+  -st-lang/: git.hub
+losation:
+  -st-lang/rust
