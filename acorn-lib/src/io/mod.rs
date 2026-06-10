@@ -22,7 +22,7 @@
 use crate::cmd;
 use crate::prelude::CommandOutput;
 use crate::prelude::{
-    canonicalize, create_dir_all, io, remove_file, var, write, BufReader, Cursor, File, HashSet, OpenOptions, PathBuf, Read, Write,
+    canonicalize, consts, create_dir_all, io, remove_file, var, var_os, write, BufReader, Cursor, File, HashSet, OpenOptions, PathBuf, Read, Write,
 };
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
@@ -153,7 +153,7 @@ pub enum Executor {
     #[serde(alias = "vm")]
     VirtualMachine,
     /// Custom or unspecified execution method
-    Other,
+    Other(String),
 }
 /// Root-level or reference-level license declaration.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -238,7 +238,7 @@ impl fmt::Display for Executor {
             | Executor::Ssh => "ssh",
             | Executor::Kubernetes => "kubernetes",
             | Executor::VirtualMachine => "virtual_machine",
-            | Executor::Other => "other",
+            | Executor::Other(value) => value.as_str(),
         };
         write!(f, "{value}")
     }
@@ -255,7 +255,7 @@ impl From<&str> for Executor {
             | "ssh" => Executor::Ssh,
             | "kubernetes" | "k8s" => Executor::Kubernetes,
             | "virtual machine" | "virtual_machine" | "vm" => Executor::VirtualMachine,
-            | _ => Executor::Other,
+            | other => Executor::Other(other.to_string()),
         }
     }
 }
@@ -270,31 +270,67 @@ impl From<Executor> for String {
     }
 }
 impl Executor {
+    /// Returns the default configuration directory on host for GitLab runners based on the operating system.
+    pub fn default_gitlab_runner_config_directory() -> &'static str {
+        match cfg!(target_os = "macos") {
+            | true => "/Users/Shared/gitlab-runner/config",
+            | false => "/srv/gitlab-runner/config",
+        }
+    }
     /// Returns the OS binary name used to manage this executor.
     ///
     /// Returns `"docker"`, `"podman"`, `"apptainer"` for container-based
     /// executors, or `"gitlab-runner"` for all others.
-    pub fn command_name(&self) -> &'static str {
+    pub fn command(&self) -> Option<&str> {
         match self {
-            | Executor::Docker => "docker",
-            | Executor::Podman => "podman",
-            | Executor::Apptainer => "apptainer",
-            | Executor::Shell | Executor::Ssh | Executor::Kubernetes | Executor::Sandbox | Executor::VirtualMachine | Executor::Other => {
-                "gitlab-runner"
-            }
+            | Executor::Docker => Some("docker"),
+            | Executor::Podman => Some("podman"),
+            | Executor::Apptainer => Some("apptainer"),
+            | Executor::Shell | Executor::Ssh | Executor::Kubernetes | Executor::Sandbox | Executor::VirtualMachine => None,
+            | Executor::Other(value) => Some(value.as_str()),
         }
     }
     /// Returns the value passed to `gitlab-runner register --executor`.
-    pub fn gitlab_executor_name(&self) -> &'static str {
+    pub fn gitlab_runner_type(&self) -> &str {
         match self {
             | Executor::Docker | Executor::Podman => "docker",
-            | Executor::Apptainer => "apptainer",
             | Executor::Shell => "shell",
             | Executor::Ssh => "ssh",
             | Executor::Kubernetes => "kubernetes",
-            | Executor::Sandbox => "sandbox",
-            | Executor::VirtualMachine => "virtualbox",
-            | Executor::Other => "docker",
+            | Executor::VirtualMachine => match consts::OS {
+                | "macos" => "parallels",
+                | _ => "virtualbox",
+            },
+            | Executor::Apptainer | Executor::Sandbox | Executor::Other(_) => "docker",
+        }
+    }
+    /// Returns the path to the socket file used to manage this executor, if applicable.
+    pub fn socket(&self) -> Option<String> {
+        match self {
+            | Executor::Docker | Executor::Apptainer => {
+                // Assumes linux-based image is used for GitLab runner
+                Some("/var/run/docker.sock".to_string())
+            }
+            | Executor::Podman => {
+                // TODO: Windows support
+                if let Some(value) = var_os("XDG_RUNTIME_DIR") {
+                    let path = PathBuf::from(value).join("podman/podman.sock");
+                    if path.exists() {
+                        Some(path.to_absolute_string())
+                    } else {
+                        None
+                    }
+                } else {
+                    // root permission fallback
+                    let path = PathBuf::from("/run/podman/podman.sock");
+                    if path.exists() {
+                        Some(path.to_absolute_string())
+                    } else {
+                        None
+                    }
+                }
+            }
+            | Executor::Shell | Executor::Ssh | Executor::Kubernetes | Executor::Sandbox | Executor::VirtualMachine | Executor::Other(_) => None,
         }
     }
 }

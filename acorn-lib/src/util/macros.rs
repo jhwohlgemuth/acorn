@@ -349,6 +349,14 @@ macro_rules! args {
     (@build $acc:expr; .. $item:expr) => {
         $acc.chain($item.into_iter().map(|s| s.into())).collect::<Vec<std::ffi::OsString>>()
     };
+    // 2-tuple (key, value) — trailing items follow
+    (@build $acc:expr; ($k:expr, $v:expr), $($rest:tt)*) => {
+        $crate::args!(@build ($acc.chain(core::iter::once($k.into())).chain(core::iter::once($v.into()))); $($rest)*)
+    };
+    // 2-tuple (key, value) — last item
+    (@build $acc:expr; ($k:expr, $v:expr)) => {
+        $acc.chain(core::iter::once($k.into())).chain(core::iter::once($v.into())).collect::<Vec<std::ffi::OsString>>()
+    };
     // Regular expression, trailing items follow
     (@build $acc:expr; $item:expr, $($rest:tt)*) => {
         $crate::args!(@build ($acc.chain(core::iter::once($item.into()))); $($rest)*)

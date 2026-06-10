@@ -111,6 +111,32 @@ mod args_macro {
         let expected: Vec<OsString> = ["--name", "test", "--verbose"].map(OsString::from).to_vec();
         assert_eq!(result, expected);
     }
+    #[test]
+    fn test_tuple_key_value() {
+        let result = args![("--name", "Bill")];
+        let expected: Vec<OsString> = ["--name", "Bill"].map(OsString::from).to_vec();
+        assert_eq!(result, expected);
+    }
+    #[test]
+    fn test_tuple_mixed() {
+        let result = args!["run", ("--name", "container"), "--detach"];
+        let expected: Vec<OsString> = ["run", "--name", "container", "--detach"].map(OsString::from).to_vec();
+        assert_eq!(result, expected);
+    }
+    #[test]
+    fn test_tuple_with_variables() {
+        let key = "--name";
+        let value = "Bill".to_string();
+        let result = args![(key, value)];
+        let expected: Vec<OsString> = ["--name", "Bill"].map(OsString::from).to_vec();
+        assert_eq!(result, expected);
+    }
+    #[test]
+    fn test_tuple_trailing_comma() {
+        let result = args![("--name", "Bill"),];
+        let expected: Vec<OsString> = ["--name", "Bill"].map(OsString::from).to_vec();
+        assert_eq!(result, expected);
+    }
 }
 mod cmd_macro {
     use super::*;

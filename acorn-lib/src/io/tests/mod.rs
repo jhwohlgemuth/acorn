@@ -412,7 +412,7 @@ fn test_executor_display() {
     assert_eq!(Executor::Ssh.to_string(), "ssh");
     assert_eq!(Executor::Kubernetes.to_string(), "kubernetes");
     assert_eq!(Executor::VirtualMachine.to_string(), "virtual_machine");
-    assert_eq!(Executor::Other.to_string(), "other");
+    assert_eq!(Executor::from("custom").to_string(), "custom");
 }
 #[test]
 fn test_executor_into_string() {
@@ -432,36 +432,34 @@ fn test_executor_roundtrip() {
         Executor::Ssh,
         Executor::Kubernetes,
         Executor::VirtualMachine,
-        Executor::Other,
     ] {
         let s = executor.to_string();
         let restored = Executor::from(s.as_str());
         assert_eq!(*executor, restored);
     }
+    let executor = Executor::from("custom");
+    let s = executor.to_string();
+    let restored = Executor::from(s.as_str());
+    assert_eq!(executor, restored);
 }
 #[test]
 fn test_executor_command_name() {
-    assert_eq!(Executor::Docker.command_name(), "docker");
-    assert_eq!(Executor::Podman.command_name(), "podman");
-    assert_eq!(Executor::Apptainer.command_name(), "apptainer");
-    assert_eq!(Executor::Shell.command_name(), "gitlab-runner");
-    assert_eq!(Executor::Ssh.command_name(), "gitlab-runner");
-    assert_eq!(Executor::Kubernetes.command_name(), "gitlab-runner");
-    assert_eq!(Executor::Sandbox.command_name(), "gitlab-runner");
-    assert_eq!(Executor::VirtualMachine.command_name(), "gitlab-runner");
-    assert_eq!(Executor::Other.command_name(), "gitlab-runner");
+    assert_eq!(Executor::Docker.command().unwrap(), "docker");
+    assert_eq!(Executor::Podman.command().unwrap(), "podman");
+    assert!(Executor::VirtualMachine.command().is_none());
+    assert_eq!(Executor::from("gitlab-runner").command().unwrap(), "gitlab-runner");
 }
 #[test]
 fn test_executor_gitlab_name() {
-    assert_eq!(Executor::Docker.gitlab_executor_name(), "docker");
-    assert_eq!(Executor::Podman.gitlab_executor_name(), "docker");
-    assert_eq!(Executor::Apptainer.gitlab_executor_name(), "apptainer");
-    assert_eq!(Executor::Shell.gitlab_executor_name(), "shell");
-    assert_eq!(Executor::Ssh.gitlab_executor_name(), "ssh");
-    assert_eq!(Executor::Kubernetes.gitlab_executor_name(), "kubernetes");
-    assert_eq!(Executor::Sandbox.gitlab_executor_name(), "sandbox");
-    assert_eq!(Executor::VirtualMachine.gitlab_executor_name(), "virtualbox");
-    assert_eq!(Executor::Other.gitlab_executor_name(), "docker");
+    assert_eq!(Executor::Docker.gitlab_runner_type(), "docker");
+    assert_eq!(Executor::Podman.gitlab_runner_type(), "docker");
+    assert_eq!(Executor::Apptainer.gitlab_runner_type(), "docker");
+    assert_eq!(Executor::Shell.gitlab_runner_type(), "shell");
+    assert_eq!(Executor::Ssh.gitlab_runner_type(), "ssh");
+    assert_eq!(Executor::Kubernetes.gitlab_runner_type(), "kubernetes");
+    assert_eq!(Executor::Sandbox.gitlab_runner_type(), "docker");
+    assert_eq!(Executor::VirtualMachine.gitlab_runner_type(), "virtualbox");
+    assert_eq!(Executor::from("anything").gitlab_runner_type(), "docker");
 }
 #[test]
 fn test_first_env_var() {

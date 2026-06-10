@@ -191,7 +191,7 @@ impl From<Executor> for ExecutorArgument {
             | Executor::Ssh => ExecutorArgument::Ssh,
             | Executor::Kubernetes => ExecutorArgument::Kubernetes,
             | Executor::VirtualMachine => ExecutorArgument::VirtualMachine,
-            | Executor::Other => ExecutorArgument::Other,
+            | Executor::Other(_) => ExecutorArgument::Other,
         }
     }
 }

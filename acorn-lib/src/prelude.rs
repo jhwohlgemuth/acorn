@@ -4,7 +4,7 @@
 #[allow(unused_imports)]
 mod std {
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
-    pub use std::env::{self, consts, var};
+    pub use std::env::{self, consts, var, var_os};
     pub use std::ffi::{OsStr, OsString};
     pub use std::fs::{canonicalize, copy, create_dir_all, read, remove_dir_all, remove_file, write, File, OpenOptions};
     #[cfg(unix)]
