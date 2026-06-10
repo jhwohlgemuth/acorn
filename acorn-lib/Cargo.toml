@@ -1,6 +1,7 @@
 [package]
 edition = "2021"
 name = "acorn-lib"
+version.workspace = true
 readme = "README.md"
 description = "ACORN library"
 repository = "https://code.ornl.gov/research-enablement/acorn"
@@ -15,7 +16,6 @@ authors.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 license.workspace = true
-version.workspace = true
 
 [lib]
 name = "acorn"

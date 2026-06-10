@@ -1,0 +1,29 @@
+[package]
+name = "acorn-tui"
+version.workspace = true
+edition = "2021"
+rust-version.workspace = true
+license.workspace = true
+description = "ACORN terminal user interface (TUI)"
+authors.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "acorn-tui"
+path = "src/main.rs"
+
+[dependencies]
+acorn-lib = { version = "0.1.57", path = "../acorn-lib", features = ["doctor"] }
+ratatui = { version = "0.30", features = ["crossterm"] }
+crossterm = "0.28"
+chrono = { workspace = true, features = ["std", "clock"] }
+color-eyre = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+unicode-width = "0.2"
+
+[lints.rust]
+unsafe_code = "allow"
+missing_docs = "allow"

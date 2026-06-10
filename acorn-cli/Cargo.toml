@@ -20,6 +20,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 acorn-lib = { version = "0.1.57", path = "../acorn-lib", features = ["doctor", "powerpoint"] }
+acorn-tui = { version = "0.1.57", path = "../acorn-tui", optional = true }
 bon = "3.3.2"
 chrono = { workspace = true, features = ["std", "clock"] }
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
@@ -69,6 +70,7 @@ which = { version = "8.0.0", features = ["real-sys"], default-features = false }
 default = ["pdf"]
 duckdb = ["acorn-lib/duckdb"]
 pdf = ["dep:playwright"]
+tui = ["dep:acorn-tui"]
 
 [dev-dependencies]
 assert_cmd = "2.0.16"

@@ -133,7 +133,13 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
                 exit(exitcode::USAGE);
             }
         },
-        | Some(Commands::Doctor { fix, interactive, check, .. }) => Box::pin(doctor::run(fix, interactive, check, offline)).await,
+        | Some(Commands::Doctor {
+            fix,
+            interactive,
+            report,
+            check,
+            ..
+        }) => Box::pin(doctor::run(fix, interactive, report, check, offline)).await,
         | Some(Commands::Download {
             config,
             url,
