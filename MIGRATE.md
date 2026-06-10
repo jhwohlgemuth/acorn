@@ -69,3 +69,102 @@ AFTER:  HTML → [HtmlConverter::new().convert()] → PDF bytes → fs::write
 
 - `test_export_pdf_format` re-enabled in CI (no longer requires Playwright/Chromium)
 - Verify PDF output visually matches current output (layout, colors, logos, positioning)
+
+# Migration: uriparse → fluent-uri
+
+## Goal
+Replace `uriparse` (v0.6.4) with `fluent-uri` (v0.4) for all URI parsing, validation, and component access across the workspace.
+
+## Why
+- `uriparse` is unmaintained (last release Nov 2021)
+- `fluent-uri` is RFC 3986/3987 compliant, actively maintained, and `no_std` compatible
+- `fluent-uri` provides separate `Uri` (absolute) and `UriRef` (relative reference) types with better type safety
+- Removes `fnv` transitive dependency (~30KB)
+- Better IRI support for internationalized resource identifiers
+
+## API Mapping
+
+| uriparse | fluent-uri | Notes |
+|---|---|---|
+| `URI::try_from(s)` | `Uri::parse(s)` or `UriRef::parse(s)` | `UriRef` accepts relative refs; `Uri` requires scheme |
+| `uri.scheme()` (enum) | `uri.scheme().as_str()` | `Scheme` is a struct; use `as_str()` for matching |
+| `uriparse::Scheme::HTTPS` | match on `"https"` (lowercased) | Case-insensitive comparison via `as_str()` |
+| `uri.host()` | `uri.authority().map(|a| a.host())` | No direct `.host()` on `Uri` |
+| `auth.port() -> Option<u16>` | `auth.port_to_u16() -> Result<Option<u16>>` | `.ok().flatten()` to convert |
+| `uri.path()` / `.query()` / `.fragment()` | same methods, return `&EStr<E>` | `EStr` implements `Display` / `PartialEq<&str>` |
+| `URI<'a>` lifetime | `Uri<T>` generic over `&str` / `String` | `Uri<&str>` is `Copy` |
+
+## Files to Modify
+
+| # | File | Change Type |
+|---|---|---|
+| 1 | `Cargo.toml` (root) | Replace `uriparse = { version = "0.6.4", default-features = false }` with `fluent-uri = { version = "0.4", default-features = false, features = ["std"] }` |
+| 2 | `acorn-lib/Cargo.toml` | `uriparse = { workspace = true }` → `fluent-uri = { workspace = true }` |
+| 3 | `acorn-cli/Cargo.toml` | Same as #2 |
+| 4 | `acorn-lib/src/lib.rs` | Import swap; rework `Location::scheme()` enum matching → `as_str()` matching; `Location::host()` → `.authority().map(|a| a.host())`; `Location::port()` → `.port_to_u16().ok().flatten()` |
+| 5 | `acorn-lib/src/io/api/mod.rs` | Import swap; `From<URI<'a>>` → `From<Uri<&'a str>>`; use `auth.host()`, `.port_to_u16()` |
+| 6 | `acorn-lib/src/schema/validate.rs` | Swap import to `UriRef`; `UriRef::parse` in `is_url()` |
+| 7 | `acorn-lib/src/util/mod.rs` | Swap import to `UriRef`; `UriRef::parse` in `is_uri_or_path()` |
+| 8 | `acorn-lib/src/io/tests/mod.rs` | Swap import alias; `Uri::parse` + `.scheme().as_str()` in test assertions |
+| 9 | `Cargo.lock` | Auto-regenerated via `cargo update` |
+| 10 | `fuzz/Cargo.lock` | Auto-regenerated |
+| 11 | `acorn-py/Cargo.lock` | Auto-regenerated |
+
+## Detailed Changes
+
+### `acorn-lib/src/lib.rs` — 5 usage sites
+
+**Location::scheme()** — Replace `uriparse::Scheme::HTTPS`/`HTTP`/`File` enum matching:
+```rust
+match uri.scheme().as_str().to_ascii_lowercase().as_str() {
+    | "https" => Scheme::HTTPS,
+    | "http" => Scheme::HTTP,
+    | "file" => Scheme::File,
+    | _ => Scheme::Unsupported,
+}
+```
+
+**Location::uri()** — `parsed.authority().map(|auth| auth.as_str().to_string())` replaces `.map(|auth| auth.to_string())`.
+
+**Location::host()** — `Uri::parse(value.as_str()).ok().and_then(|uri| uri.authority().map(|auth| auth.host().to_string()))`.
+
+**Location::path()** — `Uri::parse(value.as_str()).ok().map(|uri| uri.path().to_string())` (unchanged shape; `EStr::to_string()` via `Display`).
+
+**Location::port()** — `.and_then(|auth| auth.port_to_u16().ok()).flatten()`.
+
+### `acorn-lib/src/io/api/mod.rs` — `From<Uri<&str>>` impl
+
+```rust
+impl<'a> From<Uri<&'a str>> for Endpoint {
+    fn from(value: Uri<&'a str>) -> Self {
+        let domain: String = value.authority()
+            .map(|auth| format!("{}://{}", value.scheme().as_str(), auth.host()))
+            .unwrap_or_default();
+        let port: Option<u16> = value.authority()
+            .and_then(|auth| auth.port_to_u16().ok())
+            .flatten();
+        Endpoint::at(domain).maybe_port(port).build()
+    }
+}
+```
+
+### `acorn-lib/src/schema/validate.rs` — `is_url()`
+
+`URI::try_from(x.as_str())` → `UriRef::parse(x.as_str())` (accepts relative references, matching original behavior).
+
+### `acorn-lib/src/util/mod.rs` — `is_uri_or_path()`
+
+`URI::try_from(value).is_ok()` → `UriRef::parse(value).is_ok()` (same rationale).
+
+### `acorn-lib/src/io/tests/mod.rs` — test assertions
+
+`UriParse::try_from(value.as_str()).unwrap()` → `UriParse::parse(value.as_str()).unwrap()`
+`assert_eq!(uri.scheme(), "HTTPS")` → `assert_eq!(uri.scheme().as_str(), "HTTPS")`
+
+## Validation
+
+1. `cargo check --workspace` — compilation succeeds
+2. `cargo clippy --workspace --no-deps --all-targets` — no new warnings
+3. `make test` — all tests pass (especially `test_location_uri` in `io::tests`)
+4. `cargo check --no-default-features` — ensure `no_std` builds still work (fluent-uri supports it)
+5. Verify lock files drop `uriparse` and `fnv` entries
