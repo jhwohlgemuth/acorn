@@ -194,6 +194,7 @@ publish-crates:
   rules:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
   script:
+    - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-macros"
     - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-lib"
     - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-cli"
 
