@@ -22,6 +22,7 @@ use fluent_uri::Uri;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use strum::EnumIs;
 use tera::{Context, Tera};
 use tracing::trace;
 use validator::Validate;
@@ -163,7 +164,7 @@ pub enum AuthenticationScheme {
     Custom(String),
 }
 /// Describes the location/type of a parameter for an API resource
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, EnumIs, Serialize)]
 pub enum ParamStyle {
     /// Query parameter key-value pair (e.g., "given-names:Jason")
     #[default]
@@ -420,31 +421,15 @@ impl From<Repository> for Endpoint {
     }
 }
 impl Param {
-    /// Check if this parameter is a body parameter
-    pub fn is_body(&self) -> bool {
-        matches!(self.style, ParamStyle::Body)
-    }
-    /// Check if this parameter is a key-value parameter
-    pub fn is_key_value(&self) -> bool {
-        matches!(self.style, ParamStyle::KeyValuePair)
-    }
     /// Check if this parameter is a query parameter (either a query pair, boosted query field, or field list)
     pub fn is_query(&self) -> bool {
-        matches!(self.style, ParamStyle::QueryPair | ParamStyle::QueryField | ParamStyle::FieldList)
-    }
-    /// Check if this parameter is a header parameter
-    pub fn is_header(&self) -> bool {
-        matches!(self.style, ParamStyle::Header)
-    }
-    /// Check if this parameter is a template value
-    pub fn is_template(&self) -> bool {
-        matches!(self.style, ParamStyle::TemplateValue)
+        self.style.is_query_pair() | self.style.is_query_field() | self.style.is_field_list()
     }
     /// Convert a list of params to a query string
     pub fn to_query_string<Q: QueryField + ValueValidator, F: QueryField>(params: Vec<Param>) -> String {
         let query = params
             .iter()
-            .filter(|param| param.is_query() || param.is_key_value())
+            .filter(|param| param.is_query() || param.style.is_key_value_pair())
             .map(|param| param.to_string::<Q, F>())
             .filter(|s| !s.is_empty())
             .collect::<Vec<String>>()
@@ -526,7 +511,7 @@ impl Param {
 }
 impl IntoBody for Vec<Param> {
     fn into_body(self) -> serde_json::Value {
-        let params: Vec<Param> = self.into_iter().filter(|param| param.is_body()).collect();
+        let params: Vec<Param> = self.into_iter().filter(|Param { style, .. }| style.is_body()).collect();
         match params.as_slice() {
             | [Param { name, values, .. }] if name.is_empty() => {
                 let flattened: Vec<String> = values.iter().cloned().flat_map(|vec| vec.into_iter().flatten()).collect();
@@ -564,7 +549,7 @@ impl IntoBody for Vec<Param> {
 impl IntoHeaders for Vec<Param> {
     fn into_headers(self) -> HeaderMap {
         let mut headers = HeaderMap::new();
-        self.into_iter().filter(|param| param.is_header()).for_each(|param| {
+        self.into_iter().filter(|Param { style, .. }| style.is_header()).for_each(|param| {
             let Param { name, values, .. } = param;
             if let Ok(header_name) = name.parse::<HeaderName>() {
                 values.into_iter().for_each(|vec| {
@@ -596,14 +581,14 @@ impl RemoteResource for Endpoint {
         match data {
             | Some(params) => {
                 let (query_params, other_params): (Vec<Param>, Vec<Param>) =
-                    params.into_iter().partition(|param| param.is_query() || param.is_key_value());
+                    params.into_iter().partition(|param| param.is_query() || param.style.is_key_value_pair());
                 let query = Param::to_query_string::<Q, F>(query_params);
                 context.insert("query", &query);
-                other_params.into_iter().for_each(|param| {
-                    if param.is_template() {
-                        param.values.into_iter().for_each(|vec| {
+                other_params.into_iter().for_each(|Param { name, style, values, .. }| {
+                    if style.is_template_value() {
+                        values.into_iter().for_each(|vec| {
                             vec.into_iter().flatten().for_each(|value| {
-                                let key = param.name.clone();
+                                let key = name.clone();
                                 context.insert(&key, &value.clone());
                             });
                         });
