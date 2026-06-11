@@ -1234,10 +1234,9 @@ impl PersistentIdentifierParse for ROR {
     }
 }
 /// ISBN check digit
-///
-/// The check digit is the last (13th) digit of the identifier
-///
-/// Each digit, from left to right, is alternately multiplied by 1 or 3, then those products are summed modulo 10
+/// ### Notes
+/// - The check digit is the last (13th) digit of the identifier
+/// - Each digit, from left to right, is alternately multiplied by 1 or 3, then those products are summed modulo 10
 #[allow(clippy::arithmetic_side_effects)]
 pub fn isbn_check_digit<S>(_value: S) -> Option<Vec<char>>
 where
