@@ -80,7 +80,7 @@ The ASPECT framework can be applied in various scenarios
 | 📦 Portability | Level 1 | ***Source*** |
 | 🪴 Maturity | Level 3 | ***Development*** |
 | 🤝 Autonomy | Level 1 | ***Machine-assisted*** |
-| 🦾 Motivity | Level 3 | ***Projective*** |
+| 🦾 Motivity | Level 2 | ***Perceptive*** |
 
 #### Badge Visualization
 ASPECT can be visualized in a badge-like form for visual project portfolio management
