@@ -14,7 +14,7 @@ use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, read_file, read_large_file,
-    unique_file_extensions, uri_to_path, write_file_bytes, Executor, InputOutput,
+    unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput,
 };
 use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
@@ -174,6 +174,86 @@ fn test_create_rsa_keypair_returns_keys() {
     let (private_key, public_key) = result.unwrap();
     assert_eq!(private_key.n().bits(), 2048, "private key modulus should be 2048 bits");
     assert_eq!(public_key.n(), private_key.n(), "public and private keys should share the same modulus");
+}
+#[test]
+fn test_write_rsa_keypair_writes_files() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = std::env::temp_dir().join(format!("acorn-write-rsa-keypair-{stamp}"));
+    create_dir_all(dir.clone()).unwrap();
+    let path = dir.join("test_key");
+    let keypair = create_rsa_keypair().unwrap();
+    let result = write_rsa_keypair(keypair, Some(path.clone()));
+    assert!(result.is_ok(), "write_rsa_keypair should succeed");
+    let (private_path, public_path) = result.unwrap();
+    assert_eq!(private_path, path, "should return the private key path");
+    assert_eq!(
+        public_path,
+        PathBuf::from(format!("{}.pub", path.display())),
+        "should return the public key path"
+    );
+    assert!(private_path.exists(), "private key file should exist");
+    assert!(public_path.exists(), "public key file should exist");
+    let private_content = read_to_string(private_path).unwrap();
+    let public_content = read_to_string(public_path).unwrap();
+    assert!(private_content.starts_with("-----BEGIN PRIVATE KEY-----"), "private key should be PEM");
+    assert!(
+        private_content.trim().ends_with("-----END PRIVATE KEY-----"),
+        "private key should end with PEM footer"
+    );
+    assert!(public_content.starts_with("-----BEGIN PUBLIC KEY-----"), "public key should be PEM");
+    assert!(
+        public_content.trim().ends_with("-----END PUBLIC KEY-----"),
+        "public key should end with PEM footer"
+    );
+    remove_dir_all(dir).unwrap();
+}
+#[test]
+fn test_write_rsa_keypair_uses_current_dir_when_path_is_none() {
+    let keypair = create_rsa_keypair().unwrap();
+    let result = write_rsa_keypair(keypair, None::<PathBuf>);
+    assert!(result.is_ok(), "write_rsa_keypair should succeed with None path");
+    let (private_path, public_path) = result.unwrap();
+    let cwd = std::env::current_dir().unwrap().join("id_rsa");
+    assert_eq!(private_path, cwd, "should use cwd/id_rsa as private key path");
+    assert_eq!(
+        public_path,
+        PathBuf::from(format!("{}.pub", cwd.display())),
+        "should use cwd/id_rsa.pub as public key path"
+    );
+    assert!(private_path.exists(), "private key file should exist in cwd");
+    assert!(public_path.exists(), "public key file should exist in cwd");
+    remove_file(private_path).unwrap();
+    remove_file(public_path).unwrap();
+}
+#[test]
+fn test_write_rsa_keypair_returns_error_for_invalid_path() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = std::env::temp_dir().join(format!("acorn-write-rsa-keypair-invalid-{stamp}"));
+    let path = dir.join("subdir").join("test_key");
+    let keypair = create_rsa_keypair().unwrap();
+    let result = write_rsa_keypair(keypair, Some(path.clone()));
+    assert!(result.is_err(), "write_rsa_keypair should fail when parent directory missing");
+}
+#[test]
+fn test_write_rsa_keypair_returns_error_when_public_key_write_fails() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let dir = std::env::temp_dir().join(format!("acorn-write-rsa-keypair-pub-fail-{stamp}"));
+    create_dir_all(dir.clone()).unwrap();
+    let path = dir.join("test_key");
+
+    // Block the public key path by creating a directory in its place
+    let public_key_path = PathBuf::from(format!("{}.pub", path.display()));
+    create_dir_all(&public_key_path).unwrap();
+
+    let keypair = create_rsa_keypair().unwrap();
+    let result = write_rsa_keypair(keypair, Some(path.clone()));
+
+    assert!(
+        result.is_err(),
+        "write_rsa_keypair should fail when public key path is blocked by a directory"
+    );
+
+    remove_dir_all(dir).unwrap();
 }
 #[test]
 fn test_current_date() {

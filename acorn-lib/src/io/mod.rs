@@ -22,7 +22,8 @@
 use crate::cmd;
 use crate::prelude::CommandOutput;
 use crate::prelude::{
-    canonicalize, consts, create_dir_all, io, remove_file, var, var_os, write, BufReader, Cursor, File, HashSet, OpenOptions, PathBuf, Read, Write,
+    canonicalize, consts, create_dir_all, current_dir, io, remove_file, var, var_os, write, BufReader, Cursor, File, HashSet, OpenOptions, PathBuf,
+    Read, Write,
 };
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
@@ -44,6 +45,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
 use rand::rngs::OsRng;
 use ring::digest::{Context, SHA256};
+use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -1502,6 +1504,52 @@ where
             }
         }
         | None => Err(eyre!("Output path has no parent directory")),
+    }
+}
+/// Writes an RSA key pair to disk
+///
+/// The private key at `path` and the public key at `{path}.pub`.
+///
+/// When `path` is `None`, the current working directory is used with `id_rsa` as the base name.
+pub fn write_rsa_keypair<P>(values: RsaKeyPair, path: Option<P>) -> ApiResult<(PathBuf, PathBuf)>
+where
+    P: Into<PathBuf>,
+{
+    let resolved = match path {
+        | Some(p) => Ok(p.into()),
+        | None => match current_dir() {
+            | Ok(cwd) => Ok(cwd.join("id_rsa")),
+            | Err(why) => Err(eyre!("Failed to get current directory — {why}")),
+        },
+    };
+    match resolved {
+        | Ok(path) => {
+            let (private_key, public_key) = values;
+            match private_key.to_pkcs8_pem(rsa::pkcs8::LineEnding::LF) {
+                | Ok(private_key_pem) => match public_key.to_public_key_pem(rsa::pkcs8::LineEnding::LF) {
+                    | Ok(public_key_pem) => {
+                        let public_key_path = PathBuf::from(format!("{}.pub", path.display()));
+                        let private_key_path = path.clone();
+                        match write_file(path, (*private_key_pem).clone()) {
+                            | Ok(_) => match write_file(public_key_path.clone(), public_key_pem) {
+                                | Ok(_) => Ok((private_key_path, public_key_path)),
+                                | Err(why) => Err(why),
+                            },
+                            | Err(why) => Err(why),
+                        }
+                    }
+                    | Err(why) => {
+                        error!("=> {} Write RSA keypair (public key) — {why}", Label::fail());
+                        Err(eyre!("Failed to serialize public key to PEM — {why}"))
+                    }
+                },
+                | Err(why) => {
+                    error!("=> {} Write RSA keypair (private key) — {why}", Label::fail());
+                    Err(eyre!("Failed to serialize private key to PEM — {why}"))
+                }
+            }
+        }
+        | Err(why) => Err(why),
     }
 }
 
