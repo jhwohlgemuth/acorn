@@ -42,7 +42,9 @@ use futures::Future;
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
+use rand::rngs::OsRng;
 use ring::digest::{Context, SHA256};
+use rsa::{RsaPrivateKey, RsaPublicKey};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::AsRefStr;
@@ -63,6 +65,8 @@ pub mod mcp;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
 
+/// An RSA key pair consisting of a private key and its corresponding public key
+pub type RsaKeyPair = (rsa::RsaPrivateKey, rsa::RsaPublicKey);
 /// Utility type alias for database and API operation results
 pub type ApiResult<T> = Result<T, Report>;
 /// Add `from_command` trait to `SemanticVersion`
@@ -548,6 +552,21 @@ where
         | Err(_) => {
             warn!("=> {} Command {}", Label::not_found(), command);
             false
+        }
+    }
+}
+/// Create an RSA public/private key pair with 2048 bits of entropy using the `rsa` crate
+pub fn create_rsa_keypair() -> ApiResult<RsaKeyPair> {
+    let bits = 2048;
+    let mut rng = OsRng;
+    match RsaPrivateKey::new(&mut rng, bits) {
+        | Ok(private_key) => {
+            let public_key = RsaPublicKey::from(&private_key);
+            Ok((private_key, public_key))
+        }
+        | Err(why) => {
+            error!("=> {} Create RSA key pair — {why}", Label::fail());
+            Err(eyre!("Failed to create RSA key pair — {why}"))
         }
     }
 }

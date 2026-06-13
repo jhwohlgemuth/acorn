@@ -12,7 +12,7 @@ use crate::io::config::{ApplicationConfiguration, Bucket};
 use crate::io::http::policy::{http_timeout_layer, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
-    archive, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
+    archive, create_rsa_keypair, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, read_file, read_large_file,
     unique_file_extensions, uri_to_path, write_file_bytes, Executor, InputOutput,
 };
@@ -21,6 +21,7 @@ use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::{Location, Repository, Scheme};
 use color_eyre::Report;
 use fluent_uri::Uri as UriParse;
+use rsa::traits::PublicKeyParts;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -165,6 +166,14 @@ fn test_config_with_endpoints() {
     let config = ApplicationConfiguration::read_json(path);
     let endpoints = config.unwrap().endpoints.unwrap();
     assert_eq!(endpoints[0].resources.len(), 2);
+}
+#[test]
+fn test_create_rsa_keypair_returns_keys() {
+    let result = create_rsa_keypair();
+    assert!(result.is_ok(), "create_rsa_keypair should produce a keypair");
+    let (private_key, public_key) = result.unwrap();
+    assert_eq!(private_key.n().bits(), 2048, "private key modulus should be 2048 bits");
+    assert_eq!(public_key.n(), private_key.n(), "public and private keys should share the same modulus");
 }
 #[test]
 fn test_current_date() {

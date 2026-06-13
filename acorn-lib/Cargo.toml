@@ -67,6 +67,8 @@ ring = { version = "0.17.14", default-features = false }
 shell-words = { workspace = true }
 shuck-linter = { version = "0.0.41", optional = true }
 shuck-parser = { version = "0.0.41", optional = true }
+rand = { version = "0.8", features = ["std_rng"] }
+rsa = { version = "0.9.10", default-features = false }
 rusqlite = { workspace = true, features = ["bundled"], default-features = false }
 rust-embed = { workspace = true }
 rust-ini = { version = "0.21.3", default-features = false }
