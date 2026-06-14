@@ -112,11 +112,7 @@ impl Analysis for Cff {
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(
-                    CheckCategory::Quality,
-                    message: "Cannot read CFF data",
-                    context: why.to_string()
-                ),
+                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
             .collect()
     }
@@ -135,10 +131,11 @@ impl Analysis for Cff {
                         .map(|issue| issue.with_uri(uri.clone()))
                         .collect::<Vec<_>>()
                 }
-                | Err(why) => {
-                    error!("=> {} Read CFF data at {} — {why}", Label::fail(), path.display());
-                    vec![check_err!(CheckCategory::Schema)]
-                }
+                | Err(why) => why
+                    .to_string()
+                    .lines()
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .collect(),
             })
             .collect()
     }
@@ -241,10 +238,7 @@ impl Analysis for Cff {
                             .map(|check| check.with_uri(path.file_name_with_parent()))
                             .collect()
                     }
-                    | Err(why) => {
-                        error!("=> {} Read CFF data at {} — {why}", Label::fail(), path.display());
-                        vec![check_err!(CheckCategory::Schema)]
-                    }
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(path.file_name_with_parent())],
                 }
             }
         });
@@ -268,11 +262,7 @@ impl Analysis for Docx {
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(
-                    CheckCategory::Quality,
-                    message: "Cannot read DOCX data",
-                    context: why.to_string()
-                ),
+                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
             .collect()
     }
@@ -304,11 +294,7 @@ impl Analysis for ResearchActivity {
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(
-                    CheckCategory::Quality,
-                    message: "Cannot read research activity data",
-                    context: why.to_string()
-                ),
+                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
             .collect()
     }
@@ -327,10 +313,11 @@ impl Analysis for ResearchActivity {
                         .map(|issue| issue.with_uri(uri.clone()))
                         .collect::<Vec<_>>()
                 }
-                | Err(why) => {
-                    error!("=> {} Read research activity data at {} — {why}", Label::fail(), path.display());
-                    vec![check_err!(CheckCategory::Schema)]
-                }
+                | Err(why) => why
+                    .to_string()
+                    .lines()
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .collect(),
             })
             .collect()
     }
@@ -370,10 +357,7 @@ impl Analysis for ResearchActivity {
                             .map(|check| check.with_uri(path.file_name_with_parent()))
                             .collect()
                     }
-                    | Err(why) => {
-                        error!("=> {} Read research activity data at {} — {why}", Label::fail(), path.display());
-                        vec![check_err!(CheckCategory::Schema)]
-                    }
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(path.file_name_with_parent())],
                 }
             }
         });
@@ -400,11 +384,7 @@ impl Analysis for Text {
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(
-                    CheckCategory::Quality,
-                    message: "Cannot read text data",
-                    context: why.to_string()
-                ),
+                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
             .collect()
     }
@@ -436,11 +416,7 @@ impl Analysis for raid::Metadata {
             .par_iter()
             .map(|path| match Self::read(path.to_path_buf()) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(
-                    CheckCategory::Quality,
-                    message: "Cannot read RAiD metadata",
-                    context: why.to_string()
-                ),
+                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
             .collect()
     }
@@ -458,10 +434,11 @@ impl Analysis for raid::Metadata {
                         .map(|issue| issue.with_uri(uri.clone()))
                         .collect::<Vec<_>>()
                 }
-                | Err(why) => {
-                    error!("=> {} Read RAiD metadata at {} — {why}", Label::fail(), path.display());
-                    vec![check_err!(CheckCategory::Schema)]
-                }
+                | Err(why) => why
+                    .to_string()
+                    .lines()
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .collect(),
             })
             .collect()
     }

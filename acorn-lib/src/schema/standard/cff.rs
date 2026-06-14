@@ -1,7 +1,6 @@
 //! Module with data model and utilities for parsing and working with CITATION File Format (CFF) files
 //!
 //! See <https://github.com/citation-file-format/citation-file-format/blob/main/schema-guide.md> for more information on the CFF schema.
-use crate::fail;
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, ApiResult, InputOutput, License};
 #[cfg(feature = "std")]
@@ -592,10 +591,11 @@ impl InputOutput for Cff {
     fn read_json(path: PathBuf) -> ApiResult<Cff> {
         read_file(path.clone()).and_then(|content| {
             eserde::json::from_str::<Cff>(&content).map_err(|errors| {
-                for error in errors.iter() {
-                    fail!("{}: {}", error.path().map_or("root".into(), |p| p.to_string()), error.message());
-                }
-                eyre!("Deserialization failed")
+                let details: Vec<String> = errors
+                    .iter()
+                    .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                    .collect();
+                eyre!("{}", details.join("\n"))
             })
         })
     }

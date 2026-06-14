@@ -200,15 +200,15 @@ impl ApplicationConfiguration {
     /// Parse ACORN configuration in JSON or YAML format
     pub fn parse(content: impl AsRef<str>) -> ApiResult<Self> {
         let content = content.as_ref();
-        let result = if detect_json(content) {
+        if detect_json(content) {
             match Self::parse_json(content) {
                 | Ok(value) => Ok(value),
                 | Err(errors) => {
-                    for error in errors.iter() {
-                        let path = error.path().map_or("root".into(), |p| p.to_string());
-                        error!("=> {} {} — {}", Label::fail(), path, error.message());
-                    }
-                    Err(eyre!("Deserialization failed"))
+                    let details: Vec<String> = errors
+                        .iter()
+                        .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                        .collect();
+                    Err(eyre!("{}", details.join("\n")))
                 }
             }
         } else {
@@ -216,10 +216,6 @@ impl ApplicationConfiguration {
                 | Ok(value) => Ok(value),
                 | Err(why) => Err(eyre!("Failed to parse ACORN configuration YAML — {why}")),
             }
-        };
-        match result {
-            | Ok(data) => Ok(data),
-            | Err(why) => Err(why),
         }
     }
     fn parse_json(content: impl AsRef<str>) -> Result<Self, eserde::DeserializationErrors> {
@@ -255,11 +251,11 @@ impl InputOutput for ApplicationConfiguration {
         match Self::parse_json(content) {
             | Ok(config) => Ok(config),
             | Err(errors) => {
-                for error in errors.iter() {
-                    let path = error.path().map_or("root".into(), |p| p.to_string());
-                    error!("=> {} {} — {}", Label::fail(), path, error.message());
-                }
-                Err(eyre!("Deserialization failed"))
+                let details: Vec<String> = errors
+                    .iter()
+                    .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                    .collect();
+                Err(eyre!("{}", details.join("\n")))
             }
         }
     }

@@ -401,6 +401,22 @@ impl Check {
                                 .print((&title, source));
                         });
                     }
+                    | None if !self.success => {
+                        let error_text = context.as_deref().unwrap_or(&message);
+                        let source = Source::from(error_text.to_string());
+                        let span = 0..=error_text.len().saturating_sub(1);
+                        let _ = Report::build(severity.clone().into(), (&title, 1..=1))
+                            .with_code(index)
+                            .with_config(Config::default().with_compact(false))
+                            .with_message("Deserialization error")
+                            .with_label(
+                                ariadne::Label::new((&title, span))
+                                    .with_message(error_text.italic())
+                                    .with_color(severity.clone().into()),
+                            )
+                            .finish()
+                            .print((&title, source));
+                    }
                     | None | Some(_) => {
                         info!("=> {} {title} has {}", Label::pass(), "no schema validation issues".green().bold());
                     }
@@ -510,6 +526,18 @@ impl fmt::Display for Check {
                         f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
                             .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
                     })
+                }
+                | None if !self.success => {
+                    let error_text = self.context.as_deref().unwrap_or(&self.message);
+                    write!(
+                        f,
+                        "{}",
+                        format_row(
+                            "Deserialization error".to_string(),
+                            self.severity.colored(),
+                            error_text.to_string().dimmed().to_string()
+                        )
+                    )
                 }
                 | None | Some(_) => write!(f, ""),
             },
@@ -673,10 +701,7 @@ where
                             let content = data.to_prose();
                             vale.run(output, content, Some("JSON".into())).await
                         }
-                        | Err(why) => {
-                            error!("=> {} Read {} data — {why}", Label::fail(), T::standard());
-                            vec![check_err!(CheckCategory::Prose)]
-                        }
+                        | Err(why) => vec![check_err!(CheckCategory::Prose, context: why.to_string())],
                     }
                 }
             });
@@ -695,7 +720,7 @@ where
     let CheckOptions { readability_metric, .. } = options.cloned().unwrap_or_default();
     paths
         .par_iter()
-        .map(|path| match T::read(path) {
+        .flat_map(|path| match T::read(path) {
             | Ok(data) => {
                 let content = data.to_prose();
                 let calculated_index = readability_metric.calculate(&content);
@@ -710,7 +735,7 @@ where
                 let score = format!("{} = {calculated_index}/{maximum}", readability_metric.to_string().to_uppercase());
                 if calculated_index > maximum {
                     let errors = ErrorKind::Readability((calculated_index, readability_metric));
-                    check!(
+                    vec![check!(
                         CheckCategory::Readability,
                         false,
                         severity: CheckSeverity::Warning,
@@ -718,17 +743,17 @@ where
                         errors: errors,
                         message: score,
                         data: content
-                    )
+                    )]
                 } else {
-                    check_ok!(
+                    vec![check_ok!(
                         CheckCategory::Readability,
                         uri: path.file_name_with_parent(),
                         message: score,
                         data: content
-                    )
+                    )]
                 }
             }
-            | Err(_why) => check_err!(CheckCategory::Readability),
+            | Err(why) => vec![check_err!(CheckCategory::Readability, context: why.to_string())],
         })
         .collect::<Vec<Check>>()
 }

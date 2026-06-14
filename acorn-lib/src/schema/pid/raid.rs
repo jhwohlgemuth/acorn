@@ -1049,12 +1049,11 @@ impl Metadata {
             | Ok(data) => match eserde::json::from_str::<Metadata>(&data) {
                 | Ok(value) => Ok(value),
                 | Err(errors) => {
-                    for error in errors.iter() {
-                        let path = error.path().map_or("root".into(), |p| p.to_string());
-                        let msg = format!("{path} — {}", error.message());
-                        error!("=> {} {}", Label::fail(), msg);
-                    }
-                    Err(Error::other("RAiD metadata has deserialization errors"))
+                    let details: Vec<String> = errors
+                        .iter()
+                        .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                        .collect();
+                    Err(Error::other(details.join("\n")))
                 }
             },
             | Err(why) => {

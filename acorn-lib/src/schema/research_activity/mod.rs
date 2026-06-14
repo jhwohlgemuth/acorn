@@ -468,28 +468,20 @@ impl InputOutput for ResearchActivity {
             | MimeType::Yaml => ResearchActivity::read_yaml(source.clone()),
             | _ => Err(eyre!("Unsupported research activity data file extension")),
         };
-        let label = match result {
-            | Ok(_) => Label::using(),
-            | Err(_) => Label::invalid(),
-        };
-        match &result {
-            | Ok(data) => {
-                debug!(path = source.to_string_lossy().to_string(), "=> {}", label);
-                debug!("=> {} Research activity data = {:#?}", label, data.dimmed().cyan());
-            }
-            | Err(_) => {
-                error!(path = source.to_string_lossy().to_string(), "=> {}", label);
-            }
+        if let Ok(data) = &result {
+            debug!(path = source.to_string_lossy().to_string(), "=> {}", Label::using());
+            debug!("=> {} Research activity data = {:#?}", Label::using(), data.dimmed().cyan());
         }
         result
     }
     fn read_json(path: PathBuf) -> ApiResult<ResearchActivity> {
         read_file(path.clone()).and_then(|content| {
             eserde::json::from_str::<ResearchActivity>(&content).map_err(|errors| {
-                for error in errors.iter() {
-                    fail!("{}: {}", error.path().map_or("root".into(), |p| p.to_string()), error.message());
-                }
-                eyre!("Deserialization failed")
+                let details: Vec<String> = errors
+                    .iter()
+                    .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                    .collect();
+                eyre!("{}", details.join("\n"))
             })
         })
     }

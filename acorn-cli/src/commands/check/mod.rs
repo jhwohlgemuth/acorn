@@ -130,7 +130,7 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
             .collect();
         print_values_as_table::<String>(headers, rows, None);
     };
-    if !*quiet {
+    if !(*quiet) {
         render(issues, *terse);
         if !(*no_fail || *terse || issues.is_empty()) {
             print_summary();
