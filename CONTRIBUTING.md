@@ -163,13 +163,13 @@ make fuzz-repro FUZZ_CRASH='fuzz/artifacts/research_activity/crash-...'
 > See [GOOD_FIRST_ISSUES.md](./GOOD_FIRST_ISSUES.md) for a curated list of beginner-friendly tasks that apply functional programming principles to improve the codebase.
 
 ## Running ACORN tasks from source
-ACORN's full API is available without installation. Simply use `cargo run -- <commands, options, and flags>`
+ACORN's full API is available without installation. Simply use `cargo run --bin acorn -- <commands, options, and flags>`
 ### Examples
 | ACORN Command                                     | Equivalent Command                                      |
 | ------------------------------------------------- | ------------------------------------------------------- |
-| `acorn help`                                      | `cargo run -- help`                                     |
-| `acorn check /path/to/folder -vvvv`               | `cargo run -- check /path/to/folder -vvvv`              |
-| `acorn download --buckets /path/to/buckets.json`  | `cargo run -- download --buckets /path/to/buckets.json` |
+| `acorn help`                                      | `cargo run --bin acorn -- help`                                     |
+| `acorn check /path/to/folder -vvvv`               | `cargo run --bin acorn -- check /path/to/folder -vvvv`              |
+| `acorn download --buckets /path/to/buckets.json`  | `cargo run --bin acorn -- download --buckets /path/to/buckets.json` |
 
 -------------
 

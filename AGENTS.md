@@ -60,10 +60,10 @@ make audit
 ACORN's full API is available without installation:
 ```bash
 # Instead of: acorn check /path/to/folder
-cargo run -- check /path/to/folder
+cargo run --bin acorn -- check /path/to/folder
 
 # Instead of: acorn export --format pdf path/to/file.json
-cargo run -- export --format pdf path/to/file.json
+cargo run --bin acorn -- export --format pdf path/to/file.json
 ```
 
 ## Common Tasks

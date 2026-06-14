@@ -2,6 +2,7 @@ mod app;
 mod event;
 pub mod export;
 mod screens;
+mod theme;
 mod widgets;
 
 use app::App;

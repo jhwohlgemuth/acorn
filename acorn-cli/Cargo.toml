@@ -67,7 +67,7 @@ validator = { workspace = true }
 which = { version = "8.0.0", features = ["real-sys"], default-features = false }
 
 [features]
-default = ["pdf"]
+default = ["pdf", "tui"]
 duckdb = ["acorn-lib/duckdb"]
 pdf = ["dep:playwright"]
 tui = ["dep:acorn-tui"]

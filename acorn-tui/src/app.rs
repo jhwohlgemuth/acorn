@@ -1,4 +1,5 @@
 use crate::screens;
+use crate::theme::Theme;
 use crate::Screen;
 use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
 use color_eyre::eyre::Result;
@@ -6,7 +7,9 @@ use crossterm::event;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::Stdout;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+type ThemeBuilder = fn() -> Theme;
 
 /// Main application state
 pub struct App {
@@ -19,6 +22,10 @@ pub struct App {
     /// Check screen state
     #[allow(dead_code)]
     pub check: CheckState,
+    /// Current theme
+    pub theme: Theme,
+    /// When the theme was last changed (for debounce)
+    theme_last_changed: Instant,
 }
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
@@ -115,8 +122,10 @@ impl App {
         Self {
             should_quit: false,
             current_screen: initial_screen,
+            theme: Theme::from_env(),
             doctor: DoctorState::new(),
             check: CheckState::new(),
+            theme_last_changed: Instant::now(),
         }
     }
     /// Run the TUI event loop
@@ -141,11 +150,31 @@ impl App {
         }
     }
     fn handle_event(&mut self, evt: event::Event) {
+        if let event::Event::Key(key) = &evt {
+            if key.kind == event::KeyEventKind::Press
+                && (key.code == event::KeyCode::Char('t') || key.code == event::KeyCode::Char('T'))
+            {
+                self.cycle_theme();
+                return;
+            }
+        }
         match self.current_screen {
             | Screen::Dashboard => screens::dashboard::handle_event(self, evt),
             | Screen::Doctor => screens::doctor::handle_event(self, evt),
             | Screen::Check => screens::check::handle_event(self, evt),
         }
+    }
+    /// Cycle between available themes
+    pub fn cycle_theme(&mut self) {
+        const DEBOUNCE_MS: u64 = 200;
+        if self.theme_last_changed.elapsed().as_millis() < DEBOUNCE_MS as u128 {
+            return;
+        }
+        self.theme_last_changed = Instant::now();
+        const THEMES: &[(ThemeBuilder, &str)] = &[(Theme::nord, "nord"), (Theme::one_dark, "one-dark")];
+        let current_idx = THEMES.iter().position(|(_, name)| *name == self.theme.name).unwrap_or(0);
+        let next_idx = (current_idx + 1) % THEMES.len();
+        self.theme = THEMES[next_idx].0();
     }
     /// Navigate to a different screen
     pub fn navigate_to(&mut self, screen: Screen) {

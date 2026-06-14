@@ -5,6 +5,8 @@ use acorn::prelude::{exit, PathBuf};
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::Label;
+#[cfg(not(feature = "tui"))]
+use color_eyre::eyre;
 use tracing::info;
 
 pub mod check;
@@ -15,6 +17,7 @@ pub mod export;
 pub mod format;
 pub mod gather;
 pub mod link;
+pub mod tui;
 
 macro_rules! preflight {
     ($options:expr) => {
@@ -241,6 +244,15 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
             | Some(SchemaCommands::Rad) | None => print_rad_schema(),
             | Some(SchemaCommands::Raid) => print_raid_schema(),
         },
+        | Some(Commands::Tui) => Box::pin(tui::run()).await,
+        | None if args.interactive => {
+            #[cfg(feature = "tui")]
+            return acorn_tui::run_tui(acorn_tui::Screen::Dashboard);
+            #[cfg(not(feature = "tui"))]
+            {
+                return Err(eyre::eyre!("TUI feature not enabled. Build with: cargo build --features tui"));
+            }
+        }
         | None => {
             let name = "JASON";
             fail!("FOOBAR {} RABOOF", name);

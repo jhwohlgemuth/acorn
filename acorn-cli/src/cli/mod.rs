@@ -168,6 +168,9 @@ pub struct Arguments {
         help_heading = "FLAGS"
     )]
     pub no_local_database: bool,
+    /// Launch interactive terminal user interface (TUI)
+    #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub interactive: bool,
     /// Prevent communication with the internet - intended for disconnected local environments
     ///
     /// Note: Use of --offline may require extra configuration options for certain commands
@@ -589,6 +592,12 @@ pub enum Commands {
         #[command(subcommand)]
         command: Option<SchemaCommands>,
     },
+    /// Launch the interactive terminal user interface (TUI)
+    ///
+    ///     $> acorn tui
+    ///
+    #[clap(verbatim_doc_comment)]
+    Tui,
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]

@@ -4,7 +4,7 @@ use crate::export;
 use crate::Screen;
 use crossterm::event;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
@@ -24,7 +24,7 @@ pub fn render(f: &mut Frame, app: &mut App) {
         .split(chunks[0]);
     render_category_list(f, main_chunks[0], app);
     render_detail_pane(f, main_chunks[1], app);
-    render_status_bar(f, chunks[1]);
+    render_status_bar(f, chunks[1], app);
 }
 fn render_category_list(f: &mut Frame, area: Rect, app: &App) {
     let items: Vec<Line> = CATEGORIES
@@ -34,9 +34,12 @@ fn render_category_list(f: &mut Frame, area: Rect, app: &App) {
             let is_selected = i == app.doctor.selected_category;
             let prefix = if is_selected { ">" } else { " " };
             let style = if is_selected {
-                Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(app.theme.selection_fg)
+                    .bg(app.theme.selection_bg)
+                    .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::White)
+                Style::default().fg(app.theme.text)
             };
             Line::from(Span::styled(format!(" {prefix} [{i}] {name}"), style))
         })
@@ -47,7 +50,7 @@ fn render_category_list(f: &mut Frame, area: Rect, app: &App) {
                 .borders(Borders::ALL)
                 .title(" Diagnostics ")
                 .title_alignment(Alignment::Center)
-                .border_style(Style::default().fg(Color::Cyan)),
+                .border_style(Style::default().fg(app.theme.accent)),
         )
         .alignment(Alignment::Left);
     f.render_widget(paragraph, area);
@@ -55,17 +58,17 @@ fn render_category_list(f: &mut Frame, area: Rect, app: &App) {
 fn render_detail_pane(f: &mut Frame, area: Rect, app: &App) {
     let Some(ref data) = app.doctor.data else {
         let paragraph = Paragraph::new(" Loading diagnostics...")
-            .block(Block::default().borders(Borders::ALL))
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(app.theme.border)))
             .alignment(Alignment::Center);
         f.render_widget(paragraph, area);
         return;
     };
     let lines: Vec<Line> = match app.doctor.selected_category {
-        | 0 => render_system(data),
-        | 1 => render_memory(data),
-        | 2 => render_network(data),
-        | 3 => render_software(data),
-        | 4 => render_gpu(),
+        | 0 => render_system(data, app),
+        | 1 => render_memory(data, app),
+        | 2 => render_network(data, app),
+        | 3 => render_software(data, app),
+        | 4 => render_gpu(app),
         | _ => vec![Line::from(" Unknown category")],
     };
     let paragraph = Paragraph::new(lines)
@@ -74,7 +77,7 @@ fn render_detail_pane(f: &mut Frame, area: Rect, app: &App) {
                 .borders(Borders::ALL)
                 .title(format!(" {} ", CATEGORIES[app.doctor.selected_category]))
                 .title_alignment(Alignment::Center)
-                .border_style(Style::default().fg(Color::Cyan)),
+                .border_style(Style::default().fg(app.theme.accent)),
         )
         .alignment(Alignment::Left);
     f.render_widget(paragraph, area);
@@ -85,56 +88,68 @@ fn render_detail_pane(f: &mut Frame, area: Rect, app: &App) {
                 Block::default()
                     .borders(Borders::ALL)
                     .title(" Export ")
-                    .border_style(Style::default().fg(Color::Green)),
+                    .border_style(Style::default().fg(app.theme.accent)),
             )
             .alignment(Alignment::Center);
         f.render_widget(Clear, popup_area);
         f.render_widget(popup, popup_area);
     }
 }
-fn render_system(data: &crate::app::DoctorData) -> Vec<Line<'static>> {
+fn render_system(data: &crate::app::DoctorData, app: &App) -> Vec<Line<'static>> {
     let Some(ref sys) = data.system else {
         return vec![Line::from(" No system data available")];
     };
     vec![
-        Line::from(Span::styled(
-            format!(" Name:             {}", sys.name),
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            format!(" Kernel Version:   {}", sys.kernel),
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            format!(" OS Version:       {}", sys.os_version),
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            format!(" Host Name:        {}", sys.host_name),
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            format!(" CPU Architecture: {}", sys.cpu_arch),
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            format!(" CPU Count:        {}", sys.cpu_count),
-            Style::default().fg(Color::White),
-        )),
+        Line::from(vec![
+            Span::styled(" Name:             ", Style::default().fg(app.theme.text_muted)),
+            Span::styled(sys.name.clone(), Style::default().fg(app.theme.text)),
+        ]),
+        Line::from(vec![
+            Span::styled(" Kernel Version:   ", Style::default().fg(app.theme.text_muted)),
+            Span::styled(sys.kernel.clone(), Style::default().fg(app.theme.text)),
+        ]),
+        Line::from(vec![
+            Span::styled(" OS Version:       ", Style::default().fg(app.theme.text_muted)),
+            Span::styled(sys.os_version.clone(), Style::default().fg(app.theme.text)),
+        ]),
+        Line::from(vec![
+            Span::styled(" Host Name:        ", Style::default().fg(app.theme.text_muted)),
+            Span::styled(sys.host_name.clone(), Style::default().fg(app.theme.text)),
+        ]),
+        Line::from(vec![
+            Span::styled(" CPU Architecture: ", Style::default().fg(app.theme.text_muted)),
+            Span::styled(sys.cpu_arch.clone(), Style::default().fg(app.theme.text)),
+        ]),
+        Line::from(vec![
+            Span::styled(" CPU Count:        ", Style::default().fg(app.theme.text_muted)),
+            Span::styled(sys.cpu_count.clone(), Style::default().fg(app.theme.text)),
+        ]),
     ]
 }
-fn render_memory(data: &crate::app::DoctorData) -> Vec<Line<'static>> {
+fn render_memory(data: &crate::app::DoctorData, app: &App) -> Vec<Line<'static>> {
     let Some(ref mem) = data.memory else {
         return vec![Line::from(" No memory data available")];
     };
     vec![
-        Line::from(Span::styled(format!(" Total:     {}", mem.total), Style::default().fg(Color::White))),
-        Line::from(Span::styled(format!(" Available: {}", mem.available), Style::default().fg(Color::Green))),
-        Line::from(Span::styled(format!(" Used:      {}", mem.used), Style::default().fg(Color::Yellow))),
-        Line::from(Span::styled(format!(" Swap:      {}", mem.swap), Style::default().fg(Color::White))),
+        Line::from(vec![
+            Span::styled(" Total:     ", Style::default().fg(app.theme.text_muted)),
+            Span::styled(mem.total.clone(), Style::default().fg(app.theme.text)),
+        ]),
+        Line::from(vec![
+            Span::styled(" Available: ", Style::default().fg(app.theme.text_muted)),
+            Span::styled(mem.available.clone(), Style::default().fg(app.theme.success)),
+        ]),
+        Line::from(vec![
+            Span::styled(" Used:      ", Style::default().fg(app.theme.text_muted)),
+            Span::styled(mem.used.clone(), Style::default().fg(app.theme.warning)),
+        ]),
+        Line::from(vec![
+            Span::styled(" Swap:      ", Style::default().fg(app.theme.text_muted)),
+            Span::styled(mem.swap.clone(), Style::default().fg(app.theme.text)),
+        ]),
     ]
 }
-fn render_network(data: &crate::app::DoctorData) -> Vec<Line<'static>> {
+fn render_network(data: &crate::app::DoctorData, app: &App) -> Vec<Line<'static>> {
     let Some(ref net) = data.network else {
         return vec![Line::from(" No network data available")];
     };
@@ -148,64 +163,78 @@ fn render_network(data: &crate::app::DoctorData) -> Vec<Line<'static>> {
         }
         lines.push(Line::from(Span::styled(
             format!(" Interface {}:", i + 1),
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD),
         )));
         for ip in &iface.ip_addresses {
-            lines.push(Line::from(Span::styled(format!("   IP:  {ip}"), Style::default().fg(Color::White))));
+            lines.push(Line::from(Span::styled(format!("   IP:  {ip}"), Style::default().fg(app.theme.text))));
         }
         lines.push(Line::from(Span::styled(
             format!("   MAC: {}", iface.mac_address),
-            Style::default().fg(Color::White),
+            Style::default().fg(app.theme.text),
         )));
         lines.push(Line::from(Span::styled(
             format!("   MTU: {}", iface.mtu),
-            Style::default().fg(Color::White),
+            Style::default().fg(app.theme.text),
         )));
     }
     lines
 }
-fn render_software(data: &crate::app::DoctorData) -> Vec<Line<'static>> {
+fn render_software(data: &crate::app::DoctorData, app: &App) -> Vec<Line<'static>> {
     let Some(ref sw) = data.software else {
         return vec![Line::from(" No software data available")];
     };
-    let mut lines = vec![Line::from(Span::styled(
-        format!(" {:<12} {:>9} {:>12}  {}", "Name", "Installed", "Version", "Path"),
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-    ))];
-    lines.push(Line::from(Span::styled("-".repeat(60), Style::default().fg(Color::DarkGray))));
+    let mut lines = vec![Line::from(vec![
+        Span::styled(
+            format!(" {:<12}", "Name"),
+            Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(" {:>9}", "Installed"),
+            Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(" {:>12}", "Version"),
+            Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!("  {}", "Path"),
+            Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD),
+        ),
+    ])];
+    lines.push(Line::from(Span::styled("-".repeat(60), Style::default().fg(app.theme.text_muted))));
     for item in &sw.items {
         let status = if item.installed { "✓" } else { "✗" };
-        let status_color = if item.installed { Color::Green } else { Color::Red };
+        let status_color = if item.installed { app.theme.success } else { app.theme.error };
         let path_display = if item.path.len() > 30 {
             format!("...{}", &item.path[item.path.len().saturating_sub(27)..])
         } else {
             item.path.clone()
         };
         lines.push(Line::from(vec![
-            Span::styled(format!(" {:<12}", item.name), Style::default().fg(Color::White)),
+            Span::styled(format!(" {:<12}", item.name), Style::default().fg(app.theme.text)),
             Span::styled(format!(" {:>9}", status), Style::default().fg(status_color)),
-            Span::styled(format!(" {:>12}", item.version), Style::default().fg(Color::Yellow)),
-            Span::styled(format!("  {}", path_display), Style::default().fg(Color::DarkGray)),
+            Span::styled(format!(" {:>12}", item.version), Style::default().fg(app.theme.warning)),
+            Span::styled(format!("  {}", path_display), Style::default().fg(app.theme.text_muted)),
         ]));
     }
     lines
 }
-fn render_gpu() -> Vec<Line<'static>> {
+fn render_gpu(app: &App) -> Vec<Line<'static>> {
     vec![Line::from(Span::styled(
         " GPU diagnostics not implemented",
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(app.theme.text_muted),
     ))]
 }
-fn render_status_bar(f: &mut Frame, area: Rect) {
+fn render_status_bar(f: &mut Frame, area: Rect, app: &App) {
     let controls = Line::from(vec![
-        Span::styled(" [↑/↓] Navigate  ", Style::default().fg(Color::DarkGray)),
-        Span::styled("[R] Refresh  ", Style::default().fg(Color::DarkGray)),
-        Span::styled("[E] Export  ", Style::default().fg(Color::DarkGray)),
-        Span::styled("[Esc] Back  ", Style::default().fg(Color::DarkGray)),
-        Span::styled("[Q] Quit", Style::default().fg(Color::DarkGray)),
+        Span::styled(" [↑/↓] Navigate  ", Style::default().fg(app.theme.text_muted)),
+        Span::styled("[R] Refresh  ", Style::default().fg(app.theme.text_muted)),
+        Span::styled("[E] Export  ", Style::default().fg(app.theme.text_muted)),
+        Span::styled("[Esc] Back  ", Style::default().fg(app.theme.text_muted)),
+        Span::styled("[Q] Quit", Style::default().fg(app.theme.text_muted)),
     ]);
     let paragraph = Paragraph::new(controls)
-        .block(Block::default().borders(Borders::TOP))
+        .block(Block::default().borders(Borders::TOP).border_style(Style::default().fg(app.theme.border)))
         .alignment(Alignment::Center);
     f.render_widget(paragraph, area);
 }
