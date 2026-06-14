@@ -18,6 +18,7 @@ dependencies = [
  "data-encoding",
  "derive_more",
  "dotenvy",
+ "eserde",
  "exitcode",
  "fancy-regex 0.17.0",
  "fast_qr",
@@ -81,6 +82,7 @@ dependencies = [
  "docx-rs",
  "dotenvy",
  "duckdb",
+ "eserde",
  "exitcode",
  "fancy-regex 0.17.0",
  "flate2",
@@ -2337,6 +2339,30 @@ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "eserde"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "126e7cf1ef2f9cfbc4d0767cf97961beb73e62f22d90616d9a1228ab06fd1387"
+dependencies = [
+ "eserde_derive",
+ "itoa",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "eserde_derive"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a9861273a1a4623e150b093a99b9c0e51a4d1b2b52efe64facf0f15978f08e9"
+dependencies = [
+ "indexmap 2.14.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]

@@ -1,6 +1,7 @@
 //! Module with data model and utilities for parsing and working with CITATION File Format (CFF) files
 //!
 //! See <https://github.com/citation-file-format/citation-file-format/blob/main/schema-guide.md> for more information on the CFF schema.
+use crate::fail;
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, ApiResult, InputOutput, License};
 #[cfg(feature = "std")]
@@ -172,7 +173,7 @@ pub enum ReferenceType {
 }
 /// Top-level Citation File Format (CFF) record
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Validate)]
+#[derive(Clone, Debug, eserde::Deserialize, JsonSchema, PartialEq, Serialize, Validate)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Cff {
     /// Human-readable abstract for the software or dataset
@@ -180,6 +181,7 @@ pub struct Cff {
     pub abstract_text: Option<String>,
     /// People or organizations credited as authors
     #[validate(nested)]
+    #[eserde(compat)]
     pub authors: Vec<Agent>,
     /// CFF schema version
     pub cff_version: String,
@@ -187,6 +189,7 @@ pub struct Cff {
     pub commit: Option<String>,
     /// Contact person(s) or entity(ies)
     #[validate(nested)]
+    #[eserde(compat)]
     pub contact: Option<Vec<Agent>>,
     /// Release date in YYYY-MM-DD format
     #[validate(custom(function = "is_date"))]
@@ -196,11 +199,13 @@ pub struct Cff {
     pub doi: Option<String>,
     /// Additional identifiers for the work
     #[validate(nested)]
+    #[eserde(compat)]
     pub identifiers: Option<Vec<Identifier>>,
     /// Keywords describing the work
     pub keywords: Option<Vec<String>>,
     /// SPDX license identifier(s)
     #[validate(nested)]
+    #[eserde(compat)]
     pub license: Option<License>,
     /// URL for non-standard license text
     #[validate(url)]
@@ -209,9 +214,11 @@ pub struct Cff {
     pub message: String,
     /// Preferred citation metadata for credit redirection
     #[validate(nested)]
+    #[eserde(compat)]
     pub preferred_citation: Option<Reference>,
     /// References to related work
     #[validate(nested)]
+    #[eserde(compat)]
     pub references: Option<Vec<Reference>>,
     /// URL of a generic repository/archive
     #[validate(url)]
@@ -226,6 +233,7 @@ pub struct Cff {
     pub title: String,
     /// Type of the work described by this CFF record
     #[serde(rename = "type")]
+    #[eserde(compat)]
     pub kind: Option<CffType>,
     /// Landing page URL
     #[validate(url)]
@@ -582,7 +590,14 @@ impl InputOutput for Cff {
         Cff::read_yaml(path.into())
     }
     fn read_json(path: PathBuf) -> ApiResult<Cff> {
-        read_file(path.clone()).and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to parse JSON CFF — {why}")))
+        read_file(path.clone()).and_then(|content| {
+            eserde::json::from_str::<Cff>(&content).map_err(|errors| {
+                for error in errors.iter() {
+                    fail!("{}: {}", error.path().map_or("root".into(), |p| p.to_string()), error.message());
+                }
+                eyre!("Deserialization failed")
+            })
+        })
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Cff> {
         read_file(path.clone()).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML CFF — {why}")))

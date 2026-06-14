@@ -77,6 +77,7 @@ strum = { workspace = true }
 secrecy = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+eserde = { workspace = true }
 serde_repr = { workspace = true }
 serde_trim = { version = "1.1.0", default-features = false }
 serde_with = { version = "3.15.1", features = ["macros"], default-features = false }

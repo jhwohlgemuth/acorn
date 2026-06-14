@@ -18,6 +18,7 @@ use crate::util::Label;
 use crate::util::License;
 use bon::Builder;
 use derive_more::Display;
+#[cfg(feature = "std")]
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -636,7 +637,7 @@ pub struct Language {
 }
 /// Research Activity Identifier (RAiD) Metadata
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Display, Deserialize, Serialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Display, eserde::Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 #[display("({identifier:?})")]
 #[validate(schema(function = "validate_metadata", skip_on_field_errors = false))]
@@ -644,32 +645,41 @@ pub struct Language {
 pub struct Metadata {
     /// Access for the RAiD metadata
     #[validate(required, nested)]
+    #[eserde(compat)]
     pub access: Option<Access>,
     /// Contributors to the RAiD
     #[validate(required, nested, length(min = 1))]
+    #[eserde(compat)]
     pub contributor: Option<Vec<Contributor>>,
     /// Dates associated with the RAiD metadata
     #[validate(required, nested)]
+    #[eserde(compat)]
     pub date: Option<Date>,
     /// Metadata schema block containing the RAiD name and associated properties
     #[validate(nested)]
+    #[eserde(compat)]
     pub identifier: Option<MetadataIdentifier>,
     /// Title metadata of the RAiD
     ///
     /// <div class="warning">One and only one title should be identified as "primary"</div>
     #[validate(required, nested, length(min = 1))]
+    #[eserde(compat)]
     pub title: Option<Vec<Title>>,
     /// Alternate identifiers associated with the RAiD
     #[validate(nested)]
+    #[eserde(compat)]
     pub alternate_identifier: Option<Vec<AlternateIdentifier>>,
     /// Alternate URLs associated with the RAiD
     #[validate(nested)]
+    #[eserde(compat)]
     pub alternate_url: Option<Vec<AlternateUrl>>,
     /// Description metadata of the RAiD
     #[validate(nested)]
+    #[eserde(compat)]
     pub description: Option<Vec<Description>>,
     /// RAiD metadata metadata
     #[validate(nested)]
+    #[eserde(compat)]
     pub metadata: Option<MetadataMetadata>,
     /// Organizations associated with the RAiD
     ///
@@ -678,21 +688,27 @@ pub struct Metadata {
     /// <div class="warning">One and only one organization should be identified as "Lead Research Organization"</div>
     #[validate(nested)]
     #[serde(alias = "organisation")]
+    #[eserde(compat)]
     pub organization: Option<Vec<Organization>>,
     /// Related objects associated with the RAiD
     #[validate(nested)]
+    #[eserde(compat)]
     pub related_object: Option<Vec<RelatedObject>>,
     /// Related RAiD(s) associated with the RAiD
     #[validate(nested)]
+    #[eserde(compat)]
     pub related_raid: Option<Vec<RelatedRaid>>,
     /// Spatial coverage
     #[validate(nested)]
+    #[eserde(compat)]
     pub spatial_coverage: Option<Vec<SpatialCoverage>>,
     /// Subjects
     #[validate(nested)]
+    #[eserde(compat)]
     pub subject: Option<Vec<Subject>>,
     /// Traditional knowledge information
     #[validate(nested)]
+    #[eserde(compat)]
     pub traditional_knowledge_label: Option<Vec<TraditionalKnowledgeLabel>>,
 }
 /// Metadata schema block containing the RAiD name and associated properties
@@ -1030,12 +1046,15 @@ impl Metadata {
     #[cfg(feature = "std")]
     pub fn read(path: PathBuf) -> Result<Metadata, Error> {
         match read_file(path) {
-            | Ok(data) => match serde_json::from_str(&data) {
+            | Ok(data) => match eserde::json::from_str::<Metadata>(&data) {
                 | Ok(value) => Ok(value),
-                | Err(why) => {
-                    let msg = format!("Parse RAiD metadata - {why}");
-                    error!("=> {} {}", Label::fail(), msg);
-                    Err(Error::other(msg))
+                | Err(errors) => {
+                    for error in errors.iter() {
+                        let path = error.path().map_or("root".into(), |p| p.to_string());
+                        let msg = format!("{path} — {}", error.message());
+                        error!("=> {} {}", Label::fail(), msg);
+                    }
+                    Err(Error::other("RAiD metadata has deserialization errors"))
                 }
             },
             | Err(why) => {

@@ -151,9 +151,7 @@ impl App {
     }
     fn handle_event(&mut self, evt: event::Event) {
         if let event::Event::Key(key) = &evt {
-            if key.kind == event::KeyEventKind::Press
-                && (key.code == event::KeyCode::Char('t') || key.code == event::KeyCode::Char('T'))
-            {
+            if key.kind == event::KeyEventKind::Press && (key.code == event::KeyCode::Char('t') || key.code == event::KeyCode::Char('T')) {
                 self.cycle_theme();
                 return;
             }

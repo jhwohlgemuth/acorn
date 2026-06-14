@@ -199,6 +199,56 @@ Before submitting changes, verify:
 - [ ] No new clippy warnings: `cargo clippy --workspace --no-deps --all-targets`
 - [ ] Coverage not decreased: `make cover` (if applicable)
 
+## Eserde Integration for Multi-Error Deserialization
+
+Use `eserde` to collect **all** serde deserialization errors from user-facing JSON entry points instead of failing on the first error.
+
+### How It Works
+1. Change `#[derive(Deserialize)]` to `#[derive(eserde::Deserialize)]` on top-level structs only
+2. The derive generates both `serde::Deserialize` + `eserde::EDeserialize`
+3. ALL field types must implement `EDeserialize` — use `#[eserde(compat)]` on fields whose types still use vanilla `serde::Deserialize`
+4. Replace `serde_json::from_str` with `eserde::json::from_str` — it returns `DeserializationErrors` with `.iter()`, `.len()`, and each error has `.message()` and `.path()`
+
+### Migration Pattern
+```rust
+// Top-level struct (the entry point)
+#[derive(eserde::Deserialize, Serialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields)]
+pub struct MySchema {
+    // Primitive/String fields — no compat needed
+    pub name: String,
+    pub count: Option<u32>,
+
+    // Nested types still using serde::Deserialize — add compat
+    #[eserde(compat)]
+    pub nested: MyNestedType,
+}
+
+// Nested types keep vanilla serde
+#[derive(Deserialize, Serialize)]
+pub struct MyNestedType { ... }
+```
+
+### Error Handling Pattern
+```rust
+fn read_json(path: PathBuf) -> ApiResult<MySchema> {
+    read_file(path).and_then(|content| {
+        eserde::json::from_str::<MySchema>(&content).map_err(|errors| {
+            for error in errors.iter() {
+                fail!("{}: {}", error.path().map_or("root", |p| p), error.message());
+            }
+            eyre!("JSON has {} deserialization error(s)", errors.len().to_string().bold())
+        })
+    })
+}
+```
+
+### Important Notes
+- Only use `eserde::json::from_str` at **user-facing entry points** (`read_json` methods)
+- YAML paths (`serde_norway::from_str`) and internal API calls remain unchanged
+- `#[eserde(compat)]` is a field-level attribute — it tells eserde to fall back to vanilla serde `Deserialize` for that specific field
+- Primitive types (`String`, `bool`, `u32`, `Vec<String>`, `Option<String>`, etc.) implement `EDeserialize` automatically — no compat needed
+
 ## Project Structure
 
 ### Workspace Crates

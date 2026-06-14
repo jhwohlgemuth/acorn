@@ -27,11 +27,7 @@ pub fn render(f: &mut Frame, _app: &App) {
     render_logo(f, chunks[0], _app);
     let menu_area = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Fill(1),
-            Constraint::Min(logo_width),
-            Constraint::Fill(1),
-        ])
+        .constraints([Constraint::Fill(1), Constraint::Min(logo_width), Constraint::Fill(1)])
         .split(chunks[2])[1];
     render_menu(f, menu_area, _app);
     render_controls(f, chunks[4], _app);

@@ -1,0 +1,41 @@
+{
+    "@context": {
+        "meta": "https://schema.org",
+        "title": "https://schema.org",
+        "sections": "https://schema.org",
+        "contact": "https://schema.org",
+        "notes": "https://schema.org",
+        "malformedContext": "bad"
+    },
+    "@type": "ResearchActivity",
+    "title": 42,
+    "unknownFieldAtRoot": "oops",
+    "subtitle": true,
+    "meta": {
+        "identifier": "my-identifier",
+        "unknownMetaField": "bad",
+        "classification": "bogus_classification"
+    },
+    "sections": {
+        "mission": "A mission statement that is long enough to pass validation",
+        "challenge": true,
+        "unknownSectionField": 123,
+        "approach": ["Develop machine learning models"],
+        "impact": ["Improved model accuracy by 15%."],
+        "research": {
+            "focus": "Machine learning for bioinformatics",
+            "areas": ["computational biology"],
+            "unknownResearchField": null
+        }
+    },
+    "contact": {
+        "givenName": "John",
+        "familyName": "Doe",
+        "email": 456,
+        "telephone": "865-555-0155",
+        "url": "https://example.com",
+        "jobTitle": "Researcher",
+        "organization": "ORNL",
+        "unknownContact": "bad"
+    }
+}

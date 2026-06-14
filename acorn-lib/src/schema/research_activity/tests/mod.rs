@@ -668,3 +668,12 @@ fn test_deserialize_metadata_with_string_cpu_and_gpu() {
         }
     ));
 }
+#[test]
+fn test_malformed_fixture_has_multiple_eserde_errors() {
+    let path = fixtures_dir().join("../../tests/fixtures/malformed-rad.json");
+    let content = std::fs::read_to_string(&path).expect("fixture should exist");
+    let result = eserde::json::from_str::<ResearchActivity>(&content);
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    assert!(errors.len() >= 2, "expected multiple errors, got {}: {:?}", errors.len(), errors);
+}

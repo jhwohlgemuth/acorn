@@ -86,13 +86,14 @@ pub struct Research {
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Display, Deserialize, Serialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Display, eserde::Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 #[display("Research Activity ({title})")]
 #[serde(deny_unknown_fields)]
 pub struct ResearchActivity {
     /// Linked data (e.g., JSON-LD) context for research activity
     #[serde(rename = "@context")]
+    #[eserde(compat)]
     pub context: Option<ResearchActivityContext>,
     /// Linked data (e.g., JSON-LD) type for research activity
     #[serde(rename = "@type")]
@@ -102,6 +103,7 @@ pub struct ResearchActivity {
     #[builder(default)]
     pub meta: ResearchActivityMetadata,
     /// Technology ASPECT of associated research activity - describes the data, compute, and algorithms used in the associated research activity
+    #[eserde(compat)]
     pub aspect: Option<AspectFramework>,
     /// Heading that identifies and describes the associated research activity
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
@@ -115,12 +117,15 @@ pub struct ResearchActivity {
     /// Prose components of associated research activity
     #[validate(nested)]
     #[builder(default)]
+    #[eserde(compat)]
     pub sections: Sections,
     /// Contact point (i.e. point of contact) for research activity
     #[validate(nested)]
     #[builder(default)]
+    #[eserde(compat)]
     pub contact: ContactPoint,
     /// Other information related to the associated research activity not easily captured in structured areas of the schema
+    #[eserde(compat)]
     pub notes: Option<Other>,
 }
 /// Linked data (e.g., JSON-LD) context for research activity
@@ -145,17 +150,19 @@ pub struct ResearchActivityContext {
 }
 /// ## Research Activity Metadata
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, eserde::Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ResearchActivityMetadata {
     /// Linked data (e.g., JSON-LD) context for contact point
     #[serde(rename = "@context")]
+    #[eserde(compat)]
     pub context: Option<ResearchActivityMetadataContext>,
     /// Linked data (e.g., JSON-LD) type for contact point
     #[serde(rename = "@type")]
     pub metadata_type: Option<String>,
     /// Classification level of associated research activity data
+    #[eserde(compat)]
     pub classification: Option<ClassificationLevel>,
     /// Describes the active status of the associated research activity data
     ///
@@ -170,6 +177,7 @@ pub struct ResearchActivityMetadata {
     /// Describes the status of the associated research activity data
     #[builder(default = Status::Active)]
     #[serde(default)]
+    #[eserde(compat)]
     pub status: Status,
     /// Identifier for associated research activity data
     /// ### Example
@@ -209,13 +217,16 @@ pub struct ResearchActivityMetadata {
     #[serde(default)]
     pub ror: Option<Vec<String>>,
     /// Type of associated research activity data when directly associated with an organization
+    #[eserde(compat)]
     pub additional_type: Option<OrganizationType>,
     /// Images, videos, and other media related to the associated research activity data
     #[validate(nested)]
     #[serde(alias = "graphics")]
+    #[eserde(compat)]
     pub media: Option<Vec<MediaObject>>,
     /// Websites related to the associated research activity data
     #[validate(nested)]
+    #[eserde(compat)]
     pub websites: Option<Vec<Website>>,
     /// Keywords related to the associated research activity data
     ///
@@ -256,7 +267,7 @@ pub struct ResearchActivityMetadata {
     /// ### Example
     /// For an AI/ML workflow that requires at least one GPU to perform training that cannot be executed on a CPU alone,
     /// the resources attribute should include GPU, but need not include CPU
-    #[validate(nested)]
+    #[eserde(compat)]
     pub resources: Option<Vec<Resource>>,
 }
 /// Linked data (e.g., JSON-LD) context for metadata
@@ -473,7 +484,14 @@ impl InputOutput for ResearchActivity {
         result
     }
     fn read_json(path: PathBuf) -> ApiResult<ResearchActivity> {
-        read_file(path.clone()).and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to parse JSON RAD — {why}")))
+        read_file(path.clone()).and_then(|content| {
+            eserde::json::from_str::<ResearchActivity>(&content).map_err(|errors| {
+                for error in errors.iter() {
+                    fail!("{}: {}", error.path().map_or("root".into(), |p| p.to_string()), error.message());
+                }
+                eyre!("Deserialization failed")
+            })
+        })
     }
     fn read_markdown(path: PathBuf) -> Option<ResearchActivity> {
         let content = match read_file(path.clone()) {

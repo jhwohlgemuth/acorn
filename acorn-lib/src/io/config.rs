@@ -85,13 +85,16 @@ pub enum RunnerType {
 ///     ]
 /// }
 /// ```
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, eserde::Deserialize)]
 pub struct ApplicationConfiguration {
     /// List of buckets
+    #[eserde(compat)]
     pub buckets: Option<Vec<Bucket>>,
     /// List of endpoints
+    #[eserde(compat)]
     pub endpoints: Option<Vec<Endpoint>>,
     /// List of runners
+    #[eserde(compat)]
     pub runners: Option<Vec<RunnerDetails>>,
 }
 /// Struct for bucket data
@@ -200,7 +203,13 @@ impl ApplicationConfiguration {
         let result = if detect_json(content) {
             match Self::parse_json(content) {
                 | Ok(value) => Ok(value),
-                | Err(why) => Err(eyre!("Failed to parse ACORN configuration JSON — {why}")),
+                | Err(errors) => {
+                    for error in errors.iter() {
+                        let path = error.path().map_or("root".into(), |p| p.to_string());
+                        error!("=> {} {} — {}", Label::fail(), path, error.message());
+                    }
+                    Err(eyre!("Deserialization failed"))
+                }
             }
         } else {
             match Self::parse_yaml(content) {
@@ -213,8 +222,8 @@ impl ApplicationConfiguration {
             | Err(why) => Err(why),
         }
     }
-    fn parse_json(content: impl AsRef<str>) -> serde_json::Result<Self> {
-        serde_json::from_str(content.as_ref())
+    fn parse_json(content: impl AsRef<str>) -> Result<Self, eserde::DeserializationErrors> {
+        eserde::json::from_str(content.as_ref())
     }
     fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
         serde_norway::from_str(content.as_ref())
@@ -243,7 +252,16 @@ impl InputOutput for ApplicationConfiguration {
                 "{}".to_owned()
             }
         };
-        Self::parse_json(content).map_err(|why| eyre!("Failed to parse JSON config — {why}"))
+        match Self::parse_json(content) {
+            | Ok(config) => Ok(config),
+            | Err(errors) => {
+                for error in errors.iter() {
+                    let path = error.path().map_or("root".into(), |p| p.to_string());
+                    error!("=> {} {} — {}", Label::fail(), path, error.message());
+                }
+                Err(eyre!("Deserialization failed"))
+            }
+        }
     }
     /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
