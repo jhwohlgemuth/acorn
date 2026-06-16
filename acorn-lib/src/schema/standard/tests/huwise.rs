@@ -40,7 +40,7 @@ fn test_ods_fixture_parsing() {
     assert_eq!(default_meta.records_count, Some(0));
     assert_eq!(default_meta.federated, Some(false));
     let dublin_core = dataset.metas.dublin_core.as_ref().expect("dublin-core metadata should exist");
-    assert_eq!(dublin_core.r#type, Some(DublinCoreType::Dataset));
+    assert_eq!(dublin_core.kind, Some(DublinCoreType::Dataset));
     assert_eq!(dublin_core.language.as_deref(), Some("eng"));
     assert_eq!(dublin_core.spatial.as_deref(), Some("United States"));
     let dcat_ap = dataset.metas.dcat_ap.as_ref().expect("dcat_ap metadata should exist");

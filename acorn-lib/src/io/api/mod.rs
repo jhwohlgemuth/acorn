@@ -20,6 +20,7 @@ use core::{fmt, marker::PhantomData};
 use derive_more::Display;
 use fluent_uri::Uri;
 use lazy_static::lazy_static;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumIs;
@@ -31,6 +32,7 @@ pub mod citeas;
 pub mod geonames;
 pub mod github;
 pub mod gitlab;
+pub mod models_dev;
 pub mod openai;
 pub mod openapi;
 pub mod orcid;
@@ -149,7 +151,7 @@ pub trait ValueValidator {
     }
 }
 /// Authentication schemes supported for API requests
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 pub enum AuthenticationScheme {
     /// Bearer token authentication (e.g., JWT)
     #[default]
@@ -160,6 +162,10 @@ pub enum AuthenticationScheme {
     ApiKey,
     /// OAuth 2.0 authentication
     OAuth2,
+    /// AWS Signature V4 request signing
+    AwsSignatureV4,
+    /// Google Cloud Application Default Credentials
+    GoogleCloud,
     /// Custom authentication scheme
     Custom(String),
 }
@@ -378,6 +384,8 @@ impl fmt::Display for AuthenticationScheme {
                 | AuthenticationScheme::Basic => "Basic",
                 | AuthenticationScheme::ApiKey => "ApiKey",
                 | AuthenticationScheme::OAuth2 => "OAuth2",
+                | AuthenticationScheme::AwsSignatureV4 => "AWS Signature V4",
+                | AuthenticationScheme::GoogleCloud => "Google Cloud",
                 | AuthenticationScheme::Custom(scheme) => scheme,
             }
         )

@@ -276,6 +276,17 @@
           "template": "{{ base }}/licenses/licenses.json"
         }
       ]
+    },
+    {
+      "name": "models-dev",
+      "domain": "models.dev",
+      "resources": [
+        {
+          "name": "catalog",
+          "method": "get",
+          "template": "{{ base }}/catalog.json"
+        }
+      ]
     }
   ]
 }

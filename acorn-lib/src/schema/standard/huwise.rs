@@ -194,7 +194,7 @@ pub struct DublinCore {
     pub table_of_content: Option<String>,
     /// Dublin Core type
     #[serde(rename = "type")]
-    pub r#type: Option<DublinCoreType>,
+    pub kind: Option<DublinCoreType>,
     /// Language code
     pub language: Option<String>,
     /// Coverage notes

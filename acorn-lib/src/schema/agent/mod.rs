@@ -1,6 +1,7 @@
 //! Structured model for working with prompt files (body text and front-matter metadata)
 //!
 //! Aims to support Google [dotprompt](https://github.com/google/dotprompt) and [agent skills](https://agentskills.io/specification) specificaitons
+use crate::io::api::AuthenticationScheme;
 use crate::io::ApiResult;
 #[cfg(not(feature = "std"))]
 use crate::io::License;
@@ -18,6 +19,7 @@ use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::collections::HashMap;
 use tera::{Context, Tera};
 use validator::{Validate, ValidationError};
 
@@ -97,9 +99,9 @@ pub enum Metric {
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub enum Model {
     /// Small language model useful for embedding, classification, etc.
-    SLM(LanguageModelDetails),
+    SLM(ModelDetails),
     /// Large language model useful for natural language processing, generative AI, etc.
-    LLM(LanguageModelDetails),
+    LLM(ModelDetails),
 }
 /// Prompt file assets embedded in this crate
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
@@ -117,6 +119,111 @@ pub enum PromptFileAsset {
     /// Prompt template for translating text
     Translate,
     /// Fallback for unknown file names.
+    Unknown(String),
+}
+/// Technology that provides access to AI models across cloud and on-prem environments
+#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Provider {
+    /// Alibaba Cloud
+    #[display("Alibaba Cloud")]
+    Alibaba,
+    /// Amazon Web Services
+    #[display("Amazon Web Services")]
+    Amazon,
+    /// Anthropic
+    #[display("Anthropic")]
+    Anthropic,
+    /// Azure
+    #[display("Azure")]
+    Azure,
+    /// Baichuan
+    #[display("Baichuan")]
+    Baichuan,
+    /// Baidu
+    #[display("Baidu")]
+    Baidu,
+    /// Cohere
+    #[display("Cohere")]
+    Cohere,
+    /// Databricks
+    #[display("Databricks")]
+    Databricks,
+    /// DeepSeek
+    #[display("DeepSeek")]
+    DeepSeek,
+    /// Doubao
+    #[display("Doubao")]
+    Doubao,
+    /// Google
+    #[display("Google")]
+    Google,
+    /// Groq
+    #[display("Groq")]
+    Groq,
+    /// IBM
+    #[display("IBM")]
+    IBM,
+    /// Kimi (Moonshot AI)
+    #[display("Kimi")]
+    Kimi,
+    /// Meta
+    #[display("Meta")]
+    Meta,
+    /// Minimax
+    #[display("Minimax")]
+    Minimax,
+    /// Mistral
+    #[display("Mistral")]
+    Mistral,
+    /// Moonshot AI
+    #[display("Moonshot AI")]
+    MoonshotAI,
+    /// NVIDIA
+    #[display("NVIDIA")]
+    #[serde(alias = "NVIDIA")]
+    Nvidia,
+    /// Ollama
+    #[display("Ollama")]
+    Ollama,
+    /// OpenAI
+    #[display("OpenAI")]
+    OpenAI,
+    /// Perplexity
+    #[display("Perplexity")]
+    Perplexity,
+    /// Qwen (Alibaba)
+    #[display("Qwen")]
+    Qwen,
+    /// Salesforce
+    #[display("Salesforce")]
+    Salesforce,
+    /// SAP
+    #[display("SAP")]
+    SAP,
+    /// Sarvam AI
+    #[display("Sarvam AI")]
+    Sarvam,
+    /// Stepfun
+    #[display("Stepfun")]
+    Stepfun,
+    /// Tencent
+    #[display("Tencent")]
+    Tencent,
+    /// Together AI
+    #[display("Together AI")]
+    TogetherAI,
+    /// xAI
+    #[display("xAI")]
+    XAI,
+    /// Xiaomi
+    #[display("Xiaomi")]
+    Xiaomi,
+    /// Zhipu AI
+    #[display("Zhipu AI")]
+    ZhipuAI,
+    /// Unknown provider
+    #[display("{}", _0)]
     Unknown(String),
 }
 /// Benchmark evaluation result
@@ -144,6 +251,42 @@ pub struct Benchmark {
     pub variant: Option<String>,
     /// Version of the benchmark or harness
     pub version: Option<String>,
+}
+/// Pricing details for a model
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+pub struct CostDetails {
+    /// Cost per million input tokens
+    pub input: Option<f64>,
+    /// Cost per million output tokens
+    pub output: Option<f64>,
+    /// Cost per million cached input tokens
+    pub cache_read: Option<f64>,
+    /// Cost per million cached write tokens
+    pub cache_write: Option<f64>,
+    /// Extended reasoning/computation cost per million tokens
+    pub reasoning: Option<f64>,
+    /// Cost per million input audio tokens
+    #[serde(rename = "input_audio")]
+    pub input_audio: Option<f64>,
+    /// Cost per million output audio tokens
+    #[serde(rename = "output_audio")]
+    pub output_audio: Option<f64>,
+    /// Pricing for context windows exceeding 200K tokens
+    pub context_over_200k: Option<Box<CostDetails>>,
+    /// Pricing tiers for different context sizes
+    pub tiers: Option<Vec<CostTier>>,
+}
+/// Pricing tier for bulk or context-based pricing
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+pub struct CostTier {
+    /// Cost per million input tokens at this tier
+    pub input: f64,
+    /// Cost per million output tokens at this tier
+    pub output: f64,
+    /// Cost per million cached input tokens at this tier
+    pub cache_read: Option<f64>,
+    /// Tier boundary information
+    pub tier: TierInfo,
 }
 /// YAML compliant prompt file front matter
 /// ### Notes
@@ -179,6 +322,24 @@ pub struct FrontMatter {
     /// Value is serialized as a space-delimited string
     pub allowed_tools: Option<Vec<String>>,
 }
+/// Token limits for context and output
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+pub struct LimitDetails {
+    /// Maximum context window size in tokens
+    pub context: u64,
+    /// Maximum output token count
+    pub output: u64,
+    /// Maximum input token count (if different from context)
+    pub input: Option<u64>,
+}
+/// Input/output modalities supported by the model
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+pub struct Modalities {
+    /// Input modalities the model accepts
+    pub input: Vec<Modality>,
+    /// Output modalities the model produces
+    pub output: Vec<Modality>,
+}
 /// Describe a language model (LM)
 ///
 /// This struct strives to accommodate the wide myriad varieties of language models in the wild.
@@ -187,7 +348,7 @@ pub struct FrontMatter {
 #[derive(Builder, Clone, Debug, Default, Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[validate(schema(function = "validate_open_weights", skip_on_field_errors = false))]
-pub struct LanguageModelDetails {
+pub struct ModelDetails {
     /// Whether the model supports file attachment
     pub attachment: Option<bool>,
     /// Benchmark evaluation results
@@ -206,6 +367,8 @@ pub struct LanguageModelDetails {
     pub limit: Option<LimitDetails>,
     /// Input/output modalities
     pub modalities: Option<Modalities>,
+    /// Pricing information for the model
+    pub cost: Option<CostDetails>,
     /// String value to override full model string descriptor in cases of ambiguity and inconsistency
     pub name: Option<String>,
     /// Indicates whether the model weights are openly available
@@ -229,24 +392,6 @@ pub struct LanguageModelDetails {
     pub version: Option<SemanticVersion>,
     /// Download sources for model weights
     pub weights: Option<Vec<Weight>>,
-}
-/// Token limits for context and output
-#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
-pub struct LimitDetails {
-    /// Maximum context window size in tokens
-    pub context: u64,
-    /// Maximum output token count
-    pub output: u64,
-    /// Maximum input token count (if different from context)
-    pub input: Option<u64>,
-}
-/// Input/output modalities supported by the model
-#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
-pub struct Modalities {
-    /// Input modalities the model accepts
-    pub input: Vec<Modality>,
-    /// Output modalities the model produces
-    pub output: Vec<Modality>,
 }
 /// Struct for using and sharing prompt templates
 ///
@@ -293,6 +438,54 @@ pub struct PromptTemplateConfiguration {
     #[builder(default)]
     pub version: SemanticVersion,
 }
+/// Details about an model provider
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Default, Deserialize, Serialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
+pub struct ProviderDetails {
+    /// Supported authentication methods
+    pub authentication: Option<Vec<AuthenticationScheme>>,
+    /// Provider description
+    pub description: Option<String>,
+    /// Documentation URL
+    #[serde(rename = "doc")]
+    #[validate(url)]
+    pub documentation: Option<String>,
+    /// API endpoint base URL
+    #[serde(rename = "api")]
+    #[validate(url)]
+    pub endpoint: Option<String>,
+    /// Environment variables required for API authentication
+    pub env: Option<Vec<String>>,
+    /// Date the provider was established
+    #[validate(custom(function = "is_partial_date"))]
+    pub established_date: Option<String>,
+    /// Provider identifier
+    pub id: Option<String>,
+    /// Date the provider details were last updated
+    #[validate(custom(function = "is_partial_date"))]
+    pub last_updated: Option<String>,
+    /// Models offered by this provider
+    #[serde(default, deserialize_with = "deserialize_models")]
+    pub models: Option<Vec<ModelDetails>>,
+    /// Provider name
+    pub name: Option<String>,
+    /// npm package name for the provider's SDK
+    pub npm: Option<String>,
+    /// Provider website URL
+    #[validate(url)]
+    pub url: Option<String>,
+}
+/// Information about a pricing tier boundary
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TierInfo {
+    /// Type of tier boundary (e.g., "context")
+    #[serde(rename = "type")]
+    pub kind: String,
+    /// Size threshold for the tier in tokens
+    pub size: u64,
+}
 /// Source for downloading model weights
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Weight {
@@ -302,6 +495,51 @@ pub struct Weight {
     pub url: String,
     /// Whether the weights are openly available
     pub is_open: Option<bool>,
+}
+impl Default for FrontMatter {
+    fn default() -> Self {
+        FrontMatter::init().build()
+    }
+}
+impl ToMarkdown for ModelDetails {
+    fn to_markdown(&self) -> String {
+        let lines = [
+            self.attachment.map(|value| format!("- Attachment: {value}")),
+            self.family.as_ref().map(|value| format!("- Family: {value}")),
+            self.id.as_ref().map(|value| format!("- ID: {value}")),
+            self.knowledge.as_ref().map(|value| format!("- Knowledge: {value}")),
+            self.last_updated.as_ref().map(|value| format!("- Last Updated: {value}")),
+            self.name.as_ref().map(|value| format!("- Name: {value}")),
+            self.open_weights.map(|value| format!("- Open Weights: {value}")),
+            self.cost.as_ref().map(|c| {
+                let parts = [
+                    c.input.map(|v| format!("input=${v}")),
+                    c.output.map(|v| format!("output=${v}")),
+                    c.cache_read.map(|v| format!("cache_read=${v}")),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+                format!("- Cost: {}", parts.join(", "))
+            }),
+            self.parameters.map(|value| format!("- Parameters: {value}B")),
+            self.reasoning.map(|value| format!("- Reasoning: {value}")),
+            self.release_date.as_ref().map(|value| format!("- Release Date: {value}")),
+            self.structured_output.map(|value| format!("- Structured Output: {value}")),
+            self.temperature.map(|value| format!("- Temperature: {value}")),
+            self.tool_call.map(|value| format!("- Tool Call: {value}")),
+            self.variant.as_ref().map(|value| format!("- Variant: {value}")),
+            self.version.as_ref().map(|value| format!("- Version: {value}")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+        if lines.is_empty() {
+            String::new()
+        } else {
+            lines.join("\n").to_string()
+        }
+    }
 }
 impl fmt::Display for PromptFileAsset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -336,44 +574,9 @@ impl From<String> for PromptFileAsset {
         Self::from(value.as_str())
     }
 }
-impl Default for FrontMatter {
-    fn default() -> Self {
-        FrontMatter::init().build()
-    }
-}
 impl Default for PromptTemplateConfiguration {
     fn default() -> Self {
         PromptTemplateConfiguration::init().build()
-    }
-}
-impl ToMarkdown for LanguageModelDetails {
-    fn to_markdown(&self) -> String {
-        let lines = [
-            self.attachment.map(|value| format!("  - Attachment: {value}")),
-            self.family.as_ref().map(|value| format!("  - Family: {value}")),
-            self.id.as_ref().map(|value| format!("  - ID: {value}")),
-            self.knowledge.as_ref().map(|value| format!("  - Knowledge: {value}")),
-            self.last_updated.as_ref().map(|value| format!("  - Last Updated: {value}")),
-            self.name.as_ref().map(|value| format!("  - Name: {value}")),
-            self.open_weights.map(|value| format!("  - Open Weights: {value}")),
-            self.parameters.map(|value| format!("  - Parameters: {value}B")),
-            self.reasoning.map(|value| format!("  - Reasoning: {value}")),
-            self.release_date.as_ref().map(|value| format!("  - Release Date: {value}")),
-            self.structured_output.map(|value| format!("  - Structured Output: {value}")),
-            self.temperature.map(|value| format!("  - Temperature: {value}")),
-            self.tool_call.map(|value| format!("  - Tool Call: {value}")),
-            self.variant.as_ref().map(|value| format!("  - Variant: {value}")),
-            self.version.as_ref().map(|value| format!("  - Version: {value}")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
-
-        if lines.is_empty() {
-            String::new()
-        } else {
-            format!("\n{}", lines.join("\n"))
-        }
     }
 }
 impl PromptTemplate {
@@ -408,14 +611,96 @@ impl PromptTemplate {
             })
     }
 }
-fn validate_open_weights(details: &LanguageModelDetails) -> Result<(), ValidationError> {
-    if let Some(weights) = &details.weights {
-        let has_open_weight = weights.iter().any(|w| w.is_open == Some(true));
-        if has_open_weight && details.open_weights != Some(true) {
-            return Err(ValidationError::new("open_weights").with_message("open_weights must be true when any weight has is_open: true".into()));
+impl From<&str> for Provider {
+    fn from(value: &str) -> Self {
+        match value.to_lowercase().as_str() {
+            | "alibaba" => Self::Alibaba,
+            | "amazon" => Self::Amazon,
+            | "anthropic" => Self::Anthropic,
+            | "azure" => Self::Azure,
+            | "baichuan" => Self::Baichuan,
+            | "baidu" => Self::Baidu,
+            | "cohere" => Self::Cohere,
+            | "databricks" => Self::Databricks,
+            | "deepseek" => Self::DeepSeek,
+            | "doubao" => Self::Doubao,
+            | "google" => Self::Google,
+            | "groq" => Self::Groq,
+            | "ibm" => Self::IBM,
+            | "kimi" => Self::Kimi,
+            | "meta" => Self::Meta,
+            | "minimax" => Self::Minimax,
+            | "mistral" => Self::Mistral,
+            | "moonshotai" => Self::MoonshotAI,
+            | "nvidia" => Self::Nvidia,
+            | "ollama" => Self::Ollama,
+            | "openai" => Self::OpenAI,
+            | "perplexity" => Self::Perplexity,
+            | "qwen" => Self::Qwen,
+            | "salesforce" => Self::Salesforce,
+            | "sap" => Self::SAP,
+            | "sarvam" => Self::Sarvam,
+            | "stepfun" => Self::Stepfun,
+            | "tencent" => Self::Tencent,
+            | "togetherai" => Self::TogetherAI,
+            | "xai" => Self::XAI,
+            | "xiaomi" => Self::Xiaomi,
+            | "zhipuai" => Self::ZhipuAI,
+            | _ => Self::Unknown(value.into()),
         }
     }
-    Ok(())
+}
+impl ToMarkdown for ProviderDetails {
+    fn to_markdown(&self) -> String {
+        let lines = [
+            self.endpoint.as_ref().map(|value| format!("- API Endpoint: {value}")),
+            self.authentication
+                .as_ref()
+                .map(|value| format!("- Auth Methods: {}", value.iter().map(|m| m.to_string()).collect::<Vec<_>>().join(", "))),
+            self.description.as_ref().map(|value| format!("- Description: {value}")),
+            self.documentation.as_ref().map(|value| format!("- Documentation: {value}")),
+            self.env.as_ref().map(|value| format!("- Env Vars: {}", value.join(", "))),
+            self.established_date.as_ref().map(|value| format!("- Established: {value}")),
+            self.id.as_ref().map(|value| format!("- ID: {value}")),
+            self.last_updated.as_ref().map(|value| format!("- Last Updated: {value}")),
+            self.name.as_ref().map(|value| format!("- Name: {value}")),
+            self.npm.as_ref().map(|value| format!("- NPM: {value}")),
+            self.url.as_ref().map(|value| format!("- URL: {value}")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+        if lines.is_empty() {
+            String::new()
+        } else {
+            format!("\n{}", lines.join("\n"))
+        }
+    }
+}
+fn deserialize_models<'de, D>(deserializer: D) -> Result<Option<Vec<ModelDetails>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Models {
+        Map(HashMap<String, ModelDetails>),
+        Vec(Vec<ModelDetails>),
+    }
+    match Option::<Models>::deserialize(deserializer)? {
+        | Some(Models::Map(map)) => Ok(Some(map.into_values().collect())),
+        | Some(Models::Vec(vec)) => Ok(Some(vec)),
+        | None => Ok(None),
+    }
+}
+fn validate_open_weights(details: &ModelDetails) -> Result<(), ValidationError> {
+    let ModelDetails { open_weights, weights, .. } = details;
+    let has_open_weight = weights.iter().flatten().any(|w| w.is_open == Some(true));
+    if has_open_weight && !open_weights.unwrap_or(false) {
+        Err(ValidationError::new("open_weights").with_message("open_weights must be true when any weight has is_open: true".into()))
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]

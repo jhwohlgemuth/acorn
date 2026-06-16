@@ -39,7 +39,7 @@ pub enum Data {
     Synthetic(DataDescription),
     /// Opaque data artifact
     #[cfg(feature = "std")]
-    Model(Model),
+    Model(Box<Model>),
 }
 /// Framework for assessing the readiness of a data set
 ///
@@ -223,9 +223,9 @@ impl ToMarkdown for Data {
             | Self::Real(description) => format!("- Real{}", description.to_markdown()),
             | Self::Synthetic(description) => format!("- Synthetic{}", description.to_markdown()),
             #[cfg(feature = "std")]
-            | Self::Model(model) => match model {
-                | Model::SLM(details) => format!("- Model\n  - Kind: SLM{}", details.to_markdown()),
-                | Model::LLM(details) => format!("- Model\n  - Kind: LLM{}", details.to_markdown()),
+            | Self::Model(model) => match model.as_ref() {
+                | Model::SLM(details) => format!("- Model\n  - Kind: SLM\n{}", details.to_markdown().with_indent(2)),
+                | Model::LLM(details) => format!("- Model\n  - Kind: LLM\n{}", details.to_markdown().with_indent(2)),
             },
         }
     }

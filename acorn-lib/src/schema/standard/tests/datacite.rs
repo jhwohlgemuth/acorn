@@ -30,7 +30,7 @@ fn test_datacite_fixture_parsing() {
     assert_eq!(catalog.len(), 1);
     let record = &catalog[0];
     assert_eq!(record.id, "10.5072/example-doi");
-    assert_eq!(record.r#type, "dois");
+    assert_eq!(record.kind, "dois");
     let attrs = &record.attributes;
     assert_eq!(attrs.doi, "10.5072/example-doi");
     assert_eq!(attrs.event.as_deref(), Some("publish"));

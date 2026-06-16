@@ -1985,7 +1985,7 @@ impl Resource {
     #[allow(dead_code)]
     pub fn compute_value(&self) -> Option<(u8, u8)> {
         match &self.vendor() {
-            | Some(Vendor::NVIDIA) => match self.architecture() {
+            | Some(Vendor::Nvidia) => match self.architecture() {
                 | Some(Architecture::Blackwell) => {
                     if self.is_spark() {
                         Some((12, 1))

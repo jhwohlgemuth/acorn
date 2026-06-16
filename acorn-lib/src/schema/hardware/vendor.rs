@@ -57,7 +57,7 @@ pub enum Vendor {
     Huawei,
     /// International Business Machines Corporation
     #[display("IBM")]
-    Ibm,
+    IBM,
     /// Intel Corporation
     #[display("Intel")]
     Intel,
@@ -72,7 +72,8 @@ pub enum Vendor {
     Microsoft,
     /// NVIDIA Corporation
     #[display("NVIDIA")]
-    NVIDIA,
+    #[serde(alias = "NVIDIA")]
+    Nvidia,
     /// Qualcomm Incorporated
     #[display("Qualcomm")]
     Qualcomm,
@@ -172,7 +173,7 @@ impl Vendored for Architecture {
             | Architecture::Thor
             | Architecture::Turing
             | Architecture::Volta
-            | Architecture::Vera => Some(Vendor::NVIDIA),
+            | Architecture::Vera => Some(Vendor::Nvidia),
             | Architecture::AArch64 | Architecture::Ethos => Some(Vendor::ARM),
             | Architecture::TpuV4 | Architecture::TpuV5e | Architecture::TpuV5p | Architecture::TpuV6e => Some(Vendor::Google),
             | Architecture::Inferentia | Architecture::Trainium => Some(Vendor::Amazon),
@@ -181,7 +182,7 @@ impl Vendored for Architecture {
             | Architecture::Lpu => Some(Vendor::Groq),
             | Architecture::Maia => Some(Vendor::Microsoft),
             | Architecture::Hexagon => Some(Vendor::Qualcomm),
-            | Architecture::PowerPc | Architecture::ZArch => Some(Vendor::Ibm),
+            | Architecture::PowerPc | Architecture::ZArch => Some(Vendor::IBM),
             | Architecture::Blackhole | Architecture::Wormhole => Some(Vendor::Tenstorrent),
             | Architecture::Wse2 | Architecture::Wse3 => Some(Vendor::Other("Cerebras".to_string())),
             | Architecture::LoongArch => Some(Vendor::Other("Loongson".to_string())),
@@ -198,10 +199,10 @@ impl Vendored for CpuArchitecture {
     fn vendor(&self) -> Option<Vendor> {
         match self {
             | CpuArchitecture::AArch64 | CpuArchitecture::Ethos => Some(Vendor::ARM),
-            | CpuArchitecture::Carmel | CpuArchitecture::Grace | CpuArchitecture::Vera => Some(Vendor::NVIDIA),
+            | CpuArchitecture::Carmel | CpuArchitecture::Grace | CpuArchitecture::Vera => Some(Vendor::Nvidia),
             | CpuArchitecture::Ia64 => Some(Vendor::Intel),
             | CpuArchitecture::NeuralEngine | CpuArchitecture::PerformanceCore | CpuArchitecture::EfficiencyCore => Some(Vendor::Apple),
-            | CpuArchitecture::PowerPc | CpuArchitecture::ZArch => Some(Vendor::Ibm),
+            | CpuArchitecture::PowerPc | CpuArchitecture::ZArch => Some(Vendor::IBM),
             | CpuArchitecture::Hexagon => Some(Vendor::Qualcomm),
             | CpuArchitecture::LoongArch => Some(Vendor::Other("Loongson".to_string())),
             | CpuArchitecture::Mips => Some(Vendor::Other("MIPS".to_string())),
@@ -248,7 +249,7 @@ impl Vendored for GpuArchitecture {
             | GpuArchitecture::Tesla
             | GpuArchitecture::Thor
             | GpuArchitecture::Turing
-            | GpuArchitecture::Volta => Some(Vendor::NVIDIA),
+            | GpuArchitecture::Volta => Some(Vendor::Nvidia),
             | GpuArchitecture::Cdna1
             | GpuArchitecture::Cdna2
             | GpuArchitecture::Cdna3
@@ -275,7 +276,7 @@ impl Vendored for Model {
             | Model::Advantage | Model::Advantage2 | Model::TwoThousandQ => Some(Vendor::DWave),
             | Model::Ankaa | Model::Aspen => Some(Vendor::Rigetti),
             | Model::Bristlecone | Model::Sycamore | Model::Willow => Some(Vendor::Google),
-            | Model::Condor | Model::Eagle | Model::Falcon | Model::Flamingo | Model::Heron | Model::Hummingbird | Model::Osprey => Some(Vendor::Ibm),
+            | Model::Condor | Model::Eagle | Model::Falcon | Model::Flamingo | Model::Heron | Model::Hummingbird | Model::Osprey => Some(Vendor::IBM),
             | Model::H1 | Model::H2 => Some(Vendor::Quantinuum),
             | Model::IonQAria | Model::IonQForte | Model::IonQHarmony | Model::IonQTempo => Some(Vendor::IonQ),
             | Model::Other(_) => None,

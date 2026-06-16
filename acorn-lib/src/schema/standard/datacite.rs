@@ -869,7 +869,7 @@ pub struct Record {
     pub id: String,
     /// Record type (typically "dois")
     #[serde(rename = "type")]
-    pub r#type: String,
+    pub kind: String,
     /// Record attributes containing metadata
     #[validate(nested)]
     pub attributes: Attributes,
@@ -1118,7 +1118,7 @@ impl From<huwise::Dataset> for Record {
         };
         Record {
             id: dataset.dataset_id,
-            r#type: "dois".to_string(),
+            kind: "dois".to_string(),
             attributes,
         }
     }

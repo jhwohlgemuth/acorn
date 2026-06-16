@@ -7,7 +7,7 @@
 )]
 use crate::io::InputOutput;
 use crate::prelude::PathBuf;
-use crate::schema::agent::{LanguageModelDetails, Model};
+use crate::schema::agent::{Model, ModelDetails};
 use crate::schema::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
 use crate::schema::research_activity::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};
 use crate::schema::research_activity::*;
@@ -102,21 +102,20 @@ fn test_aspect_to_markdown() {
                     .quality(Quality::Gold)
                     .build(),
             ),
-            Data::Model(Model::LLM(
-                LanguageModelDetails::init()
+            Data::Model(Box::new(Model::LLM(
+                ModelDetails::init()
                     .family("llama".to_string())
                     .name("llama-3.1".to_string())
                     .version(SemanticVersion::from("2.1"))
                     .parameters(8)
                     .build(),
-            )),
+            ))),
         ])
         .portability(SoftwarePortability::Containerized)
         .motivity(Motivity::Adaptive)
         .autonomy(Autonomy::MachineAssisted)
         .maturity(TechnologyReadinessLevel::Prototype)
         .build();
-
     let expected = r#"## ASPECT
 - Portability: Containerized
 - Maturity: Prototype
@@ -135,7 +134,6 @@ fn test_aspect_to_markdown() {
   - Name: llama-3.1
   - Parameters: 8B
   - Version: 2.1.0"#;
-
     assert_eq!(aspect.to_markdown().replace("\r\n", "\n").trim_end(), expected);
 }
 #[test]
@@ -339,7 +337,7 @@ fn test_metadata_with_resources() {
                 memory: Some(Memory::gb(80)),
                 name: None,
                 required: None,
-                vendor: Some(Vendor::NVIDIA),
+                vendor: Some(Vendor::Nvidia),
             },
             Resource::CPU {
                 architecture: Some(CpuArchitecture::X86_64),
@@ -358,7 +356,7 @@ fn test_metadata_with_resources() {
     assert!(matches!(
         &resources[0],
         Resource::GPU {
-            vendor: Some(Vendor::NVIDIA),
+            vendor: Some(Vendor::Nvidia),
             ..
         }
     ));
@@ -470,7 +468,7 @@ fn test_deserialize_metadata_with_gpu_resources() {
             count: Some(8),
             memory: Some(Memory { amount: 80.0, unit: MemoryUnit::GB }),
             required: None,
-            vendor: Some(Vendor::NVIDIA),
+            vendor: Some(Vendor::Nvidia),
             ..
         } if (*cc - 9.0_f32).abs() < f32::EPSILON
     ));

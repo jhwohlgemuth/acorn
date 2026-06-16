@@ -37,6 +37,10 @@ pub enum Table {
     ResearchActivityCache = 5,
     /// Programming language metadata cached from GitLab
     ProgrammingLanguages = 6,
+    /// Models.dev model metadata
+    Models = 7,
+    /// Models.dev provider metadata
+    Providers = 8,
 }
 /// Activity log entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -108,6 +112,106 @@ pub struct ProgrammingLanguageRow {
     /// Optional parent group name
     pub group_name: Option<String>,
 }
+/// Models.dev model metadata entry
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+#[row(table = models)]
+pub struct ModelRow {
+    /// Unique identifier for the row
+    pub id: Option<i64>,
+    /// Unique model identifier from models.dev
+    pub model_id: Option<String>,
+    /// Model display name
+    pub name: Option<String>,
+    /// Model family (e.g., llama, gemma)
+    pub family: Option<String>,
+    /// Model variant (e.g., coder, instruct)
+    pub variant: Option<String>,
+    /// Model version string
+    pub version: Option<String>,
+    /// Whether the model supports file attachment
+    pub attachment: Option<bool>,
+    /// Whether the model weights are openly available
+    pub open_weights: Option<bool>,
+    /// Whether the model supports extended reasoning
+    pub reasoning: Option<bool>,
+    /// Whether the model supports structured output
+    pub structured_output: Option<bool>,
+    /// Whether the model supports temperature configuration
+    pub temperature: Option<bool>,
+    /// Whether the model supports tool calling
+    pub tool_call: Option<bool>,
+    /// Number of parameters in billions
+    pub parameters: Option<i64>,
+    /// Release date of the model
+    pub release_date: Option<String>,
+    /// Knowledge cutoff date
+    pub knowledge: Option<String>,
+    /// Date the model was last updated
+    pub last_updated: Option<String>,
+    /// Maximum context window size in tokens
+    pub limit_context: Option<i64>,
+    /// Maximum output token count
+    pub limit_output: Option<i64>,
+    /// Maximum input token count
+    pub limit_input: Option<i64>,
+    /// Input modalities supported (JSON array)
+    pub modality_input: Option<String>,
+    /// Output modalities supported (JSON array)
+    pub modality_output: Option<String>,
+    /// Cost per million input tokens
+    pub cost_input: Option<f64>,
+    /// Cost per million output tokens
+    pub cost_output: Option<f64>,
+    /// Cost per million cached input tokens
+    pub cost_cache_read: Option<f64>,
+    /// Cost per million cached write tokens
+    pub cost_cache_write: Option<f64>,
+    /// Extended reasoning cost per million tokens
+    pub cost_reasoning: Option<f64>,
+    /// Cost per million input audio tokens
+    pub cost_input_audio: Option<f64>,
+    /// Cost per million output audio tokens
+    pub cost_output_audio: Option<f64>,
+    /// Pricing for context windows exceeding 200K tokens (JSON)
+    pub cost_over_200k: Option<String>,
+    /// Pricing tiers (JSON array)
+    pub cost_tiers: Option<String>,
+    /// Benchmark evaluation results (JSON array)
+    pub benchmarks: Option<String>,
+    /// Download sources for model weights (JSON array)
+    pub weights: Option<String>,
+}
+/// Models.dev provider metadata entry
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+#[row(table = providers)]
+pub struct ProviderRow {
+    /// Unique identifier for the row
+    pub id: Option<i64>,
+    /// Unique provider identifier from models.dev
+    pub provider_id: Option<String>,
+    /// Provider display name
+    pub name: Option<String>,
+    /// Provider description
+    pub description: Option<String>,
+    /// API endpoint base URL
+    pub endpoint: Option<String>,
+    /// Documentation URL
+    pub documentation: Option<String>,
+    /// Supported authentication methods (JSON array)
+    pub authentication: Option<String>,
+    /// Environment variables required (JSON array)
+    pub env: Option<String>,
+    /// npm package name for the provider's SDK
+    pub npm: Option<String>,
+    /// Provider website URL
+    pub url: Option<String>,
+    /// Date the provider was established
+    pub established_date: Option<String>,
+    /// Date the provider details were last updated
+    pub last_updated: Option<String>,
+}
 /// Link check cache entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
 #[builder(start_fn = init, on(String, into))]
@@ -173,8 +277,76 @@ impl From<&str> for Table {
             | "validation_history" | "validationhistory" => Self::ValidationHistory,
             | "research_activity_cache" | "researchactivitycache" => Self::ResearchActivityCache,
             | "programming_languages" | "programminglanguages" | "languages" | "language" => Self::ProgrammingLanguages,
+            | "models" | "model" => Self::Models,
+            | "providers" | "provider" => Self::Providers,
             | _ => Self::Activity,
         }
+    }
+}
+impl From<&BackendRow<'_>> for ModelRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        ModelRow {
+            id: row.get(0).ok(),
+            model_id: row.get(1).ok(),
+            name: row.get(2).ok(),
+            family: row.get(3).ok(),
+            variant: row.get(4).ok(),
+            version: row.get(5).ok(),
+            attachment: row.get::<_, i32>(6).ok().map(|value| value != 0),
+            open_weights: row.get::<_, i32>(7).ok().map(|value| value != 0),
+            reasoning: row.get::<_, i32>(8).ok().map(|value| value != 0),
+            structured_output: row.get::<_, i32>(9).ok().map(|value| value != 0),
+            temperature: row.get::<_, i32>(10).ok().map(|value| value != 0),
+            tool_call: row.get::<_, i32>(11).ok().map(|value| value != 0),
+            parameters: row.get(12).ok(),
+            release_date: row.get(13).ok(),
+            knowledge: row.get(14).ok(),
+            last_updated: row.get(15).ok(),
+            limit_context: row.get(16).ok(),
+            limit_output: row.get(17).ok(),
+            limit_input: row.get(18).ok(),
+            modality_input: row.get(19).ok(),
+            modality_output: row.get(20).ok(),
+            cost_input: row.get(21).ok(),
+            cost_output: row.get(22).ok(),
+            cost_cache_read: row.get(23).ok(),
+            cost_cache_write: row.get(24).ok(),
+            cost_reasoning: row.get(25).ok(),
+            cost_input_audio: row.get(26).ok(),
+            cost_output_audio: row.get(27).ok(),
+            cost_over_200k: row.get(28).ok(),
+            cost_tiers: row.get(29).ok(),
+            benchmarks: row.get(30).ok(),
+            weights: row.get(31).ok(),
+        }
+    }
+}
+impl From<BackendRow<'_>> for ModelRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        ModelRow::from(&row)
+    }
+}
+impl From<&BackendRow<'_>> for ProviderRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        ProviderRow {
+            id: row.get(0).ok(),
+            provider_id: row.get(1).ok(),
+            name: row.get(2).ok(),
+            description: row.get(3).ok(),
+            endpoint: row.get(4).ok(),
+            documentation: row.get(5).ok(),
+            authentication: row.get(6).ok(),
+            env: row.get(7).ok(),
+            npm: row.get(8).ok(),
+            url: row.get(9).ok(),
+            established_date: row.get(10).ok(),
+            last_updated: row.get(11).ok(),
+        }
+    }
+}
+impl From<BackendRow<'_>> for ProviderRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        ProviderRow::from(&row)
     }
 }
 impl From<&BackendRow<'_>> for ActivityRow {
@@ -378,6 +550,62 @@ impl From<ValidationRow> for Vec<String> {
         ]
     }
 }
+impl From<ModelRow> for Vec<String> {
+    fn from(row: ModelRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.model_id.unwrap_or_default(),
+            row.name.unwrap_or_default(),
+            row.family.unwrap_or_default(),
+            row.variant.unwrap_or_default(),
+            row.version.unwrap_or_default(),
+            row.attachment.map_or_else(String::new, |v| v.to_string()),
+            row.open_weights.map_or_else(String::new, |v| v.to_string()),
+            row.reasoning.map_or_else(String::new, |v| v.to_string()),
+            row.structured_output.map_or_else(String::new, |v| v.to_string()),
+            row.temperature.map_or_else(String::new, |v| v.to_string()),
+            row.tool_call.map_or_else(String::new, |v| v.to_string()),
+            row.parameters.map_or_else(String::new, |v| v.to_string()),
+            row.release_date.unwrap_or_default(),
+            row.knowledge.unwrap_or_default(),
+            row.last_updated.unwrap_or_default(),
+            row.limit_context.map_or_else(String::new, |v| v.to_string()),
+            row.limit_output.map_or_else(String::new, |v| v.to_string()),
+            row.limit_input.map_or_else(String::new, |v| v.to_string()),
+            row.modality_input.unwrap_or_default(),
+            row.modality_output.unwrap_or_default(),
+            row.cost_input.map_or_else(String::new, |v| v.to_string()),
+            row.cost_output.map_or_else(String::new, |v| v.to_string()),
+            row.cost_cache_read.map_or_else(String::new, |v| v.to_string()),
+            row.cost_cache_write.map_or_else(String::new, |v| v.to_string()),
+            row.cost_reasoning.map_or_else(String::new, |v| v.to_string()),
+            row.cost_input_audio.map_or_else(String::new, |v| v.to_string()),
+            row.cost_output_audio.map_or_else(String::new, |v| v.to_string()),
+            row.cost_over_200k.unwrap_or_default(),
+            row.cost_tiers.unwrap_or_default(),
+            row.benchmarks.unwrap_or_default(),
+            row.weights.unwrap_or_default(),
+        ]
+    }
+}
+impl From<ProviderRow> for Vec<String> {
+    fn from(row: ProviderRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |v| v.to_string()),
+            row.provider_id.unwrap_or_default(),
+            row.name.unwrap_or_default(),
+            row.description.unwrap_or_default(),
+            row.endpoint.unwrap_or_default(),
+            row.documentation.unwrap_or_default(),
+            row.authentication.unwrap_or_default(),
+            row.env.unwrap_or_default(),
+            row.npm.unwrap_or_default(),
+            row.url.unwrap_or_default(),
+            row.established_date.unwrap_or_default(),
+            row.last_updated.unwrap_or_default(),
+        ]
+    }
+}
 impl fmt::Display for ActivityRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -474,6 +702,30 @@ impl fmt::Display for ValidationRow {
         .and_then(|_| write_optional_timestamp(f, "checked_at", self.checked_at.as_ref()))
     }
 }
+impl fmt::Display for ModelRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ModelRow = id: {}, model_id: {}, name: {}, family: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.model_id.as_ref()),
+            display_or_none(self.name.as_ref()),
+            display_or_none(self.family.as_ref())
+        )
+    }
+}
+impl fmt::Display for ProviderRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ProviderRow = id: {}, provider_id: {}, name: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.provider_id.as_ref()),
+            display_or_none(self.name.as_ref())
+        )
+        .and_then(|_| write_optional_field(f, "description", self.description.as_ref()))
+    }
+}
 #[async_trait]
 impl TableSchemaProvider for Table {
     fn all() -> &'static [Self] {
@@ -485,6 +737,8 @@ impl TableSchemaProvider for Table {
             Table::ValidationHistory,
             Table::ResearchActivityCache,
             Table::ProgrammingLanguages,
+            Table::Models,
+            Table::Providers,
         ]
     }
     /// Returns CREATE TABLE SQL statement
@@ -553,6 +807,56 @@ impl TableSchemaProvider for Table {
                     group_name TEXT
                 "#
             }
+            | Table::Models => {
+                r#"
+                    model_id TEXT NOT NULL UNIQUE,
+                    name TEXT,
+                    family TEXT,
+                    variant TEXT,
+                    version TEXT,
+                    attachment INTEGER,
+                    open_weights INTEGER,
+                    reasoning INTEGER,
+                    structured_output INTEGER,
+                    temperature INTEGER,
+                    tool_call INTEGER,
+                    parameters INTEGER,
+                    release_date TEXT,
+                    knowledge TEXT,
+                    last_updated TEXT,
+                    limit_context INTEGER,
+                    limit_output INTEGER,
+                    limit_input INTEGER,
+                    modality_input TEXT,
+                    modality_output TEXT,
+                    cost_input REAL,
+                    cost_output REAL,
+                    cost_cache_read REAL,
+                    cost_cache_write REAL,
+                    cost_reasoning REAL,
+                    cost_input_audio REAL,
+                    cost_output_audio REAL,
+                    cost_over_200k TEXT,
+                    cost_tiers TEXT,
+                    benchmarks TEXT,
+                    weights TEXT
+                "#
+            }
+            | Table::Providers => {
+                r#"
+                    provider_id TEXT NOT NULL UNIQUE,
+                    name TEXT,
+                    description TEXT,
+                    endpoint TEXT,
+                    documentation TEXT,
+                    authentication TEXT,
+                    env TEXT,
+                    npm TEXT,
+                    url TEXT,
+                    established_date TEXT,
+                    last_updated TEXT
+                "#
+            }
         };
 
         format!(
@@ -577,6 +881,8 @@ impl TableSchemaProvider for Table {
             | Table::ValidationHistory => "validation_history",
             | Table::ResearchActivityCache => "research_activity_cache",
             | Table::ProgrammingLanguages => "programming_languages",
+            | Table::Models => "models",
+            | Table::Providers => "providers",
         }
     }
     async fn populate(&self) -> ApiResult<usize> {
@@ -601,6 +907,17 @@ impl TableSchemaProvider for Table {
                 match response {
                     | Ok(data) => data.persist(Database::<Self>::from_path(None)).await,
                     | Err(why) => Err(eyre!("Failed to download GitLab programming language data — {why}")),
+                }
+            }
+            | Table::Models => {
+                let progress = create_progress_bar(0, ProgressType::Spinner);
+                progress.set_message("Downloading models.dev catalog...");
+                let response = api::models_dev::download().await;
+                let message = format!("{}Models.dev catalog download complete", Label::CHECKMARK);
+                finish_progress_bar(&progress, message);
+                match response {
+                    | Ok(data) => data.persist(Database::<Self>::from_path(None)).await,
+                    | Err(why) => Err(eyre!("Failed to download models.dev catalog — {why}")),
                 }
             }
             | _ => unimplemented!("populate() not implemented for {} table", self.name()),
@@ -637,6 +954,8 @@ impl TableSchemaProvider for Table {
             | Table::LinkCache => print_rows::<LinkCacheRow>(self, path.as_ref()),
             | Table::ValidationHistory => print_rows::<ValidationRow>(self, path.as_ref()),
             | Table::ResearchActivityCache => print_rows::<ResearchActivityCacheRow>(self, path.as_ref()),
+            | Table::Models => print_rows::<ModelRow>(self, path.as_ref()),
+            | Table::Providers => print_rows::<ProviderRow>(self, path.as_ref()),
         }
     }
     /// Get table rows
@@ -864,6 +1183,142 @@ impl Row for ValidationRow {
             | Ok((path, check_type, message)) => match self.next_row_id(conn) {
                 | Ok(id) => {
                     let params = backend::params![id, path, check_type, success, message, checked_at];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl Row for ModelRow {
+    fn table(&self) -> Table {
+        Table::Models
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            model_id,
+            name,
+            family,
+            variant,
+            version,
+            attachment,
+            open_weights,
+            reasoning,
+            structured_output,
+            temperature,
+            tool_call,
+            parameters,
+            release_date,
+            knowledge,
+            last_updated,
+            limit_context,
+            limit_output,
+            limit_input,
+            modality_input,
+            modality_output,
+            cost_input,
+            cost_output,
+            cost_cache_read,
+            cost_cache_write,
+            cost_reasoning,
+            cost_input_audio,
+            cost_output_audio,
+            cost_over_200k,
+            cost_tiers,
+            benchmarks,
+            weights,
+            ..
+        } = self.clone();
+        let required = required1(model_id);
+        match required {
+            | Ok((model_id,)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![
+                        id,
+                        model_id,
+                        name,
+                        family,
+                        variant,
+                        version,
+                        attachment.map(i32::from),
+                        open_weights.map(i32::from),
+                        reasoning.map(i32::from),
+                        structured_output.map(i32::from),
+                        temperature.map(i32::from),
+                        tool_call.map(i32::from),
+                        parameters,
+                        release_date,
+                        knowledge,
+                        last_updated,
+                        limit_context,
+                        limit_output,
+                        limit_input,
+                        modality_input,
+                        modality_output,
+                        cost_input,
+                        cost_output,
+                        cost_cache_read,
+                        cost_cache_write,
+                        cost_reasoning,
+                        cost_input_audio,
+                        cost_output_audio,
+                        cost_over_200k,
+                        cost_tiers,
+                        benchmarks,
+                        weights,
+                    ];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl Row for ProviderRow {
+    fn table(&self) -> Table {
+        Table::Providers
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            provider_id,
+            name,
+            description,
+            endpoint,
+            documentation,
+            authentication,
+            env,
+            npm,
+            url,
+            established_date,
+            last_updated,
+            ..
+        } = self.clone();
+        let required = required1(provider_id);
+        match required {
+            | Ok((provider_id,)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let params = backend::params![
+                        id,
+                        provider_id,
+                        name,
+                        description,
+                        endpoint,
+                        documentation,
+                        authentication,
+                        env,
+                        npm,
+                        url,
+                        established_date,
+                        last_updated,
+                    ];
                     execute_insert(&self, conn, params)
                 }
                 | Err(why) => Err(why),

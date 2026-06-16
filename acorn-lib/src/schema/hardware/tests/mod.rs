@@ -56,8 +56,8 @@ fn test_architecture_deserialize() {
 }
 #[test]
 fn test_architecture_vendor() {
-    assert_eq!(Architecture::Ampere.vendor(), Some(Vendor::NVIDIA));
-    assert_eq!(Architecture::Hopper.vendor(), Some(Vendor::NVIDIA));
+    assert_eq!(Architecture::Ampere.vendor(), Some(Vendor::Nvidia));
+    assert_eq!(Architecture::Hopper.vendor(), Some(Vendor::Nvidia));
     assert_eq!(Architecture::Cdna3.vendor(), Some(Vendor::AMD));
     assert_eq!(Architecture::Versal.vendor(), Some(Vendor::AMD));
     assert_eq!(Architecture::Alchemist.vendor(), Some(Vendor::Intel));
@@ -82,14 +82,14 @@ fn test_architecture_vendor() {
     assert_eq!(CpuArchitecture::NeuralEngine.vendor(), Some(Vendor::Apple));
     assert_eq!(CpuArchitecture::PerformanceCore.vendor(), Some(Vendor::Apple));
     assert_eq!(CpuArchitecture::Ia64.vendor(), Some(Vendor::Intel));
-    assert_eq!(CpuArchitecture::PowerPc.vendor(), Some(Vendor::Ibm));
+    assert_eq!(CpuArchitecture::PowerPc.vendor(), Some(Vendor::IBM));
     assert_eq!(CpuArchitecture::Hexagon.vendor(), Some(Vendor::Qualcomm));
     assert_eq!(CpuArchitecture::RiscV.vendor(), None);
     // DSP architecture
     assert_eq!(DspArchitecture::C66x.vendor(), Some(Vendor::TexasInstruments));
     assert_eq!(DspArchitecture::Xtensa.vendor(), Some(Vendor::Other("Cadence".to_string())));
     // GPU architecture
-    assert_eq!(GpuArchitecture::Ampere.vendor(), Some(Vendor::NVIDIA));
+    assert_eq!(GpuArchitecture::Ampere.vendor(), Some(Vendor::Nvidia));
     assert_eq!(GpuArchitecture::Cdna2.vendor(), Some(Vendor::AMD));
     assert_eq!(GpuArchitecture::Alchemist.vendor(), Some(Vendor::Intel));
     assert_eq!(GpuArchitecture::AppleM1.vendor(), Some(Vendor::Apple));
@@ -112,7 +112,7 @@ fn test_resource_vendor() {
         required: None,
         vendor: None,
     };
-    assert_eq!(gpu.vendor(), Some(Vendor::NVIDIA));
+    assert_eq!(gpu.vendor(), Some(Vendor::Nvidia));
     let cpu = Resource::CPU {
         architecture: Some(CpuArchitecture::X86_64),
         cores: None,
@@ -132,7 +132,7 @@ fn test_resource_vendor() {
         topology: None,
         vendor: None,
     };
-    assert_eq!(quantum.vendor(), Some(Vendor::Ibm));
+    assert_eq!(quantum.vendor(), Some(Vendor::IBM));
     let other = Resource::Other("custom".to_string());
     assert_eq!(other.vendor(), None);
 }
@@ -505,7 +505,7 @@ fn test_resource_validate_vendor() {
         memory: None,
         name: None,
         required: None,
-        vendor: Some(Vendor::NVIDIA),
+        vendor: Some(Vendor::Nvidia),
     };
     assert!(gpu.validate().is_ok());
     let cpu = Resource::CPU {
@@ -567,7 +567,7 @@ fn test_resource_validate_vendor() {
         memory: None,
         name: None,
         required: None,
-        vendor: Some(Vendor::NVIDIA),
+        vendor: Some(Vendor::Nvidia),
     };
     assert!(gpu.validate().is_ok());
     let cpu = Resource::CPU {
