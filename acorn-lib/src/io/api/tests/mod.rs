@@ -14,13 +14,9 @@ use crate::io::read_file;
 use crate::param;
 use crate::prelude::HashMap;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
+use crate::test::utils::fixture_path;
 use crate::util::Searchable;
 use crate::{Location, Repository, Scheme};
-use std::path::PathBuf;
-
-fn fixtures_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("tests/fixtures")
-}
 
 #[test]
 fn test_endpoints_length() {
@@ -242,7 +238,7 @@ fn test_query_params_empty_field() {
 }
 #[test]
 fn test_ror_search_response() {
-    let json = read_file(fixtures_dir().join("response_ror_ornl.json")).expect("Failed to read JSON fixture");
+    let json = read_file(fixture_path("").join("response_ror_ornl.json")).expect("Failed to read JSON fixture");
     let response: ror::SearchResponse = serde_json::from_str(&json).expect("Failed to deserialize JSON");
     insta::assert_snapshot!(format!("{:#?}", response));
 }
@@ -573,7 +569,7 @@ mod orcid_api {
     #[test]
     fn test_response_handler() {
         // Load XML fixture file
-        let xml = read_file(fixtures_dir().join("response_orcid_wohlgemuth.xml")).expect("Failed to read XML fixture");
+        let xml = read_file(fixture_path("").join("response_orcid_wohlgemuth.xml")).expect("Failed to read XML fixture");
         // Parse XML into OrcidSearchResponse
         let response = api::parse_xml::<orcid::SearchResponse>(&xml).expect("Failed to deserialize XML");
         // Verify basic response properties
@@ -835,5 +831,50 @@ mod orcid_api {
         assert_eq!(endpoint.domain, "custom-orcid.example.com");
         assert_eq!(endpoint.root, Some("v3.0".to_string()));
         assert!(endpoint.resources.iter().any(|r| r.name == "search"));
+    }
+}
+mod models_dev {
+    use super::*;
+    use crate::io::api::models_dev::CatalogResponse;
+    use crate::io::database::schema::Table;
+    use crate::io::database::{Database, Operations};
+    use crate::test::utils::unique_path;
+
+    #[test]
+    fn test_catalog_response_parse() {
+        let json = read_file(fixture_path("").join("catalog.json")).expect("Failed to read catalog fixture");
+        let catalog: CatalogResponse = serde_json::from_str(&json).expect("Failed to deserialize catalog fixture");
+        assert_eq!(catalog.models.len(), 215);
+        assert_eq!(catalog.providers.len(), 145);
+        let model = catalog.models.get("openai/o3").expect("Missing openai/o3 model");
+        assert_eq!(model.name.as_deref(), Some("o3"));
+        assert_eq!(model.family.as_deref(), Some("o"));
+        let provider = catalog.providers.get("openai").expect("Missing openai provider");
+        assert_eq!(provider.name.as_deref(), Some("OpenAI"));
+        assert_eq!(provider.documentation.as_deref(), Some("https://platform.openai.com/docs/models"));
+        assert!(provider
+            .models
+            .as_ref()
+            .is_some_and(|models| models.iter().any(|model| model.id.as_deref() == Some("o3"))));
+    }
+    #[tokio::test]
+    async fn test_catalog_fixture_persists_models_and_providers_to_local_database() {
+        let json = read_file(fixture_path("").join("catalog.json")).expect("Failed to read catalog fixture");
+        let catalog: CatalogResponse = serde_json::from_str(&json).expect("Failed to deserialize catalog fixture");
+        let models = catalog.models();
+        let providers = catalog.providers();
+        let model_count = models.models.len();
+        let provider_count = providers.providers.len();
+        let path = unique_path("models-dev", "duckdb");
+        let database = Database::<Table>::from_path(Some(path));
+        database.migrate().expect("Failed to migrate database schema");
+        let inserted_models = database.persist(Some(models)).await.expect("Failed to persist model catalog data");
+        let inserted_providers = database.persist(Some(providers)).await.expect("Failed to persist provider catalog data");
+        assert_eq!(inserted_models, model_count);
+        assert_eq!(inserted_providers, provider_count);
+        let stored_models = database.row_count(Table::Models).expect("Failed to count model rows");
+        let stored_providers = database.row_count(Table::Providers).expect("Failed to count provider rows");
+        assert_eq!(stored_models, model_count);
+        assert_eq!(stored_providers, provider_count);
     }
 }
