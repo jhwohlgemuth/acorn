@@ -911,12 +911,23 @@ impl TableSchemaProvider for Table {
             }
             | Table::Models => {
                 let progress = create_progress_bar(0, ProgressType::Spinner);
-                progress.set_message("Downloading models.dev catalog...");
-                let response = api::models_dev::download().await;
+                progress.set_message("Downloading models.dev catalog (for models)...");
+                let response = api::models_dev::download_cached().await;
                 let message = format!("{}Models.dev catalog download complete", Label::CHECKMARK);
                 finish_progress_bar(&progress, message);
                 match response {
-                    | Ok(data) => data.persist(Database::<Self>::from_path(None)).await,
+                    | Ok(catalog) => catalog.models().persist(Database::<Self>::from_path(None)).await,
+                    | Err(why) => Err(eyre!("Failed to download models.dev catalog — {why}")),
+                }
+            }
+            | Table::Providers => {
+                let progress = create_progress_bar(0, ProgressType::Spinner);
+                progress.set_message("Downloading models.dev catalog (for providers)...");
+                let response = api::models_dev::download_cached().await;
+                let message = format!("{}Models.dev catalog download complete", Label::CHECKMARK);
+                finish_progress_bar(&progress, message);
+                match response {
+                    | Ok(catalog) => catalog.providers().persist(Database::<Self>::from_path(None)).await,
                     | Err(why) => Err(eyre!("Failed to download models.dev catalog — {why}")),
                 }
             }

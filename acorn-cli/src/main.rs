@@ -192,6 +192,8 @@ async fn main() -> Void {
         }))
         .and_then(|_| database.populate(Table::Licenses))
         .and_then(|_| database.populate(Table::ProgrammingLanguages))
+        .and_then(|_| database.populate(Table::Models))
+        .and_then(|_| database.populate(Table::Providers))
         .await
         .map(|_| ())
     };

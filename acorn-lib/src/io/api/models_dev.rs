@@ -11,7 +11,10 @@ use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Report};
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
+/// Process-global cache of the models.dev catalog to avoid redundant downloads
+static CATALOG_CACHE: OnceLock<CatalogResponse> = OnceLock::new();
 /// Top-level catalog response from models.dev
 #[derive(Clone, Debug, Deserialize)]
 pub struct CatalogResponse {
@@ -20,7 +23,18 @@ pub struct CatalogResponse {
     /// Provider entries keyed by provider ID
     pub providers: HashMap<String, ProviderDetails>,
 }
-
+/// Response containing only model data from models.dev
+#[derive(Clone, Debug, Deserialize)]
+pub struct Models {
+    /// Flat map of all models keyed by model ID
+    pub models: HashMap<String, ModelDetails>,
+}
+/// Response containing only provider data from models.dev
+#[derive(Clone, Debug, Deserialize)]
+pub struct Providers {
+    /// Provider entries keyed by provider ID
+    pub providers: HashMap<String, ProviderDetails>,
+}
 impl From<ModelDetails> for ModelRow {
     fn from(details: ModelDetails) -> Self {
         let model_id = details.id;
@@ -43,11 +57,9 @@ impl From<ModelDetails> for ModelRow {
         let modalities = details.modalities;
         let benchmarks = details.benchmarks;
         let weights = details.weights;
-
         let limit_context = limit.as_ref().map(|l| l.context as i64);
         let limit_output = limit.as_ref().map(|l| l.output as i64);
         let limit_input = limit.as_ref().and_then(|l| l.input.map(|v| v as i64));
-
         let cost_input = cost.as_ref().and_then(|c| c.input);
         let cost_output = cost.as_ref().and_then(|c| c.output);
         let cost_cache_read = cost.as_ref().and_then(|c| c.cache_read);
@@ -60,13 +72,10 @@ impl From<ModelDetails> for ModelRow {
             .and_then(|c| c.context_over_200k.as_ref())
             .and_then(|c| serde_json::to_string(c).ok());
         let cost_tiers = cost.as_ref().and_then(|c| c.tiers.as_ref()).and_then(|t| serde_json::to_string(t).ok());
-
         let modality_input = modalities.as_ref().and_then(|m| serde_json::to_string(&m.input).ok());
         let modality_output = modalities.as_ref().and_then(|m| serde_json::to_string(&m.output).ok());
-
         let benchmarks_json = benchmarks.as_ref().and_then(|b| serde_json::to_string(b).ok());
         let weights_json = weights.as_ref().and_then(|w| serde_json::to_string(w).ok());
-
         ModelRow::init()
             .maybe_model_id(model_id)
             .maybe_name(name)
@@ -102,7 +111,6 @@ impl From<ModelDetails> for ModelRow {
             .build()
     }
 }
-
 impl From<ProviderDetails> for ProviderRow {
     fn from(details: ProviderDetails) -> Self {
         let provider_id = details.id;
@@ -116,7 +124,6 @@ impl From<ProviderDetails> for ProviderRow {
         let url = details.url;
         let established_date = details.established_date;
         let last_updated = details.last_updated;
-
         ProviderRow::init()
             .maybe_provider_id(provider_id)
             .maybe_name(name)
@@ -135,25 +142,10 @@ impl From<ProviderDetails> for ProviderRow {
 #[async_trait]
 impl DatabasePersistence for CatalogResponse {
     async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
-        let models: Vec<ModelDetails> = self.models.into_values().collect();
-        let providers: Vec<ProviderDetails> = self.providers.into_values().collect();
-        let db = database.clone();
-        let model_message: fn(&ModelDetails) -> String = |item| format!("Saving \"{}\" model", item.id.as_deref().unwrap_or("unknown"));
-        let model_operation = |item| async { db.insert(ModelRow::from(item)) };
-        let model_finish = |count| format!("{}Saved metadata for {count} models.dev models", Label::CHECKMARK);
-        let provider_message: fn(&ProviderDetails) -> String = |item| format!("Saving \"{}\" provider", item.id.as_deref().unwrap_or("unknown"));
-        let provider_operation = |item| async { database.insert(ProviderRow::from(item)) };
-        let provider_finish = |count| format!("{}Saved metadata for {count} models.dev providers", Label::CHECKMARK);
-        match with_progress(models, model_message, model_operation, model_finish, None, ProgressType::Bar)
-            .await
-            .map(|counts| counts.into_iter().sum::<usize>())
-            .map_err(Report::msg)
-        {
-            | Ok(model_count) => match with_progress(providers, provider_message, provider_operation, provider_finish, None, ProgressType::Bar)
-                .await
-                .map(|counts| counts.into_iter().sum::<usize>())
-                .map_err(Report::msg)
-            {
+        let models = Models { models: self.models };
+        let providers = Providers { providers: self.providers };
+        match models.persist(database.clone()).await {
+            | Ok(model_count) => match providers.persist(database).await {
                 | Ok(provider_count) => model_count
                     .checked_add(provider_count)
                     .ok_or_else(|| eyre!("Count overflow while persisting models.dev metadata")),
@@ -161,6 +153,42 @@ impl DatabasePersistence for CatalogResponse {
             },
             | Err(why) => Err(why),
         }
+    }
+}
+impl CatalogResponse {
+    pub(crate) fn models(&self) -> Models {
+        Models { models: self.models.clone() }
+    }
+    pub(crate) fn providers(&self) -> Providers {
+        Providers {
+            providers: self.providers.clone(),
+        }
+    }
+}
+#[async_trait]
+impl DatabasePersistence for Models {
+    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
+        let models: Vec<ModelDetails> = self.models.into_values().collect();
+        let message: fn(&ModelDetails) -> String = |item| format!("Saving \"{}\" model", item.id.as_deref().unwrap_or("unknown"));
+        let operation = |item| async { database.insert(ModelRow::from(item)) };
+        let finish = |count| format!("{}Saved metadata for {count} models", Label::CHECKMARK);
+        with_progress(models, message, operation, finish, None, ProgressType::Bar)
+            .await
+            .map(|counts| counts.into_iter().sum::<usize>())
+            .map_err(Report::msg)
+    }
+}
+#[async_trait]
+impl DatabasePersistence for Providers {
+    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
+        let providers: Vec<ProviderDetails> = self.providers.into_values().collect();
+        let message: fn(&ProviderDetails) -> String = |item| format!("Saving \"{}\" provider", item.id.as_deref().unwrap_or("unknown"));
+        let operation = |item| async { database.insert(ProviderRow::from(item)) };
+        let finish = |count| format!("{}Saved metadata for {count} providers", Label::CHECKMARK);
+        with_progress(providers, message, operation, finish, None, ProgressType::Bar)
+            .await
+            .map(|counts| counts.into_iter().sum::<usize>())
+            .map_err(Report::msg)
     }
 }
 /// Download catalog data from models.dev
@@ -179,5 +207,21 @@ pub async fn download() -> ApiResult<CatalogResponse> {
             endpoint.handle::<CatalogResponse>(response)
         }
         | None => Err(eyre!("No models.dev endpoint found")),
+    }
+}
+/// Download catalog data from models.dev, using a process-wide cache
+pub async fn download_cached() -> ApiResult<&'static CatalogResponse> {
+    match CATALOG_CACHE.get() {
+        | Some(cached) => Ok(cached),
+        | None => match download().await {
+            | Ok(catalog) => {
+                let _ = CATALOG_CACHE.set(catalog);
+                match CATALOG_CACHE.get() {
+                    | Some(cached) => Ok(cached),
+                    | None => Err(eyre!("Cache unset after download — concurrent modification or OOM")),
+                }
+            }
+            | Err(why) => Err(why),
+        },
     }
 }
