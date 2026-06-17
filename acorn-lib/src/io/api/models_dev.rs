@@ -142,10 +142,8 @@ impl From<ProviderDetails> for ProviderRow {
 #[async_trait]
 impl DatabasePersistence for CatalogResponse {
     async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
-        let models = Models { models: self.models };
-        let providers = Providers { providers: self.providers };
-        match models.persist(database.clone()).await {
-            | Ok(model_count) => match providers.persist(database).await {
+        match self.models().persist(database.clone()).await {
+            | Ok(model_count) => match self.providers().persist(database).await {
                 | Ok(provider_count) => model_count
                     .checked_add(provider_count)
                     .ok_or_else(|| eyre!("Count overflow while persisting models.dev metadata")),
