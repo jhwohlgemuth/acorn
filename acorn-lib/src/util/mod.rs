@@ -223,6 +223,11 @@ pub enum MimeType {
     /// Comma Separated Values (CSV)
     #[display("text/csv")]
     Csv,
+    /// GPT-Generated Unified Format (GGUF) model
+    ///
+    /// See <https://github.com/ggml-org/ggml/blob/master/docs/gguf.md> for more information
+    #[display("application/vnd.gguf.model")]
+    Gguf,
     /// Linked Data [JSON](https://www.json.org/json-en.html)
     ///
     /// See <https://json-ld.org/>
@@ -239,26 +244,56 @@ pub enum MimeType {
     /// Markdown
     #[display("text/markdown")]
     Markdown,
+    /// Model card
+    #[display("application/vnd.ai.modelcard.v1+json")]
+    ModelCard,
+    /// ONNX (Open Neural Network Exchange) model
+    ///
+    /// See <https://onnx.ai/> for more information
+    #[display("application/vnd.onnx.model")]
+    Onnx,
     /// OpenType Font (OTF)
     #[display("font/otf")]
     Otf,
-    /// TrueType Font (TTF)
-    #[display("font/ttf")]
-    Ttf,
+    /// Parquet format
+    ///
+    /// See <https://parquet.apache.org> for more information
+    #[display("application/x-parquet")]
+    Parquet,
     /// Portable Document Format (PDF)
     #[display("application/pdf")]
     Pdf,
     /// Portable Network Graphic (PNG)
     #[display("image/png")]
     Png,
+    /// PyTorch model
+    ///
+    /// Commonly used for `.pt` and `.pth` model files.
+    #[display("application/vnd.pytorch.model")]
+    Pytorch,
     /// PowerPoint Presentation (modern format)
     ///
     /// See <https://en.wikipedia.org/wiki/Office_Open_XML>
     #[display("application/vnd.openxmlformats-officedocument.presentationml.presentation")]
     Powerpoint,
+    /// LLM Prompt template
+    ///
+    /// This includes .prompt files (see <https://google.github.io/dotprompt/>)
+    #[display("application/vnd.ai.prompt.v1+json")]
+    Prompt,
     /// Rust Source Code (RS)
     #[display("text/rust")]
     Rust,
+    /// Safetensors weights
+    ///
+    /// See <https://github.com/huggingface/safetensors> for more information
+    #[display("application/vnd.safetensors")]
+    Safetensors,
+    /// SBOM (Software Bill of Materials)
+    ///
+    /// See <https://cyclonedx.org/> for more information
+    #[display("application/spdx+json")]
+    Sbom,
     /// Scalable Vector Graphic (SVG)
     #[display("image/svg+xml")]
     Svg,
@@ -272,6 +307,9 @@ pub enum MimeType {
     /// See <https://toml.io/>
     #[display("application/toml")]
     Toml,
+    /// TrueType Font (TTF)
+    #[display("font/ttf")]
+    Ttf,
     /// YAML Ain't Markup Language (YAML)
     ///
     /// See <https://yaml.org/>
@@ -283,8 +321,11 @@ pub enum MimeType {
     #[display("application/zip")]
     Zip,
     /// Unknown MIME type
-    #[display("application/unknown")]
-    Unknown,
+    #[display("application/vnd.{}", _0)]
+    Vendor(String),
+    /// Unknown MIME type
+    #[display("application/octet-stream")]
+    Unknown(String),
 }
 /// Struct for using and sharing constants
 ///
@@ -592,6 +633,8 @@ where
     /// | ttf | font/ttf |
     /// | pdf | application/pdf |
     /// | png | image/png |
+    /// | pt | application/vnd.pytorch.model |
+    /// | pth | application/vnd.pytorch.model |
     /// | pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |
     /// | rs | text/rust |
     /// | svg | image/svg+xml |
@@ -601,26 +644,34 @@ where
     /// | zip | application/zip |
     fn from(value: T) -> Self {
         let name = value.to_string().to_lowercase();
-        match file_extension(name) {
+        match file_extension(name.clone()) {
             | Some(value) => match value.as_str() {
                 | "cff" => MimeType::Cff,
                 | "csv" => MimeType::Csv,
+                | "gguf" => MimeType::Gguf,
                 | "jpg" | "jpeg" => MimeType::Jpeg,
                 | "json" => MimeType::Json,
                 | "jsonld" | "json-ld" => MimeType::LdJson,
                 | "md" | "markdown" => MimeType::Markdown,
+                | "onnx" => MimeType::Onnx,
                 | "otf" => MimeType::Otf,
                 | "ttf" => MimeType::Ttf,
+                | "parquet" => MimeType::Parquet,
+                | "pdf" => MimeType::Pdf,
                 | "png" => MimeType::Png,
+                | "pt" | "pth" => MimeType::Pytorch,
                 | "pptx" | "ppt" => MimeType::Powerpoint,
+                | "prompt" => MimeType::Prompt,
                 | "rs" => MimeType::Rust,
+                | "safetensors" => MimeType::Safetensors,
+                | "spdx.json" => MimeType::Sbom,
                 | "svg" => MimeType::Svg,
                 | "toml" => MimeType::Toml,
                 | "txt" => MimeType::Text,
                 | "yml" | "yaml" => MimeType::Yaml,
-                | _ => MimeType::Unknown,
+                | value => MimeType::Vendor(value.to_string()),
             },
-            | None => MimeType::Unknown,
+            | None => MimeType::Unknown(name),
         }
     }
 }
@@ -637,16 +688,24 @@ impl MimeType {
         match self {
             | MimeType::Cff => "cff",
             | MimeType::Csv => "csv",
+            | MimeType::Gguf => "gguf",
             | MimeType::Jpeg => "jpeg",
             | MimeType::Json => "json",
             | MimeType::LdJson => "jsonld",
             | MimeType::Markdown => "md",
+            | MimeType::ModelCard => "modelcard",
+            | MimeType::Onnx => "onnx",
             | MimeType::Otf => "otf",
             | MimeType::Ttf => "ttf",
+            | MimeType::Parquet => "parquet",
             | MimeType::Pdf => "pdf",
             | MimeType::Png => "png",
+            | MimeType::Pytorch => "pt",
             | MimeType::Powerpoint => "pptx",
+            | MimeType::Prompt => "prompt",
             | MimeType::Rust => "rs",
+            | MimeType::Safetensors => "safetensors",
+            | MimeType::Sbom => "spdx.json",
             | MimeType::Svg => "svg",
             | MimeType::Text => "txt",
             | MimeType::Toml => "toml",
