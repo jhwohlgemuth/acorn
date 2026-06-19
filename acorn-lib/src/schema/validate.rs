@@ -264,10 +264,7 @@ pub fn is_kebabcase(value: &str) -> Result<(), ValidationError> {
     }
 }
 /// Check if value is a valid latitude
-pub fn is_latitude<T>(value: T) -> Result<(), ValidationError>
-where
-    T: ToString,
-{
+pub fn is_latitude(value: impl ToString) -> Result<(), ValidationError> {
     const CODE: &str = "latitude";
     const MESSAGE: &str = "Provide valid latitude (-90 to 90)";
     let parsed = value.to_string().parse::<f64>().ok();

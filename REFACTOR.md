@@ -1139,3 +1139,93 @@ This section captures follow-up work after the first-pass importer scaffold that
 2. Pilot import flow for another provider to validate generality.
 3. Document importer behavior, limitations, and extension points in docs and command help.
 
+## InvenioRDM Support
+
+This section consolidates InvenioRDM planning previously tracked across separate planning notes into one execution plan.
+
+### Objective
+
+Deliver end-to-end support for InvenioRDM metadata in ACORN:
+1. Verify and validate Invenio metadata.
+2. Convert to and from DataCite, DCAT v3, and other supported standards.
+3. Integrate conversion/validation into CLI workflows.
+
+### Current Status
+
+1. Invenio schema and tests are implemented in library code.
+2. Fixtures are validated and used by `schema::standard::tests::invenio`.
+3. Immediate focus has shifted from schema modeling to conversion and integration.
+
+### Phased Plan
+
+#### Phase A: Validation and Fixture Hardening
+
+1. Run focused and full test coverage for Invenio paths.
+2. Verify all fixture records deserialize and validate under current schema constraints.
+3. Add edge-case fixtures (minimal, maximal, intentionally-invalid) for regression safety.
+
+Success criteria:
+1. Invenio tests pass consistently in CI.
+2. Validation failures are deterministic and actionable.
+
+#### Phase B: Invenio <-> DataCite Conversion
+
+1. Create a field-level mapping table for all overlapping entities.
+2. Implement Invenio to DataCite conversion for required and optional fields.
+3. Implement DataCite to Invenio reverse conversion where representable.
+4. Mark lossy conversions explicitly (custom fields, access semantics, system-managed identifiers).
+
+Success criteria:
+1. Conversion tests pass with fixture-driven assertions.
+2. Round-trip behavior is documented with expected loss points.
+
+#### Phase C: Invenio <-> DCAT v3 Conversion
+
+1. Finalize DCAT type surface and module structure.
+2. Map Invenio metadata to DCAT Dataset/Distribution concepts.
+3. Add reverse mapping where feasible and document non-isomorphic fields.
+
+Success criteria:
+1. DCAT output validates against expected structure.
+2. Conversion docs identify exact mapping rules and limitations.
+
+#### Phase D: Multi-Standard Expansion
+
+1. Extend mappings for additional standards (for example Dublin Core, ODS) after DataCite/DCAT stabilize.
+2. Reuse shared conversion helpers to avoid duplicate field mapping logic.
+
+Success criteria:
+1. New standards plug into existing conversion architecture.
+2. Mapping additions do not duplicate core extraction logic.
+
+#### Phase E: CLI and Workflow Integration
+
+1. Add/extend conversion command paths for Invenio-oriented transforms.
+2. Add dry-run/validation-only mode for preflight checks.
+3. Support batch conversion with clear per-record failure reporting.
+
+Success criteria:
+1. CLI can run Invenio conversion/validation without manual glue code.
+2. Error outputs provide field-level diagnostics.
+
+### Cross-Cutting Constraints
+
+1. Preserve compatibility with instance-configurable vocabularies and providers.
+2. Keep multilingual/value-object fields flexible where strict validation is not trait-compatible.
+3. Avoid silent data loss in conversion paths; use explicit errors or documented degradation.
+4. Keep conversion logic centralized to prevent schema drift.
+
+### Immediate Next Actions
+
+1. Finalize and publish the Invenio <-> DataCite field mapping matrix in code comments/tests.
+2. Implement first-pass conversion traits/functions and fixture-driven tests.
+3. Add explicit lossy-conversion assertions and documentation in tests.
+4. Proceed to DCAT v3 mapping once DataCite round-trip behavior is stable.
+
+### Completion Criteria
+
+1. Invenio fixture ingestion and validation are stable in CI.
+2. DataCite and DCAT conversions are test-covered and documented.
+3. CLI exposes conversion and validation flows for Invenio.
+4. Known limitations and lossy edges are explicitly encoded in tests and docs.
+

@@ -6,6 +6,7 @@
 
 pub mod cff;
 pub mod datacite;
+pub mod dcat;
 pub mod dublin_core;
 pub mod huwise;
 pub mod invenio;
