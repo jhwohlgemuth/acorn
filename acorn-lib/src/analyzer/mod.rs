@@ -601,8 +601,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         | Err(_) => "".to_string(),
                     };
                     if let Some(calculated) = file_checksum(path.clone(), None) {
-                        if !dowloaded_checksum.eq(&calculated) {
-                            error!(dowloaded_checksum, calculated, "=> {}", Label::invalid());
+                        if !dowloaded_checksum.eq(&calculated.checksum_value) {
+                            error!(dowloaded_checksum, calculated = calculated.checksum_value, "=> {}", Label::invalid());
                             let _cleanup = remove_file(path.clone());
                         } else {
                             info!(checksum = dowloaded_checksum, "=> {} Checksum verification", Label::pass());

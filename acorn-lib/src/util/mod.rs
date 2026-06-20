@@ -24,12 +24,14 @@ use comfy_table::presets::UTF8_FULL;
 use comfy_table::{ContentArrangement, Table};
 use console::Emoji;
 use convert_case::{Case, Casing};
+use core::fmt;
 use core::iter::successors;
 use derive_more::Display;
 use fancy_regex::Regex;
 use fluent_uri::UriRef;
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
+use ring::digest::SHA512;
 use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -38,6 +40,7 @@ use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
 };
+use validator::Validate;
 #[cfg(feature = "std")]
 pub mod cmd;
 pub mod constants;
@@ -126,6 +129,49 @@ where
 pub trait Unstructured {
     /// Return raw content as a string slice
     fn content(&self) -> &str;
+}
+/// Cryptographic hash algorithm used across ACORN metadata and packaging.
+///
+/// This enum is shared by DCAT checksum metadata and BagIt manifest workflows.
+#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+pub enum ChecksumAlgorithm {
+    /// SHA-256 secure hash algorithm (default)
+    #[default]
+    #[display("sha256")]
+    #[serde(rename = "SHA256", alias = "sha256")]
+    Sha256,
+    /// MD2 message-digest algorithm
+    #[display("md2")]
+    #[serde(rename = "MD2", alias = "md2")]
+    Md2,
+    /// MD4 message-digest algorithm
+    #[display("md4")]
+    #[serde(rename = "MD4", alias = "md4")]
+    Md4,
+    /// MD5 message-digest algorithm
+    #[display("md5")]
+    #[serde(rename = "MD5", alias = "md5")]
+    Md5,
+    /// MD6 message-digest algorithm
+    #[display("md6")]
+    #[serde(rename = "MD6", alias = "md6")]
+    Md6,
+    /// SHA-1 secure hash algorithm
+    #[display("sha1")]
+    #[serde(rename = "SHA1", alias = "sha1")]
+    Sha1,
+    /// SHA-224 secure hash algorithm
+    #[display("sha224")]
+    #[serde(rename = "SHA224", alias = "sha224")]
+    Sha224,
+    /// SHA-384 secure hash algorithm
+    #[display("sha384")]
+    #[serde(rename = "SHA384", alias = "sha384")]
+    Sha384,
+    /// SHA-512 secure hash algorithm
+    #[display("sha512")]
+    #[serde(rename = "SHA512", alias = "sha512")]
+    Sha512,
 }
 /// SPDX compliant license identifier
 ///
@@ -327,6 +373,15 @@ pub enum MimeType {
     #[display("application/octet-stream")]
     Unknown(String),
 }
+/// Cryptographic checksum value paired with its algorithm.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct Checksum {
+    /// The algorithm used to produce the checksum.
+    pub algorithm: ChecksumAlgorithm,
+    /// Lowercase hexadecimal digest value.
+    #[serde(rename = "checksumValue")]
+    pub checksum_value: String,
+}
 /// Struct for using and sharing constants
 ///
 /// See <https://git.sr.ht/~pyrossh/rust-embed>
@@ -370,6 +425,41 @@ pub struct SemanticVersion {
     /// Version when you make backward compatible bug fixes
     #[builder(default = 0)]
     pub patch: u32,
+}
+impl fmt::Display for Checksum {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.checksum_value)
+    }
+}
+impl From<&str> for ChecksumAlgorithm {
+    fn from(value: &str) -> Self {
+        match value.to_lowercase().as_str() {
+            | "sha256" => ChecksumAlgorithm::Sha256,
+            | "md5" => ChecksumAlgorithm::Md5,
+            | "sha1" => ChecksumAlgorithm::Sha1,
+            | "sha512" => ChecksumAlgorithm::Sha512,
+            | "md2" => ChecksumAlgorithm::Md2,
+            | "md4" => ChecksumAlgorithm::Md4,
+            | "md6" => ChecksumAlgorithm::Md6,
+            | "sha224" => ChecksumAlgorithm::Sha224,
+            | "sha384" => ChecksumAlgorithm::Sha384,
+            | _ => ChecksumAlgorithm::default(),
+        }
+    }
+}
+impl From<String> for ChecksumAlgorithm {
+    fn from(value: String) -> Self {
+        ChecksumAlgorithm::from(value.as_str())
+    }
+}
+impl From<&'static ring::digest::Algorithm> for ChecksumAlgorithm {
+    fn from(algorithm: &'static ring::digest::Algorithm) -> Self {
+        if core::ptr::eq(algorithm, &SHA512) {
+            ChecksumAlgorithm::Sha512
+        } else {
+            ChecksumAlgorithm::Sha256
+        }
+    }
 }
 impl Constant {
     /// Reads a file from the asset folder and returns its contents as a UTF-8 string.

@@ -56,7 +56,7 @@ pub mod validate;
 
 use graph::{node_from_label, node_name, node_parent};
 use namespaces::{bibo, foaf, schema_org};
-use validate::{has_image_extension, is_orcid, is_phone_number};
+use validate::{has_image_extension, is_date, is_orcid, is_phone_number};
 
 /// ## Keywords
 /// > Core concepts related to the associated research activity
@@ -397,6 +397,19 @@ pub struct ContactPointContext {
     pub organization: String,
     /// Affiliation
     pub affiliation: String,
+}
+/// Shared start/end date interval used across schema standards.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(rename_all = "camelCase")]
+pub struct Date {
+    /// Start date as ISO 8601 date string (`YYYY-MM-DD`).
+    #[validate(custom(function = "is_date"))]
+    pub start_date: Option<String>,
+    /// End date as ISO 8601 date string (`YYYY-MM-DD`).
+    #[validate(custom(function = "is_date"))]
+    pub end_date: Option<String>,
 }
 /// Image format media (e.g., PNG, JPEG, SVG, etc.)
 ///

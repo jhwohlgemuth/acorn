@@ -447,25 +447,25 @@ fn test_bagit_verify() {
 fn test_checksum() {
     let calculated = file_checksum(fixtures_dir().join("glob/a.txt"), None).unwrap();
     if cfg!(target_os = "windows") {
-        assert_eq!(calculated.len(), 64);
+        assert_eq!(calculated.checksum_value.len(), 64);
     } else {
         let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
-        assert_eq!(calculated, expected);
+        assert_eq!(calculated.checksum_value, expected);
     }
     let calculated = file_checksum("../tests/fixtures/glob/a.txt", None).unwrap();
     if cfg!(target_os = "windows") {
-        assert_eq!(calculated.len(), 64);
+        assert_eq!(calculated.checksum_value.len(), 64);
     } else {
         let expected = "4ed63fa6fdc937d210dc48c5b570b3650558a7e544a574fe7344e66c65382d15";
-        assert_eq!(calculated, expected);
+        assert_eq!(calculated.checksum_value, expected);
     }
     let calculated = file_checksum("../tests/fixtures/glob/a.txt", Some(&ring::digest::SHA512)).unwrap();
     if cfg!(target_os = "windows") {
-        assert_eq!(calculated.len(), 128);
+        assert_eq!(calculated.checksum_value.len(), 128);
     } else {
         let expected =
             "d0b8db2e3f9afbcc8baf4cb8189c2fd489abacf232b4d000c54e5eb2b9cc2470163fc3c3b9f2c4fd88d0f2ab52b4075bef9d3ecbda71ad12c5f20cb7934904b4";
-        assert_eq!(calculated, expected);
+        assert_eq!(calculated.checksum_value, expected);
     }
     let result = file_checksum(PathBuf::from("/path/does/not/exist.txt"), None);
     assert!(result.is_none());

@@ -8,6 +8,7 @@
 use crate::schema::geonames::{CodeFormat, Country, GeonamesParser};
 use crate::schema::research_activity::aspect::Maturity;
 use crate::schema::research_activity::*;
+use crate::schema::standard::dcat::{Agent, Catalog, DataService, Dataset, Distribution};
 use crate::schema::validate::*;
 use crate::schema::*;
 use crate::util::constants::env::DATABASE_PATH;
@@ -489,6 +490,199 @@ fn test_is_urls() {
     ];
     assert!(is_urls(&valid).is_ok());
     assert!(is_urls(&invalid).is_err());
+}
+
+#[test]
+fn test_dcat_url_field_validation() {
+    let agent_valid = Agent {
+        name: None,
+        homepage: Some(vec!["https://example.org/agent".to_string()]),
+        email: None,
+        identifier: None,
+    };
+    assert!(agent_valid.validate().is_ok());
+    let agent_invalid = Agent {
+        homepage: Some(vec!["not a url".to_string()]),
+        ..agent_valid
+    };
+    assert!(agent_invalid.validate().is_err());
+    let distribution_valid = Distribution {
+        title: None,
+        description: None,
+        issued: None,
+        modified: None,
+        license: None,
+        access_rights: None,
+        rights: None,
+        has_policy: None,
+        access_url: vec!["https://example.org/access".to_string()],
+        access_service: None,
+        download_url: Some(vec!["https://example.org/file.csv".to_string()]),
+        byte_size: None,
+        spatial_resolution_in_meters: None,
+        temporal_resolution: None,
+        conforms_to: None,
+        media_type: None,
+        format: None,
+        compress_format: None,
+        package_format: None,
+        checksum: None,
+    };
+    assert!(distribution_valid.validate().is_ok());
+    let distribution_invalid_access = Distribution {
+        access_url: vec!["bad url".to_string()],
+        ..distribution_valid.clone()
+    };
+    assert!(distribution_invalid_access.validate().is_err());
+    let distribution_invalid_download = Distribution {
+        download_url: Some(vec!["still not a url".to_string()]),
+        ..distribution_valid
+    };
+    assert!(distribution_invalid_download.validate().is_err());
+    let data_service_valid = DataService {
+        title: None,
+        description: None,
+        identifier: None,
+        issued: None,
+        modified: None,
+        language: None,
+        publisher: None,
+        creator: None,
+        contact_point: None,
+        keywords: None,
+        themes: None,
+        license: None,
+        rights: None,
+        access_rights: None,
+        has_policy: None,
+        conforms_to: None,
+        landing_page: Some(vec!["https://example.org/service".to_string()]),
+        type_: None,
+        version: None,
+        version_notes: None,
+        previous_version: None,
+        has_version: None,
+        has_current_version: None,
+        replaces: None,
+        status: None,
+        qualified_relation: None,
+        endpoint_url: vec!["https://api.example.org".to_string()],
+        endpoint_description: None,
+        serves_dataset: None,
+    };
+    assert!(data_service_valid.validate().is_ok());
+    let data_service_invalid_landing = DataService {
+        landing_page: Some(vec!["https://example.com#foo bar".to_string()]),
+        ..data_service_valid.clone()
+    };
+    assert!(data_service_invalid_landing.validate().is_err());
+    let data_service_invalid_endpoint = DataService {
+        endpoint_url: vec!["https://example.com#foo bar".to_string()],
+        ..data_service_valid
+    };
+    assert!(data_service_invalid_endpoint.validate().is_err());
+    let dataset_valid = Dataset {
+        title: None,
+        description: None,
+        identifier: None,
+        issued: None,
+        modified: None,
+        language: None,
+        publisher: None,
+        creator: None,
+        contact_point: None,
+        keywords: None,
+        themes: None,
+        license: None,
+        rights: None,
+        access_rights: None,
+        has_policy: None,
+        conforms_to: None,
+        landing_page: Some(vec!["https://example.org/dataset".to_string()]),
+        relation: None,
+        type_: None,
+        version: None,
+        version_notes: None,
+        previous_version: None,
+        has_version: None,
+        has_current_version: None,
+        replaces: None,
+        status: None,
+        is_referenced_by: None,
+        has_part: None,
+        qualified_relation: None,
+        first: None,
+        last: None,
+        previous: None,
+        distribution: None,
+        frequency: None,
+        in_series: None,
+        spatial: None,
+        spatial_resolution_in_meters: None,
+        temporal: None,
+        temporal_resolution: None,
+        was_generated_by: None,
+    };
+    assert!(dataset_valid.validate().is_ok());
+    let dataset_invalid = Dataset {
+        landing_page: Some(vec!["https://example.com#foo bar".to_string()]),
+        ..dataset_valid
+    };
+    assert!(dataset_invalid.validate().is_err());
+    let catalog_valid = Catalog {
+        title: None,
+        description: None,
+        identifier: None,
+        issued: None,
+        modified: None,
+        language: None,
+        publisher: None,
+        creator: None,
+        contact_point: None,
+        keywords: None,
+        themes: None,
+        license: None,
+        rights: None,
+        access_rights: None,
+        has_policy: None,
+        conforms_to: None,
+        landing_page: Some(vec!["https://example.org/catalog".to_string()]),
+        relation: None,
+        type_: None,
+        version: None,
+        version_notes: None,
+        previous_version: None,
+        has_version: None,
+        has_current_version: None,
+        replaces: None,
+        status: None,
+        is_referenced_by: None,
+        qualified_relation: None,
+        distribution: None,
+        frequency: None,
+        spatial: None,
+        spatial_resolution_in_meters: None,
+        temporal: None,
+        temporal_resolution: None,
+        was_generated_by: None,
+        homepage: Some("https://catalog.example.org".to_string()),
+        theme_taxonomy: None,
+        dataset: None,
+        service: None,
+        catalog: None,
+        record: None,
+    };
+    assert!(catalog_valid.validate().is_ok());
+    let catalog_invalid_landing = Catalog {
+        landing_page: Some(vec!["https://example.com#foo bar".to_string()]),
+        ..catalog_valid.clone()
+    };
+    assert!(catalog_invalid_landing.validate().is_err());
+    let catalog_invalid_homepage = Catalog {
+        homepage: Some("https://example.com#foo bar".to_string()),
+        ..catalog_valid
+    };
+    assert!(catalog_invalid_homepage.validate().is_err());
 }
 #[test]
 fn test_is_orcid() {

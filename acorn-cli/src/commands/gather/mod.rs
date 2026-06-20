@@ -119,9 +119,11 @@ async fn raid_example() {
     // println!("RAiD Record: {record:#?}");
 
     use acorn::schema::pid::raid::{
-        Access, AccessIdentifier, AccessType, Contributor, ContributorPosition, CreditRole, Date, Description, DescriptionIdentifier,
-        DescriptionType, Metadata, PositionType, Role, Title, TitleIdentifier, TitleType,
+        Access, AccessIdentifier, AccessType, Contributor, ContributorPosition, CreditRole, Description, DescriptionIdentifier, DescriptionType,
+        Metadata, PositionType, Role, Title, TitleIdentifier, TitleType,
     };
+    use acorn::schema::Date;
+
     let orcid = "https://sandbox.orcid.org/0000-0003-0021-3068";
     let access_type = AccessIdentifier::init().id(AccessType::OpenAccess).build();
     let description_type = DescriptionIdentifier::init().id(DescriptionType::Primary).build();

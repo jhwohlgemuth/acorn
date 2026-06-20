@@ -12,6 +12,7 @@ use crate::prelude::{Error, PathBuf};
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{has_at_least_one_truthy, is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
+use crate::schema::Date;
 #[cfg(feature = "std")]
 use crate::util::Label;
 #[cfg(not(feature = "std"))]
@@ -539,30 +540,9 @@ pub struct ContributorPosition {
     #[validate(url)]
     pub schema_uri: String,
     /// Dates associated with contributor's involvement in a project or activity
-    #[validate(nested)]
+    #[validate(custom(function = "has_start_date"), nested)]
     #[serde(flatten)]
     pub date: Date,
-}
-///  Start and end dates for the associated metadata
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Date {
-    /// Associated data start date
-    /// ### Format
-    /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
-    ///
-    /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(required, custom(function = "is_date"))]
-    pub start_date: Option<String>,
-    /// Associated data end date
-    /// ### Format
-    /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
-    ///
-    /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_date"))]
-    pub end_date: Option<String>,
 }
 /// Metadata schema block containing the description of the RAiD and associated properties
 ///
@@ -652,7 +632,7 @@ pub struct Metadata {
     #[eserde(compat)]
     pub contributor: Option<Vec<Contributor>>,
     /// Dates associated with the RAiD metadata
-    #[validate(required, nested)]
+    #[validate(required, custom(function = "has_start_date"), nested)]
     #[eserde(compat)]
     pub date: Option<Date>,
     /// Metadata schema block containing the RAiD name and associated properties
@@ -793,7 +773,7 @@ pub struct OrganizationRole {
     #[validate(url)]
     pub schema_uri: Option<String>,
     /// Date information associated with the organization role
-    #[validate(nested)]
+    #[validate(custom(function = "has_start_date"), nested)]
     #[serde(flatten)]
     pub date: Date,
 }
@@ -1207,6 +1187,12 @@ fn has_leader(value: &Vec<Contributor>) -> Result<(), ValidationError> {
         "contributors",
         "Mark at least one contributor as leader",
     )
+}
+fn has_start_date(value: &Date) -> Result<(), ValidationError> {
+    match value.start_date.as_ref() {
+        | Some(start_date) if !start_date.trim().is_empty() => Ok(()),
+        | _ => Err(ValidationError::new("date").with_message("Provide valid start date".into())),
+    }
 }
 fn validate_contributors(value: &Metadata) -> Result<(), ValidationError> {
     match &value.contributor {

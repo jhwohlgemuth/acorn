@@ -6,7 +6,7 @@
 //!
 use crate::io::{archive, file_checksum, files_all, read_file, write_file, ApiResult, StringConversion};
 use crate::prelude::{copy, create_dir_all, PathBuf};
-use crate::util::Label;
+use crate::util::{ChecksumAlgorithm, Label};
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
@@ -22,26 +22,6 @@ pub trait Save {
     fn save<P>(&self, destination: P) -> ApiResult<PathBuf>
     where
         P: Into<PathBuf> + Clone;
-}
-/// Cryptographic hash algorithm used for BagIt checksum verification.
-///
-/// Specifies the algorithm to use when generating and verifying file checksums
-/// for bag integrity validation.
-#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, JsonSchema)]
-pub enum ChecksumAlgorithm {
-    /// SHA-256 hash (recommended)
-    #[default]
-    #[display("sha256")]
-    SHA256,
-    /// MD5 hash (least secure, legacy support)
-    #[display("md5")]
-    MD5,
-    /// SHA-1 hash (deprecated, legacy support)
-    #[display("sha1")]
-    SHA1,
-    /// SHA-512 hash (highest security)
-    #[display("sha512")]
-    SHA512,
 }
 /// Container structure for details of BagIt formatted data.
 ///
@@ -149,7 +129,9 @@ impl Bag {
                         .map(|x| {
                             let checksum = x.first().copied().unwrap_or("");
                             let payload_path = base_directory.join(x.get(1).copied().unwrap_or(""));
-                            let calculated = file_checksum(payload_path, Some(checksum_algorithm)).unwrap_or_default();
+                            let calculated = file_checksum(payload_path, Some(checksum_algorithm))
+                                .map(|checksum| checksum.checksum_value)
+                                .unwrap_or_default();
                             calculated.eq(checksum)
                         })
                         .collect::<Vec<_>>();
@@ -332,25 +314,9 @@ impl Save for BagInfo {
 impl From<ChecksumAlgorithm> for &'static ring::digest::Algorithm {
     fn from(value: ChecksumAlgorithm) -> Self {
         match value {
-            | ChecksumAlgorithm::SHA256 => &ring::digest::SHA256,
-            | ChecksumAlgorithm::SHA512 => &ring::digest::SHA512,
+            | ChecksumAlgorithm::Sha256 => &ring::digest::SHA256,
+            | ChecksumAlgorithm::Sha512 => &ring::digest::SHA512,
             | _ => unimplemented!(),
         }
-    }
-}
-impl From<&str> for ChecksumAlgorithm {
-    fn from(value: &str) -> Self {
-        match value.to_lowercase().as_str() {
-            | "sha256" => ChecksumAlgorithm::SHA256,
-            | "md5" => ChecksumAlgorithm::MD5,
-            | "sha1" => ChecksumAlgorithm::SHA1,
-            | "sha512" => ChecksumAlgorithm::SHA512,
-            | _ => ChecksumAlgorithm::default(),
-        }
-    }
-}
-impl From<String> for ChecksumAlgorithm {
-    fn from(value: String) -> Self {
-        ChecksumAlgorithm::from(value.as_str())
     }
 }

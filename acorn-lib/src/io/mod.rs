@@ -30,7 +30,7 @@ use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsEx
 use crate::util::constants::app::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
-use crate::util::{generate_guid, suffix, Label, MimeType, SemanticVersion, StringConversion, ToStrings};
+use crate::util::{generate_guid, suffix, Checksum, ChecksumAlgorithm, Label, MimeType, SemanticVersion, StringConversion, ToStrings};
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::fmt;
@@ -67,10 +67,10 @@ pub mod mcp;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
 
-/// An RSA key pair consisting of a private key and its corresponding public key
-pub type RsaKeyPair = (rsa::RsaPrivateKey, rsa::RsaPublicKey);
 /// Utility type alias for database and API operation results
 pub type ApiResult<T> = Result<T, Report>;
+/// An RSA key pair consisting of a private key and its corresponding public key
+pub type RsaKeyPair = (rsa::RsaPrivateKey, rsa::RsaPublicKey);
 /// Add `from_command` trait to `SemanticVersion`
 pub trait FromCommand {
     /// Convert a command name to a `SemanticVersion` value
@@ -706,12 +706,13 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<Pat
 /// let checksum = file_checksum("path/to/file", Some(&SHA512));
 /// assert!(checksum.is_some());
 /// ```
-pub fn file_checksum<P>(path: P, algorithm: Option<&'static ring::digest::Algorithm>) -> Option<String>
+pub fn file_checksum<P>(path: P, algorithm: Option<&'static ring::digest::Algorithm>) -> Option<Checksum>
 where
     P: Into<PathBuf>,
 {
     let value = path.into();
     let digest_algorithm = algorithm.unwrap_or(&SHA256);
+    let checksum_algorithm = ChecksumAlgorithm::from(digest_algorithm);
     match File::open(value.clone()) {
         | Ok(file) => {
             let mut buffer = [0; 1024];
@@ -737,7 +738,10 @@ where
             }
             let digest = context.finish();
             let result = HEXUPPER.encode(digest.as_ref());
-            Some(result.to_lowercase())
+            Some(Checksum {
+                algorithm: checksum_algorithm,
+                checksum_value: result.to_lowercase(),
+            })
         }
         | Err(err) => {
             error!(
