@@ -49,6 +49,7 @@ use tracing::{debug, error, trace};
 use validator::{Validate, ValidationError};
 
 pub mod aspect;
+pub mod s3a;
 use aspect::AspectFramework;
 
 type ValidationResult = core::result::Result<(), ValidationError>;
