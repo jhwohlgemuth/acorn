@@ -11,6 +11,7 @@
 //! - [InvenioRDM Documentation](https://inveniordm.docs.cern.ch/)
 //! - [Metadata Reference](https://inveniordm.docs.cern.ch/reference/metadata/)
 //!
+use crate::schema::research_activity::s3a::Status;
 use crate::schema::validate::{is_doi, is_iso_639_language_code};
 use core::fmt;
 use schemars::JsonSchema;
@@ -105,10 +106,8 @@ pub struct CodeMeta {
     // TODO: Validate against database
     pub programming_language: Option<String>,
     /// Development status (e.g., "Active", from repostatus vocabulary)
-    // TODO: Add repostatus enum
-    pub development_status: Option<String>,
+    pub development_status: Option<Status>,
 }
-
 /// Contributor to the resource
 ///
 /// Similar structure to Creator but with required role field.
