@@ -11,7 +11,9 @@
 //! - [InvenioRDM Documentation](https://inveniordm.docs.cern.ch/)
 //! - [Metadata Reference](https://inveniordm.docs.cern.ch/reference/metadata/)
 //!
+use super::datacite;
 use crate::schema::research_activity::s3a::Status;
+use crate::schema::standard::crosswalk::{SchemaBuilder, SchemaExtractor};
 use crate::schema::validate::{is_doi, is_iso_639_language_code};
 use core::fmt;
 use schemars::JsonSchema;
@@ -668,5 +670,16 @@ impl fmt::Display for AccessLevel {
             | AccessLevel::Public => write!(f, "public"),
             | AccessLevel::Restricted => write!(f, "restricted"),
         }
+    }
+}
+impl From<datacite::Record> for Record {
+    fn from(record: datacite::Record) -> Self {
+        let fields = record.extract_fields();
+        Record::build_from_fields(&fields).unwrap_or_else(|err| panic!("failed to convert DataCite Record to Invenio Record: {err}"))
+    }
+}
+impl From<&datacite::Record> for Record {
+    fn from(record: &datacite::Record) -> Self {
+        Record::from(record.clone())
     }
 }

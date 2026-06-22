@@ -9,6 +9,8 @@
 //! References:
 //! - [DCAT v3](https://www.w3.org/TR/vocab-dcat-3/)
 //! - [DCAT v2](https://www.w3.org/TR/vocab-dcat-2/)
+use super::datacite;
+use crate::schema::standard::crosswalk::{SchemaBuilder, SchemaExtractor};
 use crate::schema::validate::{is_url, is_urls};
 use crate::schema::Date as PeriodOfTime;
 use crate::util::Checksum;
@@ -459,4 +461,15 @@ pub struct Relationship {
     /// IRI of the role the related resource plays (`dcat:hadRole`)
     #[serde(rename = "hadRole")]
     pub had_role: String,
+}
+impl From<datacite::Record> for Dataset {
+    fn from(record: datacite::Record) -> Self {
+        let fields = record.extract_fields();
+        Dataset::build_from_fields(&fields).unwrap_or_else(|err| panic!("failed to convert DataCite Record to DCAT Dataset: {err}"))
+    }
+}
+impl From<&datacite::Record> for Dataset {
+    fn from(record: &datacite::Record) -> Self {
+        Dataset::from(record.clone())
+    }
 }

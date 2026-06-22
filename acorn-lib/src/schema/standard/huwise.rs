@@ -1,5 +1,7 @@
 //! HuWise dataset schema models
 //!
+use super::datacite;
+use crate::schema::standard::crosswalk::{SchemaBuilder, SchemaExtractor};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -408,4 +410,15 @@ pub struct Datacite {
     pub description: Option<String>,
     /// Geolocation value
     pub geolocation: Option<String>,
+}
+impl From<datacite::Record> for Dataset {
+    fn from(record: datacite::Record) -> Self {
+        let fields = record.extract_fields();
+        Dataset::build_from_fields(&fields).unwrap_or_else(|err| panic!("failed to convert DataCite Record to HuWise Dataset: {err}"))
+    }
+}
+impl From<&datacite::Record> for Dataset {
+    fn from(record: &datacite::Record) -> Self {
+        Self::from(record.clone())
+    }
 }

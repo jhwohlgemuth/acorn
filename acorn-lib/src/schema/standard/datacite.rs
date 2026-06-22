@@ -3,10 +3,11 @@
 //! These types model the DataCite Metadata Schema 4.6 structure, including
 //! DOI records, creators, contributors, related identifiers, funding
 //! references, geolocation, rights, and other metadata properties
-use super::huwise;
+use super::{dcat, huwise, invenio};
 #[cfg(feature = "std")]
 use crate::io::License;
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
+use crate::schema::standard::crosswalk::{SchemaBuilder, SchemaExtractor};
 use crate::schema::validate::{is_doi, is_iso_639_1_language_code, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
 #[cfg(not(feature = "std"))]
 use crate::util::License;
@@ -463,9 +464,9 @@ pub struct Affiliation {
     pub scheme_uri: Option<String>,
 }
 /// Alternate identifier per DataCite 4.6 property 11
-/// 
+///
 /// An identifier other than the primary Identifier applied to the resource being registered.
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/alternateidentifier/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -495,7 +496,7 @@ pub struct Attributes {
     /// Publisher information (property 4)
     pub publisher: Option<Publisher>,
     /// Publication year per DataCite 4.6 property 5
-    /// 
+    ///
     /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publicationyear/> for details
     #[validate(custom(function = "is_year"))]
     #[serde(rename = "publicationYear")]
@@ -573,7 +574,7 @@ pub struct AwardNumber {
     pub value: String,
 }
 /// Contributor per DataCite 4.6 property 7
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/contributor/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -601,7 +602,7 @@ pub struct Contributor {
     pub affiliation: Option<Vec<Affiliation>>,
 }
 /// Creator or author information per DataCite 4.6 property 2
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/creator/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -633,7 +634,7 @@ pub struct Creators {
     pub creator: Vec<Creator>,
 }
 /// Date per DataCite 4.6 property 8
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/date/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -657,7 +658,7 @@ pub struct Dates {
     pub date: Vec<Date>,
 }
 /// Resource description per DataCite 4.6 property 17
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/description/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -684,9 +685,9 @@ pub struct Descriptions {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Formats {
     /// Format list per DataCite 4.6 property 14
-    /// 
+    ///
     /// Use file extension or MIME type where possible, e.g., PDF, XML, MPG or application/pdf, text/xml, video/mpeg. Free text.
-    /// 
+    ///
     /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/format/> for details
     pub format: Vec<String>,
 }
@@ -704,9 +705,9 @@ pub struct FunderIdentifier {
     pub value: String,
 }
 /// Funding reference per DataCite 4.6 property 19
-/// 
+///
 /// Information about financial support (funding) for the resource being registered.
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/fundingreference/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -744,9 +745,9 @@ pub struct FundingReferences {
     pub funding_reference: Vec<KernelFundingReference>,
 }
 /// Geographic location per DataCite 4.6 property 18
-/// 
+///
 /// Spatial region or named place where the data was gathered or about which the data is focused.
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/geolocation/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -822,7 +823,7 @@ pub struct GeoLocations {
     pub geo_location: Vec<GeoLocation>,
 }
 /// DataCite kernel-4 XML resource identifier per DataCite 4.6 property 1
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/identifier/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Identifier {
@@ -872,7 +873,7 @@ pub struct NameIdentifier {
     pub scheme_uri: Option<String>,
 }
 /// Publisher information per DataCite 4.6 property 4
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publisher/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -905,9 +906,9 @@ pub struct Record {
     pub attributes: Attributes,
 }
 /// Related identifier per DataCite 4.6 property 12
-/// 
+///
 /// Identifiers of related resources. These must be globally unique identifiers.
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/relatedidentifier/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -962,7 +963,7 @@ pub struct Resource {
     /// Publisher name (DataCite 4.6 property 4)
     pub publisher: String,
     /// Publication year per DataCite 4.6 property 5
-    /// 
+    ///
     /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publicationyear/> for details
     #[validate(custom(function = "is_year"))]
     #[serde(rename = "publicationYear")]
@@ -977,7 +978,7 @@ pub struct Resource {
     #[validate(nested)]
     pub dates: Option<Dates>,
     /// Language code per DataCite 4.6 property 9
-    /// 
+    ///
     /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/language/> for details
     #[validate(custom(function = "is_iso_639_1_language_code"))]
     pub language: Option<String>,
@@ -991,7 +992,7 @@ pub struct Resource {
     #[validate(nested)]
     pub formats: Option<Formats>,
     /// Version per DataCite 4.6 property 15
-    /// 
+    ///
     /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/version/> for details
     #[validate(custom(function = "is_semantic_version"))]
     pub version: Option<String>,
@@ -1012,7 +1013,7 @@ pub struct Resource {
     pub funding_references: Option<FundingReferences>,
 }
 /// Resource type information per DataCite 4.6 property 10
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/resourcetype/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -1025,7 +1026,7 @@ pub struct ResourceTypes {
     pub resource_type: Option<String>,
 }
 /// Rights information per DataCite 4.6 property 16
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/rights/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -1060,14 +1061,14 @@ pub struct RightsList {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Sizes {
     /// Size list per DataCite 4.6 property 13
-    /// 
+    ///
     /// Size (e.g., bytes, pages, inches, etc.) or duration (extent), e.g., hours, minutes, days, etc., of a resource. Free text.
-    /// 
+    ///
     /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/size/> for details
     pub size: Vec<String>,
 }
 /// Subject keyword per DataCite 4.6 property 6
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/subject/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -1101,7 +1102,7 @@ pub struct Subjects {
     pub subject: Vec<Subject>,
 }
 /// Dataset title per DataCite 4.6 property 3
-/// 
+///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/title/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -1175,10 +1176,32 @@ impl From<huwise::Dataset> for Record {
         }
     }
 }
-/// Convert a HuWise catalog into a DataCite catalog
-pub fn from_huwise(catalog: huwise::Catalog) -> Catalog {
-    catalog.into_iter().map(Record::from).collect()
+impl From<dcat::Dataset> for Record {
+    fn from(dataset: dcat::Dataset) -> Self {
+        let fields = dataset.extract_fields();
+        Record::build_from_fields(&fields).unwrap_or_else(|err| panic!("failed to convert DCAT Dataset to DataCite Record: {err}"))
+    }
+}
+impl From<&dcat::Dataset> for Record {
+    fn from(dataset: &dcat::Dataset) -> Self {
+        Record::from(dataset.clone())
+    }
+}
+impl From<invenio::Record> for Record {
+    fn from(record: invenio::Record) -> Self {
+        let fields = record.extract_fields();
+        Record::build_from_fields(&fields).unwrap_or_else(|err| panic!("failed to convert Invenio Record to DataCite Record: {err}"))
+    }
+}
+impl From<&invenio::Record> for Record {
+    fn from(record: &invenio::Record) -> Self {
+        Record::from(record.clone())
+    }
 }
 fn default_identifier_type() -> String {
     DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY[0].to_string()
+}
+/// Convert a HuWise catalog into a DataCite catalog
+pub fn from_huwise(catalog: huwise::Catalog) -> Catalog {
+    catalog.into_iter().map(Record::from).collect()
 }
