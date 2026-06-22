@@ -463,10 +463,14 @@ pub struct Affiliation {
     pub scheme_uri: Option<String>,
 }
 /// Alternate identifier per DataCite 4.6 property 11
+/// 
+/// An identifier other than the primary Identifier applied to the resource being registered.
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/alternateidentifier/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct AlternateIdentifier {
-    /// Alternate identifier value
+    /// Alternate identifier value (free text)
     #[serde(rename = "alternateIdentifier")]
     pub alternate_identifier: String,
     /// Alternate identifier type (free text)
@@ -490,7 +494,9 @@ pub struct Attributes {
     pub creators: Option<Vec<Creator>>,
     /// Publisher information (property 4)
     pub publisher: Option<Publisher>,
-    /// Publication year (property 5)
+    /// Publication year per DataCite 4.6 property 5
+    /// 
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publicationyear/> for details
     #[validate(custom(function = "is_year"))]
     #[serde(rename = "publicationYear")]
     pub publication_year: Option<i32>,
@@ -567,6 +573,8 @@ pub struct AwardNumber {
     pub value: String,
 }
 /// Contributor per DataCite 4.6 property 7
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/contributor/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Contributor {
@@ -593,6 +601,8 @@ pub struct Contributor {
     pub affiliation: Option<Vec<Affiliation>>,
 }
 /// Creator or author information per DataCite 4.6 property 2
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/creator/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Creator {
@@ -623,6 +633,8 @@ pub struct Creators {
     pub creator: Vec<Creator>,
 }
 /// Date per DataCite 4.6 property 8
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/date/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Date {
@@ -645,11 +657,13 @@ pub struct Dates {
     pub date: Vec<Date>,
 }
 /// Resource description per DataCite 4.6 property 17
-// TODO: Add prose validation
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/description/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Description {
     /// Description text
+    // TODO: Add prose validation
     #[serde(alias = "$text")]
     pub description: String,
     /// Description type
@@ -669,7 +683,11 @@ pub struct Descriptions {
 /// Container for `<formats>` XML element
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Formats {
-    /// Format list
+    /// Format list per DataCite 4.6 property 14
+    /// 
+    /// Use file extension or MIME type where possible, e.g., PDF, XML, MPG or application/pdf, text/xml, video/mpeg. Free text.
+    /// 
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/format/> for details
     pub format: Vec<String>,
 }
 /// Funder identifier element with typed attribute (property 19.2)
@@ -686,6 +704,10 @@ pub struct FunderIdentifier {
     pub value: String,
 }
 /// Funding reference per DataCite 4.6 property 19
+/// 
+/// Information about financial support (funding) for the resource being registered.
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/fundingreference/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct FundingReference {
@@ -722,6 +744,10 @@ pub struct FundingReferences {
     pub funding_reference: Vec<KernelFundingReference>,
 }
 /// Geographic location per DataCite 4.6 property 18
+/// 
+/// Spatial region or named place where the data was gathered or about which the data is focused.
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/geolocation/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocation {
@@ -795,7 +821,9 @@ pub struct GeoLocations {
     #[serde(rename = "geoLocation")]
     pub geo_location: Vec<GeoLocation>,
 }
-/// DataCite kernel-4 XML resource identifier (property 1)
+/// DataCite kernel-4 XML resource identifier per DataCite 4.6 property 1
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/identifier/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Identifier {
     /// Identifier type (e.g., "DOI")
@@ -844,6 +872,8 @@ pub struct NameIdentifier {
     pub scheme_uri: Option<String>,
 }
 /// Publisher information per DataCite 4.6 property 4
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publisher/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Publisher {
@@ -875,6 +905,10 @@ pub struct Record {
     pub attributes: Attributes,
 }
 /// Related identifier per DataCite 4.6 property 12
+/// 
+/// Identifiers of related resources. These must be globally unique identifiers.
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/relatedidentifier/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct RelatedIdentifier {
@@ -916,62 +950,70 @@ pub struct RelatedIdentifiers {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Resource {
-    /// Resource identifier (property 1)
+    /// Resource identifier (DataCite 4.6 property 1)
     #[validate(nested)]
     pub identifier: Identifier,
-    /// Creators (property 2)
+    /// Creators (DataCite 4.6 property 2)
     #[validate(nested)]
     pub creators: Creators,
-    /// Titles (property 3)
+    /// Titles (DataCite 4.6 property 3)
     #[validate(nested)]
     pub titles: Titles,
-    /// Publisher name (property 4)
+    /// Publisher name (DataCite 4.6 property 4)
     pub publisher: String,
-    /// Publication year (property 5)
+    /// Publication year per DataCite 4.6 property 5
+    /// 
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publicationyear/> for details
     #[validate(custom(function = "is_year"))]
     #[serde(rename = "publicationYear")]
     pub publication_year: u32,
-    /// Resource type (property 10)
+    /// Resource type (DataCite 4.6 property 10)
     #[serde(rename = "resourceType")]
     pub resource_type: ResourceTypes,
-    /// Subjects (property 6)
+    /// Subjects (DataCite 4.6 property 6)
     #[validate(nested)]
     pub subjects: Option<Subjects>,
-    /// Dates (property 8)
+    /// Dates (DataCite 4.6 property 8)
     #[validate(nested)]
     pub dates: Option<Dates>,
-    /// Language code (property 9)
+    /// Language code per DataCite 4.6 property 9
+    /// 
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/language/> for details
     #[validate(custom(function = "is_iso_639_1_language_code"))]
     pub language: Option<String>,
-    /// Related identifiers (property 12)
+    /// Related identifiers (DataCite 4.6 property 12)
     #[serde(rename = "relatedIdentifiers")]
     pub related_identifiers: Option<RelatedIdentifiers>,
-    /// Sizes (property 13)
+    /// Sizes (DataCite 4.6 property 13)
     #[validate(nested)]
     pub sizes: Option<Sizes>,
-    /// Formats (property 14)
+    /// Formats (DataCite 4.6 property 14)
     #[validate(nested)]
     pub formats: Option<Formats>,
-    /// Version (property 15)
+    /// Version per DataCite 4.6 property 15
+    /// 
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/version/> for details
     #[validate(custom(function = "is_semantic_version"))]
     pub version: Option<String>,
-    /// Rights list (property 16)
+    /// Rights list (DataCite 4.6 property 16)
     #[validate(nested)]
     #[serde(rename = "rightsList")]
     pub rights_list: Option<RightsList>,
-    /// Descriptions (property 17)
+    /// Descriptions (DataCite 4.6 property 17)
     #[validate(nested)]
     pub descriptions: Option<Descriptions>,
-    /// Geographic locations (property 18)
+    /// Geographic locations (DataCite 4.6 property 18)
     #[validate(nested)]
     #[serde(rename = "geoLocations")]
     pub geo_locations: Option<GeoLocations>,
-    /// Funding references (property 19)
+    /// Funding references (DataCite 4.6 property 19)
     #[validate(nested)]
     #[serde(rename = "fundingReferences")]
     pub funding_references: Option<FundingReferences>,
 }
 /// Resource type information per DataCite 4.6 property 10
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/resourcetype/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct ResourceTypes {
@@ -983,6 +1025,8 @@ pub struct ResourceTypes {
     pub resource_type: Option<String>,
 }
 /// Rights information per DataCite 4.6 property 16
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/rights/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Rights {
@@ -1015,10 +1059,16 @@ pub struct RightsList {
 /// Container for `<sizes>` XML element
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Sizes {
-    /// Size list
+    /// Size list per DataCite 4.6 property 13
+    /// 
+    /// Size (e.g., bytes, pages, inches, etc.) or duration (extent), e.g., hours, minutes, days, etc., of a resource. Free text.
+    /// 
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/size/> for details
     pub size: Vec<String>,
 }
 /// Subject keyword per DataCite 4.6 property 6
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/subject/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Subject {
@@ -1051,6 +1101,8 @@ pub struct Subjects {
     pub subject: Vec<Subject>,
 }
 /// Dataset title per DataCite 4.6 property 3
+/// 
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/title/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Title {
