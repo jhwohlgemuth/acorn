@@ -1,8 +1,11 @@
 use acorn::analyzer;
-use acorn::io::Executor;
+use acorn::io::{ApiResult, Executor};
+use acorn::prelude::Path;
 use acorn::util::MimeType;
 use clap::ValueEnum;
+use color_eyre::eyre::eyre;
 use derive_more::Display;
+use serde_json::Value;
 
 /// Database backend used for local cache and history tables.
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq, ValueEnum)]
@@ -195,6 +198,14 @@ impl From<Executor> for ExecutorArgument {
         }
     }
 }
+impl FileFormat {
+    pub fn is_structured(&self) -> bool {
+        match self {
+            | FileFormat::Cff | FileFormat::Json | FileFormat::Yaml => true,
+            | _ => false,
+        }
+    }
+}
 impl From<FileFormat> for MimeType {
     fn from(format: FileFormat) -> Self {
         match format {
@@ -248,5 +259,48 @@ impl From<analyzer::Standard> for Standard {
             | analyzer::Standard::Raid => Standard::Raid,
             | analyzer::Standard::Text => Standard::Text,
         }
+    }
+}
+impl Standard {
+    pub(crate) fn _crosswalk(&self, target: Standard, _content: &str, _mime: MimeType, _format: &FileFormat) -> ApiResult<String> {
+        match self {
+            | Standard::Datacite => self.unsupported(target),
+            | Standard::Dcat => self.unsupported(target),
+            | Standard::Invenio => self.unsupported(target),
+            | Standard::Huwise => self.unsupported(target),
+            | _ => self.unsupported(target),
+        }
+    }
+    pub(crate) fn infer(path: &Path, content: &str, mime: &MimeType) -> ApiResult<Standard> {
+        let root = match mime {
+            | MimeType::Json => {
+                serde_json::from_str(content).map_err(|why| eyre!("Unable to infer source schema for {} — invalid JSON ({why})", path.display()))
+            }
+            | MimeType::Yaml => {
+                serde_norway::from_str(content).map_err(|why| eyre!("Unable to infer source schema for {} — invalid YAML ({why})", path.display()))
+            }
+            | _ => Err(eyre!("Unable to infer source schema for {} — unsupported file type", path.display())),
+        };
+        match root {
+            | Ok(Value::Object(map)) => Ok(analyzer::Standard::from(&map).into()),
+            | Ok(Value::Array(values)) => match values.into_iter().next() {
+                | Some(Value::Object(map)) => Ok(analyzer::Standard::from(&map).into()),
+                | Some(_) => Err(eyre!(
+                    "Unable to infer source schema for {} — array items must be objects",
+                    path.display()
+                )),
+                | None => Err(eyre!("Unable to infer source schema for {} — empty array", path.display())),
+            },
+            | Ok(_) => Err(eyre!(
+                "Unable to infer source schema for {} — expected object or array of objects",
+                path.display()
+            )),
+            | Err(why) => Err(why),
+        }
+    }
+    pub(crate) fn unsupported(&self, target: Standard) -> ApiResult<String> {
+        Err(eyre!(
+            "Unsupported metadata crosswalk pair: {self} -> {target} (supported: datacite, dcat, invenio, huwise)"
+        ))
     }
 }

@@ -1,7 +1,6 @@
 use crate::cli::arguments::{FileFormat, Standard};
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
-use acorn::analyzer;
 use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::current_date;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
@@ -11,12 +10,11 @@ use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::{datacite, dcat, huwise, invenio};
 use acorn::util::{format_bytes, regex_join, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
+use bon::Builder;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use core::iter::once;
 use owo_colors::OwoColorize;
-#[cfg(feature = "pdf")]
-use playwright::{api::Page, Playwright};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -28,7 +26,6 @@ mod powerpoint;
 
 trait ExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a>;
-
     fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
         Box::pin(async move {
             let _request = request;
@@ -44,13 +41,18 @@ enum Batch<T> {
     One(T),
     Many(Vec<T>),
 }
+#[derive(Builder, Debug, Default)]
+#[builder(start_fn = init)]
 struct ExportRequest {
     output: Option<PathBuf>,
     path: Option<PathBuf>,
+    #[builder(default)]
     format: FileFormat,
     reference: Option<PathBuf>,
     combine: bool,
+    #[builder(default)]
     progress_type: ProgressType,
+    #[builder(default)]
     options: CommandOptions,
 }
 struct CffExportHandler;
@@ -71,6 +73,26 @@ impl<T> Batch<T> {
                 .map(|(index, value)| f(value).map_err(|why| eyre!("Failed to convert record at index {index} — {why}")))
                 .collect::<ApiResult<Vec<_>>>()
                 .map(Batch::Many),
+        }
+    }
+    fn parse(content: &str, mime: MimeType) -> ApiResult<Batch<T>>
+    where
+        T: DeserializeOwned,
+    {
+        match mime {
+            | MimeType::Json => serde_json::from_str(content).map_err(|why| eyre!("Failed to parse JSON content — {why}")),
+            | MimeType::Yaml => serde_norway::from_str(content).map_err(|why| eyre!("Failed to parse YAML content — {why}")),
+            | _ => Err(eyre!("Content must be JSON or YAML")),
+        }
+    }
+    fn serialize(&self, format: &FileFormat) -> ApiResult<String>
+    where
+        T: Serialize,
+    {
+        match format {
+            | FileFormat::Json => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON output — {why}")),
+            | FileFormat::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML output — {why}")),
+            | _ => Err(eyre!("Output format must be JSON or YAML")),
         }
     }
 }
@@ -104,11 +126,10 @@ impl ExportHandler for StructuredExportHandler {
             .await
         })
     }
-
     fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
         Box::pin(async move {
             let extension = request.format.to_string();
-            export_as_crosswalk_format(
+            export_as_format_crosswalk(
                 &request.path,
                 request.options,
                 &request.format,
@@ -149,7 +170,7 @@ impl ExportHandler for PdfExportHandler {
             #[cfg(feature = "pdf")]
             {
                 match resolve_paths(&_request.path, &_request.options).await {
-                    | Ok(paths) => match initialize_pdf_page().await {
+                    | Ok(paths) => match pdf::initialize_page().await {
                         | Ok(page) => {
                             let page = &page;
                             let output = _request.output.clone();
@@ -248,59 +269,6 @@ impl ExportHandler for PowerPointExportHandler {
         })
     }
 }
-fn build_export_options(
-    branch: &Option<String>,
-    commit: &Option<String>,
-    filter: &[String],
-    ignore: &[String],
-    merge_request: bool,
-    offline: bool,
-    is_silent: bool,
-    threads: usize,
-) -> CommandOptions {
-    CommandOptions::init()
-        .maybe_branch(branch.clone())
-        .maybe_commit(commit.clone())
-        .maybe_filter(regex_join(filter))
-        .maybe_ignore(regex_join(ignore))
-        .merge_request(merge_request)
-        .offline(offline)
-        .quiet(is_silent)
-        .threads(threads)
-        .build()
-}
-fn build_export_request(
-    output: &Option<PathBuf>,
-    path: &Option<PathBuf>,
-    format: &FileFormat,
-    reference: &Option<PathBuf>,
-    combine: bool,
-    progress_type: ProgressType,
-    options: CommandOptions,
-) -> ExportRequest {
-    ExportRequest {
-        output: output.clone(),
-        path: path.clone(),
-        format: format.clone(),
-        reference: reference.clone(),
-        combine,
-        progress_type,
-        options,
-    }
-}
-fn should_crosswalk(format: &FileFormat, from: Option<Standard>, to: Option<Standard>) -> bool {
-    match (from.is_some() || to.is_some(), format) {
-        | (true, FileFormat::Json | FileFormat::Yaml) => true,
-        | _ => false,
-    }
-}
-async fn dispatch_export(exporter: Box<dyn ExportHandler>, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiResult<()> {
-    if should_crosswalk(&request.format, from, to) {
-        exporter.crosswalk(request, from, to).await
-    } else {
-        exporter.export(request).await
-    }
-}
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     output: &Option<PathBuf>,
@@ -325,11 +293,32 @@ pub async fn run(
         | true => ProgressType::Silent,
         | false => ProgressType::Bar,
     };
-    let options = build_export_options(branch, commit, filter, ignore, *merge_request, offline, is_silent, threads);
+    let options = CommandOptions::init()
+        .maybe_branch(branch.clone())
+        .maybe_commit(commit.clone())
+        .maybe_filter(regex_join(filter))
+        .maybe_ignore(regex_join(ignore))
+        .merge_request(*merge_request)
+        .offline(offline)
+        .quiet(is_silent)
+        .threads(threads)
+        .build();
     preflight!(&options);
-    let request = build_export_request(output, path, format, reference, *combine, progress_type, options);
+    let request = ExportRequest::init()
+        .maybe_output(output.clone())
+        .maybe_path(path.clone())
+        .format(format.clone())
+        .maybe_reference(reference.clone())
+        .combine(*combine)
+        .progress_type(progress_type)
+        .options(options)
+        .build();
     let exporter = exporter_for(&request.format);
-    dispatch_export(exporter, request, *from, *to).await
+    if (from.is_some() || to.is_some()) && format.is_structured() {
+        exporter.crosswalk(request, *from, *to).await
+    } else {
+        exporter.export(request).await
+    }
 }
 async fn export_as_format(
     path: &Option<PathBuf>,
@@ -383,7 +372,7 @@ async fn export_as_format(
                     Ok(())
                 }
                 | Err(why) => {
-                    fail!("Generate {} - {}", format, why);
+                    fail!("Generate {} — {}", format, why);
                     exit(exitcode::DATAERR);
                 }
             }
@@ -391,31 +380,8 @@ async fn export_as_format(
         | Err(why) => Err(why),
     }
 }
-#[cfg(feature = "pdf")]
-fn install_chromium(playwright: Playwright) -> ApiResult<Playwright> {
-    playwright
-        .install_chromium()
-        .map_err(|why| eyre!("Failed to install Chromium for Playwright — {why}"))
-        .map(|_| playwright)
-}
-#[cfg(feature = "pdf")]
-async fn initialize_pdf_page() -> ApiResult<Page> {
-    match Playwright::initialize()
-        .await
-        .map_err(|why| eyre!("Failed to initialize Playwright — {why}"))
-        .and_then(install_chromium)
-    {
-        | Ok(playwright) => match playwright.chromium().launcher().headless(true).launch().await {
-            | Ok(browser) => match browser.context_builder().build().await {
-                | Ok(context) => context.new_page().await.map_err(|why| eyre!("Failed to create browser page — {why}")),
-                | Err(why) => Err(eyre!("Failed to create browser context — {why}")),
-            },
-            | Err(why) => Err(eyre!("Failed to launch Chromium — {why}")),
-        },
-        | Err(why) => Err(why),
-    }
-}
-async fn export_as_crosswalk_format(
+#[allow(clippy::too_many_arguments)]
+async fn export_as_format_crosswalk(
     path: &Option<PathBuf>,
     options: CommandOptions,
     format: &FileFormat,
@@ -426,7 +392,7 @@ async fn export_as_crosswalk_format(
     to: Option<Standard>,
 ) -> ApiResult<()> {
     match to {
-        | Some(target_standard) => {
+        | Some(target) => {
             let threads = options.threads;
             match resolve_paths(path, &options).await {
                 | Ok(resolved_paths) => {
@@ -447,15 +413,14 @@ async fn export_as_crosswalk_format(
                                 let output = output_path(&item, &ext);
                                 match read_file(item.clone()) {
                                     | Ok(content) => {
-                                        let source_mime = MimeType::from_path(item.clone());
-                                        let source_standard = match from {
+                                        let mime = MimeType::from_path(item.clone());
+                                        let source = match from {
                                             | Some(value) => Ok(value),
-                                            | None => infer_source_standard(&item, &content, source_mime.clone()),
+                                            | None => Standard::infer(&item, &content, &mime),
                                         };
-                                        match source_standard.and_then(|resolved_standard| {
-                                            crosswalk_content(&content, source_mime, format, resolved_standard, target_standard)
-                                        }) {
-                                            | Ok(converted) => write_file(output, converted),
+                                        let processed = source.and_then(|resolved| crosswalk(resolved, target, &content, mime, format));
+                                        match processed {
+                                            | Ok(content) => write_file(output, content),
                                             | Err(why) => Err(why),
                                         }
                                     }
@@ -473,7 +438,7 @@ async fn export_as_crosswalk_format(
                             Ok(())
                         }
                         | Err(why) => {
-                            fail!("Generate {} crosswalk - {}", format, why);
+                            fail!("Generate {} crosswalk — {}", format, why);
                             exit(exitcode::DATAERR);
                         }
                     }
@@ -486,152 +451,81 @@ async fn export_as_crosswalk_format(
         )),
     }
 }
-fn crosswalk_content(
-    content: &str,
-    source_mime: MimeType,
-    output_format: &FileFormat,
-    source_standard: Standard,
-    target_standard: Standard,
-) -> ApiResult<String> {
+fn exporter_for(format: &FileFormat) -> Box<dyn ExportHandler> {
+    match format {
+        | FileFormat::Cff => Box::new(CffExportHandler),
+        | FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml => Box::new(StructuredExportHandler),
+        | FileFormat::Bag => Box::new(BagExportHandler),
+        | FileFormat::Pdf => Box::new(PdfExportHandler),
+        | FileFormat::Powerpoint => Box::new(PowerPointExportHandler),
+    }
+}
+fn crosswalk(source_standard: Standard, target: Standard, content: &str, mime: MimeType, format: &FileFormat) -> ApiResult<String> {
     match source_standard {
-        | Standard::Datacite => match parse_batch::<datacite::Record>(content, source_mime) {
-            | Ok(source) => match target_standard {
-                | Standard::Datacite => serialize_batch(&source, output_format),
-                | Standard::Dcat => source
-                    .map(|record| Ok(dcat::Dataset::from(record)))
-                    .and_then(|target| serialize_batch(&target, output_format)),
+        | Standard::Datacite => match Batch::<datacite::Record>::parse(content, mime) {
+            | Ok(source) => match target {
+                | Standard::Datacite => source.serialize(format),
+                | Standard::Dcat => source.map(|value| Ok(dcat::Dataset::from(value))).and_then(|data| data.serialize(format)),
                 | Standard::Invenio => source
-                    .map(|record| Ok(datacite_to_invenio_safe(record)))
-                    .and_then(|target| serialize_batch(&target, output_format)),
+                    .map(|value| Ok(datacite_to_invenio_safe(value)))
+                    .and_then(|data| data.serialize(format)),
                 | Standard::Huwise => source
-                    .map(|record| Ok(datacite_to_huwise_safe(record)))
-                    .and_then(|target| serialize_batch(&target, output_format)),
-                | _ => unsupported_crosswalk_pair(source_standard, target_standard),
+                    .map(|value| Ok(datacite_to_huwise_safe(value)))
+                    .and_then(|data| data.serialize(format)),
+                | _ => source_standard.unsupported(target),
             },
             | Err(why) => Err(why),
         },
-        | Standard::Dcat => match parse_batch::<dcat::Dataset>(content, source_mime) {
-            | Ok(source) => match target_standard {
-                | Standard::Dcat => serialize_batch(&source, output_format),
+        | Standard::Dcat => match Batch::<dcat::Dataset>::parse(content, mime) {
+            | Ok(source) => match target {
+                | Standard::Dcat => source.serialize(format),
+                | Standard::Datacite => source
+                    .map(|value| Ok(datacite::Record::from(value)))
+                    .and_then(|data| data.serialize(format)),
+                | Standard::Invenio => source
+                    .map(|value| Ok(datacite_to_invenio_safe(datacite::Record::from(value))))
+                    .and_then(|data| data.serialize(format)),
+                | Standard::Huwise => source
+                    .map(|value| Ok(datacite_to_huwise_safe(datacite::Record::from(value))))
+                    .and_then(|data| data.serialize(format)),
+                | _ => source_standard.unsupported(target),
+            },
+            | Err(why) => Err(why),
+        },
+        | Standard::Invenio => match Batch::<invenio::Record>::parse(content, mime) {
+            | Ok(source) => match target {
+                | Standard::Invenio => source.serialize(format),
+                | Standard::Datacite => source
+                    .map(|value| Ok(invenio_to_datacite_safe(value)))
+                    .and_then(|data| data.serialize(format)),
+                | Standard::Dcat => source
+                    .map(|value| Ok(dcat::Dataset::from(invenio_to_datacite_safe(value))))
+                    .and_then(|data| data.serialize(format)),
+                | Standard::Huwise => source
+                    .map(|value| Ok(datacite_to_huwise_safe(invenio_to_datacite_safe(value))))
+                    .and_then(|data| data.serialize(format)),
+                | _ => source_standard.unsupported(target),
+            },
+            | Err(why) => Err(why),
+        },
+        | Standard::Huwise => match Batch::<huwise::Dataset>::parse(content, mime) {
+            | Ok(source) => match target {
+                | Standard::Huwise => source.serialize(format),
                 | Standard::Datacite => source
                     .map(|dataset| Ok(datacite::Record::from(dataset)))
-                    .and_then(|target| serialize_batch(&target, output_format)),
-                | Standard::Invenio => source
-                    .map(|dataset| {
-                        let datacite_record = datacite::Record::from(dataset);
-                        Ok(datacite_to_invenio_safe(datacite_record))
-                    })
-                    .and_then(|target| serialize_batch(&target, output_format)),
-                | Standard::Huwise => source
-                    .map(|dataset| {
-                        let datacite_record = datacite::Record::from(dataset);
-                        Ok(datacite_to_huwise_safe(datacite_record))
-                    })
-                    .and_then(|target| serialize_batch(&target, output_format)),
-                | _ => unsupported_crosswalk_pair(source_standard, target_standard),
-            },
-            | Err(why) => Err(why),
-        },
-        | Standard::Invenio => match parse_batch::<invenio::Record>(content, source_mime) {
-            | Ok(source) => match target_standard {
-                | Standard::Invenio => serialize_batch(&source, output_format),
-                | Standard::Datacite => source
-                    .map(|record| Ok(invenio_to_datacite_safe(record)))
-                    .and_then(|target| serialize_batch(&target, output_format)),
+                    .and_then(|data| data.serialize(format)),
                 | Standard::Dcat => source
-                    .map(|record| {
-                        let datacite_record = invenio_to_datacite_safe(record);
-                        Ok(dcat::Dataset::from(datacite_record))
-                    })
-                    .and_then(|target| serialize_batch(&target, output_format)),
-                | Standard::Huwise => source
-                    .map(|record| {
-                        let datacite_record = invenio_to_datacite_safe(record);
-                        Ok(datacite_to_huwise_safe(datacite_record))
-                    })
-                    .and_then(|target| serialize_batch(&target, output_format)),
-                | _ => unsupported_crosswalk_pair(source_standard, target_standard),
-            },
-            | Err(why) => Err(why),
-        },
-        | Standard::Huwise => match parse_batch::<huwise::Dataset>(content, source_mime) {
-            | Ok(source) => match target_standard {
-                | Standard::Huwise => serialize_batch(&source, output_format),
-                | Standard::Datacite => source
-                    .map(|dataset| Ok(datacite::Record::from(dataset)))
-                    .and_then(|target| serialize_batch(&target, output_format)),
-                | Standard::Dcat => source
-                    .map(|dataset| {
-                        let datacite_record = datacite::Record::from(dataset);
-                        Ok(dcat::Dataset::from(datacite_record))
-                    })
-                    .and_then(|target| serialize_batch(&target, output_format)),
+                    .map(|value| Ok(dcat::Dataset::from(datacite::Record::from(value))))
+                    .and_then(|data| data.serialize(format)),
                 | Standard::Invenio => source
-                    .map(|dataset| {
-                        let datacite_record = datacite::Record::from(dataset);
-                        Ok(datacite_to_invenio_safe(datacite_record))
-                    })
-                    .and_then(|target| serialize_batch(&target, output_format)),
-                | _ => unsupported_crosswalk_pair(source_standard, target_standard),
+                    .map(|value| Ok(datacite_to_invenio_safe(datacite::Record::from(value))))
+                    .and_then(|data| data.serialize(format)),
+                | _ => source_standard.unsupported(target),
             },
             | Err(why) => Err(why),
         },
-        | _ => unsupported_crosswalk_pair(source_standard, target_standard),
+        | _ => source_standard.unsupported(target),
     }
-}
-fn parse_batch<T>(content: &str, source_mime: MimeType) -> ApiResult<Batch<T>>
-where
-    T: DeserializeOwned,
-{
-    match source_mime {
-        | MimeType::Json => serde_json::from_str(content).map_err(|why| eyre!("Failed to parse JSON source — {why}")),
-        | MimeType::Yaml => serde_norway::from_str(content).map_err(|why| eyre!("Failed to parse YAML source — {why}")),
-        | _ => Err(eyre!("Crosswalk source must be JSON or YAML")),
-    }
-}
-fn serialize_batch<T>(value: &Batch<T>, output_format: &FileFormat) -> ApiResult<String>
-where
-    T: Serialize,
-{
-    match output_format {
-        | FileFormat::Json => serde_json::to_string_pretty(value).map_err(|why| eyre!("Failed to serialize JSON output — {why}")),
-        | FileFormat::Yaml => serde_norway::to_string(value).map_err(|why| eyre!("Failed to serialize YAML output — {why}")),
-        | _ => Err(eyre!("Crosswalk output format must be JSON or YAML")),
-    }
-}
-fn infer_source_standard(path: &PathBuf, content: &str, source_mime: MimeType) -> ApiResult<Standard> {
-    let root = match source_mime {
-        | MimeType::Json => {
-            serde_json::from_str(content).map_err(|why| eyre!("Unable to infer source schema for {} — invalid JSON ({why})", path.display()))
-        }
-        | MimeType::Yaml => {
-            serde_norway::from_str(content).map_err(|why| eyre!("Unable to infer source schema for {} — invalid YAML ({why})", path.display()))
-        }
-        | _ => Err(eyre!("Unable to infer source schema for {} — unsupported file type", path.display())),
-    };
-    match root {
-        | Ok(serde_json::Value::Object(map)) => Ok(analyzer::Standard::from(&map).into()),
-        | Ok(serde_json::Value::Array(values)) => match values.into_iter().next() {
-            | Some(serde_json::Value::Object(map)) => Ok(analyzer::Standard::from(&map).into()),
-            | Some(_) => Err(eyre!(
-                "Unable to infer source schema for {} — array items must be objects",
-                path.display()
-            )),
-            | None => Err(eyre!("Unable to infer source schema for {} — empty array", path.display())),
-        },
-        | Ok(_) => Err(eyre!(
-            "Unable to infer source schema for {}: expected object or array of objects",
-            path.display()
-        )),
-        | Err(why) => Err(why),
-    }
-}
-fn unsupported_crosswalk_pair(source: Standard, target: Standard) -> ApiResult<String> {
-    Err(eyre!(
-        "Unsupported metadata crosswalk pair: {} -> {} (supported: datacite, dcat, invenio, huwise)",
-        source,
-        target
-    ))
 }
 fn datacite_to_invenio_safe(record: datacite::Record) -> invenio::Record {
     let datacite::Record { id, attributes, .. } = record;
@@ -855,15 +749,6 @@ fn invenio_to_datacite_safe(record: invenio::Record) -> datacite::Record {
         id: fallback_identifier,
         kind: "dois".to_string(),
         attributes,
-    }
-}
-fn exporter_for(format: &FileFormat) -> Box<dyn ExportHandler> {
-    match format {
-        | FileFormat::Cff => Box::new(CffExportHandler),
-        | FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml => Box::new(StructuredExportHandler),
-        | FileFormat::Bag => Box::new(BagExportHandler),
-        | FileFormat::Pdf => Box::new(PdfExportHandler),
-        | FileFormat::Powerpoint => Box::new(PowerPointExportHandler),
     }
 }
 

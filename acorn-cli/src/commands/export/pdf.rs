@@ -4,11 +4,12 @@
 //! generate a PDF output file.
 use crate::cli::CommandOptions;
 use crate::template::Convert;
-use acorn::io::InputOutput;
+use acorn::io::{ApiResult, InputOutput};
 use acorn::prelude::{absolute, create_dir_all, remove_file, ErrorKind, OpenOptions};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{Label, StringConversion};
-use playwright::api::Page;
+use color_eyre::eyre::eyre;
+use playwright::{api::Page, Playwright};
 use std::process::exit;
 use tracing::{debug, error};
 
@@ -95,4 +96,26 @@ pub async fn create(page: &Page, options: CommandOptions) {
     if let Some(index) = cleanup {
         let _remove = remove_file(index);
     }
+}
+pub(crate) async fn initialize_page() -> ApiResult<Page> {
+    match Playwright::initialize()
+        .await
+        .map_err(|why| eyre!("Failed to initialize Playwright — {why}"))
+        .and_then(install_chromium)
+    {
+        | Ok(playwright) => match playwright.chromium().launcher().headless(true).launch().await {
+            | Ok(browser) => match browser.context_builder().build().await {
+                | Ok(context) => context.new_page().await.map_err(|why| eyre!("Failed to create browser page — {why}")),
+                | Err(why) => Err(eyre!("Failed to create browser context — {why}")),
+            },
+            | Err(why) => Err(eyre!("Failed to launch Chromium — {why}")),
+        },
+        | Err(why) => Err(why),
+    }
+}
+fn install_chromium(playwright: Playwright) -> ApiResult<Playwright> {
+    playwright
+        .install_chromium()
+        .map_err(|why| eyre!("Failed to install Chromium for Playwright — {why}"))
+        .map(|_| playwright)
 }
