@@ -234,3 +234,19 @@ impl From<Standard> for analyzer::Standard {
         }
     }
 }
+impl From<analyzer::Standard> for Standard {
+    fn from(value: analyzer::Standard) -> Self {
+        match value {
+            | analyzer::Standard::ResearchActivityData => Standard::Rads,
+            | analyzer::Standard::CitationFileFormat => Standard::Cff,
+            | analyzer::Standard::Datacite => Standard::Datacite,
+            | analyzer::Standard::Dcat => Standard::Dcat,
+            | analyzer::Standard::DublinCore => Standard::Dcmi,
+            | analyzer::Standard::Docx => Standard::Docx,
+            | analyzer::Standard::Invenio => Standard::Invenio,
+            | analyzer::Standard::Huwise => Standard::Huwise,
+            | analyzer::Standard::Raid => Standard::Raid,
+            | analyzer::Standard::Text => Standard::Text,
+        }
+    }
+}

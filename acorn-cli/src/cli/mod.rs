@@ -428,6 +428,11 @@ pub enum Commands {
         /// Only files matching at least one pattern will be processed
         #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
         filter: Vec<String>,
+        /// Source metadata schema for export or crosswalk conversion
+        ///
+        /// Required when the input schema cannot be inferred from file content.
+        #[arg(long = "from", value_name = "STANDARD", help_heading = "OPTIONS")]
+        from: Option<Standard>,
         /// Regular expression pattern(s) applied to absolute paths of files to exclude from export process
         ///
         /// Only applies to `--path` values that point to a directory
@@ -451,9 +456,11 @@ pub enum Commands {
         /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
         reference: Option<PathBuf>,
-        /// Metadata standard to validate against
-        #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
-        standard: Standard,
+        /// Target metadata schema for export or crosswalk conversion
+        ///
+        /// Only applies to JSON and YAML export formats, when using --from for crosswalk conversion.
+        #[arg(short, long = "to", value_name = "STANDARD", help_heading = "OPTIONS")]
+        to: Option<Standard>,
         #[command(flatten)]
         verbose: Verbosity,
     },

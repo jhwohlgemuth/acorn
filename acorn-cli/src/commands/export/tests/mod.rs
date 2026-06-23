@@ -13,13 +13,13 @@
 //! automatically via the `TestCleanup` Drop implementation.
 //!
 //! Note: Tests run in online mode as export command doesn't support offline yet.
-use crate::cli::arguments::FileFormat;
+use crate::cli::arguments::{FileFormat, Standard};
 use crate::commands::export::run;
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
-use acorn::prelude::{copy, create_dir_all, PathBuf};
+use acorn::prelude::{copy, create_dir_all, read_dir, read_to_string, write, PathBuf};
+use acorn::schema::standard::{datacite, invenio};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
-use std::fs;
 
 fn silent() -> Verbosity {
     Verbosity::new(0, 1)
@@ -34,7 +34,7 @@ async fn test_export_bag_format() -> Result<()> {
     let source_dir = fixture_path("data/valid_project");
     let test_data_dir = temp_dir.join("valid_project");
     create_dir_all(&test_data_dir)?;
-    for entry in fs::read_dir(&source_dir)? {
+    for entry in read_dir(&source_dir)? {
         let entry = entry?;
         let dest = test_data_dir.join(entry.file_name());
         if entry.path().is_file() {
@@ -51,6 +51,8 @@ async fn test_export_bag_format() -> Result<()> {
         &[],
         &[],
         &FileFormat::Bag,
+        &None,
+        &None,
         &None,
         &false,
         &false,
@@ -91,6 +93,8 @@ async fn test_export_powerpoint_format() -> Result<()> {
         &[],
         &FileFormat::Powerpoint,
         &Some(PathBuf::from("reference.pptx")),
+        &None,
+        &None,
         &false,
         &false,
         &false,
@@ -100,7 +104,7 @@ async fn test_export_powerpoint_format() -> Result<()> {
     )
     .await;
     assert!(result.is_ok(), "Export to PowerPoint format should succeed");
-    let pptx_files: Vec<_> = fs::read_dir(&output_dir)?
+    let pptx_files: Vec<_> = read_dir(&output_dir)?
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().and_then(|s| s.to_str()).map(|s| s == "pptx").unwrap_or(false))
         .collect();
@@ -129,6 +133,8 @@ async fn test_export_pdf_format() -> Result<()> {
         &[],
         &FileFormat::Pdf,
         &None,
+        &None,
+        &None,
         &false,
         &false,
         &false,
@@ -147,10 +153,10 @@ async fn test_export_json_format() -> Result<()> {
     let test_data_dir = temp_dir.join("data");
     create_dir_all(&test_data_dir)?;
     let dest = test_data_dir.join("index.yaml");
-    let content = fs::read_to_string(&source)?;
+    let content = read_to_string(&source)?;
     let json: serde_json::Value = serde_json::from_str(&content)?;
     let yaml_content = serde_norway::to_string(&json)?;
-    fs::write(&dest, yaml_content)?;
+    write(&dest, yaml_content)?;
     let result = run(
         &None,
         &Some(test_data_dir.clone()),
@@ -159,6 +165,8 @@ async fn test_export_json_format() -> Result<()> {
         &[],
         &[],
         &FileFormat::Json,
+        &None,
+        &None,
         &None,
         &false,
         &false,
@@ -192,6 +200,8 @@ async fn test_export_yaml_format() -> Result<()> {
         &[],
         &FileFormat::Yaml,
         &None,
+        &None,
+        &None,
         &false,
         &false,
         &false,
@@ -224,6 +234,8 @@ async fn test_export_markdown_format() -> Result<()> {
         &[],
         &FileFormat::Markdown,
         &None,
+        &None,
+        &None,
         &false,
         &false,
         &false,
@@ -235,9 +247,9 @@ async fn test_export_markdown_format() -> Result<()> {
     assert!(result.is_ok(), "Export to Markdown format should succeed");
     let markdown_file = test_data_dir.join("index.md");
     assert!(markdown_file.exists(), "Markdown file should be created");
-    let markdown_content = fs::read_to_string(&markdown_file)?;
+    let markdown_content = read_to_string(&markdown_file)?;
     assert!(!markdown_content.trim().is_empty(), "Markdown file should not be empty");
-    let source_content = fs::read_to_string(&source)?;
+    let source_content = read_to_string(&source)?;
     let source_json: serde_json::Value = serde_json::from_str(&source_content)?;
     let title = source_json.get("title").and_then(serde_json::Value::as_str).unwrap_or_default();
     assert!(!title.is_empty(), "Fixture title should not be empty");
@@ -272,6 +284,8 @@ async fn test_export_with_combine_flag() -> Result<()> {
         &[],
         &FileFormat::Json,
         &None,
+        &None,
+        &None,
         &true,
         &false,
         &false,
@@ -281,5 +295,82 @@ async fn test_export_with_combine_flag() -> Result<()> {
     )
     .await;
     assert!(result.is_ok(), "Export with combine flag should succeed");
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
+    let temp_dir = temp_test_dir("export_crosswalk_datacite_to_invenio");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let test_data_dir = temp_dir.join("data");
+    create_dir_all(&test_data_dir)?;
+    let source = fixture_path("schema/datacite.json");
+    let dest = test_data_dir.join("datacite.json");
+    copy(&source, &dest)?;
+    let result = run(
+        &None,
+        &Some(test_data_dir.clone()),
+        &None,
+        &None,
+        &[],
+        &[],
+        &FileFormat::Json,
+        &None,
+        &Some(Standard::Datacite),
+        &Some(Standard::Invenio),
+        &false,
+        &false,
+        &false,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "Crosswalk from DataCite to Invenio should succeed");
+    let output_content = read_to_string(dest)?;
+    let parsed: Vec<invenio::Record> = serde_json::from_str(&output_content)?;
+    assert!(!parsed.is_empty(), "Expected at least one Invenio record in output");
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
+    let temp_dir = temp_test_dir("export_crosswalk_infer_source_to_datacite");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let test_data_dir = temp_dir.join("data");
+    create_dir_all(&test_data_dir)?;
+    let dest = test_data_dir.join("invenio.json");
+    let source = serde_json::json!([
+        {
+            "id": "invenio-infer-001",
+            "metadata": {
+                "title": "Inferred Invenio Record",
+                "publication_date": "2024-01-01",
+                "description": "Test record for schema inference"
+            }
+        }
+    ]);
+    write(&dest, serde_json::to_string_pretty(&source)?)?;
+    let result = run(
+        &None,
+        &Some(test_data_dir.clone()),
+        &None,
+        &None,
+        &[],
+        &[],
+        &FileFormat::Json,
+        &None,
+        &None,
+        &Some(Standard::Datacite),
+        &false,
+        &false,
+        &false,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "Crosswalk with inferred source to DataCite should succeed");
+    let output_content = read_to_string(&dest)?;
+    let parsed: Vec<datacite::Record> = serde_json::from_str(&output_content)?;
+    assert!(!parsed.is_empty(), "Expected at least one DataCite record in output");
     Ok(())
 }

@@ -27,7 +27,7 @@ use polars::{
     prelude::{AnyValue, DataFrame, PolarsResult, SerWriter},
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use strum::EnumIter;
 use tracing::{debug, error, info};
 use validator::ValidationErrorsKind;
@@ -672,6 +672,19 @@ impl<'a> IntoRow<'a> for Check {
             &context.unwrap_or_default(),
         ];
         Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
+    }
+}
+impl From<&Map<String, Value>> for Standard {
+    fn from(object: &Map<String, Value>) -> Self {
+        if object.contains_key("dataset_id") && object.contains_key("metas") {
+            Standard::Huwise
+        } else if object.contains_key("attributes") && object.contains_key("id") {
+            Standard::Datacite
+        } else if object.contains_key("metadata") || object.contains_key("pids") || object.contains_key("resource_type") {
+            Standard::Invenio
+        } else {
+            Standard::Dcat
+        }
     }
 }
 #[cfg(feature = "analysis")]

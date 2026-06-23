@@ -5,7 +5,7 @@ mod std {
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
     pub use std::env::{self, consts, current_dir, var, var_os};
     pub use std::ffi::{OsStr, OsString};
-    pub use std::fs::{canonicalize, copy, create_dir_all, read, read_dir, remove_dir_all, remove_file, write, File, OpenOptions};
+    pub use std::fs::{canonicalize, copy, create_dir_all, read, read_dir, read_to_string, remove_dir_all, remove_file, write, File, OpenOptions};
     #[cfg(unix)]
     pub use std::fs::{set_permissions, Permissions};
     pub use std::io::{self, BufRead, BufReader, Cursor, Error, ErrorKind, Read, Write};

@@ -34,6 +34,7 @@ use crate::util::{generate_guid, suffix, Checksum, ChecksumAlgorithm, Label, Mim
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::fmt;
+use core::pin::Pin;
 use core::time::Duration;
 use data_encoding::HEXUPPER;
 use directories::ProjectDirs;
@@ -67,7 +68,9 @@ pub mod mcp;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
 
-/// Utility type alias for database and API operation results
+/// Utility type alias for I/O operation futures (e.g., read, write, copy, etc.)
+pub type ApiFuture<'a> = Pin<Box<dyn Future<Output = ApiResult<()>> + 'a>>;
+/// Utility type alias for I/O operation results (e.g., read, write, copy, etc.)
 pub type ApiResult<T> = Result<T, Report>;
 /// An RSA key pair consisting of a private key and its corresponding public key
 pub type RsaKeyPair = (rsa::RsaPrivateKey, rsa::RsaPublicKey);

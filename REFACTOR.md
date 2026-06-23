@@ -1139,74 +1139,24 @@ This section captures follow-up work after the first-pass importer scaffold that
 2. Pilot import flow for another provider to validate generality.
 3. Document importer behavior, limitations, and extension points in docs and command help.
 
-## InvenioRDM Support
-
-This section describes the current status of InvenioRDM support in ACORN.
-
-### Current Status ✅ COMPLETE
-
-1. **Schema Implementation**: Complete InvenioRDM record structure with proper validation
-2. **Crosswalk Support**: Bidirectional conversion with DataCite implemented
-3. **Testing**: Comprehensive test coverage with 234 real Invenio records from fixtures
-4. **Integration**: Ready for CLI exposure through convert command
-
-### Remaining Work
-
-1. **CLI Integration**: Implement `acorn convert invenio datacite` command
-2. **Documentation**: Document field mappings and conversion behavior
-
-## Metadata Schema Crosswalk Implementation
-
-### Current Status
-
-The InvenioRDM and HuWise crosswalk implementations are largely complete:
-
-1. **Invenio↔DataCite Crosswalk** ✅ COMPLETE
-   - Full schema implementation with validation
-   - Bidirectional conversion capabilities
-   - Comprehensive test coverage with real fixture data
-
-2. **HuWise↔DataCite Crosswalk** ✅ COMPLETE
-   - Block-aware extraction with priority ordering
-   - Field mapping matrices for all core fields
-   - Complete test suite
-
-3. **Infrastructure** ✅ COMPLETE
-   - Core traits implemented: `SchemaExtractor`, `SchemaBuilder`, `SchemaRegistry`
-   - FieldMap intermediate representation with 8 value variants
-   - All modules properly exposed and integrated
-
-### Remaining Work
+## Metadata Schema Crosswalk
 
 #### CLI Integration (High Priority)
 
-**New command: `acorn convert`**
+**Command: `acorn export --to <format> --from <format>`**
 
 Features:
-1. Subcommands by schema pair (e.g., `convert invenio datacite`, `convert huwise datacite`)
-2. Input format detection or explicit `--from` and `--to` flags
-3. Output format specification (JSON, YAML)
-4. Validation-first mode (check without writing)
-5. Batch conversion with per-record error reporting
+1. Input format detection with explicit `--from` and `--to` flags required when not obvious.
+2. Output format specification (JSON, YAML)
+3. Validation-first mode (check without writing)
+4. Batch conversion with per-record error reporting
 
 Suggested implementation:
-1. Create `acorn-cli/src/commands/convert/mod.rs`
+1. Augment `acorn-cli/src/commands/export/mod.rs`
 2. Parse source and target schema names
 3. Select appropriate From<> impl based on schema pair
 4. Handle serialization to requested output format
 5. Implement dry-run and validation modes
-
-#### Documentation (High Priority)
-
-**Updates needed:**
-1. Create `docs/src/05-crosswalk.md` documenting:
-   - Architecture overview
-   - Field mapping matrices for each crosswalk
-   - Known lossy conversions and degradation strategies
-   - Examples of round-trip conversions
-   - CLI usage guide for `convert` command
-
-2. Update `ARCHITECTURE.md` with crosswalk subsystem section
 
 #### Optional: Invenio↔HuWise Direct Crosswalk (Low Priority)
 
@@ -1215,27 +1165,26 @@ This is deferred due to complexity:
 - Existing DataCite bridge provides sufficient roundtrip capability
 - Can be implemented later if direct conversion is needed for performance
 
-Implementation approach if needed:
+Implementation approach:
 1. Use existing DataCite bridge (Invenio → DataCite → HuWise) with optimizations for common fields
 
 ### Execution Checklist
 
-- [ ] **CLI**: Implement `acorn convert` command with all schema pairs
-- [ ] **Docs**: Write crosswalk architecture guide and field mapping matrices
+- [ ] **CLI**: Update `acorn export` command with all schema pairs
 - [ ] **Testing**: Add property-based tests for round-trip stability
 - [ ] **Validation**: Verify no compilation errors with `--all-features` and `-p acorn-lib` scoping
 
 ### Success Criteria for Implementation
 
-1. CLI exposes `convert` command for all supported schema pairs
+1. CLI exposes `export` command for all supported schema pairs
 2. Documentation covers field mappings, lossy conversions, and CLI usage
-3. No warnings from `cargo clippy` in crosswalk modules
+3. No warnings from `make lint` in crosswalk modules
 4. Property-based tests verify round-trip stability for core fields
-5. All code follows ACORN guidelines: no unsafe, comprehensive doc comments, structured error handling
+5. All code follows ACORN guidelines: no unsafe, comprehensive doc comments, structured error handling, no early `return`, `?`, `panic!`, or `unwrap()`, and no `expect()` calls in library code
 
 ### Known Limitations & Future Improvements
 
-1. **Lossy conversions**: Some metadata may be lost in crosswalk conversions; document explicitly with `ConversionWarning` messages
+1. **Lossy conversions**: Some metadata may be lost in crosswalk conversions; document explicitly with `ConversionWarning` messages, output using `check!` code, and provide a `--strict` mode to fail on lossy conversions
 2. **Performance**: Large batches may benefit from parallelization; current implementation is sequential
 3. **Extensibility**: Future versions may support plugin-based mappers for domain-specific conversions
 4. **Direct Invenio↔HuWise mapping**: Currently uses DataCite as intermediate format; direct mapping could be implemented for performance if needed
