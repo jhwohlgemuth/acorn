@@ -39,11 +39,8 @@
 //! in the [`extractors`] and [`builders`] submodules.
 use core::fmt;
 
-pub mod builders;
-pub mod extractors;
 pub mod field_map;
 pub mod mapping;
-pub mod mappings;
 pub mod registry;
 
 pub use field_map::{FieldMap, FieldValue};

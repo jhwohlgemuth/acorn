@@ -11,11 +11,9 @@
 //! - [InvenioRDM Documentation](https://inveniordm.docs.cern.ch/)
 //! - [Metadata Reference](https://inveniordm.docs.cern.ch/reference/metadata/)
 //!
-use super::crosswalk::mappings::datacite_to_invenio::datacite_to_invenio;
-use super::crosswalk::CrosswalkError;
-use super::{crosswalk, datacite};
 use crate::schema::research_activity::s3a::Status;
-
+use crate::schema::standard::crosswalk::{self, mapping::datacite_to_invenio, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
+use crate::schema::standard::datacite;
 use crate::schema::validate::{is_doi, is_iso_639_language_code};
 use core::fmt;
 use schemars::JsonSchema;
@@ -687,5 +685,213 @@ impl TryFrom<&datacite::Record> for Record {
 
     fn try_from(record: &datacite::Record) -> Result<Self, Self::Error> {
         Record::try_from(record.clone())
+    }
+}
+impl SchemaBuilder for Record {
+    fn build_from_fields(fields: &FieldMap) -> Result<Self, CrosswalkError> {
+        let identifier_str = fields.get_string("identifier").unwrap_or_default();
+        let mut metadata = Metadata {
+            resource_type: None,
+            title: fields.get_string_opt("title"),
+            publication_date: fields.get_number_opt("publication-year").map(|n| format!("{:04}-01-01", n as i32)),
+            creators: None,
+            additional_titles: None,
+            description: fields.get_string_opt("description"),
+            additional_descriptions: None,
+            rights: None,
+            copyright: None,
+            contributors: None,
+            subjects: None,
+            languages: None,
+            dates: None,
+            version: fields.get_string_opt("version"),
+            publisher: None,
+            identifiers: None,
+            related_identifiers: None,
+            sizes: None,
+            formats: None,
+            locations: None,
+            funding: None,
+            references: None,
+        };
+        if let Some(creator_names) = fields.get_string_vec_opt("creators") {
+            metadata.creators = Some(
+                creator_names
+                    .into_iter()
+                    .map(|name| Creator {
+                        person_or_org: PersonOrOrganization {
+                            kind: "personal".to_string(),
+                            name: Some(name),
+                            given_name: None,
+                            family_name: None,
+                            identifiers: None,
+                        },
+                        affiliations: None,
+                        role: None,
+                    })
+                    .collect(),
+            );
+        }
+        if let Some(rt_str) = fields.get_string_opt("resource-type") {
+            metadata.resource_type = Some(ResourceType {
+                id: Some(rt_str),
+                title: None,
+            });
+        }
+        if let Some(lang_str) = fields.get_string_opt("language") {
+            metadata.languages = Some(vec![Language { id: lang_str }]);
+        }
+        if let Some(ids) = fields.get_string_vec_opt("alternate-identifiers") {
+            metadata.identifiers = Some(
+                ids.into_iter()
+                    .map(|identifier| Identifier {
+                        identifier,
+                        scheme: "unknown".to_string(),
+                    })
+                    .collect(),
+            );
+        }
+        if let Some(subjects) = fields.get_string_vec_opt("subjects") {
+            metadata.subjects = Some(
+                subjects
+                    .into_iter()
+                    .map(|subject| Subject {
+                        id: None,
+                        subject: Some(subject),
+                    })
+                    .collect(),
+            );
+        }
+        if let Some(license_iri) = fields.get_iri_opt("license") {
+            metadata.rights = Some(vec![Right {
+                id: None,
+                title: None,
+                description: None,
+                link: Some(license_iri),
+            }]);
+        }
+        if let Some(contributor_names) = fields.get_string_vec_opt("contributors") {
+            metadata.contributors = Some(
+                contributor_names
+                    .into_iter()
+                    .map(|name| Contributor {
+                        person_or_org: PersonOrOrganization {
+                            kind: "personal".to_string(),
+                            name: Some(name),
+                            given_name: None,
+                            family_name: None,
+                            identifiers: None,
+                        },
+                        role: ControlledVocabularyValue {
+                            id: "contributor".to_string(),
+                        },
+                        affiliations: None,
+                    })
+                    .collect(),
+            );
+        }
+        Ok(Record {
+            schema: Some("https://inveniordm.docs.cern.ch/reference/metadata/".to_string()),
+            id: Some(identifier_str.clone()),
+            pid: Some(PersistentIdentifier {
+                pk: None,
+                status: Some("U".to_string()),
+            }),
+            pids: None,
+            parent: None,
+            access: None,
+            metadata: Some(metadata),
+            custom_fields: None,
+            files: None,
+            tombstone: None,
+            created: fields.get_date_opt("created"),
+            updated: fields.get_date_opt("updated"),
+        })
+    }
+}
+impl SchemaExtractor for Record {
+    fn extract_fields(&self) -> FieldMap {
+        let mut fields = FieldMap::new();
+        if let Some(pid) = &self.pid {
+            if let Some(pk) = pid.pk {
+                fields.insert("identifier", FieldValue::String(pk.to_string()));
+            }
+        }
+        let has_id = fields.contains_key("identifier");
+        if !has_id {
+            if let Some(id) = &self.id {
+                fields.insert("identifier", FieldValue::String(id.clone()));
+            }
+        }
+        if let Some(metadata) = &self.metadata {
+            // Title (required in Invenio)
+            if let Some(title) = &metadata.title {
+                fields.insert("title", FieldValue::String(title.clone()));
+            }
+            if let Some(creators) = &metadata.creators {
+                if !creators.is_empty() {
+                    let creator_names: Vec<String> = creators.iter().filter_map(|c| c.person_or_org.name.clone()).collect();
+                    if !creator_names.is_empty() {
+                        fields.insert("creators", FieldValue::StringVec(creator_names));
+                    }
+                }
+            }
+            if let Some(pub_date) = &metadata.publication_date {
+                if let Some(year_str) = pub_date.split('-').next() {
+                    if let Ok(year) = year_str.parse::<f64>() {
+                        fields.insert("publication-year", FieldValue::Number(year));
+                    }
+                }
+            }
+            if let Some(resource_type) = &metadata.resource_type {
+                if let Some(id) = &resource_type.id {
+                    fields.insert("resource-type", FieldValue::String(id.clone()));
+                }
+            }
+            if let Some(description) = &metadata.description {
+                fields.insert("description", FieldValue::String(description.clone()));
+            }
+            if let Some(languages) = &metadata.languages {
+                if let Some(first) = languages.first() {
+                    fields.insert("language", FieldValue::String(first.id.clone()));
+                }
+            }
+            if let Some(identifiers) = &metadata.identifiers {
+                if !identifiers.is_empty() {
+                    let id_strings: Vec<String> = identifiers.iter().map(|id| id.identifier.clone()).collect();
+                    fields.insert("alternate-identifiers", FieldValue::StringVec(id_strings));
+                }
+            }
+            if let Some(subjects) = &metadata.subjects {
+                if !subjects.is_empty() {
+                    let subject_strings: Vec<String> = subjects.iter().filter_map(|s| s.subject.clone()).collect();
+                    if !subject_strings.is_empty() {
+                        fields.insert("subjects", FieldValue::StringVec(subject_strings));
+                    }
+                }
+            }
+            if let Some(rights) = &metadata.rights {
+                if let Some(first) = rights.first() {
+                    if let Some(link) = &first.link {
+                        fields.insert("license", FieldValue::IRI(link.clone()));
+                    }
+                }
+            }
+            if let Some(contributors) = &metadata.contributors {
+                if !contributors.is_empty() {
+                    let contributor_names: Vec<String> = contributors.iter().filter_map(|c| c.person_or_org.name.clone()).collect();
+                    if !contributor_names.is_empty() {
+                        fields.insert("contributors", FieldValue::StringVec(contributor_names));
+                    }
+                }
+            }
+        }
+        if let Some(created) = &self.created {
+            fields.insert("created", FieldValue::Date(created.clone()));
+        }
+        if let Some(updated) = &self.updated {
+            fields.insert("updated", FieldValue::Date(updated.clone()));
+        }
+        fields
     }
 }

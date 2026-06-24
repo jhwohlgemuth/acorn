@@ -1,8 +1,8 @@
 //! HuWise dataset schema models
 //!
-use super::crosswalk::mappings::datacite_to_huwise::datacite_to_huwise;
-use super::crosswalk::CrosswalkError;
-use super::{crosswalk, datacite};
+use crate::schema::standard::crosswalk::{self, mapping::datacite_to_huwise, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
+use crate::schema::standard::datacite;
+use ammonia::clean;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -425,5 +425,211 @@ impl TryFrom<&datacite::Record> for Dataset {
 
     fn try_from(record: &datacite::Record) -> Result<Self, Self::Error> {
         Dataset::try_from(record.clone())
+    }
+}
+impl SchemaBuilder for Dataset {
+    fn build_from_fields(fields: &FieldMap) -> Result<Self, CrosswalkError> {
+        let dataset_id = fields.get_string("identifier")?;
+        let datacite_meta = Some(build_datacite_block(fields));
+        let meta = Meta {
+            datacite: datacite_meta,
+            r#default: None,
+            dublin_core: None,
+            dcat: None,
+            dcat_ap: None,
+            custom_template: None,
+        };
+        Ok(Dataset {
+            dataset_id,
+            has_attachments: false,
+            attachments_count: 0,
+            has_records: false,
+            fields: Value::Array(vec![]),
+            metas: meta,
+            features: vec![],
+        })
+    }
+}
+fn build_datacite_block(fields: &FieldMap) -> Datacite {
+    let title = fields.get_string_opt("title");
+    let identifier = fields.get_string_opt("identifier");
+    let creator = fields
+        .get_string_vec_opt("creators")
+        .map(|names| Value::Array(names.into_iter().map(Value::String).collect()));
+    let publication_year = fields.get_number_opt("publication-year").map(|y| (y as i32).to_string());
+    let description = fields.get_string_opt("description");
+    let subject = fields.get_string_vec_opt("subjects");
+    let language = fields.get_string_opt("language");
+    let publisher = fields.get_string_opt("publisher");
+    let resource_type = fields.get_string_opt("resource-type").map(Value::String);
+    let rights = fields.get_string_opt("license").map(Value::String);
+    let version = fields.get_string_opt("version");
+    Datacite {
+        identifier,
+        title,
+        alternative_title: None,
+        publisher,
+        creator,
+        publication_year,
+        date: None,
+        subject,
+        contributor: None,
+        description,
+        language,
+        resource_type,
+        alternate_identifier: None,
+        related_identifier: None,
+        size: None,
+        format: None,
+        version,
+        rights,
+        geolocation: None,
+    }
+}
+impl SchemaExtractor for Dataset {
+    fn extract_fields(&self) -> FieldMap {
+        fn extract_json_string_array(value: &Value) -> Option<Vec<String>> {
+            match value {
+                | Value::Array(arr) => {
+                    let strings: Vec<String> = arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+                    if !strings.is_empty() {
+                        Some(strings)
+                    } else {
+                        None
+                    }
+                }
+                | Value::String(s) => Some(vec![s.clone()]),
+                | _ => None,
+            }
+        }
+        let mut fields = FieldMap::new();
+        fields.insert("identifier", FieldValue::String(self.dataset_id.clone()));
+        if let Some(meta) = &self.metas.datacite {
+            if let Some(value) = &meta.title {
+                fields.insert("title", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.identifier {
+                fields.insert("doi", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.creator {
+                if let Some(creators) = extract_json_string_array(value) {
+                    if !creators.is_empty() {
+                        fields.insert("creators", FieldValue::StringVec(creators));
+                    }
+                }
+            }
+            if let Some(value) = &meta.publication_year {
+                if let Ok(year) = value.parse::<f64>() {
+                    fields.insert("publication-year", FieldValue::Number(year));
+                }
+            }
+            if let Some(value) = &meta.description {
+                fields.insert("description", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.subject {
+                if !value.is_empty() {
+                    fields.insert("subjects", FieldValue::StringVec(value.clone()));
+                }
+            }
+            if let Some(value) = &meta.language {
+                fields.insert("language", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.publisher {
+                fields.insert("publisher", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.resource_type {
+                if let Some(s) = value.as_str() {
+                    fields.insert("resource-type", FieldValue::String(s.to_string()));
+                }
+            }
+            if let Some(value) = &meta.rights {
+                if let Some(s) = value.as_str() {
+                    fields.insert("license", FieldValue::String(s.to_string()));
+                }
+            }
+            if let Some(value) = &meta.version {
+                fields.insert("version", FieldValue::String(value.clone()));
+            }
+        } else if let Some(meta) = &self.metas.r#default {
+            if let Some(title) = &meta.title {
+                fields.insert("title", FieldValue::String(title.clone()));
+            }
+            if let Some(value) = &meta.description {
+                let sanitized = clean(value);
+                fields.insert("description", FieldValue::String(sanitized));
+            }
+            if let Some(value) = &meta.keyword {
+                if !value.is_empty() {
+                    fields.insert("subjects", FieldValue::StringVec(value.clone()));
+                }
+            }
+            if let Some(value) = &meta.language {
+                fields.insert("language", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.publisher {
+                fields.insert("publisher", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.license {
+                fields.insert("license", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.modified {
+                fields.insert("updated", FieldValue::Date(value.clone()));
+            }
+        } else if let Some(meta) = &self.metas.dublin_core {
+            if let Some(value) = &meta.title {
+                fields.insert("title", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.abstract_text {
+                let sanitized = clean(value);
+                fields.insert("description", FieldValue::String(sanitized));
+            }
+            if let Some(value) = &meta.creator {
+                fields.insert("creators", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.subject {
+                if !value.is_empty() {
+                    fields.insert("subjects", FieldValue::StringVec(value.clone()));
+                }
+            }
+            if let Some(value) = &meta.language {
+                fields.insert("language", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.publisher {
+                fields.insert("publisher", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.issued {
+                fields.insert("publication-year", FieldValue::Date(value.clone()));
+            }
+            if let Some(value) = &meta.license {
+                fields.insert("license", FieldValue::String(value.clone()));
+            }
+        } else if let Some(meta) = &self.metas.dcat {
+            if let Some(value) = &meta.creator {
+                fields.insert("creators", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.issued {
+                fields.insert("publication-year", FieldValue::Date(value.clone()));
+            }
+            if let Some(value) = &meta.spatial {
+                fields.insert("spatial", FieldValue::String(value.clone()));
+            }
+        } else if let Some(meta) = &self.metas.dcat_ap {
+            if let Some(value) = &meta.title {
+                fields.insert("title", FieldValue::String(value.clone()));
+            }
+            if let Some(value) = &meta.description {
+                let sanitized = clean(value);
+                fields.insert("description", FieldValue::String(sanitized));
+            }
+            if let Some(value) = &meta.keyword {
+                if !value.is_empty() {
+                    fields.insert("subjects", FieldValue::StringVec(value.clone()));
+                }
+            }
+            if let Some(value) = &meta.publisher_name {
+                fields.insert("publisher", FieldValue::String(value.clone()));
+            }
+        }
+        fields
     }
 }

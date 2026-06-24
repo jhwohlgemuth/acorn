@@ -3,15 +3,12 @@
 //! These types model the DataCite Metadata Schema 4.6 structure, including
 //! DOI records, creators, contributors, related identifiers, funding
 //! references, geolocation, rights, and other metadata properties
-use super::crosswalk::mappings::{
-    dcat_to_datacite::dcat_to_datacite, huwise_to_datacite::huwise_to_datacite, invenio_to_datacite::invenio_to_datacite,
-};
-use super::crosswalk::CrosswalkError;
-use super::{crosswalk, dcat, huwise, invenio};
 #[cfg(feature = "std")]
 use crate::io::License;
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
-
+use crate::schema::standard::crosswalk::mapping::{dcat_to_datacite, huwise_to_datacite, invenio_to_datacite};
+use crate::schema::standard::crosswalk::{self, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
+use crate::schema::standard::{dcat, huwise, invenio};
 use crate::schema::validate::{is_doi, is_iso_639_1_language_code, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
 #[cfg(not(feature = "std"))]
 use crate::util::License;
@@ -1174,10 +1171,153 @@ impl TryFrom<&invenio::Record> for Record {
         Record::try_from(record.clone())
     }
 }
+impl SchemaBuilder for Record {
+    fn build_from_fields(fields: &FieldMap) -> Result<Self, CrosswalkError> {
+        let doi = fields.get_string("doi").unwrap_or_default();
+        let mut titles = None;
+        if let Some(title_str) = fields.get_string_opt("title") {
+            titles = Some(vec![Title {
+                title: title_str,
+                title_type: None,
+            }]);
+        }
+        let mut descriptions = None;
+        if let Some(desc_str) = fields.get_string_opt("description") {
+            descriptions = Some(vec![Description {
+                description: desc_str,
+                description_type: None,
+                language: None,
+            }]);
+        }
+        let language = fields.get_string_opt("language");
+        let mut creators = None;
+        if let Some(creator_names) = fields.get_string_vec_opt("creators") {
+            creators = Some(
+                creator_names
+                    .into_iter()
+                    .map(|name| Creator {
+                        name,
+                        name_type: None,
+                        given_name: None,
+                        family_name: None,
+                        name_identifiers: None,
+                        affiliation: None,
+                    })
+                    .collect(),
+            );
+        }
+        let mut publisher = None;
+        if let Some(pub_name) = fields.get_string_opt("publisher") {
+            publisher = Some(Publisher {
+                name: pub_name,
+                publisher_identifier: None,
+                publisher_identifier_scheme: None,
+                scheme_uri: None,
+            });
+        }
+        let publication_year = fields.get_number_opt("publication-year").map(|n| n as i32);
+        let mut attributes = Attributes {
+            doi,
+            event: None,
+            titles,
+            creators,
+            publisher,
+            publication_year,
+            resource_types: None,
+            url: fields.get_iri_opt("url"),
+            subjects: None,
+            contributors: None,
+            dates: None,
+            language,
+            alternate_identifiers: None,
+            related_identifiers: None,
+            sizes: None,
+            formats: None,
+            version: fields.get_string_opt("version"),
+            rights_list: None,
+            descriptions,
+            geo_locations: None,
+            funding_references: None,
+            schema_version: None,
+        };
+        if let Some(license_iri) = fields.get_iri_opt("license") {
+            attributes.rights_list = Some(vec![Rights {
+                rights: None,
+                rights_uri: Some(license_iri),
+                rights_identifier: None,
+                rights_identifier_scheme: None,
+                scheme_uri: None,
+            }]);
+        }
+        Ok(Record {
+            id: attributes.doi.clone(),
+            kind: "dois".to_string(),
+            attributes,
+        })
+    }
+}
+impl SchemaExtractor for Record {
+    fn extract_fields(&self) -> FieldMap {
+        let mut fields = FieldMap::new();
+        fields.insert("doi", FieldValue::String(self.attributes.doi.clone()));
+        if let Some(titles) = &self.attributes.titles {
+            if let Some(first) = titles.first() {
+                fields.insert("title", FieldValue::String(first.title.clone()));
+                if titles.len() > 1 {
+                    let alt_titles: Vec<String> = titles.iter().skip(1).map(|t| t.title.clone()).collect();
+                    fields.insert("alternative-titles", FieldValue::StringVec(alt_titles));
+                }
+            }
+        }
+        if let Some(descriptions) = &self.attributes.descriptions {
+            if let Some(first) = descriptions.first() {
+                fields.insert("description", FieldValue::String(first.description.clone()));
+            }
+        }
+        if let Some(language) = &self.attributes.language {
+            fields.insert("language", FieldValue::String(language.clone()));
+        }
+        if let Some(creators) = &self.attributes.creators {
+            if !creators.is_empty() {
+                let creator_names: Vec<String> = creators.iter().map(|c| c.name.clone()).collect();
+                fields.insert("creators", FieldValue::StringVec(creator_names));
+            }
+        }
+        if let Some(publisher) = &self.attributes.publisher {
+            fields.insert("publisher", FieldValue::String(publisher.name.clone()));
+        }
+
+        if let Some(pub_year) = self.attributes.publication_year {
+            fields.insert("publication-year", FieldValue::Number(pub_year as f64));
+        }
+        if let Some(url) = &self.attributes.url {
+            fields.insert("url", FieldValue::IRI(url.clone()));
+        }
+        if let Some(rights) = &self.attributes.rights_list {
+            if let Some(first) = rights.first() {
+                if let Some(uri) = &first.rights_uri {
+                    fields.insert("license", FieldValue::IRI(uri.clone()));
+                }
+            }
+        }
+        if let Some(identifiers) = &self.attributes.alternate_identifiers {
+            if !identifiers.is_empty() {
+                let alt_ids: Vec<String> = identifiers.iter().map(|id| id.alternate_identifier.clone()).collect();
+                fields.insert("alternate-identifiers", FieldValue::StringVec(alt_ids));
+            }
+        }
+        if let Some(subjects) = &self.attributes.subjects {
+            if !subjects.is_empty() {
+                let subject_strings: Vec<String> = subjects.iter().map(|s| s.subject.clone()).collect();
+                fields.insert("subjects", FieldValue::StringVec(subject_strings));
+            }
+        }
+        if let Some(version) = &self.attributes.version {
+            fields.insert("version", FieldValue::String(version.clone()));
+        }
+        fields
+    }
+}
 fn default_identifier_type() -> String {
     DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY[0].to_string()
-}
-/// Convert a HuWise catalog into a DataCite catalog
-pub fn from_huwise(catalog: huwise::Catalog) -> Result<Catalog, CrosswalkError> {
-    catalog.into_iter().map(Record::try_from).collect()
 }

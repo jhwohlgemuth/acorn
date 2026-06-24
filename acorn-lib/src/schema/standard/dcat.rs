@@ -9,10 +9,8 @@
 //! References:
 //! - [DCAT v3](https://www.w3.org/TR/vocab-dcat-3/)
 //! - [DCAT v2](https://www.w3.org/TR/vocab-dcat-2/)
-use super::crosswalk::mappings::datacite_to_dcat::datacite_to_dcat;
-use super::crosswalk::CrosswalkError;
-use super::{crosswalk, datacite};
-
+use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
+use crate::schema::standard::datacite;
 use crate::schema::validate::{is_url, is_urls};
 use crate::schema::Date as PeriodOfTime;
 use crate::util::Checksum;
@@ -477,5 +475,158 @@ impl TryFrom<&datacite::Record> for Dataset {
 
     fn try_from(record: &datacite::Record) -> Result<Self, Self::Error> {
         Dataset::try_from(record.clone())
+    }
+}
+impl SchemaBuilder for Dataset {
+    fn build_from_fields(fields: &FieldMap) -> Result<Self, CrosswalkError> {
+        let identifier = fields.get_string_vec_opt("identifier");
+        let mut title = None;
+        if let Some(title_str) = fields.get_string_opt("title") {
+            title = Some(vec![title_str]);
+        }
+        let mut description = None;
+        if let Some(desc_str) = fields.get_string_opt("description") {
+            description = Some(vec![desc_str]);
+        }
+        let issued = fields.get_date_opt("issued");
+        let language = fields.get_string_vec_opt("language");
+        let keywords = fields.get_string_vec_opt("keywords");
+        let themes = fields.get_string_vec_opt("themes");
+        let version = fields.get_string_opt("version");
+        let mut publisher = None;
+        if let Some(pub_name) = fields.get_string_opt("publisher") {
+            publisher = Some(Agent {
+                name: Some(pub_name),
+                homepage: None,
+                email: None,
+                identifier: None,
+            });
+        }
+        let mut creator = None;
+        if let Some(creator_names) = fields.get_string_vec_opt("creators") {
+            creator = Some(
+                creator_names
+                    .into_iter()
+                    .map(|name| Agent {
+                        name: Some(name),
+                        homepage: None,
+                        email: None,
+                        identifier: None,
+                    })
+                    .collect(),
+            );
+        }
+        let license = fields.get_iri_opt("license");
+        let mut spatial = None;
+        if let Some(spatial_str) = fields.get_string_opt("spatial") {
+            spatial = Some(vec![Location {
+                geometry: Some(spatial_str),
+                bbox: None,
+                centroid: None,
+            }]);
+        }
+        Ok(Dataset {
+            title,
+            description,
+            identifier,
+            issued,
+            modified: None,
+            language,
+            publisher,
+            creator,
+            contact_point: None,
+            keywords,
+            themes,
+            license,
+            rights: None,
+            access_rights: None,
+            has_policy: None,
+            conforms_to: None,
+            landing_page: None,
+            relation: None,
+            type_: None,
+            version,
+            version_notes: None,
+            previous_version: None,
+            has_version: None,
+            has_current_version: None,
+            replaces: None,
+            status: None,
+            is_referenced_by: None,
+            has_part: None,
+            qualified_relation: None,
+            first: None,
+            last: None,
+            previous: None,
+            distribution: None,
+            frequency: None,
+            in_series: None,
+            spatial,
+            spatial_resolution_in_meters: None,
+            temporal: None,
+            temporal_resolution: None,
+            was_generated_by: None,
+        })
+    }
+}
+impl SchemaExtractor for Dataset {
+    fn extract_fields(&self) -> FieldMap {
+        let mut fields = FieldMap::new();
+        if let Some(identifiers) = &self.identifier {
+            if !identifiers.is_empty() {
+                fields.insert("identifier", FieldValue::StringVec(identifiers.clone()));
+            }
+        }
+        if let Some(titles) = &self.title {
+            if let Some(first) = titles.first() {
+                fields.insert("title", FieldValue::String(first.clone()));
+                if titles.len() > 1 {
+                    let alt_titles: Vec<String> = titles.iter().skip(1).cloned().collect();
+                    fields.insert("alternative-titles", FieldValue::StringVec(alt_titles));
+                }
+            }
+        }
+        if let Some(descriptions) = &self.description {
+            if let Some(first) = descriptions.first() {
+                fields.insert("description", FieldValue::String(first.clone()));
+            }
+        }
+        if let Some(issued) = &self.issued {
+            fields.insert("issued", FieldValue::Date(issued.clone()));
+        }
+        if let Some(keywords) = &self.keywords {
+            fields.insert("keywords", FieldValue::StringVec(keywords.clone()));
+        }
+        if let Some(themes) = &self.themes {
+            fields.insert("themes", FieldValue::StringVec(themes.clone()));
+        }
+        if let Some(language) = &self.language {
+            fields.insert("language", FieldValue::StringVec(language.clone()));
+        }
+        if let Some(version) = &self.version {
+            fields.insert("version", FieldValue::String(version.clone()));
+        }
+        if let Some(publisher) = &self.publisher {
+            if let Some(name) = &publisher.name {
+                fields.insert("publisher", FieldValue::String(name.clone()));
+            }
+        }
+        if let Some(creators) = &self.creator {
+            let creator_names: Vec<String> = creators.iter().filter_map(|c| c.name.clone()).collect();
+            if !creator_names.is_empty() {
+                fields.insert("creators", FieldValue::StringVec(creator_names));
+            }
+        }
+        if let Some(license) = &self.license {
+            fields.insert("license", FieldValue::IRI(license.clone()));
+        }
+        if let Some(spatial) = &self.spatial {
+            if let Some(first) = spatial.first() {
+                if let Some(geometry) = &first.geometry {
+                    fields.insert("spatial", FieldValue::String(geometry.clone()));
+                }
+            }
+        }
+        fields
     }
 }
