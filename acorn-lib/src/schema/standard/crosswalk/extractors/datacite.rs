@@ -9,17 +9,17 @@ impl SchemaExtractor for datacite::Record {
         let mut fields = FieldMap::new();
         fields.insert("doi", FieldValue::String(self.attributes.doi.clone()));
         if let Some(titles) = &self.attributes.titles {
-            if !titles.is_empty() {
-                fields.insert("title", FieldValue::String(titles[0].title.clone()));
+            if let Some(first) = titles.first() {
+                fields.insert("title", FieldValue::String(first.title.clone()));
                 if titles.len() > 1 {
-                    let alt_titles: Vec<String> = titles[1..].iter().map(|t| t.title.clone()).collect();
+                    let alt_titles: Vec<String> = titles.iter().skip(1).map(|t| t.title.clone()).collect();
                     fields.insert("alternative-titles", FieldValue::StringVec(alt_titles));
                 }
             }
         }
         if let Some(descriptions) = &self.attributes.descriptions {
-            if !descriptions.is_empty() {
-                fields.insert("description", FieldValue::String(descriptions[0].description.clone()));
+            if let Some(first) = descriptions.first() {
+                fields.insert("description", FieldValue::String(first.description.clone()));
             }
         }
         if let Some(language) = &self.attributes.language {
@@ -42,8 +42,8 @@ impl SchemaExtractor for datacite::Record {
             fields.insert("url", FieldValue::IRI(url.clone()));
         }
         if let Some(rights) = &self.attributes.rights_list {
-            if !rights.is_empty() {
-                if let Some(uri) = &rights[0].rights_uri {
+            if let Some(first) = rights.first() {
+                if let Some(uri) = &first.rights_uri {
                     fields.insert("license", FieldValue::IRI(uri.clone()));
                 }
             }
@@ -59,6 +59,9 @@ impl SchemaExtractor for datacite::Record {
                 let subject_strings: Vec<String> = subjects.iter().map(|s| s.subject.clone()).collect();
                 fields.insert("subjects", FieldValue::StringVec(subject_strings));
             }
+        }
+        if let Some(version) = &self.attributes.version {
+            fields.insert("version", FieldValue::String(version.clone()));
         }
         fields
     }

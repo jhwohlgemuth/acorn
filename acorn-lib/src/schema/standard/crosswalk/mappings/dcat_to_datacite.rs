@@ -25,14 +25,16 @@
 //! - distribution (DCAT feature; DataCite lacks this)
 //! - spatial/temporal (limited support; no dedicated fields)
 //! - was_generated_by (PROV provenance)
-use crate::schema::standard::crosswalk::{mapping::transforms::{extract_year, iri_to_resource_type}, FieldMapping, FieldRule};
+use crate::schema::standard::crosswalk::mapping::transforms::{extract_year, first_of_vec, iri_to_resource_type};
+use crate::schema::standard::crosswalk::{FieldMapping, FieldRule};
 
+/// Create field mapping rules from DCAT to DataCite
 pub fn dcat_to_datacite() -> FieldMapping {
     FieldMapping::new("dcat", "datacite")
-        .with_rule(FieldRule::new("identifier", "doi").required())
+        .with_rule(FieldRule::new("identifier", "doi").required().with_transform(first_of_vec))
         .with_rule(FieldRule::new("title", "title"))
         .with_rule(FieldRule::new("description", "description"))
-        .with_rule(FieldRule::new("language", "language"))
+        .with_rule(FieldRule::new("language", "language").with_transform(first_of_vec))
         .with_rule(FieldRule::new("creators", "creators"))
         .with_rule(FieldRule::new("publisher", "publisher"))
         .with_rule(FieldRule::new("issued", "publication-year").with_transform(extract_year))

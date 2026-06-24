@@ -28,8 +28,8 @@ fn extract_from_datacite_block(meta: &huwise::Datacite, fields: &mut FieldMap) {
     if let Some(title) = &meta.title {
         fields.insert("title", FieldValue::String(title.clone()));
     }
-    if let Some(identifier) = &meta.identifier {
-        fields.insert("identifier", FieldValue::String(identifier.clone()));
+    if let Some(doi) = &meta.identifier {
+        fields.insert("doi", FieldValue::String(doi.clone()));
     }
     if let Some(creator) = &meta.creator {
         if let Some(creators) = extract_json_string_array(creator) {

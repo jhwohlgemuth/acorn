@@ -15,9 +15,9 @@
 //!
 //! Two usage patterns:
 //!
-//! 1. **From<> trait (ergonomic, panics on error)**:
+//! 1. **TryFrom trait (infallible at type level, propagates errors)**:
 //!    ```ignore
-//!    let dcat_dataset: dcat::Dataset = datacite_record.into();
+//!    let dcat_dataset: dcat::Dataset = datacite_record.try_into()?;
 //!    ```
 //!
 //! 2. **Crosswalk trait (error-aware)**:
@@ -43,7 +43,7 @@ pub mod builders;
 pub mod extractors;
 pub mod field_map;
 pub mod mapping;
-// pub mod mappings;
+pub mod mappings;
 pub mod registry;
 
 pub use field_map::{FieldMap, FieldValue};

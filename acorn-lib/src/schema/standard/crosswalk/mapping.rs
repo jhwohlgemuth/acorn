@@ -33,6 +33,24 @@ impl FieldRule {
             required: false,
         }
     }
+    /// Create a required field rule (shorthand for `new(f, t).required()`)
+    pub fn required_field(source_field: &'static str, target_field: &'static str) -> Self {
+        Self {
+            source_field,
+            target_field,
+            transform: None,
+            required: true,
+        }
+    }
+    /// Create an optional field rule (equivalent to `new(f, t)`)
+    pub fn map(source_field: &'static str, target_field: &'static str) -> Self {
+        Self {
+            source_field,
+            target_field,
+            transform: None,
+            required: false,
+        }
+    }
     /// Make this field required
     pub fn required(mut self) -> Self {
         self.required = true;

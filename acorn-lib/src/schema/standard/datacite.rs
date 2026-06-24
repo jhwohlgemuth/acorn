@@ -3,11 +3,15 @@
 //! These types model the DataCite Metadata Schema 4.6 structure, including
 //! DOI records, creators, contributors, related identifiers, funding
 //! references, geolocation, rights, and other metadata properties
-use super::{dcat, huwise, invenio};
+use super::crosswalk::mappings::{
+    dcat_to_datacite::dcat_to_datacite, huwise_to_datacite::huwise_to_datacite, invenio_to_datacite::invenio_to_datacite,
+};
+use super::crosswalk::CrosswalkError;
+use super::{crosswalk, dcat, huwise, invenio};
 #[cfg(feature = "std")]
 use crate::io::License;
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
-use crate::schema::standard::crosswalk::{SchemaBuilder, SchemaExtractor};
+
 use crate::schema::validate::{is_doi, is_iso_639_1_language_code, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
 #[cfg(not(feature = "std"))]
 use crate::util::License;
@@ -1132,76 +1136,48 @@ impl fmt::Display for GeoLocationPoint {
         write!(f, "({longitude}, {latitude})")
     }
 }
-impl From<huwise::Dataset> for Record {
-    fn from(dataset: huwise::Dataset) -> Self {
-        let mut titles = None;
-        let mut language = None;
-        if let Some(ref meta) = dataset.metas.r#default {
-            if let Some(ref title) = meta.title {
-                titles = Some(vec![Title {
-                    title: title.clone(),
-                    title_type: None,
-                }]);
-            }
-            language = meta.language.clone();
-        }
-        let attributes = Attributes {
-            doi: dataset.dataset_id.clone(),
-            event: None,
-            titles,
-            creators: None,
-            publisher: None,
-            publication_year: None,
-            resource_types: None,
-            url: None,
-            subjects: None,
-            contributors: None,
-            dates: None,
-            language,
-            alternate_identifiers: None,
-            related_identifiers: None,
-            sizes: None,
-            formats: None,
-            version: None,
-            rights_list: None,
-            descriptions: None,
-            geo_locations: None,
-            funding_references: None,
-            schema_version: None,
-        };
-        Record {
-            id: dataset.dataset_id,
-            kind: "dois".to_string(),
-            attributes,
-        }
+impl TryFrom<huwise::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: huwise::Dataset) -> Result<Self, Self::Error> {
+        let mapping = huwise_to_datacite();
+        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
     }
 }
-impl From<dcat::Dataset> for Record {
-    fn from(dataset: dcat::Dataset) -> Self {
-        let fields = dataset.extract_fields();
-        Record::build_from_fields(&fields).unwrap_or_else(|err| panic!("failed to convert DCAT Dataset to DataCite Record: {err}"))
+impl TryFrom<dcat::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: dcat::Dataset) -> Result<Self, Self::Error> {
+        let mapping = dcat_to_datacite();
+        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
     }
 }
-impl From<&dcat::Dataset> for Record {
-    fn from(dataset: &dcat::Dataset) -> Self {
-        Record::from(dataset.clone())
+impl TryFrom<&dcat::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: &dcat::Dataset) -> Result<Self, Self::Error> {
+        Record::try_from(dataset.clone())
     }
 }
-impl From<invenio::Record> for Record {
-    fn from(record: invenio::Record) -> Self {
-        let fields = record.extract_fields();
-        Record::build_from_fields(&fields).unwrap_or_else(|err| panic!("failed to convert Invenio Record to DataCite Record: {err}"))
+impl TryFrom<invenio::Record> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(record: invenio::Record) -> Result<Self, Self::Error> {
+        let mapping = invenio_to_datacite();
+        crosswalk::convert(&record, &mapping).map(|(record, _)| record)
     }
 }
-impl From<&invenio::Record> for Record {
-    fn from(record: &invenio::Record) -> Self {
-        Record::from(record.clone())
+impl TryFrom<&invenio::Record> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(record: &invenio::Record) -> Result<Self, Self::Error> {
+        Record::try_from(record.clone())
     }
 }
 fn default_identifier_type() -> String {
     DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY[0].to_string()
 }
 /// Convert a HuWise catalog into a DataCite catalog
-pub fn from_huwise(catalog: huwise::Catalog) -> Catalog {
-    catalog.into_iter().map(Record::from).collect()
+pub fn from_huwise(catalog: huwise::Catalog) -> Result<Catalog, CrosswalkError> {
+    catalog.into_iter().map(Record::try_from).collect()
 }

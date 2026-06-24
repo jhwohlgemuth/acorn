@@ -13,17 +13,17 @@ impl SchemaExtractor for dcat::Dataset {
             }
         }
         if let Some(titles) = &self.title {
-            if !titles.is_empty() {
-                fields.insert("title", FieldValue::String(titles[0].clone()));
+            if let Some(first) = titles.first() {
+                fields.insert("title", FieldValue::String(first.clone()));
                 if titles.len() > 1 {
-                    let alt_titles = titles[1..].to_vec();
+                    let alt_titles: Vec<String> = titles.iter().skip(1).cloned().collect();
                     fields.insert("alternative-titles", FieldValue::StringVec(alt_titles));
                 }
             }
         }
         if let Some(descriptions) = &self.description {
-            if !descriptions.is_empty() {
-                fields.insert("description", FieldValue::String(descriptions[0].clone()));
+            if let Some(first) = descriptions.first() {
+                fields.insert("description", FieldValue::String(first.clone()));
             }
         }
         if let Some(issued) = &self.issued {
@@ -56,8 +56,8 @@ impl SchemaExtractor for dcat::Dataset {
             fields.insert("license", FieldValue::IRI(license.clone()));
         }
         if let Some(spatial) = &self.spatial {
-            if !spatial.is_empty() {
-                if let Some(geometry) = &spatial[0].geometry {
+            if let Some(first) = spatial.first() {
+                if let Some(geometry) = &first.geometry {
                     fields.insert("spatial", FieldValue::String(geometry.clone()));
                 }
             }

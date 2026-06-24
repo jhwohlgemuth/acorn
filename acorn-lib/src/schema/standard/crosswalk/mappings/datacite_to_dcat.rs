@@ -22,14 +22,16 @@
 //! - contributors (DCAT lacks contributor types)
 //! - funding_references (no DCAT equivalent)
 //! - dates (complex date types don't map to single issued date)
-use crate::schema::standard::crosswalk::{mapping::transforms::{resource_type_to_iri, year_to_date}, FieldMapping, FieldRule};
+use crate::schema::standard::crosswalk::mapping::transforms::{as_vec, resource_type_to_iri, year_to_date};
+use crate::schema::standard::crosswalk::{FieldMapping, FieldRule};
 
+/// Create field mapping rules from DataCite to DCAT
 pub fn datacite_to_dcat() -> FieldMapping {
     FieldMapping::new("datacite", "dcat")
         .with_rule(FieldRule::new("doi", "identifier").required())
         .with_rule(FieldRule::new("title", "title"))
         .with_rule(FieldRule::new("description", "description"))
-        .with_rule(FieldRule::new("language", "language"))
+        .with_rule(FieldRule::new("language", "language").with_transform(as_vec))
         .with_rule(FieldRule::new("creators", "creators"))
         .with_rule(FieldRule::new("publisher", "publisher"))
         .with_rule(FieldRule::new("publication-year", "issued").with_transform(year_to_date))

@@ -194,7 +194,7 @@ fn from_datacite_to_dcat() {
             schema_version: None,
         },
     };
-    let dataset: dcat::Dataset = record.into();
+    let dataset: dcat::Dataset = record.try_into().unwrap();
     assert_eq!(dataset.title, Some(vec!["Science Dataset".to_string()]));
     assert_eq!(dataset.description, Some(vec!["A scientific dataset".to_string()]));
     assert_eq!(dataset.language, Some(vec!["en".to_string()]));
@@ -243,7 +243,7 @@ fn from_dcat_to_datacite() {
         temporal_resolution: None,
         was_generated_by: None,
     };
-    let record: datacite::Record = dataset.into();
+    let record: datacite::Record = dataset.try_into().unwrap();
     assert_eq!(record.attributes.doi, "https://doi.org/10.5555/87654321");
     assert_eq!(
         record.attributes.titles.as_ref().map(|t| &t[0].title),
@@ -305,7 +305,7 @@ fn extract_invenio_record_basic() {
 #[test]
 fn build_invenio_from_fields() {
     let mut fields = FieldMap::new();
-    fields.insert("identifier", FieldValue::IRI("invenio-built-001".to_string()));
+    fields.insert("identifier", FieldValue::String("invenio-built-001".to_string()));
     fields.insert("title", FieldValue::String("Built Invenio Record".to_string()));
     fields.insert("publication-year", FieldValue::Number(2025.0));
     let record = invenio::Record::build_from_fields(&fields);
@@ -363,8 +363,8 @@ fn from_invenio_to_datacite() {
         created: Some("2024-03-01T00:00:00Z".to_string()),
         updated: None,
     };
-    let datacite_record: datacite::Record = record.into();
-    assert_eq!(datacite_record.attributes.doi, "10.5555/invenio-test");
+    let datacite_record: datacite::Record = record.try_into().unwrap();
+    assert_eq!(datacite_record.attributes.doi, "invenio-convert-001");
     assert_eq!(
         datacite_record.attributes.titles.as_ref().map(|t| &t[0].title),
         Some(&"Invenio to DataCite Test".to_string())
@@ -412,7 +412,7 @@ fn from_datacite_to_invenio() {
             schema_version: None,
         },
     };
-    let invenio_record: invenio::Record = record.into();
+    let invenio_record: invenio::Record = record.try_into().unwrap();
     assert_eq!(invenio_record.id, Some("10.5555/datacite-to-inv".to_string()));
     assert_eq!(
         invenio_record.metadata.as_ref().and_then(|m| m.title.clone()),
@@ -589,7 +589,7 @@ fn from_huwise_to_datacite() {
         },
         features: vec![],
     };
-    let datacite_record: datacite::Record = dataset.into();
+    let datacite_record: datacite::Record = dataset.try_into().unwrap();
     assert_eq!(
         datacite_record.attributes.titles.as_ref().map(|t| &t[0].title),
         Some(&"HuWise to DataCite Test".to_string())

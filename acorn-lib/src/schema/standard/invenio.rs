@@ -11,9 +11,11 @@
 //! - [InvenioRDM Documentation](https://inveniordm.docs.cern.ch/)
 //! - [Metadata Reference](https://inveniordm.docs.cern.ch/reference/metadata/)
 //!
-use super::datacite;
+use super::crosswalk::mappings::datacite_to_invenio::datacite_to_invenio;
+use super::crosswalk::CrosswalkError;
+use super::{crosswalk, datacite};
 use crate::schema::research_activity::s3a::Status;
-use crate::schema::standard::crosswalk::{SchemaBuilder, SchemaExtractor};
+
 use crate::schema::validate::{is_doi, is_iso_639_language_code};
 use core::fmt;
 use schemars::JsonSchema;
@@ -672,14 +674,18 @@ impl fmt::Display for AccessLevel {
         }
     }
 }
-impl From<datacite::Record> for Record {
-    fn from(record: datacite::Record) -> Self {
-        let fields = record.extract_fields();
-        Record::build_from_fields(&fields).unwrap_or_else(|err| panic!("failed to convert DataCite Record to Invenio Record: {err}"))
+impl TryFrom<datacite::Record> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(record: datacite::Record) -> Result<Self, Self::Error> {
+        let mapping = datacite_to_invenio();
+        crosswalk::convert(&record, &mapping).map(|(record, _)| record)
     }
 }
-impl From<&datacite::Record> for Record {
-    fn from(record: &datacite::Record) -> Self {
-        Record::from(record.clone())
+impl TryFrom<&datacite::Record> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(record: &datacite::Record) -> Result<Self, Self::Error> {
+        Record::try_from(record.clone())
     }
 }

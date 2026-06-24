@@ -1,7 +1,8 @@
 //! HuWise dataset schema models
 //!
-use super::datacite;
-use crate::schema::standard::crosswalk::{SchemaBuilder, SchemaExtractor};
+use super::crosswalk::mappings::datacite_to_huwise::datacite_to_huwise;
+use super::crosswalk::CrosswalkError;
+use super::{crosswalk, datacite};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -411,14 +412,18 @@ pub struct Datacite {
     /// Geolocation value
     pub geolocation: Option<String>,
 }
-impl From<datacite::Record> for Dataset {
-    fn from(record: datacite::Record) -> Self {
-        let fields = record.extract_fields();
-        Dataset::build_from_fields(&fields).unwrap_or_else(|err| panic!("failed to convert DataCite Record to HuWise Dataset: {err}"))
+impl TryFrom<datacite::Record> for Dataset {
+    type Error = CrosswalkError;
+
+    fn try_from(record: datacite::Record) -> Result<Self, Self::Error> {
+        let mapping = datacite_to_huwise();
+        crosswalk::convert(&record, &mapping).map(|(dataset, _)| dataset)
     }
 }
-impl From<&datacite::Record> for Dataset {
-    fn from(record: &datacite::Record) -> Self {
-        Self::from(record.clone())
+impl TryFrom<&datacite::Record> for Dataset {
+    type Error = CrosswalkError;
+
+    fn try_from(record: &datacite::Record) -> Result<Self, Self::Error> {
+        Dataset::try_from(record.clone())
     }
 }

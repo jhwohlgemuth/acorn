@@ -9,11 +9,14 @@ impl SchemaExtractor for invenio::Record {
         let mut fields = FieldMap::new();
         if let Some(pid) = &self.pid {
             if let Some(pk) = pid.pk {
-                fields.insert("identifier", FieldValue::IRI(pk.to_string()));
+                fields.insert("identifier", FieldValue::String(pk.to_string()));
             }
         }
-        if fields.is_empty() && self.id.is_some() {
-            fields.insert("identifier", FieldValue::IRI(self.id.clone().unwrap_or_default()));
+        let has_id = fields.contains_key("identifier");
+        if !has_id {
+            if let Some(id) = &self.id {
+                fields.insert("identifier", FieldValue::String(id.clone()));
+            }
         }
         if let Some(metadata) = &self.metadata {
             // Title (required in Invenio)
@@ -44,8 +47,8 @@ impl SchemaExtractor for invenio::Record {
                 fields.insert("description", FieldValue::String(description.clone()));
             }
             if let Some(languages) = &metadata.languages {
-                if !languages.is_empty() {
-                    fields.insert("language", FieldValue::String(languages[0].id.clone()));
+                if let Some(first) = languages.first() {
+                    fields.insert("language", FieldValue::String(first.id.clone()));
                 }
             }
             if let Some(identifiers) = &metadata.identifiers {
@@ -63,8 +66,8 @@ impl SchemaExtractor for invenio::Record {
                 }
             }
             if let Some(rights) = &metadata.rights {
-                if !rights.is_empty() {
-                    if let Some(link) = &rights[0].link {
+                if let Some(first) = rights.first() {
+                    if let Some(link) = &first.link {
                         fields.insert("license", FieldValue::IRI(link.clone()));
                     }
                 }

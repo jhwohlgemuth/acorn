@@ -465,7 +465,9 @@ fn crosswalk(source_standard: Standard, target: Standard, content: &str, mime: M
         | Standard::Datacite => match Batch::<datacite::Record>::parse(content, mime) {
             | Ok(source) => match target {
                 | Standard::Datacite => source.serialize(format),
-                | Standard::Dcat => source.map(|value| Ok(dcat::Dataset::from(value))).and_then(|data| data.serialize(format)),
+                | Standard::Dcat => source
+                    .map(|value| dcat::Dataset::try_from(value).map_err(|e| eyre!(e)))
+                    .and_then(|data| data.serialize(format)),
                 | Standard::Invenio => source
                     .map(|value| Ok(datacite_to_invenio_safe(value)))
                     .and_then(|data| data.serialize(format)),
@@ -480,13 +482,13 @@ fn crosswalk(source_standard: Standard, target: Standard, content: &str, mime: M
             | Ok(source) => match target {
                 | Standard::Dcat => source.serialize(format),
                 | Standard::Datacite => source
-                    .map(|value| Ok(datacite::Record::from(value)))
+                    .map(|value| datacite::Record::try_from(value).map_err(|e| eyre!(e)))
                     .and_then(|data| data.serialize(format)),
                 | Standard::Invenio => source
-                    .map(|value| Ok(datacite_to_invenio_safe(datacite::Record::from(value))))
+                    .map(|value| datacite::Record::try_from(value).map(datacite_to_invenio_safe).map_err(|e| eyre!(e)))
                     .and_then(|data| data.serialize(format)),
                 | Standard::Huwise => source
-                    .map(|value| Ok(datacite_to_huwise_safe(datacite::Record::from(value))))
+                    .map(|value| datacite::Record::try_from(value).map(datacite_to_huwise_safe).map_err(|e| eyre!(e)))
                     .and_then(|data| data.serialize(format)),
                 | _ => source_standard.unsupported(target),
             },
@@ -499,7 +501,7 @@ fn crosswalk(source_standard: Standard, target: Standard, content: &str, mime: M
                     .map(|value| Ok(invenio_to_datacite_safe(value)))
                     .and_then(|data| data.serialize(format)),
                 | Standard::Dcat => source
-                    .map(|value| Ok(dcat::Dataset::from(invenio_to_datacite_safe(value))))
+                    .map(|value| dcat::Dataset::try_from(invenio_to_datacite_safe(value)).map_err(|e| eyre!(e)))
                     .and_then(|data| data.serialize(format)),
                 | Standard::Huwise => source
                     .map(|value| Ok(datacite_to_huwise_safe(invenio_to_datacite_safe(value))))
@@ -512,13 +514,17 @@ fn crosswalk(source_standard: Standard, target: Standard, content: &str, mime: M
             | Ok(source) => match target {
                 | Standard::Huwise => source.serialize(format),
                 | Standard::Datacite => source
-                    .map(|dataset| Ok(datacite::Record::from(dataset)))
+                    .map(|dataset| datacite::Record::try_from(dataset).map_err(|e| eyre!(e)))
                     .and_then(|data| data.serialize(format)),
                 | Standard::Dcat => source
-                    .map(|value| Ok(dcat::Dataset::from(datacite::Record::from(value))))
+                    .map(|value| {
+                        datacite::Record::try_from(value)
+                            .map_err(|e| eyre!(e))
+                            .and_then(|record| dcat::Dataset::try_from(record).map_err(|e| eyre!(e)))
+                    })
                     .and_then(|data| data.serialize(format)),
                 | Standard::Invenio => source
-                    .map(|value| Ok(datacite_to_invenio_safe(datacite::Record::from(value))))
+                    .map(|value| datacite::Record::try_from(value).map(datacite_to_invenio_safe).map_err(|e| eyre!(e)))
                     .and_then(|data| data.serialize(format)),
                 | _ => source_standard.unsupported(target),
             },
