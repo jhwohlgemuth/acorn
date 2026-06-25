@@ -5,6 +5,12 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
+
+// This file is intentionally reverted to its original state.
+// Investigation findings:
+//  - All cli::tests pass (including `--help` via try_parse_from/try_get_matches_from)
+//  - The crash is NOT in clap parsing itself — it happens ONLY in the binary build
+//  - Possible causes remaining: main() body, #[tokio::main], #[instrument], static init, or CRT
 use crate::cli::{resolve_paths, Arguments, CommandOptions};
 use acorn::io::filter_ignored_with_root;
 use acorn::prelude::{Path, PathBuf};

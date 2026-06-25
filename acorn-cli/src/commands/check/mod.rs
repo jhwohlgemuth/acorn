@@ -1,9 +1,8 @@
-use crate::cli::arguments::{CheckCategoryArgument, ReadabilityTypeArgument, Standard};
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use crate::io::{is_stdout_piped, write_stdout};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{checks_to_csv, summary, Analysis, Check, CheckCategory, CheckOptions, Standard as AnalyzerStandard};
+use acorn::analyzer::{self, checks_to_csv, summary, Analysis, Check, CheckCategory, CheckOptions};
 use acorn::io::unique_file_extensions;
 use acorn::prelude::{exit, PathBuf};
 use acorn::schema::pid::raid;
@@ -29,7 +28,7 @@ pub async fn run(
     commit: &Option<String>,
     filter: &[String],
     ignore: &[String],
-    skip: &[CheckCategoryArgument],
+    skip: &[analyzer::CheckCategory],
     disable_website_checks: &bool,
     all: &bool,
     exit_on_first_error: &bool,
@@ -38,8 +37,8 @@ pub async fn run(
     no_fail: &bool,
     raw: &bool,
     terse: &bool,
-    standard: &Standard,
-    readability_metric: &ReadabilityTypeArgument,
+    standard: &analyzer::Standard,
+    readability_metric: &ReadabilityType,
     verbose: &Verbosity,
     offline: bool,
 ) -> Result<(), Report> {
@@ -98,11 +97,11 @@ fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, option
 }
 async fn collect(paths: &[PathBuf], check_options: &CheckOptions) -> Vec<Check> {
     match check_options.standard {
-        | AnalyzerStandard::CitationFileFormat => collect_checks_for::<Cff>(paths, check_options).await,
-        | AnalyzerStandard::Docx => collect_checks_for::<Docx>(paths, check_options).await,
-        | AnalyzerStandard::ResearchActivityData => collect_checks_for::<ResearchActivity>(paths, check_options).await,
-        | AnalyzerStandard::Raid => collect_checks_for::<raid::Metadata>(paths, check_options).await,
-        | AnalyzerStandard::Text => collect_checks_for::<Text>(paths, check_options).await,
+        | analyzer::Standard::CitationFileFormat => collect_checks_for::<Cff>(paths, check_options).await,
+        | analyzer::Standard::Docx => collect_checks_for::<Docx>(paths, check_options).await,
+        | analyzer::Standard::ResearchActivityData => collect_checks_for::<ResearchActivity>(paths, check_options).await,
+        | analyzer::Standard::Raid => collect_checks_for::<raid::Metadata>(paths, check_options).await,
+        | analyzer::Standard::Text => collect_checks_for::<Text>(paths, check_options).await,
         | _ => unimplemented!(),
     }
 }
@@ -162,19 +161,19 @@ fn filter_by_visibility(issues: &[Check], all: bool) -> Vec<Check> {
 fn has_failures(issues: &[Check]) -> bool {
     issues.iter().any(Check::is_failure)
 }
-fn infer_standard(paths: &[PathBuf]) -> AnalyzerStandard {
+fn infer_standard(paths: &[PathBuf]) -> analyzer::Standard {
     let extensions = unique_file_extensions(paths);
     if extensions.len() == 1 && extensions.contains(&"cff".to_string()) {
         warn!("=> {} Inferred standard (CFF)", Label::using());
-        AnalyzerStandard::CitationFileFormat
+        analyzer::Standard::CitationFileFormat
     } else if extensions.len() == 1 && extensions.contains(&"docx".to_string()) {
         warn!("=> {} Inferred standard (DOCX)", Label::using());
-        AnalyzerStandard::Docx
+        analyzer::Standard::Docx
     } else if extensions.len() == 1 && extensions.contains(&"txt".to_string()) {
         warn!("=> {} Inferred standard (Text)", Label::using());
-        AnalyzerStandard::Text
+        analyzer::Standard::Text
     } else {
-        AnalyzerStandard::ResearchActivityData
+        analyzer::Standard::ResearchActivityData
     }
 }
 fn render(issues: &[Check], terse: bool) {
@@ -197,17 +196,16 @@ fn render(issues: &[Check], terse: bool) {
         });
     }
 }
-fn resolve_readability_metric(readability_metric: &ReadabilityTypeArgument) -> ReadabilityType {
-    let metric_from_cli = ReadabilityType::from_string(&readability_metric.to_string());
+fn resolve_readability_metric(readability_metric: &ReadabilityType) -> ReadabilityType {
     match dotenv() {
         | Ok(_) => match dotenvy::var(READABILITY_METRIC) {
             | Ok(value) if !value.is_empty() => {
                 debug!(value, "=> {} Readability metric from .env", Label::using());
                 ReadabilityType::from_string(&value)
             }
-            | _ => metric_from_cli,
+            | _ => *readability_metric,
         },
-        | _ => metric_from_cli,
+        | _ => *readability_metric,
     }
 }
 fn resolve_skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
@@ -223,10 +221,10 @@ fn resolve_skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
         .chain((*offline || *disable_website_checks).then_some(CheckCategory::Link))
         .collect()
 }
-fn resolve_standard(paths: &[PathBuf], standard: &Standard) -> AnalyzerStandard {
+fn resolve_standard(paths: &[PathBuf], standard: &analyzer::Standard) -> analyzer::Standard {
     match standard {
-        | Standard::Rads => infer_standard(paths),
-        | value => (*value).into(),
+        | analyzer::Standard::ResearchActivityData => infer_standard(paths),
+        | value => *value,
     }
 }
 #[cfg(test)]

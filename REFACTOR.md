@@ -1189,3 +1189,196 @@ Implementation approach:
 3. **Extensibility**: Future versions may support plugin-based mappers for domain-specific conversions
 4. **Direct Invenio↔HuWise mapping**: Currently uses DataCite as intermediate format; direct mapping could be implemented for performance if needed
 
+## Plan: Add `acorn check` Support for DataCite, DCAT, Invenio, HuWise
+
+### 1. Goal
+
+Make `acorn check --standard <name> <file>` work for `datacite`, `dcat`, `invenio`, and `huwise`.
+Currently these hit `unimplemented!()` in the check dispatch (`acorn-cli/src/commands/check/mod.rs:106`).
+
+### 2. Background — Current Architecture
+
+| Layer | File | Role |
+|-------|------|------|
+| CLI `Standard` enum | `acorn-cli/src/cli/arguments.rs:124-158` | Parses `--standard` from CLI (10 variants incl. Datacite/Dcat/Invenio/Huwise) |
+| Analyzer `Standard` enum | `acorn-lib/src/analyzer/check.rs:75-108` | Processing-level enum (same 10 variants) |
+| `From` conversions | `acorn-cli/src/cli/arguments.rs:232-263` | CLI↔Analyzer mapping already exists for all 10 |
+| Check `collect()` | `acorn-cli/src/commands/check/mod.rs:99-108` | Dispatches by `AnalyzerStandard` — only 5 arms implemented, rest `unimplemented!()` |
+| `collect_checks_for<T>()` | `acorn-cli/src/commands/check/mod.rs:109-120` | Generic over `T: Analysis`; reads files, dispatches categories |
+| `Analysis` trait | `acorn-lib/src/analyzer/check.rs:38-65` | 5 async check methods + `output_path` + `standard` |
+| `InputOutput` trait | `acorn-lib/src/io/mod.rs` | `read(path) -> ApiResult<Self>` — **not implemented** for new types |
+| `ToProse` trait | `acorn-lib/src/util/mod.rs:96` | Extract plain text — **not implemented** for new types |
+| `Validate` | Derived via `#[derive(Validate)]` | **Already present** on all nested structs of all 4 types |
+
+### 3. What's Needed
+
+#### 3.1 `InputOutput` impls (top-level types)
+
+Add `InputOutput` for:
+- `datacite::Record` (`datacite.rs:898`)
+- `dcat::Dataset` (`dcat.rs:273`)
+- `invenio::Record` (`invenio.rs:521`)
+- `huwise::Dataset` (`huwise.rs:33`)
+
+Follow the `Cff` pattern. At minimum implement:
+- `read(path)` → detect extension, call `read_json` or `read_yaml`
+- `read_json(path)` → `serde_json::from_str` (types use vanilla `serde::Deserialize`)
+- `read_yaml(path)` → `serde_norway::from_str`
+
+#### 3.2 `ToProse` impls (top-level types)
+
+Add `ToProse` for the same 4 types. Extract text from:
+
+| Type | Text fields to concatenate |
+|------|---------------------------|
+| `datacite::Record` | `titles[].title`, `descriptions[].description`, `subjects[].subject` |
+| `dcat::Dataset` | `title`, `description`, `keyword` |
+| `invenio::Record` | `metadata.title`, `metadata.description`, `metadata.additional_descriptions[].description` |
+| `huwise::Dataset` | `metas[].value` where title-like, description fields |
+
+#### 3.3 `Analysis` impls
+
+Add `#[cfg(feature = "analysis")]` `#[async_trait]` `impl Analysis for X` in
+`acorn-lib/src/analyzer/mod.rs` (alongside existing impls for `Cff`, `ResearchActivity`, etc.).
+
+**Recommended category support per standard** (`✓` = implement, `-` = return `vec![]`):
+
+| Category | `datacite::Record` | `dcat::Dataset` | `invenio::Record` | `huwise::Dataset` |
+|----------|:---:|:---:|:---:|:---:|
+| **Schema** | ✓ (Validate + InputOutput) | ✓ | ✓ | ✓ |
+| **Quality** | ✓ (basic read check) | ✓ | ✓ | ✓ |
+| **Prose** | ✓ (ToProse) | ✓ | ✓ | ✓ |
+| **Readability** | ✓ (ToProse) | ✓ | ✓ | ✓ |
+| **Websites (Link)** | ✓ (DOI, URLs) | ✓ (distributions, landing) | ✓ (DOI, related URLs) | - |
+
+**Implementation approach per method (same pattern for all 4):**
+
+- `check_schema` — identical to `Cff::check_schema`: `Self::read(path)`, `collect_validation_checks(&data)`
+- `check_quality` — identical to `Cff::check_quality`: `Self::read(path)`, return `check_ok!` or `check_err!`
+- `check_prose` — delegates to `check_prose_for::<Self>()` (requires `InputOutput + ToProse`)
+- `check_readability` — delegates to `check_readability_for::<Self>()` (requires `InputOutput + ToProse`)
+- `check_websites` — extract URLs from schema fields, call `link_check()`
+
+#### 3.4 Wire up `collect()` dispatch
+
+In `acorn-cli/src/commands/check/mod.rs:99-108` add 4 match arms:
+
+```rust
+| AnalyzerStandard::Datacite => collect_checks_for::<datacite::Record>(paths, check_options).await,
+| AnalyzerStandard::Dcat => collect_checks_for::<dcat::Dataset>(paths, check_options).await,
+| AnalyzerStandard::Invenio => collect_checks_for::<invenio::Record>(paths, check_options).await,
+| AnalyzerStandard::Huwise => collect_checks_for::<huwise::Dataset>(paths, check_options).await,
+```
+
+Add imports:
+```rust
+use acorn::schema::standard::{datacite, dcat, huwise, invenio};
+```
+
+### 4. Files to Modify
+
+| File | Change |
+|------|--------|
+| `acorn-lib/src/schema/standard/datacite.rs` | Add `impl InputOutput for Record`, `impl ToProse for Record` |
+| `acorn-lib/src/schema/standard/dcat.rs` | Add `impl InputOutput for Dataset`, `impl ToProse for Dataset` |
+| `acorn-lib/src/schema/standard/invenio.rs` | Add `impl InputOutput for Record`, `impl ToProse for Record` |
+| `acorn-lib/src/schema/standard/huwise.rs` | Add `impl InputOutput for Dataset`, `impl ToProse for Dataset` |
+| `acorn-lib/src/analyzer/mod.rs` | Add 4 `#[cfg(feature = "analysis")] impl Analysis for X` blocks + imports |
+| `acorn-cli/src/commands/check/mod.rs` | Add 4 match arms to `collect()`, add imports |
+
+### 5. Test Strategy
+
+#### 5.1 Test fixtures
+
+Check `tests/fixtures/` for existing samples. Create minimal JSON files for each standard if none exist.
+
+#### 5.2 Tests to add (for each of the 4 standards)
+
+1. **Schema validation** — known-good JSON → expect zero schema errors
+2. **Schema failure** — deliberately broken JSON → expect schema errors
+3. **Quality** — valid file → quality `check_ok!`
+4. **Prose/readability** — verify text extraction via `ToProse`
+
+#### 5.3 Integration tests in `acorn-cli/src/commands/check/tests/`
+
+- `test_check_datacite_standard`
+- `test_check_dcat_standard`
+- `test_check_invenio_standard`
+- `test_check_huwise_standard`
+
+### 6. Assumptions & Open Questions
+
+1. **DataCite `Record`** (`datacite.rs:898`) is a JSON:API wrapper with `data.attributes.*` — `InputOutput::read` must deserialize the full wrapper. Verify struct matches file format.
+2. **Invenio `Record`** (`invenio.rs:521`) may have a similar JSON:API envelope — same consideration.
+3. **DCAT/HuWise** top-level structs (`dcat::Dataset`, `huwise::Dataset`) are flat — should be straightforward JSON/YAML deserialization.
+4. **eserde vs serde**: None of the 4 types use `eserde::Deserialize`. Start with `serde_json::from_str`; can migrate to `eserde` in a follow-up.
+5. **`Standard::DublinCore`** exists in both enums but is out of scope — remains `unimplemented!()`.
+
+### 7. Execution Order
+
+| Step | Description | Dependencies |
+|------|-------------|--------------|
+| 1 | Add `InputOutput` impls for all 4 types | None |
+| 2 | Add `ToProse` impls for all 4 types | None |
+| 3 | Add `Analysis` impls in `analyzer/mod.rs` | Steps 1+2 |
+| 4 | Wire up `collect()` in check command | Step 3 |
+| 5 | Create/reuse test fixtures | None |
+| 6 | Add tests | Steps 1-5 |
+| 7 | `make lint && make test` | All steps |
+
+## CLI Proxy Enum Elimination
+
+This section covers removing CLI-only proxy enums that exist solely to derive `ValueEnum` for clap, replacing them with direct use of library types plus custom `value_parser` functions. This simultaneously fixes a stack overflow caused by `Option<Standard>` with `#[arg(value_enum)]` in the Export variant.
+
+### Target Proxy Enums
+
+| Proxy Enum (to remove) | Library Replacement | Lines Saved |
+|---|---|---|
+| `CheckCategoryArgument` (5 variants) | `analyzer::CheckCategory` | ~15 lines + `From` impl |
+| `ExecutorArgument` (9 variants) | `Executor` | ~25 lines + `From` impl |
+| `ReadabilityTypeArgument` (7 variants) | `ReadabilityType` | ~25 lines |
+| `Standard` (10 variants + 3 `From` impls + `infer()` method) | `analyzer::Standard` | ~170 lines |
+
+**Kept** (CLI-only, no library equivalent): `DatabaseBackend`, `Diagnostic`, `FileFormat`, `Size`, `Target`.
+
+### Mechanism
+
+Replace `#[arg(value_enum)]` with `#[arg(value_parser = ...)]` using free functions in a new `parse.rs` that map CLI input strings directly to library enum variants. The library types already implement `Default` and `Display`, so `default_value_t` continues to work.
+
+### Files to Change
+
+| File | Change |
+|------|--------|
+| `acorn-cli/src/cli/parse.rs` | **New** — `parse_standard()`, `parse_check_category()`, `parse_executor()`, `infer_standard()` |
+| `acorn-cli/src/cli/arguments.rs` | Remove 4 proxy enums + 4 `From` impls + `Standard::infer()` — net -170 lines |
+| `acorn-cli/src/cli/mod.rs` | Update field types + `value_parser` attrs on Check/Export/Format/Gather/Link/Runner; restore `from`/`to` on Export |
+| `acorn-cli/src/commands/mod.rs` | No-op type change in match destructuring (variable names unchanged) |
+| `acorn-cli/src/commands/check/mod.rs` | Remove `resolve_readability_metric()` bridge; simplify `resolve_standard()` |
+| `acorn-cli/src/commands/export/mod.rs` | Restore `from: &Option<analyzer::Standard>`, `to: &Option<analyzer::Standard>` |
+| `acorn-cli/src/commands/create/runner/mod.rs` | `ExecutorArgument` → `Executor` (param still unused) |
+| `acorn-cli/src/commands/format/mod.rs` | `&Standard` → `&analyzer::Standard` |
+| `acorn-cli/src/commands/gather/mod.rs` | `&Standard` → `&analyzer::Standard` |
+| `acorn-cli/src/commands/link/mod.rs` | `&Standard` → `&analyzer::Standard` |
+| Test files (check, export, format) | Replace proxy enum references with library types |
+
+### Execution Order
+
+1. Create `parse.rs` with value_parser functions
+2. Update `cli/mod.rs` field types and attributes
+3. Update `commands/mod.rs` dispatch (no-op)
+4. Update `commands/check/mod.rs` — simplify standard/readability/skip
+5. Update `commands/export/mod.rs` — restore from/to with library types
+6. Update `commands/create/runner/mod.rs` + format/gather/link
+7. Remove proxy enums from `arguments.rs`
+8. Update all test files
+9. Build, lint, test, verify binary runs
+
+### Completion Criteria
+
+- [ ] `cargo build --bin acorn` succeeds
+- [ ] `cargo run --bin acorn -- --help` runs without stack overflow
+- [ ] `cargo clippy --workspace --no-deps --all-targets` clean
+- [ ] All tests pass (`make test`)
+- [ ] No `.unwrap()` or `?` operator in parse functions
+- [ ] No proxy enum references remain in CLI crate
+

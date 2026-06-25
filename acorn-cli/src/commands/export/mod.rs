@@ -1,4 +1,5 @@
-use crate::cli::arguments::{FileFormat, Standard};
+use crate::cli::arguments::FileFormat;
+use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use acorn::analyzer;
@@ -23,7 +24,7 @@ mod powerpoint;
 
 trait ExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a>;
-    fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
+    fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<analyzer::Standard>, to: Option<analyzer::Standard>) -> ApiFuture<'a> {
         Box::pin(async move {
             let _request = request;
             let _from = from;
@@ -81,7 +82,7 @@ impl ExportHandler for StructuredExportHandler {
             .await
         })
     }
-    fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
+    fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<analyzer::Standard>, to: Option<analyzer::Standard>) -> ApiFuture<'a> {
         Box::pin(async move {
             let extension = request.format.to_string();
             export_as_format_crosswalk(
@@ -234,8 +235,8 @@ pub async fn run(
     ignore: &[String],
     format: &FileFormat,
     reference: &Option<PathBuf>,
-    from: &Option<Standard>,
-    to: &Option<Standard>,
+    from: &Option<analyzer::Standard>,
+    to: &Option<analyzer::Standard>,
     combine: &bool,
     merge_request: &bool,
     raw: &bool,
@@ -343,8 +344,8 @@ async fn export_as_format_crosswalk(
     extension: &str,
     output_path: fn(&PathBuf, &str) -> PathBuf,
     progress_type: ProgressType,
-    from: Option<Standard>,
-    to: Option<Standard>,
+    from: Option<analyzer::Standard>,
+    to: Option<analyzer::Standard>,
 ) -> ApiResult<()> {
     match to {
         | Some(target) => {
@@ -371,12 +372,12 @@ async fn export_as_format_crosswalk(
                                         let mime = MimeType::from_path(item.clone());
                                         let source = match from {
                                             | Some(value) => Ok(value),
-                                            | None => Standard::infer(&item, &content, &mime),
+                                            | None => infer_standard_from_content(&item, &content, &mime),
                                         };
                                         let processed = source.and_then(|resolved| {
                                             let target_mime = MimeType::from(format.clone());
-                                            Into::<analyzer::Standard>::into(resolved)
-                                                .crosswalk(&content, mime, target.into(), target_mime)
+                                            resolved
+                                                .crosswalk(&content, mime, target, target_mime)
                                                 .map_err(|e| eyre!("Crosswalk failed — {e}"))
                                         });
                                         match processed {

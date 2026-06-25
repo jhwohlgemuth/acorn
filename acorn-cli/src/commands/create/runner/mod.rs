@@ -1,4 +1,3 @@
-use crate::cli::arguments::ExecutorArgument;
 use acorn::io::api::gitlab::{self, RunnerCreationResponse};
 use acorn::io::api::Configuration;
 use acorn::io::command_exists;
@@ -29,7 +28,7 @@ pub async fn run(
     project: &Option<u64>,
     tags: &[String],
     untagged: &bool,
-    _executor: &Option<ExecutorArgument>,
+    _executor: &Option<Executor>,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
     let config = ApplicationConfiguration::resolve(config)

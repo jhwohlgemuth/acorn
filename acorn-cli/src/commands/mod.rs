@@ -103,31 +103,19 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
         }
         | Some(Commands::Create { command, .. }) => match command {
             | Some(CreateCommands::Mcp) => unimplemented!("MCP server creation is not yet implemented"),
-            | Some(CreateCommands::Runner {
-                config,
-                description,
-                name,
-                server,
-                repo,
-                group,
-                project,
-                tags,
-                untagged,
-                executor,
-                verbose,
-            }) => {
+            | Some(CreateCommands::Runner(args)) => {
                 Box::pin(create::runner::run(
-                    config,
-                    description,
-                    name,
-                    server,
-                    repo,
-                    group,
-                    project,
-                    tags,
-                    untagged,
-                    executor,
-                    verbose,
+                    &args.config,
+                    &args.description,
+                    &args.name,
+                    &args.server,
+                    &args.repo,
+                    &args.group,
+                    &args.project,
+                    &args.tags,
+                    &args.untagged,
+                    &args.executor,
+                    &args.verbose,
                 ))
                 .await
             }

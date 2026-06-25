@@ -1,5 +1,7 @@
+use acorn::analyzer;
 use acorn::io::{
     files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored, filter_ignored_with_root, ApiResult,
+    Executor,
 };
 use acorn::prelude::PathBuf;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
@@ -9,12 +11,14 @@ use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
     Styles,
 };
-use clap::{ArgAction, Parser, Subcommand, ValueHint};
+use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre;
 
 pub mod arguments;
-use arguments::{CheckCategoryArgument, DatabaseBackend, Diagnostic, ExecutorArgument, FileFormat, ReadabilityTypeArgument, Standard};
+pub mod parse;
+use arguments::{DatabaseBackend, Diagnostic, FileFormat};
+use parse::{parse_check_category, parse_executor, parse_readability, parse_standard};
 
 /// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
@@ -286,19 +290,19 @@ pub enum Commands {
         /// Suppress output from external commands (e.g., Vale) while preserving ACORN output — useful for piping
         #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
         raw: bool,
-        /// Readability test to use
-        #[arg(default_value_t, short, long = "readability-test", value_name = "METRIC", help_heading = "OPTIONS")]
-        readability_metric: ReadabilityTypeArgument,
         /// Skip one or more available quality check categories
-        #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-        skip: Vec<CheckCategoryArgument>,
+        #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', value_parser = parse_check_category, help_heading = "OPTIONS")]
+        skip: Vec<analyzer::CheckCategory>,
         /// Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose)
         /// > CAUTION: Use at your own risk
         #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
         skip_verify_checksum: bool,
         /// Metadata standard to validate against
-        #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
-        standard: Standard,
+        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+        standard: analyzer::Standard,
+        /// Readability test to use
+        #[arg(default_value = "fkgl", short, long = "readability-test", value_name = "METRIC", value_parser = parse_readability, help_heading = "OPTIONS")]
+        readability_metric: acorn::analyzer::readability::ReadabilityType,
         /// Use compact output format instead of detailed output
         #[arg(short = 't', long, value_name = "BOOL", help_heading = "FLAGS")]
         terse: bool,
@@ -428,11 +432,6 @@ pub enum Commands {
         /// Only files matching at least one pattern will be processed
         #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
         filter: Vec<String>,
-        /// Source metadata schema for export or crosswalk conversion
-        ///
-        /// Required when the input schema cannot be inferred from file content.
-        #[arg(long = "from", value_name = "STANDARD", help_heading = "OPTIONS")]
-        from: Option<Standard>,
         /// Regular expression pattern(s) applied to absolute paths of files to exclude from export process
         ///
         /// Only applies to `--path` values that point to a directory
@@ -456,11 +455,19 @@ pub enum Commands {
         /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
         reference: Option<PathBuf>,
-        /// Target metadata schema for export or crosswalk conversion
+        /// Metadata standard to use for source data inference (default: auto-detect)
         ///
-        /// Only applies to JSON and YAML export formats, when using --from for crosswalk conversion.
-        #[arg(short, long = "to", value_name = "STANDARD", help_heading = "OPTIONS")]
-        to: Option<Standard>,
+        /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
+        #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+        from: Option<analyzer::Standard>,
+        /// Target metadata standard for crosswalk conversion
+        ///
+        /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
+        #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+        to: Option<analyzer::Standard>,
+        /// Metadata standard to validate against
+        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+        standard: analyzer::Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -509,8 +516,8 @@ pub enum Commands {
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,
         /// Metadata standard to validate against
-        #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
-        standard: Standard,
+        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+        standard: analyzer::Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -542,8 +549,8 @@ pub enum Commands {
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,
         /// Metadata standard to validate against
-        #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
-        standard: Standard,
+        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+        standard: analyzer::Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -578,8 +585,8 @@ pub enum Commands {
         #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
         merge_request: bool,
         /// Metadata standard to validate against
-        #[arg(default_value_t, short, long, value_name = "STANDARD", help_heading = "OPTIONS")]
-        standard: Standard,
+        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+        standard: analyzer::Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -606,53 +613,56 @@ pub enum Commands {
     #[clap(verbatim_doc_comment)]
     Tui,
 }
+#[derive(Debug, Args)]
+pub struct RunnerArgs {
+    /// Path to configuration file for creating the resource
+    #[arg(short, long, default_value = "./", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub config: Option<PathBuf>,
+    /// Runner description (alternative to providing a configuration file)
+    #[arg(short, long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
+    pub description: Option<String>,
+    /// GitLab runner executor type
+    #[arg(short, long, value_name = "TYPE", value_parser = parse_executor, help_heading = "OPTIONS")]
+    pub executor: Option<Executor>,
+    /// GitLab group ID to create a runner for (alternative to providing a configuration file)
+    #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
+    pub group: Option<u64>,
+    /// GitLab repository domain override for runner creation (e.g., code.ornl.gov)
+    #[arg(short = 'r', long, alias = "domain", value_name = "REPO", help_heading = "OPTIONS")]
+    pub repo: Option<String>,
+    /// GitLab project ID to create a runner for (alternative to providing a configuration file)
+    #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
+    pub project: Option<u64>,
+    /// Runner name (used as Docker container name)
+    #[arg(short = 'n', long, value_name = "NAME", help_heading = "OPTIONS")]
+    pub name: Option<String>,
+    /// Hosting server location (for use during registration)
+    #[arg(short, long, value_name = "SERVER", help_heading = "OPTIONS")]
+    pub server: Option<String>,
+    /// Tags to register the runner with (alternative to providing a configuration file)
+    #[arg(
+        short,
+        long,
+        conflicts_with = "untagged",
+        value_name = "LIST",
+        value_delimiter = ',',
+        help_heading = "OPTIONS"
+    )]
+    pub tags: Vec<String>,
+    /// Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
+    #[arg(short, long, conflicts_with = "tags", help_heading = "FLAGS")]
+    pub untagged: bool,
+    #[command(flatten)]
+    pub verbose: Verbosity,
+}
+
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum CreateCommands {
     /// Model context provider (MCP) server
     Mcp,
     /// GitLab runner
-    Runner {
-        /// Path to configuration file for creating the resource
-        #[arg(short, long, default_value = "./", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
-        config: Option<PathBuf>,
-        /// Runner description (alternative to providing a configuration file)
-        #[arg(short, long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
-        description: Option<String>,
-        /// GitLab runner executor type
-        #[arg(short, long, value_name = "TYPE", help_heading = "OPTIONS")]
-        executor: Option<ExecutorArgument>,
-        /// GitLab group ID to create a runner for (alternative to providing a configuration file)
-        #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
-        group: Option<u64>,
-        /// GitLab repository domain override for runner creation (e.g., code.ornl.gov)
-        #[arg(short = 'r', long, alias = "domain", value_name = "REPO", help_heading = "OPTIONS")]
-        repo: Option<String>,
-        /// GitLab project ID to create a runner for (alternative to providing a configuration file)
-        #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
-        project: Option<u64>,
-        /// Runner name (used as Docker container name)
-        #[arg(short = 'n', long, value_name = "NAME", help_heading = "OPTIONS")]
-        name: Option<String>,
-        /// Hosting server location (for use during registration)
-        #[arg(short, long, value_name = "SERVER", help_heading = "OPTIONS")]
-        server: Option<String>,
-        /// Tags to register the runner with (alternative to providing a configuration file)
-        #[arg(
-            short,
-            long,
-            conflicts_with = "untagged",
-            value_name = "LIST",
-            value_delimiter = ',',
-            help_heading = "OPTIONS"
-        )]
-        tags: Vec<String>,
-        /// Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
-        #[arg(short, long, conflicts_with = "tags", help_heading = "FLAGS")]
-        untagged: bool,
-        #[command(flatten)]
-        verbose: Verbosity,
-    },
+    Runner(Box<RunnerArgs>),
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
