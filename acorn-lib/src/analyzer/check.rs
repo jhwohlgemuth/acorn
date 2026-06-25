@@ -8,8 +8,10 @@ use crate::io::InputOutput;
 #[cfg(feature = "analysis")]
 use crate::prelude::Cursor;
 use crate::prelude::{Arc, HashMap, Path, PathBuf};
+use crate::schema::standard::crosswalk::{Batch, CrosswalkError};
+use crate::schema::standard::{datacite, dcat, huwise, invenio};
 use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
-use crate::util::{Label, StringConversion, ToProse};
+use crate::util::{Label, MimeType, StringConversion, ToProse};
 use crate::{check, check_err, check_ok};
 use ariadne::{Color, Config, Report, ReportKind, Source};
 use async_trait::async_trait;
@@ -103,6 +105,70 @@ pub enum Standard {
     /// Plain text
     #[display("text")]
     Text,
+}
+impl Standard {
+    /// Convert serialized content from one metadata standard to another.
+    ///
+    /// Parses `content` as the schema identified by `self` (source standard),
+    /// converts each record to the `target` standard using `TryFrom` pipeline,
+    /// and serializes the result as `output_mime` (JSON or YAML).
+    ///
+    /// ### Errors
+    /// Returns [`CrosswalkError`] when:
+    /// - Content cannot be parsed as the source standard
+    /// - A required conversion path is not supported
+    /// - A record fails conversion
+    /// - Output serialization fails
+    pub fn crosswalk(&self, content: &str, mime: MimeType, target: Standard, target_mime: MimeType) -> Result<String, CrosswalkError> {
+        match *self {
+            | Standard::Datacite => Batch::<datacite::Record>::parse(content, mime).and_then(|source| match target {
+                | Standard::Datacite => source.serialize(target_mime),
+                | Standard::Dcat => source.map(dcat::Dataset::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Invenio => source.map(invenio::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Huwise => source.map(huwise::Dataset::try_from).and_then(|b| b.serialize(target_mime)),
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
+            | Standard::Dcat => Batch::<dcat::Dataset>::parse(content, mime).and_then(|source| match target {
+                | Standard::Dcat => source.serialize(target_mime),
+                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Invenio => source
+                    .map(|v| datacite::Record::try_from(v).and_then(invenio::Record::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | Standard::Huwise => source
+                    .map(|v| datacite::Record::try_from(v).and_then(huwise::Dataset::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
+            | Standard::Invenio => Batch::<invenio::Record>::parse(content, mime).and_then(|source| match target {
+                | Standard::Invenio => source.serialize(target_mime),
+                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Dcat => source
+                    .map(|v| datacite::Record::try_from(v).and_then(dcat::Dataset::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | Standard::Huwise => source
+                    .map(|v| datacite::Record::try_from(v).and_then(huwise::Dataset::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
+            | Standard::Huwise => Batch::<huwise::Dataset>::parse(content, mime).and_then(|source| match target {
+                | Standard::Huwise => source.serialize(target_mime),
+                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Dcat => source
+                    .map(|v| datacite::Record::try_from(v).and_then(dcat::Dataset::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | Standard::Invenio => source
+                    .map(|v| datacite::Record::try_from(v).and_then(invenio::Record::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
+            | _ => Err(self.unsupported_crosswalk(target)),
+        }
+    }
+    fn unsupported_crosswalk(&self, target: Standard) -> CrosswalkError {
+        CrosswalkError::BuildFailed(format!(
+            "Unsupported metadata crosswalk pair: {self} -> {target} (supported: datacite, dcat, invenio, huwise)"
+        ))
+    }
 }
 /// Various check categories available for validating research activity data
 #[derive(Clone, Debug, Default, Display, EnumIter, PartialEq)]

@@ -262,15 +262,6 @@ impl From<analyzer::Standard> for Standard {
     }
 }
 impl Standard {
-    pub(crate) fn _crosswalk(&self, target: Standard, _content: &str, _mime: MimeType, _format: &FileFormat) -> ApiResult<String> {
-        match self {
-            | Standard::Datacite => self.unsupported(target),
-            | Standard::Dcat => self.unsupported(target),
-            | Standard::Invenio => self.unsupported(target),
-            | Standard::Huwise => self.unsupported(target),
-            | _ => self.unsupported(target),
-        }
-    }
     pub(crate) fn infer(path: &Path, content: &str, mime: &MimeType) -> ApiResult<Standard> {
         let root = match mime {
             | MimeType::Json => {
@@ -297,10 +288,5 @@ impl Standard {
             )),
             | Err(why) => Err(why),
         }
-    }
-    pub(crate) fn unsupported(&self, target: Standard) -> ApiResult<String> {
-        Err(eyre!(
-            "Unsupported metadata crosswalk pair: {self} -> {target} (supported: datacite, dcat, invenio, huwise)"
-        ))
     }
 }

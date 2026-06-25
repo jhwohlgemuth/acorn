@@ -37,7 +37,10 @@
 //!
 //! Each schema provides implementations of [`SchemaExtractor`] and [`SchemaBuilder`]
 //! in the [`extractors`] and [`builders`] submodules.
+use crate::util::MimeType;
 use core::fmt;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 pub mod field_map;
 pub mod mapping;
@@ -47,6 +50,17 @@ pub use field_map::{FieldMap, FieldValue};
 pub use mapping::{FieldMapping, FieldRule};
 pub use registry::{all_schemas, can_convert, get_schema, schema_registry, SchemaMetadata};
 
+/// Generic wrapper for single or batched metadata records.
+///
+/// Supports deserializing from and serializing to JSON and YAML.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum Batch<T> {
+    /// A single record
+    One(T),
+    /// Multiple records
+    Many(Vec<T>),
+}
 /// Error type for crosswalk operations
 #[derive(Clone, Debug)]
 pub enum CrosswalkError {
@@ -61,6 +75,10 @@ pub enum CrosswalkError {
     },
     /// Build failed (e.g., struct construction error)
     BuildFailed(String),
+    /// Content parsing failed (JSON/YAML)
+    ParseFailed(String),
+    /// Output serialization failed
+    SerializeFailed(String),
 }
 /// Type of data loss during conversion
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -89,6 +107,45 @@ pub struct ConversionWarning {
     pub loss_type: FieldLossType,
     /// Optional details about the loss (e.g., "sizes and formats omitted")
     pub details: Option<String>,
+}
+impl<T> Batch<T> {
+    /// Transform each item in the batch, propagating `CrosswalkError` failures.
+    pub fn map<U, F>(self, f: F) -> Result<Batch<U>, CrosswalkError>
+    where
+        F: Fn(T) -> Result<U, CrosswalkError>,
+    {
+        match self {
+            | Batch::One(value) => f(value).map(Batch::One),
+            | Batch::Many(values) => values
+                .into_iter()
+                .enumerate()
+                .map(|(index, value)| f(value).map_err(|e| CrosswalkError::BuildFailed(format!("Failed to convert record at index {index} — {e}"))))
+                .collect::<Result<Vec<_>, _>>()
+                .map(Batch::Many),
+        }
+    }
+    /// Parse a JSON or YAML string into a batch of records.
+    pub fn parse(content: &str, mime: MimeType) -> Result<Batch<T>, CrosswalkError>
+    where
+        T: DeserializeOwned,
+    {
+        match mime {
+            | MimeType::Json => serde_json::from_str(content).map_err(|e| CrosswalkError::ParseFailed(e.to_string())),
+            | MimeType::Yaml => serde_norway::from_str(content).map_err(|e| CrosswalkError::ParseFailed(e.to_string())),
+            | _ => Err(CrosswalkError::ParseFailed("Content must be JSON or YAML".into())),
+        }
+    }
+    /// Serialize the batch to a JSON or YAML string.
+    pub fn serialize(&self, mime: MimeType) -> Result<String, CrosswalkError>
+    where
+        T: Serialize,
+    {
+        match mime {
+            | MimeType::Json => serde_json::to_string_pretty(self).map_err(|e| CrosswalkError::SerializeFailed(e.to_string())),
+            | MimeType::Yaml => serde_norway::to_string(self).map_err(|e| CrosswalkError::SerializeFailed(e.to_string())),
+            | _ => Err(CrosswalkError::SerializeFailed("Output must be JSON or YAML".into())),
+        }
+    }
 }
 impl fmt::Display for ConversionWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -148,11 +205,13 @@ impl ConversionWarning {
 impl fmt::Display for CrosswalkError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            | Self::MissingRequiredField(field) => write!(f, "missing required field: {field}"),
+            | Self::MissingRequiredField(field) => write!(f, "missing required field — {field}"),
             | Self::TransformationFailed { field, reason } => {
-                write!(f, "failed to transform field '{field}': {reason}")
+                write!(f, "failed to transform field '{field}' — {reason}")
             }
-            | Self::BuildFailed(reason) => write!(f, "build failed: {reason}"),
+            | Self::BuildFailed(reason) => write!(f, "build failed — {reason}"),
+            | Self::ParseFailed(reason) => write!(f, "content parse failed — {reason}"),
+            | Self::SerializeFailed(reason) => write!(f, "output serialize failed — {reason}"),
         }
     }
 }

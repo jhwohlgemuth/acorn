@@ -1,13 +1,13 @@
 use crate::cli::arguments::{FileFormat, Standard};
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
+use acorn::analyzer;
 use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::current_date;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
 use acorn::io::{ApiFuture, ApiResult};
 use acorn::prelude::{exit, remove_dir_all, Arc, HashSet, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::schema::standard::{datacite, dcat, huwise, invenio};
 use acorn::util::{format_bytes, regex_join, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
 use bon::Builder;
@@ -15,9 +15,6 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use core::iter::once;
 use owo_colors::OwoColorize;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tracing::{debug, info};
 
 #[cfg(feature = "pdf")]
@@ -34,12 +31,6 @@ trait ExportHandler {
             Err(eyre!("Crosswalk export is only supported for structured output formats (json, yaml)"))
         })
     }
-}
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-enum Batch<T> {
-    One(T),
-    Many(Vec<T>),
 }
 #[derive(Builder, Debug, Default)]
 #[builder(start_fn = init)]
@@ -60,42 +51,6 @@ struct StructuredExportHandler;
 struct BagExportHandler;
 struct PdfExportHandler;
 struct PowerPointExportHandler;
-impl<T> Batch<T> {
-    fn map<U, F>(self, mut f: F) -> ApiResult<Batch<U>>
-    where
-        F: FnMut(T) -> ApiResult<U>,
-    {
-        match self {
-            | Batch::One(value) => f(value).map(Batch::One),
-            | Batch::Many(values) => values
-                .into_iter()
-                .enumerate()
-                .map(|(index, value)| f(value).map_err(|why| eyre!("Failed to convert record at index {index} — {why}")))
-                .collect::<ApiResult<Vec<_>>>()
-                .map(Batch::Many),
-        }
-    }
-    fn parse(content: &str, mime: MimeType) -> ApiResult<Batch<T>>
-    where
-        T: DeserializeOwned,
-    {
-        match mime {
-            | MimeType::Json => serde_json::from_str(content).map_err(|why| eyre!("Failed to parse JSON content — {why}")),
-            | MimeType::Yaml => serde_norway::from_str(content).map_err(|why| eyre!("Failed to parse YAML content — {why}")),
-            | _ => Err(eyre!("Content must be JSON or YAML")),
-        }
-    }
-    fn serialize(&self, format: &FileFormat) -> ApiResult<String>
-    where
-        T: Serialize,
-    {
-        match format {
-            | FileFormat::Json => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON output — {why}")),
-            | FileFormat::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML output — {why}")),
-            | _ => Err(eyre!("Output format must be JSON or YAML")),
-        }
-    }
-}
 impl ExportHandler for CffExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
         Box::pin(async move {
@@ -418,7 +373,12 @@ async fn export_as_format_crosswalk(
                                             | Some(value) => Ok(value),
                                             | None => Standard::infer(&item, &content, &mime),
                                         };
-                                        let processed = source.and_then(|resolved| crosswalk(resolved, target, &content, mime, format));
+                                        let processed = source.and_then(|resolved| {
+                                            let target_mime = MimeType::from(format.clone());
+                                            Into::<analyzer::Standard>::into(resolved)
+                                                .crosswalk(&content, mime, target.into(), target_mime)
+                                                .map_err(|e| eyre!("Crosswalk failed — {e}"))
+                                        });
                                         match processed {
                                             | Ok(content) => write_file(output, content),
                                             | Err(why) => Err(why),
@@ -458,303 +418,6 @@ fn exporter_for(format: &FileFormat) -> Box<dyn ExportHandler> {
         | FileFormat::Bag => Box::new(BagExportHandler),
         | FileFormat::Pdf => Box::new(PdfExportHandler),
         | FileFormat::Powerpoint => Box::new(PowerPointExportHandler),
-    }
-}
-fn crosswalk(source_standard: Standard, target: Standard, content: &str, mime: MimeType, format: &FileFormat) -> ApiResult<String> {
-    match source_standard {
-        | Standard::Datacite => match Batch::<datacite::Record>::parse(content, mime) {
-            | Ok(source) => match target {
-                | Standard::Datacite => source.serialize(format),
-                | Standard::Dcat => source
-                    .map(|value| dcat::Dataset::try_from(value).map_err(|e| eyre!(e)))
-                    .and_then(|data| data.serialize(format)),
-                | Standard::Invenio => source
-                    .map(|value| Ok(datacite_to_invenio_safe(value)))
-                    .and_then(|data| data.serialize(format)),
-                | Standard::Huwise => source
-                    .map(|value| Ok(datacite_to_huwise_safe(value)))
-                    .and_then(|data| data.serialize(format)),
-                | _ => source_standard.unsupported(target),
-            },
-            | Err(why) => Err(why),
-        },
-        | Standard::Dcat => match Batch::<dcat::Dataset>::parse(content, mime) {
-            | Ok(source) => match target {
-                | Standard::Dcat => source.serialize(format),
-                | Standard::Datacite => source
-                    .map(|value| datacite::Record::try_from(value).map_err(|e| eyre!(e)))
-                    .and_then(|data| data.serialize(format)),
-                | Standard::Invenio => source
-                    .map(|value| datacite::Record::try_from(value).map(datacite_to_invenio_safe).map_err(|e| eyre!(e)))
-                    .and_then(|data| data.serialize(format)),
-                | Standard::Huwise => source
-                    .map(|value| datacite::Record::try_from(value).map(datacite_to_huwise_safe).map_err(|e| eyre!(e)))
-                    .and_then(|data| data.serialize(format)),
-                | _ => source_standard.unsupported(target),
-            },
-            | Err(why) => Err(why),
-        },
-        | Standard::Invenio => match Batch::<invenio::Record>::parse(content, mime) {
-            | Ok(source) => match target {
-                | Standard::Invenio => source.serialize(format),
-                | Standard::Datacite => source
-                    .map(|value| Ok(invenio_to_datacite_safe(value)))
-                    .and_then(|data| data.serialize(format)),
-                | Standard::Dcat => source
-                    .map(|value| dcat::Dataset::try_from(invenio_to_datacite_safe(value)).map_err(|e| eyre!(e)))
-                    .and_then(|data| data.serialize(format)),
-                | Standard::Huwise => source
-                    .map(|value| Ok(datacite_to_huwise_safe(invenio_to_datacite_safe(value))))
-                    .and_then(|data| data.serialize(format)),
-                | _ => source_standard.unsupported(target),
-            },
-            | Err(why) => Err(why),
-        },
-        | Standard::Huwise => match Batch::<huwise::Dataset>::parse(content, mime) {
-            | Ok(source) => match target {
-                | Standard::Huwise => source.serialize(format),
-                | Standard::Datacite => source
-                    .map(|dataset| datacite::Record::try_from(dataset).map_err(|e| eyre!(e)))
-                    .and_then(|data| data.serialize(format)),
-                | Standard::Dcat => source
-                    .map(|value| {
-                        datacite::Record::try_from(value)
-                            .map_err(|e| eyre!(e))
-                            .and_then(|record| dcat::Dataset::try_from(record).map_err(|e| eyre!(e)))
-                    })
-                    .and_then(|data| data.serialize(format)),
-                | Standard::Invenio => source
-                    .map(|value| datacite::Record::try_from(value).map(datacite_to_invenio_safe).map_err(|e| eyre!(e)))
-                    .and_then(|data| data.serialize(format)),
-                | _ => source_standard.unsupported(target),
-            },
-            | Err(why) => Err(why),
-        },
-        | _ => source_standard.unsupported(target),
-    }
-}
-fn datacite_to_invenio_safe(record: datacite::Record) -> invenio::Record {
-    let datacite::Record { id, attributes, .. } = record;
-    let identifier = if !id.is_empty() { id } else { attributes.doi.clone() };
-    let creators = attributes.creators.map(|values| {
-        values
-            .into_iter()
-            .map(|creator| invenio::Creator {
-                person_or_org: invenio::PersonOrOrganization {
-                    kind: "personal".to_string(),
-                    name: Some(creator.name),
-                    given_name: creator.given_name,
-                    family_name: creator.family_name,
-                    identifiers: None,
-                },
-                role: None,
-                affiliations: None,
-            })
-            .collect::<Vec<_>>()
-    });
-    let publication_date = attributes.publication_year.map(|year| format!("{year:04}-01-01"));
-    let title = attributes
-        .titles
-        .as_ref()
-        .and_then(|titles| titles.first().map(|value| value.title.clone()));
-    let description = attributes
-        .descriptions
-        .as_ref()
-        .and_then(|descriptions| descriptions.first().map(|value| value.description.clone()));
-    let languages = attributes.language.map(|language| vec![invenio::Language { id: language }]);
-    let resource_type = None;
-    let subjects = attributes.subjects.map(|values| {
-        values
-            .into_iter()
-            .map(|subject| invenio::Subject {
-                id: None,
-                subject: Some(subject.subject),
-            })
-            .collect::<Vec<_>>()
-    });
-    let metadata = invenio::Metadata {
-        resource_type,
-        title,
-        publication_date,
-        creators,
-        additional_titles: None,
-        description,
-        additional_descriptions: None,
-        rights: None,
-        copyright: None,
-        contributors: None,
-        subjects,
-        languages,
-        dates: None,
-        version: attributes.version,
-        publisher: attributes.publisher.map(|publisher| publisher.name),
-        identifiers: None,
-        related_identifiers: None,
-        sizes: None,
-        formats: None,
-        locations: None,
-        funding: None,
-        references: None,
-    };
-    invenio::Record {
-        schema: Some("https://inveniordm.docs.cern.ch/reference/metadata/".to_string()),
-        id: Some(identifier),
-        pid: Some(invenio::PersistentIdentifier {
-            pk: None,
-            status: Some("U".to_string()),
-        }),
-        pids: None,
-        parent: None,
-        access: None,
-        metadata: Some(metadata),
-        custom_fields: None,
-        files: None,
-        tombstone: None,
-        created: None,
-        updated: None,
-    }
-}
-fn datacite_to_huwise_safe(record: datacite::Record) -> huwise::Dataset {
-    let datacite::Record { id, attributes, .. } = record;
-    let title = attributes
-        .titles
-        .as_ref()
-        .and_then(|titles| titles.first().map(|value| value.title.clone()));
-    let creators = attributes
-        .creators
-        .as_ref()
-        .map(|values| Value::Array(values.iter().map(|creator| Value::String(creator.name.clone())).collect::<Vec<_>>()));
-    let description = attributes
-        .descriptions
-        .as_ref()
-        .and_then(|descriptions| descriptions.first().map(|value| value.description.clone()));
-    let resource_type = attributes
-        .resource_types
-        .and_then(|resource_types| resource_types.resource_type.map(Value::String));
-    let datacite_meta = huwise::Datacite {
-        identifier: Some(attributes.doi.clone()),
-        title,
-        alternative_title: None,
-        publisher: attributes.publisher.map(|publisher| publisher.name),
-        creator: creators,
-        publication_year: attributes.publication_year.map(|year| year.to_string()),
-        date: None,
-        subject: attributes
-            .subjects
-            .map(|subjects| subjects.into_iter().map(|subject| subject.subject).collect::<Vec<_>>()),
-        contributor: None,
-        description,
-        language: attributes.language,
-        resource_type,
-        alternate_identifier: None,
-        related_identifier: None,
-        size: None,
-        format: None,
-        version: attributes.version,
-        rights: None,
-        geolocation: None,
-    };
-    huwise::Dataset {
-        dataset_id: if !id.is_empty() { id } else { attributes.doi },
-        has_attachments: false,
-        attachments_count: 0,
-        has_records: false,
-        fields: Value::Array(vec![]),
-        metas: huwise::Meta {
-            dcat: None,
-            r#default: None,
-            dublin_core: None,
-            dcat_ap: None,
-            custom_template: None,
-            datacite: Some(datacite_meta),
-        },
-        features: vec![],
-    }
-}
-fn invenio_to_datacite_safe(record: invenio::Record) -> datacite::Record {
-    let fallback_identifier = record.id.clone().unwrap_or_else(|| "10.5555/acorn-generated".to_string());
-    let metadata = record.metadata.clone();
-    let title = metadata
-        .as_ref()
-        .and_then(|value| value.title.clone())
-        .unwrap_or_else(|| fallback_identifier.clone());
-    let publication_year = metadata
-        .as_ref()
-        .and_then(|value| value.publication_date.clone())
-        .and_then(|date| date.split('-').next().and_then(|year| year.parse::<i32>().ok()));
-    let creators = metadata.as_ref().and_then(|value| value.creators.clone()).map(|values| {
-        values
-            .into_iter()
-            .map(|creator| {
-                let person_or_org = creator.person_or_org;
-                let person_name = person_or_org
-                    .name
-                    .clone()
-                    .or_else(|| match (person_or_org.family_name.clone(), person_or_org.given_name.clone()) {
-                        | (Some(family_name), Some(given_name)) => Some(format!("{family_name}, {given_name}")),
-                        | (Some(family_name), None) => Some(family_name),
-                        | (None, Some(given_name)) => Some(given_name),
-                        | (None, None) => None,
-                    })
-                    .unwrap_or_else(|| "Unknown Creator".to_string());
-                datacite::Creator {
-                    name: person_name,
-                    name_type: None,
-                    given_name: person_or_org.given_name,
-                    family_name: person_or_org.family_name,
-                    name_identifiers: None,
-                    affiliation: None,
-                }
-            })
-            .collect::<Vec<_>>()
-    });
-    let descriptions = metadata.as_ref().and_then(|value| value.description.clone()).map(|description| {
-        vec![datacite::Description {
-            description,
-            description_type: None,
-            language: None,
-        }]
-    });
-    let language = metadata
-        .as_ref()
-        .and_then(|value| value.languages.as_ref())
-        .and_then(|values| values.first().map(|language| language.id.clone()));
-    let attributes = datacite::Attributes {
-        doi: fallback_identifier.clone(),
-        event: None,
-        titles: Some(vec![datacite::Title { title, title_type: None }]),
-        creators,
-        publisher: metadata
-            .as_ref()
-            .and_then(|value| value.publisher.clone())
-            .map(|publisher| datacite::Publisher {
-                name: publisher,
-                publisher_identifier: None,
-                publisher_identifier_scheme: None,
-                scheme_uri: None,
-            }),
-        publication_year,
-        resource_types: None,
-        url: None,
-        subjects: None,
-        contributors: None,
-        dates: None,
-        language,
-        alternate_identifiers: None,
-        related_identifiers: None,
-        sizes: None,
-        formats: None,
-        version: metadata.as_ref().and_then(|value| value.version.clone()),
-        rights_list: None,
-        descriptions,
-        geo_locations: None,
-        funding_references: None,
-        schema_version: None,
-    };
-    datacite::Record {
-        id: fallback_identifier,
-        kind: "dois".to_string(),
-        attributes,
     }
 }
 
