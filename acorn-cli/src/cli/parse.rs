@@ -1,8 +1,8 @@
 //! Custom `value_parser` functions for clap that map CLI input strings
 //! directly to library enum variants, eliminating the need for proxy enums
 //! that existed solely to derive `ValueEnum`.
-use acorn::analyzer::{self, Standard};
 use acorn::analyzer::readability::ReadabilityType;
+use acorn::analyzer::{self, Standard};
 use acorn::io::ApiResult;
 use acorn::io::Executor;
 use acorn::util::MimeType;

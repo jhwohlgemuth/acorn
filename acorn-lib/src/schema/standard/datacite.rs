@@ -5,6 +5,8 @@
 //! references, geolocation, rights, and other metadata properties
 #[cfg(feature = "std")]
 use crate::io::License;
+#[cfg(feature = "std")]
+use crate::io::{read_file, write_file, ApiResult, InputOutput};
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::standard::crosswalk::mapping::{dcat_to_datacite, huwise_to_datacite, invenio_to_datacite};
 use crate::schema::standard::crosswalk::{self, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
@@ -12,6 +14,11 @@ use crate::schema::standard::{dcat, huwise, invenio};
 use crate::schema::validate::{is_doi, is_iso_639_1_language_code, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
 #[cfg(not(feature = "std"))]
 use crate::util::License;
+use crate::util::{MimeType, ToProse};
+#[cfg(feature = "std")]
+use crate::PathBuf;
+#[cfg(feature = "std")]
+use color_eyre::eyre::eyre;
 use core::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -1316,6 +1323,96 @@ impl SchemaExtractor for Record {
             fields.insert("version", FieldValue::String(version.clone()));
         }
         fields
+    }
+}
+impl ToProse for Record {
+    fn to_prose(&self) -> String {
+        self.attributes
+            .titles
+            .iter()
+            .flatten()
+            .map(|value| value.title.clone())
+            .chain(self.attributes.descriptions.iter().flatten().map(|value| value.description.clone()))
+            .chain(self.attributes.subjects.iter().flatten().map(|value| value.subject.clone()))
+            .collect::<Vec<String>>()
+            .join("\n\n")
+    }
+}
+#[cfg(feature = "std")]
+impl InputOutput for Record {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Record> {
+        let source = path.into();
+        match MimeType::from(source.display().to_string()) {
+            | MimeType::Json => Record::read_json(source),
+            | MimeType::Yaml => Record::read_yaml(source),
+            | _ => Err(eyre!("Unsupported DataCite data file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Record> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum JsonInput {
+            One(Box<Record>),
+            Many(Vec<Record>),
+        }
+
+        read_file(path).and_then(|content| {
+            serde_json::from_str::<JsonInput>(&content)
+                .map_err(|why| eyre!("Failed to parse JSON DataCite record — {why}"))
+                .and_then(|value| match value {
+                    | JsonInput::One(record) => Ok(*record),
+                    | JsonInput::Many(records) => match records.len() {
+                        | 1 => records
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| eyre!("Expected one DataCite record but found none")),
+                        | len => Err(eyre!("Expected one DataCite record but found {len}")),
+                    },
+                })
+        })
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Record> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum YamlInput {
+            One(Box<Record>),
+            Many(Vec<Record>),
+        }
+
+        read_file(path).and_then(|content| {
+            serde_norway::from_str::<YamlInput>(&content)
+                .map_err(|why| eyre!("Failed to parse YAML DataCite record — {why}"))
+                .and_then(|value| match value {
+                    | YamlInput::One(record) => Ok(*record),
+                    | YamlInput::Many(records) => match records.len() {
+                        | 1 => records
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| eyre!("Expected one DataCite record but found none")),
+                        | len => Err(eyre!("Expected one DataCite record but found {len}")),
+                    },
+                })
+        })
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from(output.display().to_string()) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported DataCite data file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("json");
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!("Failed to serialize JSON DataCite record — {why}"))
+            .and_then(|content| write_file(output, content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("yaml");
+        serde_norway::to_string(self)
+            .map_err(|why| eyre!("Failed to serialize YAML DataCite record — {why}"))
+            .and_then(|content| write_file(output, content))
     }
 }
 fn default_identifier_type() -> String {

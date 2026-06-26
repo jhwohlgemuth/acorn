@@ -1,0 +1,17 @@
+{
+  "dataset_id": "huwise-example-001",
+  "has_attachments": false,
+  "attachments_count": 0,
+  "has_records": false,
+  "fields": [],
+  "metas": {
+    "default": {
+      "title": "Example HuWise Dataset",
+      "description": "<p>A minimal HuWise dataset fixture for check command tests.</p>",
+      "keyword": ["hydrology", "fish-passage"],
+      "language": "en",
+      "publisher": "Example Publisher"
+    }
+  },
+  "features": []
+}

@@ -18,11 +18,49 @@
 use crate::commands::check::run;
 use crate::test::util::fixture_path;
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{CheckCategory, Standard};
+use acorn::analyzer::{Analysis, Check, CheckCategory, Standard};
+use acorn::schema::standard::{datacite, dcat, huwise, invenio};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 
 const OFFLINE: bool = true;
+
+async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
+    let path = Some(fixture_path(path));
+    let result = run(
+        &path,
+        &None,
+        &None,
+        &[],
+        &[],
+        &[],
+        &true,
+        &false,
+        &false,
+        &false,
+        &false,
+        &true,
+        &false,
+        &false,
+        &standard,
+        &ReadabilityType::FKGL,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "Check should succeed for {standard}");
+    Ok(())
+}
+async fn assert_schema_issue_count<T>(path: &str, expected: usize) -> Result<()>
+where
+    T: Analysis,
+{
+    let path = fixture_path(path);
+    let checks = T::check_schema(&[path.clone()], None).await;
+    let issue_count = checks.iter().map(Check::issue_count).sum::<usize>();
+    assert_eq!(issue_count, expected, "Unexpected schema issue count for {path:?}");
+    Ok(())
+}
 
 #[tokio::test]
 async fn test_check_valid_project() -> Result<()> {
@@ -188,4 +226,36 @@ async fn test_check_terse_mode() -> Result<()> {
     .await;
     assert!(result.is_ok(), "Check in terse mode should succeed");
     Ok(())
+}
+#[tokio::test]
+async fn test_check_datacite_standard() -> Result<()> {
+    run_standard_check("schema/datacite.json", Standard::Datacite).await
+}
+#[tokio::test]
+async fn test_check_dcat_standard() -> Result<()> {
+    run_standard_check("schema/dcat.json", Standard::Dcat).await
+}
+#[tokio::test]
+async fn test_check_invenio_standard() -> Result<()> {
+    run_standard_check("schema/invenio-single.json", Standard::Invenio).await
+}
+#[tokio::test]
+async fn test_check_huwise_standard() -> Result<()> {
+    run_standard_check("schema/huwise.json", Standard::Huwise).await
+}
+#[tokio::test]
+async fn test_datacite_invalid_fixture_has_two_schema_errors() -> Result<()> {
+    assert_schema_issue_count::<datacite::Record>("schema/datacite-invalid-2-errors.json", 2).await
+}
+#[tokio::test]
+async fn test_dcat_invalid_fixture_has_two_schema_errors() -> Result<()> {
+    assert_schema_issue_count::<dcat::Dataset>("schema/dcat-invalid-2-errors.json", 2).await
+}
+#[tokio::test]
+async fn test_invenio_invalid_fixture_has_two_schema_errors() -> Result<()> {
+    assert_schema_issue_count::<invenio::Record>("schema/invenio-invalid-2-errors.json", 2).await
+}
+#[tokio::test]
+async fn test_huwise_invalid_fixture_has_two_schema_errors() -> Result<()> {
+    assert_schema_issue_count::<huwise::Dataset>("schema/huwise-invalid-2-errors.json", 2).await
 }

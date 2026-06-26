@@ -1,0 +1,11 @@
+{
+  "title": ["Invalid DCAT Dataset"],
+  "description": ["Fixture with two validation errors for schema-count testing."],
+  "identifier": ["dcat-invalid-001"],
+  "landingPage": ["not a url"],
+  "distribution": [
+    {
+      "accessURL": ["still not a url"]
+    }
+  ]
+}

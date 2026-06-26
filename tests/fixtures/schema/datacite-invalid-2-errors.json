@@ -1,0 +1,22 @@
+{
+  "id": "not-a-doi",
+  "type": "dois",
+  "attributes": {
+    "doi": "10.5072/example-doi",
+    "titles": [
+      {
+        "title": "Invalid DataCite Fixture"
+      }
+    ],
+    "creators": [
+      {
+        "name": "Smith, Jane"
+      }
+    ],
+    "publisher": {
+      "name": "Example Repository"
+    },
+    "publicationYear": 2024,
+    "url": "not-a-url"
+  }
+}

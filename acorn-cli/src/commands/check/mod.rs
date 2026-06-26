@@ -9,6 +9,7 @@ use acorn::schema::pid::raid;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
 use acorn::schema::standard::text::{Docx, Text};
+use acorn::schema::standard::{datacite, dcat, huwise, invenio};
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, regex_join, Label};
 use acorn::{fail, skip};
@@ -98,7 +99,11 @@ fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, option
 async fn collect(paths: &[PathBuf], check_options: &CheckOptions) -> Vec<Check> {
     match check_options.standard {
         | Standard::CitationFileFormat => collect_checks_for::<Cff>(paths, check_options).await,
+        | Standard::Datacite => collect_checks_for::<datacite::Record>(paths, check_options).await,
+        | Standard::Dcat => collect_checks_for::<dcat::Dataset>(paths, check_options).await,
         | Standard::Docx => collect_checks_for::<Docx>(paths, check_options).await,
+        | Standard::Huwise => collect_checks_for::<huwise::Dataset>(paths, check_options).await,
+        | Standard::Invenio => collect_checks_for::<invenio::Record>(paths, check_options).await,
         | Standard::ResearchActivityData => collect_checks_for::<ResearchActivity>(paths, check_options).await,
         | Standard::Raid => collect_checks_for::<raid::Metadata>(paths, check_options).await,
         | Standard::Text => collect_checks_for::<Text>(paths, check_options).await,

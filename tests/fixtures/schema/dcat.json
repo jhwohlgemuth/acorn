@@ -1,0 +1,13 @@
+{
+  "title": ["Example DCAT Dataset"],
+  "description": ["A minimal DCAT dataset fixture for check command tests."],
+  "identifier": ["dcat-example-001"],
+  "keywords": ["energy", "water"],
+  "landingPage": ["https://example.org/datasets/dcat-example-001"],
+  "distribution": [
+    {
+      "accessURL": ["https://example.org/datasets/dcat-example-001/access"],
+      "downloadURL": ["https://example.org/datasets/dcat-example-001/download.csv"]
+    }
+  ]
+}

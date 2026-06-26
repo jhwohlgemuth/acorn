@@ -1,0 +1,17 @@
+{
+  "$schema": "https://inveniordm.docs.cern.ch/reference/metadata/",
+  "id": "invenio-invalid-001",
+  "metadata": {
+    "title": "Invalid Invenio Fixture",
+    "creators": [
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Doe, Jane",
+          "given_name": "Jane",
+          "family_name": "Doe"
+        }
+      }
+    ]
+  }
+}

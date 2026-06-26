@@ -15,6 +15,7 @@ use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::standard::cff::{Cff, Identifier, IdentifierType, Reference};
 use crate::schema::standard::text::{Docx, Text};
+use crate::schema::standard::{datacite, dcat, huwise, invenio};
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::app::APPLICATION;
 use crate::util::constants::vale::{CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
@@ -243,6 +244,356 @@ impl Analysis for Cff {
             }
         });
         join_all(futures).await.into_iter().flatten().collect()
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for datacite::Record {
+    fn standard() -> Standard {
+        Standard::Datacite
+    }
+    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        check_prose_for::<Self>(paths, options).await
+    }
+    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
+                | Ok(_) => check_ok!(CheckCategory::Quality),
+                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
+            })
+            .collect()
+    }
+    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        check_readability_for::<Self>(paths, options)
+    }
+    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .flat_map(|path| match Self::read(path) {
+                | Ok(data) => {
+                    let uri = path.file_name_with_parent();
+                    let data = Arc::new(data);
+                    collect_validation_checks(data.as_ref())
+                        .into_iter()
+                        .map(|issue| issue.with_uri(uri.clone()))
+                        .collect::<Vec<_>>()
+                }
+                | Err(why) => why
+                    .to_string()
+                    .lines()
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .collect(),
+            })
+            .collect()
+    }
+    #[cfg(feature = "std")]
+    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        let futures = paths.iter().map(|path| {
+            let path = path.clone();
+            async move {
+                match Self::read(&path) {
+                    | Ok(data) => {
+                        let data = Arc::new(data);
+                        let attributes = &data.attributes;
+                        let root_futures = attributes
+                            .url
+                            .as_deref()
+                            .map(|value| link_check(Some(value), Some("attributes.url".into())))
+                            .into_iter();
+                        let rights_futures = attributes.rights_list.iter().flatten().enumerate().filter_map(|(index, value)| {
+                            value
+                                .rights_uri
+                                .as_deref()
+                                .map(|uri| link_check(Some(uri), Some(format!("attributes.rights_list[{index}].rights_uri"))))
+                        });
+                        let related_futures = attributes.related_identifiers.iter().flatten().enumerate().filter_map(|(index, value)| {
+                            match value.related_identifier_type {
+                                | Some(datacite::RelatedIdentifierType::Doi) => {
+                                    let url = DOI::from_string(value.related_identifier.as_str()).url();
+                                    let target = if url.is_empty() { value.related_identifier.clone() } else { url };
+                                    Some(link_check(
+                                        Some(target),
+                                        Some(format!("attributes.related_identifiers[{index}].related_identifier")),
+                                    ))
+                                }
+                                | Some(datacite::RelatedIdentifierType::Url) => Some(link_check(
+                                    Some(value.related_identifier.as_str()),
+                                    Some(format!("attributes.related_identifiers[{index}].related_identifier")),
+                                )),
+                                | _ => None,
+                            }
+                        });
+                        let checks = join_all(root_futures.chain(rights_futures).chain(related_futures))
+                            .await
+                            .into_iter()
+                            .map(|check| check.with_uri(path.file_name_with_parent()))
+                            .collect::<Vec<_>>();
+                        checks
+                    }
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(path.file_name_with_parent())],
+                }
+            }
+        });
+        join_all(futures).await.into_iter().flatten().collect()
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for dcat::Dataset {
+    fn standard() -> Standard {
+        Standard::Dcat
+    }
+    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        check_prose_for::<Self>(paths, options).await
+    }
+    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
+                | Ok(_) => check_ok!(CheckCategory::Quality),
+                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
+            })
+            .collect()
+    }
+    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        check_readability_for::<Self>(paths, options)
+    }
+    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .flat_map(|path| match Self::read(path) {
+                | Ok(data) => {
+                    let uri = path.file_name_with_parent();
+                    let data = Arc::new(data);
+                    collect_validation_checks(data.as_ref())
+                        .into_iter()
+                        .map(|issue| issue.with_uri(uri.clone()))
+                        .collect::<Vec<_>>()
+                }
+                | Err(why) => why
+                    .to_string()
+                    .lines()
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .collect(),
+            })
+            .collect()
+    }
+    #[cfg(feature = "std")]
+    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        let futures = paths.iter().map(|path| {
+            let path = path.clone();
+            async move {
+                match Self::read(&path) {
+                    | Ok(data) => {
+                        let data = Arc::new(data);
+                        let root_futures = data
+                            .landing_page
+                            .iter()
+                            .flatten()
+                            .enumerate()
+                            .map(|(index, value)| link_check(Some(value.as_str()), Some(format!("landing_page[{index}]"))));
+                        let distribution_futures = data
+                            .distribution
+                            .iter()
+                            .flatten()
+                            .enumerate()
+                            .flat_map(|(distribution_index, distribution)| {
+                                distribution
+                                    .access_url
+                                    .iter()
+                                    .enumerate()
+                                    .map(move |(index, value)| {
+                                        link_check(
+                                            Some(value.as_str()),
+                                            Some(format!("distribution[{distribution_index}].access_url[{index}]")),
+                                        )
+                                    })
+                                    .chain(distribution.download_url.iter().flatten().enumerate().map(move |(index, value)| {
+                                        link_check(
+                                            Some(value.as_str()),
+                                            Some(format!("distribution[{distribution_index}].download_url[{index}]")),
+                                        )
+                                    }))
+                            });
+                        let checks = join_all(root_futures.chain(distribution_futures))
+                            .await
+                            .into_iter()
+                            .map(|check| check.with_uri(path.file_name_with_parent()))
+                            .collect::<Vec<_>>();
+                        checks
+                    }
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(path.file_name_with_parent())],
+                }
+            }
+        });
+        join_all(futures).await.into_iter().flatten().collect()
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for invenio::Record {
+    fn standard() -> Standard {
+        Standard::Invenio
+    }
+    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        check_prose_for::<Self>(paths, options).await
+    }
+    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
+                | Ok(_) => check_ok!(CheckCategory::Quality),
+                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
+            })
+            .collect()
+    }
+    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        check_readability_for::<Self>(paths, options)
+    }
+    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .flat_map(|path| match Self::read(path) {
+                | Ok(data) => {
+                    let uri = path.file_name_with_parent();
+                    let data = Arc::new(data);
+                    collect_validation_checks(data.as_ref())
+                        .into_iter()
+                        .map(|issue| issue.with_uri(uri.clone()))
+                        .collect::<Vec<_>>()
+                }
+                | Err(why) => why
+                    .to_string()
+                    .lines()
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .collect(),
+            })
+            .collect()
+    }
+    #[cfg(feature = "std")]
+    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        let futures = paths.iter().map(|path| {
+            let path = path.clone();
+            async move {
+                match Self::read(&path) {
+                    | Ok(data) => {
+                        let data = Arc::new(data);
+                        let pid_futures = data.pids.iter().flat_map(|pids| {
+                            [
+                                pids.doi.as_ref().map(|value| {
+                                    link_check(
+                                        Some(DOI::from_string(value.identifier.as_str()).url()),
+                                        Some("pids.doi.identifier".into()),
+                                    )
+                                }),
+                                pids.concept_doi.as_ref().map(|value| {
+                                    link_check(
+                                        Some(DOI::from_string(value.identifier.as_str()).url()),
+                                        Some("pids.concept_doi.identifier".into()),
+                                    )
+                                }),
+                            ]
+                            .into_iter()
+                            .flatten()
+                        });
+                        let related_futures = data.metadata.iter().flat_map(|metadata| {
+                            metadata.related_identifiers.iter().flatten().enumerate().filter_map(|(index, value)| {
+                                match value.scheme.to_lowercase().as_str() {
+                                    | "doi" => {
+                                        let url = DOI::from_string(value.identifier.as_str()).url();
+                                        let target = if url.is_empty() { value.identifier.clone() } else { url };
+                                        Some(link_check(
+                                            Some(target),
+                                            Some(format!("metadata.related_identifiers[{index}].identifier")),
+                                        ))
+                                    }
+                                    | "url" => Some(link_check(
+                                        Some(value.identifier.as_str()),
+                                        Some(format!("metadata.related_identifiers[{index}].identifier")),
+                                    )),
+                                    | _ => None,
+                                }
+                            })
+                        });
+                        let rights_futures = data.metadata.iter().flat_map(|metadata| {
+                            metadata.rights.iter().flatten().enumerate().filter_map(|(index, value)| {
+                                value
+                                    .link
+                                    .as_deref()
+                                    .map(|uri| link_check(Some(uri), Some(format!("metadata.rights[{index}].link"))))
+                            })
+                        });
+                        let checks = join_all(pid_futures.chain(related_futures).chain(rights_futures))
+                            .await
+                            .into_iter()
+                            .map(|check| check.with_uri(path.file_name_with_parent()))
+                            .collect::<Vec<_>>();
+                        checks
+                    }
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(path.file_name_with_parent())],
+                }
+            }
+        });
+        join_all(futures).await.into_iter().flatten().collect()
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for huwise::Dataset {
+    fn standard() -> Standard {
+        Standard::Huwise
+    }
+    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        check_prose_for::<Self>(paths, options).await
+    }
+    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .map(|path| match Self::read(path) {
+                | Ok(_) => check_ok!(CheckCategory::Quality),
+                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
+            })
+            .collect()
+    }
+    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+        check_readability_for::<Self>(paths, options)
+    }
+    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        paths
+            .par_iter()
+            .flat_map(|path| match Self::read(path) {
+                | Ok(data) => {
+                    let uri = path.file_name_with_parent();
+                    let data = Arc::new(data);
+                    collect_validation_checks(data.as_ref())
+                        .into_iter()
+                        .map(|issue| issue.with_uri(uri.clone()))
+                        .collect::<Vec<_>>()
+                }
+                | Err(why) => why
+                    .to_string()
+                    .lines()
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .collect(),
+            })
+            .collect()
+    }
+    #[cfg(feature = "std")]
+    async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        vec![]
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())

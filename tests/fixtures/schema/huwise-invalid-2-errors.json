@@ -1,0 +1,19 @@
+{
+  "dataset_id": "huwise-invalid-001",
+  "has_attachments": false,
+  "attachments_count": 0,
+  "has_records": false,
+  "fields": [],
+  "metas": {
+    "default": {
+      "title": "Invalid HuWise Dataset",
+      "description": "<p>Fixture with counted validation errors.</p>",
+      "license_url": "not-a-url"
+    },
+    "dcat_ap": {
+      "title": "Invalid HuWise DCAT-AP Block",
+      "contact_email": "not-an-email"
+    }
+  },
+  "features": []
+}

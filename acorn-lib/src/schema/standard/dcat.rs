@@ -9,11 +9,17 @@
 //! References:
 //! - [DCAT v3](https://www.w3.org/TR/vocab-dcat-3/)
 //! - [DCAT v2](https://www.w3.org/TR/vocab-dcat-2/)
+#[cfg(feature = "std")]
+use crate::io::{read_file, write_file, ApiResult, InputOutput};
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
 use crate::schema::validate::{is_url, is_urls};
 use crate::schema::Date as PeriodOfTime;
-use crate::util::Checksum;
+use crate::util::{Checksum, MimeType, ToProse};
+#[cfg(feature = "std")]
+use crate::PathBuf;
+#[cfg(feature = "std")]
+use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -628,5 +634,94 @@ impl SchemaExtractor for Dataset {
             }
         }
         fields
+    }
+}
+impl ToProse for Dataset {
+    fn to_prose(&self) -> String {
+        self.title
+            .iter()
+            .flatten()
+            .cloned()
+            .chain(self.description.iter().flatten().cloned())
+            .chain(self.keywords.iter().flatten().cloned())
+            .collect::<Vec<String>>()
+            .join("\n\n")
+    }
+}
+#[cfg(feature = "std")]
+impl InputOutput for Dataset {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Dataset> {
+        let source = path.into();
+        match MimeType::from(source.display().to_string()) {
+            | MimeType::Json => Dataset::read_json(source),
+            | MimeType::Yaml => Dataset::read_yaml(source),
+            | _ => Err(eyre!("Unsupported DCAT data file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Dataset> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum JsonInput {
+            One(Box<Dataset>),
+            Many(Vec<Dataset>),
+        }
+
+        read_file(path).and_then(|content| {
+            serde_json::from_str::<JsonInput>(&content)
+                .map_err(|why| eyre!("Failed to parse JSON DCAT dataset — {why}"))
+                .and_then(|value| match value {
+                    | JsonInput::One(dataset) => Ok(*dataset),
+                    | JsonInput::Many(datasets) => match datasets.len() {
+                        | 1 => datasets
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| eyre!("Expected one DCAT dataset but found none")),
+                        | len => Err(eyre!("Expected one DCAT dataset but found {len}")),
+                    },
+                })
+        })
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Dataset> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum YamlInput {
+            One(Box<Dataset>),
+            Many(Vec<Dataset>),
+        }
+
+        read_file(path).and_then(|content| {
+            serde_norway::from_str::<YamlInput>(&content)
+                .map_err(|why| eyre!("Failed to parse YAML DCAT dataset — {why}"))
+                .and_then(|value| match value {
+                    | YamlInput::One(dataset) => Ok(*dataset),
+                    | YamlInput::Many(datasets) => match datasets.len() {
+                        | 1 => datasets
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| eyre!("Expected one DCAT dataset but found none")),
+                        | len => Err(eyre!("Expected one DCAT dataset but found {len}")),
+                    },
+                })
+        })
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from(output.display().to_string()) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported DCAT data file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("json");
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!("Failed to serialize JSON DCAT dataset — {why}"))
+            .and_then(|content| write_file(output, content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("yaml");
+        serde_norway::to_string(self)
+            .map_err(|why| eyre!("Failed to serialize YAML DCAT dataset — {why}"))
+            .and_then(|content| write_file(output, content))
     }
 }

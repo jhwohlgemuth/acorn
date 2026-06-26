@@ -1,12 +1,20 @@
 //! HuWise dataset schema models
 //!
+#[cfg(feature = "std")]
+use crate::io::{read_file, write_file, ApiResult, InputOutput};
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_huwise, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
+use crate::util::{MimeType, ToProse};
+#[cfg(feature = "std")]
+use crate::PathBuf;
 use ammonia::clean;
+#[cfg(feature = "std")]
+use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
+use validator::Validate;
 
 /// Collection of HuWise datasets
 pub type Catalog = Vec<Dataset>;
@@ -19,7 +27,7 @@ pub enum DublinCoreType {
 }
 /// Custom template metadata block
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct CustomTemplate {
     /// Projects field (custom template)
     pub projects: Option<String>,
@@ -29,7 +37,7 @@ pub struct CustomTemplate {
 }
 /// Top-level dataset container from HuWise exports
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Dataset {
     /// Unique dataset identifier
     pub dataset_id: String,
@@ -42,33 +50,40 @@ pub struct Dataset {
     /// Field definitions or schema details
     pub fields: Value,
     /// Structured metadata blocks
+    #[validate(nested)]
     pub metas: Meta,
     /// Feature records associated with the dataset
     pub features: Vec<Value>,
 }
 /// Metadata sections attached to a dataset
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Meta {
     /// DCAT metadata
+    #[validate(nested)]
     pub dcat: Option<Dcat>,
     /// Default metadata
     #[serde(rename = "default")]
+    #[validate(nested)]
     pub r#default: Option<DefaultMeta>,
     /// Dublin Core metadata
     #[serde(rename = "dublin-core")]
+    #[validate(nested)]
     pub dublin_core: Option<DublinCore>,
     /// DCAT-AP metadata
+    #[validate(nested)]
     pub dcat_ap: Option<DcatAp>,
     /// Custom template metadata
     #[serde(rename = "custom-template")]
+    #[validate(nested)]
     pub custom_template: Option<CustomTemplate>,
     /// DataCite metadata
+    #[validate(nested)]
     pub datacite: Option<Datacite>,
 }
 /// DCAT metadata block
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename_all = "snake_case")]
 pub struct Dcat {
     /// Creation timestamp
@@ -82,6 +97,7 @@ pub struct Dcat {
     /// Contact name
     pub contact_name: Option<String>,
     /// Contact email
+    #[validate(email)]
     pub contact_email: Option<String>,
     /// Accrual periodicity
     #[serde(rename = "accrualperiodicity")]
@@ -111,7 +127,7 @@ pub struct Dcat {
 }
 /// Default metadata block
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename_all = "snake_case")]
 pub struct DefaultMeta {
     /// Dataset title
@@ -125,6 +141,7 @@ pub struct DefaultMeta {
     /// License identifier
     pub license: Option<String>,
     /// License URL
+    #[validate(url)]
     pub license_url: Option<String>,
     /// Language code
     pub language: Option<String>,
@@ -179,7 +196,7 @@ pub struct DefaultMeta {
 }
 /// Dublin Core metadata block
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct DublinCore {
     /// Title of the dataset
     pub title: Option<String>,
@@ -334,7 +351,7 @@ pub struct DublinCore {
 }
 /// DCAT-AP metadata block
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename_all = "snake_case")]
 pub struct DcatAp {
     /// Title
@@ -348,6 +365,7 @@ pub struct DcatAp {
     /// Contact name
     pub contact_name: Option<String>,
     /// Contact email
+    #[validate(email)]
     pub contact_email: Option<String>,
     /// Publisher name
     pub publisher_name: Option<String>,
@@ -369,7 +387,7 @@ pub struct DcatAp {
 }
 /// DataCite metadata block
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(rename_all = "kebab-case")]
 pub struct Datacite {
     /// Identifier value
@@ -631,5 +649,124 @@ impl SchemaExtractor for Dataset {
             }
         }
         fields
+    }
+}
+impl ToProse for Dataset {
+    fn to_prose(&self) -> String {
+        self.metas
+            .datacite
+            .iter()
+            .flat_map(|meta| meta.title.iter().cloned())
+            .chain(self.metas.datacite.iter().flat_map(|meta| meta.description.iter().cloned()))
+            .chain(self.metas.datacite.iter().flat_map(|meta| meta.subject.iter().flatten().cloned()))
+            .chain(self.metas.r#default.iter().flat_map(|meta| meta.title.iter().cloned()))
+            .chain(
+                self.metas
+                    .r#default
+                    .iter()
+                    .flat_map(|meta| meta.description.iter().map(|value| clean(value))),
+            )
+            .chain(self.metas.r#default.iter().flat_map(|meta| meta.keyword.iter().flatten().cloned()))
+            .chain(self.metas.dublin_core.iter().flat_map(|meta| meta.title.iter().cloned()))
+            .chain(
+                self.metas
+                    .dublin_core
+                    .iter()
+                    .flat_map(|meta| meta.description.iter().map(|value| clean(value))),
+            )
+            .chain(
+                self.metas
+                    .dublin_core
+                    .iter()
+                    .flat_map(|meta| meta.abstract_text.iter().map(|value| clean(value))),
+            )
+            .chain(self.metas.dublin_core.iter().flat_map(|meta| meta.subject.iter().flatten().cloned()))
+            .chain(self.metas.dcat_ap.iter().flat_map(|meta| meta.title.iter().cloned()))
+            .chain(
+                self.metas
+                    .dcat_ap
+                    .iter()
+                    .flat_map(|meta| meta.description.iter().map(|value| clean(value))),
+            )
+            .chain(self.metas.dcat_ap.iter().flat_map(|meta| meta.keyword.iter().flatten().cloned()))
+            .collect::<Vec<String>>()
+            .join("\n\n")
+    }
+}
+#[cfg(feature = "std")]
+impl InputOutput for Dataset {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Dataset> {
+        let source = path.into();
+        match MimeType::from(source.display().to_string()) {
+            | MimeType::Json => Dataset::read_json(source),
+            | MimeType::Yaml => Dataset::read_yaml(source),
+            | _ => Err(eyre!("Unsupported HuWise data file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Dataset> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum JsonInput {
+            One(Box<Dataset>),
+            Many(Vec<Dataset>),
+        }
+
+        read_file(path).and_then(|content| {
+            serde_json::from_str::<JsonInput>(&content)
+                .map_err(|why| eyre!("Failed to parse JSON HuWise dataset — {why}"))
+                .and_then(|value| match value {
+                    | JsonInput::One(dataset) => Ok(*dataset),
+                    | JsonInput::Many(datasets) => match datasets.len() {
+                        | 1 => datasets
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| eyre!("Expected one HuWise dataset but found none")),
+                        | len => Err(eyre!("Expected one HuWise dataset but found {len}")),
+                    },
+                })
+        })
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Dataset> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum YamlInput {
+            One(Box<Dataset>),
+            Many(Vec<Dataset>),
+        }
+
+        read_file(path).and_then(|content| {
+            serde_norway::from_str::<YamlInput>(&content)
+                .map_err(|why| eyre!("Failed to parse YAML HuWise dataset — {why}"))
+                .and_then(|value| match value {
+                    | YamlInput::One(dataset) => Ok(*dataset),
+                    | YamlInput::Many(datasets) => match datasets.len() {
+                        | 1 => datasets
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| eyre!("Expected one HuWise dataset but found none")),
+                        | len => Err(eyre!("Expected one HuWise dataset but found {len}")),
+                    },
+                })
+        })
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from(output.display().to_string()) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported HuWise data file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("json");
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!("Failed to serialize JSON HuWise dataset — {why}"))
+            .and_then(|content| write_file(output, content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("yaml");
+        serde_norway::to_string(self)
+            .map_err(|why| eyre!("Failed to serialize YAML HuWise dataset — {why}"))
+            .and_then(|content| write_file(output, content))
     }
 }

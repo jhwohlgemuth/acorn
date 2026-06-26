@@ -1,0 +1,28 @@
+{
+  "$schema": "https://inveniordm.docs.cern.ch/reference/metadata/",
+  "id": "invenio-example-001",
+  "metadata": {
+    "resource_type": {
+      "id": "dataset"
+    },
+    "title": "Example Invenio Dataset",
+    "publication_date": "2024-01-01",
+    "creators": [
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Doe, Jane",
+          "given_name": "Jane",
+          "family_name": "Doe"
+        }
+      }
+    ],
+    "description": "A minimal Invenio record fixture for check command tests.",
+    "additional_descriptions": [
+      {
+        "description": "Additional context for prose analysis.",
+        "type": "Abstract"
+      }
+    ]
+  }
+}
