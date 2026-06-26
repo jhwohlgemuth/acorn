@@ -18,7 +18,7 @@
 use crate::commands::check::run;
 use crate::test::util::fixture_path;
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{self, CheckCategory};
+use acorn::analyzer::{CheckCategory, Standard};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 
@@ -42,7 +42,7 @@ async fn test_check_valid_project() -> Result<()> {
         &true,
         &false,
         &false,
-        &analyzer::Standard::default(),
+        &Standard::default(),
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
@@ -69,7 +69,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         &true,
         &false,
         &false,
-        &analyzer::Standard::default(),
+        &Standard::default(),
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
@@ -96,7 +96,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &true,
         &false,
         &false,
-        &analyzer::Standard::default(),
+        &Standard::default(),
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
@@ -123,7 +123,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &true,
         &false,
         &false,
-        &analyzer::Standard::default(),
+        &Standard::default(),
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
@@ -152,7 +152,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &true,
             &false,
             &false,
-            &analyzer::Standard::default(),
+            &Standard::default(),
             &metric,
             &Verbosity::new(0, 1),
             OFFLINE,
@@ -180,7 +180,7 @@ async fn test_check_terse_mode() -> Result<()> {
         &true,
         &false,
         &true, // terse mode
-        &analyzer::Standard::default(),
+        &Standard::default(),
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,

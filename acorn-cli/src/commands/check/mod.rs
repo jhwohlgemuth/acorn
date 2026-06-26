@@ -2,7 +2,7 @@ use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use crate::io::{is_stdout_piped, write_stdout};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{self, checks_to_csv, summary, Analysis, Check, CheckCategory, CheckOptions};
+use acorn::analyzer::{self, checks_to_csv, summary, Analysis, Check, CheckCategory, CheckOptions, Standard};
 use acorn::io::unique_file_extensions;
 use acorn::prelude::{exit, PathBuf};
 use acorn::schema::pid::raid;
@@ -37,7 +37,7 @@ pub async fn run(
     no_fail: &bool,
     raw: &bool,
     terse: &bool,
-    standard: &analyzer::Standard,
+    standard: &Standard,
     readability_metric: &ReadabilityType,
     verbose: &Verbosity,
     offline: bool,
@@ -97,11 +97,11 @@ fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, option
 }
 async fn collect(paths: &[PathBuf], check_options: &CheckOptions) -> Vec<Check> {
     match check_options.standard {
-        | analyzer::Standard::CitationFileFormat => collect_checks_for::<Cff>(paths, check_options).await,
-        | analyzer::Standard::Docx => collect_checks_for::<Docx>(paths, check_options).await,
-        | analyzer::Standard::ResearchActivityData => collect_checks_for::<ResearchActivity>(paths, check_options).await,
-        | analyzer::Standard::Raid => collect_checks_for::<raid::Metadata>(paths, check_options).await,
-        | analyzer::Standard::Text => collect_checks_for::<Text>(paths, check_options).await,
+        | Standard::CitationFileFormat => collect_checks_for::<Cff>(paths, check_options).await,
+        | Standard::Docx => collect_checks_for::<Docx>(paths, check_options).await,
+        | Standard::ResearchActivityData => collect_checks_for::<ResearchActivity>(paths, check_options).await,
+        | Standard::Raid => collect_checks_for::<raid::Metadata>(paths, check_options).await,
+        | Standard::Text => collect_checks_for::<Text>(paths, check_options).await,
         | _ => unimplemented!(),
     }
 }
@@ -161,19 +161,19 @@ fn filter_by_visibility(issues: &[Check], all: bool) -> Vec<Check> {
 fn has_failures(issues: &[Check]) -> bool {
     issues.iter().any(Check::is_failure)
 }
-fn infer_standard(paths: &[PathBuf]) -> analyzer::Standard {
+fn infer_standard(paths: &[PathBuf]) -> Standard {
     let extensions = unique_file_extensions(paths);
     if extensions.len() == 1 && extensions.contains(&"cff".to_string()) {
         warn!("=> {} Inferred standard (CFF)", Label::using());
-        analyzer::Standard::CitationFileFormat
+        Standard::CitationFileFormat
     } else if extensions.len() == 1 && extensions.contains(&"docx".to_string()) {
         warn!("=> {} Inferred standard (DOCX)", Label::using());
-        analyzer::Standard::Docx
+        Standard::Docx
     } else if extensions.len() == 1 && extensions.contains(&"txt".to_string()) {
         warn!("=> {} Inferred standard (Text)", Label::using());
-        analyzer::Standard::Text
+        Standard::Text
     } else {
-        analyzer::Standard::ResearchActivityData
+        Standard::ResearchActivityData
     }
 }
 fn render(issues: &[Check], terse: bool) {
@@ -221,9 +221,9 @@ fn resolve_skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
         .chain((*offline || *disable_website_checks).then_some(CheckCategory::Link))
         .collect()
 }
-fn resolve_standard(paths: &[PathBuf], standard: &analyzer::Standard) -> analyzer::Standard {
+fn resolve_standard(paths: &[PathBuf], standard: &Standard) -> Standard {
     match standard {
-        | analyzer::Standard::ResearchActivityData => infer_standard(paths),
+        | Standard::ResearchActivityData => infer_standard(paths),
         | value => *value,
     }
 }

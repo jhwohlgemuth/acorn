@@ -2,7 +2,7 @@ use crate::cli::arguments::FileFormat;
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
-use acorn::analyzer;
+use acorn::analyzer::Standard;
 use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::current_date;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
@@ -24,7 +24,7 @@ mod powerpoint;
 
 trait ExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a>;
-    fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<analyzer::Standard>, to: Option<analyzer::Standard>) -> ApiFuture<'a> {
+    fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
         Box::pin(async move {
             let _request = request;
             let _from = from;
@@ -82,7 +82,7 @@ impl ExportHandler for StructuredExportHandler {
             .await
         })
     }
-    fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<analyzer::Standard>, to: Option<analyzer::Standard>) -> ApiFuture<'a> {
+    fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
         Box::pin(async move {
             let extension = request.format.to_string();
             export_as_format_crosswalk(
@@ -235,8 +235,8 @@ pub async fn run(
     ignore: &[String],
     format: &FileFormat,
     reference: &Option<PathBuf>,
-    from: &Option<analyzer::Standard>,
-    to: &Option<analyzer::Standard>,
+    from: &Option<Standard>,
+    to: &Option<Standard>,
     combine: &bool,
     merge_request: &bool,
     raw: &bool,
@@ -344,8 +344,8 @@ async fn export_as_format_crosswalk(
     extension: &str,
     output_path: fn(&PathBuf, &str) -> PathBuf,
     progress_type: ProgressType,
-    from: Option<analyzer::Standard>,
-    to: Option<analyzer::Standard>,
+    from: Option<Standard>,
+    to: Option<Standard>,
 ) -> ApiResult<()> {
     match to {
         | Some(target) => {

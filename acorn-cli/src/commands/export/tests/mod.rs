@@ -16,7 +16,7 @@
 use crate::cli::arguments::FileFormat;
 use crate::commands::export::run;
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
-use acorn::analyzer;
+use acorn::analyzer::Standard;
 use acorn::prelude::{copy, create_dir_all, read_dir, read_to_string, write, PathBuf};
 use acorn::schema::standard::datacite;
 use acorn::schema::standard::invenio;
@@ -317,8 +317,8 @@ async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
         &[],
         &FileFormat::Json,
         &None,
-        &Some(analyzer::Standard::Datacite),
-        &Some(analyzer::Standard::Invenio),
+        &Some(Standard::Datacite),
+        &Some(Standard::Invenio),
         &false,
         &false,
         &false,
@@ -361,7 +361,7 @@ async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
         &FileFormat::Json,
         &None,
         &None,
-        &Some(analyzer::Standard::Datacite),
+        &Some(Standard::Datacite),
         &false,
         &false,
         &false,

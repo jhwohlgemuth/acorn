@@ -1264,10 +1264,10 @@ Add `#[cfg(feature = "analysis")]` `#[async_trait]` `impl Analysis for X` in
 In `acorn-cli/src/commands/check/mod.rs:99-108` add 4 match arms:
 
 ```rust
-| AnalyzerStandard::Datacite => collect_checks_for::<datacite::Record>(paths, check_options).await,
-| AnalyzerStandard::Dcat => collect_checks_for::<dcat::Dataset>(paths, check_options).await,
-| AnalyzerStandard::Invenio => collect_checks_for::<invenio::Record>(paths, check_options).await,
-| AnalyzerStandard::Huwise => collect_checks_for::<huwise::Dataset>(paths, check_options).await,
+| Standard::Datacite => collect_checks_for::<datacite::Record>(paths, check_options).await,
+| Standard::Dcat => collect_checks_for::<dcat::Dataset>(paths, check_options).await,
+| Standard::Invenio => collect_checks_for::<invenio::Record>(paths, check_options).await,
+| Standard::Huwise => collect_checks_for::<huwise::Dataset>(paths, check_options).await,
 ```
 
 Add imports:
@@ -1326,59 +1326,4 @@ Check `tests/fixtures/` for existing samples. Create minimal JSON files for each
 | 6 | Add tests | Steps 1-5 |
 | 7 | `make lint && make test` | All steps |
 
-## CLI Proxy Enum Elimination
-
-This section covers removing CLI-only proxy enums that exist solely to derive `ValueEnum` for clap, replacing them with direct use of library types plus custom `value_parser` functions. This simultaneously fixes a stack overflow caused by `Option<Standard>` with `#[arg(value_enum)]` in the Export variant.
-
-### Target Proxy Enums
-
-| Proxy Enum (to remove) | Library Replacement | Lines Saved |
-|---|---|---|
-| `CheckCategoryArgument` (5 variants) | `analyzer::CheckCategory` | ~15 lines + `From` impl |
-| `ExecutorArgument` (9 variants) | `Executor` | ~25 lines + `From` impl |
-| `ReadabilityTypeArgument` (7 variants) | `ReadabilityType` | ~25 lines |
-| `Standard` (10 variants + 3 `From` impls + `infer()` method) | `analyzer::Standard` | ~170 lines |
-
-**Kept** (CLI-only, no library equivalent): `DatabaseBackend`, `Diagnostic`, `FileFormat`, `Size`, `Target`.
-
-### Mechanism
-
-Replace `#[arg(value_enum)]` with `#[arg(value_parser = ...)]` using free functions in a new `parse.rs` that map CLI input strings directly to library enum variants. The library types already implement `Default` and `Display`, so `default_value_t` continues to work.
-
-### Files to Change
-
-| File | Change |
-|------|--------|
-| `acorn-cli/src/cli/parse.rs` | **New** — `parse_standard()`, `parse_check_category()`, `parse_executor()`, `infer_standard()` |
-| `acorn-cli/src/cli/arguments.rs` | Remove 4 proxy enums + 4 `From` impls + `Standard::infer()` — net -170 lines |
-| `acorn-cli/src/cli/mod.rs` | Update field types + `value_parser` attrs on Check/Export/Format/Gather/Link/Runner; restore `from`/`to` on Export |
-| `acorn-cli/src/commands/mod.rs` | No-op type change in match destructuring (variable names unchanged) |
-| `acorn-cli/src/commands/check/mod.rs` | Remove `resolve_readability_metric()` bridge; simplify `resolve_standard()` |
-| `acorn-cli/src/commands/export/mod.rs` | Restore `from: &Option<analyzer::Standard>`, `to: &Option<analyzer::Standard>` |
-| `acorn-cli/src/commands/create/runner/mod.rs` | `ExecutorArgument` → `Executor` (param still unused) |
-| `acorn-cli/src/commands/format/mod.rs` | `&Standard` → `&analyzer::Standard` |
-| `acorn-cli/src/commands/gather/mod.rs` | `&Standard` → `&analyzer::Standard` |
-| `acorn-cli/src/commands/link/mod.rs` | `&Standard` → `&analyzer::Standard` |
-| Test files (check, export, format) | Replace proxy enum references with library types |
-
-### Execution Order
-
-1. Create `parse.rs` with value_parser functions
-2. Update `cli/mod.rs` field types and attributes
-3. Update `commands/mod.rs` dispatch (no-op)
-4. Update `commands/check/mod.rs` — simplify standard/readability/skip
-5. Update `commands/export/mod.rs` — restore from/to with library types
-6. Update `commands/create/runner/mod.rs` + format/gather/link
-7. Remove proxy enums from `arguments.rs`
-8. Update all test files
-9. Build, lint, test, verify binary runs
-
-### Completion Criteria
-
-- [ ] `cargo build --bin acorn` succeeds
-- [ ] `cargo run --bin acorn -- --help` runs without stack overflow
-- [ ] `cargo clippy --workspace --no-deps --all-targets` clean
-- [ ] All tests pass (`make test`)
-- [ ] No `.unwrap()` or `?` operator in parse functions
-- [ ] No proxy enum references remain in CLI crate
 

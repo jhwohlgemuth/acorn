@@ -1,4 +1,4 @@
-use acorn::analyzer;
+use acorn::analyzer::{self, Standard};
 use acorn::io::{
     files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored, filter_ignored_with_root, ApiResult,
     Executor,
@@ -299,7 +299,7 @@ pub enum Commands {
         skip_verify_checksum: bool,
         /// Metadata standard to validate against
         #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: analyzer::Standard,
+        standard: Standard,
         /// Readability test to use
         #[arg(default_value = "fkgl", short, long = "readability-test", value_name = "METRIC", value_parser = parse_readability, help_heading = "OPTIONS")]
         readability_metric: acorn::analyzer::readability::ReadabilityType,
@@ -459,15 +459,15 @@ pub enum Commands {
         ///
         /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
         #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        from: Option<analyzer::Standard>,
+        from: Option<Standard>,
         /// Target metadata standard for crosswalk conversion
         ///
         /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
         #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        to: Option<analyzer::Standard>,
+        to: Option<Standard>,
         /// Metadata standard to validate against
         #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: analyzer::Standard,
+        standard: Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -517,7 +517,7 @@ pub enum Commands {
         merge_request: bool,
         /// Metadata standard to validate against
         #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: analyzer::Standard,
+        standard: Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -550,7 +550,7 @@ pub enum Commands {
         merge_request: bool,
         /// Metadata standard to validate against
         #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: analyzer::Standard,
+        standard: Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
@@ -586,7 +586,7 @@ pub enum Commands {
         merge_request: bool,
         /// Metadata standard to validate against
         #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: analyzer::Standard,
+        standard: Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },
