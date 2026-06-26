@@ -1,6 +1,53 @@
 # ACORN Refactor Recommendations
 
-This document captures cross-crate refactor and hardening recommendations for acorn-cli and acorn-lib.
+This document captures cross-crate refactor and hardening recommendations for acorn-cli and acorn-lib, organized for both strategic overview and detailed implementation guidance.
+
+---
+
+## Table of Contents
+
+1. [Overview & Goals](#overview--goals)
+2. [Suggested Execution Order](#suggested-execution-order)
+3. [Risk Assessment](#risk-assessment)
+4. [Original Detailed Recommendations](#original-detailed-recommendations)
+
+## Overview & Goals
+
+The ACORN refactor initiative is organized around four primary goals:
+
+1. **Improve Reliability** — Eliminate crash-prone code paths and improve error handling
+2. **Enhance Maintainability** — Modularize the codebase and eliminate duplication
+3. **Increase Extensibility** — Improve architectural boundaries and abstractions
+4. **Expand Compatibility** — Enable no-std and WASM support
+
+## Suggested Execution Order
+
+The refactor work follows a phased approach with clear dependencies between stages:
+
+### Phase 1 — Reliability triage (weeks 1-4)
+Remove panic/unimplemented/exit-heavy internal command flow and normalize command/helper `Result` contracts.
+
+### Phase 2 — Boundary hardening (weeks 5-8)
+Harden OOXML and path handling, fail fast on asset lookup and invalid filters.
+
+### Phase 3 — Shared abstractions (weeks 9-12)
+Introduce `ExportContext`, `SafePath`, unified interpolation utility.
+
+### Phase 4 — Structural modularization (weeks 13-20)
+Split `main` setup concerns, tighten API client and schema I/O contracts.
+
+### Phase 5 — Refinement (weeks 21+)
+Binding-layer macroization, no-std/WASM enablement, lower-priority cleanup.
+
+## Risk Assessment
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Error handling changes break existing behavior | Medium | High | Extensive test suite, gradual rollout |
+| Export system modifications affect user output | Medium | High | Feature flags, backward compatibility |
+| no-std/WASM architecture changes | High | High | Clear migration docs, CI enforcement |
+
+---
 
 Prioritization rule:
 1. Impact on reliability/security/correctness first.
@@ -560,13 +607,6 @@ Use replacement only when needed to achieve capability goals:
   - Impact: High
   - Difficulty: Low
   - Action: keep optional and std-only.
-
-## Milestone Definition
-
-M1: no-default-features build passes.
-M2: alloc/core feature layering is stable and documented.
-M3: wasm feature compiles for `wasm32-unknown-unknown`.
-M4: CI matrix enforces no-std + wasm guarantees.
 
 ## Analyzer Category-Theoretic Refactor Opportunities
 
@@ -1139,191 +1179,37 @@ This section captures follow-up work after the first-pass importer scaffold that
 2. Pilot import flow for another provider to validate generality.
 3. Document importer behavior, limitations, and extension points in docs and command help.
 
-## Metadata Schema Crosswalk
+## Metadata Schema Crosswalk — Status: Core Implemented
 
-#### CLI Integration (High Priority)
+The crosswalk engine is fully implemented. Remaining work is limited to polish features.
 
-**Command: `acorn export --to <format> --from <format>`**
+### Implementation
 
-Features:
-1. Input format detection with explicit `--from` and `--to` flags required when not obvious.
-2. Output format specification (JSON, YAML)
-3. Validation-first mode (check without writing)
-4. Batch conversion with per-record error reporting
+**CLI**: `--from` and `--to` flags on `acorn export` are wired in `acorn-cli/src/cli/mod.rs` and dispatch through `ExportHandler::crosswalk()` in `acorn-cli/src/commands/export/mod.rs`.
 
-Suggested implementation:
-1. Augment `acorn-cli/src/commands/export/mod.rs`
-2. Parse source and target schema names
-3. Select appropriate From<> impl based on schema pair
-4. Handle serialization to requested output format
-5. Implement dry-run and validation modes
+**Engine**: `Standard::crosswalk()` in `acorn-lib/src/analyzer/check.rs` drives conversion through `Batch<T>` processing with per-record error reporting. Crosswalk infrastructure lives in `acorn-lib/src/schema/standard/crosswalk/` (302 lines) with `FieldMap`, `Crosswalk` trait, `SchemaRegistry`, and `ConversionWarning` tracking.
 
-#### Optional: Invenio↔HuWise Direct Crosswalk (Low Priority)
+**Schema pairs**: All 4×4 conversions are supported — DataCite, DCAT, InvenioRDM, HuWise. Direct conversions exist where possible; InvenioRDM↔HuWise and DCAT↔InvenioRDM use DataCite as an intermediate bridge.
 
-This is deferred due to complexity:
-- Invenio has 160 fields vs HuWise's 200+ fields
-- Existing DataCite bridge provides sufficient roundtrip capability
-- Can be implemented later if direct conversion is needed for performance
+**Tests**: Fixture-based tests in `acorn-lib/src/schema/standard/crosswalk/tests.rs` (611 lines).
 
-Implementation approach:
-1. Use existing DataCite bridge (Invenio → DataCite → HuWise) with optimizations for common fields
+### Remaining Work
 
-### Execution Checklist
-
-- [ ] **CLI**: Update `acorn export` command with all schema pairs
-- [ ] **Testing**: Add property-based tests for round-trip stability
-- [ ] **Validation**: Verify no compilation errors with `--all-features` and `-p acorn-lib` scoping
-
-### Success Criteria for Implementation
-
-1. CLI exposes `export` command for all supported schema pairs
-2. Documentation covers field mappings, lossy conversions, and CLI usage
-3. No warnings from `make lint` in crosswalk modules
-4. Property-based tests verify round-trip stability for core fields
-5. All code follows ACORN guidelines: no unsafe, comprehensive doc comments, structured error handling, no early `return`, `?`, `panic!`, or `unwrap()`, and no `expect()` calls in library code
-
-### Known Limitations & Future Improvements
-
-1. **Lossy conversions**: Some metadata may be lost in crosswalk conversions; document explicitly with `ConversionWarning` messages, output using `check!` code, and provide a `--strict` mode to fail on lossy conversions
-2. **Performance**: Large batches may benefit from parallelization; current implementation is sequential
-3. **Extensibility**: Future versions may support plugin-based mappers for domain-specific conversions
-4. **Direct Invenio↔HuWise mapping**: Currently uses DataCite as intermediate format; direct mapping could be implemented for performance if needed
-
-## Plan: Add `acorn check` Support for DataCite, DCAT, Invenio, HuWise
-
-### 1. Goal
-
-Make `acorn check --standard <name> <file>` work for `datacite`, `dcat`, `invenio`, and `huwise`.
-Currently these hit `unimplemented!()` in the check dispatch (`acorn-cli/src/commands/check/mod.rs:106`).
-
-### 2. Background — Current Architecture
-
-| Layer | File | Role |
-|-------|------|------|
-| CLI `Standard` enum | `acorn-cli/src/cli/arguments.rs:124-158` | Parses `--standard` from CLI (10 variants incl. Datacite/Dcat/Invenio/Huwise) |
-| Analyzer `Standard` enum | `acorn-lib/src/analyzer/check.rs:75-108` | Processing-level enum (same 10 variants) |
-| `From` conversions | `acorn-cli/src/cli/arguments.rs:232-263` | CLI↔Analyzer mapping already exists for all 10 |
-| Check `collect()` | `acorn-cli/src/commands/check/mod.rs:99-108` | Dispatches by `AnalyzerStandard` — only 5 arms implemented, rest `unimplemented!()` |
-| `collect_checks_for<T>()` | `acorn-cli/src/commands/check/mod.rs:109-120` | Generic over `T: Analysis`; reads files, dispatches categories |
-| `Analysis` trait | `acorn-lib/src/analyzer/check.rs:38-65` | 5 async check methods + `output_path` + `standard` |
-| `InputOutput` trait | `acorn-lib/src/io/mod.rs` | `read(path) -> ApiResult<Self>` — **not implemented** for new types |
-| `ToProse` trait | `acorn-lib/src/util/mod.rs:96` | Extract plain text — **not implemented** for new types |
-| `Validate` | Derived via `#[derive(Validate)]` | **Already present** on all nested structs of all 4 types |
-
-### 3. What's Needed
-
-#### 3.1 `InputOutput` impls (top-level types)
-
-Add `InputOutput` for:
-- `datacite::Record` (`datacite.rs:898`)
-- `dcat::Dataset` (`dcat.rs:273`)
-- `invenio::Record` (`invenio.rs:521`)
-- `huwise::Dataset` (`huwise.rs:33`)
-
-Follow the `Cff` pattern. At minimum implement:
-- `read(path)` → detect extension, call `read_json` or `read_yaml`
-- `read_json(path)` → `serde_json::from_str` (types use vanilla `serde::Deserialize`)
-- `read_yaml(path)` → `serde_norway::from_str`
-
-#### 3.2 `ToProse` impls (top-level types)
-
-Add `ToProse` for the same 4 types. Extract text from:
-
-| Type | Text fields to concatenate |
-|------|---------------------------|
-| `datacite::Record` | `titles[].title`, `descriptions[].description`, `subjects[].subject` |
-| `dcat::Dataset` | `title`, `description`, `keyword` |
-| `invenio::Record` | `metadata.title`, `metadata.description`, `metadata.additional_descriptions[].description` |
-| `huwise::Dataset` | `metas[].value` where title-like, description fields |
-
-#### 3.3 `Analysis` impls
-
-Add `#[cfg(feature = "analysis")]` `#[async_trait]` `impl Analysis for X` in
-`acorn-lib/src/analyzer/mod.rs` (alongside existing impls for `Cff`, `ResearchActivity`, etc.).
-
-**Recommended category support per standard** (`✓` = implement, `-` = return `vec![]`):
-
-| Category | `datacite::Record` | `dcat::Dataset` | `invenio::Record` | `huwise::Dataset` |
-|----------|:---:|:---:|:---:|:---:|
-| **Schema** | ✓ (Validate + InputOutput) | ✓ | ✓ | ✓ |
-| **Quality** | ✓ (basic read check) | ✓ | ✓ | ✓ |
-| **Prose** | ✓ (ToProse) | ✓ | ✓ | ✓ |
-| **Readability** | ✓ (ToProse) | ✓ | ✓ | ✓ |
-| **Websites (Link)** | ✓ (DOI, URLs) | ✓ (distributions, landing) | ✓ (DOI, related URLs) | - |
-
-**Implementation approach per method (same pattern for all 4):**
-
-- `check_schema` — identical to `Cff::check_schema`: `Self::read(path)`, `collect_validation_checks(&data)`
-- `check_quality` — identical to `Cff::check_quality`: `Self::read(path)`, return `check_ok!` or `check_err!`
-- `check_prose` — delegates to `check_prose_for::<Self>()` (requires `InputOutput + ToProse`)
-- `check_readability` — delegates to `check_readability_for::<Self>()` (requires `InputOutput + ToProse`)
-- `check_websites` — extract URLs from schema fields, call `link_check()`
-
-#### 3.4 Wire up `collect()` dispatch
-
-In `acorn-cli/src/commands/check/mod.rs:99-108` add 4 match arms:
-
-```rust
-| Standard::Datacite => collect_checks_for::<datacite::Record>(paths, check_options).await,
-| Standard::Dcat => collect_checks_for::<dcat::Dataset>(paths, check_options).await,
-| Standard::Invenio => collect_checks_for::<invenio::Record>(paths, check_options).await,
-| Standard::Huwise => collect_checks_for::<huwise::Dataset>(paths, check_options).await,
-```
-
-Add imports:
-```rust
-use acorn::schema::standard::{datacite, dcat, huwise, invenio};
-```
-
-### 4. Files to Modify
-
-| File | Change |
+| Item | Status |
 |------|--------|
-| `acorn-lib/src/schema/standard/datacite.rs` | Add `impl InputOutput for Record`, `impl ToProse for Record` |
-| `acorn-lib/src/schema/standard/dcat.rs` | Add `impl InputOutput for Dataset`, `impl ToProse for Dataset` |
-| `acorn-lib/src/schema/standard/invenio.rs` | Add `impl InputOutput for Record`, `impl ToProse for Record` |
-| `acorn-lib/src/schema/standard/huwise.rs` | Add `impl InputOutput for Dataset`, `impl ToProse for Dataset` |
-| `acorn-lib/src/analyzer/mod.rs` | Add 4 `#[cfg(feature = "analysis")] impl Analysis for X` blocks + imports |
-| `acorn-cli/src/commands/check/mod.rs` | Add 4 match arms to `collect()`, add imports |
+| `--dry-run` mode for export crosswalk | ❌ |
+| `--strict` mode to fail on lossy conversions | ❌ |
+| Validation-first mode (check without writing) | ❌ |
+| Property-based tests for round-trip stability | ❌ |
+| User-facing documentation of crosswalk | ❌ |
+| Surface `ConversionWarning` in CLI output | ❌ |
 
-### 5. Test Strategy
+### Known Limitations
 
-#### 5.1 Test fixtures
+1. **Lossy conversions**: Some metadata may be lost in crosswalk conversions. Infrastructure (`ConversionWarning`, `FieldLossType`) exists but is not yet surfaced to CLI output.
+2. **Performance**: Large batches are currently sequential — could benefit from parallelization.
+3. **Invenio↔HuWise**: Uses DataCite as intermediate bridge; a direct mapping could improve performance but is low priority given the 160-field vs 200+ field mismatch.
 
-Check `tests/fixtures/` for existing samples. Create minimal JSON files for each standard if none exist.
 
-#### 5.2 Tests to add (for each of the 4 standards)
-
-1. **Schema validation** — known-good JSON → expect zero schema errors
-2. **Schema failure** — deliberately broken JSON → expect schema errors
-3. **Quality** — valid file → quality `check_ok!`
-4. **Prose/readability** — verify text extraction via `ToProse`
-
-#### 5.3 Integration tests in `acorn-cli/src/commands/check/tests/`
-
-- `test_check_datacite_standard`
-- `test_check_dcat_standard`
-- `test_check_invenio_standard`
-- `test_check_huwise_standard`
-
-### 6. Assumptions & Open Questions
-
-1. **DataCite `Record`** (`datacite.rs:898`) is a JSON:API wrapper with `data.attributes.*` — `InputOutput::read` must deserialize the full wrapper. Verify struct matches file format.
-2. **Invenio `Record`** (`invenio.rs:521`) may have a similar JSON:API envelope — same consideration.
-3. **DCAT/HuWise** top-level structs (`dcat::Dataset`, `huwise::Dataset`) are flat — should be straightforward JSON/YAML deserialization.
-4. **eserde vs serde**: None of the 4 types use `eserde::Deserialize`. Start with `serde_json::from_str`; can migrate to `eserde` in a follow-up.
-5. **`Standard::DublinCore`** exists in both enums but is out of scope — remains `unimplemented!()`.
-
-### 7. Execution Order
-
-| Step | Description | Dependencies |
-|------|-------------|--------------|
-| 1 | Add `InputOutput` impls for all 4 types | None |
-| 2 | Add `ToProse` impls for all 4 types | None |
-| 3 | Add `Analysis` impls in `analyzer/mod.rs` | Steps 1+2 |
-| 4 | Wire up `collect()` in check command | Step 3 |
-| 5 | Create/reuse test fixtures | None |
-| 6 | Add tests | Steps 1-5 |
-| 7 | `make lint && make test` | All steps |
 
 

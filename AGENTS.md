@@ -553,6 +553,14 @@ make book        # Build the book
 make book-write  # Serve and auto-rebuild on changes
 ```
 
+## Refactor Documentation
+
+The refactor initiative is documented in a single comprehensive file:
+
+- **REFACTOR.md** - Contains overview, roadmap, critical priorities, technical specifications, progress tracking tables, and all original recommendations
+
+When implementing refactors, start with the Critical Priorities section for highest-impact items, then follow the Implementation Roadmap. Use the Technical Specifications section for implementation guidance and update the Progress Tracking tables to monitor status.
+
 ## Repository Information
 
 - **Repository**: https://code.ornl.gov/research-enablement/acorn
