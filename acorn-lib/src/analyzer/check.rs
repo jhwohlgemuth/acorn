@@ -517,7 +517,7 @@ impl Check {
 impl fmt::Display for Check {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         const INDENT: &str = " ";
-        const COL_ONE_WIDTH: usize = 25;
+        const COL_ONE_WIDTH: usize = 28;
         const COL_TWO_WIDTH: usize = 29;
         let format_row = |first: String, second: String, third: String| format!("{INDENT}{first:<COL_ONE_WIDTH$} {second:<COL_TWO_WIDTH$} {third}");
         match self.category {
@@ -587,7 +587,7 @@ impl fmt::Display for Check {
                     let rows = process(prefix, kind);
                     let last = rows.len().saturating_sub(1);
                     rows.iter().enumerate().try_for_each(|(index, issue)| {
-                        let location = issue.locator();
+                        let location = issue.locator().replace("r#", "");
                         let details = format!("{} {}{}", issue.message, "code=".dimmed(), issue.code.to_string().to_uppercase().dimmed());
                         f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
                             .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
