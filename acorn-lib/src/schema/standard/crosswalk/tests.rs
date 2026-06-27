@@ -6,8 +6,15 @@
     clippy::unwrap_used
 )]
 use crate::schema::standard::crosswalk::*;
-use crate::schema::standard::crosswalk::{FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
+use crate::schema::standard::crosswalk::{
+    mapping::{
+        datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, extract_year, huwise_to_datacite, invenio_to_datacite,
+        year_to_date,
+    },
+    FieldMap, FieldValue, SchemaBuilder, SchemaExtractor,
+};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
+use proptest::prelude::*;
 use serde_json::json;
 
 #[test]
@@ -608,4 +615,89 @@ fn registry_contains_all_schemas() {
     assert!(registry.contains_key("cff"));
     assert!(registry.contains_key("invenio"));
     assert!(registry.contains_key("huwise"));
+}
+
+proptest! {
+    #[test]
+    fn prop_rule_identity_string_roundtrip(value in "\\PC{0,64}") {
+        let mut source = FieldMap::new();
+        source.insert("src", FieldValue::String(value.clone()));
+        let mut mid = FieldMap::new();
+        prop_assert!(FieldRule::new("src", "mid").apply(&source, &mut mid).is_ok());
+        let mut target = FieldMap::new();
+        prop_assert!(FieldRule::new("mid", "tgt").apply(&mid, &mut target).is_ok());
+        prop_assert_eq!(target.get_string("tgt").ok(), Some(value));
+    }
+    #[test]
+    fn prop_rule_identity_stringvec_roundtrip(values in prop::collection::vec("\\PC{0,32}", 0..8)) {
+        let mut source = FieldMap::new();
+        source.insert("src", FieldValue::StringVec(values.clone()));
+        let mut mid = FieldMap::new();
+        prop_assert!(FieldRule::new("src", "mid").apply(&source, &mut mid).is_ok());
+        let mut target = FieldMap::new();
+        prop_assert!(FieldRule::new("mid", "tgt").apply(&mid, &mut target).is_ok());
+        prop_assert_eq!(target.get_string_vec_opt("tgt"), Some(values));
+    }
+    #[test]
+    fn prop_year_transform_roundtrip(year in 1000i32..=9999) {
+        let mut source = FieldMap::new();
+        source.insert("y", FieldValue::Number(year as f64));
+        let mut mid = FieldMap::new();
+        let fwd = FieldRule::new("y", "d").with_transform(year_to_date);
+        prop_assert!(fwd.apply(&source, &mut mid).is_ok());
+        let mut target = FieldMap::new();
+        let rev = FieldRule::new("d", "y").with_transform(extract_year);
+        prop_assert!(rev.apply(&mid, &mut target).is_ok());
+        prop_assert_eq!(target.get_number("y").ok(), Some(year as f64));
+    }
+    #[test]
+    fn prop_mappings_never_panic(
+        strings in prop::collection::vec("\\PC{0,32}", 0..10),
+        numbers in prop::collection::vec(any::<f64>(), 0..10),
+    ) {
+        let mut source = FieldMap::new();
+        for (i, s) in strings.iter().enumerate() {
+            source.insert(format!("str-{i}"), FieldValue::String(s.clone()));
+        }
+        for (i, n) in numbers.iter().enumerate() {
+            source.insert(format!("num-{i}"), FieldValue::Number(*n));
+        }
+        for mapping_fn in &[
+            datacite_to_dcat as fn() -> FieldMapping,
+            dcat_to_datacite as fn() -> FieldMapping,
+            datacite_to_huwise as fn() -> FieldMapping,
+            huwise_to_datacite as fn() -> FieldMapping,
+            datacite_to_invenio as fn() -> FieldMapping,
+            invenio_to_datacite as fn() -> FieldMapping,
+        ] {
+            let mapping = mapping_fn();
+            let mut target = FieldMap::new();
+            let _ = mapping.apply(&source, &mut target);
+        }
+    }
+    #[test]
+    fn prop_dcat_datacite_roundtrip(title in "\\PC{0,64}", desc in "\\PC{0,128}") {
+        let mut source = FieldMap::new();
+        source.insert("identifier", FieldValue::StringVec(vec!["10.5555/test".to_string()]));
+        source.insert("title", FieldValue::StringVec(vec![title.clone()]));
+        source.insert("description", FieldValue::StringVec(vec![desc.clone()]));
+        let mut data = FieldMap::new();
+        prop_assert!(dcat_to_datacite().apply(&source, &mut data).is_ok());
+        let mut back = FieldMap::new();
+        prop_assert!(datacite_to_dcat().apply(&data, &mut back).is_ok());
+        prop_assert_eq!(back.get_string_vec_opt("title"), Some(vec![title.clone()]));
+        prop_assert_eq!(back.get_string_vec_opt("description"), Some(vec![desc.clone()]));
+    }
+    #[test]
+    fn prop_datacite_dcat_roundtrip(title in "\\PC{0,64}", publisher in "\\PC{0,64}") {
+        let mut source = FieldMap::new();
+        source.insert("title", FieldValue::String(title.clone()));
+        source.insert("publisher", FieldValue::String(publisher.clone()));
+        let mut dcat_fields = FieldMap::new();
+        prop_assert!(datacite_to_dcat().apply(&source, &mut dcat_fields).is_ok());
+        let mut back = FieldMap::new();
+        prop_assert!(dcat_to_datacite().apply(&dcat_fields, &mut back).is_ok());
+        prop_assert_eq!(back.get_string_opt("title"), Some(title));
+        prop_assert_eq!(back.get_string_opt("publisher"), Some(publisher));
+    }
 }

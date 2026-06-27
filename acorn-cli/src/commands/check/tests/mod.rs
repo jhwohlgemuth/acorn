@@ -56,7 +56,7 @@ where
     T: Analysis,
 {
     let path = fixture_path(path);
-    let checks = T::check_schema(&[path.clone()], None).await;
+    let checks = T::check_schema(core::slice::from_ref(&path), None).await;
     let issue_count = checks.iter().map(Check::issue_count).sum::<usize>();
     assert_eq!(issue_count, expected, "Unexpected schema issue count for {path:?}");
     Ok(())

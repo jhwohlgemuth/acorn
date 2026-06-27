@@ -231,7 +231,7 @@ fn test_mimetype() {
     assert_eq!(mime, MimeType::Ttf);
     let mime = MimeType::from_path(Path::new("a.json"));
     assert_eq!(mime, MimeType::Json);
-    let mime = MimeType::from_path(PathBuf::from("file.yaml"));
+    let mime = MimeType::from_path(&PathBuf::from("file.yaml"));
     assert_eq!(mime, MimeType::Yaml);
     assert_eq!(MimeType::Json.file_type(), "json");
     assert_eq!(MimeType::Ttf.file_type(), "ttf");

@@ -49,7 +49,7 @@ pub mod error;
 pub mod readability;
 pub mod vale;
 
-pub use check::{Check, CheckCategory, CheckOptions, CheckSeverity, Standard};
+pub use check::{Check, CheckCategory, CheckOptions, CheckSeverity, IntoChecks, Standard};
 
 #[cfg(feature = "analysis")]
 pub use check::{checks_to_csv, checks_to_dataframe, summary, Analysis, IntoRow};
@@ -125,7 +125,7 @@ impl Analysis for Cff {
             .par_iter()
             .flat_map(|path| match Self::read(path) {
                 | Ok(data) => {
-                    let uri = path.file_name_with_parent();
+                    let uri = Some(path.file_name_with_parent());
                     let data = Arc::new(data);
                     collect_validation_checks(data.as_ref())
                         .into_iter()
@@ -135,7 +135,7 @@ impl Analysis for Cff {
                 | Err(why) => why
                     .to_string()
                     .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
                     .collect(),
             })
             .collect()
@@ -236,10 +236,10 @@ impl Analysis for Cff {
                         join_all(futures)
                             .await
                             .into_iter()
-                            .map(|check| check.with_uri(path.file_name_with_parent()))
+                            .map(|check| check.with_uri(Some(path.file_name_with_parent())))
                             .collect()
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(path.file_name_with_parent())],
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
                 }
             }
         });
@@ -275,7 +275,7 @@ impl Analysis for datacite::Record {
             .par_iter()
             .flat_map(|path| match Self::read(path) {
                 | Ok(data) => {
-                    let uri = path.file_name_with_parent();
+                    let uri = Some(path.file_name_with_parent());
                     let data = Arc::new(data);
                     collect_validation_checks(data.as_ref())
                         .into_iter()
@@ -285,7 +285,7 @@ impl Analysis for datacite::Record {
                 | Err(why) => why
                     .to_string()
                     .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
                     .collect(),
             })
             .collect()
@@ -330,11 +330,11 @@ impl Analysis for datacite::Record {
                         let checks = join_all(root_futures.chain(rights_futures).chain(related_futures))
                             .await
                             .into_iter()
-                            .map(|check| check.with_uri(path.file_name_with_parent()))
+                            .map(|check| check.with_uri(Some(path.file_name_with_parent())))
                             .collect::<Vec<_>>();
                         checks
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(path.file_name_with_parent())],
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
                 }
             }
         });
@@ -370,7 +370,7 @@ impl Analysis for dcat::Dataset {
             .par_iter()
             .flat_map(|path| match Self::read(path) {
                 | Ok(data) => {
-                    let uri = path.file_name_with_parent();
+                    let uri = Some(path.file_name_with_parent());
                     let data = Arc::new(data);
                     collect_validation_checks(data.as_ref())
                         .into_iter()
@@ -380,7 +380,7 @@ impl Analysis for dcat::Dataset {
                 | Err(why) => why
                     .to_string()
                     .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
                     .collect(),
             })
             .collect()
@@ -425,11 +425,11 @@ impl Analysis for dcat::Dataset {
                         let checks = join_all(root_futures.chain(distribution_futures))
                             .await
                             .into_iter()
-                            .map(|check| check.with_uri(path.file_name_with_parent()))
+                            .map(|check| check.with_uri(Some(path.file_name_with_parent())))
                             .collect::<Vec<_>>();
                         checks
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(path.file_name_with_parent())],
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
                 }
             }
         });
@@ -465,7 +465,7 @@ impl Analysis for invenio::Record {
             .par_iter()
             .flat_map(|path| match Self::read(path) {
                 | Ok(data) => {
-                    let uri = path.file_name_with_parent();
+                    let uri = Some(path.file_name_with_parent());
                     let data = Arc::new(data);
                     collect_validation_checks(data.as_ref())
                         .into_iter()
@@ -475,7 +475,7 @@ impl Analysis for invenio::Record {
                 | Err(why) => why
                     .to_string()
                     .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
                     .collect(),
             })
             .collect()
@@ -536,11 +536,11 @@ impl Analysis for invenio::Record {
                         let checks = join_all(pid_futures.chain(related_futures).chain(rights_futures))
                             .await
                             .into_iter()
-                            .map(|check| check.with_uri(path.file_name_with_parent()))
+                            .map(|check| check.with_uri(Some(path.file_name_with_parent())))
                             .collect::<Vec<_>>();
                         checks
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(path.file_name_with_parent())],
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
                 }
             }
         });
@@ -576,7 +576,7 @@ impl Analysis for huwise::Dataset {
             .par_iter()
             .flat_map(|path| match Self::read(path) {
                 | Ok(data) => {
-                    let uri = path.file_name_with_parent();
+                    let uri = Some(path.file_name_with_parent());
                     let data = Arc::new(data);
                     collect_validation_checks(data.as_ref())
                         .into_iter()
@@ -586,7 +586,7 @@ impl Analysis for huwise::Dataset {
                 | Err(why) => why
                     .to_string()
                     .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
                     .collect(),
             })
             .collect()
@@ -657,7 +657,7 @@ impl Analysis for ResearchActivity {
             .par_iter()
             .flat_map(|path| match Self::read(path) {
                 | Ok(data) => {
-                    let uri = path.file_name_with_parent();
+                    let uri = Some(path.file_name_with_parent());
                     let data = Arc::new(data);
                     collect_validation_checks(data.as_ref())
                         .into_iter()
@@ -667,7 +667,7 @@ impl Analysis for ResearchActivity {
                 | Err(why) => why
                     .to_string()
                     .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
                     .collect(),
             })
             .collect()
@@ -705,10 +705,10 @@ impl Analysis for ResearchActivity {
                         join_all(links)
                             .await
                             .into_iter()
-                            .map(|check| check.with_uri(path.file_name_with_parent()))
+                            .map(|check| check.with_uri(Some(path.file_name_with_parent())))
                             .collect()
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(path.file_name_with_parent())],
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
                 }
             }
         });
@@ -779,7 +779,7 @@ impl Analysis for raid::Metadata {
             .par_iter()
             .flat_map(|path| match Self::read(path.to_path_buf()) {
                 | Ok(data) => {
-                    let uri = path.file_name_with_parent();
+                    let uri = Some(path.file_name_with_parent());
                     collect_validation_checks(&data)
                         .into_iter()
                         .map(|issue| issue.with_uri(uri.clone()))
@@ -788,7 +788,7 @@ impl Analysis for raid::Metadata {
                 | Err(why) => why
                     .to_string()
                     .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(path.file_name_with_parent()))
+                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
                     .collect(),
             })
             .collect()

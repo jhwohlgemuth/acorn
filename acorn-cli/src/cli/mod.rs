@@ -424,6 +424,9 @@ pub enum Commands {
         /// Export files that were changed in a given Git commit
         #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
         commit: Option<String>,
+        /// Run export without making changes. Will print what would happen.
+        #[arg(long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+        dry_run: bool,
         /// Export target file format
         #[arg(default_value_t, short, long, value_name = "FORMAT", help_heading = "OPTIONS")]
         format: FileFormat,
@@ -455,6 +458,12 @@ pub enum Commands {
         /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
         #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
         reference: Option<PathBuf>,
+        /// Metadata standard to validate against
+        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+        standard: Standard,
+        /// Fail if conversion loses data (only for crosswalk exports)
+        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+        strict: bool,
         /// Metadata standard to use for source data inference (default: auto-detect)
         ///
         /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
@@ -465,9 +474,6 @@ pub enum Commands {
         /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
         #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
         to: Option<Standard>,
-        /// Metadata standard to validate against
-        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: Standard,
         #[command(flatten)]
         verbose: Verbosity,
     },

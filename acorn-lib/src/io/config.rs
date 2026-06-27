@@ -229,7 +229,7 @@ impl InputOutput for ApplicationConfiguration {
     /// Read and parse application configuration file (JSON or YAML)
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
-        match MimeType::from_path(source.clone()) {
+        match MimeType::from_path(&source) {
             | MimeType::Json => Self::read_json(source.clone()),
             | MimeType::Yaml => Self::read_yaml(source.clone()),
             | _ => Err(eyre!("Unsupported configuration file extension")),

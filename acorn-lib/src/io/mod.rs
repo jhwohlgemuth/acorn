@@ -22,8 +22,8 @@
 use crate::cmd;
 use crate::prelude::CommandOutput;
 use crate::prelude::{
-    canonicalize, consts, create_dir_all, current_dir, io, remove_file, var, var_os, write, BufReader, Cursor, File, HashSet, OpenOptions, PathBuf,
-    Read, Write,
+    canonicalize, consts, create_dir_all, current_dir, io, remove_file, var, var_os, write, BufReader, Cursor, File, HashSet, OpenOptions, Path,
+    PathBuf, Read, Write,
 };
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
@@ -85,9 +85,9 @@ pub trait FromCommand {
 /// Add `from_path` trait to a value (like `MimeType`)
 pub trait FromPath {
     /// Convert a path to a value
-    fn from_path<P>(value: P) -> Self
+    fn from_path<P>(value: &P) -> Self
     where
-        P: Into<PathBuf>;
+        P: AsRef<Path> + ?Sized;
 }
 /// Trait for I/O operations such as read and write
 pub trait InputOutput: Sized {
@@ -379,16 +379,16 @@ impl FromPath for MimeType {
     ///
     /// ```ignore
     /// use acorn::util::MimeType;
-    /// use std::path::PathBuf;
+    /// use std::path::Path;
     ///
-    /// let mime = MimeType::from_path(PathBuf::from("test.cff"));
+    /// let mime = MimeType::from_path(Path::new("test.cff"));
     /// assert_eq!(mime, MimeType::Yaml);
     /// ```
-    fn from_path<P>(value: P) -> MimeType
+    fn from_path<P>(value: &P) -> MimeType
     where
-        P: Into<PathBuf>,
+        P: AsRef<Path> + ?Sized,
     {
-        MimeType::from(value.into().display().to_string())
+        MimeType::from(value.as_ref().display().to_string())
     }
 }
 impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {

@@ -8,7 +8,10 @@ use crate::io::InputOutput;
 #[cfg(feature = "analysis")]
 use crate::prelude::Cursor;
 use crate::prelude::{Arc, HashMap, Path, PathBuf};
-use crate::schema::standard::crosswalk::{Batch, CrosswalkError};
+use crate::schema::standard::crosswalk::mapping::{
+    datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
+};
+use crate::schema::standard::crosswalk::{Batch, ConversionWarning, CrosswalkError, FieldMap, FieldMapping, SchemaExtractor};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
 use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
 use crate::util::{Label, MimeType, StringConversion, ToProse};
@@ -34,6 +37,8 @@ use strum::EnumIter;
 use tracing::{debug, error, info};
 use validator::ValidationErrorsKind;
 
+/// Utility type alias for a vector of [`ConversionWarning`]
+pub type ConversionWarnings = Vec<ConversionWarning>;
 /// Trait for adding analysis capabilities
 #[cfg(feature = "analysis")]
 #[async_trait]
@@ -46,6 +51,7 @@ pub trait Analysis {
             | CheckCategory::Quality => Self::check_quality(paths, options).await,
             | CheckCategory::Readability => Self::check_readability(paths, options).await,
             | CheckCategory::Schema => Self::check_schema(paths, options).await,
+            | CheckCategory::Crosswalk => Vec::new(),
         }
     }
     /// Perform analysis of prose
@@ -62,6 +68,11 @@ pub trait Analysis {
     fn output_path(path: &Path, data: &Self) -> PathBuf;
     /// Returns the metadata standard represented by the implementing type.
     fn standard() -> Standard;
+}
+/// Trait for converting to a vector of checks
+pub trait IntoChecks {
+    /// Convert to a vector of checks
+    fn to_checks(&self, uri: Option<String>) -> Vec<Check>;
 }
 /// Trait for converting to a ([Polars]) row
 ///
@@ -106,70 +117,6 @@ pub enum Standard {
     #[display("text")]
     Text,
 }
-impl Standard {
-    /// Convert serialized content from one metadata standard to another.
-    ///
-    /// Parses `content` as the schema identified by `self` (source standard),
-    /// converts each record to the `target` standard using `TryFrom` pipeline,
-    /// and serializes the result as `output_mime` (JSON or YAML).
-    ///
-    /// ### Errors
-    /// Returns [`CrosswalkError`] when:
-    /// - Content cannot be parsed as the source standard
-    /// - A required conversion path is not supported
-    /// - A record fails conversion
-    /// - Output serialization fails
-    pub fn crosswalk(&self, content: &str, mime: MimeType, target: Standard, target_mime: MimeType) -> Result<String, CrosswalkError> {
-        match *self {
-            | Standard::Datacite => Batch::<datacite::Record>::parse(content, mime).and_then(|source| match target {
-                | Standard::Datacite => source.serialize(target_mime),
-                | Standard::Dcat => source.map(dcat::Dataset::try_from).and_then(|b| b.serialize(target_mime)),
-                | Standard::Invenio => source.map(invenio::Record::try_from).and_then(|b| b.serialize(target_mime)),
-                | Standard::Huwise => source.map(huwise::Dataset::try_from).and_then(|b| b.serialize(target_mime)),
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | Standard::Dcat => Batch::<dcat::Dataset>::parse(content, mime).and_then(|source| match target {
-                | Standard::Dcat => source.serialize(target_mime),
-                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
-                | Standard::Invenio => source
-                    .map(|v| datacite::Record::try_from(v).and_then(invenio::Record::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
-                | Standard::Huwise => source
-                    .map(|v| datacite::Record::try_from(v).and_then(huwise::Dataset::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | Standard::Invenio => Batch::<invenio::Record>::parse(content, mime).and_then(|source| match target {
-                | Standard::Invenio => source.serialize(target_mime),
-                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
-                | Standard::Dcat => source
-                    .map(|v| datacite::Record::try_from(v).and_then(dcat::Dataset::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
-                | Standard::Huwise => source
-                    .map(|v| datacite::Record::try_from(v).and_then(huwise::Dataset::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | Standard::Huwise => Batch::<huwise::Dataset>::parse(content, mime).and_then(|source| match target {
-                | Standard::Huwise => source.serialize(target_mime),
-                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
-                | Standard::Dcat => source
-                    .map(|v| datacite::Record::try_from(v).and_then(dcat::Dataset::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
-                | Standard::Invenio => source
-                    .map(|v| datacite::Record::try_from(v).and_then(invenio::Record::try_from))
-                    .and_then(|b| b.serialize(target_mime)),
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | _ => Err(self.unsupported_crosswalk(target)),
-        }
-    }
-    fn unsupported_crosswalk(&self, target: Standard) -> CrosswalkError {
-        CrosswalkError::BuildFailed(format!(
-            "Unsupported metadata crosswalk pair: {self} -> {target} (supported: datacite, dcat, invenio, huwise)"
-        ))
-    }
-}
 /// Various check categories available for validating research activity data
 #[derive(Clone, Debug, Default, Display, EnumIter, PartialEq)]
 pub enum CheckCategory {
@@ -189,6 +136,9 @@ pub enum CheckCategory {
     /// Readability check using one of several metrics
     #[display("readability")]
     Readability,
+    /// Metadata crosswalk conversion warning
+    #[display("crosswalk")]
+    Crosswalk,
 }
 /// Severity level of a check result
 #[derive(Clone, Debug, Default, Display, PartialEq)]
@@ -328,6 +278,13 @@ impl Check {
                     }
                 } else {
                     0
+                }
+            }
+            | CheckCategory::Crosswalk => {
+                if self.success {
+                    0
+                } else {
+                    1
                 }
             }
         }
@@ -488,6 +445,9 @@ impl Check {
                     }
                 }
             }
+            | CheckCategory::Crosswalk => {
+                error!("{} {}", Label::fail(), message);
+            }
         }
     }
     /// Returns a new LinkCheckResult with the given context
@@ -510,8 +470,8 @@ impl Check {
         Self { locator: value, ..self }
     }
     /// Returns a new LinkCheckResult with the given URL
-    pub fn with_uri(self, value: String) -> Self {
-        Self { uri: Some(value), ..self }
+    pub fn with_uri(self, value: Option<String>) -> Self {
+        Self { uri: value, ..self }
     }
 }
 impl fmt::Display for Check {
@@ -587,7 +547,7 @@ impl fmt::Display for Check {
                     let rows = process(prefix, kind);
                     let last = rows.len().saturating_sub(1);
                     rows.iter().enumerate().try_for_each(|(index, issue)| {
-                        let location = issue.locator().replace("r#", "");
+                        let location = issue.locator();
                         let details = format!("{} {}{}", issue.message, "code=".dimmed(), issue.code.to_string().to_uppercase().dimmed());
                         f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
                             .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
@@ -607,6 +567,13 @@ impl fmt::Display for Check {
                 }
                 | None | Some(_) => write!(f, ""),
             },
+            | CheckCategory::Crosswalk => {
+                let details = self.message.dimmed().to_string();
+                f.write_fmt(format_args!(
+                    "{}",
+                    format_row(self.locator.clone().unwrap_or_default(), self.severity.colored(), details)
+                ))
+            }
         }
     }
 }
@@ -634,6 +601,7 @@ impl From<&str> for CheckCategory {
             | "prose" => Self::Prose,
             | "quality" => Self::Quality,
             | "readability" => Self::Readability,
+            | "crosswalk" => Self::Crosswalk,
             | "schema" => Self::Schema,
             | _ => CheckCategory::default(),
         }
@@ -646,6 +614,7 @@ impl From<&CheckCategory> for u8 {
             | CheckCategory::Prose => 1,
             | CheckCategory::Quality => 2,
             | CheckCategory::Readability => 3,
+            | CheckCategory::Crosswalk => 4,
         }
     }
 }
@@ -663,6 +632,30 @@ impl CheckSeverity {
     pub fn is_failure(&self) -> bool {
         matches!(self, Self::Error | Self::Warning)
     }
+}
+impl IntoChecks for ConversionWarnings {
+    /// Convert crosswalk conversion warnings into Check objects with Warning severity.
+    ///
+    /// Each ConversionWarning from a field-level loss during schema crosswalk produces
+    /// a single Check with the field name as locator and a human-readable message.
+    fn to_checks(&self, uri: Option<String>) -> Vec<Check> {
+        self.iter()
+            .map(|w| {
+                let context = format!("{} → {}", w.from, w.to);
+                check!(
+                    CheckCategory::Crosswalk,
+                    false,
+                    severity: CheckSeverity::Warning,
+                    message: w.to_string(),
+                    context: context,
+                    locator: w.field.clone(),
+                )
+                .with_uri(uri.clone())
+            })
+            .collect()
+    }
+}
+impl CheckSeverity {
     /// Returns whether this severity level is visible at the given log level.
     ///
     /// - [`CheckSeverity::Error`] and [`CheckSeverity::Warning`] are always visible.
@@ -751,6 +744,110 @@ impl From<&Map<String, Value>> for Standard {
         } else {
             Standard::Dcat
         }
+    }
+}
+impl Standard {
+    /// Convert serialized content from one metadata standard to another.
+    ///
+    /// Parses `content` as the schema identified by `self` (source standard),
+    /// converts each record to the `target` standard using `TryFrom` pipeline,
+    /// and serializes the result as `output_mime` (JSON or YAML).
+    ///
+    /// ### Errors
+    /// Returns [`CrosswalkError`] when:
+    /// - Content cannot be parsed as the source standard
+    /// - A required conversion path is not supported
+    /// - A record fails conversion
+    /// - Output serialization fails
+    pub fn crosswalk(&self, content: &str, mime: MimeType, target: Standard, target_mime: MimeType) -> Result<String, CrosswalkError> {
+        match *self {
+            | Standard::Datacite => Batch::<datacite::Record>::parse(content, mime).and_then(|source| match target {
+                | Standard::Datacite => source.serialize(target_mime),
+                | Standard::Dcat => source.map(dcat::Dataset::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Invenio => source.map(invenio::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Huwise => source.map(huwise::Dataset::try_from).and_then(|b| b.serialize(target_mime)),
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
+            | Standard::Dcat => Batch::<dcat::Dataset>::parse(content, mime).and_then(|source| match target {
+                | Standard::Dcat => source.serialize(target_mime),
+                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Invenio => source
+                    .map(|v| datacite::Record::try_from(v).and_then(invenio::Record::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | Standard::Huwise => source
+                    .map(|v| datacite::Record::try_from(v).and_then(huwise::Dataset::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
+            | Standard::Invenio => Batch::<invenio::Record>::parse(content, mime).and_then(|source| match target {
+                | Standard::Invenio => source.serialize(target_mime),
+                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Dcat => source
+                    .map(|v| datacite::Record::try_from(v).and_then(dcat::Dataset::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | Standard::Huwise => source
+                    .map(|v| datacite::Record::try_from(v).and_then(huwise::Dataset::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
+            | Standard::Huwise => Batch::<huwise::Dataset>::parse(content, mime).and_then(|source| match target {
+                | Standard::Huwise => source.serialize(target_mime),
+                | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
+                | Standard::Dcat => source
+                    .map(|v| datacite::Record::try_from(v).and_then(dcat::Dataset::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | Standard::Invenio => source
+                    .map(|v| datacite::Record::try_from(v).and_then(invenio::Record::try_from))
+                    .and_then(|b| b.serialize(target_mime)),
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
+            | _ => Err(self.unsupported_crosswalk(target)),
+        }
+    }
+    /// Convert serialized content from one metadata standard to another, returning both the converted content and any field-level warnings.
+    ///
+    /// Warnings indicate optional fields in the source that have no equivalent in the target schema, or fields whose semantics differ between schemas.
+    pub fn crosswalk_with_warnings(
+        &self,
+        content: &str,
+        mime: MimeType,
+        target: Standard,
+        target_mime: MimeType,
+    ) -> Result<(String, ConversionWarnings), CrosswalkError> {
+        let warnings = match self.collect_crosswalk_warnings(content, &mime, target) {
+            | Ok(w) => w,
+            | Err(_) => Vec::new(),
+        };
+        self.crosswalk(content, mime, target, target_mime).map(|content| (content, warnings))
+    }
+    /// Run the FieldMapping pipeline to detect field-level losses for a given pair.
+    fn collect_crosswalk_warnings(&self, content: &str, mime: &MimeType, target: Standard) -> Result<ConversionWarnings, CrosswalkError> {
+        match (*self, target) {
+            | (Standard::Datacite, Standard::Dcat) => {
+                process_crosswalk_warnings::<datacite::Record>(content, mime, "datacite", "dcat", datacite_to_dcat())
+            }
+            | (Standard::Datacite, Standard::Invenio) => {
+                process_crosswalk_warnings::<datacite::Record>(content, mime, "datacite", "invenio", datacite_to_invenio())
+            }
+            | (Standard::Datacite, Standard::Huwise) => {
+                process_crosswalk_warnings::<datacite::Record>(content, mime, "datacite", "huwise", datacite_to_huwise())
+            }
+            | (Standard::Dcat, Standard::Datacite) => {
+                process_crosswalk_warnings::<dcat::Dataset>(content, mime, "dcat", "datacite", dcat_to_datacite())
+            }
+            | (Standard::Invenio, Standard::Datacite) => {
+                process_crosswalk_warnings::<invenio::Record>(content, mime, "invenio", "datacite", invenio_to_datacite())
+            }
+            | (Standard::Huwise, Standard::Datacite) => {
+                process_crosswalk_warnings::<huwise::Dataset>(content, mime, "huwise", "datacite", huwise_to_datacite())
+            }
+            | _ => Ok(Vec::new()),
+        }
+    }
+    fn unsupported_crosswalk(&self, target: Standard) -> CrosswalkError {
+        CrosswalkError::BuildFailed(format!(
+            "Unsupported metadata crosswalk pair: {self} -> {target} (supported: datacite, dcat, invenio, huwise)"
+        ))
     }
 }
 #[cfg(feature = "analysis")]
@@ -862,6 +959,52 @@ pub fn checks_to_csv(values: &[Check], include_headers: bool) -> PolarsResult<St
         }
         | Err(why) => Err(why),
     }
+}
+/// Parse source content and apply a FieldMapping to detect missing optional fields.
+fn process_crosswalk_warnings<T>(
+    content: &str,
+    mime: &MimeType,
+    from: &'static str,
+    to: &'static str,
+    mapping: FieldMapping,
+) -> Result<ConversionWarnings, CrosswalkError>
+where
+    T: serde::de::DeserializeOwned + SchemaExtractor,
+{
+    Batch::<T>::parse(content, mime.clone()).map(|batch| {
+        let mapped_fields: Vec<&str> = mapping.rules.iter().map(|r| r.source_field).collect();
+        let missing_warnings = |fields: &FieldMap, prefix: &str| -> ConversionWarnings {
+            let mut target_fields = FieldMap::new();
+            mapping
+                .apply(fields, &mut target_fields)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|field| ConversionWarning::no_equivalent(from, to, format!("{prefix}{field}")))
+                .collect()
+        };
+        let unmapped_warnings = |fields: &FieldMap, prefix: &str| -> ConversionWarnings {
+            fields
+                .keys()
+                .filter(|key| !mapped_fields.contains(&key.as_str()))
+                .map(|key| ConversionWarning::no_equivalent(from, to, format!("{prefix}{key}")))
+                .collect()
+        };
+        match batch {
+            | Batch::One(record) => {
+                let fields = record.extract_fields();
+                [missing_warnings(&fields, ""), unmapped_warnings(&fields, "")].concat()
+            }
+            | Batch::Many(records) => records
+                .into_iter()
+                .enumerate()
+                .flat_map(|(i, record)| {
+                    let fields = record.extract_fields();
+                    let prefix = format!("record[{i}].");
+                    missing_warnings(&fields, &prefix).into_iter().chain(unmapped_warnings(&fields, &prefix))
+                })
+                .collect(),
+        }
+    })
 }
 /// Calculate a highlighted byte span for a single line in a source report.
 pub(crate) fn highlighted(text: &str, span: &[u32], line_number: u32) -> RangeInclusive<usize> {

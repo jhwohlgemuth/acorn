@@ -167,6 +167,8 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
             combine,
             merge_request,
             raw,
+            dry_run,
+            strict,
             verbose,
             ..
         }) => {
@@ -184,6 +186,8 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
                 combine,
                 merge_request,
                 raw,
+                *dry_run,
+                *strict,
                 threads,
                 verbose,
                 offline,

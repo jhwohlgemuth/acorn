@@ -524,7 +524,7 @@ fn test_with_context_and_with_uri_preserve_severity() {
       message: "link check"
     );
     let with_context = check.clone().with_context("content/index.json".to_string());
-    let with_uri = check.with_uri("https://example.org".to_string());
+    let with_uri = check.with_uri(Some("https://example.org".to_string()));
     assert_eq!(with_context.severity, CheckSeverity::Warning);
     assert_eq!(with_uri.severity, CheckSeverity::Warning);
 }

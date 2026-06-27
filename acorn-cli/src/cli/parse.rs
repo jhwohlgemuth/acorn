@@ -38,10 +38,11 @@ pub(crate) fn parse_check_category(s: &str) -> Result<analyzer::CheckCategory, S
         | "prose" => Ok(analyzer::CheckCategory::Prose),
         | "quality" => Ok(analyzer::CheckCategory::Quality),
         | "readability" => Ok(analyzer::CheckCategory::Readability),
+        | "crosswalk" => Ok(analyzer::CheckCategory::Crosswalk),
         | "schema" => Ok(analyzer::CheckCategory::Schema),
         | _ => Err(format!(
             "unknown check category '{s}' — expected one of: \
-             link, prose, quality, readability, schema"
+             link, prose, quality, readability, crosswalk, schema"
         )),
     }
 }

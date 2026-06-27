@@ -79,6 +79,11 @@ impl FileFormat {
 }
 impl From<FileFormat> for MimeType {
     fn from(format: FileFormat) -> Self {
+        MimeType::from(&format)
+    }
+}
+impl From<&FileFormat> for MimeType {
+    fn from(format: &FileFormat) -> Self {
         match format {
             | FileFormat::Pdf => MimeType::Pdf,
             | FileFormat::Bag => MimeType::Zip,

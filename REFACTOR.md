@@ -1179,37 +1179,49 @@ This section captures follow-up work after the first-pass importer scaffold that
 2. Pilot import flow for another provider to validate generality.
 3. Document importer behavior, limitations, and extension points in docs and command help.
 
-## Metadata Schema Crosswalk — Status: Core Implemented
+## Metadata Schema Crosswalk — Complete
 
-The crosswalk engine is fully implemented. Remaining work is limited to polish features.
+All core and polish features are implemented. The crosswalk engine is fully integrated into the `acorn export` command with field-level loss tracking and round-trip stability verified by property-based tests.
 
 ### Implementation
 
-**CLI**: `--from` and `--to` flags on `acorn export` are wired in `acorn-cli/src/cli/mod.rs` and dispatch through `ExportHandler::crosswalk()` in `acorn-cli/src/commands/export/mod.rs`.
+**CLI**: `--from`, `--to`, `--dry-run`, and `--strict` flags on `acorn export` are wired in `acorn-cli/src/cli/mod.rs` and dispatch through `ExportHandler::crosswalk()` in `acorn-cli/src/commands/export/mod.rs`.
 
-**Engine**: `Standard::crosswalk()` in `acorn-lib/src/analyzer/check.rs` drives conversion through `Batch<T>` processing with per-record error reporting. Crosswalk infrastructure lives in `acorn-lib/src/schema/standard/crosswalk/` (302 lines) with `FieldMap`, `Crosswalk` trait, `SchemaRegistry`, and `ConversionWarning` tracking.
+**Engine**: `Standard::crosswalk()` in `acorn-lib/src/analyzer/check.rs` drives conversion through `Batch<T>` processing with per-record error reporting. `Standard::crosswalk_detailed()` runs FieldMapping alongside TryFrom for `ConversionWarning` collection. Crosswalk infrastructure lives in `acorn-lib/src/schema/standard/crosswalk/` (302 lines) with `FieldMap`, `Crosswalk` trait, `SchemaRegistry`, and `ConversionWarning` tracking.
 
 **Schema pairs**: All 4×4 conversions are supported — DataCite, DCAT, InvenioRDM, HuWise. Direct conversions exist where possible; InvenioRDM↔HuWise and DCAT↔InvenioRDM use DataCite as an intermediate bridge.
 
-**Tests**: Fixture-based tests in `acorn-lib/src/schema/standard/crosswalk/tests.rs` (611 lines).
-
-### Remaining Work
-
-| Item | Status |
-|------|--------|
-| `--dry-run` mode for export crosswalk | ❌ |
-| `--strict` mode to fail on lossy conversions | ❌ |
-| Validation-first mode (check without writing) | ❌ |
-| Property-based tests for round-trip stability | ❌ |
-| User-facing documentation of crosswalk | ❌ |
-| Surface `ConversionWarning` in CLI output | ❌ |
+**Tests**: Fixture + property-based tests in `acorn-lib/src/schema/standard/crosswalk/tests.rs` (726 lines). 6 proptests cover identity round-trip, year transform round-trip, DCAT↔DataCite round-trip, and graceful handling of arbitrary input.
 
 ### Known Limitations
 
-1. **Lossy conversions**: Some metadata may be lost in crosswalk conversions. Infrastructure (`ConversionWarning`, `FieldLossType`) exists but is not yet surfaced to CLI output.
+1. **Lossy conversions**: Some metadata may be lost in crosswalk conversions. The infrastructure (`ConversionWarning`, `FieldLossType`) is now surfaced to CLI output via `--strict` mode and `crosswalk_detailed()`. Known asymmetric mappings (DOI as String↔StringVec) are detected but expected.
 2. **Performance**: Large batches are currently sequential — could benefit from parallelization.
 3. **Invenio↔HuWise**: Uses DataCite as intermediate bridge; a direct mapping could improve performance but is low priority given the 160-field vs 200+ field mismatch.
 
+## Crosswalk Checks Integration
 
+Integrate `ConversionWarning` into the `Check` infrastructure with `CheckSeverity::Warning` so crosswalk loss warnings render through the standard check pipeline (consistent coloring, `--skip crosswalk`, aggregated summary).
 
+### Steps
 
+| # | File | Change |
+|---|------|--------|
+| 1 | `acorn-lib/src/analyzer/check.rs` | Add `Crosswalk` variant to `CheckCategory` enum |
+| 2 | Same file | Add arm in `Analysis::check()` dispatch → `Vec::new()` |
+| 3 | Same file | Add arm in `issue_count()` → `warnings.len()` |
+| 4 | Same file | Add arm in `report()` → simple warning rendering |
+| 5 | Same file | Add arm in `fmt::Display` → `"[crosswalk] schema_from → schema_to: field (loss_type)"` |
+| 6 | Same file | Add `"crosswalk"` in `From<&str>` |
+| 7 | Same file | Add `Crosswalk => 4` in `From<&CheckCategory> for u8` |
+| 8 | Same file | Add `conversion_warnings_to_checks()` converter function |
+| 9 | `acorn-cli/src/cli/parse.rs` | Add `"crosswalk"` to `parse_check_category()` |
+| 10 | `acorn-cli/src/commands/export/mod.rs` | Wire `Arc<Mutex<Vec<Check>>>` into `export_as_format_crosswalk()` |
+
+### Behavior Changes
+
+| Scenario | Before | After |
+|---|---|---|
+| `--strict` with warnings | `fail!("Conversion warning — ...")` per warning, then `Err` | `Check` objects rendered via Display, then `Err` |
+| Normal mode with warnings | `info!("{} crosswalk warning: ...", Label::run())` | Same + summary block of Checks at end |
+| `--skip crosswalk` | No effect | Warnings suppressed via Check skip logic |

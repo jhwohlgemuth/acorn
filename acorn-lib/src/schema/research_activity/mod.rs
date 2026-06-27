@@ -464,7 +464,7 @@ impl LinkedData for ResearchActivityMetadata {
 impl InputOutput for ResearchActivity {
     fn read(path: impl Into<PathBuf>) -> ApiResult<ResearchActivity> {
         let source = path.into().clone();
-        let result = match MimeType::from_path(source.clone()) {
+        let result = match MimeType::from_path(&source) {
             | MimeType::Json => ResearchActivity::read_json(source.clone()),
             | MimeType::Yaml => ResearchActivity::read_yaml(source.clone()),
             | _ => Err(eyre!("Unsupported research activity data file extension")),
@@ -512,7 +512,7 @@ impl InputOutput for ResearchActivity {
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
-        let mime = MimeType::from_path(output.clone());
+        let mime = MimeType::from_path(&output);
         match mime {
             | MimeType::Cff => self.write_cff(output),
             | MimeType::Json => self.write_json(output),

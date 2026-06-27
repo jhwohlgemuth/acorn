@@ -98,9 +98,9 @@ pub enum FieldLossType {
 #[derive(Clone, Debug)]
 pub struct ConversionWarning {
     /// Source schema name (e.g., "datacite", "dcat")
-    pub schema_from: &'static str,
+    pub from: &'static str,
     /// Target schema name
-    pub schema_to: &'static str,
+    pub to: &'static str,
     /// Source field name that was not fully mapped
     pub field: String,
     /// Type of data loss
@@ -152,8 +152,8 @@ impl fmt::Display for ConversionWarning {
         write!(
             f,
             "{} → {}: {} ({}) {}",
-            self.schema_from,
-            self.schema_to,
+            self.from,
+            self.to,
             self.field,
             self.loss_type,
             self.details.as_deref().unwrap_or("")
@@ -162,43 +162,43 @@ impl fmt::Display for ConversionWarning {
 }
 impl ConversionWarning {
     /// Create a new warning for a field with no equivalent in target schema
-    pub fn no_equivalent(schema_from: &'static str, schema_to: &'static str, field: impl Into<String>) -> Self {
+    pub fn no_equivalent(from: &'static str, to: &'static str, field: impl Into<String>) -> Self {
         Self {
-            schema_from,
-            schema_to,
+            from,
+            to,
             field: field.into(),
-            loss_type: FieldLossType::NoEquivalent,
             details: None,
+            loss_type: FieldLossType::NoEquivalent,
         }
     }
     /// Create a new warning for an approximated mapping
-    pub fn approximated(schema_from: &'static str, schema_to: &'static str, field: impl Into<String>, details: impl Into<String>) -> Self {
+    pub fn approximated(from: &'static str, to: &'static str, field: impl Into<String>, details: impl Into<String>) -> Self {
         Self {
-            schema_from,
-            schema_to,
+            from,
+            to,
             field: field.into(),
-            loss_type: FieldLossType::Approximated,
             details: Some(details.into()),
+            loss_type: FieldLossType::Approximated,
         }
     }
     /// Create a new warning for a simplified mapping
-    pub fn simplified(schema_from: &'static str, schema_to: &'static str, field: impl Into<String>, details: impl Into<String>) -> Self {
+    pub fn simplified(from: &'static str, to: &'static str, field: impl Into<String>, details: impl Into<String>) -> Self {
         Self {
-            schema_from,
-            schema_to,
+            from,
+            to,
             field: field.into(),
-            loss_type: FieldLossType::Simplified,
             details: Some(details.into()),
+            loss_type: FieldLossType::Simplified,
         }
     }
     /// Create a new warning for an omitted field
-    pub fn omitted(schema_from: &'static str, schema_to: &'static str, field: impl Into<String>, details: impl Into<String>) -> Self {
+    pub fn omitted(from: &'static str, to: &'static str, field: impl Into<String>, details: impl Into<String>) -> Self {
         Self {
-            schema_from,
-            schema_to,
+            from,
+            to,
             field: field.into(),
-            loss_type: FieldLossType::Omitted,
             details: Some(details.into()),
+            loss_type: FieldLossType::Omitted,
         }
     }
 }

@@ -135,13 +135,14 @@ impl ErrorKind {
 impl Location for ValidatorIssue {
     /// Return title-friendly locator — "where to find the issue"
     fn locator(&self) -> String {
-        match self.path.as_deref() {
+        let value = match self.path.as_deref() {
             | Some(value) => match self.params.get("index") {
                 | Some(Value::Number(index)) => format!("{}[{}]", value, index),
                 | None | Some(_) => value.to_string(),
             },
             | None => self.code.to_string().to_uppercase(),
-        }
+        };
+        value.replace("r#", "")
     }
     /// Return issue source text used by schema highlighting
     fn source_text(&self) -> String {
