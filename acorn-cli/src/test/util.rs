@@ -6,6 +6,9 @@
     clippy::unwrap_used
 )]
 use acorn::prelude::{create_dir_all, read_dir, remove_dir_all, PathBuf};
+use core::sync::atomic::{AtomicUsize, Ordering};
+
+static TEST_DIR_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// Get path to test fixtures relative to workspace root
 pub(crate) fn fixture_path(path: &str) -> PathBuf {
@@ -31,12 +34,14 @@ pub(crate) fn has_any_file(path: &PathBuf) -> bool {
 }
 /// Create a temporary test directory under target/test_artifacts
 pub(crate) fn temp_test_dir(test_name: &str) -> PathBuf {
+    let unique = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
     let temp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .join("target")
         .join("test_artifacts")
-        .join(test_name);
+        .join(format!("{test_name}-{}-{unique}", std::process::id()));
+    let _ = remove_dir_all(&temp);
     let _ = create_dir_all(&temp);
     temp
 }
