@@ -2,7 +2,7 @@ use crate::cli::Void;
 #[cfg(not(feature = "tui"))]
 use color_eyre::eyre;
 
-pub async fn run() -> Void {
+pub fn run() -> Void {
     #[cfg(feature = "tui")]
     return acorn_tui::run_tui(acorn_tui::Screen::Dashboard);
     #[cfg(not(feature = "tui"))]

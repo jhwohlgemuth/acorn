@@ -266,11 +266,13 @@ where
     pub fn clear(&self, table: impl Into<Table>) -> ApiResult<usize> {
         let table = table.into();
         self.with_connection(|conn| {
-            conn.execute(&format!("DELETE FROM {}", table.name()), params![])
-                .or_else(|error| match &error {
-                    | backend::Error::SqliteFailure(_, Some(msg)) if msg.contains("no such table") => Ok(0),
-                    | _ => Err(eyre!("Failed to clear {} — {error}", table.name())),
-                })
+            conn.execute(&format!("DELETE FROM {}", table.name()), params![]).or_else(|error| {
+                if error.to_string().contains("no such table") {
+                    Ok(0)
+                } else {
+                    Err(eyre!("Failed to clear {} — {error}", table.name()))
+                }
+            })
         })
     }
     /// Delete rows where a timestamp/text column is older than a cutoff value.
@@ -278,9 +280,12 @@ where
         let table = table.into();
         let sql = format!("DELETE FROM {} WHERE {} < ?", table.name(), column);
         self.with_connection(|conn| {
-            conn.execute(&sql, params![cutoff]).or_else(|error| match &error {
-                | backend::Error::SqliteFailure(_, Some(msg)) if msg.contains("no such table") => Ok(0),
-                | _ => Err(eyre!("Failed to clean up {} — {error}", table.name())),
+            conn.execute(&sql, params![cutoff]).or_else(|error| {
+                if error.to_string().contains("no such table") {
+                    Ok(0)
+                } else {
+                    Err(eyre!("Failed to clean up {} — {error}", table.name()))
+                }
             })
         })
     }

@@ -6,11 +6,9 @@
     clippy::arithmetic_side_effects
 )]
 
-// This file is intentionally reverted to its original state.
-// Investigation findings:
-//  - All cli::tests pass (including `--help` via try_parse_from/try_get_matches_from)
-//  - The crash is NOT in clap parsing itself — it happens ONLY in the binary build
-//  - Possible causes remaining: main() body, #[tokio::main], #[instrument], static init, or CRT
+// The `-V` assertion changed from `is_ok()` to `is_err()` because clap's auto-generated
+// version flag (used after removing the problematic custom `version` + `disable_version_flag`)
+// returns Err during `try_parse_from` as a signal to display version info.
 use crate::cli::{resolve_paths, Arguments, CommandOptions};
 use acorn::io::filter_ignored_with_root;
 use acorn::prelude::{Path, PathBuf};
@@ -27,7 +25,7 @@ fn fixture_content_root() -> PathBuf {
 #[test]
 fn test_cli() {
     Arguments::command().debug_assert();
-    assert!(Arguments::try_parse_from(["acorn", "-V"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "-V"]).is_err());
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to/file.json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to/file.json", "--all"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to", "--ignore", "[/]valid.json$,[/]draft.json$"]).is_ok());

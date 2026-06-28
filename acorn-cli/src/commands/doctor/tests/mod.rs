@@ -33,34 +33,34 @@ fn test_should_run() {
     assert!(should_run(&[Diagnostic::Memory, Diagnostic::System], Diagnostic::System));
     assert!(!should_run(&[Diagnostic::Memory, Diagnostic::System], Diagnostic::Network));
 }
-#[tokio::test]
-async fn test_run_with_valid_diagnostics() -> Result<()> {
+#[test]
+fn test_run_with_valid_diagnostics() -> Result<()> {
     // Test with individual diagnostics
-    let result = run(&false, &false, &false, &[Diagnostic::System], OFFLINE).await;
+    let result = run(&false, &false, &false, &[Diagnostic::System], OFFLINE);
     assert!(result.is_ok());
-    let result = run(&false, &false, &false, &[Diagnostic::Memory], OFFLINE).await;
+    let result = run(&false, &false, &false, &[Diagnostic::Memory], OFFLINE);
     assert!(result.is_ok());
-    let result = run(&false, &false, &false, &[Diagnostic::Network], OFFLINE).await;
+    let result = run(&false, &false, &false, &[Diagnostic::Network], OFFLINE);
     assert!(result.is_ok());
     // Test with multiple diagnostics
-    let result = run(&false, &false, &false, &[Diagnostic::System, Diagnostic::Memory], OFFLINE).await;
+    let result = run(&false, &false, &false, &[Diagnostic::System, Diagnostic::Memory], OFFLINE);
     assert!(result.is_ok());
     // Test with All diagnostic
-    let result = run(&false, &false, &false, &[Diagnostic::All], OFFLINE).await;
+    let result = run(&false, &false, &false, &[Diagnostic::All], OFFLINE);
     assert!(result.is_ok());
     Ok(())
 }
-#[tokio::test]
-async fn test_gpu_diagnostic_warning() -> Result<()> {
+#[test]
+fn test_gpu_diagnostic_warning() -> Result<()> {
     // GPU is not implemented yet, but should not fail
-    let result = run(&false, &false, &false, &[Diagnostic::Gpu], OFFLINE).await;
+    let result = run(&false, &false, &false, &[Diagnostic::Gpu], OFFLINE);
     assert!(result.is_ok());
     Ok(())
 }
-#[tokio::test]
-async fn test_run_with_empty_diagnostics() -> Result<()> {
+#[test]
+fn test_run_with_empty_diagnostics() -> Result<()> {
     // With empty diagnostics list, nothing should run but it should not error
-    let result = run(&false, &false, &false, &[], OFFLINE).await;
+    let result = run(&false, &false, &false, &[], OFFLINE);
     assert!(result.is_ok());
     Ok(())
 }
@@ -115,8 +115,8 @@ fn test_network_information_init() {
         }
     }
 }
-#[tokio::test]
-async fn test_diagnostic_combinations() -> Result<()> {
+#[test]
+fn test_diagnostic_combinations() -> Result<()> {
     // Test combinations of diagnostics
     let test_cases = vec![
         vec![Diagnostic::System, Diagnostic::Memory],
@@ -126,19 +126,19 @@ async fn test_diagnostic_combinations() -> Result<()> {
         vec![Diagnostic::All],
     ];
     for diagnostics in test_cases {
-        let result = run(&false, &false, &false, &diagnostics, OFFLINE).await;
+        let result = run(&false, &false, &false, &diagnostics, OFFLINE);
         assert!(result.is_ok(), "Failed with diagnostics: {diagnostics:?}");
     }
     Ok(())
 }
-#[tokio::test]
-async fn test_edge_case_invalid_combination() -> Result<()> {
+#[test]
+fn test_edge_case_invalid_combination() -> Result<()> {
     // Test Gpu (unimplemented) with other valid diagnostics
     // Should not fail, but will log a warning
-    let result = run(&false, &false, &false, &[Diagnostic::System, Diagnostic::Gpu], OFFLINE).await;
+    let result = run(&false, &false, &false, &[Diagnostic::System, Diagnostic::Gpu], OFFLINE);
     assert!(result.is_ok());
     // Test with Software diagnostic
-    let result = run(&false, &false, &false, &[Diagnostic::Software], OFFLINE).await;
+    let result = run(&false, &false, &false, &[Diagnostic::Software], OFFLINE);
     assert!(result.is_ok());
     Ok(())
 }

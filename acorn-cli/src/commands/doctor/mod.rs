@@ -9,7 +9,7 @@ fn should_run(checks: &[Diagnostic], diagnostic: Diagnostic) -> bool {
     [diagnostic, Diagnostic::All].iter().any(|&x| checks.contains(&x))
 }
 #[allow(clippy::too_many_arguments)]
-pub async fn run(fix: &bool, interactive: &bool, report: &bool, check: &[Diagnostic], offline: bool) -> Result<(), Report> {
+pub fn run(fix: &bool, interactive: &bool, report: &bool, check: &[Diagnostic], offline: bool) -> Result<(), Report> {
     let options = CommandOptions::init().offline(offline).build();
     preflight!(&options);
     if *interactive {
@@ -50,7 +50,6 @@ pub async fn run(fix: &bool, interactive: &bool, report: &bool, check: &[Diagnos
     }
     Ok(())
 }
-
 #[allow(unused_variables)]
 fn build_report_json(
     sys: &SystemInformation,

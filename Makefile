@@ -82,7 +82,7 @@ doctest:
 
 lint:
 	@cargo fmt --verbose
-	@cargo clippy --workspace --no-deps --all-targets --fix --allow-dirty
+	@cargo clippy --workspace --no-deps --all-features --all-targets --fix --allow-dirty
 
 publish-book: book
 	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site

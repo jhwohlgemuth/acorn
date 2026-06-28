@@ -20,19 +20,15 @@
 //! The ACORN command line interface (CLI) is a metascience multi-tool made for cross-domain research.
 //!
 //! See [the ACORN project README](https://code.ornl.gov/research-enablement/acorn#installation) for installation instructions.
-use acorn::io::database::{backend, resolve_database_path, schema::Table, Database, Operations};
 use acorn::io::env_var_is_truthy;
 use acorn::prelude::env;
-use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
+use acorn::util::constants::env::{CACHE_TTL, NO_LOCAL_DATABASE};
 use acorn::util::Label;
-use clap::{crate_version, Parser};
+use clap::Parser;
 use dotenvy::dotenv;
-use futures::future::ready;
-use futures::TryFutureExt;
 use owo_colors::OwoColorize;
 use std::process::exit;
-use tokio::runtime::Runtime;
-use tracing::{debug, info};
+use tracing::debug;
 use tracing_indicatif::IndicatifLayer;
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
@@ -46,7 +42,7 @@ mod io;
 mod template;
 
 use cli::{Arguments, Void};
-use commands::run;
+use commands::{run, DatabaseConfig};
 
 // Environment variables
 const LOG_LEVEL: &str = "ACORN_LOG_LEVEL";
@@ -61,10 +57,6 @@ fn main() -> Void {
     let args = Arguments::parse();
     if args.markdown_help {
         clap_markdown::print_help_markdown::<Arguments>();
-        exit(exitcode::OK);
-    }
-    if args.version {
-        println!("{}", crate_version!());
         exit(exitcode::OK);
     }
     match dotenv() {
@@ -115,7 +107,7 @@ fn main() -> Void {
         ..
     } = args;
     let no_local_database = no_local_database_flag || env_var_is_truthy(NO_LOCAL_DATABASE).unwrap_or(false);
-    let mut database_path = configured_database_path.clone();
+    let database_path = configured_database_path.clone();
     if no_local_database && (reset_database || clear_cache) {
         eprintln!("{} Cannot use --reset-database or --clear-cache with --no-local-database", Label::fail());
         exit(exitcode::USAGE);
@@ -134,73 +126,16 @@ fn main() -> Void {
             }
         }
     }
-    let rt = Runtime::new()?;
-    rt.block_on(async {
-        let database_initialization = if no_local_database {
-            Ok(())
-        } else {
-            let resolved_database_path = match resolve_database_path(database_path.as_ref()) {
-                | Ok(path) => path,
-                | Err(why) => {
-                    eprintln!("=> {} Failed to determine database path — {why}", Label::fail());
-                    exit(exitcode::SOFTWARE);
-                }
-            };
-            env::set_var(DATABASE_PATH, resolved_database_path.as_os_str());
-            if database_path.is_none() {
-                database_path = Some(resolved_database_path);
-            }
-            if let Some(selected) = *selected_database_backend {
-                env::set_var(DATABASE_BACKEND, selected.to_string());
-            }
-            if let Err(why) = backend::validate_backend_selection() {
-                eprintln!("=> {} {why}", Label::fail());
-                exit(exitcode::USAGE);
-            }
-            let database = Database::<Table>::from_path(database_path.clone());
-            if reset_database {
-                match database.reset() {
-                    | Ok(count) => {
-                        info!("{} Reset database - cleared {count} entries from all tables", Label::pass());
-                    }
-                    | Err(why) => {
-                        eprintln!("=> {} Failed to clear all data — {why}", Label::fail());
-                        exit(exitcode::SOFTWARE);
-                    }
-                }
-            }
-            if clear_cache {
-                match database.clear_cache() {
-                    | Ok(count) => {
-                        info!("{} Cleared {count} entries from cache tables", Label::pass());
-                    }
-                    | Err(why) => {
-                        eprintln!("=> {} Failed to clear cache — {why}", Label::fail());
-                        exit(exitcode::SOFTWARE);
-                    }
-                }
-            }
-            ready(database.migrate().and_then(|_| {
-                if !no_clear_cache {
-                    if let Err(why) = database.cleanup_expired_cache() {
-                        info!("Cache cleanup warning — {why}");
-                    }
-                }
-                database.with_connection(|_| Ok(())).map(|_| ())
-            }))
-            .and_then(|_| database.populate(Table::Licenses))
-            .and_then(|_| database.populate(Table::ProgrammingLanguages))
-            .and_then(|_| database.populate(Table::Models))
-            .and_then(|_| database.populate(Table::Providers))
-            .await
-            .map(|_| ())
-        };
-        if let Err(why) = database_initialization {
-            eprintln!("=> {} Failed to initialize database — {why}", Label::fail());
-            exit(exitcode::SOFTWARE);
-        }
-        Box::pin(run(&args, offline, &database_path, threads)).await
-    })
+    let config = DatabaseConfig {
+        no_local_database,
+        database_backend: selected_database_backend.as_ref().map(|b| b.to_string()),
+        database_path,
+        clear_cache,
+        reset_database,
+        no_clear_cache,
+        cache_ttl,
+    };
+    run(&args, offline, &config, threads)
 }
 
 #[cfg(test)]

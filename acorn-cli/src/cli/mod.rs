@@ -1,4 +1,4 @@
-use acorn::analyzer::{self, Standard};
+use acorn::analyzer::Standard;
 use acorn::io::{
     files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored, filter_ignored_with_root, ApiResult,
     Executor,
@@ -11,14 +11,14 @@ use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
     Styles,
 };
-use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
+use clap::{Args, Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre;
 
 pub mod arguments;
 pub mod parse;
-use arguments::{DatabaseBackend, Diagnostic, FileFormat};
-use parse::{parse_check_category, parse_executor, parse_readability, parse_standard};
+use arguments::{CheckArguments, DatabaseBackend, Diagnostic, ExportArguments};
+use parse::{parse_executor, parse_standard};
 
 /// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
@@ -136,11 +136,8 @@ pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> 
     about,
     verbatim_doc_comment,
     styles(STYLES),
-    disable_help_flag = true,
-    disable_version_flag = true,
     next_help_heading = "FLAGS",
-    subcommand_help_heading = "COMMANDS",
-    override_usage = "acorn [FLAGS] [COMMAND]"
+    subcommand_help_heading = "COMMANDS"
 )]
 pub struct Arguments {
     /// Select database backend (`sqlite` or `duckdb`) for local cache/history storage
@@ -201,12 +198,8 @@ pub struct Arguments {
     pub cache_ttl: Option<u64>,
     #[command(flatten)]
     pub verbose: Verbosity,
-    #[arg(short = 'V', long, help = "Prints version information", help_heading = "FLAGS")]
-    pub version: bool,
     #[command(subcommand)]
     pub command: Option<Commands>,
-    #[arg(short, long, action = ArgAction::Help, global = true, help = "Print help (see a summary with '-h')", help_heading = "FLAGS")]
-    pub help: Option<bool>,
     #[arg(long, hide = true)]
     pub markdown_help: bool,
 }
@@ -233,82 +226,9 @@ pub enum Commands {
     ///     Check file(s) that were changed in latest Git commit
     ///     $> acorn check --commit HEAD
     ///
-    #[clap(
-        verbatim_doc_comment,
-        next_help_heading = "FLAGS",
-        override_usage = "acorn check [OPTIONS] [FLAGS] <PATH>"
-    )]
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     #[command(visible_alias = "lint")]
-    Check {
-        /// Path to check
-        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
-        path: Option<PathBuf>,
-        /// Check files that were changed in a given Git branch
-        #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
-        branch: Option<String>,
-        /// Check files that were changed in a given Git commit or commit range
-        ///
-        ///     Check files that were changed in the last 10 commits
-        ///     &> acorn check --commit HEAD~10..HEAD
-        ///
-        /// See <https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection> for more information of commit ranges
-        #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
-        commit: Option<String>,
-        /// Disable website checks that require internet connection
-        #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
-        disable_website_checks: bool,
-        /// Include all check results, including suggestions and info messages
-        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
-        all: bool,
-        /// Exit on first error
-        #[arg(short, long = "exit-on-first-error", value_name = "BOOL", help_heading = "FLAGS")]
-        exit_on_first_error: bool,
-        /// Regular expression pattern(s) applied to absolute paths of files to include during checks
-        ///
-        /// Only files matching at least one pattern will be processed
-        #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-        filter: Vec<String>,
-        /// Regular expression pattern(s) applied to absolute paths of files to exclude from checking
-        ///
-        /// Only applies to `--path` values that point to a directory
-        ///
-        /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
-        ///
-        /// Example: --ignore "[/]valid.json$,[/]draft.json$"
-        #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-        ignore: Vec<String>,
-        /// Format files that were changed in a given merge request (Gitlab) or pull request (GitHub)
-        #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
-        merge_request: bool,
-        /// Prevent `acorn check` from exiting with a non-zero exit code when errors are found
-        ///
-        /// Useful for certain scenarios such as debugging
-        ///
-        /// > CAUTION: Use at your own risk
-        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
-        no_fail: bool,
-        /// Suppress output from external commands (e.g., Vale) while preserving ACORN output — useful for piping
-        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
-        raw: bool,
-        /// Skip one or more available quality check categories
-        #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', value_parser = parse_check_category, help_heading = "OPTIONS")]
-        skip: Vec<analyzer::CheckCategory>,
-        /// Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose)
-        /// > CAUTION: Use at your own risk
-        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
-        skip_verify_checksum: bool,
-        /// Metadata standard to validate against
-        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: Standard,
-        /// Readability test to use
-        #[arg(default_value = "fkgl", short, long = "readability-test", value_name = "METRIC", value_parser = parse_readability, help_heading = "OPTIONS")]
-        readability_metric: acorn::analyzer::readability::ReadabilityType,
-        /// Use compact output format instead of detailed output
-        #[arg(short = 't', long, value_name = "BOOL", help_heading = "FLAGS")]
-        terse: bool,
-        #[command(flatten)]
-        verbose: Verbosity,
-    },
+    Check(Box<CheckArguments>),
     /// Create research resources like GitLab runners, MCP servers, etc.
     ///
     ///     $> acorn create runner --config ./acorn.json
@@ -411,72 +331,7 @@ pub enum Commands {
     ///     $> acorn export --commit HEAD
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
-    Export {
-        /// Path of input files to be exported
-        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
-        path: Option<PathBuf>,
-        /// Export files that were changed in a given Git branch
-        #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
-        branch: Option<String>,
-        /// Combine all export artifacts into a single artifact
-        #[arg(long = "combine", value_name = "BOOL", help_heading = "FLAGS")]
-        combine: bool,
-        /// Export files that were changed in a given Git commit
-        #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
-        commit: Option<String>,
-        /// Run export without making changes. Will print what would happen.
-        #[arg(long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
-        dry_run: bool,
-        /// Export target file format
-        #[arg(default_value_t, short, long, value_name = "FORMAT", help_heading = "OPTIONS")]
-        format: FileFormat,
-        /// Regular expression pattern(s) applied to absolute paths of files to include during export
-        ///
-        /// Only files matching at least one pattern will be processed
-        #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-        filter: Vec<String>,
-        /// Regular expression pattern(s) applied to absolute paths of files to exclude from export process
-        ///
-        /// Only applies to `--path` values that point to a directory
-        ///
-        /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
-        ///
-        /// Example: --ignore "[/]valid.json$,[/]draft.json$"
-        #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-        ignore: Vec<String>,
-        /// Export files that were changed in a given merge request (Gitlab) or pull request (GitHub)
-        #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
-        merge_request: bool,
-        /// Path to output directory where the export artifacts should be saved
-        #[arg(default_value = "./export", short, long, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
-        output: Option<PathBuf>,
-        /// Suppress output from external commands while preserving ACORN output — useful for piping
-        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
-        raw: bool,
-        /// Path to reference file to be used when exporting to PowerPoint
-        ///
-        /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
-        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
-        reference: Option<PathBuf>,
-        /// Metadata standard to validate against
-        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: Standard,
-        /// Fail if conversion loses data (only for crosswalk exports)
-        #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
-        strict: bool,
-        /// Metadata standard to use for source data inference (default: auto-detect)
-        ///
-        /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
-        #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        from: Option<Standard>,
-        /// Target metadata standard for crosswalk conversion
-        ///
-        /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
-        #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        to: Option<Standard>,
-        #[command(flatten)]
-        verbose: Verbosity,
-    },
+    Export(Box<ExportArguments>),
     /// Formats research activity data in place (inherently includes some elements of `acorn check`)
     ///
     ///     $> acorn format /path/to/file.json
@@ -661,7 +516,6 @@ pub struct RunnerArgs {
     #[command(flatten)]
     pub verbose: Verbosity,
 }
-
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum CreateCommands {

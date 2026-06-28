@@ -1,16 +1,18 @@
-use crate::cli::{Arguments, CommandOptions, Commands, CreateCommands, SchemaCommands, Void};
+use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, SchemaCommands, Void};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::fail;
-use acorn::prelude::{exit, PathBuf};
+use acorn::prelude::exit;
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::Label;
-#[cfg(not(feature = "tui"))]
 use color_eyre::eyre;
+use core::future::Future;
+use tokio::runtime::Runtime;
 use tracing::info;
 
 pub mod check;
 pub mod create;
+pub mod db;
 pub mod doctor;
 pub mod download;
 pub mod export;
@@ -18,6 +20,8 @@ pub mod format;
 pub mod gather;
 pub mod link;
 pub mod tui;
+
+pub use db::{initialize_database, DatabaseConfig};
 
 macro_rules! preflight {
     ($options:expr) => {
@@ -57,29 +61,40 @@ fn preflight_inner(command: &str, options: &CommandOptions) {
         }
     }
 }
-pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf>, threads: usize) -> Void {
+fn with_runtime<F>(fut: F) -> Void
+where
+    F: Future<Output = Void>,
+{
+    match Runtime::new() {
+        | Ok(rt) => rt.block_on(fut),
+        | Err(e) => Err(eyre::eyre!("Failed to create Tokio runtime: {e}")),
+    }
+}
+pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: usize) -> Void {
     match &args.command {
-        | Some(Commands::Check {
-            path,
-            branch,
-            commit,
-            filter,
-            ignore,
-            skip,
-            disable_website_checks,
-            all,
-            exit_on_first_error,
-            merge_request,
-            skip_verify_checksum,
-            no_fail,
-            raw,
-            terse,
-            standard,
-            readability_metric,
-            verbose,
-            ..
-        }) => {
-            Box::pin(check::run(
+        | Some(Commands::Check(arguments)) => with_runtime(async {
+            let arguments::CheckArguments {
+                path,
+                branch,
+                commit,
+                filter,
+                ignore,
+                skip,
+                disable_website_checks,
+                all,
+                exit_on_first_error,
+                merge_request,
+                skip_verify_checksum,
+                no_fail,
+                raw,
+                terse,
+                standard,
+                readability_metric,
+                verbose,
+                ..
+            } = arguments.as_ref();
+            initialize_database(config).await?;
+            check::run(
                 path,
                 branch,
                 commit,
@@ -98,13 +113,14 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
                 readability_metric,
                 verbose,
                 offline,
-            ))
+            )
             .await
-        }
+        }),
         | Some(Commands::Create { command, .. }) => match command {
             | Some(CreateCommands::Mcp) => unimplemented!("MCP server creation is not yet implemented"),
-            | Some(CreateCommands::Runner(args)) => {
-                Box::pin(create::runner::run(
+            | Some(CreateCommands::Runner(args)) => with_runtime(async {
+                initialize_database(config).await?;
+                create::runner::run(
                     &args.config,
                     &args.description,
                     &args.name,
@@ -116,9 +132,9 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
                     &args.untagged,
                     &args.executor,
                     &args.verbose,
-                ))
+                )
                 .await
-            }
+            }),
             | None => {
                 eprintln!("=> {} No subcommand provided for 'create'", Label::fail());
                 exit(exitcode::USAGE);
@@ -130,49 +146,52 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
             report,
             check,
             ..
-        }) => Box::pin(doctor::run(fix, interactive, report, check, offline)).await,
+        }) => doctor::run(fix, interactive, report, check, offline),
         | Some(Commands::Download {
-            config,
+            config: download_config,
             url,
             filter,
             ignore,
             output,
             verbose,
             ..
-        }) => {
-            Box::pin(download::run(
-                config,
+        }) => with_runtime(async {
+            initialize_database(config).await?;
+            download::run(
+                download_config,
                 url,
                 filter,
                 ignore,
                 output,
-                database_path,
+                &config.database_path,
                 threads,
                 verbose,
                 offline,
-            ))
+            )
             .await
-        }
-        | Some(Commands::Export {
-            output,
-            path,
-            branch,
-            commit,
-            filter,
-            ignore,
-            format,
-            reference,
-            from,
-            to,
-            combine,
-            merge_request,
-            raw,
-            dry_run,
-            strict,
-            verbose,
-            ..
-        }) => {
-            Box::pin(export::run(
+        }),
+        | Some(Commands::Export(arguments)) => with_runtime(async {
+            let arguments::ExportArguments {
+                output,
+                path,
+                branch,
+                commit,
+                filter,
+                ignore,
+                format,
+                reference,
+                from,
+                to,
+                combine,
+                merge_request,
+                raw,
+                dry_run,
+                strict,
+                verbose,
+                ..
+            } = arguments.as_ref();
+            initialize_database(config).await?;
+            export::run(
                 output,
                 path,
                 branch,
@@ -191,9 +210,9 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
                 threads,
                 verbose,
                 offline,
-            ))
+            )
             .await
-        }
+        }),
         | Some(Commands::Format {
             path,
             branch,
@@ -204,20 +223,10 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
             merge_request,
             verbose,
             ..
-        }) => {
-            Box::pin(format::run(
-                path,
-                branch,
-                commit,
-                filter,
-                ignore,
-                *dry_run,
-                merge_request,
-                verbose,
-                offline,
-            ))
-            .await
-        }
+        }) => with_runtime(async {
+            initialize_database(config).await?;
+            format::run(path, branch, commit, filter, ignore, *dry_run, merge_request, verbose, offline).await
+        }),
         | Some(Commands::Gather {
             path,
             filter,
@@ -225,7 +234,10 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
             merge_request,
             verbose,
             ..
-        }) => Box::pin(gather::run(path, filter, ignore, merge_request, database_path, verbose, offline)).await,
+        }) => with_runtime(async {
+            initialize_database(config).await?;
+            gather::run(path, filter, ignore, merge_request, &config.database_path, verbose, offline).await
+        }),
         | Some(Commands::Link {
             path,
             branch,
@@ -235,12 +247,15 @@ pub async fn run(args: &Arguments, offline: bool, database_path: &Option<PathBuf
             merge_request,
             verbose,
             ..
-        }) => Box::pin(link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose)).await,
+        }) => with_runtime(async {
+            initialize_database(config).await?;
+            link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await
+        }),
         | Some(Commands::Schema { command, .. }) => match command {
             | Some(SchemaCommands::Rad) | None => print_rad_schema(),
             | Some(SchemaCommands::Raid) => print_raid_schema(),
         },
-        | Some(Commands::Tui) => Box::pin(tui::run()).await,
+        | Some(Commands::Tui) => tui::run(),
         | None if args.interactive => {
             #[cfg(feature = "tui")]
             return acorn_tui::run_tui(acorn_tui::Screen::Dashboard);
