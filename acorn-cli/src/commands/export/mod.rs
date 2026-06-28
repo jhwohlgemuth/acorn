@@ -89,18 +89,23 @@ impl ExportHandler for StructuredExportHandler {
     fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
         Box::pin(async move {
             let extension = request.format.to_string();
+            let output_path = |p: &PathBuf, ext: &str| -> PathBuf {
+                match &request.output {
+                    | Some(dir) => dir.join(Path::new(p.file_name().unwrap_or(p.as_os_str()))).with_extension(ext),
+                    | None => p.with_extension(ext),
+                }
+            };
             export_as_format_crosswalk(
                 &request.path,
                 request.options,
                 &request.format,
                 &extension,
-                |p, ext| p.with_extension(ext),
+                &output_path,
                 request.progress_type,
                 from,
                 to,
                 request.dry_run,
                 request.strict,
-                &request.output,
             )
             .await
         })
@@ -353,13 +358,12 @@ async fn export_as_format_crosswalk(
     options: CommandOptions,
     format: &FileFormat,
     extension: &str,
-    output_path: fn(&PathBuf, &str) -> PathBuf,
+    output_path: &dyn Fn(&PathBuf, &str) -> PathBuf,
     progress_type: ProgressType,
     from: Option<Standard>,
     to: Option<Standard>,
     dry_run: bool,
     strict: bool,
-    output: &Option<PathBuf>,
 ) -> ApiResult<()> {
     match to {
         | Some(target) => {
@@ -381,15 +385,8 @@ async fn export_as_format_crosswalk(
                         |item| {
                             let ext = ext.clone();
                             let checks = Arc::clone(&collected_checks);
-                            let output_dir = output.clone();
                             async move {
-                                let output = match &output_dir {
-                                    | Some(dir) => {
-                                        let name = item.file_name().unwrap_or(item.as_os_str());
-                                        dir.join(Path::new(name)).with_extension(&ext)
-                                    }
-                                    | None => output_path(&item, &ext),
-                                };
+                                let output = output_path(&item, &ext);
                                 match read_file(item.clone()) {
                                     | Ok(content) => {
                                         let mime = MimeType::from_path(&item);
