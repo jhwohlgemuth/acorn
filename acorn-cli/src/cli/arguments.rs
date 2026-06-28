@@ -1,5 +1,6 @@
-use super::parse::{parse_check_category, parse_readability, parse_standard};
+use super::parse::{parse_check_category, parse_executor, parse_readability, parse_standard};
 use acorn::analyzer::{self, Standard};
+use acorn::io::Executor;
 use acorn::prelude::PathBuf;
 use acorn::util::MimeType;
 use clap::ValueEnum;
@@ -76,7 +77,7 @@ pub enum Target {
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
-pub struct CheckArguments {
+pub struct Check {
     /// Path to check
     #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
     pub(crate) path: Option<PathBuf>,
@@ -135,6 +136,8 @@ pub struct CheckArguments {
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) skip_verify_checksum: bool,
     /// Metadata standard to validate against
+    ///
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     /// Readability test to use
@@ -148,7 +151,50 @@ pub struct CheckArguments {
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
-pub(crate) struct ExportArguments {
+pub(crate) struct Doctor {
+    /// Auto-correct systems issues where possible
+    #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) fix: bool,
+    /// Start interactive TUI to selectively apply fixes
+    #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) interactive: bool,
+    /// Choose to output a JSON issue report to stdout
+    #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) report: bool,
+    /// Select one or more available diagnostic checks
+    #[arg(default_value = "all", short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) check: Vec<Diagnostic>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Download {
+    /// Bucket repository URL
+    #[arg(value_name = "URL", required = false, value_hint = ValueHint::Url, help_heading = "ARGS")]
+    pub(crate) url: Option<String>,
+    /// Path to configuration file (alternative to URL argument)
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, conflicts_with = "url", help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
+    /// Regular expression pattern(s) used to include files while downloading
+    ///
+    /// Only files matching at least one pattern will be processed
+    #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) filter: Vec<String>,
+    /// Regular expression pattern(s) to ignore while downloading
+    ///
+    /// Values augment built-in ignores and can be provided as a comma-separated list
+    #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) ignore: Vec<String>,
+    /// Path to output directory where the downloaded content should be saved
+    #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    pub(crate) output: Option<PathBuf>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Export {
     /// Path of input files to be exported
     #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
     pub(crate) path: Option<PathBuf>,
@@ -196,6 +242,8 @@ pub(crate) struct ExportArguments {
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) reference: Option<PathBuf>,
     /// Metadata standard to validate against
+    ///
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     /// Fail if conversion loses data (only for crosswalk exports)
@@ -211,6 +259,151 @@ pub(crate) struct ExportArguments {
     /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) to: Option<Standard>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Format {
+    /// Path to look for files to format
+    #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
+    pub(crate) path: Option<PathBuf>,
+    /// Format files that were changed in a given Git branch
+    #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
+    pub(crate) branch: Option<String>,
+    /// Format files that were changed in a given Git commit
+    #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
+    pub(crate) commit: Option<String>,
+    /// Run format without making changes to target file(s). Will print a diff of changes.
+    #[arg(short, long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
+    /// Regex pattern applied to absolute paths of files to include in formatting process
+    ///
+    /// Only files matching the pattern will be processed
+    #[arg(long, value_name = "REGEX", help_heading = "OPTIONS")]
+    pub(crate) filter: Option<String>,
+    /// Regex pattern applied to absolute paths of files that determines whether they should be included in formatting process
+    ///
+    /// Only applies to path values that point to a directory
+    ///
+    /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
+    ///
+    /// Example: --ignore "[/]valid.json$"
+    #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
+    pub(crate) ignore: Option<String>,
+    /// Format files that were changed in a given merge request (Gitlab) or pull request (GitHub)
+    #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) merge_request: bool,
+    /// Metadata standard to validate against
+    ///
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
+    #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+    pub(crate) standard: Standard,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Gather {
+    /// Path to look for files to process
+    #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
+    pub(crate) path: Option<PathBuf>,
+    /// Regex pattern applied to absolute paths of files to include in processing
+    ///
+    /// Only files matching the pattern will be processed
+    #[arg(long, value_name = "REGEX", help_heading = "OPTIONS")]
+    pub(crate) filter: Option<String>,
+    /// Regex pattern applied to absolute paths of files that determines whether they should be included in processing
+    ///
+    /// Only applies to path values that point to a directory
+    ///
+    /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
+    ///
+    /// Example: --ignore "[/]valid.json$"
+    #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
+    pub(crate) ignore: Option<String>,
+    /// Process files that were changed in a given merge request (GitLab) or pull request (GitHub)
+    #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) merge_request: bool,
+    /// Metadata standard to validate against
+    #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+    pub(crate) standard: Standard,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Link {
+    /// Path to look for files to process
+    #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
+    pub(crate) path: Option<PathBuf>,
+    /// Process files that were changed in a given Git branch
+    #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
+    pub(crate) branch: Option<String>,
+    /// Process files that were changed in a given Git commit
+    #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
+    pub(crate) commit: Option<String>,
+    /// Run link without making changes to target file(s). Will print a diff of changes.
+    #[arg(short, long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
+    /// Regex pattern applied to absolute paths of files that determines whether they should be included in processing
+    ///
+    /// Only applies to path values that point to a directory
+    ///
+    /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
+    ///
+    /// Example: --ignore "[/]valid.json$"
+    #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
+    pub(crate) ignore: Option<String>,
+    /// Processes files that were changed in a given merge request (Gitlab) or pull request (GitHub)
+    #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) merge_request: bool,
+    /// Metadata standard to validate against
+    #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+    pub(crate) standard: Standard,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Runner {
+    /// Path to configuration file for creating the resource
+    #[arg(short, long, default_value = "./", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
+    /// Runner description (alternative to providing a configuration file)
+    #[arg(short, long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
+    pub(crate) description: Option<String>,
+    /// GitLab runner executor type
+    #[arg(short, long, value_name = "TYPE", value_parser = parse_executor, help_heading = "OPTIONS")]
+    pub(crate) executor: Option<Executor>,
+    /// GitLab group ID to create a runner for (alternative to providing a configuration file)
+    #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
+    pub(crate) group: Option<u64>,
+    /// GitLab repository domain override for runner creation (e.g., code.ornl.gov)
+    #[arg(short = 'r', long, alias = "domain", value_name = "REPO", help_heading = "OPTIONS")]
+    pub(crate) repo: Option<String>,
+    /// GitLab project ID to create a runner for (alternative to providing a configuration file)
+    #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
+    pub(crate) project: Option<u64>,
+    /// Runner name (used as Docker container name)
+    #[arg(short = 'n', long, value_name = "NAME", help_heading = "OPTIONS")]
+    pub(crate) name: Option<String>,
+    /// Hosting server location (for use during registration)
+    #[arg(short, long, value_name = "SERVER", help_heading = "OPTIONS")]
+    pub(crate) server: Option<String>,
+    /// Tags to register the runner with (alternative to providing a configuration file)
+    #[arg(
+        short,
+        long,
+        conflicts_with = "untagged",
+        value_name = "LIST",
+        value_delimiter = ',',
+        help_heading = "OPTIONS"
+    )]
+    pub(crate) tags: Vec<String>,
+    /// Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
+    #[arg(short, long, conflicts_with = "tags", help_heading = "FLAGS")]
+    pub(crate) untagged: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

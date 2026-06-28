@@ -5,7 +5,6 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
-
 // The `-V` assertion changed from `is_ok()` to `is_err()` because clap's auto-generated
 // version flag (used after removing the problematic custom `version` + `disable_version_flag`)
 // returns Err during `try_parse_from` as a signal to display version info.

@@ -61,19 +61,10 @@ fn preflight_inner(command: &str, options: &CommandOptions) {
         }
     }
 }
-fn with_runtime<F>(fut: F) -> Void
-where
-    F: Future<Output = Void>,
-{
-    match Runtime::new() {
-        | Ok(rt) => rt.block_on(fut),
-        | Err(e) => Err(eyre::eyre!("Failed to create Tokio runtime: {e}")),
-    }
-}
 pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: usize) -> Void {
     match &args.command {
         | Some(Commands::Check(arguments)) => with_runtime(async {
-            let arguments::CheckArguments {
+            let arguments::Check {
                 path,
                 branch,
                 commit,
@@ -140,38 +131,33 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 exit(exitcode::USAGE);
             }
         },
-        | Some(Commands::Doctor {
-            fix,
-            interactive,
-            report,
-            check,
-            ..
-        }) => doctor::run(fix, interactive, report, check, offline),
-        | Some(Commands::Download {
-            config: download_config,
-            url,
-            filter,
-            ignore,
-            output,
-            verbose,
-            ..
-        }) => with_runtime(async {
+        | Some(Commands::Doctor(arguments)) => {
+            let arguments::Doctor {
+                fix,
+                interactive,
+                report,
+                check,
+                ..
+            } = arguments.as_ref();
+            doctor::run(fix, interactive, report, check, offline)
+        }
+        | Some(Commands::Download(arguments)) => with_runtime(async {
             initialize_database(config).await?;
             download::run(
-                download_config,
-                url,
-                filter,
-                ignore,
-                output,
+                &arguments.config,
+                &arguments.url,
+                &arguments.filter,
+                &arguments.ignore,
+                &arguments.output,
                 &config.database_path,
                 threads,
-                verbose,
+                &arguments.verbose,
                 offline,
             )
             .await
         }),
         | Some(Commands::Export(arguments)) => with_runtime(async {
-            let arguments::ExportArguments {
+            let arguments::Export {
                 output,
                 path,
                 branch,
@@ -213,41 +199,44 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             )
             .await
         }),
-        | Some(Commands::Format {
-            path,
-            branch,
-            commit,
-            filter,
-            ignore,
-            dry_run,
-            merge_request,
-            verbose,
-            ..
-        }) => with_runtime(async {
+        | Some(Commands::Format(arguments)) => with_runtime(async {
+            let arguments::Format {
+                path,
+                branch,
+                commit,
+                filter,
+                ignore,
+                dry_run,
+                merge_request,
+                verbose,
+                ..
+            } = arguments.as_ref();
             initialize_database(config).await?;
             format::run(path, branch, commit, filter, ignore, *dry_run, merge_request, verbose, offline).await
         }),
-        | Some(Commands::Gather {
-            path,
-            filter,
-            ignore,
-            merge_request,
-            verbose,
-            ..
-        }) => with_runtime(async {
+        | Some(Commands::Gather(arguments)) => with_runtime(async {
+            let arguments::Gather {
+                path,
+                filter,
+                ignore,
+                merge_request,
+                verbose,
+                ..
+            } = arguments.as_ref();
             initialize_database(config).await?;
             gather::run(path, filter, ignore, merge_request, &config.database_path, verbose, offline).await
         }),
-        | Some(Commands::Link {
-            path,
-            branch,
-            commit,
-            ignore,
-            dry_run,
-            merge_request,
-            verbose,
-            ..
-        }) => with_runtime(async {
+        | Some(Commands::Link(arguments)) => with_runtime(async {
+            let arguments::Link {
+                path,
+                branch,
+                commit,
+                ignore,
+                dry_run,
+                merge_request,
+                verbose,
+                ..
+            } = arguments.as_ref();
             initialize_database(config).await?;
             link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await
         }),
@@ -286,4 +275,13 @@ fn print_rad_schema() -> Void {
 fn print_raid_schema() -> Void {
     Metadata::to_schema();
     exit(exitcode::OK);
+}
+fn with_runtime<F>(fut: F) -> Void
+where
+    F: Future<Output = Void>,
+{
+    match Runtime::new() {
+        | Ok(rt) => rt.block_on(fut),
+        | Err(e) => Err(eyre::eyre!("Failed to create Tokio runtime: {e}")),
+    }
 }

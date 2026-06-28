@@ -40,7 +40,6 @@ fn split_acorn_line(line: &str) -> (&str, &str) {
         .unwrap_or(line.len());
     line.split_at(split)
 }
-
 fn render_logo(f: &mut Frame, area: Rect, app: &App) {
     use unicode_width::UnicodeWidthStr;
     let raw_lines: Vec<&str> = LOGO.lines().collect();

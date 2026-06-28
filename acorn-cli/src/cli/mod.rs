@@ -1,7 +1,5 @@
-use acorn::analyzer::Standard;
 use acorn::io::{
     files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored, filter_ignored_with_root, ApiResult,
-    Executor,
 };
 use acorn::prelude::PathBuf;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
@@ -11,14 +9,13 @@ use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
     Styles,
 };
-use clap::{Args, Parser, Subcommand, ValueHint};
+use clap::{Parser, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre;
 
 pub mod arguments;
 pub mod parse;
-use arguments::{CheckArguments, DatabaseBackend, Diagnostic, ExportArguments};
-use parse::{parse_executor, parse_standard};
+use arguments::DatabaseBackend;
 
 /// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
@@ -63,54 +60,6 @@ pub struct CommandOptions {
     /// Number of threads used for parallel processing
     #[builder(default = 10)]
     pub threads: usize,
-}
-/// Returns a vector of PathBuf from the given options
-///
-/// If the options specify a merge request, the files from the current branch are returned.
-/// If the options specify a commit, the files changed in the commit are returned.
-/// If the options specify a branch, the files changed in the branch are returned.
-/// If none of the above options are set, the files in the given path are returned.
-/// If the options include a filter regex, only matching files are returned.
-/// If the options include an ignore regex, it is applied to the files returned.
-pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> ApiResult<Vec<PathBuf>> {
-    let extensions = Some(vec!["JSON", "YAML"]);
-    let CommandOptions {
-        branch,
-        commit,
-        filter,
-        ignore,
-        merge_request,
-        ..
-    } = options;
-    let (files, local_base) = if *merge_request {
-        (files_from_gitlab_merge_request(extensions).await, None)
-    } else {
-        match commit {
-            | Some(hash) => (files_from_git_commit(hash, extensions), None),
-            | None => match branch {
-                | Some(name) => (files_from_git_branch(name, extensions), None),
-                | None => {
-                    let value = match path {
-                        | Some(x) => x.clone(),
-                        | None => PathBuf::from("."),
-                    };
-                    (files_all(value.clone(), extensions), Some(value))
-                }
-            },
-        }
-    };
-    let patterns = vec![ignore.clone(), filter.clone().map(regex_inverse)]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
-
-    match regex_join(&patterns) {
-        | Some(pattern) => match local_base {
-            | Some(root) => filter_ignored_with_root(files, Some(pattern), root),
-            | None => filter_ignored(files, Some(pattern)),
-        },
-        | None => Ok(files),
-    }
 }
 /// "Plant an ACORN and grow your science"
 ///
@@ -228,7 +177,7 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     #[command(visible_alias = "lint")]
-    Check(Box<CheckArguments>),
+    Check(Box<arguments::Check>),
     /// Create research resources like GitLab runners, MCP servers, etc.
     ///
     ///     $> acorn create runner --config ./acorn.json
@@ -255,23 +204,8 @@ pub enum Commands {
     ///     $> acorn doctor --report
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
-    Doctor {
-        /// Auto-correct systems issues where possible
-        #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
-        fix: bool,
-        /// Start interactive TUI to selectively apply fixes
-        #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
-        interactive: bool,
-        /// Choose to output a JSON issue report to stdout
-        #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
-        report: bool,
-        /// Select one or more available diagnostic checks
-        #[arg(default_value = "all", short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-        check: Vec<Diagnostic>,
-        #[command(flatten)]
-        verbose: Verbosity,
-    },
-    /// Download research activity data from buckets
+    Doctor(Box<arguments::Doctor>),
+    /// Download research activity data from buckets or links
     ///
     ///     Download research activity data from a bucket repository URL
     ///     $> acorn download https://github.com/user/repo
@@ -288,29 +222,7 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     #[command(visible_alias = "fetch")]
-    Download {
-        /// Bucket repository URL
-        #[arg(value_name = "URL", required = false, value_hint = ValueHint::Url, help_heading = "ARGS")]
-        url: Option<String>,
-        /// Path to configuration file (alternative to URL argument)
-        #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, conflicts_with = "url", help_heading = "OPTIONS")]
-        config: Option<PathBuf>,
-        /// Regular expression pattern(s) used to include files while downloading
-        ///
-        /// Only files matching at least one pattern will be processed
-        #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-        filter: Vec<String>,
-        /// Regular expression pattern(s) to ignore while downloading
-        ///
-        /// Values augment built-in ignores and can be provided as a comma-separated list
-        #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-        ignore: Vec<String>,
-        /// Path to output directory where the downloaded content should be saved
-        #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
-        output: Option<PathBuf>,
-        #[command(flatten)]
-        verbose: Verbosity,
-    },
+    Download(Box<arguments::Download>),
     /// Export research activity data to a specific target
     ///
     ///     $> acorn export /path/to/data
@@ -331,7 +243,7 @@ pub enum Commands {
     ///     $> acorn export --commit HEAD
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
-    Export(Box<ExportArguments>),
+    Export(Box<arguments::Export>),
     /// Formats research activity data in place (inherently includes some elements of `acorn check`)
     ///
     ///     $> acorn format /path/to/file.json
@@ -346,111 +258,20 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     #[command(visible_alias = "fmt")]
-    Format {
-        /// Path to look for files to format
-        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
-        path: Option<PathBuf>,
-        /// Format files that were changed in a given Git branch
-        #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
-        branch: Option<String>,
-        /// Format files that were changed in a given Git commit
-        #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
-        commit: Option<String>,
-        /// Run format without making changes to target file(s). Will print a diff of changes.
-        #[arg(short, long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
-        dry_run: bool,
-        /// Regex pattern applied to absolute paths of files to include in formatting process
-        ///
-        /// Only files matching the pattern will be processed
-        #[arg(long, value_name = "REGEX", help_heading = "OPTIONS")]
-        filter: Option<String>,
-        /// Regex pattern applied to absolute paths of files that determines whether they should be included in formatting process
-        ///
-        /// Only applies to path values that point to a directory
-        ///
-        /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
-        ///
-        /// Example: --ignore "[/]valid.json$"
-        #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
-        ignore: Option<String>,
-        /// Format files that were changed in a given merge request (Gitlab) or pull request (GitHub)
-        #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
-        merge_request: bool,
-        /// Metadata standard to validate against
-        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: Standard,
-        #[command(flatten)]
-        verbose: Verbosity,
-    },
+    Format(Box<arguments::Format>),
     /// Gather (extract) research activity data
     ///
     ///     $> acorn gather /path/to/data/
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     #[command(visible_alias = "harvest")]
-    Gather {
-        /// Path to look for files to process
-        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
-        path: Option<PathBuf>,
-        /// Regex pattern applied to absolute paths of files to include in processing
-        ///
-        /// Only files matching the pattern will be processed
-        #[arg(long, value_name = "REGEX", help_heading = "OPTIONS")]
-        filter: Option<String>,
-        /// Regex pattern applied to absolute paths of files that determines whether they should be included in processing
-        ///
-        /// Only applies to path values that point to a directory
-        ///
-        /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
-        ///
-        /// Example: --ignore "[/]valid.json$"
-        #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
-        ignore: Option<String>,
-        /// Process files that were changed in a given merge request (GitLab) or pull request (GitHub)
-        #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
-        merge_request: bool,
-        /// Metadata standard to validate against
-        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: Standard,
-        #[command(flatten)]
-        verbose: Verbosity,
-    },
+    Gather(Box<arguments::Gather>),
     /// Add linked data context to research activity data
     ///
     ///     $> acorn link /path/to/data/
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
-    Link {
-        /// Path to look for files to process
-        #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
-        path: Option<PathBuf>,
-        /// Process files that were changed in a given Git branch
-        #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
-        branch: Option<String>,
-        /// Process files that were changed in a given Git commit
-        #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
-        commit: Option<String>,
-        /// Run link without making changes to target file(s). Will print a diff of changes.
-        #[arg(short, long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
-        dry_run: bool,
-        /// Regex pattern applied to absolute paths of files that determines whether they should be included in processing
-        ///
-        /// Only applies to path values that point to a directory
-        ///
-        /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
-        ///
-        /// Example: --ignore "[/]valid.json$"
-        #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
-        ignore: Option<String>,
-        /// Processes files that were changed in a given merge request (Gitlab) or pull request (GitHub)
-        #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
-        merge_request: bool,
-        /// Metadata standard to validate against
-        #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-        standard: Standard,
-        #[command(flatten)]
-        verbose: Verbosity,
-    },
+    Link(Box<arguments::Link>),
     /// Print research activity data (RAD) or research activity identifier (RAiD) metadata JSON schema to stdout
     ///
     ///     Print RAD JSON schema (default)
@@ -474,55 +295,13 @@ pub enum Commands {
     #[clap(verbatim_doc_comment)]
     Tui,
 }
-#[derive(Debug, Args)]
-pub struct RunnerArgs {
-    /// Path to configuration file for creating the resource
-    #[arg(short, long, default_value = "./", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
-    pub config: Option<PathBuf>,
-    /// Runner description (alternative to providing a configuration file)
-    #[arg(short, long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
-    pub description: Option<String>,
-    /// GitLab runner executor type
-    #[arg(short, long, value_name = "TYPE", value_parser = parse_executor, help_heading = "OPTIONS")]
-    pub executor: Option<Executor>,
-    /// GitLab group ID to create a runner for (alternative to providing a configuration file)
-    #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
-    pub group: Option<u64>,
-    /// GitLab repository domain override for runner creation (e.g., code.ornl.gov)
-    #[arg(short = 'r', long, alias = "domain", value_name = "REPO", help_heading = "OPTIONS")]
-    pub repo: Option<String>,
-    /// GitLab project ID to create a runner for (alternative to providing a configuration file)
-    #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
-    pub project: Option<u64>,
-    /// Runner name (used as Docker container name)
-    #[arg(short = 'n', long, value_name = "NAME", help_heading = "OPTIONS")]
-    pub name: Option<String>,
-    /// Hosting server location (for use during registration)
-    #[arg(short, long, value_name = "SERVER", help_heading = "OPTIONS")]
-    pub server: Option<String>,
-    /// Tags to register the runner with (alternative to providing a configuration file)
-    #[arg(
-        short,
-        long,
-        conflicts_with = "untagged",
-        value_name = "LIST",
-        value_delimiter = ',',
-        help_heading = "OPTIONS"
-    )]
-    pub tags: Vec<String>,
-    /// Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
-    #[arg(short, long, conflicts_with = "tags", help_heading = "FLAGS")]
-    pub untagged: bool,
-    #[command(flatten)]
-    pub verbose: Verbosity,
-}
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum CreateCommands {
     /// Model context provider (MCP) server
     Mcp,
     /// GitLab runner
-    Runner(Box<RunnerArgs>),
+    Runner(Box<arguments::Runner>),
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
@@ -531,6 +310,54 @@ pub enum SchemaCommands {
     Rad,
     /// Print research activity identifier (RAiD) metadata JSON schema to stdout
     Raid,
+}
+/// Returns a vector of PathBuf from the given options
+///
+/// If the options specify a merge request, the files from the current branch are returned.
+/// If the options specify a commit, the files changed in the commit are returned.
+/// If the options specify a branch, the files changed in the branch are returned.
+/// If none of the above options are set, the files in the given path are returned.
+/// If the options include a filter regex, only matching files are returned.
+/// If the options include an ignore regex, it is applied to the files returned.
+pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> ApiResult<Vec<PathBuf>> {
+    let extensions = Some(vec!["JSON", "YAML"]);
+    let CommandOptions {
+        branch,
+        commit,
+        filter,
+        ignore,
+        merge_request,
+        ..
+    } = options;
+    let (files, local_base) = if *merge_request {
+        (files_from_gitlab_merge_request(extensions).await, None)
+    } else {
+        match commit {
+            | Some(hash) => (files_from_git_commit(hash, extensions), None),
+            | None => match branch {
+                | Some(name) => (files_from_git_branch(name, extensions), None),
+                | None => {
+                    let value = match path {
+                        | Some(x) => x.clone(),
+                        | None => PathBuf::from("."),
+                    };
+                    (files_all(value.clone(), extensions), Some(value))
+                }
+            },
+        }
+    };
+    let patterns = vec![ignore.clone(), filter.clone().map(regex_inverse)]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+    match regex_join(&patterns) {
+        | Some(pattern) => match local_base {
+            | Some(root) => filter_ignored_with_root(files, Some(pattern), root),
+            | None => filter_ignored(files, Some(pattern)),
+        },
+        | None => Ok(files),
+    }
 }
 
 #[cfg(test)]
