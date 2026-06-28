@@ -368,117 +368,116 @@ async fn export_as_format_crosswalk(
     match to {
         | Some(target) => {
             let threads = options.threads;
-            match resolve_paths(path, &options).await {
-                | Ok(resolved_paths) => {
-                    let mut seen = HashSet::new();
-                    let items: Vec<_> = resolved_paths
-                        .iter()
-                        .filter(|&p| seen.insert(output_path(p, extension)))
-                        .cloned()
-                        .collect();
-                    let count = items.len() as u64;
-                    let ext = extension.to_owned();
-                    let collected_checks: Arc<Mutex<Vec<Check>>> = Arc::new(Mutex::new(Vec::new()));
-                    let progress = with_progress(
-                        items,
-                        |item| format!("Generating {format} for {}", item.display()),
-                        |item| {
-                            let ext = ext.clone();
-                            let checks = Arc::clone(&collected_checks);
-                            async move {
-                                let output = output_path(&item, &ext);
-                                match read_file(item.clone()) {
-                                    | Ok(content) => {
-                                        let mime = MimeType::from_path(&item);
-                                        let source = match from {
-                                            | Some(value) => Ok(value),
-                                            | None => infer_standard_from_content(&item, &content, &mime),
-                                        };
-                                        let processed = source.and_then(|resolved| {
-                                            let target_mime = MimeType::from(format);
-                                            if strict || dry_run {
-                                                resolved
-                                                    .crosswalk_with_warnings(&content, mime, target, target_mime)
-                                                    .map_err(|e| eyre!("Crosswalk failed — {e}"))
-                                            } else {
-                                                resolved
-                                                    .crosswalk(&content, mime, target, target_mime)
-                                                    .map(|c| (c, Vec::new()))
-                                                    .map_err(|e| eyre!("Crosswalk failed — {e}"))
+            let resolved_paths = match path {
+                | Some(p) if p.is_file() => vec![p.clone()],
+                | _ => resolve_paths(path, &options).await?,
+            };
+            let mut seen = HashSet::new();
+            let items: Vec<_> = resolved_paths
+                .iter()
+                .filter(|&p| seen.insert(output_path(p, extension)))
+                .cloned()
+                .collect();
+            let count = items.len() as u64;
+            let ext = extension.to_owned();
+            let collected_checks: Arc<Mutex<Vec<Check>>> = Arc::new(Mutex::new(Vec::new()));
+            let progress = with_progress(
+                items,
+                |item| format!("Generating {format} for {}", item.display()),
+                |item| {
+                    let ext = ext.clone();
+                    let checks = Arc::clone(&collected_checks);
+                    async move {
+                        let output = output_path(&item, &ext);
+                        match read_file(item.clone()) {
+                            | Ok(content) => {
+                                let mime = MimeType::from_path(&item);
+                                let source = match from {
+                                    | Some(value) => Ok(value),
+                                    | None => infer_standard_from_content(&item, &content, &mime),
+                                };
+                                let processed = source.and_then(|resolved| {
+                                    let target_mime = MimeType::from(format);
+                                    if strict || dry_run {
+                                        resolved
+                                            .crosswalk_with_warnings(&content, mime, target, target_mime)
+                                            .map_err(|e| eyre!("Crosswalk failed — {e}"))
+                                    } else {
+                                        resolved
+                                            .crosswalk(&content, mime, target, target_mime)
+                                            .map(|c| (c, Vec::new()))
+                                            .map_err(|e| eyre!("Crosswalk failed — {e}"))
+                                    }
+                                });
+                                match processed {
+                                    | Ok((content, warnings)) => {
+                                        for w in &warnings {
+                                            info!("  {} crosswalk warning: {w}", Label::run());
+                                        }
+                                        if !warnings.is_empty() {
+                                            if let Ok(mut guard) = checks.lock() {
+                                                let uri = item.to_string_lossy().to_string();
+                                                guard.extend(warnings.to_checks(Some(uri)));
                                             }
-                                        });
-                                        match processed {
-                                            | Ok((content, warnings)) => {
-                                                for w in &warnings {
-                                                    info!("  {} crosswalk warning: {w}", Label::run());
-                                                }
-                                                if !warnings.is_empty() {
-                                                    if let Ok(mut guard) = checks.lock() {
-                                                        let uri = item.to_string_lossy().to_string();
-                                                        guard.extend(warnings.to_checks(Some(uri)));
-                                                    }
-                                                }
-                                                if dry_run {
-                                                    info!(
-                                                        "  {} would write {} ({} warnings)",
-                                                        Label::fmt_skip("DRYRUN"),
-                                                        output.display(),
-                                                        warnings.len()
-                                                    );
-                                                    Ok(())
-                                                } else {
-                                                    write_file(output, content)
-                                                }
-                                            }
-                                            | Err(why) => Err(why),
+                                        }
+                                        if dry_run {
+                                            info!(
+                                                "  {} would write {} ({} warnings)",
+                                                Label::fmt_skip("DRYRUN"),
+                                                output.display(),
+                                                warnings.len()
+                                            );
+                                            Ok(())
+                                        } else {
+                                            write_file(output, content)
                                         }
                                     }
                                     | Err(why) => Err(why),
                                 }
                             }
-                        },
-                        |count| {
-                            if dry_run {
-                                format!("{}{} file{} would be generated", Label::CHECKMARK, count.green(), suffix(count))
-                            } else {
-                                format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count))
-                            }
-                        },
-                        Some(threads),
-                        progress_type,
-                    );
-                    match progress.await {
-                        | Ok(_) => {
-                            let all_warnings = collected_checks.lock().map(|g| g.clone()).unwrap_or_default();
-                            if !all_warnings.is_empty() {
-                                info!("=> Crosswalk warnings ({} total):", all_warnings.len().cyan().bold());
-                                for check in &all_warnings {
-                                    info!("  {check}");
-                                }
-                            }
-                            if dry_run {
-                                info!(
-                                    "=> {} Dry-run complete for {} {format} crosswalk file{}",
-                                    Label::pass(),
-                                    count.green(),
-                                    suffix(count)
-                                );
-                            } else {
-                                info!("=> {} Exported {} {format} crosswalk file{}", Label::pass(), count.green(), suffix(count));
-                            }
-                            if strict && !all_warnings.is_empty() {
-                                fail!("Strict mode — {} crosswalk warning(s) found", all_warnings.len());
-                                exit(exitcode::DATAERR);
-                            }
-                            Ok(())
-                        }
-                        | Err(why) => {
-                            fail!("Generate {} crosswalk — {}", format, why);
-                            exit(exitcode::DATAERR);
+                            | Err(why) => Err(why),
                         }
                     }
+                },
+                |count| {
+                    if dry_run {
+                        format!("{}{} file{} would be generated", Label::CHECKMARK, count.green(), suffix(count))
+                    } else {
+                        format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count))
+                    }
+                },
+                Some(threads),
+                progress_type,
+            );
+            match progress.await {
+                | Ok(_) => {
+                    let all_warnings = collected_checks.lock().map(|g| g.clone()).unwrap_or_default();
+                    if !all_warnings.is_empty() {
+                        info!("=> Crosswalk warnings ({} total):", all_warnings.len().cyan().bold());
+                        for check in &all_warnings {
+                            info!("  {check}");
+                        }
+                    }
+                    if dry_run {
+                        info!(
+                            "=> {} Dry-run complete for {} {format} crosswalk file{}",
+                            Label::pass(),
+                            count.green(),
+                            suffix(count)
+                        );
+                    } else {
+                        info!("=> {} Exported {} {format} crosswalk file{}", Label::pass(), count.green(), suffix(count));
+                    }
+                    if strict && !all_warnings.is_empty() {
+                        fail!("Strict mode — {} crosswalk warning(s) found", all_warnings.len());
+                        exit(exitcode::DATAERR);
+                    }
+                    Ok(())
                 }
-                | Err(why) => Err(why),
+                | Err(why) => {
+                    fail!("Generate {} crosswalk — {}", format, why);
+                    exit(exitcode::DATAERR);
+                }
             }
         }
         | None => Err(eyre!(

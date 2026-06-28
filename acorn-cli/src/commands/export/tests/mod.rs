@@ -326,7 +326,7 @@ async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
     copy(&source, &dest)?;
     let result = run(
         &Some(output_dir.clone()),
-        &Some(test_data_dir.clone()),
+        &Some(dest.clone()),
         &None,
         &None,
         &[],
@@ -373,7 +373,7 @@ async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
     write(&dest, serde_json::to_string_pretty(&source)?)?;
     let result = run(
         &Some(output_dir.clone()),
-        &Some(test_data_dir.clone()),
+        &Some(dest.clone()),
         &None,
         &None,
         &[],
