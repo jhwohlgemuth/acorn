@@ -319,11 +319,13 @@ async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let test_data_dir = temp_dir.join("data");
     create_dir_all(&test_data_dir)?;
+    let output_dir = temp_dir.join("output");
+    create_dir_all(&output_dir)?;
     let source = fixture_path("schema/datacite.json");
     let dest = test_data_dir.join("datacite.json");
     copy(&source, &dest)?;
     let result = run(
-        &None,
+        &Some(output_dir.clone()),
         &Some(test_data_dir.clone()),
         &None,
         &None,
@@ -344,7 +346,7 @@ async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
     )
     .await;
     assert!(result.is_ok(), "Crosswalk from DataCite to Invenio should succeed");
-    let output_content = read_to_string(dest)?;
+    let output_content = read_to_string(output_dir.join("datacite.json"))?;
     let parsed: Vec<invenio::Record> = serde_json::from_str(&output_content)?;
     assert!(!parsed.is_empty(), "Expected at least one Invenio record in output");
     Ok(())
@@ -355,6 +357,8 @@ async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let test_data_dir = temp_dir.join("data");
     create_dir_all(&test_data_dir)?;
+    let output_dir = temp_dir.join("output");
+    create_dir_all(&output_dir)?;
     let dest = test_data_dir.join("invenio.json");
     let source = serde_json::json!([
         {
@@ -368,7 +372,7 @@ async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
     ]);
     write(&dest, serde_json::to_string_pretty(&source)?)?;
     let result = run(
-        &None,
+        &Some(output_dir.clone()),
         &Some(test_data_dir.clone()),
         &None,
         &None,
@@ -389,7 +393,7 @@ async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
     )
     .await;
     assert!(result.is_ok(), "Crosswalk with inferred source to DataCite should succeed");
-    let output_content = read_to_string(&dest)?;
+    let output_content = read_to_string(output_dir.join("invenio.json"))?;
     let parsed: Vec<datacite::Record> = serde_json::from_str(&output_content)?;
     assert!(!parsed.is_empty(), "Expected at least one DataCite record in output");
     Ok(())

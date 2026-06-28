@@ -7,7 +7,7 @@ use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::current_date;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
 use acorn::io::{ApiFuture, ApiResult};
-use acorn::prelude::{exit, remove_dir_all, Arc, HashSet, Mutex, PathBuf};
+use acorn::prelude::{exit, remove_dir_all, Arc, HashSet, Mutex, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{format_bytes, regex_join, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
@@ -100,6 +100,7 @@ impl ExportHandler for StructuredExportHandler {
                 to,
                 request.dry_run,
                 request.strict,
+                &request.output,
             )
             .await
         })
@@ -358,6 +359,7 @@ async fn export_as_format_crosswalk(
     to: Option<Standard>,
     dry_run: bool,
     strict: bool,
+    output: &Option<PathBuf>,
 ) -> ApiResult<()> {
     match to {
         | Some(target) => {
@@ -379,8 +381,15 @@ async fn export_as_format_crosswalk(
                         |item| {
                             let ext = ext.clone();
                             let checks = Arc::clone(&collected_checks);
+                            let output_dir = output.clone();
                             async move {
-                                let output = output_path(&item, &ext);
+                                let output = match &output_dir {
+                                    | Some(dir) => {
+                                        let name = item.file_name().unwrap_or(item.as_os_str());
+                                        dir.join(Path::new(name)).with_extension(&ext)
+                                    }
+                                    | None => output_path(&item, &ext),
+                                };
                                 match read_file(item.clone()) {
                                     | Ok(content) => {
                                         let mime = MimeType::from_path(&item);
