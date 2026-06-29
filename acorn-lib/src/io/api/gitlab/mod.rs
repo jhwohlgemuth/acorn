@@ -24,6 +24,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::debug;
 
+pub mod bot;
+
 /// Type for GitLab API descendent groups response
 pub type GroupsResponse = Vec<GroupDetails>;
 /// Type for GitLab API all runners response
@@ -324,7 +326,7 @@ pub struct GroupDetails {
 /// ```
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MergeRequestNoteResponse {
+pub struct NoteMetadata {
     /// Numeric ID of the note
     #[serde(rename = "id")]
     pub identifier: u64,
@@ -663,6 +665,7 @@ pub struct UserMetadata {
     #[serde(rename = "public_email")]
     pub email: Option<String>,
     /// User state (for example, "active")
+    // TODO: Make an enum for this field
     pub state: String,
     /// Username/handle of the user
     pub username: String,
@@ -1169,7 +1172,7 @@ pub async fn languages() -> ApiResult<ProgrammingLanguagesResponse> {
 /// The GitLab token must be provided in the `CI_JOB_TOKEN` environment variable.
 ///
 /// See <https://docs.gitlab.com/api/notes/#create-a-merge-request-note> for more information on this API endpoint and required parameters
-pub async fn merge_request_note(options: &Options) -> ApiResult<MergeRequestNoteResponse> {
+pub async fn merge_request_note(options: &Options) -> ApiResult<NoteMetadata> {
     let template = "gitlab::api";
     let action = "merge-request-note";
     let path = format!("{template}::{action}");
@@ -1188,7 +1191,7 @@ pub async fn merge_request_note(options: &Options) -> ApiResult<MergeRequestNote
                     ),
                 ];
                 let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
-                endpoint.handle::<MergeRequestNoteResponse>(response)
+                endpoint.handle::<NoteMetadata>(response)
             }
             | Err(why) => Err(why),
         },
