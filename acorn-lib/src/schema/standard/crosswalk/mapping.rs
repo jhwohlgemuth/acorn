@@ -2,21 +2,46 @@
 //!
 //! Defines how fields are mapped from one schema to another,
 //! including transformation logic and rule composition.
-use super::{CrosswalkError, FieldMap, FieldValue};
+use super::CrosswalkError;
+use crate::prelude::HashMap;
+use core::fmt;
+use serde_json::Value;
 
 /// A transformation function that maps one FieldValue to another
 ///
 /// Used to normalize field values during conversion (e.g., convert year to ISO 8601 date).
 pub type FieldTransform = fn(FieldValue) -> Result<FieldValue, String>;
+/// Normalized representation of a metadata field
+///
+/// Covers the most common metadata types: strings, collections, dates, IRIs, and objects.
+#[derive(Clone, Debug)]
+pub enum FieldValue {
+    /// Single text value
+    String(String),
+    /// Multiple text values
+    StringVec(Vec<String>),
+    /// ISO 8601 date or datetime
+    Date(String),
+    /// URI or IRI (distinguished for semantic clarity)
+    IRI(String),
+    /// Numeric value (for byte sizes, years, etc.)
+    Number(f64),
+    /// Nested object (recursive field map)
+    Object(Box<Fields>),
+    /// List of objects
+    ObjectVec(Vec<Fields>),
+    /// Fallback for untyped values (JSON)
+    Json(Value),
+}
 /// A complete mapping specification from one schema to another
 ///
 /// Contains all field rules and metadata about the conversion.
 #[derive(Clone)]
 pub struct FieldMapping {
     /// Source schema identifier (e.g., "datacite", "dcat")
-    pub from_schema: &'static str,
+    pub source: &'static str,
     /// Target schema identifier
-    pub to_schema: &'static str,
+    pub target: &'static str,
     /// All mapping rules for this conversion
     pub rules: Vec<FieldRule>,
 }
@@ -27,20 +52,134 @@ pub struct FieldMapping {
 #[derive(Clone)]
 pub struct FieldRule {
     /// Source field name (kebab-case)
-    pub source_field: &'static str,
+    pub source: &'static str,
     /// Target field name(s); if "field1|field2", apply to both
-    pub target_field: &'static str,
+    pub target: &'static str,
     /// Optional transformation function
     pub transform: Option<FieldTransform>,
     /// Whether this field is required in target schema
     pub required: bool,
 }
+impl From<HashMap<String, FieldValue>> for Fields {
+    fn from(fields: HashMap<String, FieldValue>) -> Self {
+        Self { fields }
+    }
+}
+impl Fields {
+    /// Create a new empty field map
+    pub fn new() -> Self {
+        Self { fields: HashMap::new() }
+    }
+    /// Insert a field value
+    pub fn insert(&mut self, key: impl Into<String>, value: FieldValue) {
+        self.fields.insert(key.into(), value);
+    }
+    /// Get a field value by key
+    pub fn get(&self, key: &str) -> Option<&FieldValue> {
+        self.fields.get(key)
+    }
+    /// Remove a field by key, returning the value if present
+    pub fn remove(&mut self, key: &str) -> Option<FieldValue> {
+        self.fields.remove(key)
+    }
+    /// Check if a field exists
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.fields.contains_key(key)
+    }
+    /// Get all keys
+    pub fn keys(&self) -> impl Iterator<Item = &String> {
+        self.fields.keys()
+    }
+    /// Get all key-value pairs
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &FieldValue)> {
+        self.fields.iter()
+    }
+    /// Check if field map is empty
+    pub fn is_empty(&self) -> bool {
+        self.fields.is_empty()
+    }
+    /// Number of fields
+    pub fn len(&self) -> usize {
+        self.fields.len()
+    }
+    /// Get string field, returning error with context if missing or wrong type
+    pub fn get_string(&self, key: &str) -> Result<String, String> {
+        self.get(key)
+            .and_then(|v| v.as_string().map(|s| s.to_string()))
+            .ok_or_else(|| format!("expected string field '{key}'"))
+    }
+    /// Get optional string field
+    pub fn get_string_opt(&self, key: &str) -> Option<String> {
+        self.get(key).and_then(|v| v.as_string().map(|s| s.to_string()))
+    }
+    /// Get string vector field
+    pub fn get_string_vec(&self, key: &str) -> Result<Vec<String>, String> {
+        self.get(key)
+            .and_then(|v| v.as_string_vec().map(|sv| sv.to_vec()))
+            .ok_or_else(|| format!("expected string vector field '{key}'"))
+    }
+    /// Get optional string vector field
+    pub fn get_string_vec_opt(&self, key: &str) -> Option<Vec<String>> {
+        self.get(key).and_then(|v| v.as_string_vec().map(|sv| sv.to_vec()))
+    }
+    /// Get date field
+    pub fn get_date(&self, key: &str) -> Result<String, String> {
+        self.get(key)
+            .and_then(|v| v.as_date().map(|d| d.to_string()))
+            .ok_or_else(|| format!("expected date field '{key}'"))
+    }
+    /// Get optional date field
+    pub fn get_date_opt(&self, key: &str) -> Option<String> {
+        self.get(key).and_then(|v| v.as_date().map(|d| d.to_string()))
+    }
+
+    /// Get IRI field
+    pub fn get_iri(&self, key: &str) -> Result<String, String> {
+        self.get(key)
+            .and_then(|v| v.as_iri().map(|iri| iri.to_string()))
+            .ok_or_else(|| format!("expected IRI field '{key}'"))
+    }
+    /// Get optional IRI field
+    pub fn get_iri_opt(&self, key: &str) -> Option<String> {
+        self.get(key).and_then(|v| v.as_iri().map(|iri| iri.to_string()))
+    }
+    /// Get number field
+    pub fn get_number(&self, key: &str) -> Result<f64, String> {
+        self.get(key)
+            .and_then(|v| v.as_number())
+            .ok_or_else(|| format!("expected number field '{key}'"))
+    }
+    /// Get optional number field
+    pub fn get_number_opt(&self, key: &str) -> Option<f64> {
+        self.get(key).and_then(|v| v.as_number())
+    }
+    /// Get object field
+    pub fn get_object(&self, key: &str) -> Result<&Fields, String> {
+        self.get(key)
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| format!("expected object field '{key}'"))
+    }
+    /// Get object vector field
+    pub fn get_object_vec(&self, key: &str) -> Result<&[Fields], String> {
+        self.get(key)
+            .and_then(|v| v.as_object_vec())
+            .ok_or_else(|| format!("expected object vector field '{key}'"))
+    }
+}
+/// Canonical field map — all metadata represented as a normalized dictionary
+///
+/// Keys follow kebab-case convention for consistency.
+/// Values use FieldValue enum for type safety.
+#[derive(Clone, Debug, Default)]
+pub struct Fields {
+    fields: HashMap<String, FieldValue>,
+}
 impl FieldMapping {
     /// Create a new empty field mapping
-    pub fn new(from_schema: &'static str, to_schema: &'static str) -> Self {
+    pub fn new(source: &'static str, target: &'static str) -> Self {
         Self {
-            from_schema,
-            to_schema,
+            source,
+            target,
             rules: Vec::new(),
         }
     }
@@ -52,7 +191,7 @@ impl FieldMapping {
     /// Apply all rules to transform source to target
     ///
     /// Returns missing non-required fields that could not be mapped.
-    pub fn apply(&self, source: &FieldMap, target: &mut FieldMap) -> Result<Vec<String>, CrosswalkError> {
+    pub fn apply(&self, source: &Fields, target: &mut Fields) -> Result<Vec<String>, CrosswalkError> {
         let mut missing = Vec::new();
         for rule in &self.rules {
             if let Ok(Some(field)) = rule.apply(source, target) {
@@ -64,28 +203,28 @@ impl FieldMapping {
 }
 impl FieldRule {
     /// Create a new mapping rule with identity transformation
-    pub fn new(source_field: &'static str, target_field: &'static str) -> Self {
+    pub fn new(source: &'static str, target: &'static str) -> Self {
         Self {
-            source_field,
-            target_field,
+            source,
+            target,
             transform: None,
             required: false,
         }
     }
     /// Create a required field rule (shorthand for `new(f, t).required()`)
-    pub fn required_field(source_field: &'static str, target_field: &'static str) -> Self {
+    pub fn required_field(source: &'static str, target: &'static str) -> Self {
         Self {
-            source_field,
-            target_field,
+            source,
+            target,
             transform: None,
             required: true,
         }
     }
     /// Create an optional field rule (equivalent to `new(f, t)`)
-    pub fn map(source_field: &'static str, target_field: &'static str) -> Self {
+    pub fn map(source: &'static str, target: &'static str) -> Self {
         Self {
-            source_field,
-            target_field,
+            source,
+            target,
             transform: None,
             required: false,
         }
@@ -101,28 +240,98 @@ impl FieldRule {
         self
     }
     /// Apply this rule to extract value from source and insert into target
-    pub fn apply(&self, source: &FieldMap, target: &mut FieldMap) -> Result<Option<String>, CrosswalkError> {
-        match source.get(self.source_field) {
+    pub fn apply(&self, source: &Fields, target: &mut Fields) -> Result<Option<String>, CrosswalkError> {
+        match source.get(self.source) {
             | Some(value) => {
                 let transformed = match self.transform {
                     | Some(f) => f(value.clone()).map_err(|reason| CrosswalkError::TransformationFailed {
-                        field: self.source_field.to_string(),
+                        field: self.source.to_string(),
                         reason,
                     })?,
                     | None => value.clone(),
                 };
-                for target_name in self.target_field.split('|') {
+                for target_name in self.target.split('|') {
                     target.insert(target_name.trim(), transformed.clone());
                 }
                 Ok(None)
             }
             | None => {
                 if self.required {
-                    Err(CrosswalkError::MissingRequiredField(self.source_field.to_string()))
+                    Err(CrosswalkError::MissingRequiredField(self.source.to_string()))
                 } else {
-                    Ok(Some(self.source_field.to_string()))
+                    Ok(Some(self.source.to_string()))
                 }
             }
+        }
+    }
+}
+impl fmt::Display for FieldValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::String(s) => write!(f, "{s}"),
+            | Self::StringVec(v) => write!(f, "[{}]", v.join(", ")),
+            | Self::Date(d) => write!(f, "{d}"),
+            | Self::IRI(iri) => write!(f, "{iri}"),
+            | Self::Number(n) => write!(f, "{n}"),
+            | Self::Object(_) => write!(f, "{{...}}"),
+            | Self::ObjectVec(v) => write!(f, "[...{}]", v.len()),
+            | Self::Json(val) => write!(f, "{val}"),
+        }
+    }
+}
+impl From<&Fields> for HashMap<String, FieldValue> {
+    fn from(map: &Fields) -> Self {
+        map.fields.clone()
+    }
+}
+impl FieldValue {
+    /// Get string value, returning None if not a string variant
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            | Self::String(s) => Some(s),
+            | _ => None,
+        }
+    }
+    /// Get string vector, returning None if not a StringVec variant
+    pub fn as_string_vec(&self) -> Option<&[String]> {
+        match self {
+            | Self::StringVec(v) => Some(v),
+            | _ => None,
+        }
+    }
+    /// Get date value, returning None if not a Date variant
+    pub fn as_date(&self) -> Option<&str> {
+        match self {
+            | Self::Date(d) => Some(d),
+            | _ => None,
+        }
+    }
+    /// Get IRI value, returning None if not an IRI variant
+    pub fn as_iri(&self) -> Option<&str> {
+        match self {
+            | Self::IRI(iri) => Some(iri),
+            | _ => None,
+        }
+    }
+    /// Get numeric value, returning None if not a Number variant
+    pub fn as_number(&self) -> Option<f64> {
+        match self {
+            | Self::Number(n) => Some(*n),
+            | _ => None,
+        }
+    }
+    /// Get object, returning None if not an Object variant
+    pub fn as_object(&self) -> Option<&Fields> {
+        match self {
+            | Self::Object(map) => Some(map),
+            | _ => None,
+        }
+    }
+    /// Get object vector, returning None if not an ObjectVec variant
+    pub fn as_object_vec(&self) -> Option<&[Fields]> {
+        match self {
+            | Self::ObjectVec(v) => Some(v),
+            | _ => None,
         }
     }
 }
@@ -310,17 +519,5 @@ pub fn iri_to_resource_type(value: FieldValue) -> Result<FieldValue, String> {
             Ok(FieldValue::String(type_str.to_string()))
         }
         | _ => Err("expected IRI resource type".to_string()),
-    }
-}
-/// Remove "DOI: " prefix if present, return raw DOI
-pub fn extract_doi(value: FieldValue) -> Result<FieldValue, String> {
-    match value {
-        | FieldValue::String(mut s) => {
-            if s.starts_with("DOI: ") || s.starts_with("doi: ") {
-                s = s.split_off(5);
-            }
-            Ok(FieldValue::String(s))
-        }
-        | _ => Err("expected string DOI".to_string()),
     }
 }

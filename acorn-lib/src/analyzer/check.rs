@@ -11,7 +11,7 @@ use crate::prelude::{Arc, HashMap, Path, PathBuf};
 use crate::schema::standard::crosswalk::mapping::{
     datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
 };
-use crate::schema::standard::crosswalk::{Batch, ConversionWarning, CrosswalkError, FieldMap, FieldMapping, SchemaExtractor};
+use crate::schema::standard::crosswalk::{Batch, ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
 use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
 use crate::util::{Label, MimeType, StringConversion, ToProse};
@@ -972,9 +972,9 @@ where
     T: serde::de::DeserializeOwned + SchemaExtractor,
 {
     Batch::<T>::parse(content, mime.clone()).map(|batch| {
-        let mapped_fields: Vec<&str> = mapping.rules.iter().map(|r| r.source_field).collect();
-        let missing_warnings = |fields: &FieldMap, prefix: &str| -> ConversionWarnings {
-            let mut target_fields = FieldMap::new();
+        let mapped_fields: Vec<&str> = mapping.rules.iter().map(|r| r.source).collect();
+        let missing_warnings = |fields: &Fields, prefix: &str| -> ConversionWarnings {
+            let mut target_fields = Fields::new();
             mapping
                 .apply(fields, &mut target_fields)
                 .unwrap_or_default()
@@ -982,7 +982,7 @@ where
                 .map(|field| ConversionWarning::no_equivalent(from, to, format!("{prefix}{field}")))
                 .collect()
         };
-        let unmapped_warnings = |fields: &FieldMap, prefix: &str| -> ConversionWarnings {
+        let unmapped_warnings = |fields: &Fields, prefix: &str| -> ConversionWarnings {
             fields
                 .keys()
                 .filter(|key| !mapped_fields.contains(&key.as_str()))

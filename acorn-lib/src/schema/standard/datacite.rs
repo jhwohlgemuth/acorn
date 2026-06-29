@@ -9,7 +9,7 @@ use crate::io::License;
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::standard::crosswalk::mapping::{dcat_to_datacite, huwise_to_datacite, invenio_to_datacite};
-use crate::schema::standard::crosswalk::{self, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
+use crate::schema::standard::crosswalk::{self, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::{dcat, huwise, invenio};
 use crate::schema::validate::{is_doi, is_iso_639_1_language_code, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
 #[cfg(not(feature = "std"))]
@@ -1179,7 +1179,7 @@ impl TryFrom<&invenio::Record> for Record {
     }
 }
 impl SchemaBuilder for Record {
-    fn build_from_fields(fields: &FieldMap) -> Result<Self, CrosswalkError> {
+    fn build_from_fields(fields: &Fields) -> Result<Self, CrosswalkError> {
         let doi = fields.get_string("doi").unwrap_or_default();
         let mut titles = None;
         if let Some(title_str) = fields.get_string_opt("title") {
@@ -1264,8 +1264,8 @@ impl SchemaBuilder for Record {
     }
 }
 impl SchemaExtractor for Record {
-    fn extract_fields(&self) -> FieldMap {
-        let mut fields = FieldMap::new();
+    fn extract_fields(&self) -> Fields {
+        let mut fields = Fields::new();
         fields.insert("doi", FieldValue::String(self.attributes.doi.clone()));
         if let Some(titles) = &self.attributes.titles {
             if let Some(first) = titles.first() {

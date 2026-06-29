@@ -2,7 +2,7 @@
 //!
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
-use crate::schema::standard::crosswalk::{self, mapping::datacite_to_huwise, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
+use crate::schema::standard::crosswalk::{self, mapping::datacite_to_huwise, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
 use crate::util::{MimeType, ToProse};
 #[cfg(feature = "std")]
@@ -446,7 +446,7 @@ impl TryFrom<&datacite::Record> for Dataset {
     }
 }
 impl SchemaBuilder for Dataset {
-    fn build_from_fields(fields: &FieldMap) -> Result<Self, CrosswalkError> {
+    fn build_from_fields(fields: &Fields) -> Result<Self, CrosswalkError> {
         let dataset_id = fields.get_string("identifier")?;
         let datacite_meta = Some(build_datacite_block(fields));
         let meta = Meta {
@@ -468,7 +468,7 @@ impl SchemaBuilder for Dataset {
         })
     }
 }
-fn build_datacite_block(fields: &FieldMap) -> Datacite {
+fn build_datacite_block(fields: &Fields) -> Datacite {
     let title = fields.get_string_opt("title");
     let identifier = fields.get_string_opt("identifier");
     let creator = fields
@@ -505,7 +505,7 @@ fn build_datacite_block(fields: &FieldMap) -> Datacite {
     }
 }
 impl SchemaExtractor for Dataset {
-    fn extract_fields(&self) -> FieldMap {
+    fn extract_fields(&self) -> Fields {
         fn extract_json_string_array(value: &Value) -> Option<Vec<String>> {
             match value {
                 | Value::Array(arr) => {
@@ -520,7 +520,7 @@ impl SchemaExtractor for Dataset {
                 | _ => None,
             }
         }
-        let mut fields = FieldMap::new();
+        let mut fields = Fields::new();
         fields.insert("identifier", FieldValue::String(self.dataset_id.clone()));
         if let Some(meta) = &self.metas.datacite {
             if let Some(value) = &meta.title {

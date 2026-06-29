@@ -42,13 +42,9 @@ use core::fmt;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-pub mod field_map;
 pub mod mapping;
-pub mod registry;
 
-pub use field_map::{FieldMap, FieldValue};
-pub use mapping::{FieldMapping, FieldRule};
-pub use registry::{all_schemas, can_convert, get_schema, schema_registry, SchemaMetadata};
+pub use mapping::{FieldMapping, FieldRule, FieldValue, Fields};
 
 /// Generic wrapper for single or batched metadata records.
 ///
@@ -258,7 +254,7 @@ pub trait Crosswalk<T>: Sized {
 /// Implementers decompose their type into a `FieldMap`, enabling schema-agnostic transformations.
 pub trait SchemaExtractor {
     /// Extract all fields into normalized form
-    fn extract_fields(&self) -> FieldMap;
+    fn extract_fields(&self) -> Fields;
 }
 /// Reconstruct a schema type from normalized fields
 ///
@@ -267,7 +263,7 @@ pub trait SchemaBuilder: Sized {
     /// Build from normalized fields
     ///
     /// Returns `Err` if required fields are missing or invalid.
-    fn build_from_fields(fields: &FieldMap) -> Result<Self, CrosswalkError>;
+    fn build_from_fields(fields: &Fields) -> Result<Self, CrosswalkError>;
 }
 /// Execute a schema conversion using the pipeline
 ///
@@ -291,7 +287,7 @@ where
     T: SchemaBuilder,
 {
     let source_fields = source.extract_fields();
-    let mut target_fields = FieldMap::new();
+    let mut target_fields = Fields::new();
     let warnings = Vec::new();
     mapping.apply(&source_fields, &mut target_fields)?;
     let target = T::build_from_fields(&target_fields)?;

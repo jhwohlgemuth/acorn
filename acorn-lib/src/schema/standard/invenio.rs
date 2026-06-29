@@ -14,7 +14,7 @@
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
 use crate::schema::research_activity::s3a::Status;
-use crate::schema::standard::crosswalk::{self, mapping::datacite_to_invenio, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
+use crate::schema::standard::crosswalk::{self, mapping::datacite_to_invenio, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
 use crate::schema::validate::{is_doi, is_iso_639_language_code};
 use crate::util::{MimeType, ToProse};
@@ -695,7 +695,7 @@ impl TryFrom<&datacite::Record> for Record {
     }
 }
 impl SchemaBuilder for Record {
-    fn build_from_fields(fields: &FieldMap) -> Result<Self, CrosswalkError> {
+    fn build_from_fields(fields: &Fields) -> Result<Self, CrosswalkError> {
         let identifier_str = fields.get_string("identifier").unwrap_or_default();
         let mut metadata = Metadata {
             resource_type: None,
@@ -817,8 +817,8 @@ impl SchemaBuilder for Record {
     }
 }
 impl SchemaExtractor for Record {
-    fn extract_fields(&self) -> FieldMap {
-        let mut fields = FieldMap::new();
+    fn extract_fields(&self) -> Fields {
+        let mut fields = Fields::new();
         if let Some(pid) = &self.pid {
             if let Some(pk) = pid.pk {
                 fields.insert("identifier", FieldValue::String(pk.to_string()));

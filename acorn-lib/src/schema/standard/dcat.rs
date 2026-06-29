@@ -11,7 +11,7 @@
 //! - [DCAT v2](https://www.w3.org/TR/vocab-dcat-2/)
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
-use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldMap, FieldValue, SchemaBuilder, SchemaExtractor};
+use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
 use crate::schema::validate::{is_url, is_urls};
 use crate::schema::Date as PeriodOfTime;
@@ -484,7 +484,7 @@ impl TryFrom<&datacite::Record> for Dataset {
     }
 }
 impl SchemaBuilder for Dataset {
-    fn build_from_fields(fields: &FieldMap) -> Result<Self, CrosswalkError> {
+    fn build_from_fields(fields: &Fields) -> Result<Self, CrosswalkError> {
         let identifier = fields.get_string_vec_opt("identifier");
         let mut title = None;
         if let Some(title_str) = fields.get_string_opt("title") {
@@ -576,8 +576,8 @@ impl SchemaBuilder for Dataset {
     }
 }
 impl SchemaExtractor for Dataset {
-    fn extract_fields(&self) -> FieldMap {
-        let mut fields = FieldMap::new();
+    fn extract_fields(&self) -> Fields {
+        let mut fields = Fields::new();
         if let Some(identifiers) = &self.identifier {
             if !identifiers.is_empty() {
                 fields.insert("identifier", FieldValue::StringVec(identifiers.clone()));

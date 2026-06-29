@@ -11,7 +11,7 @@ use crate::schema::standard::crosswalk::{
         datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, extract_year, huwise_to_datacite, invenio_to_datacite,
         year_to_date,
     },
-    FieldMap, FieldValue, SchemaBuilder, SchemaExtractor,
+    FieldValue, Fields, SchemaBuilder, SchemaExtractor,
 };
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
 use proptest::prelude::*;
@@ -19,17 +19,17 @@ use serde_json::json;
 
 #[test]
 fn mapping_apply_basic() {
-    let mut source = FieldMap::new();
+    let mut source = Fields::new();
     source.insert("title", FieldValue::String("Test Title".to_string()));
-    let mut target = FieldMap::new();
+    let mut target = Fields::new();
     let rule = FieldRule::new("title", "name");
     rule.apply(&source, &mut target).ok();
     assert_eq!(target.get_string_opt("name"), Some("Test Title".to_string()));
 }
 #[test]
 fn mapping_missing_optional_field() {
-    let source = FieldMap::new();
-    let mut target = FieldMap::new();
+    let source = Fields::new();
+    let mut target = Fields::new();
     let rule = FieldRule::new("title", "name");
     let missing = rule.apply(&source, &mut target).ok().flatten();
     assert_eq!(missing, Some("title".to_string()));
@@ -37,8 +37,8 @@ fn mapping_missing_optional_field() {
 }
 #[test]
 fn mapping_required_field_fails() {
-    let source = FieldMap::new();
-    let mut target = FieldMap::new();
+    let source = Fields::new();
+    let mut target = Fields::new();
     let rule = FieldRule::new("title", "name").required();
     let err = rule.apply(&source, &mut target);
     assert!(err.is_err());
@@ -138,7 +138,7 @@ fn extract_dcat_dataset_basic() {
 }
 #[test]
 fn build_datacite_from_fields() {
-    let mut fields = FieldMap::new();
+    let mut fields = Fields::new();
     fields.insert("doi", FieldValue::String("10.5555/87654321".to_string()));
     fields.insert("title", FieldValue::String("Built Record".to_string()));
     fields.insert("publication-year", FieldValue::Number(2025.0));
@@ -153,7 +153,7 @@ fn build_datacite_from_fields() {
 }
 #[test]
 fn build_dcat_from_fields() {
-    let mut fields = FieldMap::new();
+    let mut fields = Fields::new();
     fields.insert("identifier", FieldValue::StringVec(vec!["http://example.org/dataset/1".to_string()]));
     fields.insert("title", FieldValue::String("Built Dataset".to_string()));
     fields.insert("issued", FieldValue::Date("2025-03-20".to_string()));
@@ -311,7 +311,7 @@ fn extract_invenio_record_basic() {
 }
 #[test]
 fn build_invenio_from_fields() {
-    let mut fields = FieldMap::new();
+    let mut fields = Fields::new();
     fields.insert("identifier", FieldValue::String("invenio-built-001".to_string()));
     fields.insert("title", FieldValue::String("Built Invenio Record".to_string()));
     fields.insert("publication-year", FieldValue::Number(2025.0));
@@ -538,7 +538,7 @@ fn extract_huwise_dataset_with_default_block() {
 }
 #[test]
 fn build_huwise_from_fields() {
-    let mut fields = FieldMap::new();
+    let mut fields = Fields::new();
     fields.insert("identifier", FieldValue::String("huwise-built-001".to_string()));
     fields.insert("title", FieldValue::String("Built HuWise Dataset".to_string()));
     fields.insert("description", FieldValue::String("Reconstructed from FieldMap".to_string()));
@@ -607,45 +607,36 @@ fn from_huwise_to_datacite() {
     );
     assert_eq!(datacite_record.attributes.language, Some("en".to_string()));
 }
-#[test]
-fn registry_contains_all_schemas() {
-    let registry = schema_registry();
-    assert!(registry.contains_key("datacite"));
-    assert!(registry.contains_key("dcat"));
-    assert!(registry.contains_key("cff"));
-    assert!(registry.contains_key("invenio"));
-    assert!(registry.contains_key("huwise"));
-}
 
 proptest! {
     #[test]
     fn prop_rule_identity_string_roundtrip(value in "\\PC{0,64}") {
-        let mut source = FieldMap::new();
+        let mut source = Fields::new();
         source.insert("src", FieldValue::String(value.clone()));
-        let mut mid = FieldMap::new();
+        let mut mid = Fields::new();
         prop_assert!(FieldRule::new("src", "mid").apply(&source, &mut mid).is_ok());
-        let mut target = FieldMap::new();
+        let mut target = Fields::new();
         prop_assert!(FieldRule::new("mid", "tgt").apply(&mid, &mut target).is_ok());
         prop_assert_eq!(target.get_string("tgt").ok(), Some(value));
     }
     #[test]
     fn prop_rule_identity_stringvec_roundtrip(values in prop::collection::vec("\\PC{0,32}", 0..8)) {
-        let mut source = FieldMap::new();
+        let mut source = Fields::new();
         source.insert("src", FieldValue::StringVec(values.clone()));
-        let mut mid = FieldMap::new();
+        let mut mid = Fields::new();
         prop_assert!(FieldRule::new("src", "mid").apply(&source, &mut mid).is_ok());
-        let mut target = FieldMap::new();
+        let mut target = Fields::new();
         prop_assert!(FieldRule::new("mid", "tgt").apply(&mid, &mut target).is_ok());
         prop_assert_eq!(target.get_string_vec_opt("tgt"), Some(values));
     }
     #[test]
     fn prop_year_transform_roundtrip(year in 1000i32..=9999) {
-        let mut source = FieldMap::new();
+        let mut source = Fields::new();
         source.insert("y", FieldValue::Number(year as f64));
-        let mut mid = FieldMap::new();
+        let mut mid = Fields::new();
         let fwd = FieldRule::new("y", "d").with_transform(year_to_date);
         prop_assert!(fwd.apply(&source, &mut mid).is_ok());
-        let mut target = FieldMap::new();
+        let mut target = Fields::new();
         let rev = FieldRule::new("d", "y").with_transform(extract_year);
         prop_assert!(rev.apply(&mid, &mut target).is_ok());
         prop_assert_eq!(target.get_number("y").ok(), Some(year as f64));
@@ -655,7 +646,7 @@ proptest! {
         strings in prop::collection::vec("\\PC{0,32}", 0..10),
         numbers in prop::collection::vec(any::<f64>(), 0..10),
     ) {
-        let mut source = FieldMap::new();
+        let mut source = Fields::new();
         for (i, s) in strings.iter().enumerate() {
             source.insert(format!("str-{i}"), FieldValue::String(s.clone()));
         }
@@ -671,31 +662,31 @@ proptest! {
             invenio_to_datacite as fn() -> FieldMapping,
         ] {
             let mapping = mapping_fn();
-            let mut target = FieldMap::new();
+            let mut target = Fields::new();
             let _ = mapping.apply(&source, &mut target);
         }
     }
     #[test]
     fn prop_dcat_datacite_roundtrip(title in "\\PC{0,64}", desc in "\\PC{0,128}") {
-        let mut source = FieldMap::new();
+        let mut source = Fields::new();
         source.insert("identifier", FieldValue::StringVec(vec!["10.5555/test".to_string()]));
         source.insert("title", FieldValue::StringVec(vec![title.clone()]));
         source.insert("description", FieldValue::StringVec(vec![desc.clone()]));
-        let mut data = FieldMap::new();
+        let mut data = Fields::new();
         prop_assert!(dcat_to_datacite().apply(&source, &mut data).is_ok());
-        let mut back = FieldMap::new();
+        let mut back = Fields::new();
         prop_assert!(datacite_to_dcat().apply(&data, &mut back).is_ok());
         prop_assert_eq!(back.get_string_vec_opt("title"), Some(vec![title.clone()]));
         prop_assert_eq!(back.get_string_vec_opt("description"), Some(vec![desc.clone()]));
     }
     #[test]
     fn prop_datacite_dcat_roundtrip(title in "\\PC{0,64}", publisher in "\\PC{0,64}") {
-        let mut source = FieldMap::new();
+        let mut source = Fields::new();
         source.insert("title", FieldValue::String(title.clone()));
         source.insert("publisher", FieldValue::String(publisher.clone()));
-        let mut dcat_fields = FieldMap::new();
+        let mut dcat_fields = Fields::new();
         prop_assert!(datacite_to_dcat().apply(&source, &mut dcat_fields).is_ok());
-        let mut back = FieldMap::new();
+        let mut back = Fields::new();
         prop_assert!(dcat_to_datacite().apply(&dcat_fields, &mut back).is_ok());
         prop_assert_eq!(back.get_string_opt("title"), Some(title));
         prop_assert_eq!(back.get_string_opt("publisher"), Some(publisher));
