@@ -1,0 +1,52 @@
+{
+  "@id": "https://example.org/catalogs/main",
+  "@type": "dcat:Catalog",
+  "title": "Example DCAT-US Catalog",
+  "description": "A DCAT-US v3.0 catalog fixture with object-valued profile fields.",
+  "identifier": "example-dcat-us-catalog",
+  "publisher": {
+    "@id": "https://example.org/orgs/data-office",
+    "@type": "org:Organization",
+    "name": "Example Data Office",
+    "prefLabel": "Data Office"
+  },
+  "contactPoint": [
+    {
+      "@type": "vcard:Kind",
+      "fn": "Catalog Help Desk",
+      "hasEmail": "mailto:catalog@example.org",
+      "organization-name": "Example Data Office"
+    }
+  ],
+  "conformsTo": [
+    {
+      "@id": "https://resources.data.gov/resources/dcat-us/",
+      "@type": "dcterms:Standard",
+      "title": "DCAT-US v3.0",
+      "identifier": "dcat-us-3.0"
+    }
+  ],
+  "landingPage": [
+    {
+      "@id": "https://example.org/catalogs/main",
+      "@type": "foaf:Document",
+      "title": "Catalog landing page"
+    }
+  ],
+  "homepage": {
+    "@id": "https://example.org",
+    "@type": "foaf:Document",
+    "title": "Example data portal"
+  },
+  "dataset": [
+    "https://example.org/datasets/dcat-us-minimal"
+  ],
+  "service": [
+    {
+      "@id": "https://example.org/services/api",
+      "@type": "dcat:DataService",
+      "title": "Example API",
+      "endpointURL": "https://api.example.org"
+    }
+  ]
+}

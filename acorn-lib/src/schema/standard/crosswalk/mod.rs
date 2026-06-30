@@ -37,26 +37,12 @@
 //!
 //! Each schema provides implementations of [`SchemaExtractor`] and [`SchemaBuilder`]
 //! in the [`extractors`] and [`builders`] submodules.
-use crate::util::MimeType;
 use core::fmt;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
 
 pub mod mapping;
 
 pub use mapping::{FieldMapping, FieldRule, FieldValue, Fields};
 
-/// Generic wrapper for single or batched metadata records.
-///
-/// Supports deserializing from and serializing to JSON and YAML.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum Batch<T> {
-    /// A single record
-    One(T),
-    /// Multiple records
-    Many(Vec<T>),
-}
 /// Error type for crosswalk operations
 #[derive(Clone, Debug)]
 pub enum CrosswalkError {
@@ -103,45 +89,6 @@ pub struct ConversionWarning {
     pub loss_type: FieldLossType,
     /// Optional details about the loss (e.g., "sizes and formats omitted")
     pub details: Option<String>,
-}
-impl<T> Batch<T> {
-    /// Transform each item in the batch, propagating `CrosswalkError` failures.
-    pub fn map<U, F>(self, f: F) -> Result<Batch<U>, CrosswalkError>
-    where
-        F: Fn(T) -> Result<U, CrosswalkError>,
-    {
-        match self {
-            | Batch::One(value) => f(value).map(Batch::One),
-            | Batch::Many(values) => values
-                .into_iter()
-                .enumerate()
-                .map(|(index, value)| f(value).map_err(|e| CrosswalkError::BuildFailed(format!("Failed to convert record at index {index} — {e}"))))
-                .collect::<Result<Vec<_>, _>>()
-                .map(Batch::Many),
-        }
-    }
-    /// Parse a JSON or YAML string into a batch of records.
-    pub fn parse(content: &str, mime: MimeType) -> Result<Batch<T>, CrosswalkError>
-    where
-        T: DeserializeOwned,
-    {
-        match mime {
-            | MimeType::Json => serde_json::from_str(content).map_err(|e| CrosswalkError::ParseFailed(e.to_string())),
-            | MimeType::Yaml => serde_norway::from_str(content).map_err(|e| CrosswalkError::ParseFailed(e.to_string())),
-            | _ => Err(CrosswalkError::ParseFailed("Content must be JSON or YAML".into())),
-        }
-    }
-    /// Serialize the batch to a JSON or YAML string.
-    pub fn serialize(&self, mime: MimeType) -> Result<String, CrosswalkError>
-    where
-        T: Serialize,
-    {
-        match mime {
-            | MimeType::Json => serde_json::to_string_pretty(self).map_err(|e| CrosswalkError::SerializeFailed(e.to_string())),
-            | MimeType::Yaml => serde_norway::to_string(self).map_err(|e| CrosswalkError::SerializeFailed(e.to_string())),
-            | _ => Err(CrosswalkError::SerializeFailed("Output must be JSON or YAML".into())),
-        }
-    }
 }
 impl fmt::Display for ConversionWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

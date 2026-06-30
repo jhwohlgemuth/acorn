@@ -8,7 +8,7 @@
 use crate::schema::geonames::{CodeFormat, Country, GeonamesParser};
 use crate::schema::research_activity::aspect::Maturity;
 use crate::schema::research_activity::*;
-use crate::schema::standard::dcat::{Agent, Catalog, DataService, Dataset, Distribution};
+use crate::schema::standard::dcat::{Agent, Catalog, ConformsTo, ContactPoint, DataService, Dataset, Distribution, DocumentRef, Publisher};
 use crate::schema::validate::*;
 use crate::schema::*;
 use crate::util::constants::env::DATABASE_PATH;
@@ -147,6 +147,65 @@ mod custom_deserialization {
         assert_eq!(result.title, None);
         assert_eq!(result.desc, Some(vec!["hello".to_string()]));
     }
+}
+#[test]
+fn test_dcat_us_dataset_deserialization() {
+    let content = include_str!("../../../../tests/fixtures/schema/dcat/dcat-us-dataset.json");
+    let dataset: Dataset = serde_json::from_str(content).unwrap();
+    assert_eq!(dataset.jsonld_type.as_deref(), Some("dcat:Dataset"));
+    assert!(matches!(dataset.publisher, Some(Publisher::Organization(_))));
+    assert!(matches!(
+        dataset.contact_point.as_ref().and_then(|values| values.first()),
+        Some(ContactPoint::Kind(_))
+    ));
+    assert!(matches!(
+        dataset.conforms_to.as_ref().and_then(|values| values.first()),
+        Some(ConformsTo::Standard(_))
+    ));
+    assert!(matches!(
+        dataset.landing_page.as_ref().and_then(|values| values.first()),
+        Some(DocumentRef::Document(_))
+    ));
+    assert!(dataset.validate().is_ok());
+}
+#[test]
+fn test_dcat_us_catalog_deserialization() {
+    let content = include_str!("../../../../tests/fixtures/schema/dcat/dcat-us-catalog.json");
+    let catalog: Catalog = serde_json::from_str(content).unwrap();
+    assert_eq!(catalog.jsonld_type.as_deref(), Some("dcat:Catalog"));
+    assert!(matches!(catalog.publisher, Some(Publisher::Organization(_))));
+    assert_eq!(catalog.service.as_ref().map(Vec::len), Some(1));
+    assert!(matches!(
+        catalog.homepage.as_ref().and_then(|values| values.first()),
+        Some(DocumentRef::Document(_))
+    ));
+    assert!(catalog.validate().is_ok());
+}
+#[test]
+fn test_dcat_us_data_service_deserialization() {
+    let content = include_str!("../../../../tests/fixtures/schema/dcat/dcat-us-data-service.json");
+    let service: DataService = serde_json::from_str(content).unwrap();
+    assert_eq!(service.jsonld_type.as_deref(), Some("dcat:DataService"));
+    assert!(matches!(service.publisher, Some(Publisher::Organization(_))));
+    assert!(matches!(
+        service.contact_point.as_ref().and_then(|values| values.first()),
+        Some(ContactPoint::Kind(_))
+    ));
+    assert!(matches!(
+        service.landing_page.as_ref().and_then(|values| values.first()),
+        Some(DocumentRef::Uri(_))
+    ));
+    assert!(service.validate().is_ok());
+}
+#[test]
+fn test_dcat_w3c_backward_compat_deserialization() {
+    let content = include_str!("../../../../tests/fixtures/schema/dcat.json");
+    let dataset: Dataset = serde_json::from_str(content).unwrap();
+    assert!(matches!(
+        dataset.landing_page.as_ref().and_then(|values| values.first()),
+        Some(DocumentRef::Uri(_))
+    ));
+    assert!(dataset.validate().is_ok());
 }
 #[test]
 fn test_classification() {
@@ -532,17 +591,19 @@ fn test_is_urls() {
 fn test_dcat_url_field_validation() {
     let agent_valid = Agent {
         name: None,
-        homepage: Some(vec!["https://example.org/agent".to_string()]),
+        homepage: Some(OneOrMany::Many(vec!["https://example.org/agent".to_string()])),
         email: None,
         identifier: None,
     };
     assert!(agent_valid.validate().is_ok());
     let agent_invalid = Agent {
-        homepage: Some(vec!["not a url".to_string()]),
+        homepage: Some(OneOrMany::Many(vec!["not a url".to_string()])),
         ..agent_valid
     };
     assert!(agent_invalid.validate().is_err());
     let distribution_valid = Distribution {
+        id: None,
+        jsonld_type: None,
         title: None,
         description: None,
         issued: None,
@@ -551,9 +612,11 @@ fn test_dcat_url_field_validation() {
         access_rights: None,
         rights: None,
         has_policy: None,
-        access_url: vec!["https://example.org/access".to_string()],
+        access_restriction: None,
+        use_restriction: None,
+        access_url: OneOrMany::Many(vec!["https://example.org/access".to_string()]),
         access_service: None,
-        download_url: Some(vec!["https://example.org/file.csv".to_string()]),
+        download_url: Some(OneOrMany::Many(vec!["https://example.org/file.csv".to_string()])),
         byte_size: None,
         spatial_resolution_in_meters: None,
         temporal_resolution: None,
@@ -566,16 +629,18 @@ fn test_dcat_url_field_validation() {
     };
     assert!(distribution_valid.validate().is_ok());
     let distribution_invalid_access = Distribution {
-        access_url: vec!["bad url".to_string()],
+        access_url: OneOrMany::Many(vec!["bad url".to_string()]),
         ..distribution_valid.clone()
     };
     assert!(distribution_invalid_access.validate().is_err());
     let distribution_invalid_download = Distribution {
-        download_url: Some(vec!["still not a url".to_string()]),
+        download_url: Some(OneOrMany::Many(vec!["still not a url".to_string()])),
         ..distribution_valid
     };
     assert!(distribution_invalid_download.validate().is_err());
     let data_service_valid = DataService {
+        id: None,
+        jsonld_type: None,
         title: None,
         description: None,
         identifier: None,
@@ -592,7 +657,7 @@ fn test_dcat_url_field_validation() {
         access_rights: None,
         has_policy: None,
         conforms_to: None,
-        landing_page: Some(vec!["https://example.org/service".to_string()]),
+        landing_page: Some(OneOrMany::Many(vec![DocumentRef::Uri("https://example.org/service".to_string())])),
         type_: None,
         version: None,
         version_notes: None,
@@ -602,22 +667,24 @@ fn test_dcat_url_field_validation() {
         replaces: None,
         status: None,
         qualified_relation: None,
-        endpoint_url: vec!["https://api.example.org".to_string()],
+        endpoint_url: OneOrMany::Many(vec!["https://api.example.org".to_string()]),
         endpoint_description: None,
         serves_dataset: None,
     };
     assert!(data_service_valid.validate().is_ok());
     let data_service_invalid_landing = DataService {
-        landing_page: Some(vec!["https://example.com#foo bar".to_string()]),
+        landing_page: Some(OneOrMany::Many(vec![DocumentRef::Uri("https://example.com#foo bar".to_string())])),
         ..data_service_valid.clone()
     };
     assert!(data_service_invalid_landing.validate().is_err());
     let data_service_invalid_endpoint = DataService {
-        endpoint_url: vec!["https://example.com#foo bar".to_string()],
+        endpoint_url: OneOrMany::Many(vec!["https://example.com#foo bar".to_string()]),
         ..data_service_valid
     };
     assert!(data_service_invalid_endpoint.validate().is_err());
     let dataset_valid = Dataset {
+        id: None,
+        jsonld_type: None,
         title: None,
         description: None,
         identifier: None,
@@ -634,7 +701,7 @@ fn test_dcat_url_field_validation() {
         access_rights: None,
         has_policy: None,
         conforms_to: None,
-        landing_page: Some(vec!["https://example.org/dataset".to_string()]),
+        landing_page: Some(OneOrMany::Many(vec![DocumentRef::Uri("https://example.org/dataset".to_string())])),
         relation: None,
         type_: None,
         version: None,
@@ -661,11 +728,13 @@ fn test_dcat_url_field_validation() {
     };
     assert!(dataset_valid.validate().is_ok());
     let dataset_invalid = Dataset {
-        landing_page: Some(vec!["https://example.com#foo bar".to_string()]),
+        landing_page: Some(OneOrMany::Many(vec![DocumentRef::Uri("https://example.com#foo bar".to_string())])),
         ..dataset_valid
     };
     assert!(dataset_invalid.validate().is_err());
     let catalog_valid = Catalog {
+        id: None,
+        jsonld_type: None,
         title: None,
         description: None,
         identifier: None,
@@ -682,7 +751,7 @@ fn test_dcat_url_field_validation() {
         access_rights: None,
         has_policy: None,
         conforms_to: None,
-        landing_page: Some(vec!["https://example.org/catalog".to_string()]),
+        landing_page: Some(OneOrMany::Many(vec![DocumentRef::Uri("https://example.org/catalog".to_string())])),
         relation: None,
         type_: None,
         version: None,
@@ -701,7 +770,7 @@ fn test_dcat_url_field_validation() {
         temporal: None,
         temporal_resolution: None,
         was_generated_by: None,
-        homepage: Some("https://catalog.example.org".to_string()),
+        homepage: Some(OneOrMany::Many(vec![DocumentRef::Uri("https://catalog.example.org".to_string())])),
         theme_taxonomy: None,
         dataset: None,
         service: None,
@@ -710,12 +779,12 @@ fn test_dcat_url_field_validation() {
     };
     assert!(catalog_valid.validate().is_ok());
     let catalog_invalid_landing = Catalog {
-        landing_page: Some(vec!["https://example.com#foo bar".to_string()]),
+        landing_page: Some(OneOrMany::Many(vec![DocumentRef::Uri("https://example.com#foo bar".to_string())])),
         ..catalog_valid.clone()
     };
     assert!(catalog_invalid_landing.validate().is_err());
     let catalog_invalid_homepage = Catalog {
-        homepage: Some("https://example.com#foo bar".to_string()),
+        homepage: Some(OneOrMany::Many(vec![DocumentRef::Uri("https://example.com#foo bar".to_string())])),
         ..catalog_valid
     };
     assert!(catalog_invalid_homepage.validate().is_err());

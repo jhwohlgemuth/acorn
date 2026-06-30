@@ -5,7 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use crate::analyzer::check::{highlighted, highlighted_array, highlighted_from_params, nearest_space_boundary, truncate};
+use crate::analyzer::check::{highlighted, highlighted_array, highlighted_from_params, nearest_space_boundary, truncate, Standard};
 use crate::analyzer::error::ErrorCode;
 use crate::analyzer::error::ErrorKind;
 use crate::analyzer::vale::{preprocess_vale_output, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
@@ -65,6 +65,15 @@ struct ArrayParamModel {
     tags: Vec<String>,
 }
 
+#[test]
+fn test_standard_detection_uses_dcat_jsonld_type() {
+    let value: Value = serde_json::json!({
+        "@type": "dcat:Dataset",
+        "metadata": {}
+    });
+    let object = value.as_object().unwrap();
+    assert_eq!(Standard::from(object), Standard::Dcat);
+}
 #[test]
 fn test_cff_validation_issues_invalid_doi() {
     let cff = Cff {

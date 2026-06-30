@@ -14,6 +14,7 @@ use crate::schema::standard::crosswalk::{
     FieldValue, Fields, SchemaBuilder, SchemaExtractor,
 };
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
+use crate::schema::OneOrMany;
 use proptest::prelude::*;
 use serde_json::json;
 
@@ -90,16 +91,18 @@ fn extract_datacite_record_basic() {
 #[test]
 fn extract_dcat_dataset_basic() {
     let dataset = dcat::Dataset {
-        title: Some(vec!["Test Dataset".to_string()]),
-        description: Some(vec!["A test dataset".to_string()]),
-        identifier: Some(vec!["10.5555/12345678".to_string()]),
+        id: None,
+        jsonld_type: None,
+        title: Some(OneOrMany::Many(vec!["Test Dataset".to_string()])),
+        description: Some(OneOrMany::Many(vec!["A test dataset".to_string()])),
+        identifier: Some(OneOrMany::Many(vec!["10.5555/12345678".to_string()])),
         issued: Some("2024-01-15".to_string()),
         modified: None,
-        language: Some(vec!["en".to_string()]),
+        language: Some(OneOrMany::Many(vec!["en".to_string()])),
         publisher: None,
         creator: None,
         contact_point: None,
-        keywords: Some(vec!["test".to_string(), "data".to_string()]),
+        keywords: Some(OneOrMany::Many(vec!["test".to_string(), "data".to_string()])),
         themes: None,
         license: None,
         rights: None,
@@ -160,8 +163,11 @@ fn build_dcat_from_fields() {
     let dataset = dcat::Dataset::build_from_fields(&fields);
     assert!(dataset.is_ok());
     let dataset = dataset.unwrap();
-    assert_eq!(dataset.identifier, Some(vec!["http://example.org/dataset/1".to_string()]));
-    assert_eq!(dataset.title, Some(vec!["Built Dataset".to_string()]));
+    assert_eq!(
+        dataset.identifier,
+        Some(OneOrMany::Many(vec!["http://example.org/dataset/1".to_string()]))
+    );
+    assert_eq!(dataset.title, Some(OneOrMany::Many(vec!["Built Dataset".to_string()])));
     assert_eq!(dataset.issued, Some("2025-03-20".to_string()));
 }
 #[test]
@@ -202,23 +208,30 @@ fn from_datacite_to_dcat() {
         },
     };
     let dataset: dcat::Dataset = record.try_into().unwrap();
-    assert_eq!(dataset.title, Some(vec!["Science Dataset".to_string()]));
-    assert_eq!(dataset.description, Some(vec!["A scientific dataset".to_string()]));
-    assert_eq!(dataset.language, Some(vec!["en".to_string()]));
+    assert_eq!(dataset.title, Some(OneOrMany::Many(vec!["Science Dataset".to_string()])));
+    assert_eq!(dataset.description, Some(OneOrMany::Many(vec!["A scientific dataset".to_string()])));
+    assert_eq!(dataset.language, Some(OneOrMany::Many(vec!["en".to_string()])));
+    assert_eq!(dataset.jsonld_type.as_deref(), Some("dcat:Dataset"));
+    assert!(matches!(
+        dataset.landing_page.as_ref().and_then(|values| values.first()),
+        Some(dcat::DocumentRef::Uri(_))
+    ));
 }
 #[test]
 fn from_dcat_to_datacite() {
     let dataset = dcat::Dataset {
-        title: Some(vec!["Open Data Collection".to_string()]),
-        description: Some(vec!["Public data for research".to_string()]),
-        identifier: Some(vec!["https://doi.org/10.5555/87654321".to_string()]),
+        id: None,
+        jsonld_type: None,
+        title: Some(OneOrMany::Many(vec!["Open Data Collection".to_string()])),
+        description: Some(OneOrMany::Many(vec!["Public data for research".to_string()])),
+        identifier: Some(OneOrMany::Many(vec!["https://doi.org/10.5555/87654321".to_string()])),
         issued: Some("2024-06-15".to_string()),
         modified: None,
-        language: Some(vec!["fr".to_string()]),
+        language: Some(OneOrMany::Many(vec!["fr".to_string()])),
         publisher: None,
         creator: None,
         contact_point: None,
-        keywords: Some(vec!["open".to_string(), "data".to_string()]),
+        keywords: Some(OneOrMany::Many(vec!["open".to_string(), "data".to_string()])),
         themes: None,
         license: Some("https://creativecommons.org/licenses/by/4.0/".to_string()),
         rights: None,

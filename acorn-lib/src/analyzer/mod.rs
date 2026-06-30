@@ -398,7 +398,7 @@ impl Analysis for dcat::Dataset {
                             .iter()
                             .flatten()
                             .enumerate()
-                            .map(|(index, value)| link_check(Some(value.as_str()), Some(format!("landing_page[{index}]"))));
+                            .map(|(index, value)| link_check(value.url(), Some(format!("landing_page[{index}]"))));
                         let distribution_futures = data
                             .distribution
                             .iter()

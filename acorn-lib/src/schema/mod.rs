@@ -18,10 +18,11 @@ use crate::util::constants::app::DEFAULT_AFFILIATION;
 use crate::util::constants::MAX_LENGTH_IMAGE_CAPTION;
 #[cfg(feature = "std")]
 use crate::util::Label;
-use crate::util::{Constant, LinkedData, ToMarkdown};
+use crate::util::{Constant, LinkedData, MimeType, ToMarkdown};
 use bon::Builder;
 #[cfg(feature = "std")]
 use convert_case::{Case, Casing};
+#[cfg(test)]
 use core::fmt;
 use core::hash::Hash;
 use core::iter::once;
@@ -37,7 +38,9 @@ use nucleo_matcher::{
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use petgraph::graph::Graph;
 use schemars::JsonSchema;
+#[cfg(test)]
 use serde::de::value::SeqAccessDeserializer;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_trim::{option_string_trim, string_trim};
@@ -77,6 +80,18 @@ use validate::{has_image_extension, is_date, is_orcid, is_phone_number};
 ///
 /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/keywords.csv">Full list of keywords</a></div>
 pub type Keyword = String;
+/// Generic wrapper for a single value or multiple values.
+///
+/// Supports schema fields and metadata entry points that accept either one item
+/// or a batch of items.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum OneOrMany<T> {
+    /// A single item.
+    One(T),
+    /// Multiple items.
+    Many(Vec<T>),
+}
 /// U.S. Classified National Security Information Level
 ///
 /// See [President Executive Order 13526](https://www.archives.gov/isoo/policy-documents/cnsi-eo.html)
@@ -697,6 +712,93 @@ impl MediaObject {
         }
     }
 }
+impl<T> OneOrMany<T> {
+    /// Borrow the contained items as a slice.
+    pub fn as_slice(&self) -> &[T] {
+        match self {
+            | Self::One(value) => core::slice::from_ref(value),
+            | Self::Many(values) => values.as_slice(),
+        }
+    }
+    /// Borrow the first contained item, if one exists.
+    pub fn first(&self) -> Option<&T> {
+        self.as_slice().first()
+    }
+    /// Return true when there are no contained items.
+    pub fn is_empty(&self) -> bool {
+        self.as_slice().is_empty()
+    }
+    /// Convert to a vector of items.
+    pub fn into_vec(self) -> Vec<T> {
+        match self {
+            | Self::One(value) => vec![value],
+            | Self::Many(values) => values,
+        }
+    }
+    /// Iterate over contained items by reference.
+    pub fn iter(&self) -> core::slice::Iter<'_, T> {
+        self.as_slice().iter()
+    }
+    /// Return the number of contained items.
+    pub fn len(&self) -> usize {
+        self.as_slice().len()
+    }
+    /// Transform each item, propagating crosswalk failures.
+    pub fn map<U, F>(self, f: F) -> Result<OneOrMany<U>, standard::crosswalk::CrosswalkError>
+    where
+        F: Fn(T) -> Result<U, standard::crosswalk::CrosswalkError>,
+    {
+        match self {
+            | Self::One(value) => f(value).map(OneOrMany::One),
+            | Self::Many(values) => values
+                .into_iter()
+                .enumerate()
+                .map(|(index, value)| {
+                    f(value).map_err(|e| standard::crosswalk::CrosswalkError::BuildFailed(format!("Failed to convert record at index {index} — {e}")))
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map(OneOrMany::Many),
+        }
+    }
+    /// Parse a JSON or YAML string into one or many items.
+    pub fn parse(content: &str, mime: MimeType) -> Result<OneOrMany<T>, standard::crosswalk::CrosswalkError>
+    where
+        T: DeserializeOwned,
+    {
+        match mime {
+            | MimeType::Json => serde_json::from_str(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
+            | MimeType::Yaml => serde_norway::from_str(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
+            | _ => Err(standard::crosswalk::CrosswalkError::ParseFailed("Content must be JSON or YAML".into())),
+        }
+    }
+    /// Serialize one or many items to a JSON or YAML string.
+    pub fn serialize(&self, mime: MimeType) -> Result<String, standard::crosswalk::CrosswalkError>
+    where
+        T: Serialize,
+    {
+        match mime {
+            | MimeType::Json => serde_json::to_string_pretty(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
+            | MimeType::Yaml => serde_norway::to_string(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
+            | _ => Err(standard::crosswalk::CrosswalkError::SerializeFailed("Output must be JSON or YAML".into())),
+        }
+    }
+}
+impl<'a, T> IntoIterator for &'a OneOrMany<T> {
+    type Item = &'a T;
+    type IntoIter = core::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+impl<T> Validate for OneOrMany<T>
+where
+    T: Validate,
+{
+    fn validate(&self) -> Result<(), validator::ValidationErrors> {
+        self.iter().find_map(|value| value.validate().err()).map_or(Ok(()), Err)
+    }
+}
 impl Organization {
     /// Return list of all alternative names
     pub fn alternative_names() -> Vec<String> {
@@ -962,27 +1064,8 @@ pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
         .collect::<Vec<Vec<String>>>();
     resolve_from_list_of_lists(value, data, "organization".to_string())
 }
-/// Deserialize a field that may be a single string or an array of strings
-pub(crate) fn string_or_seq<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    struct StringOrSeq;
-    impl<'de> serde::de::Visitor<'de> for StringOrSeq {
-        type Value = Vec<String>;
-        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-            formatter.write_str("string or list of strings")
-        }
-        fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Vec<String>, E> {
-            Ok(vec![value.to_owned()])
-        }
-        fn visit_seq<A: serde::de::SeqAccess<'de>>(self, seq: A) -> Result<Vec<String>, A::Error> {
-            Deserialize::deserialize(SeqAccessDeserializer::new(seq))
-        }
-    }
-    deserializer.deserialize_any(StringOrSeq)
-}
 /// Deserialize a field that may be null, a single string, or an array of strings
+#[cfg(test)]
 pub(crate) fn optional_string_or_seq<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
 where
     D: serde::Deserializer<'de>,

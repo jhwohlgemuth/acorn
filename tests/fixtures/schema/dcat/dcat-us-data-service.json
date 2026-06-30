@@ -1,0 +1,24 @@
+{
+  "@id": "https://example.org/services/api",
+  "@type": "dcat:DataService",
+  "title": "Example DCAT-US Data Service",
+  "description": "A DCAT-US v3.0 data service fixture.",
+  "identifier": "example-api",
+  "publisher": {
+    "@type": "org:Organization",
+    "name": "Example Data Office"
+  },
+  "contactPoint": {
+    "@type": "vcard:Kind",
+    "fn": "API Support",
+    "hasEmail": "mailto:api@example.org"
+  },
+  "conformsTo": "https://resources.data.gov/resources/dcat-us/",
+  "landingPage": "https://example.org/services/api",
+  "endpointURL": [
+    "https://api.example.org"
+  ],
+  "servesDataset": [
+    "https://example.org/datasets/dcat-us-minimal"
+  ]
+}

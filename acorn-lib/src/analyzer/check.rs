@@ -11,8 +11,9 @@ use crate::prelude::{Arc, HashMap, Path, PathBuf};
 use crate::schema::standard::crosswalk::mapping::{
     datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
 };
-use crate::schema::standard::crosswalk::{Batch, ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
+use crate::schema::standard::crosswalk::{ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
+use crate::schema::OneOrMany;
 use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
 use crate::util::{Label, MimeType, StringConversion, ToProse};
 use crate::{check, check_err, check_ok};
@@ -749,7 +750,9 @@ impl<'a> IntoRow<'a> for Check {
 }
 impl From<&Map<String, Value>> for Standard {
     fn from(object: &Map<String, Value>) -> Self {
-        if object.contains_key("dataset_id") && object.contains_key("metas") {
+        if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
+            Standard::Dcat
+        } else if object.contains_key("dataset_id") && object.contains_key("metas") {
             Standard::Huwise
         } else if object.contains_key("attributes") && object.contains_key("id") {
             Standard::Datacite
@@ -775,14 +778,14 @@ impl Standard {
     /// - Output serialization fails
     pub fn crosswalk(&self, content: &str, mime: MimeType, target: Standard, target_mime: MimeType) -> Result<String, CrosswalkError> {
         match *self {
-            | Standard::Datacite => Batch::<datacite::Record>::parse(content, mime).and_then(|source| match target {
+            | Standard::Datacite => OneOrMany::<datacite::Record>::parse(content, mime).and_then(|source| match target {
                 | Standard::Datacite => source.serialize(target_mime),
                 | Standard::Dcat => source.map(dcat::Dataset::try_from).and_then(|b| b.serialize(target_mime)),
                 | Standard::Invenio => source.map(invenio::Record::try_from).and_then(|b| b.serialize(target_mime)),
                 | Standard::Huwise => source.map(huwise::Dataset::try_from).and_then(|b| b.serialize(target_mime)),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
-            | Standard::Dcat => Batch::<dcat::Dataset>::parse(content, mime).and_then(|source| match target {
+            | Standard::Dcat => OneOrMany::<dcat::Dataset>::parse(content, mime).and_then(|source| match target {
                 | Standard::Dcat => source.serialize(target_mime),
                 | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
                 | Standard::Invenio => source
@@ -793,7 +796,7 @@ impl Standard {
                     .and_then(|b| b.serialize(target_mime)),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
-            | Standard::Invenio => Batch::<invenio::Record>::parse(content, mime).and_then(|source| match target {
+            | Standard::Invenio => OneOrMany::<invenio::Record>::parse(content, mime).and_then(|source| match target {
                 | Standard::Invenio => source.serialize(target_mime),
                 | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
                 | Standard::Dcat => source
@@ -804,7 +807,7 @@ impl Standard {
                     .and_then(|b| b.serialize(target_mime)),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
-            | Standard::Huwise => Batch::<huwise::Dataset>::parse(content, mime).and_then(|source| match target {
+            | Standard::Huwise => OneOrMany::<huwise::Dataset>::parse(content, mime).and_then(|source| match target {
                 | Standard::Huwise => source.serialize(target_mime),
                 | Standard::Datacite => source.map(datacite::Record::try_from).and_then(|b| b.serialize(target_mime)),
                 | Standard::Dcat => source
@@ -985,7 +988,7 @@ fn process_crosswalk_warnings<T>(
 where
     T: serde::de::DeserializeOwned + SchemaExtractor,
 {
-    Batch::<T>::parse(content, mime.clone()).map(|batch| {
+    OneOrMany::<T>::parse(content, mime.clone()).map(|batch| {
         let mapped_fields: Vec<&str> = mapping.rules.iter().map(|r| r.source).collect();
         let missing_warnings = |fields: &Fields, prefix: &str| -> ConversionWarnings {
             let mut target_fields = Fields::new();
@@ -1004,11 +1007,11 @@ where
                 .collect()
         };
         match batch {
-            | Batch::One(record) => {
+            | OneOrMany::One(record) => {
                 let fields = record.extract_fields();
                 [missing_warnings(&fields, ""), unmapped_warnings(&fields, "")].concat()
             }
-            | Batch::Many(records) => records
+            | OneOrMany::Many(records) => records
                 .into_iter()
                 .enumerate()
                 .flat_map(|(i, record)| {

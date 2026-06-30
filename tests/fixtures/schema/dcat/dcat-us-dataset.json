@@ -1,0 +1,26 @@
+{
+  "@id": "https://example.org/datasets/dcat-us-minimal",
+  "@type": "dcat:Dataset",
+  "title": "Minimal DCAT-US Dataset",
+  "description": "A minimal DCAT-US v3.0 dataset fixture.",
+  "identifier": "dcat-us-minimal",
+  "publisher": {
+    "@type": "org:Organization",
+    "name": "Example Data Office"
+  },
+  "contactPoint": {
+    "@type": "vcard:Kind",
+    "fn": "Example Data Steward",
+    "hasEmail": "mailto:data@example.org"
+  },
+  "conformsTo": {
+    "@id": "https://resources.data.gov/resources/dcat-us/",
+    "@type": "dcterms:Standard",
+    "title": "DCAT-US v3.0"
+  },
+  "landingPage": {
+    "@id": "https://example.org/datasets/dcat-us-minimal",
+    "@type": "foaf:Document",
+    "title": "Dataset landing page"
+  }
+}

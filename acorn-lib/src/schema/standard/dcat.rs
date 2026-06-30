@@ -14,7 +14,7 @@ use crate::io::{read_file, write_file, ApiResult, InputOutput};
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite::{self, RelationType};
 use crate::schema::validate::{is_url, is_urls};
-use crate::schema::{optional_string_or_seq, string_or_seq, Date as PeriodOfTime};
+use crate::schema::{Date as PeriodOfTime, OneOrMany};
 use crate::util::{Checksum, MimeType, ToProse};
 #[cfg(feature = "std")]
 use crate::PathBuf;
@@ -23,7 +23,7 @@ use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use validator::Validate;
+use validator::{Validate, ValidationError, ValidationErrors};
 
 /// A collection of datasets published separately but sharing characteristics (`dcat:DatasetSeries`)
 ///
@@ -33,6 +33,42 @@ use validator::Validate;
 /// Inherits all `Dataset` properties. Reuse `Dataset` with an appropriate
 /// `type_` value, or use this type to make the series nature explicit in code.
 pub type DatasetSeries = Dataset;
+/// A `conformsTo` value represented as either a URI or DCAT-US standard object.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ConformsTo {
+    /// Standard URI.
+    Uri(String),
+    /// DCAT-US standard object.
+    Standard(ConformsToStandard),
+}
+/// A DCAT contact point represented as either a vCard URI or DCAT-US `Kind`.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ContactPoint {
+    /// Contact point URI.
+    Uri(String),
+    /// DCAT-US vCard contact object.
+    Kind(Kind),
+}
+/// A document reference represented as either a URI or DCAT-US document object.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum DocumentRef {
+    /// Document URI.
+    Uri(String),
+    /// DCAT-US document object.
+    Document(Document),
+}
+/// A publisher represented as either a W3C DCAT agent or DCAT-US organization.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum Publisher {
+    /// DCAT-US organization.
+    Organization(UsOrganization),
+    /// W3C DCAT agent.
+    Agent(Agent),
+}
 /// An agent (person or organization) as a `foaf:Agent`
 ///
 /// Used for `dcterms:creator`, `dcterms:publisher`, etc.
@@ -42,14 +78,14 @@ pub struct Agent {
     /// Agent name (`foaf:name`)
     pub name: Option<String>,
     /// Agent homepage URI (`foaf:homepage`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    #[validate(custom(function = "is_urls"))]
-    pub homepage: Option<Vec<String>>,
+    #[serde(default)]
+    #[validate(custom(function = "is_one_or_many_urls"))]
+    pub homepage: Option<OneOrMany<String>>,
     /// Agent email (`foaf:mbox`)
     pub email: Option<String>,
     /// Agent identifier(s) e.g. ORCID, ROR (`dcterms:identifier`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub identifier: Option<Vec<String>>,
+    #[serde(default)]
+    pub identifier: Option<OneOrMany<String>>,
 }
 /// A curated collection of metadata about resources (`dcat:Catalog`)
 ///
@@ -57,37 +93,44 @@ pub struct Agent {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Catalog {
+    /// JSON-LD node identifier.
+    #[serde(rename = "@id")]
+    pub id: Option<String>,
+    /// JSON-LD node type.
+    #[serde(rename = "@type")]
+    pub jsonld_type: Option<String>,
     /// Catalog title(s) (`dcterms:title`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub title: Option<Vec<String>>,
+    #[serde(default)]
+    pub title: Option<OneOrMany<String>>,
     /// Description(s) (`dcterms:description`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub description: Option<Vec<String>>,
+    #[serde(default)]
+    pub description: Option<OneOrMany<String>>,
     /// Unique identifier(s) (`dcterms:identifier`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub identifier: Option<Vec<String>>,
+    #[serde(default)]
+    pub identifier: Option<OneOrMany<String>>,
     /// Publication date as ISO 8601 string (`dcterms:issued`)
     pub issued: Option<String>,
     /// Last modification date as ISO 8601 string (`dcterms:modified`)
     pub modified: Option<String>,
     /// Language code(s) per ISO 639-1 (`dcterms:language`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub language: Option<Vec<String>>,
+    #[serde(default)]
+    pub language: Option<OneOrMany<String>>,
     /// Publisher (`dcterms:publisher`)
     #[validate(nested)]
-    pub publisher: Option<Agent>,
+    pub publisher: Option<Publisher>,
     /// Creator(s) (`dcterms:creator`, DCAT 2)
     #[validate(nested)]
     pub creator: Option<Vec<Agent>>,
     /// Contact point IRI(s) for vCard (`dcat:contactPoint`)
-    #[serde(rename = "contactPoint", default, deserialize_with = "optional_string_or_seq")]
-    pub contact_point: Option<Vec<String>>,
+    #[serde(rename = "contactPoint", default)]
+    #[validate(nested)]
+    pub contact_point: Option<OneOrMany<ContactPoint>>,
     /// Keywords (`dcat:keyword`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub keywords: Option<Vec<String>>,
+    #[serde(default)]
+    pub keywords: Option<OneOrMany<String>>,
     /// Theme/category IRI(s) (`dcat:theme`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub themes: Option<Vec<String>>,
+    #[serde(default)]
+    pub themes: Option<OneOrMany<String>>,
     /// License document URI (`dcterms:license`)
     pub license: Option<String>,
     /// Rights statement URI (`dcterms:rights`)
@@ -99,18 +142,19 @@ pub struct Catalog {
     #[serde(rename = "hasPolicy")]
     pub has_policy: Option<String>,
     /// Standards conformed to, as IRIs (`dcterms:conformsTo`)
-    #[serde(rename = "conformsTo", default, deserialize_with = "optional_string_or_seq")]
-    pub conforms_to: Option<Vec<String>>,
+    #[serde(rename = "conformsTo", default)]
+    #[validate(nested)]
+    pub conforms_to: Option<OneOrMany<ConformsTo>>,
     /// Landing page URI(s) (`dcat:landingPage`)
-    #[serde(rename = "landingPage", default, deserialize_with = "optional_string_or_seq")]
-    #[validate(custom(function = "is_urls"))]
-    pub landing_page: Option<Vec<String>>,
+    #[serde(rename = "landingPage", default)]
+    #[validate(custom(function = "is_document_refs_urls"), nested)]
+    pub landing_page: Option<OneOrMany<DocumentRef>>,
     /// Relations to other resources, as IRIs (`dcterms:relation`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub relation: Option<Vec<String>>,
+    #[serde(default)]
+    pub relation: Option<OneOrMany<String>>,
     /// Resource type IRI(s) (`dcterms:type`)
-    #[serde(rename = "type", default, deserialize_with = "optional_string_or_seq")]
-    pub type_: Option<Vec<String>>,
+    #[serde(rename = "type", default)]
+    pub type_: Option<OneOrMany<String>>,
     /// Version indicator (`dcat:version`, DCAT 3)
     pub version: Option<String>,
     /// Version notes (`adms:versionNotes`, DCAT 3)
@@ -120,8 +164,8 @@ pub struct Catalog {
     #[serde(rename = "previousVersion")]
     pub previous_version: Option<String>,
     /// IRI(s) of versioned snapshots (`dcat:hasVersion`, DCAT 3)
-    #[serde(rename = "hasVersion", default, deserialize_with = "optional_string_or_seq")]
-    pub has_version: Option<Vec<String>>,
+    #[serde(rename = "hasVersion", default)]
+    pub has_version: Option<OneOrMany<String>>,
     /// IRI of the current version (`dcat:hasCurrentVersion`, DCAT 3)
     #[serde(rename = "hasCurrentVersion")]
     pub has_current_version: Option<String>,
@@ -130,8 +174,8 @@ pub struct Catalog {
     /// Life-cycle status IRI (`adms:status`, DCAT 3)
     pub status: Option<String>,
     /// Related resources that reference this catalog (`dcterms:isReferencedBy`, DCAT 2)
-    #[serde(rename = "isReferencedBy", default, deserialize_with = "optional_string_or_seq")]
-    pub is_referenced_by: Option<Vec<String>>,
+    #[serde(rename = "isReferencedBy", default)]
+    pub is_referenced_by: Option<OneOrMany<String>>,
     /// Qualified relationships to other resources (`dcat:qualifiedRelation`, DCAT 2)
     #[validate(nested)]
     #[serde(rename = "qualifiedRelation")]
@@ -154,23 +198,24 @@ pub struct Catalog {
     #[serde(rename = "temporalResolution")]
     pub temporal_resolution: Option<String>,
     /// Activity IRI(s) that generated this catalog (`prov:wasGeneratedBy`, DCAT 2)
-    #[serde(rename = "wasGeneratedBy", default, deserialize_with = "optional_string_or_seq")]
-    pub was_generated_by: Option<Vec<String>>,
+    #[serde(rename = "wasGeneratedBy", default)]
+    pub was_generated_by: Option<OneOrMany<String>>,
     /// Catalog homepage URI (`foaf:homepage`)
-    #[validate(custom(function = "is_url"))]
-    pub homepage: Option<String>,
+    #[serde(default)]
+    #[validate(custom(function = "is_document_refs_urls"), nested)]
+    pub homepage: Option<OneOrMany<DocumentRef>>,
     /// Knowledge organization system IRI(s) for classifying resources (`dcat:themeTaxonomy`)
-    #[serde(rename = "themeTaxonomy", default, deserialize_with = "optional_string_or_seq")]
-    pub theme_taxonomy: Option<Vec<String>>,
+    #[serde(rename = "themeTaxonomy", default)]
+    pub theme_taxonomy: Option<OneOrMany<String>>,
     /// Dataset IRI(s) listed in this catalog (`dcat:dataset`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub dataset: Option<Vec<String>>,
+    #[serde(default)]
+    pub dataset: Option<OneOrMany<String>>,
     /// Data service IRI(s) listed in this catalog (`dcat:service`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub service: Option<Vec<String>>,
+    #[validate(nested)]
+    pub service: Option<Vec<DataService>>,
     /// Sub-catalog IRI(s) listed in this catalog (`dcat:catalog`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub catalog: Option<Vec<String>>,
+    #[serde(default)]
+    pub catalog: Option<OneOrMany<String>>,
     /// Catalog records for resources in this catalog (`dcat:record`)
     #[validate(nested)]
     pub record: Option<Vec<CatalogRecord>>,
@@ -194,8 +239,24 @@ pub struct CatalogRecord {
     #[serde(rename = "primaryTopic")]
     pub primary_topic: String,
     /// Standards the record conforms to, as IRIs (`dcterms:conformsTo`)
-    #[serde(rename = "conformsTo", default, deserialize_with = "optional_string_or_seq")]
-    pub conforms_to: Option<Vec<String>>,
+    #[serde(rename = "conformsTo", default)]
+    pub conforms_to: Option<OneOrMany<String>>,
+}
+/// A standard or profile referenced by `dcterms:conformsTo`.
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct ConformsToStandard {
+    /// JSON-LD node identifier.
+    #[serde(rename = "@id")]
+    #[validate(custom(function = "is_url"))]
+    pub id: Option<String>,
+    /// JSON-LD node type.
+    #[serde(rename = "@type")]
+    pub jsonld_type: Option<String>,
+    /// Standard title.
+    pub title: Option<String>,
+    /// Standard identifier.
+    pub identifier: Option<String>,
 }
 /// A collection of operations providing access to data (`dcat:DataService`)
 ///
@@ -204,37 +265,44 @@ pub struct CatalogRecord {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct DataService {
+    /// JSON-LD node identifier.
+    #[serde(rename = "@id")]
+    pub id: Option<String>,
+    /// JSON-LD node type.
+    #[serde(rename = "@type")]
+    pub jsonld_type: Option<String>,
     /// Service title(s) (`dcterms:title`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub title: Option<Vec<String>>,
+    #[serde(default)]
+    pub title: Option<OneOrMany<String>>,
     /// Description(s) (`dcterms:description`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub description: Option<Vec<String>>,
+    #[serde(default)]
+    pub description: Option<OneOrMany<String>>,
     /// Unique identifier(s) (`dcterms:identifier`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub identifier: Option<Vec<String>>,
+    #[serde(default)]
+    pub identifier: Option<OneOrMany<String>>,
     /// Publication date as ISO 8601 string (`dcterms:issued`)
     pub issued: Option<String>,
     /// Last modification date as ISO 8601 string (`dcterms:modified`)
     pub modified: Option<String>,
     /// Language code(s) per ISO 639-1 (`dcterms:language`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub language: Option<Vec<String>>,
+    #[serde(default)]
+    pub language: Option<OneOrMany<String>>,
     /// Publisher (`dcterms:publisher`)
     #[validate(nested)]
-    pub publisher: Option<Agent>,
+    pub publisher: Option<Publisher>,
     /// Creator(s) (`dcterms:creator`, DCAT 2)
     #[validate(nested)]
     pub creator: Option<Vec<Agent>>,
     /// Contact point IRI(s) for vCard (`dcat:contactPoint`)
-    #[serde(rename = "contactPoint", default, deserialize_with = "optional_string_or_seq")]
-    pub contact_point: Option<Vec<String>>,
+    #[serde(rename = "contactPoint", default)]
+    #[validate(nested)]
+    pub contact_point: Option<OneOrMany<ContactPoint>>,
     /// Keywords (`dcat:keyword`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub keywords: Option<Vec<String>>,
+    #[serde(default)]
+    pub keywords: Option<OneOrMany<String>>,
     /// Theme/category IRI(s) (`dcat:theme`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub themes: Option<Vec<String>>,
+    #[serde(default)]
+    pub themes: Option<OneOrMany<String>>,
     /// License document URI (`dcterms:license`)
     pub license: Option<String>,
     /// Rights statement URI (`dcterms:rights`)
@@ -246,15 +314,16 @@ pub struct DataService {
     #[serde(rename = "hasPolicy")]
     pub has_policy: Option<String>,
     /// Standards conformed to, as IRIs (`dcterms:conformsTo`)
-    #[serde(rename = "conformsTo", default, deserialize_with = "optional_string_or_seq")]
-    pub conforms_to: Option<Vec<String>>,
+    #[serde(rename = "conformsTo", default)]
+    #[validate(nested)]
+    pub conforms_to: Option<OneOrMany<ConformsTo>>,
     /// Landing page URI(s) (`dcat:landingPage`)
-    #[serde(rename = "landingPage", default, deserialize_with = "optional_string_or_seq")]
-    #[validate(custom(function = "is_urls"))]
-    pub landing_page: Option<Vec<String>>,
+    #[serde(rename = "landingPage", default)]
+    #[validate(custom(function = "is_document_refs_urls"), nested)]
+    pub landing_page: Option<OneOrMany<DocumentRef>>,
     /// Resource type IRI(s) (`dcterms:type`)
-    #[serde(rename = "type", default, deserialize_with = "optional_string_or_seq")]
-    pub type_: Option<Vec<String>>,
+    #[serde(rename = "type", default)]
+    pub type_: Option<OneOrMany<String>>,
     /// Version indicator (`dcat:version`, DCAT 3)
     pub version: Option<String>,
     /// Version notes (`adms:versionNotes`, DCAT 3)
@@ -264,8 +333,8 @@ pub struct DataService {
     #[serde(rename = "previousVersion")]
     pub previous_version: Option<String>,
     /// IRI(s) of versioned snapshots (`dcat:hasVersion`, DCAT 3)
-    #[serde(rename = "hasVersion", default, deserialize_with = "optional_string_or_seq")]
-    pub has_version: Option<Vec<String>>,
+    #[serde(rename = "hasVersion", default)]
+    pub has_version: Option<OneOrMany<String>>,
     /// IRI of the current version (`dcat:hasCurrentVersion`, DCAT 3)
     #[serde(rename = "hasCurrentVersion")]
     pub has_current_version: Option<String>,
@@ -278,15 +347,15 @@ pub struct DataService {
     #[serde(rename = "qualifiedRelation")]
     pub qualified_relation: Option<Vec<Relationship>>,
     /// Root location or primary endpoint IRI(s) (`dcat:endpointURL`)
-    #[serde(rename = "endpointURL", deserialize_with = "string_or_seq")]
-    #[validate(custom(function = "is_urls"))]
-    pub endpoint_url: Vec<String>,
+    #[serde(rename = "endpointURL")]
+    #[validate(custom(function = "is_one_or_many_urls"))]
+    pub endpoint_url: OneOrMany<String>,
     /// Endpoint description IRI(s) or documents (`dcat:endpointDescription`)
-    #[serde(rename = "endpointDescription", default, deserialize_with = "optional_string_or_seq")]
-    pub endpoint_description: Option<Vec<String>>,
+    #[serde(rename = "endpointDescription", default)]
+    pub endpoint_description: Option<OneOrMany<String>>,
     /// Dataset IRI(s) served by this service (`dcat:servesDataset`)
-    #[serde(rename = "servesDataset", default, deserialize_with = "optional_string_or_seq")]
-    pub serves_dataset: Option<Vec<String>>,
+    #[serde(rename = "servesDataset", default)]
+    pub serves_dataset: Option<OneOrMany<String>>,
 }
 /// A collection of data published or curated by a single agent (`dcat:Dataset`)
 ///
@@ -295,37 +364,44 @@ pub struct DataService {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Dataset {
+    /// JSON-LD node identifier.
+    #[serde(rename = "@id")]
+    pub id: Option<String>,
+    /// JSON-LD node type.
+    #[serde(rename = "@type")]
+    pub jsonld_type: Option<String>,
     /// Dataset title(s) (`dcterms:title`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub title: Option<Vec<String>>,
+    #[serde(default)]
+    pub title: Option<OneOrMany<String>>,
     /// Description(s) (`dcterms:description`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub description: Option<Vec<String>>,
+    #[serde(default)]
+    pub description: Option<OneOrMany<String>>,
     /// Unique identifier(s) (`dcterms:identifier`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub identifier: Option<Vec<String>>,
+    #[serde(default)]
+    pub identifier: Option<OneOrMany<String>>,
     /// Publication date as ISO 8601 string (`dcterms:issued`)
     pub issued: Option<String>,
     /// Last modification date as ISO 8601 string (`dcterms:modified`)
     pub modified: Option<String>,
     /// Language code(s) per ISO 639-1 (`dcterms:language`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub language: Option<Vec<String>>,
+    #[serde(default)]
+    pub language: Option<OneOrMany<String>>,
     /// Publisher (`dcterms:publisher`)
     #[validate(nested)]
-    pub publisher: Option<Agent>,
+    pub publisher: Option<Publisher>,
     /// Creator(s) (`dcterms:creator`, DCAT 2)
     #[validate(nested)]
     pub creator: Option<Vec<Agent>>,
     /// Contact point IRI(s) for vCard (`dcat:contactPoint`)
-    #[serde(rename = "contactPoint", default, deserialize_with = "optional_string_or_seq")]
-    pub contact_point: Option<Vec<String>>,
+    #[serde(rename = "contactPoint", default)]
+    #[validate(nested)]
+    pub contact_point: Option<OneOrMany<ContactPoint>>,
     /// Keywords (`dcat:keyword`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub keywords: Option<Vec<String>>,
+    #[serde(default)]
+    pub keywords: Option<OneOrMany<String>>,
     /// Theme/category IRI(s) (`dcat:theme`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub themes: Option<Vec<String>>,
+    #[serde(default)]
+    pub themes: Option<OneOrMany<String>>,
     /// License document URI (`dcterms:license`)
     pub license: Option<String>,
     /// Rights statement URI (`dcterms:rights`)
@@ -337,18 +413,19 @@ pub struct Dataset {
     #[serde(rename = "hasPolicy")]
     pub has_policy: Option<String>,
     /// Standards conformed to, as IRIs (`dcterms:conformsTo`)
-    #[serde(rename = "conformsTo", default, deserialize_with = "optional_string_or_seq")]
-    pub conforms_to: Option<Vec<String>>,
+    #[serde(rename = "conformsTo", default)]
+    #[validate(nested)]
+    pub conforms_to: Option<OneOrMany<ConformsTo>>,
     /// Landing page URI(s) (`dcat:landingPage`)
-    #[serde(rename = "landingPage", default, deserialize_with = "optional_string_or_seq")]
-    #[validate(custom(function = "is_urls"))]
-    pub landing_page: Option<Vec<String>>,
+    #[serde(rename = "landingPage", default)]
+    #[validate(custom(function = "is_document_refs_urls"), nested)]
+    pub landing_page: Option<OneOrMany<DocumentRef>>,
     /// Relations to other resources, as IRIs (`dcterms:relation`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub relation: Option<Vec<String>>,
+    #[serde(default)]
+    pub relation: Option<OneOrMany<String>>,
     /// Resource type IRI(s) (`dcterms:type`)
-    #[serde(rename = "type", default, deserialize_with = "optional_string_or_seq")]
-    pub type_: Option<Vec<String>>,
+    #[serde(rename = "type", default)]
+    pub type_: Option<OneOrMany<String>>,
     /// Version indicator (`dcat:version`, DCAT 3)
     pub version: Option<String>,
     /// Version notes (`adms:versionNotes`, DCAT 3)
@@ -358,8 +435,8 @@ pub struct Dataset {
     #[serde(rename = "previousVersion")]
     pub previous_version: Option<String>,
     /// IRI(s) of versioned snapshots (`dcat:hasVersion`, DCAT 3)
-    #[serde(rename = "hasVersion", default, deserialize_with = "optional_string_or_seq")]
-    pub has_version: Option<Vec<String>>,
+    #[serde(rename = "hasVersion", default)]
+    pub has_version: Option<OneOrMany<String>>,
     /// IRI of the current version (`dcat:hasCurrentVersion`, DCAT 3)
     #[serde(rename = "hasCurrentVersion")]
     pub has_current_version: Option<String>,
@@ -368,11 +445,11 @@ pub struct Dataset {
     /// Life-cycle status IRI (`adms:status`, DCAT 3)
     pub status: Option<String>,
     /// Related resources that reference this dataset (`dcterms:isReferencedBy`, DCAT 2)
-    #[serde(rename = "isReferencedBy", default, deserialize_with = "optional_string_or_seq")]
-    pub is_referenced_by: Option<Vec<String>>,
+    #[serde(rename = "isReferencedBy", default)]
+    pub is_referenced_by: Option<OneOrMany<String>>,
     /// Parts of this resource, as IRIs (`dcterms:hasPart`, DCAT 3)
-    #[serde(rename = "hasPart", default, deserialize_with = "optional_string_or_seq")]
-    pub has_part: Option<Vec<String>>,
+    #[serde(rename = "hasPart", default)]
+    pub has_part: Option<OneOrMany<String>>,
     /// Qualified relationships to other resources (`dcat:qualifiedRelation`, DCAT 2)
     #[validate(nested)]
     #[serde(rename = "qualifiedRelation")]
@@ -389,8 +466,8 @@ pub struct Dataset {
     /// Update frequency IRI (`dcterms:accrualPeriodicity`)
     pub frequency: Option<String>,
     /// Dataset series IRI(s) this dataset belongs to (`dcat:inSeries`, DCAT 3)
-    #[serde(rename = "inSeries", default, deserialize_with = "optional_string_or_seq")]
-    pub in_series: Option<Vec<String>>,
+    #[serde(rename = "inSeries", default)]
+    pub in_series: Option<OneOrMany<String>>,
     /// Spatial coverage (`dcterms:spatial`)
     #[validate(nested)]
     pub spatial: Option<Vec<Location>>,
@@ -404,8 +481,8 @@ pub struct Dataset {
     #[serde(rename = "temporalResolution")]
     pub temporal_resolution: Option<String>,
     /// Activity IRI(s) that generated this dataset (`prov:wasGeneratedBy`, DCAT 2)
-    #[serde(rename = "wasGeneratedBy", default, deserialize_with = "optional_string_or_seq")]
-    pub was_generated_by: Option<Vec<String>>,
+    #[serde(rename = "wasGeneratedBy", default)]
+    pub was_generated_by: Option<OneOrMany<String>>,
 }
 /// A specific representation of a dataset (`dcat:Distribution`)
 ///
@@ -413,12 +490,18 @@ pub struct Dataset {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Distribution {
+    /// JSON-LD node identifier.
+    #[serde(rename = "@id")]
+    pub id: Option<String>,
+    /// JSON-LD node type.
+    #[serde(rename = "@type")]
+    pub jsonld_type: Option<String>,
     /// Distribution title (`dcterms:title`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub title: Option<Vec<String>>,
+    #[serde(default)]
+    pub title: Option<OneOrMany<String>>,
     /// Free-text description (`dcterms:description`)
-    #[serde(default, deserialize_with = "optional_string_or_seq")]
-    pub description: Option<Vec<String>>,
+    #[serde(default)]
+    pub description: Option<OneOrMany<String>>,
     /// Publication date as ISO 8601 string (`dcterms:issued`)
     pub issued: Option<String>,
     /// Last modification date as ISO 8601 string (`dcterms:modified`)
@@ -433,17 +516,23 @@ pub struct Distribution {
     /// ODRL policy IRI (`odrl:hasPolicy`)
     #[serde(rename = "hasPolicy")]
     pub has_policy: Option<String>,
+    /// DCAT-US access restriction statement.
+    #[serde(rename = "accessRestriction")]
+    pub access_restriction: Option<String>,
+    /// DCAT-US use restriction statement.
+    #[serde(rename = "useRestriction")]
+    pub use_restriction: Option<String>,
     /// URL(s) providing access to this distribution (`dcat:accessURL`)
     #[serde(rename = "accessURL")]
-    #[validate(custom(function = "is_urls"))]
-    pub access_url: Vec<String>,
+    #[validate(custom(function = "is_one_or_many_urls"))]
+    pub access_url: OneOrMany<String>,
     /// Data service IRI(s) giving access to this distribution (`dcat:accessService`)
-    #[serde(rename = "accessService", default, deserialize_with = "optional_string_or_seq")]
-    pub access_service: Option<Vec<String>>,
+    #[serde(rename = "accessService", default)]
+    pub access_service: Option<OneOrMany<String>>,
     /// Direct download URL(s) (`dcat:downloadURL`)
-    #[serde(rename = "downloadURL", default, deserialize_with = "optional_string_or_seq")]
-    #[validate(custom(function = "is_urls"))]
-    pub download_url: Option<Vec<String>>,
+    #[serde(rename = "downloadURL", default)]
+    #[validate(custom(function = "is_one_or_many_urls"))]
+    pub download_url: Option<OneOrMany<String>>,
     /// Size in bytes (`dcat:byteSize`)
     #[serde(rename = "byteSize")]
     pub byte_size: Option<u64>,
@@ -454,8 +543,9 @@ pub struct Distribution {
     #[serde(rename = "temporalResolution")]
     pub temporal_resolution: Option<String>,
     /// Standards the distribution conforms to, as IRIs (`dcterms:conformsTo`)
-    #[serde(rename = "conformsTo", default, deserialize_with = "optional_string_or_seq")]
-    pub conforms_to: Option<Vec<String>>,
+    #[serde(rename = "conformsTo", default)]
+    #[validate(nested)]
+    pub conforms_to: Option<OneOrMany<ConformsTo>>,
     /// IANA media type IRI (`dcat:mediaType`)
     #[serde(rename = "mediaType")]
     pub media_type: Option<String>,
@@ -470,6 +560,43 @@ pub struct Distribution {
     /// Checksum for integrity verification (`spdx:checksum`, DCAT 3)
     #[validate(nested)]
     pub checksum: Option<Checksum>,
+}
+/// A document resource used for landing pages and homepages.
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct Document {
+    /// JSON-LD node identifier.
+    #[serde(rename = "@id")]
+    #[validate(custom(function = "is_url"))]
+    pub id: Option<String>,
+    /// JSON-LD node type.
+    #[serde(rename = "@type")]
+    pub jsonld_type: Option<String>,
+    /// Document title.
+    pub title: Option<String>,
+    /// URL used to access the document.
+    #[serde(rename = "accessURL")]
+    #[validate(custom(function = "is_url"))]
+    pub access_url: Option<String>,
+}
+/// A vCard contact point (`vcard:Kind`) used by DCAT-US.
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct Kind {
+    /// JSON-LD node type.
+    #[serde(rename = "@type")]
+    pub jsonld_type: Option<String>,
+    /// Formatted contact name (`vcard:fn`).
+    #[serde(rename = "fn")]
+    pub fn_: String,
+    /// Contact email as a `mailto:` URI (`vcard:hasEmail`).
+    #[serde(rename = "hasEmail")]
+    pub has_email: String,
+    /// Contact telephone URI or string (`vcard:tel`).
+    pub tel: Option<String>,
+    /// Contact organization name (`vcard:organization-name`).
+    #[serde(rename = "organization-name")]
+    pub organization_name: Option<String>,
 }
 /// A spatial region or named place (`dcterms:Location`)
 ///
@@ -495,45 +622,135 @@ pub struct Relationship {
     #[serde(rename = "hadRole", alias = "role")]
     pub had_role: RelationType,
 }
-impl TryFrom<datacite::Record> for Dataset {
-    type Error = CrosswalkError;
-
-    fn try_from(record: datacite::Record) -> Result<Self, Self::Error> {
-        let mapping = datacite_to_dcat();
-        crosswalk::convert(&record, &mapping).map(|(dataset, _)| dataset)
+/// A DCAT-US publisher organization.
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct UsOrganization {
+    /// JSON-LD node identifier.
+    #[serde(rename = "@id")]
+    #[validate(custom(function = "is_url"))]
+    pub id: Option<String>,
+    /// JSON-LD node type.
+    #[serde(rename = "@type")]
+    pub jsonld_type: Option<String>,
+    /// Organization name.
+    pub name: String,
+    /// Preferred label.
+    #[serde(rename = "prefLabel")]
+    pub pref_label: Option<String>,
+    /// Alternative label.
+    #[serde(rename = "altLabel")]
+    pub alt_label: Option<String>,
+    /// Parent organization.
+    #[serde(rename = "subOrganizationOf")]
+    #[validate(nested)]
+    pub sub_organization_of: Option<Box<UsOrganization>>,
+}
+impl DocumentRef {
+    /// Returns the URI represented by this document reference, when present.
+    pub fn url(&self) -> Option<&str> {
+        match self {
+            | Self::Uri(value) => Some(value),
+            | Self::Document(document) => document.access_url.as_deref().or(document.id.as_deref()),
+        }
     }
 }
-impl TryFrom<&datacite::Record> for Dataset {
-    type Error = CrosswalkError;
-
-    fn try_from(record: &datacite::Record) -> Result<Self, Self::Error> {
-        Dataset::try_from(record.clone())
+#[cfg(feature = "std")]
+impl InputOutput for Dataset {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Dataset> {
+        let source = path.into();
+        match MimeType::from(source.display().to_string()) {
+            | MimeType::Json => Dataset::read_json(source),
+            | MimeType::Yaml => Dataset::read_yaml(source),
+            | _ => Err(eyre!("Unsupported DCAT data file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Dataset> {
+        read_file(path).and_then(|content| {
+            serde_json::from_str::<OneOrMany<Dataset>>(&content)
+                .map_err(|why| eyre!("Failed to parse JSON DCAT dataset — {why}"))
+                .and_then(|value| match value {
+                    | OneOrMany::One(dataset) => Ok(dataset),
+                    | OneOrMany::Many(datasets) => match datasets.len() {
+                        | 1 => datasets
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| eyre!("Expected one DCAT dataset but found none")),
+                        | len => Err(eyre!("Expected one DCAT dataset but found {len}")),
+                    },
+                })
+        })
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Dataset> {
+        read_file(path).and_then(|content| {
+            serde_norway::from_str::<OneOrMany<Dataset>>(&content)
+                .map_err(|why| eyre!("Failed to parse YAML DCAT dataset — {why}"))
+                .and_then(|value| match value {
+                    | OneOrMany::One(dataset) => Ok(dataset),
+                    | OneOrMany::Many(datasets) => match datasets.len() {
+                        | 1 => datasets
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| eyre!("Expected one DCAT dataset but found none")),
+                        | len => Err(eyre!("Expected one DCAT dataset but found {len}")),
+                    },
+                })
+        })
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from(output.display().to_string()) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported DCAT data file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("json");
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!("Failed to serialize JSON DCAT dataset — {why}"))
+            .and_then(|content| write_file(output, content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("yaml");
+        serde_norway::to_string(self)
+            .map_err(|why| eyre!("Failed to serialize YAML DCAT dataset — {why}"))
+            .and_then(|content| write_file(output, content))
+    }
+}
+impl Publisher {
+    /// Returns the publisher name.
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            | Self::Organization(organization) => Some(organization.name.as_str()),
+            | Self::Agent(agent) => agent.name.as_deref(),
+        }
     }
 }
 impl SchemaBuilder for Dataset {
     fn build_from_fields(fields: &Fields) -> Result<Self, CrosswalkError> {
-        let identifier = fields.get_string_vec_opt("identifier");
+        let identifier = fields.get_string_vec_opt("identifier").map(OneOrMany::Many);
         let mut title = None;
         if let Some(title_str) = fields.get_string_opt("title") {
-            title = Some(vec![title_str]);
+            title = Some(OneOrMany::Many(vec![title_str]));
         }
         let mut description = None;
         if let Some(desc_str) = fields.get_string_opt("description") {
-            description = Some(vec![desc_str]);
+            description = Some(OneOrMany::Many(vec![desc_str]));
         }
         let issued = fields.get_date_opt("issued");
-        let language = fields.get_string_vec_opt("language");
-        let keywords = fields.get_string_vec_opt("keywords");
-        let themes = fields.get_string_vec_opt("themes");
+        let language = fields.get_string_vec_opt("language").map(OneOrMany::Many);
+        let keywords = fields.get_string_vec_opt("keywords").map(OneOrMany::Many);
+        let themes = fields.get_string_vec_opt("themes").map(OneOrMany::Many);
         let version = fields.get_string_opt("version");
         let mut publisher = None;
         if let Some(pub_name) = fields.get_string_opt("publisher") {
-            publisher = Some(Agent {
+            publisher = Some(Publisher::Agent(Agent {
                 name: Some(pub_name),
                 homepage: None,
                 email: None,
                 identifier: None,
-            });
+            }));
         }
         let mut creator = None;
         if let Some(creator_names) = fields.get_string_vec_opt("creators") {
@@ -550,6 +767,10 @@ impl SchemaBuilder for Dataset {
             );
         }
         let license = fields.get_iri_opt("license");
+        let landing_page = fields
+            .get_string_opt("landing_page")
+            .or_else(|| fields.get_iri_opt("landing_page"))
+            .map(|value| OneOrMany::Many(vec![DocumentRef::Uri(value)]));
         let mut spatial = None;
         if let Some(spatial_str) = fields.get_string_opt("spatial") {
             spatial = Some(vec![Location {
@@ -559,6 +780,8 @@ impl SchemaBuilder for Dataset {
             }]);
         }
         Ok(Dataset {
+            id: None,
+            jsonld_type: Some("dcat:Dataset".to_string()),
             title,
             description,
             identifier,
@@ -575,7 +798,7 @@ impl SchemaBuilder for Dataset {
             access_rights: None,
             has_policy: None,
             conforms_to: None,
-            landing_page: None,
+            landing_page,
             relation: None,
             type_: None,
             version,
@@ -607,7 +830,7 @@ impl SchemaExtractor for Dataset {
         let mut fields = Fields::new();
         if let Some(identifiers) = &self.identifier {
             if !identifiers.is_empty() {
-                fields.insert("identifier", FieldValue::StringVec(identifiers.clone()));
+                fields.insert("identifier", FieldValue::StringVec(identifiers.as_slice().to_vec()));
             }
         }
         if let Some(titles) = &self.title {
@@ -628,20 +851,20 @@ impl SchemaExtractor for Dataset {
             fields.insert("issued", FieldValue::Date(issued.clone()));
         }
         if let Some(keywords) = &self.keywords {
-            fields.insert("keywords", FieldValue::StringVec(keywords.clone()));
+            fields.insert("keywords", FieldValue::StringVec(keywords.as_slice().to_vec()));
         }
         if let Some(themes) = &self.themes {
-            fields.insert("themes", FieldValue::StringVec(themes.clone()));
+            fields.insert("themes", FieldValue::StringVec(themes.as_slice().to_vec()));
         }
         if let Some(language) = &self.language {
-            fields.insert("language", FieldValue::StringVec(language.clone()));
+            fields.insert("language", FieldValue::StringVec(language.as_slice().to_vec()));
         }
         if let Some(version) = &self.version {
             fields.insert("version", FieldValue::String(version.clone()));
         }
         if let Some(publisher) = &self.publisher {
-            if let Some(name) = &publisher.name {
-                fields.insert("publisher", FieldValue::String(name.clone()));
+            if let Some(name) = publisher.name() {
+                fields.insert("publisher", FieldValue::String(name.to_string()));
             }
         }
         if let Some(creators) = &self.creator {
@@ -675,80 +898,60 @@ impl ToProse for Dataset {
             .join("\n\n")
     }
 }
-#[cfg(feature = "std")]
-impl InputOutput for Dataset {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Dataset> {
-        let source = path.into();
-        match MimeType::from(source.display().to_string()) {
-            | MimeType::Json => Dataset::read_json(source),
-            | MimeType::Yaml => Dataset::read_yaml(source),
-            | _ => Err(eyre!("Unsupported DCAT data file extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Dataset> {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum JsonInput {
-            One(Box<Dataset>),
-            Many(Vec<Dataset>),
-        }
+impl TryFrom<&datacite::Record> for Dataset {
+    type Error = CrosswalkError;
 
-        read_file(path).and_then(|content| {
-            serde_json::from_str::<JsonInput>(&content)
-                .map_err(|why| eyre!("Failed to parse JSON DCAT dataset — {why}"))
-                .and_then(|value| match value {
-                    | JsonInput::One(dataset) => Ok(*dataset),
-                    | JsonInput::Many(datasets) => match datasets.len() {
-                        | 1 => datasets
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one DCAT dataset but found none")),
-                        | len => Err(eyre!("Expected one DCAT dataset but found {len}")),
-                    },
-                })
-        })
+    fn try_from(record: &datacite::Record) -> Result<Self, Self::Error> {
+        Dataset::try_from(record.clone())
     }
-    fn read_yaml(path: PathBuf) -> ApiResult<Dataset> {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum YamlInput {
-            One(Box<Dataset>),
-            Many(Vec<Dataset>),
-        }
+}
+impl TryFrom<datacite::Record> for Dataset {
+    type Error = CrosswalkError;
 
-        read_file(path).and_then(|content| {
-            serde_norway::from_str::<YamlInput>(&content)
-                .map_err(|why| eyre!("Failed to parse YAML DCAT dataset — {why}"))
-                .and_then(|value| match value {
-                    | YamlInput::One(dataset) => Ok(*dataset),
-                    | YamlInput::Many(datasets) => match datasets.len() {
-                        | 1 => datasets
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one DCAT dataset but found none")),
-                        | len => Err(eyre!("Expected one DCAT dataset but found {len}")),
-                    },
-                })
-        })
+    fn try_from(record: datacite::Record) -> Result<Self, Self::Error> {
+        let mapping = datacite_to_dcat();
+        crosswalk::convert(&record, &mapping).map(|(dataset, _)| dataset)
     }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from(output.display().to_string()) {
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported DCAT data file extension for writing")),
+}
+impl Validate for ConformsTo {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        match self {
+            | Self::Uri(_) => Ok(()),
+            | Self::Standard(standard) => standard.validate(),
         }
     }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("json");
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize JSON DCAT dataset — {why}"))
-            .and_then(|content| write_file(output, content))
+}
+impl Validate for ContactPoint {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        match self {
+            | Self::Uri(_) => Ok(()),
+            | Self::Kind(kind) => kind.validate(),
+        }
     }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("yaml");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize YAML DCAT dataset — {why}"))
-            .and_then(|content| write_file(output, content))
+}
+impl Validate for DocumentRef {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        match self {
+            | Self::Uri(_) => Ok(()),
+            | Self::Document(document) => document.validate(),
+        }
     }
+}
+impl Validate for Publisher {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        match self {
+            | Self::Organization(organization) => organization.validate(),
+            | Self::Agent(agent) => agent.validate(),
+        }
+    }
+}
+fn is_document_refs_urls(value: &OneOrMany<DocumentRef>) -> Result<(), ValidationError> {
+    value
+        .iter()
+        .filter_map(DocumentRef::url)
+        .find_map(|url| is_url(url).err())
+        .map_or(Ok(()), Err)
+}
+fn is_one_or_many_urls(value: &OneOrMany<String>) -> Result<(), ValidationError> {
+    is_urls(value.as_slice())
 }
