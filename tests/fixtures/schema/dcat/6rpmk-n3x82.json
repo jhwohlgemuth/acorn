@@ -1,0 +1,36 @@
+{
+    "title": [
+        "Petroleum Product Pipelines EIA"
+    ],
+    "description": [
+        "This data was created for the purpose of identifying major petroleum product pipelines in the United States. Major petroleum product pipelines in the United States. Layer includes interstate trunk lines and selected intrastate lines. Based on publicly available data from a variety of sources with varying scales and levels of accuracy. Updated January 2020."
+    ],
+    "identifier": [
+        "7f7c244f-1109-4877-940a-f23899aefa05"
+    ],
+    "issued": "2026-01-30T15:12:37.764400",
+    "modified": "2026-02-10T16:59:04.205917",
+    "publisher": {
+        "name": "U.S. Energy Information Administration"
+    },
+    "creator": [
+        {
+            "name": "U.S. Energy Information Administration"
+        }
+    ],
+    "contactPoint": [
+        "mailto:data@oedp.org"
+    ],
+    "keywords": [
+        "Petroleum Product Pipeline"
+    ],
+    "landingPage": [
+        "http://localhost:5000/dataset/petroleum-product-pipelines-eia"
+    ],
+    "qualifiedRelation": [
+        {
+            "relation": "https://atlas.eia.gov/datasets/petroleum-product-pipelines/explore",
+            "hadRole": "References"
+        }
+    ]
+}

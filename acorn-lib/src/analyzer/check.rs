@@ -446,7 +446,21 @@ impl Check {
                 }
             }
             | CheckCategory::Crosswalk => {
-                error!("{} {}", Label::fail(), message);
+                let title = uri.as_deref().unwrap_or("crosswalk");
+                let source_text = context.as_deref().unwrap_or(&message).to_string();
+                let source = Source::from(source_text.clone());
+                let span = 0..=source_text.len().saturating_sub(1);
+                let _ = Report::build(severity.clone().into(), (title, 1..=1))
+                    .with_code(index)
+                    .with_config(Config::default().with_compact(false))
+                    .with_message(locator.unwrap_or("Crosswalk warning".to_string()))
+                    .with_label(
+                        ariadne::Label::new((title, span))
+                            .with_message(message.italic())
+                            .with_color(severity.clone().into()),
+                    )
+                    .finish()
+                    .print((title, source));
             }
         }
     }
@@ -1077,6 +1091,7 @@ pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
         CheckCategory::Link,
         CheckCategory::Prose,
         CheckCategory::Readability,
+        CheckCategory::Crosswalk,
     ]
     .iter()
     .map(|category| {

@@ -2,14 +2,14 @@ use crate::cli::arguments::FileFormat;
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
-use acorn::analyzer::{Check, IntoChecks, Standard};
+use acorn::analyzer::{summary, Check, CheckCategory, IntoChecks, Standard};
 use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::current_date;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
 use acorn::io::{ApiFuture, ApiResult};
 use acorn::prelude::{exit, remove_dir_all, Arc, HashSet, Mutex, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{format_bytes, regex_join, suffix, Label, MimeType, StringConversion};
+use acorn::util::{format_bytes, print_values_as_table, regex_join, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
 use bon::Builder;
 use clap_verbosity_flag::Verbosity;
@@ -46,6 +46,8 @@ struct ExportRequest {
     dry_run: bool,
     #[builder(default)]
     strict: bool,
+    #[builder(default)]
+    skip: Vec<CheckCategory>,
     #[builder(default)]
     progress_type: ProgressType,
     #[builder(default)]
@@ -100,6 +102,7 @@ impl ExportHandler for StructuredExportHandler {
                 to,
                 request.dry_run,
                 request.strict,
+                request.skip,
                 &request.output,
             )
             .await
@@ -247,6 +250,7 @@ pub async fn run(
     combine: &bool,
     merge_request: &bool,
     raw: &bool,
+    skip: &[CheckCategory],
     dry_run: bool,
     strict: bool,
     threads: usize,
@@ -277,6 +281,7 @@ pub async fn run(
         .combine(*combine)
         .dry_run(dry_run)
         .strict(strict)
+        .skip(skip.to_vec())
         .progress_type(progress_type)
         .options(options)
         .build();
@@ -359,6 +364,7 @@ async fn export_as_format_crosswalk(
     to: Option<Standard>,
     dry_run: bool,
     strict: bool,
+    skip: Vec<CheckCategory>,
     output: &Option<PathBuf>,
 ) -> ApiResult<()> {
     match to {
@@ -378,6 +384,7 @@ async fn export_as_format_crosswalk(
             let ext = extension.to_owned();
             let collected_checks: Arc<Mutex<Vec<Check>>> = Arc::new(Mutex::new(Vec::new()));
             let output_dir = output.clone();
+            let skip_crosswalk = skip.contains(&CheckCategory::Crosswalk);
             let progress = with_progress(
                 items,
                 |item| format!("Generating {format} for {}", item.display()),
@@ -402,27 +409,22 @@ async fn export_as_format_crosswalk(
                                 };
                                 let processed = source.and_then(|resolved| {
                                     let target_mime = MimeType::from(format);
-                                    if strict || dry_run {
-                                        resolved
-                                            .crosswalk_with_warnings(&content, mime, target, target_mime)
-                                            .map_err(|e| eyre!("Crosswalk failed — {e}"))
-                                    } else {
+                                    if strict || dry_run || skip_crosswalk {
                                         resolved
                                             .crosswalk(&content, mime, target, target_mime)
                                             .map(|c| (c, Vec::new()))
+                                            .map_err(|e| eyre!("Crosswalk failed — {e}"))
+                                    } else {
+                                        resolved
+                                            .crosswalk_with_warnings(&content, mime, target, target_mime)
                                             .map_err(|e| eyre!("Crosswalk failed — {e}"))
                                     }
                                 });
                                 match processed {
                                     | Ok((content, warnings)) => {
-                                        for w in &warnings {
-                                            info!("  {} crosswalk warning: {w}", Label::run());
-                                        }
-                                        if !warnings.is_empty() {
-                                            if let Ok(mut guard) = checks.lock() {
-                                                let uri = item.to_string_lossy().to_string();
-                                                guard.extend(warnings.to_checks(Some(uri)));
-                                            }
+                                        let uri = item.to_string_lossy().to_string();
+                                        if let Ok(mut guard) = checks.lock() {
+                                            guard.extend(warnings.to_checks(Some(uri)));
                                         }
                                         if dry_run {
                                             info!(
@@ -456,11 +458,12 @@ async fn export_as_format_crosswalk(
             match progress.await {
                 | Ok(_) => {
                     let all_warnings = collected_checks.lock().map(|g| g.clone()).unwrap_or_default();
-                    if !all_warnings.is_empty() {
+                    if !(all_warnings.is_empty() || matches!(progress_type, ProgressType::Silent)) {
                         info!("=> Crosswalk warnings ({} total):", all_warnings.len().cyan().bold());
                         for check in &all_warnings {
                             info!("  {check}");
                         }
+                        print_values_as_table::<String>(vec!["", "Count"], summary(all_warnings.clone()), None);
                     }
                     if dry_run {
                         info!(

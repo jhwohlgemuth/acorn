@@ -9,10 +9,13 @@ use crate::analyzer::check::{highlighted, highlighted_array, highlighted_from_pa
 use crate::analyzer::error::ErrorCode;
 use crate::analyzer::error::ErrorKind;
 use crate::analyzer::vale::{preprocess_vale_output, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
-use crate::analyzer::{checks_to_dataframe, collect_validation_checks, Analysis, Check, CheckCategory, CheckSeverity, StaticAnalyzerConfig};
+use crate::analyzer::{
+    checks_to_dataframe, collect_validation_checks, summary, Analysis, Check, CheckCategory, CheckSeverity, IntoChecks, StaticAnalyzerConfig,
+};
 use crate::io::License;
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
+use crate::schema::standard::crosswalk::ConversionWarning;
 use crate::test::utils::unique_path;
 use crate::{check, check_ok};
 use ariadne::Color;
@@ -119,6 +122,26 @@ fn test_checks_to_dataframe() {
     let df = checks_to_dataframe(&checks);
     let reason = "Failed to convert checks to dataframe";
     assert_eq!(df.expect(reason).shape(), (checks.len(), 7));
+}
+#[test]
+fn test_conversion_warnings_use_into_checks_trait() {
+    let warnings = vec![ConversionWarning::no_equivalent("datacite", "dcat", "attributes.publisher")];
+    let checks = warnings.to_checks(Some("record.json".to_string()));
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks[0].category, CheckCategory::Crosswalk);
+    assert_eq!(checks[0].severity, CheckSeverity::Warning);
+    assert_eq!(checks[0].issue_count(), 1);
+    assert_eq!(checks[0].uri.as_deref(), Some("record.json"));
+    assert_eq!(checks[0].locator.as_deref(), Some("attributes.publisher"));
+}
+#[test]
+fn test_summary_includes_crosswalk_warnings() {
+    let warnings = vec![
+        ConversionWarning::no_equivalent("datacite", "dcat", "attributes.publisher"),
+        ConversionWarning::no_equivalent("datacite", "dcat", "attributes.subjects"),
+    ];
+    let rows = summary(warnings.to_checks(None));
+    assert!(rows.contains(&vec!["Crosswalk items found".to_string(), "2".to_string()]));
 }
 #[test]
 fn test_highlighted_span() {

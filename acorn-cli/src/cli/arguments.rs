@@ -236,6 +236,9 @@ pub(crate) struct Export {
     /// Suppress output from external commands while preserving ACORN output — useful for piping
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) raw: bool,
+    /// Skip one or more available export check categories
+    #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', value_parser = parse_check_category, help_heading = "OPTIONS")]
+    pub(crate) skip: Vec<analyzer::CheckCategory>,
     /// Path to reference file to be used when exporting to PowerPoint
     ///
     /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.

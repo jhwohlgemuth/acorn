@@ -1173,148 +1173,41 @@ This section captures follow-up work after the first-pass importer scaffold that
 3. Add a drift check mode that compares imported operations against current templates.
 4. Add CI coverage for importer tests and deterministic output across platforms.
 
-### Phase 5: Provider Integration and Documentation
-
-1. Use the importer to bootstrap additional OpenAI families (`responses/compact`, `responses/input_tokens`).
-2. Pilot import flow for another provider to validate generality.
-3. Document importer behavior, limitations, and extension points in docs and command help.
-
-## Metadata Schema Crosswalk — Complete
-
-All core and polish features are implemented. The crosswalk engine is fully integrated into the `acorn export` command with field-level loss tracking and round-trip stability verified by property-based tests.
-
-### Implementation
-
-**CLI**: `--from`, `--to`, `--dry-run`, and `--strict` flags on `acorn export` are wired in `acorn-cli/src/cli/mod.rs` and dispatch through `ExportHandler::crosswalk()` in `acorn-cli/src/commands/export/mod.rs`.
-
-**Engine**: `Standard::crosswalk()` in `acorn-lib/src/analyzer/check.rs` drives conversion through `Batch<T>` processing with per-record error reporting. `Standard::crosswalk_detailed()` runs FieldMapping alongside TryFrom for `ConversionWarning` collection. Crosswalk infrastructure lives in `acorn-lib/src/schema/standard/crosswalk/` (302 lines) with `FieldMap`, `Crosswalk` trait, `SchemaRegistry`, and `ConversionWarning` tracking.
-
-**Schema pairs**: All 4×4 conversions are supported — DataCite, DCAT, InvenioRDM, HuWise. Direct conversions exist where possible; InvenioRDM↔HuWise and DCAT↔InvenioRDM use DataCite as an intermediate bridge.
-
-**Tests**: Fixture + property-based tests in `acorn-lib/src/schema/standard/crosswalk/tests.rs` (726 lines). 6 proptests cover identity round-trip, year transform round-trip, DCAT↔DataCite round-trip, and graceful handling of arbitrary input.
-
-### Known Limitations
-
-1. **Lossy conversions**: Some metadata may be lost in crosswalk conversions. The infrastructure (`ConversionWarning`, `FieldLossType`) is now surfaced to CLI output via `--strict` mode and `crosswalk_detailed()`. Known asymmetric mappings (DOI as String↔StringVec) are detected but expected.
-2. **Performance**: Large batches are currently sequential — could benefit from parallelization.
-3. **Invenio↔HuWise**: Uses DataCite as intermediate bridge; a direct mapping could improve performance but is low priority given the 160-field vs 200+ field mismatch.
-
-## Crosswalk Checks Integration
-
-Integrate `ConversionWarning` into the `Check` infrastructure with `CheckSeverity::Warning` so crosswalk loss warnings render through the standard check pipeline (consistent coloring, `--skip crosswalk`, aggregated summary).
-
-### Steps
-
-| # | File | Change |
-|---|------|--------|
-| 1 | `acorn-lib/src/analyzer/check.rs` | Add `Crosswalk` variant to `CheckCategory` enum |
-| 2 | Same file | Add arm in `Analysis::check()` dispatch → `Vec::new()` |
-| 3 | Same file | Add arm in `issue_count()` → `warnings.len()` |
-| 4 | Same file | Add arm in `report()` → simple warning rendering |
-| 5 | Same file | Add arm in `fmt::Display` → `"[crosswalk] schema_from → schema_to: field (loss_type)"` |
-| 6 | Same file | Add `"crosswalk"` in `From<&str>` |
-| 7 | Same file | Add `Crosswalk => 4` in `From<&CheckCategory> for u8` |
-| 8 | Same file | Add `conversion_warnings_to_checks()` converter function |
-| 9 | `acorn-cli/src/cli/parse.rs` | Add `"crosswalk"` to `parse_check_category()` |
-| 10 | `acorn-cli/src/commands/export/mod.rs` | Wire `Arc<Mutex<Vec<Check>>>` into `export_as_format_crosswalk()` |
-
-### Behavior Changes
-
-| Scenario | Before | After |
-|---|---|---|
-| `--strict` with warnings | `fail!("Conversion warning — ...")` per warning, then `Err` | `Check` objects rendered via Display, then `Err` |
-| Normal mode with warnings | `info!("{} crosswalk warning: ...", Label::run())` | Same + summary block of Checks at end |
-| `--skip crosswalk` | No effect | Warnings suppressed via Check skip logic |
-
 ## CKAN Fixture Conversion to DCAT v3
 
-Three new test fixtures must be created in `tests/fixtures/schema/dcat/` in CKAN JSON API format (the format returned by `https://ckan.example.org/api/3/action/package_show?id=xxx`). These fixtures are consumed by `acorn check --standard dcat` and currently produce 6 deserialization/URL errors because the structs expect pure DCAT v3 JSON.
-
-### Fixture Files to Create
-
-| File | Purpose |
-|------|---------|
-| `tests/fixtures/schema/dcat/0sbdv-gh024.json` | CKAN dataset with all typical fields: title, notes, tags, resources, organization, relationships |
-| `tests/fixtures/schema/dcat/6rpmk-n3x82.json` | CKAN dataset with minimal fields (title + resources only) |
-| `tests/fixtures/schema/dcat/j5xbm-d7v43.json` | CKAN dataset with extras, groups, and multiple relationships |
-
-### CKAN API Format Reference
-
-A CKAN `package_show` response uses this structure:
-
-```json
-{
-  "id": "0sbdv-gh024",
-  "name": "dataset-name",
-  "title": "Dataset Title",
-  "notes": "Free-text description",
-  "url": "https://example.org/dataset/main",
-  "author": "Author Name",
-  "author_email": "author@example.org",
-  "maintainer": "Maintainer Name",
-  "maintainer_email": "maintainer@example.org",
-  "metadata_created": "2024-01-15T10:00:00.000000",
-  "metadata_modified": "2024-06-20T14:30:00.000000",
-  "tags": [
-    {"name": "energy", "display_name": "Energy"},
-    {"name": "water", "display_name": "Water"}
-  ],
-  "resources": [
-    {
-      "id": "res-001",
-      "name": "Data File",
-      "description": "Main data file",
-      "url": "https://example.org/data.csv",
-      "format": "CSV",
-      "created": "2024-01-15T10:00:00.000000",
-      "last_modified": "2024-06-20T14:30:00.000000"
-    }
-  ],
-  "organization": {
-    "id": "org-001",
-    "name": "example-org",
-    "title": "Example Organization"
-  },
-  "groups": [
-    {"name": "energy-group", "title": "Energy Group"}
-  ],
-  "relationships_as_subject": [
-    {
-      "type": "is_child_of",
-      "object": "https://example.org/datasets/parent-dataset",
-      "uri": "https://example.org/datasets/parent-dataset"
-    }
-  ]
-}
-```
+This section documents the rules for converting CKAN API format test fixtures (in `tests/fixtures/schema/ckan/`) to DCAT v3 compliant JSON (in `tests/fixtures/schema/dcat/`).
 
 ### Field Mapping CKAN → DCAT v3
 
 | CKAN field path | DCAT v3 path | Transformation |
 |---|---|---|
 | `title` | `title` | Wrap in array: `["CKAN value"]` |
-| `notes` | `description` | Rename key, wrap in array |
-| `url` | `landingPage` | Rename key, wrap in array |
-| `id` | `identifier` | Wrap in array |
+| `notes` (HTML) | `description` | Strip HTML tags, wrap in array |
+| `url` | `landingPage` | Wrap single string in array |
+| `id` | `identifier` | Wrap single string in array |
 | `metadata_created` | `issued` | Keep as ISO 8601 string |
 | `metadata_modified` | `modified` | Keep as ISO 8601 string |
 | `tags[].name` | `keywords` | Extract `.name` into array of strings |
-| `author` + `author_email` | `publisher.name` + `publisher.email` | Construct `Agent` object |
-| `maintainer` + `maintainer_email` | `creator[0].name` + `creator[0].email` | Construct single `Agent` in array |
-| `organization.title` | `publisher.name` | Prefer over author when org exists |
-| `resources[]` | `distribution[]` | Per resource: `url`→`accessURL` (wrapped), `name`→`title`, `description`→`description`, `format`→`format`, `created`→`issued`, `last_modified`→`modified`, `id`→`identifier` |
-| `relationships_as_subject[].type` | `qualifiedRelation[].hadRole` | Map CKAN type string to `hadRole` IRI |
-| `relationships_as_subject[].object` | `qualifiedRelation[].relation` | Map object IRI to `relation` |
+| `publisher[0].name` | `publisher.name` | Construct `Agent` with name |
+| `creator[]` | `creator[]` | Each → `Agent { name }`; if CKAN has `identifier`, set as `identifier` (ORCID) |
+| `contact[].email` | `contactPoint` | Format as `mailto:` URI in array |
+| `qualified_relation[].uri` | `qualifiedRelation[].relation` | Related resource IRI |
+| `qualified_relation[].relation` | `qualifiedRelation[].hadRole` | Role label |
+| `resources[]` | `distribution[]` | Each → `Distribution { accessURL, title, description, format, issued, modified }` |
 
-### Files to Create/Modify
+### Fixture Files
 
-- Create: `tests/fixtures/schema/dcat/0sbdv-gh024.json` — DCAT v3 JSON derived from CKAN API format
-- Create: `tests/fixtures/schema/dcat/6rpmk-n3x82.json` — DCAT v3 JSON derived from CKAN API format
-- Create: `tests/fixtures/schema/dcat/j5xbm-d7v43.json` — DCAT v3 JSON derived from CKAN API format
+| Source (ckan/) | Target (dcat/) | Content |
+|---|---|---|
+| `0sbdv-gh024.json` | `0sbdv-gh024.json` | Full-featured: HTML notes, 4 tags, publisher, 3 creators, 2 qualified relations, contact |
+| `6rpmk-n3x82.json` | `6rpmk-n3x82.json` | Minimal: short notes, 1 tag, 1 creator/publisher, 1 qualified relation |
+| `j5xbm-d7v43.json` | `j5xbm-d7v43.json` | Medium: 2 creators, 1 tag, contact, 1 qualified relation |
 
 ### Verification
 
 ```bash
-cargo run --bin acorn -- check .\\tests\\fixtures\\schema\\dcat\\ --standard dcat
-# Should produce 0 errors (no deserialization or URL failures)
+cargo run --bin acorn -- check ./tests/fixtures/schema/dcat/ --standard dcat
 ```
+
+Should produce 0 errors (no deserialization or URL failures).
+

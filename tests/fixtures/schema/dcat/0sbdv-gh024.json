@@ -1,0 +1,50 @@
+{
+    "title": [
+        "CODAS Energy Router: Energy Storage"
+    ],
+    "description": [
+        "This dataset is part of a DC-coupled microgrid simulation environment using ORNL's Control and Optimization using Distributed Agent-based System (CODAS) in the control hardware-in-the-loop (CHIL) real-time testbed. The utilization of energy resources such as photovoltaics (PV), energy storage, and electric vehicle batteries is becoming increasingly possible for residential homeowners. However, challenges remain on the integration. This dataset emerges from the work that proposed a communication, control, and optimization framework that is shown to work in a CHIL system. This dataset specifically captures energy storage subsystem (DC-coupled) variables and measurements for system-level analysis, control validation, and power-flow studies. Time-synchronized simulation using ORNL's CODAS testbed (DC microgrid topology). The energy storage (ES) subsystem interfaces to the DC bus via a DC/DC converter; the system can charge from PV and/or the grid based on price signal through the grid interface. Data includes converter configuration, measurements, status flags, and ES state metrics (state of charge or SOC, temperature). Raw simulation logs were curated into a tidy CSV with one timestamped row per measurement set; units and names were normalized, and obvious non-physical spikes were flagged (not removed by default).\n\nRecommended citation: Michael Starke, Namwon Kim, Ben Dean, Renata Kimpara, Max Ferrari, and Madhu Chinthavali, \"A Residential Energy Router for Resource Integration and Uninterrupted Power,\" 2025 IEEE Power & Energy Society General Meeting (PESGM), Austin TX, USA, 27-31 July 2025. DOI: 10.1109/PESGM52009.2025.1122566. See: https://ieeexplore.ieee.org/document/11225661"
+    ],
+    "identifier": [
+        "92d81565-11c7-47cb-b38c-e73dcbecde28"
+    ],
+    "issued": "2026-01-30T15:13:15.192103",
+    "modified": "2026-02-10T16:59:37.710843",
+    "publisher": {
+        "name": "Oak Ridge National Laboratory"
+    },
+    "creator": [
+        {
+            "identifier": "https://orcid.org/0000-0003-3577-8544",
+            "name": "Sundararajan, Aditya"
+        },
+        {
+            "name": "Starke, Michael"
+        },
+        {
+            "name": "Chinthavali, Supriya"
+        }
+    ],
+    "contactPoint": [
+        "mailto:data@oedp.org"
+    ],
+    "keywords": [
+        "Electricity",
+        "Electricity Distribution",
+        "Renewable Energy Generation",
+        "Solar"
+    ],
+    "landingPage": [
+        "http://localhost:5000/dataset/codas-energy-router-energy-storage"
+    ],
+    "qualifiedRelation": [
+        {
+            "relation": "https://ornl.opendatasoft.com/explore/dataset/energy-router-electric-vehicle-dataset/information/",
+            "hadRole": "Issupplementto"
+        },
+        {
+            "relation": "https://ornl.opendatasoft.com/explore/dataset/energy-router-electric-vehicle-dataset/information",
+            "hadRole": "Issupplementedby"
+        }
+    ]
+}
