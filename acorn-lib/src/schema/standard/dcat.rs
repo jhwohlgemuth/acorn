@@ -12,7 +12,7 @@
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
-use crate::schema::standard::datacite;
+use crate::schema::standard::datacite::{self, RelationType};
 use crate::schema::validate::{is_url, is_urls};
 use crate::schema::{optional_string_or_seq, string_or_seq, Date as PeriodOfTime};
 use crate::util::{Checksum, MimeType, ToProse};
@@ -493,7 +493,7 @@ pub struct Relationship {
     pub relation: String,
     /// IRI of the role the related resource plays (`dcat:hadRole`)
     #[serde(rename = "hadRole", alias = "role")]
-    pub had_role: String,
+    pub had_role: RelationType,
 }
 impl TryFrom<datacite::Record> for Dataset {
     type Error = CrosswalkError;
