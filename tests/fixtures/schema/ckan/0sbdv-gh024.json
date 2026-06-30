@@ -1,0 +1,108 @@
+{
+    "author": null,
+    "author_email": null,
+    "creator_user_id": "9cf2bb1c-c7fb-4bec-9b80-653e5d8ad4b6",
+    "id": "92d81565-11c7-47cb-b38c-e73dcbecde28",
+    "isopen": false,
+    "issued": "2025",
+    "license_title": null,
+    "maintainer": null,
+    "maintainer_email": null,
+    "metadata_created": "2026-01-30T15:13:15.192103",
+    "metadata_modified": "2026-02-10T16:59:37.710843",
+    "modified": "2025-11-18",
+    "name": "codas-energy-router-energy-storage",
+    "notes": "<p>This dataset is part of a DC-coupled microgrid simulation environment using ORNL's Control and Optimization using Distributed Agent-based System (CODAS) in the control hardware-in-the-loop (CHIL) real-time testbed. The utilization of energy resources such as photovoltaics (PV), energy storage, and electric vehicle batteries is becoming increasingly possible for residential homeowners. However, challenges remain on the integration. This dataset emerges from the work that proposed a communication, control, and optimization framework that is shown to work in a CHIL system. This dataset specifically captures energy storage subsystem (DC-coupled) variables and measurements for system-level analysis, control validation, and power-flow studies.Time-synchronized simulation using ORNL's CODAS testbed (DC microgrid topology). The energy storage (ES) subsystem interfaces to the DC bus via a DC/DC converter; the system can charge from PV and/or the grid based on price signal through the grid interface. Data includes converter configuration, measurements, status flags, and ES state metrics (state of charge or SOC, temperature). Raw simulation logs were curated into a tidy CSV with one timestamped row per measurement set; units and names were normalized, and obvious non-physical spikes were flagged (not removed by default).</p>\n<p><em>Recommended citation</em>: Michael Starke, Namwon Kim, Ben Dean, Renata Kimpara, Max Ferrari, and Madhu Chinthavali, \"A Residential Energy Router for Resource Integration and Uninterrupted Power,\" 2025 IEEE Power &amp; Energy Society General Meeting (PESGM), Austin TX, USA, 27-31 July 2025. DOI: 10.1109/PESGM52009.2025.1122566. See: <a href=\"https://ieeexplore.ieee.org/document/11225661\">https://ieeexplore.ieee.org/document/11225661</a></p>",
+    "num_resources": 0,
+    "num_tags": 4,
+    "organization": {
+        "id": "88d9bafb-1f2c-441f-9a20-50a8ccfa4c82",
+        "name": "oedp",
+        "title": "oedp",
+        "type": "organization",
+        "description": "",
+        "image_url": "",
+        "created": "2026-01-29T19:16:07.605274",
+        "is_organization": true,
+        "approval_status": "approved",
+        "state": "active"
+    },
+    "owner_org": "88d9bafb-1f2c-441f-9a20-50a8ccfa4c82",
+    "private": false,
+    "state": "active",
+    "title": "CODAS Energy Router: Energy Storage",
+    "type": "dataset",
+    "url": "http://localhost:5000/dataset/codas-energy-router-energy-storage",
+    "contact": [
+        {
+            "email": "data@oedp.org",
+            "name": "Sundararajan, Aditya"
+        }
+    ],
+    "creator": [
+        {
+            "identifier": "0000-0003-3577-8544",
+            "name": "Sundararajan, Aditya",
+            "type": "Personal"
+        },
+        {
+            "name": "Starke, Michael",
+            "type": "Personal"
+        },
+        {
+            "name": "Chinthavali, Supriya",
+            "type": "Personal"
+        }
+    ],
+    "publisher": [
+        {
+            "name": "Oak Ridge National Laboratory"
+        }
+    ],
+    "qualified_relation": [
+        {
+            "relation": "Issupplementto",
+            "role": "",
+            "uri": "https://ornl.opendatasoft.com/explore/dataset/energy-router-electric-vehicle-dataset/information/"
+        },
+        {
+            "relation": "Issupplementedby",
+            "role": "",
+            "uri": "https://ornl.opendatasoft.com/explore/dataset/energy-router-electric-vehicle-dataset/information"
+        }
+    ],
+    "tags": [
+        {
+            "display_name": "Electricity",
+            "id": "644ace8b-2da8-4489-8629-a3db668c7af5",
+            "name": "Electricity",
+            "state": "active",
+            "vocabulary_id": null
+        },
+        {
+            "display_name": "Electricity Distribution",
+            "id": "e7e88721-92b6-4472-a6f9-732cec9755ea",
+            "name": "Electricity Distribution",
+            "state": "active",
+            "vocabulary_id": null
+        },
+        {
+            "display_name": "Renewable Energy Generation",
+            "id": "4935d530-da24-45c1-bc8b-25f235fa951e",
+            "name": "Renewable Energy Generation",
+            "state": "active",
+            "vocabulary_id": null
+        },
+        {
+            "display_name": "Solar",
+            "id": "00271199-0705-4bfd-929f-2266f5ce7d8c",
+            "name": "Solar",
+            "state": "active",
+            "vocabulary_id": null
+        }
+    ],
+    "resources": [],
+    "groups": [],
+    "relationships_as_subject": [],
+    "relationships_as_object": []
+}

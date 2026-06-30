@@ -112,6 +112,42 @@ const VALID_ROR_VALUES: [&str; 28] = [
     "https://ror.org/03ebg0v16",
 ];
 
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod custom_deserialization {
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use serde::Deserialize;
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct TestStruct {
+        #[serde(default, deserialize_with = "optional_string_or_seq")]
+        title: Option<Vec<String>>,
+        #[serde(default, deserialize_with = "optional_string_or_seq")]
+        desc: Option<Vec<String>>,
+    }
+    #[test]
+    fn test_opt_string_or_seq_absent() {
+        let json = r#"{"title": ["hello"]}"#;
+        let result: TestStruct = serde_json::from_str(json).unwrap();
+        assert_eq!(result.title, Some(vec!["hello".to_string()]));
+        assert_eq!(result.desc, None);
+    }
+    #[test]
+    fn test_opt_string_or_seq_single() {
+        let json = r#"{"title": "hello", "desc": "world"}"#;
+        let result: TestStruct = serde_json::from_str(json).unwrap();
+        assert_eq!(result.title, Some(vec!["hello".to_string()]));
+        assert_eq!(result.desc, Some(vec!["world".to_string()]));
+    }
+    #[test]
+    fn test_opt_string_or_seq_null() {
+        let json = r#"{"title": null, "desc": ["hello"]}"#;
+        let result: TestStruct = serde_json::from_str(json).unwrap();
+        assert_eq!(result.title, None);
+        assert_eq!(result.desc, Some(vec!["hello".to_string()]));
+    }
+}
 #[test]
 fn test_classification() {
     assert_eq!(ClassificationLevel::Secret.to_string(), "SECRET");

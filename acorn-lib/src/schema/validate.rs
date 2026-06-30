@@ -90,7 +90,6 @@ pub enum NumberOrString {
     /// String representation.
     Text(String),
 }
-
 /// Year value represented as text or integer.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(untagged)]
@@ -531,6 +530,7 @@ impl Validate for YearValue {
         }
     }
 }
+
 impl Validate for PostalCode {
     fn validate(&self) -> Result<(), ValidationErrors> {
         let to_validation_errors = |why: ValidationError| {

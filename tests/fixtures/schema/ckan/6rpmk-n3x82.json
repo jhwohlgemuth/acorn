@@ -1,0 +1,73 @@
+{
+    "author": null,
+    "author_email": null,
+    "creator_user_id": "9cf2bb1c-c7fb-4bec-9b80-653e5d8ad4b6",
+    "id": "7f7c244f-1109-4877-940a-f23899aefa05",
+    "isopen": false,
+    "issued": "2024",
+    "license_title": null,
+    "maintainer": null,
+    "maintainer_email": null,
+    "metadata_created": "2026-01-30T15:12:37.764400",
+    "metadata_modified": "2026-02-10T16:59:04.205917",
+    "modified": "2025-12-18",
+    "name": "petroleum-product-pipelines-eia",
+    "notes": "This data was created for the purpose of identifying major petroleum product pipelines in the United States. Major petroleum product pipelines in the United States. Layer includes interstate trunk lines and selected intrastate lines. Based on publicly available data from a variety of sources with varying scales and levels of accuracy. Updated January 2020.",
+    "num_resources": 0,
+    "num_tags": 1,
+    "organization": {
+        "id": "88d9bafb-1f2c-441f-9a20-50a8ccfa4c82",
+        "name": "oedp",
+        "title": "oedp",
+        "type": "organization",
+        "description": "",
+        "image_url": "",
+        "created": "2026-01-29T19:16:07.605274",
+        "is_organization": true,
+        "approval_status": "approved",
+        "state": "active"
+    },
+    "owner_org": "88d9bafb-1f2c-441f-9a20-50a8ccfa4c82",
+    "private": false,
+    "state": "active",
+    "title": "Petroleum Product Pipelines EIA",
+    "type": "dataset",
+    "url": "http://localhost:5000/dataset/petroleum-product-pipelines-eia",
+    "contact": [
+        {
+            "email": "data@oedp.org",
+            "name": "U.S. Energy Information Administration"
+        }
+    ],
+    "creator": [
+        {
+            "name": "U.S. Energy Information Administration",
+            "type": "Organizational"
+        }
+    ],
+    "publisher": [
+        {
+            "name": "U.S. Energy Information Administration"
+        }
+    ],
+    "qualified_relation": [
+        {
+            "relation": "References",
+            "role": "",
+            "uri": "https://atlas.eia.gov/datasets/petroleum-product-pipelines/explore"
+        }
+    ],
+    "tags": [
+        {
+            "display_name": "Petroleum Product Pipeline",
+            "id": "784c67db-6bcf-4b55-88d6-1d1517155820",
+            "name": "Petroleum Product Pipeline",
+            "state": "active",
+            "vocabulary_id": null
+        }
+    ],
+    "resources": [],
+    "groups": [],
+    "relationships_as_subject": [],
+    "relationships_as_object": []
+}

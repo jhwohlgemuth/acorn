@@ -14,7 +14,7 @@ use crate::io::{read_file, write_file, ApiResult, InputOutput};
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
 use crate::schema::validate::{is_url, is_urls};
-use crate::schema::Date as PeriodOfTime;
+use crate::schema::{optional_string_or_seq, string_or_seq, Date as PeriodOfTime};
 use crate::util::{Checksum, MimeType, ToProse};
 #[cfg(feature = "std")]
 use crate::PathBuf;
@@ -42,11 +42,13 @@ pub struct Agent {
     /// Agent name (`foaf:name`)
     pub name: Option<String>,
     /// Agent homepage URI (`foaf:homepage`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     #[validate(custom(function = "is_urls"))]
     pub homepage: Option<Vec<String>>,
     /// Agent email (`foaf:mbox`)
     pub email: Option<String>,
     /// Agent identifier(s) e.g. ORCID, ROR (`dcterms:identifier`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub identifier: Option<Vec<String>>,
 }
 /// A curated collection of metadata about resources (`dcat:Catalog`)
@@ -56,16 +58,20 @@ pub struct Agent {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Catalog {
     /// Catalog title(s) (`dcterms:title`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub title: Option<Vec<String>>,
     /// Description(s) (`dcterms:description`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub description: Option<Vec<String>>,
     /// Unique identifier(s) (`dcterms:identifier`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub identifier: Option<Vec<String>>,
     /// Publication date as ISO 8601 string (`dcterms:issued`)
     pub issued: Option<String>,
     /// Last modification date as ISO 8601 string (`dcterms:modified`)
     pub modified: Option<String>,
     /// Language code(s) per ISO 639-1 (`dcterms:language`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub language: Option<Vec<String>>,
     /// Publisher (`dcterms:publisher`)
     #[validate(nested)]
@@ -74,11 +80,13 @@ pub struct Catalog {
     #[validate(nested)]
     pub creator: Option<Vec<Agent>>,
     /// Contact point IRI(s) for vCard (`dcat:contactPoint`)
-    #[serde(rename = "contactPoint")]
+    #[serde(rename = "contactPoint", default, deserialize_with = "optional_string_or_seq")]
     pub contact_point: Option<Vec<String>>,
     /// Keywords (`dcat:keyword`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub keywords: Option<Vec<String>>,
     /// Theme/category IRI(s) (`dcat:theme`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub themes: Option<Vec<String>>,
     /// License document URI (`dcterms:license`)
     pub license: Option<String>,
@@ -91,16 +99,17 @@ pub struct Catalog {
     #[serde(rename = "hasPolicy")]
     pub has_policy: Option<String>,
     /// Standards conformed to, as IRIs (`dcterms:conformsTo`)
-    #[serde(rename = "conformsTo")]
+    #[serde(rename = "conformsTo", default, deserialize_with = "optional_string_or_seq")]
     pub conforms_to: Option<Vec<String>>,
     /// Landing page URI(s) (`dcat:landingPage`)
-    #[serde(rename = "landingPage")]
+    #[serde(rename = "landingPage", default, deserialize_with = "optional_string_or_seq")]
     #[validate(custom(function = "is_urls"))]
     pub landing_page: Option<Vec<String>>,
     /// Relations to other resources, as IRIs (`dcterms:relation`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub relation: Option<Vec<String>>,
     /// Resource type IRI(s) (`dcterms:type`)
-    #[serde(rename = "type")]
+    #[serde(rename = "type", default, deserialize_with = "optional_string_or_seq")]
     pub type_: Option<Vec<String>>,
     /// Version indicator (`dcat:version`, DCAT 3)
     pub version: Option<String>,
@@ -111,7 +120,7 @@ pub struct Catalog {
     #[serde(rename = "previousVersion")]
     pub previous_version: Option<String>,
     /// IRI(s) of versioned snapshots (`dcat:hasVersion`, DCAT 3)
-    #[serde(rename = "hasVersion")]
+    #[serde(rename = "hasVersion", default, deserialize_with = "optional_string_or_seq")]
     pub has_version: Option<Vec<String>>,
     /// IRI of the current version (`dcat:hasCurrentVersion`, DCAT 3)
     #[serde(rename = "hasCurrentVersion")]
@@ -121,7 +130,7 @@ pub struct Catalog {
     /// Life-cycle status IRI (`adms:status`, DCAT 3)
     pub status: Option<String>,
     /// Related resources that reference this catalog (`dcterms:isReferencedBy`, DCAT 2)
-    #[serde(rename = "isReferencedBy")]
+    #[serde(rename = "isReferencedBy", default, deserialize_with = "optional_string_or_seq")]
     pub is_referenced_by: Option<Vec<String>>,
     /// Qualified relationships to other resources (`dcat:qualifiedRelation`, DCAT 2)
     #[validate(nested)]
@@ -145,19 +154,22 @@ pub struct Catalog {
     #[serde(rename = "temporalResolution")]
     pub temporal_resolution: Option<String>,
     /// Activity IRI(s) that generated this catalog (`prov:wasGeneratedBy`, DCAT 2)
-    #[serde(rename = "wasGeneratedBy")]
+    #[serde(rename = "wasGeneratedBy", default, deserialize_with = "optional_string_or_seq")]
     pub was_generated_by: Option<Vec<String>>,
     /// Catalog homepage URI (`foaf:homepage`)
     #[validate(custom(function = "is_url"))]
     pub homepage: Option<String>,
     /// Knowledge organization system IRI(s) for classifying resources (`dcat:themeTaxonomy`)
-    #[serde(rename = "themeTaxonomy")]
+    #[serde(rename = "themeTaxonomy", default, deserialize_with = "optional_string_or_seq")]
     pub theme_taxonomy: Option<Vec<String>>,
     /// Dataset IRI(s) listed in this catalog (`dcat:dataset`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub dataset: Option<Vec<String>>,
     /// Data service IRI(s) listed in this catalog (`dcat:service`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub service: Option<Vec<String>>,
     /// Sub-catalog IRI(s) listed in this catalog (`dcat:catalog`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub catalog: Option<Vec<String>>,
     /// Catalog records for resources in this catalog (`dcat:record`)
     #[validate(nested)]
@@ -182,7 +194,7 @@ pub struct CatalogRecord {
     #[serde(rename = "primaryTopic")]
     pub primary_topic: String,
     /// Standards the record conforms to, as IRIs (`dcterms:conformsTo`)
-    #[serde(rename = "conformsTo")]
+    #[serde(rename = "conformsTo", default, deserialize_with = "optional_string_or_seq")]
     pub conforms_to: Option<Vec<String>>,
 }
 /// A collection of operations providing access to data (`dcat:DataService`)
@@ -193,16 +205,20 @@ pub struct CatalogRecord {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct DataService {
     /// Service title(s) (`dcterms:title`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub title: Option<Vec<String>>,
     /// Description(s) (`dcterms:description`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub description: Option<Vec<String>>,
     /// Unique identifier(s) (`dcterms:identifier`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub identifier: Option<Vec<String>>,
     /// Publication date as ISO 8601 string (`dcterms:issued`)
     pub issued: Option<String>,
     /// Last modification date as ISO 8601 string (`dcterms:modified`)
     pub modified: Option<String>,
     /// Language code(s) per ISO 639-1 (`dcterms:language`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub language: Option<Vec<String>>,
     /// Publisher (`dcterms:publisher`)
     #[validate(nested)]
@@ -211,11 +227,13 @@ pub struct DataService {
     #[validate(nested)]
     pub creator: Option<Vec<Agent>>,
     /// Contact point IRI(s) for vCard (`dcat:contactPoint`)
-    #[serde(rename = "contactPoint")]
+    #[serde(rename = "contactPoint", default, deserialize_with = "optional_string_or_seq")]
     pub contact_point: Option<Vec<String>>,
     /// Keywords (`dcat:keyword`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub keywords: Option<Vec<String>>,
     /// Theme/category IRI(s) (`dcat:theme`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub themes: Option<Vec<String>>,
     /// License document URI (`dcterms:license`)
     pub license: Option<String>,
@@ -228,14 +246,14 @@ pub struct DataService {
     #[serde(rename = "hasPolicy")]
     pub has_policy: Option<String>,
     /// Standards conformed to, as IRIs (`dcterms:conformsTo`)
-    #[serde(rename = "conformsTo")]
+    #[serde(rename = "conformsTo", default, deserialize_with = "optional_string_or_seq")]
     pub conforms_to: Option<Vec<String>>,
     /// Landing page URI(s) (`dcat:landingPage`)
-    #[serde(rename = "landingPage")]
+    #[serde(rename = "landingPage", default, deserialize_with = "optional_string_or_seq")]
     #[validate(custom(function = "is_urls"))]
     pub landing_page: Option<Vec<String>>,
     /// Resource type IRI(s) (`dcterms:type`)
-    #[serde(rename = "type")]
+    #[serde(rename = "type", default, deserialize_with = "optional_string_or_seq")]
     pub type_: Option<Vec<String>>,
     /// Version indicator (`dcat:version`, DCAT 3)
     pub version: Option<String>,
@@ -246,7 +264,7 @@ pub struct DataService {
     #[serde(rename = "previousVersion")]
     pub previous_version: Option<String>,
     /// IRI(s) of versioned snapshots (`dcat:hasVersion`, DCAT 3)
-    #[serde(rename = "hasVersion")]
+    #[serde(rename = "hasVersion", default, deserialize_with = "optional_string_or_seq")]
     pub has_version: Option<Vec<String>>,
     /// IRI of the current version (`dcat:hasCurrentVersion`, DCAT 3)
     #[serde(rename = "hasCurrentVersion")]
@@ -260,14 +278,14 @@ pub struct DataService {
     #[serde(rename = "qualifiedRelation")]
     pub qualified_relation: Option<Vec<Relationship>>,
     /// Root location or primary endpoint IRI(s) (`dcat:endpointURL`)
-    #[serde(rename = "endpointURL")]
+    #[serde(rename = "endpointURL", deserialize_with = "string_or_seq")]
     #[validate(custom(function = "is_urls"))]
     pub endpoint_url: Vec<String>,
     /// Endpoint description IRI(s) or documents (`dcat:endpointDescription`)
-    #[serde(rename = "endpointDescription")]
+    #[serde(rename = "endpointDescription", default, deserialize_with = "optional_string_or_seq")]
     pub endpoint_description: Option<Vec<String>>,
     /// Dataset IRI(s) served by this service (`dcat:servesDataset`)
-    #[serde(rename = "servesDataset")]
+    #[serde(rename = "servesDataset", default, deserialize_with = "optional_string_or_seq")]
     pub serves_dataset: Option<Vec<String>>,
 }
 /// A collection of data published or curated by a single agent (`dcat:Dataset`)
@@ -278,16 +296,20 @@ pub struct DataService {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Dataset {
     /// Dataset title(s) (`dcterms:title`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub title: Option<Vec<String>>,
     /// Description(s) (`dcterms:description`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub description: Option<Vec<String>>,
     /// Unique identifier(s) (`dcterms:identifier`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub identifier: Option<Vec<String>>,
     /// Publication date as ISO 8601 string (`dcterms:issued`)
     pub issued: Option<String>,
     /// Last modification date as ISO 8601 string (`dcterms:modified`)
     pub modified: Option<String>,
     /// Language code(s) per ISO 639-1 (`dcterms:language`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub language: Option<Vec<String>>,
     /// Publisher (`dcterms:publisher`)
     #[validate(nested)]
@@ -296,11 +318,13 @@ pub struct Dataset {
     #[validate(nested)]
     pub creator: Option<Vec<Agent>>,
     /// Contact point IRI(s) for vCard (`dcat:contactPoint`)
-    #[serde(rename = "contactPoint")]
+    #[serde(rename = "contactPoint", default, deserialize_with = "optional_string_or_seq")]
     pub contact_point: Option<Vec<String>>,
     /// Keywords (`dcat:keyword`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub keywords: Option<Vec<String>>,
     /// Theme/category IRI(s) (`dcat:theme`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub themes: Option<Vec<String>>,
     /// License document URI (`dcterms:license`)
     pub license: Option<String>,
@@ -313,16 +337,17 @@ pub struct Dataset {
     #[serde(rename = "hasPolicy")]
     pub has_policy: Option<String>,
     /// Standards conformed to, as IRIs (`dcterms:conformsTo`)
-    #[serde(rename = "conformsTo")]
+    #[serde(rename = "conformsTo", default, deserialize_with = "optional_string_or_seq")]
     pub conforms_to: Option<Vec<String>>,
     /// Landing page URI(s) (`dcat:landingPage`)
-    #[serde(rename = "landingPage")]
+    #[serde(rename = "landingPage", default, deserialize_with = "optional_string_or_seq")]
     #[validate(custom(function = "is_urls"))]
     pub landing_page: Option<Vec<String>>,
     /// Relations to other resources, as IRIs (`dcterms:relation`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub relation: Option<Vec<String>>,
     /// Resource type IRI(s) (`dcterms:type`)
-    #[serde(rename = "type")]
+    #[serde(rename = "type", default, deserialize_with = "optional_string_or_seq")]
     pub type_: Option<Vec<String>>,
     /// Version indicator (`dcat:version`, DCAT 3)
     pub version: Option<String>,
@@ -333,7 +358,7 @@ pub struct Dataset {
     #[serde(rename = "previousVersion")]
     pub previous_version: Option<String>,
     /// IRI(s) of versioned snapshots (`dcat:hasVersion`, DCAT 3)
-    #[serde(rename = "hasVersion")]
+    #[serde(rename = "hasVersion", default, deserialize_with = "optional_string_or_seq")]
     pub has_version: Option<Vec<String>>,
     /// IRI of the current version (`dcat:hasCurrentVersion`, DCAT 3)
     #[serde(rename = "hasCurrentVersion")]
@@ -343,10 +368,10 @@ pub struct Dataset {
     /// Life-cycle status IRI (`adms:status`, DCAT 3)
     pub status: Option<String>,
     /// Related resources that reference this dataset (`dcterms:isReferencedBy`, DCAT 2)
-    #[serde(rename = "isReferencedBy")]
+    #[serde(rename = "isReferencedBy", default, deserialize_with = "optional_string_or_seq")]
     pub is_referenced_by: Option<Vec<String>>,
     /// Parts of this resource, as IRIs (`dcterms:hasPart`, DCAT 3)
-    #[serde(rename = "hasPart")]
+    #[serde(rename = "hasPart", default, deserialize_with = "optional_string_or_seq")]
     pub has_part: Option<Vec<String>>,
     /// Qualified relationships to other resources (`dcat:qualifiedRelation`, DCAT 2)
     #[validate(nested)]
@@ -364,7 +389,7 @@ pub struct Dataset {
     /// Update frequency IRI (`dcterms:accrualPeriodicity`)
     pub frequency: Option<String>,
     /// Dataset series IRI(s) this dataset belongs to (`dcat:inSeries`, DCAT 3)
-    #[serde(rename = "inSeries")]
+    #[serde(rename = "inSeries", default, deserialize_with = "optional_string_or_seq")]
     pub in_series: Option<Vec<String>>,
     /// Spatial coverage (`dcterms:spatial`)
     #[validate(nested)]
@@ -379,7 +404,7 @@ pub struct Dataset {
     #[serde(rename = "temporalResolution")]
     pub temporal_resolution: Option<String>,
     /// Activity IRI(s) that generated this dataset (`prov:wasGeneratedBy`, DCAT 2)
-    #[serde(rename = "wasGeneratedBy")]
+    #[serde(rename = "wasGeneratedBy", default, deserialize_with = "optional_string_or_seq")]
     pub was_generated_by: Option<Vec<String>>,
 }
 /// A specific representation of a dataset (`dcat:Distribution`)
@@ -389,8 +414,10 @@ pub struct Dataset {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Distribution {
     /// Distribution title (`dcterms:title`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub title: Option<Vec<String>>,
     /// Free-text description (`dcterms:description`)
+    #[serde(default, deserialize_with = "optional_string_or_seq")]
     pub description: Option<Vec<String>>,
     /// Publication date as ISO 8601 string (`dcterms:issued`)
     pub issued: Option<String>,
@@ -411,10 +438,10 @@ pub struct Distribution {
     #[validate(custom(function = "is_urls"))]
     pub access_url: Vec<String>,
     /// Data service IRI(s) giving access to this distribution (`dcat:accessService`)
-    #[serde(rename = "accessService")]
+    #[serde(rename = "accessService", default, deserialize_with = "optional_string_or_seq")]
     pub access_service: Option<Vec<String>>,
     /// Direct download URL(s) (`dcat:downloadURL`)
-    #[serde(rename = "downloadURL")]
+    #[serde(rename = "downloadURL", default, deserialize_with = "optional_string_or_seq")]
     #[validate(custom(function = "is_urls"))]
     pub download_url: Option<Vec<String>>,
     /// Size in bytes (`dcat:byteSize`)
@@ -427,7 +454,7 @@ pub struct Distribution {
     #[serde(rename = "temporalResolution")]
     pub temporal_resolution: Option<String>,
     /// Standards the distribution conforms to, as IRIs (`dcterms:conformsTo`)
-    #[serde(rename = "conformsTo")]
+    #[serde(rename = "conformsTo", default, deserialize_with = "optional_string_or_seq")]
     pub conforms_to: Option<Vec<String>>,
     /// IANA media type IRI (`dcat:mediaType`)
     #[serde(rename = "mediaType")]
@@ -465,7 +492,7 @@ pub struct Relationship {
     /// IRI of the related resource (`dcterms:relation`)
     pub relation: String,
     /// IRI of the role the related resource plays (`dcat:hadRole`)
-    #[serde(rename = "hadRole")]
+    #[serde(rename = "hadRole", alias = "role")]
     pub had_role: String,
 }
 impl TryFrom<datacite::Record> for Dataset {
