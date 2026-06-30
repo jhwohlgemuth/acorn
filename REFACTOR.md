@@ -1175,7 +1175,11 @@ This section captures follow-up work after the first-pass importer scaffold that
 
 ## CKAN Fixture Conversion to DCAT v3
 
-This section documents the rules for converting CKAN API format test fixtures (in `tests/fixtures/schema/ckan/`) to DCAT v3 compliant JSON (in `tests/fixtures/schema/dcat/`).
+This section documents the rules for converting CKAN API format test fixtures (in `tests/fixtures/schema/ckan/`) to DCAT v3 compliant JSON (in `tests/fixtures/schema/dcat/`). The rules follow the ckanext-dcat mapping guide: <https://docs.ckan.org/projects/ckanext-dcat/en/latest/mapping/>.
+
+### Source Shape
+
+Fixtures are CKAN dataset objects from `package_show.result`, not full `{ "success": true, "result": ... }` API envelopes. Custom fields may appear as first-level fields when CKAN uses scheming, or as legacy `extras[]` entries in older profiles. Current fixtures use first-level fields.
 
 ### Field Mapping CKAN → DCAT v3
 
@@ -1184,24 +1188,30 @@ This section documents the rules for converting CKAN API format test fixtures (i
 | `title` | `title` | Wrap in array: `["CKAN value"]` |
 | `notes` (HTML) | `description` | Strip HTML tags, wrap in array |
 | `url` | `landingPage` | Wrap single string in array |
-| `id` | `identifier` | Wrap single string in array |
-| `metadata_created` | `issued` | Keep as ISO 8601 string |
-| `metadata_modified` | `modified` | Keep as ISO 8601 string |
+| `identifier`, `guid`, `id` | `identifier` | Prefer custom `identifier`, then `guid`, then `id`; wrap in array |
+| `issued`, `metadata_created` | `issued` | Prefer custom/top-level `issued`, then `metadata_created` |
+| `modified`, `metadata_modified` | `modified` | Prefer custom/top-level `modified`, then `metadata_modified` |
 | `tags[].name` | `keywords` | Extract `.name` into array of strings |
-| `publisher[0].name` | `publisher.name` | Construct `Agent` with name |
-| `creator[]` | `creator[]` | Each → `Agent { name }`; if CKAN has `identifier`, set as `identifier` (ORCID) |
-| `contact[].email` | `contactPoint` | Format as `mailto:` URI in array |
-| `qualified_relation[].uri` | `qualifiedRelation[].relation` | Related resource IRI |
-| `qualified_relation[].relation` | `qualifiedRelation[].hadRole` | Role label |
-| `resources[]` | `distribution[]` | Each → `Distribution { accessURL, title, description, format, issued, modified }` |
+| `publisher[0]`, `organization` | `publisher` | Use first explicit publisher object; fall back to `organization.title` or `organization.name` |
+| `creator[]` | `creator[]` | Each → `Agent { name }`; normalize ORCID-like `identifier` values to `https://orcid.org/{id}` |
+| `contact[].email`, `maintainer_email`, `author_email` | `contactPoint` | Prefer contact entries; fall back to maintainer/author email; format as `mailto:` URI |
+| `qualified_relation[]` | `qualifiedRelation[]` | Use `uri` as `relation`; use `role` when present, otherwise `relation`, as `hadRole` |
+| `resources[]` | `distribution[]` | Each → `Distribution`; set `accessURL` from `access_url` then `url`; set `downloadURL` from `download_url`; map resource `name`, `description`, `mimetype`, `format`, `size`, `created`, `issued`, `modified`, and `metadata_modified` when present |
+
+### Profile Notes From ckanext-dcat
+
+- Mapping is profile-dependent and intentionally loose; do not assume every CKAN instance uses the same custom fields.
+- `custom:` fields in ckanext-dcat may come from legacy `extras[]` or from first-level scheming fields.
+- CKAN dataset-level license values do not map cleanly to ACORN's current DCAT fixture shape because ckanext-dcat primarily maps license data at Distribution level.
+- Spatial, temporal, language, theme, `conformsTo`, and related profile fields are future fixture expansion candidates, not requirements for the current three fixtures.
 
 ### Fixture Files
 
 | Source (ckan/) | Target (dcat/) | Content |
 |---|---|---|
-| `0sbdv-gh024.json` | `0sbdv-gh024.json` | Full-featured: HTML notes, 4 tags, publisher, 3 creators, 2 qualified relations, contact |
-| `6rpmk-n3x82.json` | `6rpmk-n3x82.json` | Minimal: short notes, 1 tag, 1 creator/publisher, 1 qualified relation |
-| `j5xbm-d7v43.json` | `j5xbm-d7v43.json` | Medium: 2 creators, 1 tag, contact, 1 qualified relation |
+| `0sbdv-gh024.json` | `0sbdv-gh024.json` | Full metadata: HTML notes, creators, publisher, contact, keywords, qualified relations, no resources |
+| `6rpmk-n3x82.json` | `6rpmk-n3x82.json` | Minimal dataset metadata and fallback behavior |
+| `j5xbm-d7v43.json` | `j5xbm-d7v43.json` | Medium fixture with multiple creators, contact, and relation coverage |
 
 ### Verification
 
@@ -1209,7 +1219,14 @@ This section documents the rules for converting CKAN API format test fixtures (i
 cargo run --bin acorn -- check ./tests/fixtures/schema/dcat/ --standard dcat
 ```
 
-Should produce 0 errors (no deserialization or URL failures).
+Expected result: 0 schema validation errors and no URL validation failures for generated DCAT fixtures.
+
+Manual review checklist:
+
+- Date precedence uses `issued` / `modified` when present.
+- HTML notes are plain text in DCAT.
+- ORCID identifiers are normalized.
+- `qualifiedRelation` uses stable URI/role mapping.
 
 ## DCAT-US v3.0 Conformance
 
