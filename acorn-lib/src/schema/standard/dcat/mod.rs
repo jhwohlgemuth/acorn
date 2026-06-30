@@ -13,7 +13,7 @@
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite::{self, RelationType};
-use crate::schema::validate::{is_url, is_urls};
+use crate::schema::validate::is_url;
 use crate::schema::{Date as PeriodOfTime, OneOrMany};
 use crate::util::{Checksum, MimeType, ToProse};
 #[cfg(feature = "std")]
@@ -23,7 +23,10 @@ use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use validator::{Validate, ValidationError, ValidationErrors};
+use validator::Validate;
+
+pub(crate) mod validate;
+use validate::{is_document_refs_urls, is_one_or_many_urls};
 
 /// A collection of datasets published separately but sharing characteristics (`dcat:DatasetSeries`)
 ///
@@ -912,46 +915,4 @@ impl TryFrom<datacite::Record> for Dataset {
         let mapping = datacite_to_dcat();
         crosswalk::convert(&record, &mapping).map(|(dataset, _)| dataset)
     }
-}
-impl Validate for ConformsTo {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        match self {
-            | Self::Uri(_) => Ok(()),
-            | Self::Standard(standard) => standard.validate(),
-        }
-    }
-}
-impl Validate for ContactPoint {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        match self {
-            | Self::Uri(_) => Ok(()),
-            | Self::Kind(kind) => kind.validate(),
-        }
-    }
-}
-impl Validate for DocumentRef {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        match self {
-            | Self::Uri(_) => Ok(()),
-            | Self::Document(document) => document.validate(),
-        }
-    }
-}
-impl Validate for Publisher {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        match self {
-            | Self::Organization(organization) => organization.validate(),
-            | Self::Agent(agent) => agent.validate(),
-        }
-    }
-}
-fn is_document_refs_urls(value: &OneOrMany<DocumentRef>) -> Result<(), ValidationError> {
-    value
-        .iter()
-        .filter_map(DocumentRef::url)
-        .find_map(|url| is_url(url).err())
-        .map_or(Ok(()), Err)
-}
-fn is_one_or_many_urls(value: &OneOrMany<String>) -> Result<(), ValidationError> {
-    is_urls(value.as_slice())
 }
