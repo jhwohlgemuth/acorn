@@ -1211,3 +1211,90 @@ cargo run --bin acorn -- check ./tests/fixtures/schema/dcat/ --standard dcat
 
 Should produce 0 errors (no deserialization or URL failures).
 
+## DCAT-US v3.0 Conformance
+
+DCAT-US v3.0 is the U.S. federal profile of W3C DCAT v3 (maintained by GSA/Data.gov). Current ACORN DCAT implementation supports W3C DCAT v3 but has 13 gaps against DCAT-US v3.0.
+
+### Conformance Gap Summary
+
+| Severity | Count | Key Issues |
+|----------|-------|------------|
+| Critical | 4 | `@type` missing, `contactPoint` type (string vs Kind object), `conformsTo` type (string vs Standard object), `title`/`description` cardinality (array vs single string) |
+| High | 4 | `publisher` type (Agent vs Organization for Dataset), missing supporting classes, `identifier` cardinality (array vs string), Distribution missing `accessRestriction`/`useRestriction` |
+| Medium | 5 | Missing `@id`, `service` as DataService objects (not IRIs), `landingPage`/`homepage` as Document objects, `spatial` Location, `temporal` PeriodOfTime |
+
+### Implementation Plan
+
+#### New file: `acorn-lib/src/schema/standard/dcat_us.rs`
+
+Add 4 DCAT-US supporting classes with untagged serde enums for backward compatibility with W3C DCAT:
+
+| Struct | DCAT-US Class | Used In | Key Fields |
+|--------|--------------|---------|------------|
+| `Kind` | `Kind` (vCard) | `contactPoint` on Dataset, DataService, Catalog | `fn` (required), `has_email` (required, mailto:), `tel?`, `organization_name?` |
+| `UsOrganization` | `Organization` | `publisher` on Dataset | `name`, `pref_label?`, `alt_label?`, `sub_organization_of?` (recursive) |
+| `ConformsToStandard` | `Standard` | `conformsTo` on all classes | `@type?`, `title?`, `identifier?` |
+| `Document` | `Document` | `landingPage`, `homepage` | `@id?`, `@type?`, `title?`, `access_url?` |
+
+#### Update: `acorn-lib/src/schema/standard/dcat.rs`
+
+1. Add `@type` and `@id` optional string fields to Catalog, Dataset, Distribution, DataService
+2. Change `contactPoint` from `Option<Vec<String>>` to accept either string URIs or Kind objects via `#[serde(untagged)]` enum
+3. Change `conformsTo` from `Option<Vec<String>>` to accept either string URIs or Standard objects via untagged enum
+4. Change `publisher` on Dataset from `Agent` to accept either Agent or Organization via untagged enum
+5. Change `landingPage`/`homepage` to accept either string URIs or Document objects
+6. Add `accessRestriction`, `useRestriction` fields to Distribution
+7. Change `service` on Catalog from `Vec<String>` to `Vec<DataService>`
+8. Add new deserialization helpers: `optional_string_or_kind_or_seq`, `optional_conforms_to`, `optional_string_or_document_or_seq`
+
+#### Update: `acorn-lib/src/schema/standard/mod.rs`
+
+Add: `pub mod dcat_us;`
+
+#### Update: `acorn-lib/src/schema/standard/crosswalk/mapping.rs`
+
+- Update `datacite_to_dcat()` to emit `@type: "dcat:Dataset"` and handle new publisher/contact types
+- Update `dcat_to_datacite()` to unwrap untagged enums
+
+#### Update: `acorn-lib/src/analyzer/check.rs`
+
+- Update `Standard::from(&Map)` detection to recognize DCAT-US `@type` field as fallback signal
+
+#### New test fixtures
+
+| File | Content |
+|------|---------|
+| `tests/fixtures/schema/dcat-us-catalog.json` | Full DCAT-US v3.0 catalog with Kind contacts, Standard conformsTo, Document landingPages |
+| `tests/fixtures/schema/dcat-us-dataset.json` | Minimal DCAT-US v3.0 dataset (mandatory fields only) |
+| `tests/fixtures/schema/dcat-us-data-service.json` | DCAT-US v3.0 DataService with contactPoint/publisher |
+
+#### Test updates
+
+| File | New Tests |
+|------|-----------|
+| `acorn-lib/src/schema/tests/mod.rs` | DCAT-US deserialization (Kind, Organization, Standard), W3C backward compat |
+| `acorn-lib/src/schema/standard/crosswalk/tests/mod.rs` | DCAT-US roundtrip tests |
+| `acorn-cli/src/commands/check/tests/mod.rs` | DCAT-US check command tests |
+
+### Design Decisions
+
+1. **Untagged enums over separate fields** — Single field with `#[serde(untagged)]` preserves existing W3C DCAT JSON compatibility
+2. **No breaking changes** — All additions are `Option` or new enum variants; existing W3C DCAT JSON continues to work unchanged
+3. **Supporting classes in separate file** — Keeps `dcat.rs` manageable; `dcat.rs` imports and re-exports
+4. **DCAT-US as implicit, not separate standard** — No new `Standard::DcatUs` variant; flexible serde accepts DCAT-US JSON automatically under `--standard dcat`
+
+### Execution Order
+
+| Step | Files | Risk |
+|------|-------|------|
+| 1 | `dcat_us.rs` (new), `standard/mod.rs` | Low — new code, no existing impact |
+| 2 | `dcat.rs` — add `@type`, `@id` optional fields | Low — new optional fields |
+| 3 | `dcat.rs` — add serde-flexible `contactPoint`, `conformsTo`, `publisher` | Medium — needs careful untagged enum design |
+| 4 | `dcat.rs` — add Document-flexible `landingPage`, `homepage` | Low — parallel pattern to step 3 |
+| 5 | `dcat.rs` — add Distribution `accessRestriction`, `useRestriction` | Low — new optional fields |
+| 6 | `dcat.rs` — change `service` on Catalog to `Vec<DataService>` | Medium — changes serialized output shape |
+| 7 | `crosswalk/mapping.rs` — update for new types | Medium — needs to handle enums |
+| 8 | Test fixtures (3 new files) | Low |
+| 9 | Test modules — add deserialization, validation, roundtrip tests | Low |
+| 10 | `check.rs` — update standard detection | Low |
+
