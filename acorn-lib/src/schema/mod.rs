@@ -22,6 +22,7 @@ use crate::util::{Constant, LinkedData, ToMarkdown};
 use bon::Builder;
 #[cfg(feature = "std")]
 use convert_case::{Case, Casing};
+use core::fmt;
 use core::hash::Hash;
 use core::iter::once;
 use core::num::NonZeroU64;
@@ -36,6 +37,7 @@ use nucleo_matcher::{
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use petgraph::graph::Graph;
 use schemars::JsonSchema;
+use serde::de::value::SeqAccessDeserializer;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_trim::{option_string_trim, string_trim};
@@ -959,6 +961,52 @@ pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
         })
         .collect::<Vec<Vec<String>>>();
     resolve_from_list_of_lists(value, data, "organization".to_string())
+}
+/// Deserialize a field that may be a single string or an array of strings
+pub(crate) fn string_or_seq<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct StringOrSeq;
+    impl<'de> serde::de::Visitor<'de> for StringOrSeq {
+        type Value = Vec<String>;
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("string or list of strings")
+        }
+        fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Vec<String>, E> {
+            Ok(vec![value.to_owned()])
+        }
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(self, seq: A) -> Result<Vec<String>, A::Error> {
+            Deserialize::deserialize(SeqAccessDeserializer::new(seq))
+        }
+    }
+    deserializer.deserialize_any(StringOrSeq)
+}
+/// Deserialize a field that may be null, a single string, or an array of strings
+pub(crate) fn optional_string_or_seq<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct OptStringOrSeq;
+    impl<'de> serde::de::Visitor<'de> for OptStringOrSeq {
+        type Value = Option<Vec<String>>;
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("string, list of strings, or null")
+        }
+        fn visit_none<E: serde::de::Error>(self) -> Result<Option<Vec<String>>, E> {
+            Ok(None)
+        }
+        fn visit_unit<E: serde::de::Error>(self) -> Result<Option<Vec<String>>, E> {
+            Ok(None)
+        }
+        fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Option<Vec<String>>, E> {
+            Ok(Some(vec![value.to_owned()]))
+        }
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(self, seq: A) -> Result<Option<Vec<String>>, A::Error> {
+            Deserialize::deserialize(SeqAccessDeserializer::new(seq)).map(Some)
+        }
+    }
+    deserializer.deserialize_any(OptStringOrSeq)
 }
 
 #[cfg(not(feature = "std"))]

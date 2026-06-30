@@ -1225,3 +1225,96 @@ Integrate `ConversionWarning` into the `Check` infrastructure with `CheckSeverit
 | `--strict` with warnings | `fail!("Conversion warning — ...")` per warning, then `Err` | `Check` objects rendered via Display, then `Err` |
 | Normal mode with warnings | `info!("{} crosswalk warning: ...", Label::run())` | Same + summary block of Checks at end |
 | `--skip crosswalk` | No effect | Warnings suppressed via Check skip logic |
+
+## CKAN Fixture Conversion to DCAT v3
+
+Three new test fixtures must be created in `tests/fixtures/schema/dcat/` in CKAN JSON API format (the format returned by `https://ckan.example.org/api/3/action/package_show?id=xxx`). These fixtures are consumed by `acorn check --standard dcat` and currently produce 6 deserialization/URL errors because the structs expect pure DCAT v3 JSON.
+
+### Fixture Files to Create
+
+| File | Purpose |
+|------|---------|
+| `tests/fixtures/schema/dcat/0sbdv-gh024.json` | CKAN dataset with all typical fields: title, notes, tags, resources, organization, relationships |
+| `tests/fixtures/schema/dcat/6rpmk-n3x82.json` | CKAN dataset with minimal fields (title + resources only) |
+| `tests/fixtures/schema/dcat/j5xbm-d7v43.json` | CKAN dataset with extras, groups, and multiple relationships |
+
+### CKAN API Format Reference
+
+A CKAN `package_show` response uses this structure:
+
+```json
+{
+  "id": "0sbdv-gh024",
+  "name": "dataset-name",
+  "title": "Dataset Title",
+  "notes": "Free-text description",
+  "url": "https://example.org/dataset/main",
+  "author": "Author Name",
+  "author_email": "author@example.org",
+  "maintainer": "Maintainer Name",
+  "maintainer_email": "maintainer@example.org",
+  "metadata_created": "2024-01-15T10:00:00.000000",
+  "metadata_modified": "2024-06-20T14:30:00.000000",
+  "tags": [
+    {"name": "energy", "display_name": "Energy"},
+    {"name": "water", "display_name": "Water"}
+  ],
+  "resources": [
+    {
+      "id": "res-001",
+      "name": "Data File",
+      "description": "Main data file",
+      "url": "https://example.org/data.csv",
+      "format": "CSV",
+      "created": "2024-01-15T10:00:00.000000",
+      "last_modified": "2024-06-20T14:30:00.000000"
+    }
+  ],
+  "organization": {
+    "id": "org-001",
+    "name": "example-org",
+    "title": "Example Organization"
+  },
+  "groups": [
+    {"name": "energy-group", "title": "Energy Group"}
+  ],
+  "relationships_as_subject": [
+    {
+      "type": "is_child_of",
+      "object": "https://example.org/datasets/parent-dataset",
+      "uri": "https://example.org/datasets/parent-dataset"
+    }
+  ]
+}
+```
+
+### Field Mapping CKAN → DCAT v3
+
+| CKAN field path | DCAT v3 path | Transformation |
+|---|---|---|
+| `title` | `title` | Wrap in array: `["CKAN value"]` |
+| `notes` | `description` | Rename key, wrap in array |
+| `url` | `landingPage` | Rename key, wrap in array |
+| `id` | `identifier` | Wrap in array |
+| `metadata_created` | `issued` | Keep as ISO 8601 string |
+| `metadata_modified` | `modified` | Keep as ISO 8601 string |
+| `tags[].name` | `keywords` | Extract `.name` into array of strings |
+| `author` + `author_email` | `publisher.name` + `publisher.email` | Construct `Agent` object |
+| `maintainer` + `maintainer_email` | `creator[0].name` + `creator[0].email` | Construct single `Agent` in array |
+| `organization.title` | `publisher.name` | Prefer over author when org exists |
+| `resources[]` | `distribution[]` | Per resource: `url`→`accessURL` (wrapped), `name`→`title`, `description`→`description`, `format`→`format`, `created`→`issued`, `last_modified`→`modified`, `id`→`identifier` |
+| `relationships_as_subject[].type` | `qualifiedRelation[].hadRole` | Map CKAN type string to `hadRole` IRI |
+| `relationships_as_subject[].object` | `qualifiedRelation[].relation` | Map object IRI to `relation` |
+
+### Files to Create/Modify
+
+- Create: `tests/fixtures/schema/dcat/0sbdv-gh024.json` — DCAT v3 JSON derived from CKAN API format
+- Create: `tests/fixtures/schema/dcat/6rpmk-n3x82.json` — DCAT v3 JSON derived from CKAN API format
+- Create: `tests/fixtures/schema/dcat/j5xbm-d7v43.json` — DCAT v3 JSON derived from CKAN API format
+
+### Verification
+
+```bash
+cargo run --bin acorn -- check .\\tests\\fixtures\\schema\\dcat\\ --standard dcat
+# Should produce 0 errors (no deserialization or URL failures)
+```

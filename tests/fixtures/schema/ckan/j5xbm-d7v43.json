@@ -1,0 +1,83 @@
+{
+    "author": null,
+    "author_email": null,
+    "creator_user_id": "9cf2bb1c-c7fb-4bec-9b80-653e5d8ad4b6",
+    "id": "b0bddbfd-07d3-4082-9ecd-687abf6948f0",
+    "isopen": false,
+    "issued": "2025",
+    "license_title": null,
+    "maintainer": null,
+    "maintainer_email": null,
+    "metadata_created": "2026-01-30T15:12:24.933104",
+    "metadata_modified": "2026-02-10T16:58:46.827833",
+    "modified": "2025-12-19",
+    "name": "odin-historic-outage-data-zip-code-resolution",
+    "notes": "The Outage Data Initiative Nationwide (ODIN) seeks to establish a comprehensive digital reporting standard for power outage data and to enable utilities and others to exchange data freely with designated stakeholders. The program is led by Oak Ridge National Laboratory and the U.S. Department of Energy's Office of Electricity.The three outage files contain power outage information provided to ODIN at the frequency and level of polygon resolution that the utility provided to us. Each file is provided as comma delimited values with four columns that describe the time the outage was reported to ODIN as a UTC timestamp, the resolution of the outage, the number of customers affected, and the U.S. state where the power outage is located.The data set was gathered over the period from June 2022 to the beginning of September 2023 with the outage area described as either a zip code, U.S. FIPS County, or a well-known text JSON polygon with coordinates provided as WGS 84.\n\nData shown on table and visualization is only limit to 2022 and 500,000 records.\n\nThe export feature allows users to download the full dataset zipped file.",
+    "num_resources": 0,
+    "num_tags": 1,
+    "organization": {
+        "id": "88d9bafb-1f2c-441f-9a20-50a8ccfa4c82",
+        "name": "oedp",
+        "title": "oedp",
+        "type": "organization",
+        "description": "",
+        "image_url": "",
+        "created": "2026-01-29T19:16:07.605274",
+        "is_organization": true,
+        "approval_status": "approved",
+        "state": "active"
+    },
+    "owner_org": "88d9bafb-1f2c-441f-9a20-50a8ccfa4c82",
+    "private": false,
+    "state": "active",
+    "title": "ODIN Historic Outage Data (Zip Code Resolution)",
+    "type": "dataset",
+    "url": "http://localhost:5000/dataset/odin-historic-outage-data-zip-code-resolution",
+    "contact": [
+        {
+            "email": "data@oedp.org",
+            "name": "Oak Ridge National Laboratory"
+        }
+    ],
+    "contributor": [
+        {
+            "name": "Oak Ridge National Laboratory",
+            "type": "Organizational"
+        }
+    ],
+    "creator": [
+        {
+            "name": "Oak Ridge National Laboratory",
+            "type": "Organizational"
+        },
+        {
+            "name": "Office of Electricity",
+            "type": "Organizational"
+        }
+    ],
+    "publisher": [
+        {
+            "name": "Oak Ridge National Laboratory"
+        }
+    ],
+    "qualified_relation": [
+        {
+            "relation": "References",
+            "role": "",
+            "uri": "https://odin.ornl.gov/"
+        }
+    ],
+    "tags": [
+        {
+            "display_name": "Electricity",
+            "id": "644ace8b-2da8-4489-8629-a3db668c7af5",
+            "name": "Electricity",
+            "state": "active",
+            "vocabulary_id": null
+        }
+    ],
+    "resources": [],
+    "groups": [],
+    "relationships_as_subject": [],
+    "relationships_as_object": []
+}
