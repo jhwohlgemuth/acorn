@@ -9,7 +9,9 @@ use crate::io::current_date;
 use crate::io::{read_file, License};
 #[cfg(feature = "std")]
 use crate::prelude::{Error, PathBuf};
+#[cfg(feature = "std")]
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
+#[cfg(feature = "std")]
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{has_at_least_one_truthy, is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
 use crate::schema::Date;
@@ -19,7 +21,6 @@ use crate::util::Label;
 use crate::util::License;
 use bon::Builder;
 use derive_more::Display;
-#[cfg(feature = "std")]
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;

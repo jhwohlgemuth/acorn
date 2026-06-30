@@ -15,7 +15,9 @@ use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, Crossw
 use crate::schema::standard::datacite::{self, RelationType};
 use crate::schema::validate::is_url;
 use crate::schema::{Date as PeriodOfTime, OneOrMany};
-use crate::util::{Checksum, MimeType, ToProse};
+#[cfg(feature = "std")]
+use crate::util::MimeType;
+use crate::util::{Checksum, ToProse};
 #[cfg(feature = "std")]
 use crate::PathBuf;
 #[cfg(feature = "std")]

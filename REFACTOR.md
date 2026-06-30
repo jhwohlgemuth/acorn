@@ -403,31 +403,6 @@ Prioritization rule:
 
 This is an implementation-oriented sequence designed to be executed as small, reviewable PRs.
 
-### PR 1: Unblock no-default-features Build
-
-Goal:
-- Make `cargo check -p acorn-lib --no-default-features` pass.
-
-Primary edits:
-1. `acorn-lib/src/lib.rs`
-  - Change unconditional analyzer export to feature-gated analyzer export.
-  - From: `pub mod analyzer;`
-  - To: `#[cfg(feature = "analysis")] pub mod analyzer;`
-
-2. `acorn-lib/src/util/macros.rs`
-  - Gate `check!`, `check_ok!`, `check_err!` macro definitions behind `feature = "analysis"` or add non-analysis-safe variants that do not reference `crate::analyzer::Check*`.
-
-3. `acorn-lib/src/analyzer/mod.rs`
-  - Ensure all code requiring `Check`, `CheckCategory`, `CheckSeverity`, `lychee_lib`, `bat`, `rayon`, and std process/runtime APIs is inside `#[cfg(feature = "analysis")]` sections.
-
-Validation commands:
-1. `cargo check -p acorn-lib --no-default-features`
-2. `cargo check -p acorn-lib --no-default-features --features analysis,std`
-
-Acceptance criteria:
-1. no-default-features check succeeds.
-2. analysis+std check still succeeds.
-
 ### PR 2: Introduce Explicit Capability Features (`core`, `alloc`, `wasm`)
 
 Goal:

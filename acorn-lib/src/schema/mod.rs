@@ -1038,6 +1038,7 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
     output
 }
 #[cfg(not(feature = "std"))]
+#[allow(dead_code)]
 pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, _data: I, _name: String) -> Option<String> {
     Some(value)
 }
@@ -1093,6 +1094,7 @@ where
 }
 
 #[cfg(not(feature = "std"))]
+#[allow(dead_code)]
 pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
     Some(value)
 }

@@ -4,7 +4,9 @@
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_huwise, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
-use crate::util::{MimeType, ToProse};
+#[cfg(feature = "std")]
+use crate::util::MimeType;
+use crate::util::ToProse;
 #[cfg(feature = "std")]
 use crate::PathBuf;
 use ammonia::clean;

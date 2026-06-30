@@ -15,7 +15,9 @@
 //! }
 //! ```
 //!
-use crate::prelude::{HashMap, Path};
+use crate::prelude::HashMap;
+#[cfg(feature = "std")]
+use crate::prelude::Path;
 use crate::{fail, skip};
 use aho_corasick::AhoCorasick;
 use bon::Builder;

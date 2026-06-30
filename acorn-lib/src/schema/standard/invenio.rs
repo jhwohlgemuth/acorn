@@ -17,7 +17,9 @@ use crate::schema::research_activity::s3a::Status;
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_invenio, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
 use crate::schema::validate::{is_doi, is_iso_639_language_code};
-use crate::util::{MimeType, ToProse};
+#[cfg(feature = "std")]
+use crate::util::MimeType;
+use crate::util::ToProse;
 #[cfg(feature = "std")]
 use crate::PathBuf;
 #[cfg(feature = "std")]

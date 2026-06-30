@@ -19,7 +19,9 @@ use crate::util::Constant;
 use crate::util::License;
 use crate::util::SemanticVersion;
 use crate::{list_validator, method_validator, regex_validator};
-use chrono::{DateTime, Datelike, NaiveDate, SecondsFormat, Utc};
+#[cfg(feature = "std")]
+use chrono::Utc;
+use chrono::{DateTime, Datelike, NaiveDate, SecondsFormat};
 use convert_case::{Case, Casing};
 use core::iter::once;
 use fluent_uri::UriRef;

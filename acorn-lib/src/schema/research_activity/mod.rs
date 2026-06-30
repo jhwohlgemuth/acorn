@@ -2,6 +2,7 @@
 //!
 //! Module that defines the research activity schema
 //!
+#[cfg(feature = "std")]
 use crate::fail;
 #[cfg(feature = "std")]
 use crate::io::ApiResult;
@@ -21,12 +22,15 @@ use crate::util::constants::{
     MAX_LENGTH_SECTION_MISSION,
 };
 use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
-use crate::util::{frontmatter_and_body, LinkedData, ToMarkdown, ToProse};
+#[cfg(feature = "std")]
+use crate::util::frontmatter_and_body;
 #[cfg(feature = "std")]
 use crate::util::{Constant, Label};
+use crate::util::{LinkedData, ToMarkdown, ToProse};
 #[cfg(feature = "std")]
 use crate::util::{MimeType, StringConversion};
 use bon::Builder;
+#[cfg(feature = "std")]
 use color_eyre::eyre::eyre;
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};
@@ -973,6 +977,7 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
     output
 }
 #[cfg(not(feature = "std"))]
+#[allow(dead_code)]
 pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, _data: I, _name: String) -> Option<String> {
     Some(value)
 }
