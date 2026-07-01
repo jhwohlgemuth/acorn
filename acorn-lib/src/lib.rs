@@ -4,10 +4,9 @@
 //! `acorn-lib` is a one-stop-shop for everything related to building and maintaining research activity data (RAD)-related technology, including the Accessible Content Optimization for Research Needs (ACORN) tool.
 //! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 //!
-// Policy: `wasm` is the portable allocation-capable layer. It must not be combined
-// with `std`, which enables host filesystem, process, and network integrations.
-#[cfg(all(feature = "wasm", feature = "std"))]
-compile_error!("features `wasm` and `std` are mutually exclusive");
+// Policy: `wasm` marks portable allocation-capable APIs. Cargo feature
+// unification means tooling such as `--all-features` may combine it with `std`;
+// wasm-specific code should use `#[cfg(all(feature = "wasm", not(feature = "std")))]`.
 extern crate alloc;
 
 use derive_more::Display;

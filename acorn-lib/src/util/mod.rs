@@ -24,6 +24,7 @@ use bon::Builder;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::{ContentArrangement, Table};
+#[cfg(feature = "unicode")]
 use console::Emoji;
 use convert_case::{Case, Casing};
 use core::fmt;
@@ -520,9 +521,17 @@ impl Constant {
     }
 }
 impl Label {
-    /// Emoji for use when logging a warning, caution, etc.
-    pub const CAUTION: Emoji<'_, '_> = Emoji("⚠️  ", "!!! ");
-    /// Emoji for use when logging a success, pass, etc.
+    /// Prefix for use when logging a warning, caution, etc.
+    #[cfg(not(feature = "unicode"))]
+    pub const CAUTION: &str = "!!! ";
+    /// Prefix for use when logging a warning, caution, etc.
+    #[cfg(feature = "unicode")]
+    pub const CAUTION: Emoji<'_, '_> = Emoji("⚠️ ", "!!! ");
+    /// Prefix for use when logging a success, pass, etc.
+    #[cfg(not(feature = "unicode"))]
+    pub const CHECKMARK: &str = "✓ ";
+    /// Prefix for use when logging a success, pass, etc.
+    #[cfg(feature = "unicode")]
     pub const CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
     /// Template string to customize the progress bar
     ///

@@ -35,6 +35,7 @@ use nucleo_matcher::{
     pattern::{CaseMatching, Normalization, Pattern},
     Config, Matcher,
 };
+#[cfg(feature = "std")]
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use petgraph::graph::Graph;
 use schemars::JsonSchema;
@@ -952,6 +953,7 @@ impl Validate for MediaObject {
         }
     }
 }
+#[cfg(feature = "std")]
 impl View for ContactPoint {
     fn render(&self) -> VirtualNode {
         let ContactPoint {

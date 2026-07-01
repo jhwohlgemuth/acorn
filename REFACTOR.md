@@ -403,29 +403,6 @@ Prioritization rule:
 
 This is an implementation-oriented sequence designed to be executed as small, reviewable PRs.
 
-### PR 3: Dependency Hygiene for no-std/WASM
-
-Goal:
-- Ensure host-only dependencies are optional and tied to explicit features.
-
-Primary edits:
-1. `acorn-lib/Cargo.toml`
-  - Make std/host-only crates optional where appropriate:
-    - `docx-rs`, `directories`, `indicatif`, `dotenvy`, `rayon`, `rusqlite`, `flate2`, `zip`, `tera`, `percy-dom`, `which`, `reqwest`, `tokio`, `axum`, `tower`, `lychee-lib`, `bat`, `polars`.
-  - Keep lightweight alloc/no-std-friendly crates non-optional where required.
-  - Replace `chrono` dependency wiring so `chrono/std` is only enabled via `std` feature.
-
-2. `Cargo.toml` (workspace)
-  - Adjust workspace-level defaults that force std features (example: chrono std flag).
-  - Keep crate-level feature wiring responsible for std activation.
-
-Validation commands:
-1. `cargo tree -p acorn-lib --no-default-features -e normal`
-2. `cargo check -p acorn-lib --no-default-features --features alloc`
-
-Acceptance criteria:
-1. no-default-features tree does not include obvious std-only host stacks (tokio/reqwest/rusqlite/rayon/polars, etc.).
-
 ### PR 4: Separate Core Domain Logic from std Adapters
 
 Goal:

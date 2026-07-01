@@ -20,8 +20,10 @@ use crate::util::License;
 use crate::util::SemanticVersion;
 use crate::{list_validator, method_validator, regex_validator};
 #[cfg(feature = "std")]
+use chrono::SecondsFormat;
+#[cfg(feature = "std")]
 use chrono::Utc;
-use chrono::{DateTime, Datelike, NaiveDate, SecondsFormat};
+use chrono::{DateTime, Datelike, NaiveDate};
 use convert_case::{Case, Casing};
 use core::iter::once;
 use fluent_uri::UriRef;
@@ -187,9 +189,16 @@ pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
 /// assert_eq!(format_timestamp(invalid), invalid);
 /// ```
 pub fn format_timestamp(value: &str) -> String {
-    DateTime::parse_from_rfc3339(value)
-        .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Micros, false))
-        .unwrap_or_else(|_| value.to_string())
+    #[cfg(feature = "std")]
+    {
+        DateTime::parse_from_rfc3339(value)
+            .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Micros, false))
+            .unwrap_or_else(|_| value.to_string())
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        value.to_string()
+    }
 }
 /// Validate that at least one item in `values` satisfies `method`
 ///
