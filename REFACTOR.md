@@ -403,35 +403,6 @@ Prioritization rule:
 
 This is an implementation-oriented sequence designed to be executed as small, reviewable PRs.
 
-### PR 2: Introduce Explicit Capability Features (`core`, `alloc`, `wasm`)
-
-Goal:
-- Replace implicit capability assumptions with explicit layering.
-
-Primary edits:
-1. `acorn-lib/Cargo.toml` feature block
-  - Add:
-    - `core = []`
-    - `alloc = ["core"]`
-    - `wasm = ["alloc"]`
-  - Update existing features to depend on capabilities:
-    - `std = ["alloc", ...]`
-    - `analysis = ["alloc", "std", ...]`
-    - `powerpoint = ["alloc"]` or `powerpoint = ["alloc", "std"]` depending on final API placement.
-
-2. `acorn-lib/src/lib.rs`
-  - Add compile-time guardrails:
-    - `#[cfg(all(feature = "wasm", feature = "std"))]` policy decision comment and allowed/denied behavior.
-
-Validation commands:
-1. `cargo check -p acorn-lib --no-default-features --features core`
-2. `cargo check -p acorn-lib --no-default-features --features alloc`
-3. `cargo check -p acorn-lib --no-default-features --features std`
-
-Acceptance criteria:
-1. Each capability layer compiles independently.
-2. Existing default behavior remains intact for CLI consumers.
-
 ### PR 3: Dependency Hygiene for no-std/WASM
 
 Goal:

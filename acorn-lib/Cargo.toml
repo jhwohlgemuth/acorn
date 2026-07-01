@@ -118,13 +118,16 @@ name = "readability"
 harness = false
 
 [features]
-agentic = ["dep:axum", "dep:rmcp", "dep:tower"]
-analysis = ["dep:bat", "dep:polars", "std"]
+core = []
+alloc = ["core"]
+wasm = ["alloc"]
+agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
+analysis = ["alloc", "std", "dep:bat", "dep:polars"]
 default = ["analysis", "agentic", "shell-lint"]
 doctor = []
-duckdb = ["dep:duckdb"]
-powerpoint = []
-std = ["dep:axum", "dep:lychee-lib", "dep:reqwest", "dep:tokio", "dep:tower", "dep:which", "chrono/std", "chrono/clock"]
+duckdb = ["std", "dep:duckdb"]
+powerpoint = ["std"]
+std = ["alloc", "dep:axum", "dep:lychee-lib", "dep:reqwest", "dep:tokio", "dep:tower", "dep:which", "chrono/std", "chrono/clock"]
 shell-lint = ["std", "dep:shuck-linter", "dep:shuck-parser"]
 
 [lints]
