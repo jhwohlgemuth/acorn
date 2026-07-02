@@ -9,8 +9,10 @@
 // wasm-specific code should use `#[cfg(all(feature = "wasm", not(feature = "std")))]`.
 extern crate alloc;
 
+use core::convert::Infallible;
+use core::str::FromStr;
 use derive_more::Display;
-use fluent_uri::Uri;
+use fluent_uri::{Uri, UriRef};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use tracing::debug;
@@ -35,7 +37,14 @@ use crate::io::http::get;
 use crate::prelude::PathBuf;
 use crate::util::Label;
 
-/// Abstraction for file and folder locations that can be local (e.g., file:///path/to/project) or remote (e.g., <https://gitlab.com/project>)
+/// **Descriptive/persistent** location reference for use in configuration (buckets, repositories, etc.).
+///
+/// This is a **data type** meant for storage and serialization — use [`io::Source`] when you
+/// actually need to **read** bytes from a local path or URL at runtime.
+///
+/// Supports both raw URI strings (`Simple`) and structured scheme+URI pairs (`Detailed`).
+///
+/// See [`io::Source`] for the complementary **operational/transient** type that handles I/O.
 #[derive(Clone, Debug, Display, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Location {
@@ -128,6 +137,27 @@ pub struct Release {
     pub released_at: String,
     /// Release response message
     pub message: Option<String>,
+}
+impl FromStr for Location {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match UriRef::parse(s).ok().and_then(|uri| uri.scheme()) {
+            | Some(scheme) => {
+                let detected = match scheme.as_str().to_ascii_lowercase().as_str() {
+                    | "https" => Scheme::HTTPS,
+                    | "http" => Scheme::HTTP,
+                    | "file" => Scheme::File,
+                    | _ => Scheme::Unsupported,
+                };
+                Ok(Location::Detailed {
+                    scheme: detected,
+                    uri: s.to_string(),
+                })
+            }
+            | None => Ok(Location::Simple(s.to_string())),
+        }
+    }
 }
 impl Location {
     /// Get associated location hash

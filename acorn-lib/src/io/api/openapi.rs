@@ -7,6 +7,7 @@ use convert_case::{Case, Casing};
 use itertools::Itertools;
 use serde_norway::Value;
 
+//TODO: Whole module needs refinement/refactoring
 /// Parse an OpenAPI document and generate ACORN `Resource` entries.
 ///
 /// This first pass imports endpoint interface metadata only (name, method,

@@ -7,8 +7,7 @@
 use crate::io::api::github;
 use crate::io::api::gitlab;
 use crate::io::api::{Configuration, Endpoint};
-use crate::io::http::get;
-use crate::io::{files_all, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType};
+use crate::io::{files_all, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType, Source};
 use crate::io::{ApiResult, Executor};
 use crate::prelude::{self, env, exit, Arc, PathBuf};
 use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
@@ -17,6 +16,7 @@ use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt::{self, Debug};
+use core::future::Future;
 use derive_more::Display;
 use fancy_regex::Regex;
 use owo_colors::OwoColorize;
@@ -25,6 +25,11 @@ use serde_with::skip_serializing_none;
 use tracing::error;
 
 const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
+
+struct FilterSet {
+    ignore: Vec<Regex>,
+    filter: Vec<Regex>,
+}
 
 /// Runner status for CI/CD pipelines
 #[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
@@ -315,76 +320,48 @@ impl Bucket {
     /// - Ignores files listed in [`IGNORE`]
     /// - Only copies files from local repositories
     pub async fn copy_files(self: Bucket, options: &BucketOptions) -> ApiResult<usize> {
-        let BucketOptions {
-            output,
-            threads,
-            quiet,
-            ignore,
-            filter,
-        } = options;
+        let BucketOptions { output, ignore, filter, .. } = options;
         let output = Arc::new(output.clone().unwrap_or_default());
-        let patterns = match compile_regex_patterns(ignore) {
-            | Ok(ignore_patterns) => match compile_regex_patterns(filter) {
-                | Ok(filter_patterns) => Ok((ignore_patterns, filter_patterns)),
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        };
-        match patterns {
-            | Ok((ignore_patterns, filter_patterns)) => {
+        match compile_filter_set(ignore, filter) {
+            | Ok(filters) => {
                 let Bucket { name, code_repository, .. } = self.clone();
-                if code_repository.is_local() {
-                    let bucket_root = match code_repository.location().path() {
-                        | Some(value) => PathBuf::from(value).to_absolute_string(),
-                        | None => {
-                            unimplemented!()
-                        }
-                    };
-                    let files = files_all(PathBuf::from(&bucket_root), None)
+                match code_repository.is_local() {
+                    | true => {
+                        let bucket_root = match code_repository.location().path() {
+                            | Some(value) => PathBuf::from(value).to_absolute_string(),
+                            | None => {
+                                unimplemented!()
+                            }
+                        };
+                        let items = filter_paths(
+                            files_all(PathBuf::from(&bucket_root), None)
+                                .into_iter()
+                                .map(|x| x.display().to_string())
+                                .collect::<Vec<String>>(),
+                            &filters,
+                        )
                         .into_iter()
-                        .map(|x| x.display().to_string())
+                        .filter(|path| PathBuf::from(path).is_file())
                         .collect::<Vec<String>>();
-                    let items = files
-                        .into_iter()
-                        .filter(|path| {
-                            !is_ignored_path(path, &ignore_patterns) && PathBuf::from(path).is_file() && is_filtered_path(path, &filter_patterns)
-                        })
-                        .collect::<Vec<String>>();
-                    let message: fn(&String) -> String = |path| format!("Copying {path}");
-                    let bucket_root = Arc::new(bucket_root);
-                    let operation = {
-                        let bucket_root = Arc::clone(&bucket_root);
-                        let output = Arc::clone(&output);
-                        move |path: String| {
+                        let bucket_root = Arc::new(bucket_root);
+                        let operation = {
                             let bucket_root = Arc::clone(&bucket_root);
                             let output = Arc::clone(&output);
-                            async move {
-                                let path_buf = PathBuf::from(&path);
-                                let relative = match path_buf.strip_prefix(PathBuf::from(bucket_root.as_str())) {
-                                    | Ok(rel) => rel.to_path_buf(),
-                                    | Err(_) => return Err(eyre!("Failed to strip prefix {bucket_root} from {path}")),
-                                };
-                                let output_filepath = output.join(relative);
-                                write_file_bytes(output_filepath, || async { prelude::read(path.clone()) }).await
+                            move |path: String| {
+                                let bucket_root = Arc::clone(&bucket_root);
+                                let output = Arc::clone(&output);
+                                async move {
+                                    let path_buf = PathBuf::from(&path);
+                                    match path_buf.strip_prefix(PathBuf::from(bucket_root.as_str())) {
+                                        | Ok(relative) => write_file_bytes(output.join(relative), || async { prelude::read(path.clone()) }).await,
+                                        | Err(_) => Err(eyre!("Failed to strip prefix {bucket_root} from {path}")),
+                                    }
+                                }
                             }
-                        }
-                    };
-                    let total_data: usize = count_json_files(&items);
-                    let total_images: usize = count_image_files(&items);
-                    let finish_message = |_| operations_complete_message(name, total_data, total_images);
-                    let progress_type = match quiet {
-                        | true => ProgressType::Silent,
-                        | false => ProgressType::Bar,
-                    };
-                    match with_progress(items, message, operation, finish_message, Some(*threads), progress_type).await {
-                        | Ok(_) => Ok(total_data.saturating_add(total_images)),
-                        | Err(why) => {
-                            error!("=> {} Copy files with progress bar — {why}", Label::fail());
-                            Err(why)
-                        }
+                        };
+                        transfer_bucket_files(name, items, options, "Copying", operation).await
                     }
-                } else {
-                    Ok(0)
+                    | false => Ok(0),
                 }
             }
             | Err(why) => Err(why),
@@ -396,81 +373,37 @@ impl Bucket {
     ///
     /// Downloads files concurrently using buffered streams
     pub async fn download_files(self: Bucket, options: &BucketOptions) -> ApiResult<usize> {
-        let BucketOptions {
-            output,
-            threads,
-            quiet,
-            filter,
-            ignore,
-        } = options;
-        let output = Arc::new(output.clone().unwrap_or_default());
-        let patterns = match compile_regex_patterns(ignore) {
-            | Ok(ignore_patterns) => match compile_regex_patterns(filter) {
-                | Ok(filter_patterns) => Ok((ignore_patterns, filter_patterns)),
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        };
-        match patterns {
-            | Ok((ignore_patterns, filter_patterns)) => {
+        let BucketOptions { filter, ignore, .. } = options;
+        match compile_filter_set(ignore, filter) {
+            | Ok(filters) => {
                 let name = self.name.clone();
                 let code_repository = self.code_repository.clone();
-                let items_result = match self.file_paths("").await {
-                    | Ok(paths) => Ok(paths
-                        .into_iter()
-                        .filter(|path| !is_ignored_path(path, &ignore_patterns) && is_filtered_path(path, &filter_patterns))
-                        .collect::<Vec<String>>()),
-                    | Err(why) => {
-                        error!("=> {} Get file paths for download — {why}", Label::fail());
-                        Err(why)
-                    }
-                };
-                match items_result {
-                    | Ok(items) => {
-                        let message: fn(&String) -> String = |path| format!("Downloading {path}");
+                match self.file_paths("").await {
+                    | Ok(paths) => {
+                        let items = filter_paths(paths, &filters);
                         let operation = {
-                            let output = Arc::clone(&output);
                             let code_repository = Arc::new(code_repository);
+                            let output = Arc::new(options.output.clone().unwrap_or_default());
                             move |path: String| {
                                 let output = Arc::clone(&output);
                                 let repository = Arc::clone(&code_repository);
                                 async move {
-                                    let output_filepath = format!("{}/{}", output.display(), path);
-                                    let url = repository
-                                        .raw_url(path.clone())
-                                        .ok_or_else(|| eyre!("Failed to build raw URL for repository path"));
-                                    match url {
-                                        | Ok(url) => {
-                                            write_file_bytes(output_filepath, || async move {
-                                                match get(url).send().await {
-                                                    | Ok(response) => response
-                                                        .bytes()
-                                                        .await
-                                                        .map(|b| b.to_vec())
-                                                        .map_err(|why| eyre!("Failed to download file — {why}")),
-                                                    | Err(why) => Err(eyre!("Failed to download file — {why}")),
-                                                }
-                                            })
-                                            .await
+                                    match repository.raw_url(path.clone()) {
+                                        | Some(url) => {
+                                            let output_filepath = output.join(path);
+                                            write_file_bytes(output_filepath, || async move { Source::read_bytes(&url, false).await }).await
                                         }
-                                        | Err(why) => Err(why),
+                                        | None => Err(eyre!("Failed to build raw URL for repository path")),
                                     }
                                 }
                             }
                         };
-                        let total_data: usize = count_json_files(&items);
-                        let total_images: usize = count_image_files(&items);
-                        let finish_message = |_| operations_complete_message(name, total_data, total_images);
-                        let progress_type = match quiet {
-                            | true => ProgressType::Silent,
-                            | false => ProgressType::Bar,
-                        };
-                        match with_progress(items, message, operation, finish_message, Some(*threads), progress_type).await {
-                            | Ok(_) => Ok(total_data.saturating_add(total_images)),
-                            | Err(why) => Err(why),
-                        }
+                        transfer_bucket_files(name, items, options, "Downloading", operation).await
                     }
-                    | Err(why) => Err(why),
+                    | Err(why) => {
+                        error!("=> {} Get file paths for download — {why}", Label::fail());
+                        Err(why)
+                    }
                 }
             }
             | Err(why) => Err(why),
@@ -619,15 +552,14 @@ impl From<String> for RunnerType {
         Self::from(value.as_str())
     }
 }
+fn compile_filter_set(ignore: &[String], filter: &[String]) -> ApiResult<FilterSet> {
+    compile_regex_patterns(ignore).and_then(|ignore| compile_regex_patterns(filter).map(|filter| FilterSet { ignore, filter }))
+}
 fn compile_regex_patterns(patterns: &[String]) -> ApiResult<Vec<Regex>> {
-    let mut result: Vec<Regex> = vec![];
-    for pattern in patterns {
-        match Regex::new(pattern) {
-            | Ok(value) => result.push(value),
-            | Err(why) => return Err(eyre!("Invalid regex/filter pattern '{pattern}': {why}")),
-        }
-    }
-    Ok(result)
+    patterns
+        .iter()
+        .map(|pattern| Regex::new(pattern).map_err(|why| eyre!("Invalid regex/filter pattern '{pattern}': {why}")))
+        .collect()
 }
 fn count_json_files(paths: &[String]) -> usize {
     paths.iter().filter(|&path| path.to_lowercase().ends_with(".json")).count()
@@ -640,6 +572,12 @@ fn default_docker_image() -> String {
 }
 fn default_executor() -> Executor {
     Executor::Docker
+}
+fn filter_paths(paths: Vec<String>, filters: &FilterSet) -> Vec<String> {
+    paths
+        .into_iter()
+        .filter(|path| !is_ignored_path(path, &filters.ignore) && is_filtered_path(path, &filters.filter))
+        .collect()
 }
 #[allow(clippy::ptr_arg)]
 fn has_image_extension(path: &String) -> bool {
@@ -687,6 +625,31 @@ fn operations_complete_message(name: Option<String>, json_count: usize, image_co
         suffix(total),
         message,
     )
+}
+async fn transfer_bucket_files<F, Fut>(
+    name: Option<String>,
+    items: Vec<String>,
+    options: &BucketOptions,
+    verb: &'static str,
+    operation: F,
+) -> ApiResult<usize>
+where
+    F: Fn(String) -> Fut,
+    Fut: Future<Output = ApiResult<()>>,
+{
+    let BucketOptions { threads, quiet, .. } = options;
+    let total_data = count_json_files(&items);
+    let total_images = count_image_files(&items);
+    let total = total_data.saturating_add(total_images);
+    let message = move |path: &String| format!("{verb} {path}");
+    let finish_message = |_| operations_complete_message(name, total_data, total_images);
+    let progress_type = match quiet {
+        | true => ProgressType::Silent,
+        | false => ProgressType::Bar,
+    };
+    with_progress(items, message, operation, finish_message, Some(*threads), progress_type)
+        .await
+        .map(|_| total)
 }
 
 #[cfg(test)]

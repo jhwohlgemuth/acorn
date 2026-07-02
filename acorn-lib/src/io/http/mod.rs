@@ -257,6 +257,16 @@ async fn invoke_request(client: reqwest::Client, request: HttpRequest) -> ApiRes
         | Err(why) => Err(eyre!(why)),
     }
 }
+/// Reads response bytes or converts request, status, and body errors into a contextual error.
+pub async fn response_body_bytes(response: ApiResult<HttpResponse>, error_message: &str) -> ApiResult<Vec<u8>> {
+    match response {
+        | Ok(value) => match value.status_code {
+            | 200..=299 => value.bytes().await.map_err(|why| eyre!("{error_message} — {why}")),
+            | status => Err(eyre!("{error_message} — HTTP {status}")),
+        },
+        | Err(why) => Err(eyre!("{error_message} — {why}")),
+    }
+}
 pub(crate) fn should_retry(method: &HttpMethod, status_code: Option<u16>) -> bool {
     policy::should_retry(method, status_code)
 }

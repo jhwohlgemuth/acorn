@@ -13,10 +13,12 @@ use owo_colors::OwoColorize;
 use std::process::exit;
 use tracing::error;
 
+pub mod model;
+
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     config: &Option<PathBuf>,
-    url: &Option<String>,
+    url: &[String],
     filter: &[String],
     ignore: &[String],
     output: &Option<PathBuf>,
@@ -103,29 +105,33 @@ pub async fn run(
                 exit(exitcode::DATAERR);
             }
         }
-    } else if let Some(value) = url {
+    } else if !url.is_empty() {
         let mut total: usize = 0;
-        let bucket = Bucket::from(value.as_ref());
         let mut branch_result: Result<(), Report> = Ok(());
         if let Some(path) = output.clone() {
             let bucket_options = options.clone().with_output(path.clone());
-            let is_local = offline || bucket.code_repository.is_local();
-            let bucket_result = if is_local {
-                bucket.copy_files(&bucket_options).await
-            } else {
-                bucket.download_files(&bucket_options).await
-            };
-            match bucket_result {
-                | Ok(count) => {
-                    total = total.saturating_add(count);
-                }
-                | Err(why) => {
-                    if is_local {
-                        error!("=> {} Copy data — {why}", Label::fail());
+            for value in url {
+                if branch_result.is_ok() {
+                    let bucket = Bucket::from(value.as_ref());
+                    let is_local = offline || bucket.code_repository.is_local();
+                    let bucket_result = if is_local {
+                        bucket.copy_files(&bucket_options).await
                     } else {
-                        error!("=> {} Download data — {why}", Label::fail());
+                        bucket.download_files(&bucket_options).await
+                    };
+                    match bucket_result {
+                        | Ok(count) => {
+                            total = total.saturating_add(count);
+                        }
+                        | Err(why) => {
+                            if is_local {
+                                error!("=> {} Copy data — {why}", Label::fail());
+                            } else {
+                                error!("=> {} Download data — {why}", Label::fail());
+                            }
+                            branch_result = Err(why);
+                        }
                     }
-                    branch_result = Err(why);
                 }
             }
             if branch_result.is_ok() {

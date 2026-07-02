@@ -32,6 +32,20 @@ fn test_cli() {
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to", "--ignore", "[/]draft.json$", "--filter", "[/]valid.json$"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "download", "--filter", "\\.json$"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "download", "--ignore", "\\.png$", "--filter", "\\.json$"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "download", "https://github.com/user/one,https://github.com/user/two"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "download", "model"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "download", "model", "openai/o3", "--filter", "gguf", "--output", "./models"]).is_ok());
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "download",
+        "model",
+        "openai/o3,openai/o4-mini",
+        "--filter",
+        "gguf",
+        "--output",
+        "./models"
+    ])
+    .is_ok());
     assert!(Arguments::try_parse_from(["acorn", "create", "runner", "--group", "12345", "--repo", "code.ornl.gov"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "export", "./", "--format", "pdf", "--filter", "json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "export", "./", "--format", "pdf", "--ignore", "png", "--filter", "json"]).is_ok());
@@ -42,7 +56,7 @@ fn test_cli() {
     assert!(Arguments::try_parse_from([
         "acorn",
         "import",
-        "openapi",
+        "spec",
         "./openapi.yaml",
         "--name",
         "example::api",
@@ -50,6 +64,8 @@ fn test_cli() {
         "api.example.com"
     ])
     .is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "import", "spec"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "import", "spec", "./openapi.yaml"]).is_ok());
     assert!(Arguments::try_parse_from([
         "acorn",
         "load",

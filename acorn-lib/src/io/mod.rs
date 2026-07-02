@@ -67,6 +67,9 @@ pub mod http;
 pub mod mcp;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
+pub mod source;
+
+pub use source::Source;
 
 /// Utility type alias for I/O operation futures (e.g., read, write, copy, etc.)
 pub type ApiFuture<'a> = Pin<Box<dyn Future<Output = ApiResult<()>> + 'a>>;

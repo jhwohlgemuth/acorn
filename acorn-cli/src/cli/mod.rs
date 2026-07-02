@@ -266,19 +266,13 @@ pub enum Commands {
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     #[command(visible_alias = "harvest")]
     Gather(Box<arguments::Gather>),
-    /// Add linked data context to research activity data
-    ///
-    ///     $> acorn link /path/to/data/
-    ///
-    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
-    Link(Box<arguments::Link>),
     /// Import external metadata into ACORN
     ///
-    ///     Generate an endpoint object from a local OpenAPI spec
-    ///     $> acorn import openapi ./openapi.yaml --name example::api --domain api.example.com
+    ///     Generate an endpoint object from a local API spec
+    ///     $> acorn import spec ./openapi.yaml --name example::api --domain api.example.com
     ///
     ///     Preview generated endpoint JSON without writing
-    ///     $> acorn import openapi https://example.com/openapi.yaml --name example::api --domain api.example.com --dry-run
+    ///     $> acorn import spec https://example.com/openapi.yaml --name example::api --domain api.example.com --dry-run
     ///
     ///     Import model metadata into the local database
     ///     $> acorn import model
@@ -288,6 +282,12 @@ pub enum Commands {
         #[command(subcommand)]
         command: Option<ImportCommands>,
     },
+    /// Add linked data context to research activity data
+    ///
+    ///     $> acorn link /path/to/data/
+    ///
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Link(Box<arguments::Link>),
     /// Print research activity data (RAD) or research activity identifier (RAiD) metadata JSON schema to stdout
     ///
     ///     Print RAD JSON schema (default)
@@ -319,14 +319,20 @@ pub enum CreateCommands {
     /// GitLab runner
     Runner(Box<arguments::Runner>),
 }
+#[derive(Clone, Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum DownloadCommands {
+    /// Download model metadata from models.dev into the local database
+    Model(Box<arguments::DownloadModel>),
+}
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum ImportCommands {
     /// Import model metadata from models.dev into the local database
     Model,
-    /// Import endpoint resources from an OpenAPI specification
-    #[command(name = "openapi")]
-    OpenApi(Box<arguments::OpenApiImport>),
+    /// Import endpoint resources from an API specification
+    #[command(name = "spec", visible_alias = "openapi")]
+    Spec(Box<arguments::Spec>),
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]

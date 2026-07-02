@@ -49,7 +49,7 @@ async fn test_download_local_url_silent() -> Result<()> {
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let output_dir = temp_dir.join("output");
     create_dir_all(&output_dir)?;
-    let url = Some("file:./tests/fixtures/data/bucket/".to_string());
+    let url = vec!["file:./tests/fixtures/data/bucket/".to_string()];
     let filter: Vec<String> = vec![];
     let ignore: Vec<String> = vec![];
     let verbose = Verbosity::new(0, 1);
@@ -85,7 +85,7 @@ async fn test_download_local_config_silent() -> Result<()> {
     let verbose = Verbosity::new(0, 1);
     let result = run(
         &Some(config_path),
-        &None,
+        &[],
         &filter,
         &ignore,
         &Some(output_dir.clone()),

@@ -1,4 +1,4 @@
-use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, ImportCommands, SchemaCommands, Void};
+use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, SchemaCommands, Void};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::fail;
 use acorn::prelude::exit;
@@ -144,18 +144,33 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
         }
         | Some(Commands::Download(arguments)) => with_runtime(async {
             initialize_database(config).await?;
-            download::run(
-                &arguments.config,
-                &arguments.url,
-                &arguments.filter,
-                &arguments.ignore,
-                &arguments.output,
-                &config.database_path,
-                threads,
-                &arguments.verbose,
-                offline,
-            )
-            .await
+            match &arguments.command {
+                | Some(DownloadCommands::Model(args)) => {
+                    download::model::run(
+                        &args.model,
+                        &args.filter,
+                        &args.ignore,
+                        &args.output,
+                        &config.database_path,
+                        &args.verbose,
+                    )
+                    .await
+                }
+                | None => {
+                    download::run(
+                        &arguments.config,
+                        &arguments.url,
+                        &arguments.filter,
+                        &arguments.ignore,
+                        &arguments.output,
+                        &config.database_path,
+                        threads,
+                        &arguments.verbose,
+                        offline,
+                    )
+                    .await
+                }
+            }
         }),
         | Some(Commands::Export(arguments)) => with_runtime(async {
             let arguments::Export {
@@ -246,10 +261,10 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
         | Some(Commands::Import { command, .. }) => match command {
             | Some(ImportCommands::Model) => with_runtime(async {
                 initialize_database(config).await?;
-                import::run_model(&config.database_path).await
+                import::model::run(&config.database_path).await
             }),
-            | Some(ImportCommands::OpenApi(arguments)) => with_runtime(async {
-                let arguments::OpenApiImport {
+            | Some(ImportCommands::Spec(arguments)) => with_runtime(async {
+                let arguments::Spec {
                     source,
                     name,
                     domain,
@@ -260,7 +275,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     verbose,
                     ..
                 } = arguments.as_ref();
-                import::run_openapi(source, name, domain, root, auth_token, output, *dry_run, verbose, offline).await
+                import::spec::run(source, name, domain, root, auth_token, output, *dry_run, verbose, offline).await
             }),
             | None => {
                 eprintln!("=> {} No subcommand provided for 'import'", Label::fail());

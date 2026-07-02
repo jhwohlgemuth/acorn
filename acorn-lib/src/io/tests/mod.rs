@@ -14,7 +14,7 @@ use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, read_file, read_large_file,
-    unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput,
+    unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput, Source,
 };
 use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
@@ -695,6 +695,57 @@ fn test_read_file_large_content() {
     let content = read_file(path.clone()).unwrap();
     assert_eq!(content, expected);
     remove_file(path).unwrap();
+}
+#[tokio::test]
+async fn test_read_source_from_local_path() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = std::env::temp_dir().join(format!("acorn-read-source-local-{stamp}.yaml"));
+    let expected = "openapi: 3.1.0\n".to_string();
+    write(path.clone(), expected.clone()).unwrap();
+    let content = Source::read(path.to_string_lossy().as_ref(), false).await.unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
+}
+#[cfg(not(windows))]
+#[tokio::test]
+async fn test_read_source_from_file_uri_localhost() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = std::env::temp_dir().join(format!("acorn-read-source-localhost-{stamp}.yaml"));
+    let expected = "openapi: 3.1.0\ninfo:\n  title: Localhost\n".to_string();
+    write(path.clone(), expected.clone()).unwrap();
+    let source = format!("file://localhost{}", path.to_string_lossy());
+    let content = Source::read(&source, false).await.unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
+}
+#[tokio::test]
+async fn test_read_source_from_file_uri() {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = std::env::temp_dir().join(format!("acorn-read-source-uri-{stamp}.yaml"));
+    let expected = "openapi: 3.1.0\ninfo:\n  title: URI\n".to_string();
+    write(path.clone(), expected.clone()).unwrap();
+    let source = if cfg!(windows) {
+        format!("file:///{}", path.to_string_lossy().replace('\\', "/"))
+    } else {
+        format!("file://{}", path.to_string_lossy())
+    };
+    let content = Source::read(&source, false).await.unwrap();
+    assert_eq!(content, expected);
+    remove_file(path).unwrap();
+}
+#[tokio::test]
+async fn test_read_source_rejects_remote_when_offline() {
+    let result = Source::read("https://example.com/openapi.yaml", true).await;
+    assert!(result.is_err());
+    let why = result.unwrap_err().to_string();
+    assert!(why.contains("while offline"));
+}
+#[tokio::test]
+async fn test_read_source_rejects_unsupported_uri_scheme() {
+    let result = Source::read("s3://example/openapi.yaml", false).await;
+    assert!(result.is_err());
+    let why = result.unwrap_err().to_string();
+    assert!(why.contains("Unsupported source URI scheme"));
 }
 #[test]
 fn test_should_retry_get_for_retryable_status_codes() {

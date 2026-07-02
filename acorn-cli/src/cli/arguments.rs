@@ -1,4 +1,5 @@
 use super::parse::{parse_check_category, parse_executor, parse_readability, parse_standard};
+use super::DownloadCommands;
 use acorn::analyzer::{self, Standard};
 use acorn::io::Executor;
 use acorn::prelude::PathBuf;
@@ -170,9 +171,11 @@ pub(crate) struct Doctor {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct Download {
-    /// Bucket repository URL
-    #[arg(value_name = "URL", required = false, value_hint = ValueHint::Url, help_heading = "ARGS")]
-    pub(crate) url: Option<String>,
+    #[command(subcommand)]
+    pub(crate) command: Option<DownloadCommands>,
+    /// Bucket repository URL(s)
+    #[arg(value_name = "URL", required = false, value_delimiter = ',', value_hint = ValueHint::Url, help_heading = "ARGS")]
+    pub(crate) url: Vec<String>,
     /// Path to configuration file (alternative to URL argument)
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, conflicts_with = "url", help_heading = "OPTIONS")]
     pub(crate) config: Option<PathBuf>,
@@ -188,6 +191,24 @@ pub(crate) struct Download {
     pub(crate) ignore: Vec<String>,
     /// Path to output directory where the downloaded content should be saved
     #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    pub(crate) output: Option<PathBuf>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct DownloadModel {
+    /// Model ID/name(s) from models.dev, or direct HTTP(S) model weight URL(s)
+    #[arg(value_name = "MODEL", required = false, value_delimiter = ',', value_hint = ValueHint::Url, help_heading = "ARGS")]
+    pub(crate) model: Vec<String>,
+    /// Regular expression pattern(s) used to include model weight sources while downloading
+    #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) filter: Vec<String>,
+    /// Regular expression pattern(s) to ignore model weight sources while downloading
+    #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) ignore: Vec<String>,
+    /// Path to output directory where downloaded model weights should be saved
+    #[arg(default_value = "./models", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
     pub(crate) output: Option<PathBuf>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
@@ -369,16 +390,16 @@ pub(crate) struct Link {
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
-pub(crate) struct OpenApiImport {
-    /// OpenAPI spec source path or HTTP(S) URL
-    #[arg(value_name = "SOURCE", value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
+pub(crate) struct Spec {
+    /// API specification source path or HTTP(S) URL
+    #[arg(default_value = "openapi.yaml", value_name = "SOURCE", value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
     pub(crate) source: String,
     /// Endpoint template name to place on the generated object
     #[arg(long, value_name = "NAME", help_heading = "OPTIONS")]
-    pub(crate) name: String,
+    pub(crate) name: Option<String>,
     /// API domain for the generated endpoint object
     #[arg(long, value_name = "DOMAIN", help_heading = "OPTIONS")]
-    pub(crate) domain: String,
+    pub(crate) domain: Option<String>,
     /// Optional API root path for the generated endpoint object
     #[arg(long, value_name = "ROOT", help_heading = "OPTIONS")]
     pub(crate) root: Option<String>,
