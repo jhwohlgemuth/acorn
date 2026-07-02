@@ -217,6 +217,10 @@ pub fn get(url: impl Into<String>) -> HttpRequestBuilder {
 pub fn delete(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Delete, url)
 }
+/// Utility method to employ best practices when using a Reqwest client to make async HTTP PATCH requests.
+pub fn patch(url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(HttpMethod::Patch, url)
+}
 /// Utility method to employ best practices when using a Reqwest client to make async HTTP POST requests.
 pub fn post(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Post, url)

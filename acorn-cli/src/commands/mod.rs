@@ -1,4 +1,4 @@
-use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, SchemaCommands, Void};
+use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, OpenApiCommands, SchemaCommands, Void};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::fail;
 use acorn::prelude::exit;
@@ -19,6 +19,7 @@ pub mod export;
 pub mod format;
 pub mod gather;
 pub mod link;
+pub mod openapi;
 pub mod tui;
 
 pub use db::{initialize_database, DatabaseConfig};
@@ -242,6 +243,26 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             initialize_database(config).await?;
             link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await
         }),
+        | Some(Commands::OpenApi { command, .. }) => match command {
+            | Some(OpenApiCommands::Import(arguments)) => with_runtime(async {
+                let arguments::OpenApiImport {
+                    source,
+                    name,
+                    domain,
+                    root,
+                    auth_token,
+                    output,
+                    dry_run,
+                    verbose,
+                    ..
+                } = arguments.as_ref();
+                openapi::run_import(source, name, domain, root, auth_token, output, *dry_run, verbose, offline).await
+            }),
+            | None => {
+                eprintln!("=> {} No subcommand provided for 'openapi'", Label::fail());
+                exit(exitcode::USAGE);
+            }
+        },
         | Some(Commands::Schema { command, .. }) => match command {
             | Some(SchemaCommands::Rad) | None => print_rad_schema(),
             | Some(SchemaCommands::Raid) => print_raid_schema(),

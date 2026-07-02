@@ -369,6 +369,33 @@ pub(crate) struct Link {
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
+pub(crate) struct OpenApiImport {
+    /// OpenAPI spec source path or HTTP(S) URL
+    #[arg(value_name = "SOURCE", value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
+    pub(crate) source: String,
+    /// Endpoint template name to place on the generated object
+    #[arg(long, value_name = "NAME", help_heading = "OPTIONS")]
+    pub(crate) name: String,
+    /// API domain for the generated endpoint object
+    #[arg(long, value_name = "DOMAIN", help_heading = "OPTIONS")]
+    pub(crate) domain: String,
+    /// Optional API root path for the generated endpoint object
+    #[arg(long, value_name = "ROOT", help_heading = "OPTIONS")]
+    pub(crate) root: Option<String>,
+    /// Optional bearer token value for the generated endpoint object
+    #[arg(long = "auth-token", value_name = "TOKEN", help_heading = "OPTIONS")]
+    pub(crate) auth_token: Option<String>,
+    /// Write generated endpoint JSON to this file
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) output: Option<PathBuf>,
+    /// Print generated endpoint JSON without writing a file
+    #[arg(long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
 pub(crate) struct Runner {
     /// Path to configuration file for creating the resource
     #[arg(short, long, default_value = "./", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]

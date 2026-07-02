@@ -272,6 +272,19 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Link(Box<arguments::Link>),
+    /// Import OpenAPI specs into ACORN API endpoint templates
+    ///
+    ///     Generate an endpoint object from a local spec
+    ///     $> acorn openapi import ./openapi.yaml --name example::api --domain api.example.com
+    ///
+    ///     Preview generated endpoint JSON without writing
+    ///     $> acorn openapi import https://example.com/openapi.yaml --name example::api --domain api.example.com --dry-run
+    #[clap(verbatim_doc_comment)]
+    #[command(long_about = None)]
+    OpenApi {
+        #[command(subcommand)]
+        command: Option<OpenApiCommands>,
+    },
     /// Print research activity data (RAD) or research activity identifier (RAiD) metadata JSON schema to stdout
     ///
     ///     Print RAD JSON schema (default)
@@ -302,6 +315,12 @@ pub enum CreateCommands {
     Mcp,
     /// GitLab runner
     Runner(Box<arguments::Runner>),
+}
+#[derive(Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum OpenApiCommands {
+    /// Import endpoint resources from an OpenAPI specification
+    Import(Box<arguments::OpenApiImport>),
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
