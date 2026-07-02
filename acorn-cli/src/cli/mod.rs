@@ -272,18 +272,21 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Link(Box<arguments::Link>),
-    /// Import OpenAPI specs into ACORN API endpoint templates
+    /// Import external metadata into ACORN
     ///
-    ///     Generate an endpoint object from a local spec
-    ///     $> acorn openapi import ./openapi.yaml --name example::api --domain api.example.com
+    ///     Generate an endpoint object from a local OpenAPI spec
+    ///     $> acorn import openapi ./openapi.yaml --name example::api --domain api.example.com
     ///
     ///     Preview generated endpoint JSON without writing
-    ///     $> acorn openapi import https://example.com/openapi.yaml --name example::api --domain api.example.com --dry-run
+    ///     $> acorn import openapi https://example.com/openapi.yaml --name example::api --domain api.example.com --dry-run
+    ///
+    ///     Import model metadata into the local database
+    ///     $> acorn import model
     #[clap(verbatim_doc_comment)]
-    #[command(long_about = None)]
-    OpenApi {
+    #[command(long_about = None, visible_alias = "load")]
+    Import {
         #[command(subcommand)]
-        command: Option<OpenApiCommands>,
+        command: Option<ImportCommands>,
     },
     /// Print research activity data (RAD) or research activity identifier (RAiD) metadata JSON schema to stdout
     ///
@@ -318,9 +321,12 @@ pub enum CreateCommands {
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
-pub enum OpenApiCommands {
+pub enum ImportCommands {
+    /// Import model metadata from models.dev into the local database
+    Model,
     /// Import endpoint resources from an OpenAPI specification
-    Import(Box<arguments::OpenApiImport>),
+    #[command(name = "openapi")]
+    OpenApi(Box<arguments::OpenApiImport>),
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]

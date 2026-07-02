@@ -1,4 +1,4 @@
-use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, OpenApiCommands, SchemaCommands, Void};
+use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, ImportCommands, SchemaCommands, Void};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::fail;
 use acorn::prelude::exit;
@@ -18,8 +18,8 @@ pub mod download;
 pub mod export;
 pub mod format;
 pub mod gather;
+pub mod import;
 pub mod link;
-pub mod openapi;
 pub mod tui;
 
 pub use db::{initialize_database, DatabaseConfig};
@@ -243,8 +243,12 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             initialize_database(config).await?;
             link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await
         }),
-        | Some(Commands::OpenApi { command, .. }) => match command {
-            | Some(OpenApiCommands::Import(arguments)) => with_runtime(async {
+        | Some(Commands::Import { command, .. }) => match command {
+            | Some(ImportCommands::Model) => with_runtime(async {
+                initialize_database(config).await?;
+                import::run_model(&config.database_path).await
+            }),
+            | Some(ImportCommands::OpenApi(arguments)) => with_runtime(async {
                 let arguments::OpenApiImport {
                     source,
                     name,
@@ -256,10 +260,10 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     verbose,
                     ..
                 } = arguments.as_ref();
-                openapi::run_import(source, name, domain, root, auth_token, output, *dry_run, verbose, offline).await
+                import::run_openapi(source, name, domain, root, auth_token, output, *dry_run, verbose, offline).await
             }),
             | None => {
-                eprintln!("=> {} No subcommand provided for 'openapi'", Label::fail());
+                eprintln!("=> {} No subcommand provided for 'import'", Label::fail());
                 exit(exitcode::USAGE);
             }
         },

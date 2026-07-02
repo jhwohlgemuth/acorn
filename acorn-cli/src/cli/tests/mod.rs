@@ -39,6 +39,40 @@ fn test_cli() {
     assert!(Arguments::try_parse_from(["acorn", "format", "./", "--ignore", "png", "--filter", "json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "gather", "./", "--filter", "json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "gather", "./", "--ignore", "png", "--filter", "json"]).is_ok());
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "import",
+        "openapi",
+        "./openapi.yaml",
+        "--name",
+        "example::api",
+        "--domain",
+        "api.example.com"
+    ])
+    .is_ok());
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "load",
+        "openapi",
+        "./openapi.yaml",
+        "--name",
+        "example::api",
+        "--domain",
+        "api.example.com"
+    ])
+    .is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "import", "model"]).is_ok());
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "openapi",
+        "import",
+        "./openapi.yaml",
+        "--name",
+        "example::api",
+        "--domain",
+        "api.example.com"
+    ])
+    .is_err());
 }
 #[test]
 fn test_filter_paths_by_pattern_keeps_only_matching_relative_paths() {

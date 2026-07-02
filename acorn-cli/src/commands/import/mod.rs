@@ -1,6 +1,7 @@
 use crate::cli::Void;
 use acorn::io::api::openapi::import_resources_from_openapi;
 use acorn::io::api::{Authentication, AuthenticationScheme, Endpoint};
+use acorn::io::database::{schema::Table, Database, Operations, PersistStatus};
 use acorn::io::http::get;
 use acorn::io::{read_file, write_file};
 use acorn::prelude::PathBuf;
@@ -9,9 +10,17 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Result};
 use owo_colors::OwoColorize;
 
+/// Import model metadata into the local database.
+pub async fn run_model(database_path: &Option<PathBuf>) -> Void {
+    match Database::<Table>::from_path(database_path.clone()).populate(Table::Models).await? {
+        | PersistStatus::Downloaded(count) => println!("=> {} Imported {count} model records", Label::pass()),
+        | PersistStatus::AlreadyExists => println!("=> {} Model records already exist in the local database", Label::pass()),
+    }
+    Ok(())
+}
 /// Import an OpenAPI specification into an ACORN endpoint template object.
 #[allow(clippy::too_many_arguments)]
-pub async fn run_import(
+pub async fn run_openapi(
     source: &str,
     name: &str,
     domain: &str,
