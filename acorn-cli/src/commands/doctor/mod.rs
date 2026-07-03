@@ -14,16 +14,16 @@ pub fn run(fix: &bool, interactive: &bool, report: &bool, check: &[Diagnostic], 
     preflight!(&options);
     if *interactive {
         #[cfg(feature = "tui")]
-        return acorn_tui::run_tui(acorn_tui::Screen::Doctor);
+        {
+            acorn_tui::run_tui(acorn_tui::Screen::Doctor)
+        }
         #[cfg(not(feature = "tui"))]
         {
-            return Err(color_eyre::eyre::eyre!("TUI feature not enabled. Build with: cargo build --features tui"));
+            Err(color_eyre::eyre::eyre!("TUI feature not enabled. Build with: cargo build --features tui"))
         }
-    }
-    if *fix {
-        unimplemented!("Autofix is not implemented yet");
-    }
-    if *report {
+    } else if *fix {
+        Err(color_eyre::eyre::eyre!("Autofix is not implemented yet"))
+    } else if *report {
         let sys = SystemInformation::init();
         let mem = MemoryInformation::init();
         let net = NetworkInformation::init();
@@ -31,24 +31,25 @@ pub fn run(fix: &bool, interactive: &bool, report: &bool, check: &[Diagnostic], 
         let data = build_report_json(&sys, &mem, &net, &sw);
         let json = serde_json::to_string_pretty(&data).unwrap_or_default();
         println!("{json}");
-        return Ok(());
+        Ok(())
+    } else {
+        if should_run(check, Diagnostic::System) {
+            SystemInformation::init().print();
+        }
+        if should_run(check, Diagnostic::Memory) {
+            MemoryInformation::init().print();
+        }
+        if should_run(check, Diagnostic::Network) {
+            NetworkInformation::init().print();
+        }
+        if should_run(check, Diagnostic::Gpu) {
+            warn!("GPU diagnostics is not implemented yet");
+        }
+        if should_run(check, Diagnostic::Software) {
+            SystemSoftwareInformation::init().print();
+        }
+        Ok(())
     }
-    if should_run(check, Diagnostic::System) {
-        SystemInformation::init().print();
-    }
-    if should_run(check, Diagnostic::Memory) {
-        MemoryInformation::init().print();
-    }
-    if should_run(check, Diagnostic::Network) {
-        NetworkInformation::init().print();
-    }
-    if should_run(check, Diagnostic::Gpu) {
-        warn!("GPU diagnostics is not implemented yet");
-    }
-    if should_run(check, Diagnostic::Software) {
-        SystemSoftwareInformation::init().print();
-    }
-    Ok(())
 }
 #[allow(unused_variables)]
 fn build_report_json(

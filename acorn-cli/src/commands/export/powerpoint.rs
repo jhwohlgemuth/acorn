@@ -6,7 +6,7 @@ use crate::cli::CommandOptions;
 use acorn::io::powerpoint::ooxml::{Relationship, Relationships};
 use acorn::io::powerpoint::{interpolate_values, read_xml_rel};
 use acorn::io::{archive, extract_zip, read_file, write_file, ApiResult, InputOutput};
-use acorn::prelude::{copy, create_dir_all, exit, Arc, Path, PathBuf};
+use acorn::prelude::{copy, create_dir_all, Arc, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{Label, StringConversion};
 use color_eyre::eyre::eyre;
@@ -76,94 +76,102 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) {
         }
         // Add new slide element to presentation.xml
         let presentation_xml_path = reference_extract_path.join("ppt/presentation.xml");
-        #[allow(clippy::unwrap_used)]
-        let presentation_xml = read_file(&presentation_xml_path).unwrap();
-        let updated_presentation_xml = add_slide_element(&presentation_xml, new_slide_revision_identifier);
-        if let Err(why) = write_file(&presentation_xml_path, updated_presentation_xml.to_string()) {
-            error!(
-                path = presentation_xml_path.to_absolute_string(),
-                "=> {} Write presentation XML — {why}",
-                Label::fail()
-            );
+        match read_file(&presentation_xml_path) {
+            | Ok(presentation_xml) => {
+                let updated_presentation_xml = add_slide_element(&presentation_xml, new_slide_revision_identifier);
+                if let Err(why) = write_file(&presentation_xml_path, updated_presentation_xml.to_string()) {
+                    error!(
+                        path = presentation_xml_path.to_absolute_string(),
+                        "=> {} Write presentation XML — {why}",
+                        Label::fail()
+                    );
+                }
+            }
+            | Err(why) => {
+                error!(
+                    path = presentation_xml_path.to_absolute_string(),
+                    "=> {} Read presentation XML — {why}",
+                    Label::fail()
+                );
+            }
         }
     }
 }
-fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination: &Path) -> std::io::Result<u64> {
-    let ResearchActivity { meta, .. } = data;
+fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination: &Path) -> ApiResult<u64> {
     let xml_rels_path = destination.join(format!("ppt/slides/_rels/slide{index}.xml.rels"));
-    let relationships = match read_xml_rel(xml_rels_path.clone()) {
-        | Some(Relationships { relationship, .. }) => relationship,
-        | None => {
+    read_xml_rel(xml_rels_path.clone())
+        .map(|Relationships { relationship, .. }| relationship)
+        .ok_or_else(|| {
             let path = xml_rels_path.to_absolute_string();
             error!(path, "=> {} Read PowerPoint slide relationships", Label::fail());
-            exit(exitcode::NOINPUT);
-        }
-    };
-    let target = match relationships.into_iter().find(|x| x.target.ends_with("png")) {
-        | Some(Relationship { target, .. }) => target,
-        | None => {
-            let path = xml_rels_path.to_absolute_string();
-            error!(path, "=> {} Find slide image relationship", Label::fail());
-            exit(exitcode::NOINPUT);
-        }
-    };
-    let parent = source
-        .parent()
-        .map(Path::to_path_buf)
-        .and_then(|value| value.canonicalize().ok())
-        .unwrap_or_else(|| PathBuf::from("."));
-    let image_url = meta.clone().first_image_content_url();
-    let from = parent.join(image_url.clone());
-    let name = meta.clone().identifier;
-    let extension = Path::new(&image_url).extension().and_then(|e| e.to_str()).unwrap_or("png");
-    let to = destination.join(format!("ppt/media/{name}.{extension}"));
-    #[allow(clippy::unwrap_used)]
-    let re = Regex::new(&target).unwrap();
-    let content = read_file(xml_rels_path.clone()).unwrap_or_default();
-    let updated = re.replace(&content, format!("../media/{name}.{extension}")).to_string();
-    if let Err(why) = write_file(xml_rels_path.clone(), updated) {
-        error!(
-            path = xml_rels_path.to_absolute_string(),
-            "=> {} Write slide relationship XML — {why}",
-            Label::fail()
-        );
-    }
-    copy(from, to)
+            eyre!("Failed to read PowerPoint slide relationships at {path}")
+        })
+        .and_then(|relationships| {
+            relationships
+                .into_iter()
+                .find(|x| x.target.ends_with("png"))
+                .map(|Relationship { target, .. }| target)
+                .ok_or_else(|| {
+                    let path = xml_rels_path.to_absolute_string();
+                    error!(path, "=> {} Find slide image relationship", Label::fail());
+                    eyre!("No PNG image relationship found in PowerPoint slide at {path}")
+                })
+        })
+        .and_then(|target| {
+            let ResearchActivity { meta, .. } = data;
+            let parent = source
+                .parent()
+                .map(Path::to_path_buf)
+                .and_then(|value| value.canonicalize().ok())
+                .unwrap_or_else(|| PathBuf::from("."));
+            let image_url = meta.clone().first_image_content_url();
+            let from = parent.join(image_url.clone());
+            let name = meta.clone().identifier;
+            let extension = Path::new(&image_url).extension().and_then(|e| e.to_str()).unwrap_or("png");
+            let to = destination.join(format!("ppt/media/{name}.{extension}"));
+            #[allow(clippy::unwrap_used)]
+            let re = Regex::new(&target).unwrap();
+            let content = read_file(xml_rels_path.clone()).unwrap_or_default();
+            let updated = re.replace(&content, format!("../media/{name}.{extension}")).to_string();
+            if let Err(why) = write_file(xml_rels_path.clone(), updated) {
+                error!(
+                    path = xml_rels_path.to_absolute_string(),
+                    "=> {} Write slide relationship XML — {why}",
+                    Label::fail()
+                );
+            }
+            copy(from, to).map_err(|e| eyre!("Failed to copy image — {e}"))
+        })
 }
 /// Create PowerPoint presentation from Research Activity data
-#[allow(clippy::unwrap_used)]
 pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<Arc<CommandOptions>>) -> ApiResult<PathBuf> {
     let options = options.unwrap_or_default();
     let CommandOptions { output, path, reference, .. } = options.as_ref();
     let _paths: Arc<Vec<PathBuf>> = Arc::new(paths.into_iter().collect());
-    let count = _paths.len();
-    let research_activity_data = _paths
+    let research_activity_data: Vec<ResearchActivity> = _paths
         .iter()
-        .map(|path| match ResearchActivity::read(path.clone()) {
-            | Ok(value) => {
-                let context = Some(path.clone());
-                value.format_with(context)
-            }
+        .filter_map(|path| match ResearchActivity::read(path.clone()) {
+            | Ok(value) => Some(value.format_with(Some(path.clone()))),
             | Err(why) => {
                 error!(
                     path = path.to_absolute_string(),
                     "=> {} Read data for PowerPoint export - {why}",
                     Label::fail(),
                 );
-                exit(exitcode::UNAVAILABLE);
+                None
             }
         })
-        .collect::<Vec<ResearchActivity>>();
-    let reference_path = match path.clone() {
-        | Some(path_from_options) => {
+        .collect();
+    path.clone()
+        .ok_or_else(|| eyre!("Missing path for PowerPoint export — a path or reference must be provided"))
+        .map(|path_from_options| {
             let parent = if path_from_options.is_dir() {
                 path_from_options
             } else {
                 path_from_options
                     .parent()
-                    .unwrap_or(Path::new("."))
-                    .canonicalize()
-                    .unwrap_or(PathBuf::from("."))
+                    .map(|p| p.canonicalize().unwrap_or_else(|_| PathBuf::from(".")))
+                    .unwrap_or_else(|| PathBuf::from("."))
             };
             match reference {
                 | Some(ref value) => {
@@ -173,57 +181,60 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<Arc<Comm
                         parent.join(value).to_path_buf()
                     }
                 }
-                | None => parent.join("reference.pptx").to_path_buf(),
+                | None => parent.join("reference.pptx"),
             }
-        }
-        | None => unimplemented!(),
-    };
-    let reference_extract_path = match extract_zip(reference_path.clone(), None) {
-        | Ok(value) => Arc::new(value),
-        | Err(_) => {
-            error!(path = reference_path.to_absolute_string(), "=> {} Extract reference", Label::fail());
-            exit(exitcode::UNAVAILABLE);
-        }
-    };
-    research_activity_data
-        .iter()
-        .enumerate()
-        .for_each(|(index, _)| add_slide(index.saturating_add(1), reference_extract_path.as_ref()));
-    let reference_extract_path_for_workers = Arc::clone(&reference_extract_path);
-    izip!(research_activity_data, _paths.iter().cloned())
-        .collect::<Vec<_>>()
-        .into_par_iter()
-        .enumerate()
-        .for_each(move |(index, (data, index_path))| {
-            let reference_extract_path = Arc::clone(&reference_extract_path_for_workers);
-            let slide_number = index.saturating_add(1);
-            let fragments = [
-                format!("ppt/slides/slide{slide_number}.xml"),
-                format!("ppt/notesSlides/notesSlide{slide_number}.xml"),
-                format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
-            ];
-            fragments
+        })
+        .and_then(|reference_path| {
+            extract_zip(reference_path.clone(), None).map(Arc::new).map_err(|_| {
+                error!(path = reference_path.to_absolute_string(), "=> {} Extract reference", Label::fail());
+                eyre!("Failed to extract PowerPoint reference at {reference_path:?}")
+            })
+        })
+        .and_then(move |reference_extract_path| {
+            research_activity_data
                 .iter()
-                .map(|fragment| reference_extract_path.join(fragment))
-                .for_each(|path| interpolate_values(path, &data));
-            if let Err(why) = copy_image(slide_number, &data, &index_path, &reference_extract_path) {
-                error!(
-                    path = index_path.to_absolute_string(),
-                    "=> {} Copy image for slide {slide_number} — {why}",
-                    Label::fail()
-                );
-            }
-        });
-    let folder = if count == 1 {
-        _paths
-            .first()
-            .map(|p| p.parent().unwrap_or(Path::new(".")).canonicalize().unwrap_or(PathBuf::from(".")))
-            .unwrap_or(PathBuf::from("."))
-    } else {
-        path.as_ref().unwrap_or(&PathBuf::from(".")).to_path_buf()
-    };
-    let folder_name = folder.file_name_with_parent();
-    prepare_destination(output, &folder_name).and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination)))
+                .enumerate()
+                .for_each(|(index, _)| add_slide(index.saturating_add(1), &reference_extract_path));
+            let reference_extract_path_for_workers = Arc::clone(&reference_extract_path);
+            izip!(research_activity_data, _paths.iter().cloned())
+                .collect::<Vec<_>>()
+                .into_par_iter()
+                .enumerate()
+                .for_each(move |(index, (data, index_path))| {
+                    let reference_extract_path = Arc::clone(&reference_extract_path_for_workers);
+                    let slide_number = index.saturating_add(1);
+                    let fragments = [
+                        format!("ppt/slides/slide{slide_number}.xml"),
+                        format!("ppt/notesSlides/notesSlide{slide_number}.xml"),
+                        format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
+                    ];
+                    fragments
+                        .iter()
+                        .map(|fragment| reference_extract_path.join(fragment))
+                        .for_each(|path| interpolate_values(path, &data));
+                    if let Err(why) = copy_image(slide_number, &data, &index_path, &reference_extract_path) {
+                        error!(
+                            path = index_path.to_absolute_string(),
+                            "=> {} Copy image for slide {slide_number} — {why}",
+                            Label::fail()
+                        );
+                    }
+                });
+            let count = _paths.len();
+            let folder = if count == 1 {
+                match _paths.first() {
+                    | Some(p) => match p.parent() {
+                        | Some(parent_dir) => parent_dir.canonicalize().unwrap_or_else(|_| PathBuf::from(".")),
+                        | None => PathBuf::from("."),
+                    },
+                    | None => PathBuf::from("."),
+                }
+            } else {
+                path.clone().unwrap_or_else(|| PathBuf::from("."))
+            };
+            let folder_name = folder.file_name_with_parent();
+            prepare_destination(output, &folder_name).and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination)))
+        })
 }
 fn prepare_destination(output: &Option<PathBuf>, name: &str) -> ApiResult<PathBuf> {
     const EXTENSION: &str = "pptx";

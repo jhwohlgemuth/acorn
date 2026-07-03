@@ -522,9 +522,7 @@ impl InputOutput for ResearchActivity {
             | MimeType::Json => self.write_json(output),
             | MimeType::Markdown => self.write_markdown(output),
             | MimeType::Yaml => self.write_yaml(output),
-            | _ => {
-                unimplemented!("Unsupported research activity data file extension for writing")
-            }
+            | _ => Err(eyre!("Unsupported research activity data file extension for writing")),
         }
     }
     fn write_cff(&self, path: impl Into<PathBuf>) -> ApiResult<()> {

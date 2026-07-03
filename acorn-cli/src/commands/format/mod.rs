@@ -2,11 +2,11 @@ use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use acorn::fail;
 use acorn::io::{FromPath, InputOutput};
-use acorn::prelude::{exit, write, PathBuf};
+use acorn::prelude::{write, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{print_changes, Label, MimeType, StringConversion};
 use clap_verbosity_flag::{log::Level, Verbosity};
-use color_eyre::eyre::{Report, Result};
+use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::info;
@@ -33,61 +33,60 @@ pub async fn run(
         .quiet(verbose.is_silent())
         .build();
     preflight!(&options);
-    match resolve_paths(path, &options).await {
-        | Ok(paths) => {
-            paths.par_iter().for_each(|path| match ResearchActivity::read(path.clone()) {
-                | Ok(data) => {
+    resolve_paths(path, &options).await.and_then(|paths| {
+        paths.par_iter().try_for_each(|path| -> Result<(), Report> {
+            ResearchActivity::read(path.clone())
+                .map_err(|why| {
+                    fail!("Read research activity data — {}", why);
+                    eyre!("Read research activity data — {why}")
+                })
+                .and_then(|data| {
                     let mime = MimeType::from_path(path);
-                    let old_content = match data.serialize_as(&mime) {
-                        | Ok(content) => content,
-                        | Err(why) => {
-                            fail!("Serialize original content - {}", why);
-                            exit(exitcode::UNAVAILABLE);
-                        }
-                    };
-                    let context = Some(path.clone());
-                    let formatted = data.format_with(context);
-                    let new_content = match formatted.serialize_as(&mime) {
-                        | Ok(content) => content,
-                        | Err(why) => {
-                            fail!("Serialize formatted content - {}", why);
-                            exit(exitcode::UNAVAILABLE);
-                        }
-                    };
-                    if dry_run {
-                        println!("{} Format {}", Label::dry_run(), path.clone().to_absolute_string().yellow());
-                    }
-                    match verbose.log_level() {
-                        | Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace) => {
-                            print_changes(&old_content, &new_content);
-                        }
-                        | _ => {
+                    data.serialize_as(&mime)
+                        .map_err(|why| {
+                            fail!("Serialize original content — {}", why);
+                            eyre!("Serialize original content — {why}")
+                        })
+                        .and_then(|old_content| {
+                            let formatted = data.format_with(Some(path.clone()));
+                            formatted
+                                .serialize_as(&mime)
+                                .map_err(|why| {
+                                    fail!("Serialize formatted content — {}", why);
+                                    eyre!("Serialize formatted content — {why}")
+                                })
+                                .map(|new_content| (old_content, new_content))
+                        })
+                        .and_then(|(old_content, new_content)| {
                             if dry_run {
-                                print_changes(&old_content, &new_content);
+                                println!("{} Format {}", Label::dry_run(), path.clone().to_absolute_string().yellow());
                             }
-                        }
-                    }
-                    if !dry_run {
-                        match write(path, new_content.as_bytes()) {
-                            | Ok(_) => {
-                                info!("=> {} Formatted", Label::pass());
+                            match verbose.log_level() {
+                                | Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace) => {
+                                    print_changes(&old_content, &new_content);
+                                }
+                                | _ => {
+                                    if dry_run {
+                                        print_changes(&old_content, &new_content);
+                                    }
+                                }
                             }
-                            | Err(why) => {
-                                fail!("Write - {}", why);
-                                exit(exitcode::UNAVAILABLE);
+                            if !dry_run {
+                                write(path, new_content.as_bytes())
+                                    .map_err(|why| {
+                                        fail!("Write — {}", why);
+                                        eyre!("Write — {why}")
+                                    })
+                                    .map(|_| {
+                                        info!("=> {} Formatted", Label::pass());
+                                    })
+                            } else {
+                                Ok(())
                             }
-                        }
-                    }
-                }
-                | Err(why) => {
-                    fail!("Read research activity data - {}", why);
-                    exit(exitcode::DATAERR);
-                }
-            });
-            Ok(())
-        }
-        | Err(why) => Err(why),
-    }
+                        })
+                })
+        })
+    })
 }
 
 #[cfg(test)]

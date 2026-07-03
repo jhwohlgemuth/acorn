@@ -8,9 +8,8 @@ use acorn::prelude::PathBuf;
 use acorn::util::constants::app::DEFAULT_CONFIG_FILENAMES;
 use acorn::util::{suffix, Label, StringConversion};
 use clap_verbosity_flag::Verbosity;
-use color_eyre::eyre::{Report, Result};
+use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;
-use std::process::exit;
 use tracing::error;
 
 pub mod model;
@@ -102,7 +101,7 @@ pub async fn run(
                 if let Err(why) = database.insert(activity) {
                     error!("=> {} Save download activity — {why}", Label::fail());
                 }
-                exit(exitcode::DATAERR);
+                return Err(eyre!("Failed to process download configuration"));
             }
         }
     } else if !url.is_empty() {

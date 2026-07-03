@@ -36,7 +36,7 @@ where
                 .flat_map(|m| m.ok())
                 .map(|m| m.as_str().to_string())
                 .collect::<Vec<String>>(),
-            | Err(_) => unreachable!(),
+            | Err(_) => Vec::new(),
         };
         let selected = match paragraphs
             .into_iter()

@@ -287,7 +287,7 @@ async fn register_runner(details: RunnerDetails, verbose: &Verbosity) -> Result<
                             | Err(why) => Err(eyre!("Failed to spawn Docker container — {why}")),
                         }
                     }
-                    | None => unreachable!("Docker executor always returns some socket path string"),
+                    | None => Err(eyre!("Docker socket not found — is Docker running?")),
                 },
                 | Executor::Podman => match executor.socket() {
                     | Some(socket) => {
@@ -380,7 +380,7 @@ async fn register_runner(details: RunnerDetails, verbose: &Verbosity) -> Result<
                             | Err(why) => Err(eyre!("Failed to spawn apptainer instance — {why}")),
                         }
                     }
-                    | None => unreachable!("Apptainer executor always returns some socket path string"),
+                    | None => Err(eyre!("Apptainer socket not found — is Apptainer running?")),
                 },
                 | Executor::Shell | Executor::Ssh | Executor::Kubernetes | Executor::Sandbox | Executor::VirtualMachine => {
                     let gpu_args = match &maybe_template {

@@ -533,7 +533,7 @@ impl fmt::Display for Check {
                 }
                 | None | Some(_) => write!(f, ""),
             },
-            | CheckCategory::Quality => unimplemented!(),
+            | CheckCategory::Quality => write!(f, "unimplemented: Quality"),
             | CheckCategory::Readability => {
                 let Check {
                     errors, message, severity, ..

@@ -6,7 +6,7 @@ use acorn::param;
 use acorn::prelude::PathBuf;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{Report, Result};
-use tracing::info;
+use tracing::{error, info};
 use validator::Validate;
 
 pub async fn run(
@@ -70,7 +70,7 @@ async fn gitlab_example() {
             println!("# of runners: {:#?}", values.len());
         }
         | Ok(_) => println!("Runner: Ok(None)"),
-        | Err(ref why) => panic!("Runner: Err({why:#?})"),
+        | Err(ref why) => error!("Runner: Err({why:#?})"),
     }
 
     options.identifier = Some(group.to_string());

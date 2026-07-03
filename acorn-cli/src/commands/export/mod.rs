@@ -7,7 +7,7 @@ use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::current_date;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
 use acorn::io::{ApiFuture, ApiResult};
-use acorn::prelude::{exit, remove_dir_all, Arc, HashSet, Mutex, Path, PathBuf};
+use acorn::prelude::{remove_dir_all, Arc, HashSet, Mutex, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{format_bytes, print_values_as_table, regex_join, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
@@ -147,8 +147,7 @@ impl ExportHandler for PdfExportHandler {
                                     let output = output.clone();
                                     async move {
                                         let pdf_options = CommandOptions::init().path(path.clone()).maybe_output(output).build();
-                                        pdf::create(page, pdf_options).await;
-                                        Ok(())
+                                        pdf::create(page, pdf_options).await
                                     }
                                 },
                                 |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
@@ -162,7 +161,7 @@ impl ExportHandler for PdfExportHandler {
                                 }
                                 | Err(why) => {
                                     fail!("Generate PDF — {}", why);
-                                    exit(exitcode::DATAERR);
+                                    Err(eyre!("Generate PDF — {why}"))
                                 }
                             }
                         }
@@ -206,7 +205,7 @@ impl ExportHandler for PowerPointExportHandler {
                             }
                             | Err(why) => {
                                 fail!("Generate combined PowerPoint — {}", why);
-                                exit(exitcode::DATAERR);
+                                Err(eyre!("Generate combined PowerPoint — {why}"))
                             }
                         }
                     } else {
@@ -225,7 +224,7 @@ impl ExportHandler for PowerPointExportHandler {
                             | Ok(_) => Ok(()),
                             | Err(why) => {
                                 fail!("Generate PowerPoint — {}", why);
-                                exit(exitcode::DATAERR);
+                                Err(eyre!("Generate PowerPoint — {why}"))
                             }
                         }
                     }
@@ -323,13 +322,11 @@ async fn export_as_format(
                         match ResearchActivity::read(&item) {
                             | Ok(data) => match data.write(output) {
                                 | Ok(_) => Ok(()),
-                                | Err(_) => {
-                                    exit(exitcode::UNAVAILABLE);
-                                }
+                                | Err(_) => Err(eyre!("Failed to write output file")),
                             },
                             | Err(why) => {
                                 fail!("Read research activity data — {}", why);
-                                exit(exitcode::DATAERR);
+                                Err(eyre!("Read research activity data — {why}"))
                             }
                         }
                     }
@@ -345,7 +342,7 @@ async fn export_as_format(
                 }
                 | Err(why) => {
                     fail!("Generate {} — {}", format, why);
-                    exit(exitcode::DATAERR);
+                    Err(eyre!("Generate {} — {why}", format))
                 }
             }
         }
@@ -477,13 +474,14 @@ async fn export_as_format_crosswalk(
                     }
                     if strict && !all_warnings.is_empty() {
                         fail!("Strict mode — {} crosswalk warning(s) found", all_warnings.len());
-                        exit(exitcode::DATAERR);
+                        Err(eyre!("Strict mode — {} crosswalk warning(s) found", all_warnings.len()))
+                    } else {
+                        Ok(())
                     }
-                    Ok(())
                 }
                 | Err(why) => {
                     fail!("Generate {} crosswalk — {}", format, why);
-                    exit(exitcode::DATAERR);
+                    Err(eyre!("Generate {} crosswalk — {why}", format))
                 }
             }
         }

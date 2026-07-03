@@ -4,6 +4,7 @@ use acorn::prelude::env;
 use acorn::util::constants::env::{CACHE_TTL, NO_LOCAL_DATABASE};
 use acorn::util::Label;
 use clap::Parser;
+use color_eyre::eyre::eyre;
 use dotenvy::dotenv;
 use owo_colors::OwoColorize;
 use std::process::exit;
@@ -36,7 +37,7 @@ fn main() -> Void {
     let args = Arguments::parse();
     if args.markdown_help {
         clap_markdown::print_help_markdown::<Arguments>();
-        exit(exitcode::OK);
+        return Ok(());
     }
     match dotenv() {
         | Ok(_) if !dotenvy::var(LOG_LEVEL).unwrap_or_default().is_empty() => {
@@ -87,24 +88,18 @@ fn main() -> Void {
     } = args;
     let no_local_database = no_local_database_flag || env_var_is_truthy(NO_LOCAL_DATABASE).unwrap_or(false);
     let database_path = configured_database_path.clone();
-    if no_local_database && (reset_database || clear_cache) {
-        eprintln!("{} Cannot use --reset-database or --clear-cache with --no-local-database", Label::fail());
-        exit(exitcode::USAGE);
-    }
     if let Some(ttl) = cache_ttl {
         env::set_var(CACHE_TTL, ttl.to_string());
     }
-    if threads > 0 {
-        match rayon::ThreadPoolBuilder::new().num_threads(threads).build_global() {
-            | Ok(()) => {
-                debug!("{} {} threads", Label::using(), threads.cyan().bold());
-            }
-            | Err(why) => {
-                eprintln!("=> {} Initialize thread pool — {why}", Label::fail());
-                exit(exitcode::SOFTWARE);
-            }
-        }
-    }
+    let pool_result = if threads > 0 {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build_global()
+            .map(|_| debug!("{} {} threads", Label::using(), threads.cyan().bold()))
+            .map_err(|why| eyre!("Initialize thread pool — {why}"))
+    } else {
+        Ok(())
+    };
     let config = DatabaseConfig {
         no_local_database,
         database_backend: selected_database_backend.as_ref().map(|b| b.to_string()),
@@ -114,7 +109,18 @@ fn main() -> Void {
         no_clear_cache,
         cache_ttl,
     };
-    run(&args, offline, &config, threads)
+    let pre_check = if no_local_database && (reset_database || clear_cache) {
+        Err(eyre!("Cannot use --reset-database or --clear-cache with --no-local-database"))
+    } else {
+        Ok(())
+    };
+    match pre_check.and(pool_result).and_then(|_| run(&args, offline, &config, threads)) {
+        | Ok(()) => exit(exitcode::OK),
+        | Err(report) => {
+            eprintln!("Error: {report:?}");
+            exit(exitcode::SOFTWARE);
+        }
+    }
 }
 
 #[cfg(test)]

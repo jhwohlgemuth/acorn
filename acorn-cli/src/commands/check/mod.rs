@@ -4,17 +4,17 @@ use crate::io::{is_stdout_piped, write_stdout};
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{self, checks_to_csv, summary, Analysis, Check, CheckCategory, CheckOptions, Standard};
 use acorn::io::unique_file_extensions;
-use acorn::prelude::{exit, PathBuf};
+use acorn::prelude::PathBuf;
 use acorn::schema::pid::raid;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::standard::cff::Cff;
 use acorn::schema::standard::text::{Docx, Text};
 use acorn::schema::standard::{datacite, dcat, huwise, invenio};
 use acorn::util::constants::env::READABILITY_METRIC;
-use acorn::util::{print_values_as_table, regex_join, Label};
+use acorn::util::{print_values_as_table, regex_join, suffix, Label};
 use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
-use color_eyre::eyre::{Report, Result};
+use color_eyre::eyre::{eyre, Report, Result};
 use color_eyre::owo_colors::OwoColorize;
 use core::iter::once;
 use dotenvy::dotenv;
@@ -87,12 +87,9 @@ fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, option
     } = options;
     let filtered_results = filter_by_visibility(&results, *all);
     let issue_count = failure_count(&filtered_results);
-    if *exit_on_first_error && issue_count > 0 {
-        if !*quiet {
-            fail!("ACORN found {} {} issues", issue_count, category);
-            render(&filtered_results, *terse);
-        }
-        exit(exitcode::DATAERR);
+    if *exit_on_first_error && issue_count > 0 && !*quiet {
+        fail!("ACORN found {} {} issues", issue_count, category);
+        render(&filtered_results, *terse);
     }
     filtered_results
 }
@@ -107,7 +104,10 @@ async fn collect(paths: &[PathBuf], check_options: &CheckOptions) -> Vec<Check> 
         | Standard::ResearchActivityData => collect_checks_for::<ResearchActivity>(paths, check_options).await,
         | Standard::Raid => collect_checks_for::<raid::Metadata>(paths, check_options).await,
         | Standard::Text => collect_checks_for::<Text>(paths, check_options).await,
-        | _ => unimplemented!(),
+        | _ => {
+            warn!("Unsupported standard for checks");
+            vec![]
+        }
     }
 }
 async fn collect_checks_for<T: Analysis + Send + Sync>(paths: &[PathBuf], options: &CheckOptions) -> Vec<Check> {
@@ -152,7 +152,8 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
             }
         }
     } else if !*no_fail && has_failures(issues) {
-        exit(exitcode::DATAERR)
+        let count = issues.len();
+        Err(eyre!("ACORN found {count} issue{}", suffix(count)))
     } else {
         Ok(())
     }

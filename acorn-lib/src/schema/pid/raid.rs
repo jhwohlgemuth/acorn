@@ -1065,26 +1065,9 @@ impl From<ResearchActivity> for Metadata {
     fn from(activity: ResearchActivity) -> Self {
         let default_start_date = current_date();
         let default_end_year = default_start_date.chars().take(4).collect::<String>();
-        let raid_id = activity
-            .meta
-            .raid
-            .as_ref()
-            .and_then(|raid| raid.first())
-            .cloned()
-            .unwrap_or_else(|| unimplemented!("RAiD is required to create RAiD metadata"));
-        let ror_id = activity
-            .meta
-            .ror
-            .as_ref()
-            .and_then(|rors| rors.first())
-            .cloned()
-            .unwrap_or_else(|| unimplemented!("Organization ROR is required to create RAiD metadata"));
-        let contributor_id = activity
-            .contact
-            .identifier
-            .clone()
-            .filter(|id| is_orcid(id).is_ok())
-            .unwrap_or_else(|| unimplemented!("Contributor ID is not an ORCID"));
+        let raid_id = activity.meta.raid.as_ref().and_then(|raid| raid.first()).cloned().unwrap_or_default();
+        let ror_id = activity.meta.ror.as_ref().and_then(|rors| rors.first()).cloned().unwrap_or_default();
+        let contributor_id = activity.contact.identifier.clone().filter(|id| is_orcid(id).is_ok()).unwrap_or_default();
         let date = Date {
             start_date: Some(default_start_date.clone()),
             end_date: None,

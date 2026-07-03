@@ -186,7 +186,7 @@ where
         T: Into<Table>,
         P: Params,
     {
-        unimplemented!()
+        Err(eyre!("Database query is not implemented"))
     }
 }
 impl<T> Database<T>

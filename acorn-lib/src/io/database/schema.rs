@@ -931,7 +931,7 @@ impl TableSchemaProvider for Table {
                     | Err(why) => Err(eyre!("Failed to download models.dev catalog — {why}")),
                 }
             }
-            | _ => unimplemented!("populate() not implemented for {} table", self.name()),
+            | table => Err(eyre!("populate() not implemented for {} table", table.name())),
         }
     }
     /// Print all table rows

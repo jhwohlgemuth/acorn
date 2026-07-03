@@ -41,14 +41,14 @@ pub trait Create {
     where
         Self: Sized,
     {
-        unimplemented!()
+        Err(eyre!("GitLab struct creation is not implemented"))
     }
     /// Register a new instance of the struct with specified values
     fn register(self) -> ApiResult<Self>
     where
         Self: Sized,
     {
-        unimplemented!()
+        Err(eyre!("GitLab struct registration is not implemented"))
     }
 }
 /// Access level of the runner

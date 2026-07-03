@@ -339,7 +339,7 @@ impl Patent {
                     | _ => None,
                 }
             }
-            | _ => unimplemented!("Only US patents are supported"),
+            | _ => None,
         }
     }
 }

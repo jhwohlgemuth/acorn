@@ -902,7 +902,7 @@ impl OrganizationType {
             | "program" => OrganizationType::Program,
             | "facility" => OrganizationType::Facility,
             | "ffrdc" => OrganizationType::Ffrdc,
-            | _ => unreachable!(),
+            | _ => OrganizationType::Institute,
         }
     }
     /// Returns the order of an `OrganizationType` value

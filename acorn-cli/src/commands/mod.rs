@@ -1,11 +1,11 @@
 use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, SchemaCommands, Void};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::fail;
-use acorn::prelude::exit;
 use acorn::schema::pid::raid::Metadata;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::Label;
 use color_eyre::eyre;
+use color_eyre::eyre::eyre;
 use core::future::Future;
 use tokio::runtime::Runtime;
 use tracing::info;
@@ -26,12 +26,15 @@ pub use db::{initialize_database, DatabaseConfig};
 
 macro_rules! preflight {
     ($options:expr) => {
-        $crate::commands::preflight_inner(module_path!().rsplit("::").next().unwrap_or(module_path!()), $options)
+        match $crate::commands::preflight_inner(module_path!().rsplit("::").next().unwrap_or(module_path!()), $options) {
+            | Ok(()) => {}
+            | Err(e) => return Err(e),
+        }
     };
 }
 pub(crate) use preflight;
 
-fn preflight_inner(command: &str, options: &CommandOptions) {
+fn preflight_inner(command: &str, options: &CommandOptions) -> eyre::Result<()> {
     let CommandOptions {
         offline,
         quiet,
@@ -40,27 +43,35 @@ fn preflight_inner(command: &str, options: &CommandOptions) {
         reference,
         ..
     } = options;
-    if let Some(value) = path {
-        if !value.exists() {
+    let check_path = || -> eyre::Result<()> {
+        path.as_ref().filter(|p| !p.exists()).map_or(Ok(()), |value| {
             eprintln!("=> {} Path not found: {}", Label::fail(), value.display());
-            exit(exitcode::NOINPUT);
-        }
-    }
-    if let Some(value) = reference {
-        if !value.exists() {
+            Err(eyre!("Path not found: {}", value.display()))
+        })
+    };
+    let check_reference = || -> eyre::Result<()> {
+        reference.as_ref().filter(|p| !p.exists()).map_or(Ok(()), |value| {
             eprintln!("=> {} Reference not found: {}", Label::fail(), value.display());
-            exit(exitcode::NOINPUT);
+            Err(eyre!("Reference not found: {}", value.display()))
+        })
+    };
+    let check_offline = || -> eyre::Result<()> {
+        if *offline {
+            if !*quiet {
+                println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
+            }
+            if !*supported {
+                let err = eyre!("Offline mode is not implemented for '{command}' command");
+                eprintln!("=> {} {err}", Label::fail());
+                Err(err)
+            } else {
+                Ok(())
+            }
+        } else {
+            Ok(())
         }
-    }
-    if *offline {
-        if !*quiet {
-            println!("=> {} ACORN is running in offline mode", Label::fmt_skip("OFFLINE"));
-        }
-        if !*supported {
-            eprintln!("=> {} Offline mode is not implemented for '{command}' command", Label::fail());
-            exit(exitcode::UNAVAILABLE);
-        }
-    }
+    };
+    check_path().and_then(|_| check_reference()).and_then(|_| check_offline())
 }
 pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: usize) -> Void {
     match &args.command {
@@ -109,7 +120,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             .await
         }),
         | Some(Commands::Create { command, .. }) => match command {
-            | Some(CreateCommands::Mcp) => unimplemented!("MCP server creation is not yet implemented"),
+            | Some(CreateCommands::Mcp) => Err(eyre::eyre!("MCP server creation is not yet implemented")),
             | Some(CreateCommands::Runner(args)) => with_runtime(async {
                 initialize_database(config).await?;
                 create::runner::run(
@@ -127,10 +138,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 )
                 .await
             }),
-            | None => {
-                eprintln!("=> {} No subcommand provided for 'create'", Label::fail());
-                exit(exitcode::USAGE);
-            }
+            | None => Err(eyre::eyre!("No subcommand provided for 'create'")),
         },
         | Some(Commands::Doctor(arguments)) => {
             let arguments::Doctor {
@@ -277,10 +285,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 } = arguments.as_ref();
                 import::spec::run(source, name, domain, root, auth_token, output, *dry_run, verbose, offline).await
             }),
-            | None => {
-                eprintln!("=> {} No subcommand provided for 'import'", Label::fail());
-                exit(exitcode::USAGE);
-            }
+            | None => Err(eyre::eyre!("No subcommand provided for 'import'")),
         },
         | Some(Commands::Schema { command, .. }) => match command {
             | Some(SchemaCommands::Rad) | None => print_rad_schema(),
@@ -312,11 +317,11 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
 }
 fn print_rad_schema() -> Void {
     ResearchActivity::to_schema();
-    exit(exitcode::OK);
+    Ok(())
 }
 fn print_raid_schema() -> Void {
     Metadata::to_schema();
-    exit(exitcode::OK);
+    Ok(())
 }
 fn with_runtime<F>(fut: F) -> Void
 where

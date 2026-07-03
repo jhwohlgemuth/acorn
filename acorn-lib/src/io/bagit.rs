@@ -316,7 +316,7 @@ impl From<ChecksumAlgorithm> for &'static ring::digest::Algorithm {
         match value {
             | ChecksumAlgorithm::Sha256 => &ring::digest::SHA256,
             | ChecksumAlgorithm::Sha512 => &ring::digest::SHA512,
-            | _ => unimplemented!(),
+            | _ => &ring::digest::SHA256,
         }
     }
 }

@@ -330,7 +330,10 @@ impl Bucket {
                         let bucket_root = match code_repository.location().path() {
                             | Some(value) => PathBuf::from(value).to_absolute_string(),
                             | None => {
-                                unimplemented!()
+                                return Err(eyre!(
+                                    "Bucket {} has no local path — cannot copy files",
+                                    name.as_deref().unwrap_or("unknown")
+                                ))
                             }
                         };
                         let items = filter_paths(
@@ -416,9 +419,7 @@ impl Bucket {
             | Repository::Git { .. } => {
                 let path = match code_repository.location().path() {
                     | Some(value) => PathBuf::from(value),
-                    | None => {
-                        unimplemented!()
-                    }
+                    | None => return Err(eyre!("Git repository has no local path — cannot list files")),
                 };
                 Ok(files_all(path, None).into_iter().map(|x| x.display().to_string()).collect())
             }

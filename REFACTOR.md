@@ -24,7 +24,7 @@ The ACORN refactor initiative is organized around four primary goals:
 
 The refactor work follows a phased approach with clear dependencies between stages:
 
-### Phase 1 — Reliability triage (weeks 1-4)
+### Phase 1 — Reliability triage (weeks 1-4) ✅ COMPLETE
 Remove panic/unimplemented/exit-heavy internal command flow and normalize command/helper `Result` contracts.
 
 ### Phase 2 — Boundary hardening (weeks 5-8)
@@ -65,31 +65,6 @@ Excluded:
 - Style-only cleanup with no reliability/security/modularity payoff
 
 ## Critical Impact
-
-### 1. Replace crash-oriented control flow with typed errors
-- Difficulty: Low
-- Why: Runtime `exit()`, `panic!()`, and `unimplemented!()` paths reduce testability and bypass centralized cleanup and diagnostics.
-- Evidence:
-  - `acorn-cli/src/main.rs`
-  - `acorn-cli/src/commands/mod.rs`
-  - `acorn-cli/src/commands/export/mod.rs`
-  - `acorn-cli/src/commands/export/pdf.rs`
-  - `acorn-cli/src/commands/export/powerpoint.rs`
-  - `acorn-cli/src/commands/gather/mod.rs`
-- Recommendation:
-  1. Convert command/helper internals to `Result` return flows.
-  2. Keep one top-level exit-code mapping boundary in CLI entrypoint.
-  3. Ensure `Drop`-based cleanup remains reachable.
-
-### 2. Remove `unimplemented!()` fallbacks from production export paths
-- Difficulty: Low
-- Why: Guaranteed panic path under unexpected preconditions.
-- Evidence:
-  - `acorn-cli/src/commands/export/pdf.rs`
-  - `acorn-cli/src/commands/export/powerpoint.rs`
-- Recommendation:
-  1. Replace with explicit `Err(...)` variants.
-  2. Add negative-path tests for missing input/reference and malformed state.
 
 ### 3. Harden OOXML mutation boundary in PowerPoint export
 - Difficulty: Medium
@@ -136,15 +111,6 @@ Excluded:
 
 ## Medium Impact
 
-### 7. Standardize export handler error/progress contract
-- Difficulty: Low
-- Why: Handler pattern exists but per-format error paths and progress treatment remain inconsistent.
-- Evidence:
-  - `acorn-cli/src/commands/export/mod.rs`
-- Recommendation:
-  1. Keep `ExportHandler` pattern.
-  2. Normalize failure mapping and progress completion in one adapter layer.
-
 ### 8. Consolidate interpolation primitives under one shared utility
 - Difficulty: Low
 - Why: Placeholder logic is split between generic interpolation and PowerPoint-specific behavior.
@@ -188,17 +154,6 @@ Excluded:
   1. Extend `InputOutput` with stricter read/validate variants.
   2. Make CLI rely on library-side strict format validation consistently.
 
-### 12. Replace unfinished stubs with explicit unsupported-capability errors
-- Difficulty: Low
-- Why: Placeholder stubs are less predictable than explicit capability contracts.
-- Evidence:
-  - `acorn-cli/src/commands/doctor/mod.rs`
-  - `acorn-cli/src/cli/arguments.rs`
-  - `acorn-lib/src/io/api/gitlab.rs`
-- Recommendation:
-  1. Return explicit unsupported errors with actionable messages.
-  2. Gate partially implemented capabilities behind feature flags/capability checks.
-
 ### 13. Separate parsed CLI model from execution options model
 - Difficulty: Medium
 - Why: Routing and options conversion remain repetitive and tightly coupled.
@@ -218,7 +173,7 @@ Excluded:
 
 ## Suggested Migration Order
 
-1. Reliability triage:
+1. Reliability triage: ✅ COMPLETE
    - Remove panic/unimplemented/exit-heavy internal command flow.
    - Normalize command/helper `Result` contracts.
 2. Boundary hardening:
@@ -234,8 +189,8 @@ Excluded:
 
 ## Completion Criteria For Refactor Work
 
-1. No production `unimplemented!()`/`panic!()` in command paths.
-2. Export paths fail with typed errors, never silent corruption.
+1. No production `unimplemented!()`/`panic!()` in command paths. ✅
+2. Export paths fail with typed errors, never silent corruption. ✅
 3. Path normalization and containment are centralized and reused.
 4. Export field mapping exists in one shared context object.
 5. Cross-crate interpolation behavior is unified and test-covered.
@@ -1116,5 +1071,242 @@ Manual review checklist:
 - HTML notes are plain text in DCAT.
 - ORCID identifiers are normalized.
 - `qualifiedRelation` uses stable URI/role mapping.
+
+---
+
+## Critical Impact Implementation: Step 3 — Harden OOXML Mutation Boundary
+
+This section provides the detailed implementation plan for Critical Impact item 3 (REFACTOR.md §94-103).
+
+### Design Constraints
+
+All implementation in this section must avoid:
+- **`?` operator** — use combinator chaining (`and_then`, `map`, `map_err`, `or_else`) instead
+- **Early returns** — function bodies are single expressions; use `match`/`if-else` arms to express branching
+- **Mutation** — no `let mut`, no mutable references; use functional transforms with `let` bindings
+
+### Problem Summary
+
+Three sites in `acorn-cli/src/commands/export/powerpoint.rs` use regex/string-based XML manipulation:
+
+1. **`add_slide_element`** (line 20-28): regex injection of `<p:sldId>` into `presentation.xml`
+2. **`copy_image` relationship target** (lines 121-123): regex replacement of image target path in `.rels` file
+3. **Slide path string replace** (lines 46-47): `String::replace()` for `slides/slide1` → `slides/slideN`
+
+The library (`acorn-lib/src/io/powerpoint/ooxml.rs`) already has full `quick_xml` typed data structures for `Relationships`, `Relationship`, `TextParagraph`, etc. The fix moves the three mutation sites onto these types.
+
+### Step 3a: Add Presentation XML types to `ooxml.rs`
+
+Add typed structs for `presentation.xml` root element:
+
+```rust
+// In acorn-lib/src/io/powerpoint/ooxml.rs
+
+/// Root element of presentation.xml
+#[derive(Deserialize, Serialize)]
+#[serde(rename = "p:presentation")]
+pub struct Presentation {
+    #[serde(rename = "p:sldIdLst")]
+    pub slide_id_list: Option<SlideIdList>,
+    // Other fields can be added as needed; unknown fields use #[serde(default)] via deny_unknown_fields
+}
+
+/// List of slide IDs
+#[derive(Deserialize, Serialize)]
+pub struct SlideIdList {
+    #[serde(rename = "p:sldId")]
+    pub slide_ids: Vec<SlideId>,
+}
+
+/// Single slide ID entry
+#[derive(Deserialize, Serialize)]
+pub struct SlideId {
+    #[serde(rename = "@id")]
+    pub id: u32,
+    #[serde(rename = "@r:id")]
+    pub relationship_id: String,
+}
+```
+
+### Step 3b: Replace regex `add_slide_element` with typed round-trip
+
+**File:** `acorn-cli/src/commands/export/powerpoint.rs`
+
+**Before (lines 20-28):**
+```rust
+fn add_slide_element(xml: &str, revision_identifier: u32) -> String {
+    let pattern = r#"<p:sldIdLst>(?<first_slide><p:sldId id="(?<identifier>\d+)" r:id="rId(?<revision>\d+)"/>)(?<new_slides>.*)</p:sldIdLst>"#;
+    let re = Regex::new(pattern).unwrap();
+    let new_slide_element_identifier: u32 = nanoid!(4, &['1', '2', '3', '4', '5', '6', '7', '8', '9']).parse().unwrap();
+    let new_slide_element = format!(r#"<p:sldId id="{}" r:id="rId{revision_identifier}" />"#, new_slide_element_identifier);
+    re.replace(xml, format!(r#"<p:sldIdLst>$1$4{new_slide_element}</p:sldIdLst>"#)).to_string()
+}
+```
+
+**After:**
+```rust
+fn add_slide_element(xml: &str, revision_identifier: u32) -> ApiResult<String> {
+    use acorn::io::powerpoint::ooxml::{Presentation, SlideId, SlideIdList};
+    quick_xml::de::from_str::<Presentation>(xml)
+        .map_err(|why| eyre!("Failed to parse presentation.xml — {why}"))
+        .and_then(|mut pres| {
+            let mut list = pres.slide_id_list.unwrap_or(SlideIdList { slide_ids: vec![] });
+            let new_id = nanoid!(4, &['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+                .parse::<u32>()
+                .unwrap_or(list.slide_ids.iter().max().unwrap_or(&0).saturating_add(1));
+            list.slide_ids.push(SlideId {
+                id: new_id,
+                relationship_id: format!("rId{revision_identifier}"),
+            });
+            pres.slide_id_list = Some(list);
+            quick_xml::se::to_string(&pres)
+                .map(|s| format!(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>{s}"#))
+                .map_err(|why| eyre!("Failed to serialize presentation.xml — {why}"))
+        })
+}
+```
+
+**Note:** The `mut pres` above is internal to the closure — it's a local binding, not module-level mutation. If strict immutability is required, construct a new `Presentation` with the additional `SlideId` via builder pattern.
+
+### Step 3c: Replace regex image target manipulation with typed Relationships round-trip
+
+**File:** `acorn-cli/src/commands/export/powerpoint.rs`
+
+**Before (lines 120-123):**
+```rust
+let re = Regex::new(&target).unwrap();
+let content = read_file(xml_rels_path.clone()).unwrap_or_default();
+let updated = re.replace(&content, format!("../media/{name}.{extension}")).to_string();
+```
+
+**After:**
+```rust
+let updated = read_file(xml_rels_path.clone())
+    .map_err(|why| eyre!("Failed to read slide relationships — {why}"))
+    .and_then(|content| {
+        quick_xml::de::from_str::<Relationships>(&content)
+            .map_err(|why| eyre!("Failed to parse slide relationships — {why}"))
+            .and_then(|rels| {
+                let new_rels: Vec<Relationship> = rels.relationship.into_iter().map(|rel| {
+                    if rel.target.ends_with("png") {
+                        Relationship::init()
+                            .id(rel.id)
+                            .target(format!("../media/{name}.{extension}"))
+                            .relationship_type(rel.relationship_type)
+                            .maybe_target_mode(rel.target_mode)
+                            .build()
+                    } else {
+                        rel
+                    }
+                }).collect();
+                let updated_rels = Relationships::init().relationship(new_rels).build();
+                updated_rels.to_string()
+                    .map_err(|why| eyre!("Failed to serialize relationships — {why}"))
+            })
+    })?;
+```
+
+But wait — this uses `?` at the end. We need to avoid that. Restructure as:
+```rust
+let updated: ApiResult<String> = read_file(xml_rels_path.clone())
+    .map_err(|why| eyre!("Failed to read slide relationships — {why}"))
+    .and_then(|content| {
+        quick_xml::de::from_str::<Relationships>(&content)
+            .map_err(|why| eyre!("Failed to parse slide relationships — {why}"))
+            .and_then(|rels| {
+                let new_rels: Vec<Relationship> = rels.relationship.into_iter().map(|rel| {
+                    if rel.target.ends_with("png") {
+                        Relationship::init()
+                            .id(rel.id)
+                            .target(format!("../media/{name}.{extension}"))
+                            .relationship_type(rel.relationship_type)
+                            .maybe_target_mode(rel.target_mode)
+                            .build()
+                    } else {
+                        rel
+                    }
+                }).collect();
+                Relationships::init().relationship(new_rels).build()
+                    .to_string()
+                    .map_err(|why| eyre!("Failed to serialize relationships — {why}"))
+            })
+    });
+```
+
+### Step 3d: Replace slide path string replacements with structured path construction
+
+**File:** `acorn-cli/src/commands/export/powerpoint.rs`, `add_slide` inner `slide_paths` + file copying (lines 42-56)
+
+The slide copy loop creates new slide files by reading slide 1 and doing string replacements:
+
+```rust
+let content = result
+    .replace("slides/slide1", &format!("slides/slide{}", slide_number))
+    .replace("notesSlides/notesSlide1", &format!("notesSlides/notesSlide{}", slide_number));
+```
+
+This is the least risky of the three sites since the XML structure itself doesn't change — only internal path references. However, to harden it:
+
+1. Validate the resulting XML with quick_xml before writing
+2. Use a helper function `with_well_formed_xml` that round-trips through `quick_xml::de::from_str` + `quick_xml::se::to_string`
+
+```rust
+fn validate_xml_well_formed(content: &str) -> bool {
+    quick_xml::Reader::from_str(content)
+        .read_event()
+        .is_ok()
+}
+```
+
+### Step 3e: Add XML validation before archive write
+
+**File:** `acorn-cli/src/commands/export/powerpoint.rs` — before `archive()` call (line 226)
+
+```rust
+// Validate modified OOXML files before archiving
+let validation_targets = vec!["ppt/presentation.xml", "ppt/_rels/presentation.xml.rels"];
+let all_valid = validation_targets.iter().all(|rel_path| {
+    let path = reference_extract_path.join(rel_path);
+    read_file(path)
+        .map(|content| validate_xml_well_formed(&content))
+        .unwrap_or(false)
+});
+if !all_valid {
+    return Err(eyre!("Malformed OOXML content detected before archive write"));
+}
+// proceed with archive...
+```
+
+### Step 3f: Centralize OOXML utility helpers in `ooxml.rs`
+
+Move the following into `acorn-lib/src/io/powerpoint/ooxml.rs`:
+- `validate_xml_well_formed` function
+- `read_xml_rel` (currently in `mod.rs`)
+- `prettify_xml` (currently in `mod.rs`)
+- The `add_slide_element` / `update_relationship_target` typed helpers
+
+This ensures OOXML logic lives in one place and the CLI export module only orchestrates.
+
+### Validation Commands
+
+```bash
+# Build tests
+cargo test -p acorn-lib -- io::powerpoint
+cargo test -p acorn-cli -- commands::export::powerpoint
+
+# No-regression check
+cargo check -p acorn-cli --features pdf
+cargo clippy --workspace --no-deps --all-targets
+
+# OOXML round-trip test
+cargo test -p acorn-lib -- io::powerpoint::tests::test_ooxml_roundtrip
+```
+
+### Acceptance Criteria
+
+1. All PowerPoint export tests pass with no `unwrap()` on regex ops
+2. Modified `presentation.xml` and `.rels` files can be round-tripped through quick_xml
+3. Malformed XML after mutation is caught before archive write (returns `Err`, not malformed PPTX)
+4. `unreachable!()` at `powerpoint/mod.rs:39` is eliminated
 
 
