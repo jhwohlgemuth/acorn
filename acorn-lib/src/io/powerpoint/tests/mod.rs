@@ -6,6 +6,7 @@
     clippy::unwrap_used
 )]
 use super::escape_xml_text;
+use super::ooxml::{add_slide_to_presentation_xml, update_relationship_target, validate_xml_well_formed, Relationships};
 use crate::io::powerpoint::*;
 use crate::io::read_file;
 use crate::prelude::PathBuf;
@@ -170,9 +171,36 @@ fn test_replace_placeholder_with_bullets() {
         | Err(_) => {}
     }
 }
-
 #[test]
 fn test_escape_xml_text() {
     let result = escape_xml_text(r#"AT&T <alpha> "quoted""#);
     assert_eq!(result, "AT&amp;T &lt;alpha&gt; &quot;quoted&quot;");
+}
+#[test]
+fn add_slide_to_presentation_xml_appends_slide_id() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/></p:presentation>"#;
+    let result = add_slide_to_presentation_xml(xml, 257, 2).unwrap();
+    assert!(result.contains(r#"<p:sldId id="256" r:id="rId1"/>"#));
+    assert!(result.contains(r#"<p:sldId id="257" r:id="rId2"/>"#));
+    assert!(result.contains(r#"<p:sldSz cx="12192000" cy="6858000"/>"#));
+    assert!(validate_xml_well_formed(&result));
+}
+#[test]
+fn add_slide_to_presentation_xml_rejects_malformed_xml() {
+    let result = add_slide_to_presentation_xml("<p:presentation><p:sldIdLst>", 257, 2);
+    assert!(result.is_err());
+}
+#[test]
+fn update_relationship_target_matches_previous_replacement_intent() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/other.png"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide1.xml"/></Relationships>"#;
+    let result = update_relationship_target(xml, "../media/image1.png", "../media/acorn.jpg").unwrap();
+    let relationships = quick_xml::de::from_str::<Relationships>(&result).unwrap();
+    assert_eq!(relationships.relationship[0].target, "../media/acorn.jpg");
+    assert_eq!(relationships.relationship[1].target, "../media/other.png");
+    assert_eq!(relationships.relationship[2].target, "../notesSlides/notesSlide1.xml");
+    assert!(validate_xml_well_formed(&result));
+}
+#[test]
+fn validate_xml_well_formed_rejects_unclosed_content() {
+    assert!(!validate_xml_well_formed("<Relationships><Relationship></Relationship>"));
 }

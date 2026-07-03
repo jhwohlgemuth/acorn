@@ -3,30 +3,21 @@
 //! This module generates PPTX output by copying slide templates, updating
 //! OOXML relationships, and interpolating Research Activity data.
 use crate::cli::CommandOptions;
-use acorn::io::powerpoint::ooxml::{Relationship, Relationships};
+use acorn::io::powerpoint::ooxml::{
+    add_slide_to_presentation_xml, update_relationship_target, validate_xml_well_formed, Relationship, Relationships,
+};
 use acorn::io::powerpoint::{interpolate_values, read_xml_rel};
 use acorn::io::{archive, extract_zip, read_file, write_file, ApiResult, InputOutput};
 use acorn::prelude::{copy, create_dir_all, Arc, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{Label, StringConversion};
 use color_eyre::eyre::eyre;
-use fancy_regex::Regex;
 use itertools::izip;
 use nanoid::nanoid;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use tracing::error;
 
 fn add_slide(slide_number: usize, reference_extract_path: &Path) {
-    fn add_slide_element(xml: &str, revision_identifier: u32) -> String {
-        let pattern = r#"<p:sldIdLst>(?<first_slide><p:sldId id="(?<identifier>\d+)" r:id="rId(?<revision>\d+)"/>)(?<new_slides>.*)</p:sldIdLst>"#;
-        #[allow(clippy::unwrap_used)]
-        let re = Regex::new(pattern).unwrap();
-        #[allow(clippy::unwrap_used)]
-        let new_slide_element_identifier: u32 = nanoid!(4, &['1', '2', '3', '4', '5', '6', '7', '8', '9']).parse().unwrap();
-        let new_slide_element = format!(r#"<p:sldId id="{}" r:id="rId{revision_identifier}" />"#, new_slide_element_identifier);
-        re.replace(xml, format!(r#"<p:sldIdLst>$1$4{new_slide_element}</p:sldIdLst>"#))
-            .to_string()
-    }
     fn slide_paths(slide_number: usize, root: &Path) -> Vec<PathBuf> {
         [
             format!("ppt/slides/slide{slide_number}.xml"),
@@ -45,10 +36,18 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) {
                 let content = result
                     .replace("slides/slide1", &format!("slides/slide{}", slide_number))
                     .replace("notesSlides/notesSlide1", &format!("notesSlides/notesSlide{}", slide_number));
-                if let Err(why) = write_file(new_slide_path.clone(), content) {
+                if validate_xml_well_formed(&content) {
+                    if let Err(why) = write_file(new_slide_path.clone(), content) {
+                        error!(
+                            path = new_slide_path.to_absolute_string(),
+                            "=> {} Write slide file — {why}",
+                            Label::fail()
+                        );
+                    }
+                } else {
                     error!(
                         path = new_slide_path.to_absolute_string(),
-                        "=> {} Write slide file — {why}",
+                        "=> {} Validate copied slide XML",
                         Label::fail()
                     );
                 }
@@ -78,13 +77,26 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) {
         let presentation_xml_path = reference_extract_path.join("ppt/presentation.xml");
         match read_file(&presentation_xml_path) {
             | Ok(presentation_xml) => {
-                let updated_presentation_xml = add_slide_element(&presentation_xml, new_slide_revision_identifier);
-                if let Err(why) = write_file(&presentation_xml_path, updated_presentation_xml.to_string()) {
-                    error!(
-                        path = presentation_xml_path.to_absolute_string(),
-                        "=> {} Write presentation XML — {why}",
-                        Label::fail()
-                    );
+                let new_slide_element_identifier = nanoid!(4, &['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+                    .parse::<u32>()
+                    .unwrap_or(new_slide_revision_identifier.saturating_add(255));
+                match add_slide_to_presentation_xml(&presentation_xml, new_slide_element_identifier, new_slide_revision_identifier) {
+                    | Ok(updated_presentation_xml) => {
+                        if let Err(why) = write_file(&presentation_xml_path, updated_presentation_xml) {
+                            error!(
+                                path = presentation_xml_path.to_absolute_string(),
+                                "=> {} Write presentation XML — {why}",
+                                Label::fail()
+                            );
+                        }
+                    }
+                    | Err(why) => {
+                        error!(
+                            path = presentation_xml_path.to_absolute_string(),
+                            "=> {} Update presentation XML — {why}",
+                            Label::fail()
+                        );
+                    }
                 }
             }
             | Err(why) => {
@@ -110,7 +122,7 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
             relationships
                 .into_iter()
                 .find(|x| x.target.ends_with("png"))
-                .map(|Relationship { target, .. }| target)
+                .map(|x| x.target)
                 .ok_or_else(|| {
                     let path = xml_rels_path.to_absolute_string();
                     error!(path, "=> {} Find slide image relationship", Label::fail());
@@ -129,19 +141,46 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
             let name = meta.clone().identifier;
             let extension = Path::new(&image_url).extension().and_then(|e| e.to_str()).unwrap_or("png");
             let to = destination.join(format!("ppt/media/{name}.{extension}"));
-            #[allow(clippy::unwrap_used)]
-            let re = Regex::new(&target).unwrap();
-            let content = read_file(xml_rels_path.clone()).unwrap_or_default();
-            let updated = re.replace(&content, format!("../media/{name}.{extension}")).to_string();
-            if let Err(why) = write_file(xml_rels_path.clone(), updated) {
-                error!(
-                    path = xml_rels_path.to_absolute_string(),
-                    "=> {} Write slide relationship XML — {why}",
-                    Label::fail()
-                );
-            }
-            copy(from, to).map_err(|e| eyre!("Failed to copy image — {e}"))
+            read_file(xml_rels_path.clone())
+                .map_err(|why| eyre!("Failed to read slide relationship XML — {why}"))
+                .and_then(|content| update_relationship_target(&content, &target, &format!("../media/{name}.{extension}")))
+                .and_then(|updated| {
+                    write_file(xml_rels_path.clone(), updated).map_err(|why| {
+                        error!(
+                            path = xml_rels_path.to_absolute_string(),
+                            "=> {} Write slide relationship XML — {why}",
+                            Label::fail()
+                        );
+                        eyre!("Failed to write slide relationship XML — {why}")
+                    })
+                })
+                .and_then(|_| copy(from, to).map_err(|e| eyre!("Failed to copy image — {e}")))
         })
+}
+fn validate_ooxml_files(reference_extract_path: &Path, count: usize) -> ApiResult<()> {
+    let presentation_targets = ["ppt/presentation.xml", "ppt/_rels/presentation.xml.rels"]
+        .iter()
+        .map(|fragment| reference_extract_path.join(fragment));
+    let slide_targets = (1..=count).flat_map(|slide_number| {
+        [
+            format!("ppt/slides/slide{slide_number}.xml"),
+            format!("ppt/notesSlides/notesSlide{slide_number}.xml"),
+            format!("ppt/slides/_rels/slide{slide_number}.xml.rels"),
+            format!("ppt/notesSlides/_rels/notesSlide{slide_number}.xml.rels"),
+        ]
+        .into_iter()
+        .map(|fragment| reference_extract_path.join(fragment))
+    });
+    let invalid = presentation_targets
+        .chain(slide_targets)
+        .find(|path| read_file(path).map(|content| !validate_xml_well_formed(&content)).unwrap_or(true));
+    match invalid {
+        | Some(path) => Err(eyre!(
+            "Malformed OOXML content detected before archive write at {}",
+            path.to_absolute_string()
+        )),
+        | None => Ok(()),
+    }
 }
 /// Create PowerPoint presentation from Research Activity data
 pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<Arc<CommandOptions>>) -> ApiResult<PathBuf> {
@@ -233,7 +272,9 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<Arc<Comm
                 path.clone().unwrap_or_else(|| PathBuf::from("."))
             };
             let folder_name = folder.file_name_with_parent();
-            prepare_destination(output, &folder_name).and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination)))
+            validate_ooxml_files(&reference_extract_path, count)
+                .and_then(|_| prepare_destination(output, &folder_name))
+                .and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination)))
         })
 }
 fn prepare_destination(output: &Option<PathBuf>, name: &str) -> ApiResult<PathBuf> {

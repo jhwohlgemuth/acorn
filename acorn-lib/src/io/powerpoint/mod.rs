@@ -10,12 +10,11 @@ use crate::schema::{Notes, Other};
 use crate::util::{Label, StringInterpolation};
 use fancy_regex::Regex;
 use quick_xml::escape::escape;
-use quick_xml::events::Event;
-use quick_xml::{Reader, Writer};
 use tracing::{debug, error};
 
 pub mod ooxml;
-use ooxml::{Relationships, TextParagraph, TextParagraphProperties, TextRun, TextString};
+pub use ooxml::{prettify_xml, read_xml_rel};
+use ooxml::{TextParagraph, TextParagraphProperties, TextRun, TextString};
 
 /// Add enhanced string interpolation functionality
 pub trait PowerpointInterpolation<T>
@@ -61,29 +60,39 @@ where
                 };
                 let text_properties = match text_run.first() {
                     | Some(first) => match first.text_run_properties.first() {
-                        | Some(value) => value,
-                        | None => todo!(),
+                        | Some(value) => Some(value),
+                        | None => None,
                     },
-                    | None => todo!(),
+                    | None => None,
                 };
-                let content: Vec<String> = values
-                    .into_iter()
-                    .map(|value| {
-                        let run = TextRun::init()
-                            .text_run_properties(vec![text_properties.clone()])
-                            .text(TextString { value })
-                            .build();
-                        let custom = TextParagraph::init()
-                            .text_paragraph_properties(vec![bullet_properties.clone()])
-                            .text_run(vec![run])
-                            .maybe_end_paragraph_run_properties(end_paragraph_run_properties.clone())
-                            .build();
-                        #[allow(clippy::unwrap_used)]
-                        prettify_xml(&quick_xml::se::to_string(&custom).unwrap())
-                    })
-                    .collect();
-                let formatted = content.join("");
-                self.as_ref().replace(&selected, &formatted)
+                match text_properties {
+                    | Some(text_properties) => {
+                        let content: Vec<String> = values
+                            .into_iter()
+                            .map(|value| {
+                                let run = TextRun::init()
+                                    .text_run_properties(vec![text_properties.clone()])
+                                    .text(TextString { value })
+                                    .build();
+                                let custom = TextParagraph::init()
+                                    .text_paragraph_properties(vec![bullet_properties.clone()])
+                                    .text_run(vec![run])
+                                    .maybe_end_paragraph_run_properties(end_paragraph_run_properties.clone())
+                                    .build();
+                                match quick_xml::se::to_string(&custom) {
+                                    | Ok(xml) => prettify_xml(&xml),
+                                    | Err(why) => {
+                                        debug!("=> {} Serialize OOXML Paragraph - {why}", Label::fail());
+                                        String::new()
+                                    }
+                                }
+                            })
+                            .collect();
+                        let formatted = content.join("");
+                        self.as_ref().replace(&selected, &formatted)
+                    }
+                    | None => self.to_string(),
+                }
             }
             | Err(why) => {
                 debug!(selected, "=> {} Parse OOXML Paragraph - {why}", Label::fail());
@@ -188,55 +197,6 @@ pub fn parse_ooxml_paragraph(content: &str) -> Result<TextParagraph, quick_xml::
     let parsed = quick_xml::de::from_str::<TextParagraph>(content);
     debug!("=> {} OOXMLParagraph = {:#?}", Label::using(), parsed);
     parsed
-}
-/// Prettify XML
-pub fn prettify_xml(xml: &str) -> String {
-    let mut reader = Reader::from_str(xml);
-    let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
-    loop {
-        match reader.read_event() {
-            | Ok(Event::Eof) => break, // exits the loop when reaching end of file
-            | Ok(event) => match writer.write_event(event) {
-                | Ok(_) => {}
-                | Err(why) => {
-                    error!("=> {} Cannot write XML event — {why}", Label::fail());
-                    break;
-                }
-            },
-            | Err(why) => {
-                error!("=> {} Error at XML position {} — {why}", Label::fail(), reader.buffer_position());
-                break;
-            }
-        }
-    }
-    let output = writer.into_inner();
-    match core::str::from_utf8(&output) {
-        | Ok(value) => value.to_string(),
-        | Err(why) => {
-            error!("=> {} Cannot decode prettified XML as UTF-8 — {why}", Label::fail());
-            String::new()
-        }
-    }
-}
-/// Read OOXML relationships XML file
-pub fn read_xml_rel(path: PathBuf) -> Option<Relationships> {
-    match read_file(path) {
-        | Ok(content) => {
-            let parsed = quick_xml::de::from_str::<Relationships>(&content);
-            debug!("=> {} Relationships = {:#?}", Label::using(), parsed);
-            match parsed {
-                | Ok(value) => Some(value),
-                | Err(why) => {
-                    error!("=> {} Cannot parse relationships - {why}", Label::fail());
-                    None
-                }
-            }
-        }
-        | Err(why) => {
-            error!("=> {} Cannot read xml.rels file - {why}", Label::fail());
-            None
-        }
-    }
 }
 #[cfg(test)]
 mod tests;

@@ -3,11 +3,19 @@
 //! Data structures for modeling [`OOXML`].
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
+use crate::io::{read_file, ApiResult};
+use crate::prelude::PathBuf;
+use crate::util::{Label, StringConversion};
 use bon::Builder;
+use color_eyre::eyre::eyre;
 use core::fmt;
 use core::iter::once;
+use core::str::from_utf8;
+use quick_xml::events::{BytesStart, Event};
+use quick_xml::{Reader, Writer};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use tracing::{debug, error};
 
 const XML_DECLARATION: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>";
 /// Trait for working with OOXML data structures
@@ -240,6 +248,31 @@ pub struct Relationship {
     #[serde(rename = "@TargetMode")]
     pub target_mode: Option<String>,
 }
+/// Root element of a PowerPoint `presentation.xml` document.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename = "p:presentation")]
+pub struct Presentation {
+    /// Slide identifier list.
+    #[serde(rename = "p:sldIdLst")]
+    pub slide_id_list: Option<SlideIdList>,
+}
+/// List of PowerPoint slide identifiers.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SlideIdList {
+    /// Slide identifiers.
+    #[serde(rename = "p:sldId")]
+    pub slide_ids: Vec<SlideId>,
+}
+/// PowerPoint slide identifier entry.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SlideId {
+    /// Slide identifier.
+    #[serde(rename = "@id")]
+    pub id: u32,
+    /// Relationship identifier.
+    #[serde(rename = "@r:id")]
+    pub relationship_id: String,
+}
 /// OOXML Text Character Properties (`a:rPr`)
 ///
 /// See <https://www.datypic.com/sc/ooxml/e-a_rPr-2.html>
@@ -422,6 +455,30 @@ pub struct UnderlineFollowsText {}
 /// See <https://www.datypic.com/sc/ooxml/e-a_uLn-1.html>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UnderlineStroke {}
+impl XmlRels for Vec<Relationship> {
+    fn largest_revision_identifier(&self) -> Option<u32> {
+        self.revision_identifiers().iter().max().cloned()
+    }
+    fn revision_identifiers(&self) -> Vec<u32> {
+        self.clone()
+            .iter()
+            .filter_map(|x| x.id.clone().trim_start_matches("rId").to_string().parse::<u32>().ok())
+            .collect::<Vec<u32>>()
+    }
+}
+impl Default for Relationships {
+    fn default() -> Self {
+        Self::init().build()
+    }
+}
+impl fmt::Display for Relationships {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.to_string() {
+            | Ok(xml) => write!(f, "{}", xml),
+            | Err(e) => write!(f, "Error serializing Relationships: {}", e),
+        }
+    }
+}
 impl Relationships {
     /// Add a relationship
     pub fn add_relationship(&self, value: Relationship) -> Relationships {
@@ -439,27 +496,131 @@ impl Relationships {
         Ok(format!("{}{}", XML_DECLARATION, xml))
     }
 }
-impl Default for Relationships {
-    fn default() -> Self {
-        Self::init().build()
-    }
-}
-impl fmt::Display for Relationships {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.to_string() {
-            | Ok(xml) => write!(f, "{}", xml),
-            | Err(e) => write!(f, "Error serializing Relationships: {}", e),
+/// Add a slide identifier to a PowerPoint `presentation.xml` document.
+pub fn add_slide_to_presentation_xml(xml: &str, slide_identifier: u32, revision_identifier: u32) -> ApiResult<String> {
+    let mut reader = Reader::from_str(xml);
+    let mut writer = Writer::new(Vec::new());
+    let mut found_slide_list = false;
+    loop {
+        match reader.read_event() {
+            | Ok(Event::End(end)) if end.name().as_ref() == b"p:sldIdLst" => {
+                found_slide_list = true;
+                let mut slide = BytesStart::new("p:sldId");
+                let id = slide_identifier.to_string();
+                let relationship_id = format!("rId{revision_identifier}");
+                slide.push_attribute(("id", id.as_str()));
+                slide.push_attribute(("r:id", relationship_id.as_str()));
+                match writer.write_event(Event::Empty(slide)).and_then(|_| writer.write_event(Event::End(end))) {
+                    | Ok(_) => {}
+                    | Err(why) => break Err(eyre!("Failed to write presentation slide identifier — {why}")),
+                }
+            }
+            | Ok(Event::Eof) if found_slide_list => {
+                let output = writer.into_inner();
+                match String::from_utf8(output) {
+                    | Ok(value) => break Ok(value),
+                    | Err(why) => break Err(eyre!("Failed to decode presentation.xml as UTF-8 — {why}")),
+                }
+            }
+            | Ok(Event::Eof) => break Err(eyre!("Missing p:sldIdLst in presentation.xml")),
+            | Ok(event) => match writer.write_event(event) {
+                | Ok(_) => {}
+                | Err(why) => break Err(eyre!("Failed to write presentation.xml event — {why}")),
+            },
+            | Err(why) => break Err(eyre!("Failed to parse presentation.xml at byte {} — {why}", reader.buffer_position())),
         }
     }
 }
-impl XmlRels for Vec<Relationship> {
-    fn largest_revision_identifier(&self) -> Option<u32> {
-        self.revision_identifiers().iter().max().cloned()
-    }
-    fn revision_identifiers(&self) -> Vec<u32> {
-        self.clone()
-            .iter()
-            .filter_map(|x| x.id.clone().trim_start_matches("rId").to_string().parse::<u32>().ok())
-            .collect::<Vec<u32>>()
+/// Replace a relationship target with a new media target.
+pub fn update_relationship_target(content: &str, current_target: &str, target: &str) -> ApiResult<String> {
+    quick_xml::de::from_str::<Relationships>(content)
+        .map_err(|why| eyre!("Failed to parse slide relationships — {why}"))
+        .and_then(|rels| {
+            let updated = rels
+                .relationship
+                .into_iter()
+                .map(|rel| match rel.target == current_target {
+                    | true => Relationship::init()
+                        .id(rel.id)
+                        .relationship_type(rel.relationship_type)
+                        .target(target.to_string())
+                        .maybe_target_mode(rel.target_mode)
+                        .build(),
+                    | false => rel,
+                })
+                .collect::<Vec<_>>();
+            Relationships::init()
+                .relationship(updated)
+                .build()
+                .to_string()
+                .map_err(|why| eyre!("Failed to serialize slide relationships — {why}"))
+        })
+}
+/// Validate that XML content is well formed.
+pub fn validate_xml_well_formed(content: &str) -> bool {
+    let mut reader = Reader::from_str(content);
+    match content.trim().is_empty() {
+        | true => false,
+        | false => loop {
+            match reader.read_event() {
+                | Ok(Event::Eof) => break true,
+                | Ok(_) => {}
+                | Err(_) => break false,
+            }
+        },
     }
 }
+/// Prettify XML
+pub fn prettify_xml(xml: &str) -> String {
+    let mut reader = Reader::from_str(xml);
+    let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
+    loop {
+        match reader.read_event() {
+            | Ok(Event::Eof) => break,
+            | Ok(event) => match writer.write_event(event) {
+                | Ok(_) => {}
+                | Err(why) => {
+                    error!("=> {} Cannot write XML event — {why}", Label::fail());
+                    break;
+                }
+            },
+            | Err(why) => {
+                error!("=> {} Error at XML position {} — {why}", Label::fail(), reader.buffer_position());
+                break;
+            }
+        }
+    }
+    let output = writer.into_inner();
+    match from_utf8(&output) {
+        | Ok(value) => value.to_string(),
+        | Err(why) => {
+            error!("=> {} Cannot decode prettified XML as UTF-8 — {why}", Label::fail());
+            String::new()
+        }
+    }
+}
+/// Read OOXML relationships XML file.
+pub fn read_xml_rel(path: PathBuf) -> Option<Relationships> {
+    match read_file(path.clone()) {
+        | Ok(content) => {
+            let parsed = quick_xml::de::from_str::<Relationships>(&content);
+            debug!("=> {} Relationships = {:#?}", Label::using(), parsed);
+            match parsed {
+                | Ok(value) => Some(value),
+                | Err(why) => {
+                    error!(
+                        path = path.to_absolute_string(),
+                        "=> {} Cannot parse relationships - {why}",
+                        Label::fail()
+                    );
+                    None
+                }
+            }
+        }
+        | Err(why) => {
+            error!(path = path.to_absolute_string(), "=> {} Cannot read xml.rels file - {why}", Label::fail());
+            None
+        }
+    }
+}
+
