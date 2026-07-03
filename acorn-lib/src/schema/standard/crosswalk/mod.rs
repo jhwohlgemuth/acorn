@@ -37,6 +37,7 @@
 //!
 //! Each schema provides implementations of [`SchemaExtractor`] and [`SchemaBuilder`]
 //! in the [`extractors`] and [`builders`] submodules.
+use crate::prelude::*;
 use core::fmt;
 
 pub mod mapping;

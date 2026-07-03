@@ -1,5 +1,13 @@
 //! Wrapper module isolate `std` usage and enable `no_std` support
+pub use alloc::{
+    boxed::Box,
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 /// Module that provides `std` support
+#[cfg(feature = "std")]
 #[allow(unused_imports)]
 mod std {
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};

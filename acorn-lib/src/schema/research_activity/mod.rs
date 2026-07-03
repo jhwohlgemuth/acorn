@@ -10,6 +10,7 @@ use crate::io::ApiResult;
 use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
+use crate::prelude::*;
 use crate::schema::hardware::Resource;
 use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::pid::PersistentIdentifierConvert;
@@ -44,7 +45,9 @@ use nucleo_matcher::{
 };
 #[cfg(feature = "std")]
 use owo_colors::OwoColorize;
-use schemars::{schema_for, JsonSchema};
+#[cfg(feature = "std")]
+use schemars::schema_for;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
@@ -568,6 +571,7 @@ impl ResearchActivity {
         }
     }
     /// Print research activity schema as JSON schema
+    #[cfg(feature = "std")]
     pub fn to_schema() {
         let schema = schema_for!(ResearchActivity);
         match serde_json::to_string_pretty(&schema) {

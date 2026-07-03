@@ -2,6 +2,7 @@
 //!
 //! Here you'll find everything needed to build and use the research activity data schema, including metadata fields, section information, media objects, formats, and functions that power ACORN CLI commands.
 //!
+use crate::prelude::*;
 pub mod hardware;
 pub use hardware::memory::{Memory, MemoryUnit};
 pub use hardware::{

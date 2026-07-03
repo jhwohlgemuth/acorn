@@ -1,4 +1,5 @@
 //! Hardware resource, architecture, and vendor types
+use crate::prelude::*;
 use crate::schema::research_activity::aspect::Modality;
 use crate::util::constants::gpu::{
     NVIDIA_CC_AMPERE_80_PATTERNS, NVIDIA_CC_BLACKWELL_100_PATTERNS, NVIDIA_CC_BLACKWELL_103_PATTERNS, NVIDIA_CC_FERMI_21_GT_SUFFIXES,

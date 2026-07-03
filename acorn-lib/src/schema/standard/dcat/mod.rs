@@ -11,6 +11,7 @@
 //! - [DCAT v2](https://www.w3.org/TR/vocab-dcat-2/)
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
+use crate::prelude::*;
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite::{self, RelationType};
 use crate::schema::validate::is_url;

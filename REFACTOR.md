@@ -203,40 +203,9 @@ Prioritization rule:
 1. Impact on no-std correctness and portability first.
 2. Difficulty second within each impact tier.
 
-### Current Validation Snapshot
-
-1. `cargo check -p acorn-lib --no-default-features` currently fails.
-2. Observed blocker: analyzer paths compile while analyzer exports are feature-gated, producing unresolved `Check`/`CheckSeverity` references.
-3. `cargo check -p acorn-lib --no-default-features --target wasm32-unknown-unknown` cannot be validated yet in this environment because the target is not installed.
-
 ### Critical Impact
 
-#### 1. Fix feature topology: gate analyzer module at crate boundary
-- Difficulty: Low
-- Why: no-default-features build currently fails due to inconsistent analyzer gating.
-- Evidence:
-  - `acorn-lib/src/lib.rs` exports `pub mod analyzer;` unconditionally.
-  - `acorn-lib/src/analyzer/mod.rs` uses types exported only under `#[cfg(feature = "analysis")]`.
-- Recommendation:
-  1. Gate analyzer module in `lib.rs` behind `feature = "analysis"`.
-  2. Keep non-analysis link-check and analysis-only codepaths separated.
-  3. Ensure `no-default-features` compiles before any dependency work.
-
-#### 2. Split acorn-lib into capability layers (`core`, `alloc`, `std`)
-- Difficulty: Medium
-- Why: current feature model mixes environment concerns (`std`) with domain concerns (`analysis`, `powerpoint`, `doctor`).
-- Evidence:
-  - `acorn-lib/Cargo.toml` uses `default = ["analysis", "agentic", "std"]`.
-  - `analyzer`, `schema`, and `util` pull mixed dependency classes.
-- Recommendation:
-  1. Introduce explicit layering features:
-     - `core` (no_std + no_alloc feasible subset)
-     - `alloc` (string/vec/hashmap support)
-     - `std` (filesystem, process, network, threads)
-  2. Make domain features depend on capability features explicitly (example: `analysis = ["alloc", "std", ...]`).
-  3. Add compile matrix checks for each layer.
-
-#### 3. Isolate std-only modules from shared domain modules
+#### 1. Isolate std-only modules from shared domain modules
 - Difficulty: Medium
 - Why: std-bound imports leak into major surfaces, limiting no-std portability.
 - Evidence:
@@ -249,17 +218,7 @@ Prioritization rule:
 
 ### High Impact
 
-#### 4. Make heavy std dependencies optional and feature-scoped
-- Difficulty: Low
-- Why: several crates are currently unconditional despite being host-only in practice.
-- Evidence:
-  - In `acorn-lib/Cargo.toml`, dependencies such as `docx-rs`, `directories`, `indicatif`, `color-eyre`, `rayon`, `percy-dom`, `tera`, `rusqlite`, `dotenvy`, `flate2`, `zip` are not uniformly tied to capability features.
-- Recommendation:
-  1. Mark host-only crates optional and gate by `std`/format-specific features.
-  2. Keep only core no-std-compatible crates mandatory (serde, schemars where needed, hashbrown, alloc-safe helpers).
-  3. Add a policy: every non-alloc dependency must declare its enabling feature.
-
-#### 5. Replace no-std-hostile error/reporting surface for core builds
+#### 2. Replace no-std-hostile error/reporting surface for core builds
 - Difficulty: Medium
 - Why: `color-eyre` is excellent for CLI UX but not ideal as core-library baseline for no-std/WASM.
 - Evidence:
@@ -271,7 +230,7 @@ Prioritization rule:
      - no-std: `Result<T, AcornError>`
      - std CLI adapters: map to rich reports.
 
-#### 6. Add dedicated WASM feature path (not just no-std)
+#### 3. Add dedicated WASM feature path (not just no-std)
 - Difficulty: Medium
 - Why: WASM has different constraints than bare-metal no-std (target-specific panic, allocator, networking, fs absence).
 - Recommendation:
@@ -281,7 +240,7 @@ Prioritization rule:
 
 ### Medium Impact
 
-#### 7. Refactor prelude into strict capability preludes
+#### 4. Refactor prelude into strict capability preludes
 - Difficulty: Low
 - Why: prelude currently provides both std and no-std exports, but module callers still mix concerns.
 - Evidence:
@@ -290,7 +249,7 @@ Prioritization rule:
   1. Create explicit `prelude::core`, `prelude::alloc`, `prelude::std` modules.
   2. Restrict imports by module capability level to prevent accidental std usage.
 
-#### 8. Partition utility module into pure and std submodules
+#### 5. Partition utility module into pure and std submodules
 - Difficulty: Medium
 - Why: `util/mod.rs` includes table formatting, console emoji, diff rendering, embedding support, and generic helpers together.
 - Evidence:
@@ -300,7 +259,7 @@ Prioritization rule:
   2. Move console formatting/rendering into `util/std`.
   3. Re-export conditionally.
 
-#### 9. Introduce host-abstraction traits for runtime services
+#### 6. Introduce host-abstraction traits for runtime services
 - Difficulty: Medium
 - Why: file/network/process/runtime dependencies are currently concrete, reducing portability.
 - Recommendation:
@@ -310,7 +269,7 @@ Prioritization rule:
 
 ### Lower Impact
 
-#### 10. Tighten workspace dependency defaults for no-std friendliness
+#### 7. Tighten workspace dependency defaults for no-std friendliness
 - Difficulty: Medium
 - Why: workspace-level defaults currently include `chrono/std` and other std-oriented defaults that can leak into no-std planning.
 - Evidence:
@@ -319,7 +278,7 @@ Prioritization rule:
   1. Move std-dependent feature toggles from workspace defaults into crate-level feature wiring.
   2. Prefer alloc/core-only defaults in workspace where possible.
 
-#### 11. Add no-std and wasm CI matrix as a first-class quality gate
+#### 8. Add no-std and wasm CI matrix as a first-class quality gate
 - Difficulty: Low
 - Why: regressions are likely without continuous compile checks.
 - Recommendation:
@@ -340,19 +299,15 @@ Prioritization rule:
 
 ### Practical Execution Steps
 
-1. Stage 1 (stability): fix analyzer feature-gate break so `--no-default-features` compiles.
-2. Stage 2 (dependency hygiene): make host-heavy deps optional and gate them explicitly.
-3. Stage 3 (architecture): split pure/domain code from std adapters, add host traits.
-4. Stage 4 (WASM): add dedicated `wasm` feature and adapter implementations.
-5. Stage 5 (enforcement): add CI matrix and feature-leak checks.
+1. Stage 1 (architecture): split pure/domain code from std adapters, add host traits.
+2. Stage 2 (WASM): add dedicated `wasm` adapters and host implementations.
+3. Stage 3 (enforcement): add CI matrix and feature-leak checks.
 
 ### Completion Criteria for no-std/WASM Positioning
 
-1. `acorn-lib` builds with `--no-default-features`.
-2. `acorn-lib` builds for `wasm32-unknown-unknown` with wasm feature path.
-3. Core schema and validation APIs remain usable without std.
-4. std-only concerns live behind adapter modules and explicit features.
-5. CI enforces no-std + wasm compile guarantees.
+1. Core schema and validation APIs remain usable without std.
+2. std-only concerns live behind adapter modules and explicit features.
+3. CI enforces no-std + wasm compile guarantees.
 
 ## no-std/WASM Implementation PR Plan (Concrete)
 

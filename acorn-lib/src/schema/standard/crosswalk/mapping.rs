@@ -4,6 +4,7 @@
 //! including transformation logic and rule composition.
 use super::CrosswalkError;
 use crate::prelude::HashMap;
+use crate::prelude::*;
 use core::fmt;
 use serde_json::Value;
 

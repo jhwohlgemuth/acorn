@@ -5,6 +5,7 @@
 use crate::io::{read_file, write_file, ApiResult, InputOutput, License};
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
+use crate::prelude::*;
 use crate::schema::validate::{
     is_commit, is_country_code, is_date, is_doi, is_isbn, is_orcid, is_phone_number, is_semantic_version, is_states, IntegerOrString, MonthValue,
     NumberOrString, PostalCode, YearValue,

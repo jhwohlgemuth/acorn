@@ -13,6 +13,7 @@
 //!
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
+use crate::prelude::*;
 use crate::schema::research_activity::s3a::Status;
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_invenio, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;

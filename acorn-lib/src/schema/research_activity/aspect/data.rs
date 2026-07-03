@@ -1,3 +1,4 @@
+use crate::prelude::*;
 #[cfg(feature = "std")]
 use crate::schema::agent::Model;
 use crate::schema::namespaces::{codemeta, schema_org};

@@ -2,6 +2,7 @@
 //!
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
+use crate::prelude::*;
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_huwise, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
 #[cfg(feature = "std")]
@@ -9,6 +10,7 @@ use crate::util::MimeType;
 use crate::util::ToProse;
 #[cfg(feature = "std")]
 use crate::PathBuf;
+#[cfg(feature = "std")]
 use ammonia::clean;
 #[cfg(feature = "std")]
 use color_eyre::eyre::eyre;
@@ -17,6 +19,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
 use validator::Validate;
+
+#[cfg(not(feature = "std"))]
+fn clean(value: &str) -> String {
+    value.to_string()
+}
 
 /// Collection of HuWise datasets
 pub type Catalog = Vec<Dataset>;

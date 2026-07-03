@@ -1,5 +1,6 @@
 //! Hardware vendor types, the [`Vendored`] trait, and vendor validation
 use super::{AcceleratorArchitecture, Architecture, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Model, Resource};
+use crate::prelude::*;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

@@ -8,6 +8,7 @@ use crate::io::database::{schema::LicenseRow, Row};
 use crate::io::License;
 #[cfg(feature = "std")]
 use crate::prelude::env;
+use crate::prelude::*;
 use crate::schema::geonames::{CodeFormat, GeonamesParser};
 use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::schema::standard::datacite::GeoLocationPoint;

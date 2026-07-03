@@ -7,6 +7,7 @@
 use crate::io::current_date;
 #[cfg(feature = "std")]
 use crate::io::{read_file, License};
+use crate::prelude::*;
 #[cfg(feature = "std")]
 use crate::prelude::{Error, PathBuf};
 #[cfg(feature = "std")]
@@ -21,7 +22,9 @@ use crate::util::Label;
 use crate::util::License;
 use bon::Builder;
 use derive_more::Display;
-use schemars::{schema_for, JsonSchema};
+#[cfg(feature = "std")]
+use schemars::schema_for;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
@@ -1016,6 +1019,7 @@ pub struct TitleIdentifier {
 }
 impl Metadata {
     /// Print research activity identifier (RAiD) metadata schema as JSON schema
+    #[cfg(feature = "std")]
     pub fn to_schema() {
         let schema = schema_for!(Metadata);
         match serde_json::to_string_pretty(&schema) {

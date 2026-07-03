@@ -8,6 +8,7 @@ use crate::io::docx::extract_text_from_path;
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
+use crate::prelude::*;
 #[cfg(feature = "std")]
 use crate::util::file_extension;
 #[cfg(feature = "std")]

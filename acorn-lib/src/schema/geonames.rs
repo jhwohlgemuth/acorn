@@ -1,4 +1,5 @@
 //! Module for working with GeoNames data
+use crate::prelude::*;
 use crate::util::{Constant, Searchable};
 use bon::Builder;
 use serde::{Deserialize, Serialize};

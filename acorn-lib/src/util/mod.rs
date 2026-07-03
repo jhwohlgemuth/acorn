@@ -18,11 +18,15 @@
 use crate::prelude::HashMap;
 #[cfg(feature = "std")]
 use crate::prelude::Path;
+use crate::prelude::*;
 use crate::{fail, skip};
 use aho_corasick::AhoCorasick;
 use bon::Builder;
+#[cfg(feature = "std")]
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
+#[cfg(feature = "std")]
 use comfy_table::presets::UTF8_FULL;
+#[cfg(feature = "std")]
 use comfy_table::{ContentArrangement, Table};
 #[cfg(feature = "unicode")]
 use console::Emoji;
@@ -32,8 +36,10 @@ use core::iter::successors;
 use derive_more::Display;
 use fancy_regex::Regex;
 use fluent_uri::UriRef;
+#[cfg(feature = "std")]
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
+#[cfg(feature = "std")]
 use ring::digest::SHA512;
 use rust_embed::Embed;
 use schemars::JsonSchema;
@@ -455,6 +461,7 @@ impl From<String> for ChecksumAlgorithm {
         ChecksumAlgorithm::from(value.as_str())
     }
 }
+#[cfg(feature = "std")]
 impl From<&'static ring::digest::Algorithm> for ChecksumAlgorithm {
     fn from(algorithm: &'static ring::digest::Algorithm) -> Self {
         if core::ptr::eq(algorithm, &SHA512) {
@@ -1114,12 +1121,19 @@ where
 ///
 /// A `String` representing a randomly generated GUID.
 pub fn generate_guid() -> String {
-    let alphabet = [
-        '-', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'T', 'U', 'V', 'W', 'X', 'Y', 'a', 'b', 'c', 'd',
-        'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 't', 'w', 'x', 'y', 'z', '3', '4', '6', '7', '8', '9',
-    ];
-    let id = nanoid!(10, &alphabet);
-    id
+    #[cfg(feature = "std")]
+    {
+        let alphabet = [
+            '-', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'T', 'U', 'V', 'W', 'X', 'Y', 'a', 'b', 'c',
+            'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 't', 'w', 'x', 'y', 'z', '3', '4', '6', '7', '8', '9',
+        ];
+        let id = nanoid!(10, &alphabet);
+        id
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        String::new()
+    }
 }
 /// Check if value is a URI or filesystem path
 pub fn is_uri_or_path(value: &str) -> bool {
@@ -1154,6 +1168,7 @@ pub fn print_changes(old: &str, new: &str) {
     if has_no_changes {
         skip!("No format changes");
     } else {
+        #[cfg(feature = "std")]
         for change in changes {
             print!("{}", change.1);
         }
@@ -1169,18 +1184,25 @@ pub fn print_values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, titl
 where
     T: ToString,
 {
-    let mut table = Table::new();
-    table
-        .load_preset(UTF8_FULL)
-        .apply_modifier(UTF8_ROUND_CORNERS)
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_header(headers);
-    rows.into_iter().for_each(|row| {
-        table.add_row(row);
-    });
-    match title {
-        | Some(value) => println!("{} \n{table}", value.to_string().bold()),
-        | None => println!("{table}"),
+    #[cfg(feature = "std")]
+    {
+        let mut table = Table::new();
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(headers);
+        rows.into_iter().for_each(|row| {
+            table.add_row(row);
+        });
+        match title {
+            | Some(value) => println!("{} \n{table}", value.to_string().bold()),
+            | None => println!("{table}"),
+        }
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        let _ = (headers, rows, title);
     }
 }
 /// Helper function to create a lookup dictionary for regex captures

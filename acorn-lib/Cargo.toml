@@ -24,17 +24,17 @@ name = "acorn"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-ammonia = { version = "4.1.2", default-features = false }
+ammonia = { version = "4.1.2", default-features = false, optional = true }
 acorn-macros = { version = "0.1.57", path = "../acorn-macros" }
 aho-corasick = { version = "1.1.4", default-features = false }
-ariadne = { version = "0.6.0", features = ["auto-color"], default-features = false }
+ariadne = { version = "0.6.0", features = ["auto-color"], default-features = false, optional = true }
 async-trait = { workspace = true }
 axum = { workspace = true, optional = true }
 bat = { version = "0.26.0", features = ["regex-onig"], default-features = false, optional = true }
 bon = { version = "3.8.1", default-features = false }
 chrono = { workspace = true }
 color-eyre = { workspace = true }
-comfy-table = { version = "7.1.4", default-features = false }
+comfy-table = { version = "7.1.4", default-features = false, optional = true }
 console = { version = "0.16.1", features = ["ansi-parsing"], default-features = false }
 convert_case = { version = "0.11.0", default-features = false }
 data-encoding = { workspace = true }
@@ -54,7 +54,7 @@ is_executable = { version = "1.0.5", default-features = false, optional = true }
 itertools = { workspace = true }
 lazy_static = { workspace = true }
 lychee-lib = { version = "0.23.0", default-features = false, optional = true }
-nanoid = { workspace = true }
+nanoid = { workspace = true, optional = true }
 nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-normalization"] , default-features = false }
 owo-colors = { workspace = true }
 percy-dom = {version = "0.10.0", features = ["macro"], default-features = false, optional = true }
@@ -64,15 +64,15 @@ quick-xml = { version = "0.39.1", features = ["serialize"], default-features = f
 rayon = { workspace = true, optional = true }
 rmcp = { workspace = true, optional = true }
 reqwest = { version = "0.13.2", features = ["rustls", "json"], default-features = false, optional = true }
-ring = { version = "0.17.14", default-features = false }
+ring = { version = "0.17.14", default-features = false, optional = true }
 shell-words = { workspace = true }
 shuck-linter = { version = "0.0.41", optional = true }
 shuck-parser = { version = "0.0.41", optional = true }
-rand = { version = "0.8", features = ["std_rng"] }
-rsa = { version = "0.9.10", default-features = false }
+rand = { version = "0.8", features = ["std_rng"], optional = true }
+rsa = { version = "0.9.10", default-features = false, optional = true }
 rusqlite = { workspace = true, features = ["bundled"], default-features = false, optional = true }
 rust-embed = { workspace = true }
-rust-ini = { version = "0.21.3", default-features = false }
+rust-ini = { version = "0.21.3", default-features = false, optional = true }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false}
 strum = { workspace = true }
 secrecy = { workspace = true }
@@ -119,28 +119,34 @@ harness = false
 
 [features]
 core = []
-alloc = ["core"]
+alloc = ["core", "serde/std"]
 wasm = ["alloc"]
 unicode = ["console/std"]
 agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
-analysis = ["alloc", "std", "dep:bat", "dep:flate2", "dep:polars", "dep:rayon", "dep:tar"]
+analysis = ["alloc", "std", "dep:ariadne", "dep:bat", "dep:flate2", "dep:polars", "dep:rayon", "dep:rust-ini", "dep:tar"]
 default = ["analysis", "agentic", "shell-lint", "unicode"]
 doctor = ["std", "dep:sysinfo"]
 duckdb = ["std", "dep:duckdb"]
 powerpoint = ["std"]
 std = [
   "alloc",
+  "dep:ammonia",
   "chrono/std",
   "chrono/clock",
   "dep:axum",
+  "dep:comfy-table",
   "dep:directories",
   "dep:dotenvy",
   "dep:docx-rs",
   "dep:indicatif",
   "dep:is_executable",
   "dep:lychee-lib",
+  "dep:nanoid",
   "dep:percy-dom",
+  "dep:rand",
   "dep:reqwest",
+  "dep:ring",
+  "dep:rsa",
   "dep:rusqlite",
   "dep:tera",
   "dep:tokio",

@@ -1,4 +1,5 @@
 //! Data model for harware memory resources, including memory units and (de)serialization logic
+use crate::prelude::*;
 use alloc::borrow::Cow;
 use core::convert::TryInto;
 use derive_more::Display;

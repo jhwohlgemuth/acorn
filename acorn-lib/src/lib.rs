@@ -7,7 +7,12 @@
 // Policy: `wasm` marks portable allocation-capable APIs. Cargo feature
 // unification means tooling such as `--all-features` may combine it with `std`;
 // wasm-specific code should use `#[cfg(all(feature = "wasm", not(feature = "std")))]`.
+#![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
+// Current schema derive macros emit `::std` paths even when host APIs are disabled.
+#[cfg(not(feature = "std"))]
+extern crate std;
 
 use core::convert::Infallible;
 use core::str::FromStr;
@@ -35,6 +40,7 @@ use crate::analyzer::{link_check, Check};
 use crate::io::http::get;
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
+use crate::prelude::{format, String, ToString, Vec};
 use crate::util::Label;
 
 /// **Descriptive/persistent** location reference for use in configuration (buckets, repositories, etc.).

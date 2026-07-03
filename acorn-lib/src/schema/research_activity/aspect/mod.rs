@@ -14,6 +14,7 @@
 //!
 //! In the context of technology, AI/ML and automation are the same.
 //!
+use crate::prelude::*;
 use crate::schema::namespaces::schema_org;
 use crate::schema::TechnologyReadinessLevel;
 use crate::util::{LinkedData, ToMarkdown};

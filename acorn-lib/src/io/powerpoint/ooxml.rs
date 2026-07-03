@@ -561,13 +561,21 @@ pub fn validate_xml_well_formed(content: &str) -> bool {
     let mut reader = Reader::from_str(content);
     match content.trim().is_empty() {
         | true => false,
-        | false => loop {
-            match reader.read_event() {
-                | Ok(Event::Eof) => break true,
-                | Ok(_) => {}
-                | Err(_) => break false,
+        | false => {
+            let mut open_elements = Vec::new();
+            loop {
+                match reader.read_event() {
+                    | Ok(Event::Start(event)) => open_elements.push(event.name().as_ref().to_vec()),
+                    | Ok(Event::End(event)) => match open_elements.pop() {
+                        | Some(name) if name == event.name().as_ref() => {}
+                        | _ => break false,
+                    },
+                    | Ok(Event::Eof) => break open_elements.is_empty(),
+                    | Ok(_) => {}
+                    | Err(_) => break false,
+                }
             }
-        },
+        }
     }
 }
 /// Prettify XML
@@ -623,4 +631,3 @@ pub fn read_xml_rel(path: PathBuf) -> Option<Relationships> {
         }
     }
 }
-
