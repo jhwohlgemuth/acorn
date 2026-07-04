@@ -17,17 +17,18 @@ use axum::http::header::{HeaderName, HeaderValue};
 use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
-use core::{fmt, marker::PhantomData};
 use core::iter::once;
+use core::{fmt, marker::PhantomData};
 use derive_more::Display;
 use fluent_uri::Uri;
 use lazy_static::lazy_static;
+use owo_colors::OwoColorize;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumIs;
 use tera::{Context, Tera};
-use tracing::trace;
+use tracing::{trace, warn};
 use validator::Validate;
 
 pub mod citeas;
@@ -454,6 +455,21 @@ impl From<Repository> for Endpoint {
         value.location().into()
     }
 }
+impl fmt::Display for HttpMethod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                | HttpMethod::Get => "GET",
+                | HttpMethod::Post => "POST",
+                | HttpMethod::Put => "PUT",
+                | HttpMethod::Patch => "PATCH",
+                | HttpMethod::Delete => "DELETE",
+            }
+        )
+    }
+}
 impl Param {
     /// Check if this parameter is a query parameter (either a query pair, boosted query field, or field list)
     pub fn is_query(&self) -> bool {
@@ -792,6 +808,7 @@ impl RemoteResource for Endpoint {
                     | HttpMethod::Post => post(path).json(&body),
                     | HttpMethod::Put => put(path).json(&body),
                 };
+                warn!("=> {} {}", Label::run(), request.cyan());
                 match request.headers(headers).send().await {
                     | Ok(response) => match response.text().await {
                         | Ok(text) => {
@@ -853,10 +870,14 @@ pub(crate) fn param_from_key_value_pair<T: QueryField + ValueValidator>(key: &st
             if field.is_valid(value) {
                 Some(format!("{}={}", field, urlencoding::encode(value)))
             } else {
+                warn!("=> {} Invalid key value ({}{})", Label::using(), format!("{key}=").dimmed(), value.red());
                 None
             }
         }
-        | Err(_) => None,
+        | Err(_) => {
+            warn!("=> {} Invalid key ({}{})", Label::using(), key.red(), format!("={value}").dimmed());
+            None
+        }
     }
 }
 /// Create a query string from a lookup table of key-value pairs with field validation
@@ -871,10 +892,19 @@ pub(crate) fn param_from_query_pairs<T: QueryField + ValueValidator>(key: &str, 
                     if field.is_valid(value) {
                         Some(format!("{}:{}", field, urlencoding::encode(value)))
                     } else {
+                        warn!(
+                            "=> {} Invalid query value ({}{})",
+                            Label::using(),
+                            format!("{key}=").dimmed(),
+                            value.red()
+                        );
                         None
                     }
                 }
-                | Err(_) => None,
+                | Err(_) => {
+                    warn!("=> {} Invalid query key ({}{})", Label::using(), key.red(), format!("={value}").dimmed());
+                    None
+                }
             }
         })
         .collect();

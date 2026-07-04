@@ -316,35 +316,35 @@ mod github_api {
 mod gitlab_api {
     use super::*;
     use crate::io::api::gitlab::{
-        handle_tree_paths_response, PaginationField, ProgrammingLanguageDetails, ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse,
+        handle_tree_paths_response, PaginationKey, ProgrammingLanguageDetails, ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse,
         TreeResponse,
     };
 
     #[test]
     fn test_query_string() {
         let param = param!(KeyValuePair, "per_page", "100");
-        let query = param.to_string::<PaginationField, api::EmptyField>();
+        let query = param.to_string::<PaginationKey, api::EmptyField>();
         assert_eq!(query, "per_page=100");
     }
     #[test]
     fn test_params_to_query_string() {
         let params = vec![param!(KeyValuePair, "per_page", "100"), param!(KeyValuePair, "page", "2")];
-        let query = Param::to_query_string::<PaginationField, api::EmptyField>(params);
+        let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
         assert_eq!(query, "?per_page=100&page=2");
     }
     #[test]
     fn test_params_to_query_string_with_invalid_fields() {
         let params = vec![param!(KeyValuePair, "every_page", "100"), param!(KeyValuePair, "page", "42")];
-        let query = Param::to_query_string::<PaginationField, api::EmptyField>(params);
+        let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
         assert_eq!(query, "?page=42");
     }
     #[test]
     fn test_params_to_query_string_with_invalid_values() {
         let params = vec![param!(KeyValuePair, "per_page", "100"), param!(KeyValuePair, "page", "not a number")];
-        let query = Param::to_query_string::<PaginationField, api::EmptyField>(params);
+        let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
         assert_eq!(query, "?per_page=100");
         let params = vec![param!(KeyValuePair, "per_page", "{}"), param!(KeyValuePair, "page", "not a number")];
-        let query = Param::to_query_string::<PaginationField, api::EmptyField>(params);
+        let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
         assert!(query.is_empty());
     }
     #[test]

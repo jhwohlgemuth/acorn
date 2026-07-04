@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use axum::http::HeaderMap;
 use chrono::Utc;
 use color_eyre::eyre::eyre;
+use core::fmt;
 use reqwest::header::USER_AGENT;
 use serde::{Deserialize, Serialize};
 use tower::{service_fn, ServiceExt};
@@ -52,7 +53,7 @@ pub struct HttpRequest {
     pub url: String,
 }
 /// Fluent async request builder backed by [`HttpService`].
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HttpRequestBuilder {
     request: HttpRequest,
     service: ReqwestHttpService,
@@ -68,7 +69,7 @@ pub struct HttpResponse {
     pub status_code: u16,
 }
 /// Reqwest-backed async HTTP service adapter.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ReqwestHttpService {
     client: reqwest::Client,
 }
@@ -104,6 +105,11 @@ impl From<HttpMethod> for reqwest::Method {
             | HttpMethod::Post => reqwest::Method::POST,
             | HttpMethod::Put => reqwest::Method::PUT,
         }
+    }
+}
+impl fmt::Display for HttpRequestBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.request.method, self.request.url)
     }
 }
 impl HttpRequestBuilder {

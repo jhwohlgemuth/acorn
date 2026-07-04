@@ -12,6 +12,7 @@ use crate::io::database::{Database, Operations};
 use crate::io::{first_env_var, with_progress, ApiResult, ProgressType};
 use crate::prelude::var;
 use crate::prelude::HashMap;
+use crate::schema::validate::is_date;
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use crate::util::{Label, Searchable};
 use async_trait::async_trait;
@@ -127,6 +128,25 @@ pub enum EventAction {
     #[serde(other)]
     Unknown,
 }
+/// Event filter keys used to filter events for a given project
+///
+/// See <https://docs.gitlab.com/api/events/#list-all-visible-events-for-a-project> for more information
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventFilterKey {
+    /// Contribution event action type ([`EventAction`])
+    ///
+    /// See [GitLab API docs for user contribution events](https://docs.gitlab.com/user/profile/contributions_calendar/#user-contribution-events) for more information
+    Action,
+    /// Specified target event ([`TargetType`])
+    TargetType,
+    /// If defined, returns events created after the specified date.
+    After,
+    /// If defined, returns events created before the specified date.
+    Before,
+    /// Sort order
+    Sort,
+}
 /// Group visibility level
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -206,9 +226,11 @@ pub enum OrderByValue {
     Weight,
 }
 /// Pagination list parameters
+///
+/// See <https://docs.gitlab.com/api/rest/#keyset-based-pagination> for more information
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PaginationField {
+pub enum PaginationKey {
     /// Column by which to order by
     OrderBy,
     /// Page number to retrieve (default: 1)
@@ -866,8 +888,8 @@ impl fmt::Display for EventAction {
 impl core::str::FromStr for EventAction {
     type Err = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
             | "approved" => Ok(EventAction::Approved),
             | "closed" => Ok(EventAction::Closed),
             | "commented" => Ok(EventAction::Commented),
@@ -884,7 +906,52 @@ impl core::str::FromStr for EventAction {
             | "updated" => Ok(EventAction::Updated),
             | "deleted" => Ok(EventAction::Deleted),
             | "accepted" => Ok(EventAction::Accepted),
-            | _ => Ok(EventAction::Unknown),
+            | _ => Err(format!("Invalid GitLab event action value: {value}")),
+        }
+    }
+}
+impl TryFrom<&str> for EventAction {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+impl fmt::Display for EventFilterKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            | EventFilterKey::Action => "action",
+            | EventFilterKey::TargetType => "target_type",
+            | EventFilterKey::After => "after",
+            | EventFilterKey::Before => "before",
+            | EventFilterKey::Sort => "sort",
+        };
+        write!(f, "{}", s)
+    }
+}
+impl TryFrom<&str> for EventFilterKey {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            | "action" => Ok(EventFilterKey::Action),
+            | "target_type" => Ok(EventFilterKey::TargetType),
+            | "after" => Ok(EventFilterKey::After),
+            | "before" => Ok(EventFilterKey::Before),
+            | "sort" => Ok(EventFilterKey::Sort),
+            | _ => Err(format!("Invalid EventFilterKey: {}", value)),
+        }
+    }
+}
+impl ValueValidator for EventFilterKey {
+    /// Validate event filter key values according to GitLab API documentation
+    fn is_valid(&self, value: &str) -> bool {
+        match self {
+            | EventFilterKey::Action => EventAction::try_from(value).is_ok(),
+            | EventFilterKey::TargetType => TargetType::try_from(value).is_ok(),
+            | EventFilterKey::After => is_date(value).is_ok(),
+            | EventFilterKey::Before => is_date(value).is_ok(),
+            | EventFilterKey::Sort => SortValue::try_from(value).is_ok(),
         }
     }
 }
@@ -965,6 +1032,36 @@ impl Options {
         }
     }
 }
+impl Default for Options {
+    fn default() -> Self {
+        Self::from_env()
+    }
+}
+impl TryFrom<&str> for OrderByValue {
+    type Error = String;
+
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
+        match value {
+            | "created_at" => Ok(OrderByValue::CreatedAt),
+            | "due_date" => Ok(OrderByValue::DueDate),
+            | "full_name" => Ok(OrderByValue::FullName),
+            | "id" => Ok(OrderByValue::Identifier),
+            | "label_priority" => Ok(OrderByValue::LabelPriority),
+            | "last_activity_at" => Ok(OrderByValue::LastActivityAt),
+            | "milestone_due" => Ok(OrderByValue::MilestoneDue),
+            | "name" => Ok(OrderByValue::Name),
+            | "path" => Ok(OrderByValue::Path),
+            | "popularity" => Ok(OrderByValue::Popularity),
+            | "priority" => Ok(OrderByValue::Priority),
+            | "relative_position" => Ok(OrderByValue::RelativePosition),
+            | "similarity" => Ok(OrderByValue::Similarity),
+            | "title" => Ok(OrderByValue::Title),
+            | "updated_at" => Ok(OrderByValue::UpdatedAt),
+            | "weight" => Ok(OrderByValue::Weight),
+            | _ => Err(format!("Invalid GitLab order_by value: {value}")),
+        }
+    }
+}
 impl From<ProgrammingLanguageMetadata> for ProgrammingLanguageRow {
     fn from(value: ProgrammingLanguageMetadata) -> Self {
         let ProgrammingLanguageMetadata {
@@ -1041,27 +1138,6 @@ impl<'de> serde::Deserialize<'de> for ProgrammingLanguageUseResponse {
         HashMap::<String, f64>::deserialize(deserializer).map(Self::parse)
     }
 }
-impl<'de> serde::Deserialize<'de> for TreeResponse {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum TreeResponseValue {
-            Entries(Vec<TreeEntry>),
-            Error(ErrorResponse),
-        }
-
-        match TreeResponseValue::deserialize(deserializer)? {
-            | TreeResponseValue::Entries(entries) => Ok(Self {
-                paths: entries.into_iter().filter(|entry| entry.is_blob()).map(|entry| entry.path()).collect(),
-                error: None,
-            }),
-            | TreeResponseValue::Error(why) => Ok(Self {
-                paths: vec![],
-                error: Some(why),
-            }),
-        }
-    }
-}
 #[async_trait]
 impl DatabasePersistence for ProgrammingLanguagesResponse {
     /// Persist GitLab programming language metadata to local database
@@ -1076,70 +1152,40 @@ impl DatabasePersistence for ProgrammingLanguagesResponse {
             .map_err(eyre::Report::msg)
     }
 }
-impl Default for Options {
-    fn default() -> Self {
-        Self::from_env()
-    }
-}
-impl TryFrom<&str> for OrderByValue {
-    type Error = String;
-
-    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
-        match value {
-            | "created_at" => Ok(OrderByValue::CreatedAt),
-            | "due_date" => Ok(OrderByValue::DueDate),
-            | "full_name" => Ok(OrderByValue::FullName),
-            | "id" => Ok(OrderByValue::Identifier),
-            | "label_priority" => Ok(OrderByValue::LabelPriority),
-            | "last_activity_at" => Ok(OrderByValue::LastActivityAt),
-            | "milestone_due" => Ok(OrderByValue::MilestoneDue),
-            | "name" => Ok(OrderByValue::Name),
-            | "path" => Ok(OrderByValue::Path),
-            | "popularity" => Ok(OrderByValue::Popularity),
-            | "priority" => Ok(OrderByValue::Priority),
-            | "relative_position" => Ok(OrderByValue::RelativePosition),
-            | "similarity" => Ok(OrderByValue::Similarity),
-            | "title" => Ok(OrderByValue::Title),
-            | "updated_at" => Ok(OrderByValue::UpdatedAt),
-            | "weight" => Ok(OrderByValue::Weight),
-            | _ => Err(format!("Invalid GitLab order_by value: {value}")),
-        }
-    }
-}
-impl fmt::Display for PaginationField {
+impl fmt::Display for PaginationKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            | PaginationField::OrderBy => "order_by",
-            | PaginationField::Page => "page",
-            | PaginationField::Pagination => "pagination",
-            | PaginationField::PerPage => "per_page",
-            | PaginationField::Sort => "sort",
+            | PaginationKey::OrderBy => "order_by",
+            | PaginationKey::Page => "page",
+            | PaginationKey::Pagination => "pagination",
+            | PaginationKey::PerPage => "per_page",
+            | PaginationKey::Sort => "sort",
         };
         write!(f, "{}", s)
     }
 }
-impl TryFrom<&str> for PaginationField {
+impl TryFrom<&str> for PaginationKey {
     type Error = String;
 
     fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
         match value {
-            | "order_by" => Ok(PaginationField::OrderBy),
-            | "page" => Ok(PaginationField::Page),
-            | "pagination" => Ok(PaginationField::Pagination),
-            | "per_page" => Ok(PaginationField::PerPage),
-            | "sort" => Ok(PaginationField::Sort),
+            | "order_by" => Ok(PaginationKey::OrderBy),
+            | "page" => Ok(PaginationKey::Page),
+            | "pagination" => Ok(PaginationKey::Pagination),
+            | "per_page" => Ok(PaginationKey::PerPage),
+            | "sort" => Ok(PaginationKey::Sort),
             | _ => Err(format!("Invalid GitLab pagination field: {value}")),
         }
     }
 }
-impl ValueValidator for PaginationField {
+impl ValueValidator for PaginationKey {
     /// Validate pagination field values according to GitLab API documentation
     fn is_valid(&self, value: &str) -> bool {
         match self {
-            | PaginationField::OrderBy => OrderByValue::try_from(value).is_ok(),
-            | PaginationField::Page => value.parse::<u64>().is_ok(),
-            | PaginationField::PerPage => value.parse::<u64>().is_ok(),
-            | PaginationField::Sort => SortValue::try_from(value).is_ok(),
+            | PaginationKey::OrderBy => OrderByValue::try_from(value).is_ok(),
+            | PaginationKey::Page => value.parse::<u64>().is_ok(),
+            | PaginationKey::PerPage => value.parse::<u64>().is_ok(),
+            | PaginationKey::Sort => SortValue::try_from(value).is_ok(),
             | _ => true,
         }
     }
@@ -1231,8 +1277,8 @@ impl fmt::Display for TargetType {
 impl core::str::FromStr for TargetType {
     type Err = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.to_lowercase().as_str() {
             | "epic" => Ok(TargetType::Epic),
             | "issue" => Ok(TargetType::Issue),
             | "merge_request" | "mergerequest" => Ok(TargetType::MergeRequest),
@@ -1241,8 +1287,15 @@ impl core::str::FromStr for TargetType {
             | "project" => Ok(TargetType::Project),
             | "snippet" => Ok(TargetType::Snippet),
             | "user" => Ok(TargetType::User),
-            | _ => Ok(TargetType::Unknown),
+            | _ => Err(format!("Invalid GitLab target type value: {value}")),
         }
+    }
+}
+impl TryFrom<&str> for TargetType {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
     }
 }
 impl TreeEntry {
@@ -1254,6 +1307,27 @@ impl TreeEntry {
     pub fn is_blob(&self) -> bool {
         let Self { entry_type, .. } = self;
         entry_type.eq(&TreeEntryType::Blob)
+    }
+}
+impl<'de> serde::Deserialize<'de> for TreeResponse {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum TreeResponseValue {
+            Entries(Vec<TreeEntry>),
+            Error(ErrorResponse),
+        }
+
+        match TreeResponseValue::deserialize(deserializer)? {
+            | TreeResponseValue::Entries(entries) => Ok(Self {
+                paths: entries.into_iter().filter(|entry| entry.is_blob()).map(|entry| entry.path()).collect(),
+                error: None,
+            }),
+            | TreeResponseValue::Error(why) => Ok(Self {
+                paths: vec![],
+                error: Some(why),
+            }),
+        }
     }
 }
 pub(crate) fn handle_tree_paths_response(response: ApiResult<TreeResponse>, page: u32) -> ApiResult<TreeResponse> {
@@ -1322,7 +1396,31 @@ pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationRespons
         | Err(why) => Err(why),
     }
 }
+/// Get events for a project or group
+pub async fn events(options: &Options) -> ApiResult<EventsResponse> {
+    let template = "gitlab::api";
+    let action = "events";
+    let path = format!("{template}::{action}");
+    match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
+            | Ok(endpoint) => {
+                let params = Params::new()
+                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_template("identifier", options.identifier())
+                    // .with_keyvalue("target_type", Some("note"))
+                    // .with_keyvalue("after", Some("2026-06-27"))
+                    .build();
+                let response = endpoint.invoke_with::<EventFilterKey, EmptyField>(action, Some(params)).await;
+                endpoint.handle::<EventsResponse>(response)
+            }
+            | Err(why) => Err(why),
+        },
+        | Err(why) => Err(why),
+    }
+}
 /// Get descendant groups of a group by identifier
+///
+/// See <https://docs.gitlab.com/api/groups/#list-descendant-groups> for more information
 pub async fn groups(options: &Options) -> ApiResult<GroupsResponse> {
     let template = "gitlab::api";
     let action = "groups";
@@ -1333,10 +1431,10 @@ pub async fn groups(options: &Options) -> ApiResult<GroupsResponse> {
                 let params = Params::new()
                     .with_auth(&token, Some("PRIVATE-TOKEN"))
                     .with_template("identifier", options.identifier())
-                    .with_field("page", "1")
+                    .with_keyvalue("page", Some("1"))
                     .with_keyvalue("per_page", Some("100"))
                     .build();
-                let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+                let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
                 endpoint.handle_or::<GroupsResponse, Fallback<ErrorResponse>>(response)
             }
             | Err(why) => Err(why),
@@ -1358,7 +1456,7 @@ pub async fn language_use(options: &Options) -> ApiResult<ProgrammingLanguageUse
                     .with_auth(&token, Some("PRIVATE-TOKEN"))
                     .with_template("identifier", options.identifier())
                     .build();
-                let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+                let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
                 endpoint.handle::<ProgrammingLanguageUseResponse>(response)
             }
             | Err(why) => Err(why),
@@ -1419,7 +1517,7 @@ pub async fn merge_request_note(options: &Options) -> ApiResult<NoteMetadata> {
                     .with_template("identifier", options.identifier())
                     .with_template("internal_identifier", options.internal_identifier.as_deref())
                     .build();
-                let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+                let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
                 endpoint.handle::<NoteMetadata>(response)
             }
             | Err(why) => Err(why),
@@ -1456,7 +1554,7 @@ pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new().with_auth(&token, Some("PRIVATE-TOKEN")).build();
-                let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
+                let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
                 endpoint.handle_or::<RunnersResponse, Fallback<ErrorResponse>>(response)
             }
             | Err(why) => Err(why),

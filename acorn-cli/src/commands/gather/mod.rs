@@ -34,7 +34,7 @@ pub async fn run(
     // dbg!(langs);
     // gitlab_merge_request_note_example().await;
     gitlab_example().await;
-    // orcid_example().await;Hey.
+    // orcid_example().await;
     // raid_example().await;
     // ror_example().await;
     Ok(())
@@ -59,13 +59,12 @@ Here is a list
 async fn gitlab_example() {
     let group = "24758"; // Research Enablement
     let project = "16689"; // ACORN
-    let mut options = gitlab::Options::from_env();
+    let options = gitlab::Options::from_env();
     let runners = gitlab::runners(&options).await;
     match &runners {
         | Ok(ref values) if !values.is_empty() => {
             let runner_id = values.first().map(|v| v.identifier.unwrap_or_default().to_string()).unwrap_or_default();
-            options.identifier = Some(runner_id);
-            let runner = gitlab::runner(&options).await;
+            let runner = gitlab::runner(&options.clone().with_identifier(runner_id)).await;
             info!("Runner: {runner:#?}");
             println!("# of runners: {:#?}", values.len());
         }
@@ -73,13 +72,15 @@ async fn gitlab_example() {
         | Err(ref why) => error!("Runner: Err({why:#?})"),
     }
 
-    options.identifier = Some(group.to_string());
-    let groups = gitlab::groups(&options).await.unwrap_or_default();
+    let groups = gitlab::groups(&options.clone().with_identifier(group)).await.unwrap_or_default();
     info!("Groups: {groups:#?}");
     println!("# of groups: {}", groups.len());
 
-    options.identifier = Some(project.to_string());
-    match gitlab::language_use(&options).await {
+    let events = gitlab::events(&options.clone().with_identifier(project)).await.unwrap_or_default();
+    info!("Events: {events:#?}");
+    println!("# of events: {}", events.len());
+
+    match gitlab::language_use(&options.with_identifier(project)).await {
         | Ok(response) => println!("Languages: {:#?}", response.entries()),
         | Err(why) => println!("Languages request failed: {why:#?}"),
     }

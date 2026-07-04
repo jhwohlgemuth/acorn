@@ -56,6 +56,11 @@
       "root": "api/v4",
       "resources": [
         {
+          "name": "events",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/events{{ query }}"
+        },
+        {
           "name": "group",
           "method": "get",
           "template": "{{ base }}/groups/{{ identifier }}{{ query }}"
