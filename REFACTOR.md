@@ -1,43 +1,65 @@
 # ACORN Refactor Recommendations
 
-This document captures cross-crate refactor and hardening recommendations for acorn-cli and acorn-lib, organized for both strategic overview and detailed implementation guidance.
+This document captures cross-crate refactor and hardening recommendations for `acorn-cli` and `acorn-lib`. It is organized as an execution board first, then detailed task backlogs, then reference inventories.
 
 ---
 
-## Table of Contents
+## Navigation
 
-1. [Overview & Goals](#overview--goals)
-2. [Suggested Execution Order](#suggested-execution-order)
+1. [Goals](#goals)
+2. [Task Board](#task-board)
 3. [Risk Assessment](#risk-assessment)
-4. [Original Detailed Recommendations](#original-detailed-recommendations)
+4. [Scope](#scope)
+5. [Core Refactor Backlog](#core-refactor-backlog)
+6. [Portability Backlog: no-std + WASM](#portability-backlog-no-std--wasm)
+7. [Analyzer Backlog](#analyzer-backlog)
+8. [io::api Backlog](#ioapi-backlog)
+9. [Reference Inventories](#reference-inventories)
 
-## Overview & Goals
+## Goals
 
-The ACORN refactor initiative is organized around four primary goals:
+The refactor initiative is organized around four primary outcomes:
 
-1. **Improve Reliability** — Eliminate crash-prone code paths and improve error handling
-2. **Enhance Maintainability** — Modularize the codebase and eliminate duplication
-3. **Increase Extensibility** — Improve architectural boundaries and abstractions
-4. **Expand Compatibility** — Enable no-std and WASM support
+1. **Reliability** — Eliminate crash-prone code paths and improve error handling.
+2. **Maintainability** — Modularize the codebase and eliminate duplication.
+3. **Extensibility** — Improve architectural boundaries and reusable abstractions.
+4. **Compatibility** — Enable no-std and WASM support.
 
-## Suggested Execution Order
+---
 
-The refactor work follows a phased approach with clear dependencies between stages:
+## Task Board
 
-### Phase 1 — Reliability triage (weeks 1-4) ✅ COMPLETE
-Remove panic/unimplemented/exit-heavy internal command flow and normalize command/helper `Result` contracts.
+Use this section to choose the next work item. Detailed notes for each task are grouped later by subsystem.
 
-### Phase 2 — Boundary hardening (weeks 5-8)
-Harden OOXML and path handling, fail fast on asset lookup and invalid filters.
+### Execution Phases
 
-### Phase 3 — Shared abstractions (weeks 9-12)
-Introduce `ExportContext`, `SafePath`, unified interpolation utility.
+| Phase | Status | Focus | Primary outcomes |
+|---|---|---|---|
+| 1. Reliability triage | Complete | Command flow and internal error contracts | Panic/unimplemented/exit-heavy command paths removed |
+| 2. Boundary hardening | Next | OOXML, path handling, export assets | Export failures become typed errors instead of silent corruption |
+| 3. Shared abstractions | Planned | `ExportContext`, `SafePath`, interpolation | Shared behavior replaces duplicated mappings and path logic |
+| 4. Structural modularization | Planned | CLI startup, API clients, schema I/O | Boundaries are explicit and easier to test |
+| 5. Refinement | Planned | Bindings, portability, lower-priority cleanup | Repetition decreases and build targets broaden |
 
-### Phase 4 — Structural modularization (weeks 13-20)
-Split `main` setup concerns, tighten API client and schema I/O contracts.
+### High-Priority Next Tasks
 
-### Phase 5 — Refinement (weeks 21+)
-Binding-layer macroization, no-std/WASM enablement, lower-priority cleanup.
+| Area | Task | Difficulty | Impact | Detail section |
+|---|---|---:|---:|---|
+| Export/PPTX | Finish hardening OOXML interpolation and slide-copy mutations | Medium | Critical | [Core Refactor Backlog](#core-refactor-backlog) |
+| Export/Templates | Fail fast on missing embedded assets | Low | High | [Core Refactor Backlog](#core-refactor-backlog) |
+| Export/PPTX | Introduce shared `ExportContext` | Medium | High | [Core Refactor Backlog](#core-refactor-backlog) |
+| io::api | Complete HTTP method dispatch in root invoke path | Low | Critical | [io::api Backlog](#ioapi-backlog) |
+| no-std/WASM | Isolate std-only modules from domain modules | Medium | Critical | [Portability Backlog](#portability-backlog-no-std--wasm) |
+| Analyzer | Extract link-check traversal helpers | Low | High | [Analyzer Backlog](#analyzer-backlog) |
+
+### Visual Status Legend
+
+- **Complete**: implementation exists and the task should move to verification or cleanup only.
+- **Next**: best candidate for immediate implementation.
+- **Planned**: scoped but depends on earlier work or has lower urgency.
+- **Reference**: supporting inventory, not an implementation task by itself.
+
+---
 
 ## Risk Assessment
 
@@ -53,6 +75,8 @@ Prioritization rule:
 1. Impact on reliability/security/correctness first.
 2. Difficulty second within each impact tier.
 
+---
+
 ## Scope
 
 Included:
@@ -64,22 +88,33 @@ Excluded:
 - Generated docs outputs
 - Style-only cleanup with no reliability/security/modularity payoff
 
-## Critical Impact
+---
 
-### 3. Harden OOXML mutation boundary in PowerPoint export
+## Core Refactor Backlog
+
+This section contains cross-crate tasks that affect CLI orchestration, export behavior, schema I/O, and shared abstractions.
+
+### Critical Impact
+
+#### 3. Finish hardening OOXML interpolation and slide-copy mutations
 - Difficulty: Medium
-- Why: Regex/string-based OOXML manipulation is brittle and can produce malformed PPTX content.
+- Status: Partially complete — parser-backed presentation and relationship updates exist; interpolation and slide-copy mutations still need cleanup.
+- Why: Remaining regex/string-based OOXML manipulation is brittle and can produce malformed PPTX content.
 - Evidence:
   - `acorn-cli/src/commands/export/powerpoint.rs`
   - `acorn-lib/src/io/powerpoint/mod.rs`
+- Completed:
+  1. `presentation.xml` slide ID updates use parser-backed XML event handling.
+  2. Relationship target updates use parsed relationship structures.
+  3. Export validates generated OOXML before archive write.
 - Recommendation:
-  1. Shift critical edits to parser-backed XML transforms.
-  2. Validate well-formed XML before archive write.
-  3. Centralize OOXML utility helpers to avoid split behavior.
+  1. Replace remaining regex-based paragraph selection and bullet interpolation with parser-backed XML transforms.
+  2. Replace slide-copy relationship/path string replacements with structured OOXML relationship and XML updates.
+  3. Centralize remaining OOXML utility helpers to avoid split behavior.
 
-## High Impact
+### High Impact
 
-### 4. Fail fast on missing export/template assets
+#### 4. Fail fast on missing export/template assets
 - Difficulty: Low
 - Why: Silent empty-string fallbacks hide output corruption.
 - Evidence:
@@ -89,7 +124,7 @@ Excluded:
   2. Bubble failures into export command errors.
   3. Add one integration check for required embedded assets.
 
-### 5. Eliminate duplicate export field extraction across HTML and PPTX paths
+#### 5. Eliminate duplicate export field extraction across HTML and PPTX paths
 - Difficulty: Medium
 - Why: Same `ResearchActivity` fields are mapped in multiple places, increasing drift risk.
 - Evidence:
@@ -100,7 +135,7 @@ Excluded:
   2. Extract fields once and consume in all format-specific renderers.
   3. Validate required placeholders up front.
 
-### 6. Split CLI startup concerns out of `main`
+#### 6. Split CLI startup concerns out of `main`
 - Difficulty: Medium
 - Why: Logging/env/runtime/database/bootstrap/dispatch concerns are tightly mixed.
 - Evidence:
@@ -109,9 +144,9 @@ Excluded:
   1. Extract setup units: logging, runtime/thread pool, database bootstrap, command dispatch.
   2. Keep main as orchestration glue with uniform error boundary.
 
-## Medium Impact
+### Medium Impact
 
-### 8. Consolidate interpolation primitives under one shared utility
+#### 8. Consolidate interpolation primitives under one shared utility
 - Difficulty: Low
 - Why: Placeholder logic is split between generic interpolation and PowerPoint-specific behavior.
 - Evidence:
@@ -121,7 +156,7 @@ Excluded:
   1. Extend shared interpolation trait(s) for list/bullet use-cases.
   2. Remove parallel interpolation stacks.
 
-### 9. Introduce stronger shared API-client contract
+#### 9. Introduce stronger shared API-client contract
 - Difficulty: Medium
 - Why: API modules repeat health/auth/endpoint patterns without a fully unified contract.
 - Evidence:
@@ -132,7 +167,7 @@ Excluded:
   1. Expand common trait surface for health, auth, endpoint rendering, and error normalization.
   2. Move duplicated logic behind shared helper modules.
 
-### 10. Reduce binding-layer repetition in Python wrapper
+#### 10. Reduce binding-layer repetition in Python wrapper
 - Difficulty: Medium
 - Why: Wrapper boilerplate increases maintenance cost and schema drift risk.
 - Evidence:
@@ -141,9 +176,9 @@ Excluded:
   1. Complete data exposure shape first.
   2. Then apply macro-based codegen for repetitive PID wrapper patterns.
 
-## Lower Impact
+### Lower Impact
 
-### 11. Tighten schema I/O and format validation handoff between CLI and library
+#### 11. Tighten schema I/O and format validation handoff between CLI and library
 - Difficulty: High
 - Why: CLI and library each carry partial format assumptions and validation behavior.
 - Evidence:
@@ -154,7 +189,7 @@ Excluded:
   1. Extend `InputOutput` with stricter read/validate variants.
   2. Make CLI rely on library-side strict format validation consistently.
 
-### 13. Separate parsed CLI model from execution options model
+#### 13. Separate parsed CLI model from execution options model
 - Difficulty: Medium
 - Why: Routing and options conversion remain repetitive and tightly coupled.
 - Evidence:
@@ -164,14 +199,14 @@ Excluded:
   1. Keep clap parse structs isolated.
   2. Normalize conversion to execution options in one layer.
 
-## Cross-Crate Abstractions To Build First
+### Cross-Crate Abstractions To Build First
 
 1. `ExportContext` in `acorn-lib` used by both CLI template and lib PowerPoint export.
 2. `SafePath` utility in `acorn-lib` consumed by CLI path-resolution and export file operations.
 3. Unified interpolation extension in `acorn-lib` for string + list placeholders.
 4. Single CLI error boundary mapping internal `Result` errors to exit codes.
 
-## Suggested Migration Order
+### Suggested Migration Order
 
 1. Reliability triage: ✅ COMPLETE
    - Remove panic/unimplemented/exit-heavy internal command flow.
@@ -187,7 +222,7 @@ Excluded:
 5. Refinement:
    - Binding-layer macroization and lower-priority cleanup.
 
-## Completion Criteria For Refactor Work
+### Completion Criteria For Refactor Work
 
 1. No production `unimplemented!()`/`panic!()` in command paths. ✅
 2. Export paths fail with typed errors, never silent corruption. ✅
@@ -195,7 +230,9 @@ Excluded:
 4. Export field mapping exists in one shared context object.
 5. Cross-crate interpolation behavior is unified and test-covered.
 
-## acorn-lib no-std + WASM Maximization Plan
+---
+
+## Portability Backlog: no-std + WASM
 
 This section focuses on positioning `acorn-lib` as a high-capability no-std-first library with strong WASM support.
 
@@ -309,11 +346,11 @@ Prioritization rule:
 2. std-only concerns live behind adapter modules and explicit features.
 3. CI enforces no-std + wasm compile guarantees.
 
-## no-std/WASM Implementation PR Plan (Concrete)
+### Implementation PR Plan
 
 This is an implementation-oriented sequence designed to be executed as small, reviewable PRs.
 
-### PR 4: Separate Core Domain Logic from std Adapters
+#### PR 4: Separate Core Domain Logic from std Adapters
 
 Goal:
 - Keep pure domain/schema/transform code portable while isolating host concerns.
@@ -339,7 +376,7 @@ Acceptance criteria:
 1. Core modules compile without std imports.
 2. std-only APIs are contained under feature-gated adapter modules.
 
-### PR 5: Introduce Host Traits + Implementations
+#### PR 5: Introduce Host Traits + Implementations
 
 Goal:
 - Replace concrete runtime dependencies with pluggable host interfaces.
@@ -365,7 +402,7 @@ Validation commands:
 Acceptance criteria:
 1. Host-sensitive logic no longer hardcodes std APIs in core paths.
 
-### PR 6: WASM Target Enablement
+#### PR 6: WASM Target Enablement
 
 Goal:
 - Provide a first-class WASM-capable build mode.
@@ -389,30 +426,7 @@ Validation commands:
 Acceptance criteria:
 1. wasm checks pass for at least one useful feature set.
 
-### PR 7: CI Enforcement + Leak Detection
-
-Goal:
-- Prevent future regressions in no-std and wasm support.
-
-Primary edits:
-1. `.github/workflows/` add dedicated jobs:
-  - no-default-features core/alloc checks
-  - wasm target checks
-  - dependency leak checks (`cargo tree`) for no-default-features
-
-2. Add feature matrix script under `scripts/` for local reproducibility.
-
-Suggested CI command matrix:
-1. `cargo check -p acorn-lib --no-default-features --features core`
-2. `cargo check -p acorn-lib --no-default-features --features alloc`
-3. `cargo check -p acorn-lib --no-default-features`
-4. `cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown`
-5. `cargo check -p acorn-lib --features std,analysis`
-
-Acceptance criteria:
-1. CI fails on feature leakage or no-std/wasm breakage.
-
-## Dependency Replacement Candidates (Targeted)
+### Dependency Replacement Candidates
 
 Use replacement only when needed to achieve capability goals:
 
@@ -441,7 +455,9 @@ Use replacement only when needed to achieve capability goals:
   - Difficulty: Low
   - Action: keep optional and std-only.
 
-## Analyzer Category-Theoretic Refactor Opportunities
+---
+
+## Analyzer Backlog
 
 This section focuses only on code in acorn-lib/src/analyzer and identifies improvements using constructs such as functor, traversable, monoid, and algebraic folds.
 
@@ -577,11 +593,17 @@ Sort order:
 2. Follow with item 5 to simplify and stabilize validation error flattening.
 3. Then apply item 9 if broad standard-level deduplication is desired.
 
-## io::api Improvement Ideas (Sorted by Difficulty and Impact)
+---
 
-### Low Difficulty
+## io::api Backlog
 
-#### 1. Standardize Auth Header Construction Across API Modules
+This section groups reusable API-client work. The first subsection is sorted by difficulty and impact; the module-scan subsection captures concrete extraction opportunities found in current provider code.
+
+### Improvement Ideas
+
+#### Low Difficulty
+
+##### 1. Standardize Auth Header Construction Across API Modules
 - Difficulty: Low
 - Impact: High
 - Opportunity:
@@ -589,7 +611,7 @@ Sort order:
   2. Replace per-module duplicated header creation in `gitlab`, `raid`, and `openai`.
   3. Add focused tests for empty-token behavior and header map output.
 
-#### 2. Add Shared Request Builders for Common API Shapes
+##### 2. Add Shared Request Builders for Common API Shapes
 - Difficulty: Low
 - Impact: High
 - Opportunity:
@@ -597,7 +619,7 @@ Sort order:
   2. Remove repeated `param!` vector assembly boilerplate from individual modules.
   3. Keep module-specific logic focused on action names and response types.
 
-#### 3. Normalize Environment Variable Discovery Rules
+##### 3. Normalize Environment Variable Discovery Rules
 - Difficulty: Low
 - Impact: Medium
 - Opportunity:
@@ -605,9 +627,9 @@ Sort order:
   2. Expose one helper for required vs optional secrets.
   3. Keep `.env` loading behavior uniform and testable.
 
-### Medium Difficulty
+#### Medium Difficulty
 
-#### 4. Introduce Shared API Error Envelope Traits
+##### 4. Introduce Shared API Error Envelope Traits
 - Difficulty: Medium
 - Impact: High
 - Opportunity:
@@ -615,7 +637,7 @@ Sort order:
   2. Implement for `gitlab`, `raid`, and `openai` error responses.
   3. Centralize fallback error rendering in `handle_or` helpers.
 
-#### 5. Add OpenAPI-Aware Endpoint Validation Utilities
+##### 5. Add OpenAPI-Aware Endpoint Validation Utilities
 - Difficulty: Medium
 - Impact: High
 - Opportunity:
@@ -623,7 +645,7 @@ Sort order:
   2. Validate key mappings for action names at startup or in unit tests.
   3. Catch template drift early when `application.json` changes.
 
-#### 6. Add Lightweight Response DTO Layer for Evolving APIs
+##### 6. Add Lightweight Response DTO Layer for Evolving APIs
 - Difficulty: Medium
 - Impact: Medium
 - Opportunity:
@@ -631,9 +653,9 @@ Sort order:
   2. Layer optional typed DTOs for stable subfields (`id`, `object`, usage metadata).
   3. Improve compile-time safety without losing forward compatibility.
 
-### High Difficulty
+#### High Difficulty
 
-#### 7. Generate API Module Skeletons from OpenAPI Specs
+##### 7. Generate API Module Skeletons from OpenAPI Specs
 - Difficulty: High
 - Impact: High
 - Opportunity:
@@ -641,7 +663,7 @@ Sort order:
   2. Use generated modules as a starting point, then keep hand-written ergonomic wrappers.
   3. Reduce maintenance drift for rapidly evolving APIs.
 
-#### 8. Unified Capability Matrix for io::api Providers
+##### 8. Unified Capability Matrix for io::api Providers
 - Difficulty: High
 - Impact: Medium
 - Opportunity:
@@ -649,13 +671,13 @@ Sort order:
   2. Drive command-layer behavior from capability metadata instead of per-provider conditionals.
   3. Enable cleaner extension as additional providers are introduced.
 
-## io::api Reuse Opportunities (Module Scan)
+### Reuse Opportunities From Module Scan
 
 This section captures concrete extraction opportunities identified by scanning the existing API modules (`openai`, `gitlab`, `raid`, `orcid`, `ror`, `citeas`, `geonames`, `spdx`) with a focus on code that can move into `acorn-lib/src/io/api/mod.rs` and be reused.
 
-### Critical
+#### Critical
 
-#### 1. Complete HTTP method dispatch in root invoke path
+##### 1. Complete HTTP method dispatch in root invoke path
 - Difficulty: Low
 - Impact: Critical
 - Evidence:
@@ -666,9 +688,9 @@ This section captures concrete extraction opportunities identified by scanning t
   2. Remove `unimplemented!` fallback for declared resource methods.
   3. Add tests for method routing parity between template methods and request dispatch.
 
-### High Impact
+#### High Impact
 
-#### 2. Extract endpoint resolution helpers
+##### 2. Extract endpoint resolution helpers
 - Difficulty: Low
 - Impact: High
 - Evidence:
@@ -678,7 +700,7 @@ This section captures concrete extraction opportunities identified by scanning t
   1. Add root helpers for template+domain endpoint resolution and named endpoint lookup.
   2. Centralize endpoint-not-found error message formatting.
 
-#### 3. Extract auth-header parameter builders
+##### 3. Extract auth-header parameter builders
 - Difficulty: Low
 - Impact: High
 - Evidence:
@@ -688,7 +710,7 @@ This section captures concrete extraction opportunities identified by scanning t
   1. Add reusable helpers for common header param styles.
   2. Standardize token handling and reduce per-module header string literals.
 
-#### 4. Extract required-input validators
+##### 4. Extract required-input validators
 - Difficulty: Low
 - Impact: High
 - Evidence:
@@ -698,7 +720,7 @@ This section captures concrete extraction opportunities identified by scanning t
   1. Add root validators for required non-empty identifier/body values.
   2. Return uniform, provider-specific error messages via helper formatting.
 
-#### 5. Extract invoke-and-parse convenience wrappers
+##### 5. Extract invoke-and-parse convenience wrappers
 - Difficulty: Medium
 - Impact: High
 - Evidence:
@@ -707,9 +729,9 @@ This section captures concrete extraction opportunities identified by scanning t
   1. Add wrappers that combine invocation and parse strategy.
   2. Allow optional fallback parser type where error envelopes differ by provider.
 
-### Medium Impact
+#### Medium Impact
 
-#### 6. Extract optional query parameter composition helper
+##### 6. Extract optional query parameter composition helper
 - Difficulty: Low
 - Impact: Medium
 - Evidence:
@@ -719,7 +741,7 @@ This section captures concrete extraction opportunities identified by scanning t
   1. Add helper to append optional key/value query params when present and non-empty.
   2. Keep module logic focused on endpoint actions rather than param plumbing.
 
-#### 7. Normalize environment configuration bootstrap
+##### 7. Normalize environment configuration bootstrap
 - Difficulty: Medium
 - Impact: Medium
 - Evidence:
@@ -728,7 +750,7 @@ This section captures concrete extraction opportunities identified by scanning t
   1. Add root helper for consistent env loading and prioritized var resolution.
   2. Reduce duplicated configuration boilerplate in provider `Configuration::from_env` implementations.
 
-#### 8. Extract status/health helper pattern
+##### 8. Extract status/health helper pattern
 - Difficulty: Low
 - Impact: Medium
 - Evidence:
@@ -737,7 +759,7 @@ This section captures concrete extraction opportunities identified by scanning t
   1. Add root utility for status-to-health checks with pluggable predicate.
   2. Reduce repetitive status wrapper code in providers.
 
-### Recommended Extraction Order
+#### Recommended Extraction Order
 
 1. Implement critical method dispatch support for all declared `HttpMethod` variants.
 2. Add endpoint resolution + auth/header builders.
@@ -745,7 +767,13 @@ This section captures concrete extraction opportunities identified by scanning t
 4. Introduce invoke-and-parse wrappers with fallback support.
 5. Normalize environment bootstrap and health-check helpers.
 
-## OpenAI OpenAPI Remaining Endpoint Templates (Grouped by Feature Area)
+---
+
+## Reference Inventories
+
+These sections support planning and fixture maintenance. They are intentionally separated from the actionable refactor backlogs above.
+
+### OpenAI OpenAPI Remaining Endpoint Templates
 
 Snapshot details:
 1. Source spec: https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml
@@ -753,12 +781,12 @@ Snapshot details:
 3. Path templates currently covered in acorn openai module: 9
 4. Remaining path templates: 153
 
-### assistants (2)
+#### assistants (2)
 
 1. /assistants
 2. /assistants/{assistant_id}
 
-### audio (6)
+#### audio (6)
 
 1. /audio/speech
 2. /audio/transcriptions
@@ -767,13 +795,13 @@ Snapshot details:
 5. /audio/voice_consents/{consent_id}
 6. /audio/voices
 
-### batches (3)
+#### batches (3)
 
 1. /batches
 2. /batches/{batch_id}
 3. /batches/{batch_id}/cancel
 
-### chatkit (5)
+#### chatkit (5)
 
 1. /chatkit/sessions
 2. /chatkit/sessions/{session_id}/cancel
@@ -781,11 +809,11 @@ Snapshot details:
 4. /chatkit/threads/{thread_id}
 5. /chatkit/threads/{thread_id}/items
 
-### completions (1)
+#### completions (1)
 
 1. /completions
 
-### containers (5)
+#### containers (5)
 
 1. /containers
 2. /containers/{container_id}
@@ -793,18 +821,18 @@ Snapshot details:
 4. /containers/{container_id}/files/{file_id}
 5. /containers/{container_id}/files/{file_id}/content
 
-### conversations (4)
+#### conversations (4)
 
 1. /conversations
 2. /conversations/{conversation_id}
 3. /conversations/{conversation_id}/items
 4. /conversations/{conversation_id}/items/{item_id}
 
-### embeddings (1)
+#### embeddings (1)
 
 1. /embeddings
 
-### evals (6)
+#### evals (6)
 
 1. /evals
 2. /evals/{eval_id}
@@ -813,13 +841,13 @@ Snapshot details:
 5. /evals/{eval_id}/runs/{run_id}/output_items
 6. /evals/{eval_id}/runs/{run_id}/output_items/{output_item_id}
 
-### files (3)
+#### files (3)
 
 1. /files
 2. /files/{file_id}
 3. /files/{file_id}/content
 
-### fine_tuning (11)
+#### fine_tuning (11)
 
 1. /fine_tuning/alpha/graders/run
 2. /fine_tuning/alpha/graders/validate
@@ -833,17 +861,17 @@ Snapshot details:
 10. /fine_tuning/jobs/{fine_tuning_job_id}/pause
 11. /fine_tuning/jobs/{fine_tuning_job_id}/resume
 
-### images (3)
+#### images (3)
 
 1. /images/edits
 2. /images/generations
 3. /images/variations
 
-### moderations (1)
+#### moderations (1)
 
 1. /moderations
 
-### organization (46)
+#### organization (46)
 
 1. /organization/admin_api_keys
 2. /organization/admin_api_keys/{key_id}
@@ -892,7 +920,7 @@ Snapshot details:
 45. /organization/users/{user_id}/roles
 46. /organization/users/{user_id}/roles/{role_id}
 
-### projects (6)
+#### projects (6)
 
 1. /projects/{project_id}/groups/{group_id}/roles
 2. /projects/{project_id}/groups/{group_id}/roles/{role_id}
@@ -901,7 +929,7 @@ Snapshot details:
 5. /projects/{project_id}/users/{user_id}/roles
 6. /projects/{project_id}/users/{user_id}/roles/{role_id}
 
-### realtime (9)
+#### realtime (9)
 
 1. /realtime/calls
 2. /realtime/calls/{call_id}/accept
@@ -913,12 +941,12 @@ Snapshot details:
 8. /realtime/transcription_sessions
 9. /realtime/translations/client_secrets
 
-### responses (2)
+#### responses (2)
 
 1. /responses/compact
 2. /responses/input_tokens
 
-### skills (6)
+#### skills (6)
 
 1. /skills
 2. /skills/{skill_id}
@@ -927,7 +955,7 @@ Snapshot details:
 5. /skills/{skill_id}/versions/{version}
 6. /skills/{skill_id}/versions/{version}/content
 
-### threads (11)
+#### threads (11)
 
 1. /threads
 2. /threads/{thread_id}
@@ -941,14 +969,14 @@ Snapshot details:
 10. /threads/{thread_id}/runs/{run_id}/submit_tool_outputs
 11. /threads/runs
 
-### uploads (4)
+#### uploads (4)
 
 1. /uploads
 2. /uploads/{upload_id}/cancel
 3. /uploads/{upload_id}/complete
 4. /uploads/{upload_id}/parts
 
-### vector_stores (10)
+#### vector_stores (10)
 
 1. /vector_stores
 2. /vector_stores/{vector_store_id}
@@ -961,7 +989,7 @@ Snapshot details:
 9. /vector_stores/{vector_store_id}/files/{file_id}/content
 10. /vector_stores/{vector_store_id}/search
 
-### videos (8)
+#### videos (8)
 
 1. /videos
 2. /videos/{video_id}
@@ -972,15 +1000,15 @@ Snapshot details:
 7. /videos/edits
 8. /videos/extensions
 
-## CKAN Fixture Conversion to DCAT v3
+### CKAN Fixture Conversion to DCAT v3
 
 This section documents the rules for converting CKAN API format test fixtures (in `tests/fixtures/schema/ckan/`) to DCAT v3 compliant JSON (in `tests/fixtures/schema/dcat/`). The rules follow the ckanext-dcat mapping guide: <https://docs.ckan.org/projects/ckanext-dcat/en/latest/mapping/>.
 
-### Source Shape
+#### Source Shape
 
 Fixtures are CKAN dataset objects from `package_show.result`, not full `{ "success": true, "result": ... }` API envelopes. Custom fields may appear as first-level fields when CKAN uses scheming, or as legacy `extras[]` entries in older profiles. Current fixtures use first-level fields.
 
-### Field Mapping CKAN → DCAT v3
+#### Field Mapping CKAN → DCAT v3
 
 | CKAN field path | DCAT v3 path | Transformation |
 |---|---|---|
@@ -997,14 +1025,14 @@ Fixtures are CKAN dataset objects from `package_show.result`, not full `{ "succe
 | `qualified_relation[]` | `qualifiedRelation[]` | Use `uri` as `relation`; use `role` when present, otherwise `relation`, as `hadRole` |
 | `resources[]` | `distribution[]` | Each → `Distribution`; set `accessURL` from `access_url` then `url`; set `downloadURL` from `download_url`; map resource `name`, `description`, `mimetype`, `format`, `size`, `created`, `issued`, `modified`, and `metadata_modified` when present |
 
-### Profile Notes From ckanext-dcat
+#### Profile Notes From ckanext-dcat
 
 - Mapping is profile-dependent and intentionally loose; do not assume every CKAN instance uses the same custom fields.
 - `custom:` fields in ckanext-dcat may come from legacy `extras[]` or from first-level scheming fields.
 - CKAN dataset-level license values do not map cleanly to ACORN's current DCAT fixture shape because ckanext-dcat primarily maps license data at Distribution level.
 - Spatial, temporal, language, theme, `conformsTo`, and related profile fields are future fixture expansion candidates, not requirements for the current three fixtures.
 
-### Fixture Files
+#### Fixture Files
 
 | Source (ckan/) | Target (dcat/) | Content |
 |---|---|---|
@@ -1012,7 +1040,7 @@ Fixtures are CKAN dataset objects from `package_show.result`, not full `{ "succe
 | `6rpmk-n3x82.json` | `6rpmk-n3x82.json` | Minimal dataset metadata and fallback behavior |
 | `j5xbm-d7v43.json` | `j5xbm-d7v43.json` | Medium fixture with multiple creators, contact, and relation coverage |
 
-### Verification
+#### Verification
 
 ```bash
 cargo run --bin acorn -- check ./tests/fixtures/schema/dcat/ --standard dcat
