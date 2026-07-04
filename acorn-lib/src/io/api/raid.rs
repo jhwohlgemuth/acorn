@@ -2,7 +2,7 @@
 //!
 //! See <https://metadata.raid.org> for more information
 //!
-use crate::io::api::{require_non_empty_secret, ApiResult, Configuration, Endpoint, Fallback, Params, RemoteResource};
+use crate::io::api::{require_non_empty_secret, ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource};
 use crate::param;
 use crate::prelude::var;
 use crate::schema::pid::raid::Metadata;
@@ -94,6 +94,9 @@ pub struct Options {
     pub prefix: Option<String>,
     /// RAiD suffix (e.g., "000001")
     pub suffix: Option<String>,
+    /// Custom API parameters to include in every request
+    #[builder(default = vec![])]
+    pub custom_params: Vec<Param>,
 }
 /// RAiD service point
 ///
@@ -176,6 +179,7 @@ impl Configuration for Options {
             suffix: None,
             identifier: None,
             metadata: None,
+            custom_params: vec![],
         }
     }
     /// Return a copy of options with request body payload set
@@ -211,6 +215,17 @@ impl Configuration for Options {
     fn identifier(&self) -> Option<&str> {
         self.identifier.as_deref()
     }
+    /// Return a copy of options with custom API parameters set
+    fn with_params(self, params: Vec<Param>) -> Self {
+        Self {
+            custom_params: params,
+            ..self
+        }
+    }
+    /// Return any custom API parameters
+    fn params(&self) -> &[Param] {
+        &self.custom_params
+    }
 }
 impl Options {
     /// Return a copy of options with RAiD metadata set
@@ -222,17 +237,20 @@ impl Options {
     }
 }
 /// Create a RAiD record with provided metadata
-pub async fn create_record(options: Options) -> ApiResult<Metadata> {
+pub async fn create_record(options: &Options) -> ApiResult<Metadata> {
     let template = "raid::api";
     let action = "record::create";
     let path = format!("{template}::{action}");
-    let Options { domain, metadata, token, .. } = options;
-    match require_non_empty_secret(&token, &path, &RAID_TOKEN_VARIABLE_NAMES) {
-        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
-            | Ok(endpoint) => match metadata {
-                | Some(value) => match serde_json::to_string(&value) {
+    match require_non_empty_secret(&options.token, &path, &RAID_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&options.domain)) {
+            | Ok(endpoint) => match &options.metadata {
+                | Some(value) => match serde_json::to_string(value) {
                     | Ok(body) => {
-                        let params = Params::new().with_auth(&token, None).with(param!(Body, &body)).build();
+                        let params = Params::new()
+                            .with_auth(&token, None)
+                            .with(param!(Body, &body))
+                            .with_custom(options.params())
+                            .build();
                         let response = endpoint.invoke(action, Some(params)).await;
                         endpoint.handle_or::<Metadata, Fallback<ErrorResponse>>(response)
                     }
@@ -254,25 +272,26 @@ pub async fn create_record(options: Options) -> ApiResult<Metadata> {
 /// use acorn::io::api::raid;
 ///
 /// let options = raid::Options::from_env();
-/// let result = raid::record(options).await;
+/// let result = raid::record(&options).await;
 /// ```
-pub async fn record(options: Options) -> ApiResult<Vec<Metadata>> {
+pub async fn record(options: &Options) -> ApiResult<Vec<Metadata>> {
     let template = "raid::api";
     let action = "record";
     let path = format!("{template}::{action}");
-    let Options {
-        domain, identifier, token, ..
-    } = options;
-    match require_non_empty_secret(&token, &path, &RAID_TOKEN_VARIABLE_NAMES) {
-        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
-            | Ok(endpoint) => match identifier {
+    match require_non_empty_secret(&options.token, &path, &RAID_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&options.domain)) {
+            | Ok(endpoint) => match &options.identifier {
                 | Some(value) if !value.is_empty() => {
-                    let params = Params::new().with_auth(&token, None).with_template("identifier", Some(&value)).build();
+                    let params = Params::new()
+                        .with_auth(&token, None)
+                        .with_template("identifier", Some(value))
+                        .with_custom(options.params())
+                        .build();
                     let response = endpoint.invoke(action, Some(params)).await;
                     endpoint.handle::<Metadata>(response).map(|r| vec![r])
                 }
                 | Some(_) | None => {
-                    let params = Params::new().with_auth(&token, None).build();
+                    let params = Params::new().with_auth(&token, None).with_custom(options.params()).build();
                     let response = endpoint.invoke(action, Some(params)).await;
                     endpoint.handle::<Vec<Metadata>>(response)
                 }
@@ -291,25 +310,26 @@ pub async fn record(options: Options) -> ApiResult<Vec<Metadata>> {
 /// use acorn::io::api::raid;
 ///
 /// let options = raid::Options::from_env();
-/// let result = raid::service_point(options).await;
+/// let result = raid::service_point(&options).await;
 /// ```
-pub async fn service_point(options: Options) -> ApiResult<Vec<ServicePointResponse>> {
+pub async fn service_point(options: &Options) -> ApiResult<Vec<ServicePointResponse>> {
     let template = "raid::api";
     let action = "service-point";
     let path = format!("{template}::{action}");
-    let Options {
-        domain, identifier, token, ..
-    } = options;
-    match require_non_empty_secret(&token, &path, &RAID_TOKEN_VARIABLE_NAMES) {
-        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
-            | Ok(endpoint) => match identifier {
+    match require_non_empty_secret(&options.token, &path, &RAID_TOKEN_VARIABLE_NAMES) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&options.domain)) {
+            | Ok(endpoint) => match &options.identifier {
                 | Some(value) if !value.is_empty() => {
-                    let params = Params::new().with_auth(&token, None).with_template("identifier", Some(&value)).build();
+                    let params = Params::new()
+                        .with_auth(&token, None)
+                        .with_template("identifier", Some(value))
+                        .with_custom(options.params())
+                        .build();
                     let response = endpoint.invoke(action, Some(params)).await;
                     endpoint.handle::<ServicePointResponse>(response).map(|r| vec![r])
                 }
                 | Some(_) | None => {
-                    let params = Params::new().with_auth(&token, None).build();
+                    let params = Params::new().with_auth(&token, None).with_custom(options.params()).build();
                     let response = endpoint.invoke(action, Some(params)).await;
                     endpoint.handle::<Vec<ServicePointResponse>>(response)
                 }

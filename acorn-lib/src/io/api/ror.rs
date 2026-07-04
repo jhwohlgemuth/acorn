@@ -21,16 +21,89 @@
 //!
 //! println!("ROR REST API is healthy: {}", api::ror::is_healthy().await);
 //! ```
-use crate::io::api::{ApiResult, Param, RemoteResource, TextResponse, INCLUDED_ENDPOINTS};
-use crate::param;
+use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, TextResponse, INCLUDED_ENDPOINTS};
+use crate::prelude::var;
 use crate::schema::pid::{PersistentIdentifierParse, ROR};
-use crate::util::Searchable;
+use crate::util::{Label, Searchable};
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use tracing::debug;
 use validator::Validate;
+
+/// ROR API options
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = with_token, on(String, into))]
+pub struct Options {
+    /// Bearer token for authentication
+    #[builder(start_fn)]
+    pub token: String,
+    /// Request body payload
+    pub body: Option<String>,
+    /// ROR API domain (defaults to api.ror.org)
+    #[builder(default = String::from("api.ror.org"))]
+    pub domain: String,
+    /// ROR identifier
+    pub identifier: Option<String>,
+    /// Custom API parameters to include in every request
+    #[builder(default = vec![])]
+    pub custom_params: Vec<Param>,
+}
+impl Configuration for Options {
+    /// Build options from ROR environment variables
+    /// - `ROR_API_TOKEN` -> `token` (optional — public API)
+    /// - `ROR_SERVER_HOST` -> `domain` (defaults to api.ror.org)
+    fn from_env() -> Self {
+        if let Err(why) = dotenvy::from_filename(".env") {
+            debug!("=> {} Load .env — {why}", Label::skip());
+        }
+        Self {
+            token: var("ROR_API_TOKEN").unwrap_or_default(),
+            body: None,
+            domain: var("ROR_SERVER_HOST").unwrap_or_else(|_| String::from("api.ror.org")),
+            identifier: None,
+            custom_params: vec![],
+        }
+    }
+    fn with_body(self, value: impl Into<String>) -> Self {
+        Self {
+            body: Some(value.into()),
+            ..self
+        }
+    }
+    fn with_domain(self, value: impl Into<String>) -> Self {
+        Self {
+            domain: value.into(),
+            ..self
+        }
+    }
+    fn with_identifier(self, value: impl Into<String>) -> Self {
+        Self {
+            identifier: Some(value.into()),
+            ..self
+        }
+    }
+    fn token(&self) -> &str {
+        &self.token
+    }
+    fn domain(&self) -> &str {
+        &self.domain
+    }
+    fn identifier(&self) -> Option<&str> {
+        self.identifier.as_deref()
+    }
+    fn with_params(self, params: Vec<Param>) -> Self {
+        Self {
+            custom_params: params,
+            ..self
+        }
+    }
+    fn params(&self) -> &[Param] {
+        &self.custom_params
+    }
+}
 
 /// ROR API status response is just "OK"
 pub type StatusResponse = TextResponse;
@@ -376,23 +449,26 @@ pub async fn is_healthy() -> bool {
         | Err(_) => false,
     }
 }
-/// Get a single ROR record by identifier
+/// Get a single ROR record by identifier from options
 /// ### Note
 /// Will only make a request if the identifier is valid ROR
 ///
 /// ### Example
 /// ```ignore
-/// use acorn_lib::io::api::ror::{self, SingleRecord};
+/// use acorn_lib::io::api::ror::{self, Options, SingleRecord};
 ///
-/// let identifier = "01qz5mb56";
-/// let result: ApiResult<SingleRecord> = ror::record(identifier).await;
+/// let options = Options::from_env().with_identifier("01qz5mb56");
+/// let result: ApiResult<SingleRecord> = ror::record(&options).await;
 /// ```
-pub async fn record(identifier: impl ToString) -> ApiResult<SingleRecord> {
-    let value = identifier.to_string();
-    if ROR::is_valid(&value) {
+pub async fn record(options: &Options) -> ApiResult<SingleRecord> {
+    let value = options.identifier().unwrap_or_default().to_string();
+    if value.is_empty() || ROR::is_valid(&value) {
         let name = "ROR";
         let action = "search";
-        let params = vec![param!(TemplateValue, "identifier", &value)];
+        let params = Params::new()
+            .with_template("identifier", Some(&value))
+            .with_custom(options.params())
+            .build();
         let data = Some(params);
         match INCLUDED_ENDPOINTS.find_by_name(name) {
             | Some(endpoint) => {
@@ -405,22 +481,24 @@ pub async fn record(identifier: impl ToString) -> ApiResult<SingleRecord> {
         Err(eyre!("Invalid ROR identifier: {}", &value))
     }
 }
-/// Search the ROR API with given query parameters and output fields
+/// Search the ROR API with given options containing query parameters and output fields
 ///
 /// ### Example
 /// ```ignore
 /// use acorn::param;
-/// use acorn::io::api::ror::{self, SearchResponse};
+/// use acorn::io::api::ror::{self, Options, SearchResponse};
 ///
-/// let data = vec![
-///     param!(FieldList, "query", "Oak Ridge"),
-///     param!(QueryPair, "filter", ("status", "inactive")),
-/// ];
-/// let result: ApiResult<SearchResponse> = ror::search(params).await;
+/// let options = Options::from_env()
+///     .with_params(vec![
+///         param!(FieldList, "query", "Oak Ridge"),
+///         param!(QueryPair, "filter", ("status", "inactive")),
+///     ]);
+/// let result: ApiResult<SearchResponse> = ror::search(&options).await;
 /// ```
-pub async fn search(params: Vec<Param>) -> ApiResult<SearchResponse> {
+pub async fn search(options: &Options) -> ApiResult<SearchResponse> {
     let name = "ROR";
     let action = "search";
+    let params = Params::new().with_custom(options.params()).build();
     let data = Some(params);
     match INCLUDED_ENDPOINTS.find_by_name(name) {
         | Some(endpoint) => {

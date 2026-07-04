@@ -2,14 +2,89 @@
 //! > CiteAs is a way to get the correct citation for diverse research products including, software, datasets, preprints, and traditional articles. By making it easier to cite software and other "alternative" scholarly products, we aim to help the creators of such products get full credit for their work.
 //!
 //! See <https://citeas.org/api> for more information
-use crate::io::api::{ApiResult, Param, RemoteResource, INCLUDED_ENDPOINTS};
+use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, INCLUDED_ENDPOINTS};
 use crate::param;
+use crate::prelude::var;
 use crate::schema::pid::DOI;
-use crate::util::Searchable;
+use crate::util::{Label, Searchable};
 use async_trait::async_trait;
+use bon::Builder;
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use tracing::debug;
+
+/// CiteAs API options
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = with_token, on(String, into))]
+pub struct Options {
+    /// Bearer token for authentication
+    #[builder(start_fn)]
+    pub token: String,
+    /// Request body payload
+    pub body: Option<String>,
+    /// CiteAs API domain (defaults to citeas.org)
+    #[builder(default = String::from("citeas.org"))]
+    pub domain: String,
+    /// Resource identifier
+    pub identifier: Option<String>,
+    /// Custom API parameters to include in every request
+    #[builder(default = vec![])]
+    pub custom_params: Vec<Param>,
+}
+impl Configuration for Options {
+    /// Build options from CiteAs environment variables
+    /// - `CITEAS_API_TOKEN` -> `token` (optional — public API)
+    /// - `CITEAS_SERVER_HOST` -> `domain` (defaults to citeas.org)
+    fn from_env() -> Self {
+        if let Err(why) = dotenvy::from_filename(".env") {
+            debug!("=> {} Load .env — {why}", Label::skip());
+        }
+        Self {
+            token: var("CITEAS_API_TOKEN").unwrap_or_default(),
+            body: None,
+            domain: var("CITEAS_SERVER_HOST").unwrap_or_else(|_| String::from("citeas.org")),
+            identifier: None,
+            custom_params: vec![],
+        }
+    }
+    fn with_body(self, value: impl Into<String>) -> Self {
+        Self {
+            body: Some(value.into()),
+            ..self
+        }
+    }
+    fn with_domain(self, value: impl Into<String>) -> Self {
+        Self {
+            domain: value.into(),
+            ..self
+        }
+    }
+    fn with_identifier(self, value: impl Into<String>) -> Self {
+        Self {
+            identifier: Some(value.into()),
+            ..self
+        }
+    }
+    fn token(&self) -> &str {
+        &self.token
+    }
+    fn domain(&self) -> &str {
+        &self.domain
+    }
+    fn identifier(&self) -> Option<&str> {
+        self.identifier.as_deref()
+    }
+    fn with_params(self, params: Vec<Param>) -> Self {
+        Self {
+            custom_params: params,
+            ..self
+        }
+    }
+    fn params(&self) -> &[Param] {
+        &self.custom_params
+    }
+}
 
 /// Trait for things that can be converted to citations (e.g., `DOI`)
 #[async_trait]
@@ -172,12 +247,14 @@ pub async fn is_healthy() -> bool {
 /// use acorn::io::api::citeas;
 ///
 /// let doi = "10.11578/dc.20250604.1";
-/// let params = vec![param!(TemplateValue, "doi", doi)];
-/// let citations = citeas::search(params).await;
+/// let options = citeas::Options::from_env()
+///     .with_params(vec![param!(TemplateValue, "doi", doi)]);
+/// let citations = citeas::search(&options).await;
 /// ```
-pub async fn search(params: Vec<Param>) -> ApiResult<Citations> {
+pub async fn search(options: &Options) -> ApiResult<Citations> {
     let name = "CiteAs";
     let action = "record";
+    let params = Params::new().with_custom(options.params()).build();
     let data = Some(params);
     match INCLUDED_ENDPOINTS.find_by_name(name) {
         | Some(endpoint) => {
@@ -206,8 +283,8 @@ impl Citations {
     /// Use CiteAs API to get citation data from a [`DOI`]
     pub async fn from(value: DOI) -> ApiResult<Citations> {
         let doi = value.to_string();
-        let params = vec![param!(TemplateValue, "doi", &doi)];
-        search(params).await
+        let options = Options::from_env().with_params(vec![param!(TemplateValue, "doi", &doi)]);
+        search(&options).await
     }
     /// Get citation data with given citation style (ex. "APA")
     ///

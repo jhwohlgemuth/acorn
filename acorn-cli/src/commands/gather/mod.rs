@@ -39,6 +39,7 @@ pub async fn run(
     // ror_example().await;
     Ok(())
 }
+
 #[allow(dead_code)]
 async fn gitlab_merge_request_note_example() {
     let comment = r#"# :seedling: Test Comment
@@ -76,26 +77,31 @@ async fn gitlab_example() {
     info!("Groups: {groups:#?}");
     println!("# of groups: {}", groups.len());
 
-    let events = gitlab::events(&options.clone().with_identifier(project)).await.unwrap_or_default();
+    let options = &options.clone().with_identifier(project).with_params(vec![
+        param!(KeyValuePair, "target_type", "note"),
+        param!(KeyValuePair, "after", "2026-06-27"),
+        param!(KeyValuePair, "before", "2026-##-27"),
+    ]);
+    let events = gitlab::events(options).await.unwrap_or_default();
     info!("Events: {events:#?}");
     println!("# of events: {}", events.len());
 
-    match gitlab::language_use(&options.with_identifier(project)).await {
-        | Ok(response) => println!("Languages: {:#?}", response.entries()),
-        | Err(why) => println!("Languages request failed: {why:#?}"),
-    }
+    // match gitlab::language_use(&options.with_identifier(project)).await {
+    //     | Ok(response) => println!("Languages: {:#?}", response.entries()),
+    //     | Err(why) => println!("Languages request failed: {why:#?}"),
+    // }
 }
 #[allow(dead_code)]
 async fn orcid_example() {
-    let params = vec![
+    let options = api::orcid::Options::from_env().with_params(vec![
         param!(
             QueryPair,
             "q",
             (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
         ),
         param!(FieldList, "fl", "family-name"),
-    ];
-    println!("ORCiD Search Response: {:#?}", api::orcid::search(params).await);
+    ]);
+    println!("ORCiD Search Response: {:#?}", api::orcid::search(&options).await);
 }
 #[allow(dead_code)]
 async fn raid_example() {
@@ -175,10 +181,11 @@ async fn raid_example() {
 #[allow(dead_code)]
 async fn ror_example() {
     let identifier = "01qz5mb56";
-    println!("ROR Record: {:#?}", api::ror::record(identifier).await);
-    let params = vec![
+    let record_options = api::ror::Options::from_env().with_identifier(identifier);
+    println!("ROR Record: {:#?}", api::ror::record(&record_options).await);
+    let search_options = api::ror::Options::from_env().with_params(vec![
         param!(FieldList, "query", "Oak Ridge"),
         param!(QueryPair, "filter", ("status", "inactive")),
-    ];
-    println!("ROR Search Results: {:#?}", api::ror::search(params).await);
+    ]);
+    println!("ROR Search Results: {:#?}", api::ror::search(&search_options).await);
 }

@@ -26,15 +26,89 @@
 //! ];
 //! println!("ORCiD Search Response: {:#?}", api::orcid::search(params).await);
 //! ```
-use crate::io::api::{self, RemoteResource, ValueValidator, INCLUDED_ENDPOINTS};
+use crate::io::api::{self, Configuration, Param, Params, RemoteResource, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::ApiResult;
+use crate::prelude::var;
 use crate::schema::validate::{is_orcid, is_ror};
-use crate::util::Searchable;
+use crate::util::{Label, Searchable};
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use tracing::debug;
+
+/// ORCiD API options
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = with_token, on(String, into))]
+pub struct Options {
+    /// Bearer token for authentication
+    #[builder(start_fn)]
+    pub token: String,
+    /// Request body payload
+    pub body: Option<String>,
+    /// ORCiD API domain (defaults to pub.orcid.org)
+    #[builder(default = String::from("pub.orcid.org"))]
+    pub domain: String,
+    /// ORCiD identifier
+    pub identifier: Option<String>,
+    /// Custom API parameters to include in every request
+    #[builder(default = vec![])]
+    pub custom_params: Vec<Param>,
+}
+impl Configuration for Options {
+    /// Build options from ORCiD environment variables
+    /// - `ORCID_API_TOKEN` -> `token` (optional — public API)
+    /// - `ORCID_SERVER_HOST` -> `domain` (defaults to pub.orcid.org)
+    fn from_env() -> Self {
+        if let Err(why) = dotenvy::from_filename(".env") {
+            debug!("=> {} Load .env — {why}", Label::skip());
+        }
+        Self {
+            token: var("ORCID_API_TOKEN").unwrap_or_default(),
+            body: None,
+            domain: var("ORCID_SERVER_HOST").unwrap_or_else(|_| String::from("pub.orcid.org")),
+            identifier: None,
+            custom_params: vec![],
+        }
+    }
+    fn with_body(self, value: impl Into<String>) -> Self {
+        Self {
+            body: Some(value.into()),
+            ..self
+        }
+    }
+    fn with_domain(self, value: impl Into<String>) -> Self {
+        Self {
+            domain: value.into(),
+            ..self
+        }
+    }
+    fn with_identifier(self, value: impl Into<String>) -> Self {
+        Self {
+            identifier: Some(value.into()),
+            ..self
+        }
+    }
+    fn token(&self) -> &str {
+        &self.token
+    }
+    fn domain(&self) -> &str {
+        &self.domain
+    }
+    fn identifier(&self) -> Option<&str> {
+        self.identifier.as_deref()
+    }
+    fn with_params(self, params: Vec<Param>) -> Self {
+        Self {
+            custom_params: params,
+            ..self
+        }
+    }
+    fn params(&self) -> &[Param] {
+        &self.custom_params
+    }
+}
 
 /// ORCiD allowed search fields
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
@@ -283,26 +357,28 @@ pub async fn is_healthy() -> bool {
 pub fn query_string(query_pairs: Vec<(&str, &str)>, field_list: Vec<&str>, query_fields: Vec<&str>) -> String {
     api::query_string::<SearchField, OutputColumn>(query_pairs, field_list, query_fields)
 }
-/// Search the ORCiD API with given query parameters and output fields
+/// Search the ORCiD API with given options containing query parameters and output fields
 ///
 /// ### Example
 /// ```ignore
 /// use acorn::param;
-/// use acorn::io::api::orcid::{self, SearchResponse};
+/// use acorn::io::api::orcid::{self, Options, SearchResponse};
 ///
-/// let params = vec![
-///     param!(
-///         QueryPair,
-///         "q",
-///         (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
-///     ),
-///     param!(FieldList, "fl", "family-name"),
-/// ];
-/// let result: Result<SearchResponse, String> = orcid::search(params).await;
+/// let options = Options::from_env()
+///     .with_params(vec![
+///         param!(
+///             QueryPair,
+///             "q",
+///             (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
+///         ),
+///         param!(FieldList, "fl", "family-name"),
+///     ]);
+/// let result: ApiResult<SearchResponse> = orcid::search(&options).await;
 /// ```
-pub async fn search(params: Vec<api::Param>) -> ApiResult<SearchResponse> {
+pub async fn search(options: &Options) -> ApiResult<SearchResponse> {
     let name = "ORCiD";
     let action = "search";
+    let params = Params::new().with_custom(options.params()).build();
     let data = Some(params);
     match INCLUDED_ENDPOINTS.find_by_name(name) {
         | Some(endpoint) => {

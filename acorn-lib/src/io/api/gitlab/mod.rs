@@ -3,7 +3,7 @@
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
 use crate::io::api::{
-    require_non_empty_secret, Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, Params, RemoteResource, ResponseContent,
+    require_non_empty_secret, Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, Param, Params, RemoteResource, ResponseContent,
     TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS,
 };
 use crate::io::config::{RunnerDetails, RunnerStatus, RunnerType};
@@ -528,6 +528,9 @@ pub struct Options {
     /// GitLab runner metadata necessary for creation
     #[builder(default = RunnerMetadata::default())]
     pub runner_metadata: RunnerMetadata,
+    /// Custom API parameters to include in every request
+    #[builder(default = vec![])]
+    pub custom_params: Vec<Param>,
 }
 /// Language metadata details from GitLab languages YAML file
 #[skip_serializing_none]
@@ -976,6 +979,7 @@ impl Configuration for Options {
             path: None,
             page: 1,
             runner_metadata: RunnerMetadata::default(),
+            custom_params: vec![],
         }
     }
     /// Return a copy of options with request body payload set
@@ -1010,6 +1014,17 @@ impl Configuration for Options {
     /// Return the optional project or group identifier
     fn identifier(&self) -> Option<&str> {
         self.identifier.as_deref()
+    }
+    /// Return a copy of options with custom API parameters set
+    fn with_params(self, params: Vec<Param>) -> Self {
+        Self {
+            custom_params: params,
+            ..self
+        }
+    }
+    /// Return any custom API parameters
+    fn params(&self) -> &[Param] {
+        &self.custom_params
     }
 }
 impl Options {
@@ -1370,6 +1385,7 @@ pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationRespons
                     .with_body("runner_type", &format!("{runner_type}_type"))
                     .with_body("run_untagged", &run_untagged.to_string())
                     .with_body_maybe("tag_list", tag_list.as_deref())
+                    .with_custom(options.params())
                     .build();
                 let response = endpoint.invoke(action, Some(params)).await;
                 match response {
@@ -1396,7 +1412,26 @@ pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationRespons
         | Err(why) => Err(why),
     }
 }
-/// Get events for a project or group
+/// Get events for a project
+/// ### Example
+///
+/// ```ignore
+/// use acorn::io::api::{gitlab, Configuration};
+/// use acorn::param;
+///
+/// let project_id = "16689";
+/// let options = gitlab::Options::from_env()
+///     .with_identifier(project_id)
+///     .with_params(vec![
+///         param!(KeyValuePair, "target_type", "note"),
+///         param!(KeyValuePair, "after", "2026-06-27"),
+///         // 'before' value is invalid and will not be including in final URL
+///         param!(KeyValuePair, "before", "2026-##-04"),
+///     ]);
+/// let events = gitlab::events(&options).await;
+/// ```
+///
+/// See <https://docs.gitlab.com/api/events/#list-all-visible-events-for-a-project> for more information
 pub async fn events(options: &Options) -> ApiResult<EventsResponse> {
     let template = "gitlab::api";
     let action = "events";
@@ -1407,8 +1442,7 @@ pub async fn events(options: &Options) -> ApiResult<EventsResponse> {
                 let params = Params::new()
                     .with_auth(&token, Some("PRIVATE-TOKEN"))
                     .with_template("identifier", options.identifier())
-                    // .with_keyvalue("target_type", Some("note"))
-                    // .with_keyvalue("after", Some("2026-06-27"))
+                    .with_custom(options.params())
                     .build();
                 let response = endpoint.invoke_with::<EventFilterKey, EmptyField>(action, Some(params)).await;
                 endpoint.handle::<EventsResponse>(response)
@@ -1433,6 +1467,7 @@ pub async fn groups(options: &Options) -> ApiResult<GroupsResponse> {
                     .with_template("identifier", options.identifier())
                     .with_keyvalue("page", Some("1"))
                     .with_keyvalue("per_page", Some("100"))
+                    .with_custom(options.params())
                     .build();
                 let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
                 endpoint.handle_or::<GroupsResponse, Fallback<ErrorResponse>>(response)
@@ -1455,6 +1490,7 @@ pub async fn language_use(options: &Options) -> ApiResult<ProgrammingLanguageUse
                 let params = Params::new()
                     .with_auth(&token, Some("PRIVATE-TOKEN"))
                     .with_template("identifier", options.identifier())
+                    .with_custom(options.params())
                     .build();
                 let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
                 endpoint.handle::<ProgrammingLanguageUseResponse>(response)
@@ -1516,6 +1552,7 @@ pub async fn merge_request_note(options: &Options) -> ApiResult<NoteMetadata> {
                     .with_body("body", body)
                     .with_template("identifier", options.identifier())
                     .with_template("internal_identifier", options.internal_identifier.as_deref())
+                    .with_custom(options.params())
                     .build();
                 let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
                 endpoint.handle::<NoteMetadata>(response)
@@ -1536,6 +1573,7 @@ pub async fn runner(options: &Options) -> ApiResult<RunnerMetadata> {
                 let params = Params::new()
                     .with_auth(&token, Some("PRIVATE-TOKEN"))
                     .with_template("identifier", options.identifier())
+                    .with_custom(options.params())
                     .build();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle::<RunnerMetadata>(response)
@@ -1553,7 +1591,10 @@ pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
-                let params = Params::new().with_auth(&token, Some("PRIVATE-TOKEN")).build();
+                let params = Params::new()
+                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_custom(options.params())
+                    .build();
                 let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
                 endpoint.handle_or::<RunnersResponse, Fallback<ErrorResponse>>(response)
             }
@@ -1573,7 +1614,8 @@ pub(crate) async fn tree_paths(options: &Options) -> ApiResult<TreeResponse> {
                 .with_keyvalue("per_page", Some("100"))
                 .with_keyvalue("page", Some(&options.page.to_string()))
                 .with_keyvalue("recursive", Some("true"))
-                .with_keyvalue("path", options.path.as_deref());
+                .with_keyvalue("path", options.path.as_deref())
+                .with_custom(options.params());
             let token = if options.token.trim().is_empty() {
                 first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES)
             } else {

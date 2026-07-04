@@ -523,6 +523,11 @@ macro_rules! skip {
 /// // Path style (explicit ParamStyle reference)
 /// param!(ParamStyle::FieldList, "fl", "family-name")
 ///
+/// // KeyValuePair (query string key-value pair)
+/// param!(KeyValuePair, "per_page", "100")
+///
+/// param!(ParamStyle::KeyValuePair, "page", "2")
+///
 /// // Header parameter
 /// param!(Header, "PRIVATE-TOKEN", &token)
 ///

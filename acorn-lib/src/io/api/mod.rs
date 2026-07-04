@@ -63,6 +63,11 @@ pub trait Configuration {
     fn domain(&self) -> &str;
     /// Return the optional resource identifier
     fn identifier(&self) -> Option<&str>;
+    /// Return a copy of this configuration with custom API parameters set.
+    /// These are appended to internally-constructed parameters before each request.
+    fn with_params(self, params: Vec<Param>) -> Self;
+    /// Return any custom API parameters
+    fn params(&self) -> &[Param];
 }
 /// Trait for objects that can be persisted in a database
 #[async_trait]
@@ -630,6 +635,15 @@ impl Params {
     /// Add a field-list parameter (always added)
     pub fn with_field(self, key: &str, value: &str) -> Self {
         self.with(param!(ParamStyle::FieldList, key, value))
+    }
+    /// Merge custom parameters into this param list.
+    /// Skipped when `custom` is empty to avoid unnecessary allocation.
+    pub fn with_custom(self, custom: &[Param]) -> Self {
+        if custom.is_empty() {
+            self
+        } else {
+            Self(self.0.iter().chain(custom.iter()).cloned().collect())
+        }
     }
 }
 impl IntoBody for Vec<Param> {
