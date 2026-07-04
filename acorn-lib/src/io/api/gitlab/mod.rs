@@ -3,8 +3,8 @@
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
 use crate::io::api::{
-    require_non_empty_secret, Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, RemoteResource, ResponseContent, TreeEntryType,
-    ValueValidator, INCLUDED_ENDPOINTS,
+    auth_header, require_non_empty_secret, Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, RemoteResource, ResponseContent,
+    TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS,
 };
 use crate::io::config::{RunnerDetails, RunnerStatus, RunnerType};
 use crate::io::database::schema::{ProgrammingLanguageRow, Table};
@@ -26,6 +26,8 @@ use tracing::debug;
 
 pub mod bot;
 
+/// Type for GitLab events response
+pub type EventsResponse = Vec<EventDetails>;
 /// Type for GitLab API descendent groups response
 pub type GroupsResponse = Vec<GroupDetails>;
 /// Type for GitLab API all runners response
@@ -60,6 +62,72 @@ pub enum AccessLevel {
     /// Ref protected
     RefProtected,
 }
+/// GitLab emoji shortcodes
+///
+/// See <https://www.webfx.com/tools/emoji-cheat-sheet/> for full list of supported emoji shortcodes
+#[derive(Clone, Debug, Display, Serialize, Deserialize)]
+pub enum Emoji {
+    /// :seedling: 🌱
+    #[display(":seedling:")]
+    Seedling,
+}
+/// GitLab event action name
+///
+/// See <https://docs.gitlab.com/user/profile/contributions_calendar/#user-contribution-events> for more information
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum EventAction {
+    /// Approved a merge request
+    #[serde(rename = "approved")]
+    Approved,
+    /// Closed an item
+    #[serde(rename = "closed")]
+    Closed,
+    /// Commented on any Noteable record
+    #[serde(rename = "commented")]
+    Commented,
+    /// Commented on (legacy format)
+    #[serde(rename = "commented on")]
+    CommentedOn,
+    /// Created an item
+    #[serde(rename = "created")]
+    Created,
+    /// Destroyed an item
+    #[serde(rename = "destroyed")]
+    Destroyed,
+    /// Expired membership
+    #[serde(rename = "expired")]
+    Expired,
+    /// Joined a project
+    #[serde(rename = "joined")]
+    Joined,
+    /// Left a project
+    #[serde(rename = "left")]
+    Left,
+    /// Merged a merge request
+    #[serde(rename = "merged")]
+    Merged,
+    /// Pushed commits
+    #[serde(rename = "pushed")]
+    Pushed,
+    /// Pushed to a branch (legacy format)
+    #[serde(rename = "pushed to")]
+    PushedTo,
+    /// Reopened an item
+    #[serde(rename = "reopened")]
+    Reopened,
+    /// Updated an item
+    #[serde(rename = "updated")]
+    Updated,
+    /// Deleted a branch
+    #[serde(rename = "deleted")]
+    Deleted,
+    /// Accepted a merge request
+    #[serde(rename = "accepted")]
+    Accepted,
+    /// Other/unknown action
+    #[serde(other)]
+    Unknown,
+}
 /// Group visibility level
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -71,30 +139,6 @@ pub enum GroupVisibility {
     Internal,
     /// Private visibility
     Private,
-}
-/// GitLab emoji shortcodes
-///
-/// See <https://www.webfx.com/tools/emoji-cheat-sheet/> for full list of supported emoji shortcodes
-#[derive(Clone, Debug, Display, Serialize, Deserialize)]
-pub enum Emoji {
-    /// :seedling: 🌱
-    #[display(":seedling:")]
-    Seedling,
-}
-/// Pagination list parameters
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PaginationField {
-    /// Column by which to order by
-    OrderBy,
-    /// Page number to retrieve (default: 1)
-    Page,
-    /// Enable keyset pagination
-    Pagination,
-    /// Number of items to list per page (default: 20, max: 100)
-    PerPage,
-    /// Sort order
-    Sort,
 }
 /// Valid values for pagination order_by field
 ///
@@ -162,6 +206,21 @@ pub enum OrderByValue {
     /// Sort by weight/priority
     Weight,
 }
+/// Pagination list parameters
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PaginationField {
+    /// Column by which to order by
+    OrderBy,
+    /// Page number to retrieve (default: 1)
+    Page,
+    /// Enable keyset pagination
+    Pagination,
+    /// Number of items to list per page (default: 20, max: 100)
+    PerPage,
+    /// Sort order
+    Sort,
+}
 /// Valid values for pagination sort field
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -173,6 +232,30 @@ pub enum SortValue {
     /// Ascending order
     #[serde(rename = "asc")]
     Ascending,
+}
+/// GitLab event target type
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub enum TargetType {
+    /// Epic
+    Epic,
+    /// Issue
+    Issue,
+    /// Merge request
+    MergeRequest,
+    /// Milestone
+    Milestone,
+    /// Note/comment
+    Note,
+    /// Project
+    Project,
+    /// Snippet
+    Snippet,
+    /// User
+    User,
+    /// Other/unknown target type
+    #[serde(other)]
+    Unknown,
 }
 /// GitLab API error response
 ///
@@ -186,6 +269,42 @@ pub struct ErrorResponse {
     error: Option<String>,
     /// Detailed error description (OAuth-style)
     error_description: Option<String>,
+}
+/// GitLab event details
+///
+/// See <https://docs.gitlab.com/api/events/>
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EventDetails {
+    /// Numeric ID of the event
+    #[serde(rename = "id")]
+    pub identifier: u64,
+    /// Numeric project identifier
+    pub project_id: u64,
+    /// Event action name
+    pub action_name: EventAction,
+    /// Numeric target identifier
+    pub target_id: u64,
+    /// Internal target identifier
+    pub target_iid: u64,
+    /// Target type
+    pub target_type: TargetType,
+    /// Numeric author identifier
+    pub author_id: u64,
+    /// Target title
+    pub target_title: String,
+    /// Creation timestamp in ISO-8601 format
+    pub created_at: String,
+    /// Author details
+    pub author: UserMetadata,
+    /// Whether the event was imported
+    pub imported: bool,
+    /// Source from which the event was imported
+    pub imported_from: String,
+    /// Push data details (present only for push events)
+    pub push_data: Option<PushData>,
+    /// Author username
+    pub author_username: String,
 }
 /// Runner group details
 #[skip_serializing_none]
@@ -438,6 +557,28 @@ pub struct ProgrammingLanguageUseResponse {
     /// Flattened language usage entries
     pub languages: ProgrammingLanguageUseEntries,
 }
+/// Push data details for a GitLab event
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PushData {
+    /// Number of commits pushed
+    pub commit_count: u64,
+    /// Push action type
+    pub action: EventAction,
+    /// Reference type (branch or tag)
+    pub ref_type: String,
+    /// SHA of the commit before the push
+    pub commit_from: Option<String>,
+    /// SHA of the commit after the push
+    pub commit_to: Option<String>,
+    /// Reference name (branch or tag name)
+    #[serde(rename = "ref")]
+    pub ref_name: String,
+    /// Title of the most recent commit
+    pub commit_title: Option<String>,
+    /// Number of references affected
+    pub ref_count: Option<u64>,
+}
 /// GitLab API response for creating a runner
 /// ### Example JSON response
 /// ```json
@@ -672,6 +813,32 @@ pub struct UserMetadata {
     /// URL of the user's profile page
     #[serde(rename = "web_url")]
     pub url: String,
+}
+impl ErrorResponse {
+    fn is_terminal_pagination_message(message: &str) -> bool {
+        let message = message.to_lowercase();
+        let invalid_page =
+            message.contains("page") && (message.contains("invalid") || message.contains("out of range") || message.contains("not found"));
+        let forbidden_page = message.contains("403") && message.contains("forbidden");
+        invalid_page || forbidden_page
+    }
+    fn is_terminal_pagination_error(&self) -> bool {
+        Self::is_terminal_pagination_message(&self.message())
+    }
+    fn message(&self) -> String {
+        let message = self
+            .message
+            .as_ref()
+            .and_then(|value| serde_json::to_string(value).ok())
+            .unwrap_or_default();
+        let error = self.error.clone().unwrap_or_default();
+        let description = self.error_description.clone().unwrap_or_default();
+        [message, error, description]
+            .into_iter()
+            .filter(|value| !value.trim().is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
 }
 impl Default for RunnerMetadata {
     fn default() -> Self {
@@ -911,6 +1078,31 @@ impl Default for Options {
         Self::from_env()
     }
 }
+impl TryFrom<&str> for OrderByValue {
+    type Error = String;
+
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
+        match value {
+            | "created_at" => Ok(OrderByValue::CreatedAt),
+            | "due_date" => Ok(OrderByValue::DueDate),
+            | "full_name" => Ok(OrderByValue::FullName),
+            | "id" => Ok(OrderByValue::Identifier),
+            | "label_priority" => Ok(OrderByValue::LabelPriority),
+            | "last_activity_at" => Ok(OrderByValue::LastActivityAt),
+            | "milestone_due" => Ok(OrderByValue::MilestoneDue),
+            | "name" => Ok(OrderByValue::Name),
+            | "path" => Ok(OrderByValue::Path),
+            | "popularity" => Ok(OrderByValue::Popularity),
+            | "priority" => Ok(OrderByValue::Priority),
+            | "relative_position" => Ok(OrderByValue::RelativePosition),
+            | "similarity" => Ok(OrderByValue::Similarity),
+            | "title" => Ok(OrderByValue::Title),
+            | "updated_at" => Ok(OrderByValue::UpdatedAt),
+            | "weight" => Ok(OrderByValue::Weight),
+            | _ => Err(format!("Invalid GitLab order_by value: {value}")),
+        }
+    }
+}
 impl fmt::Display for PaginationField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
@@ -949,31 +1141,6 @@ impl ValueValidator for PaginationField {
         }
     }
 }
-impl TryFrom<&str> for OrderByValue {
-    type Error = String;
-
-    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
-        match value {
-            | "created_at" => Ok(OrderByValue::CreatedAt),
-            | "due_date" => Ok(OrderByValue::DueDate),
-            | "full_name" => Ok(OrderByValue::FullName),
-            | "id" => Ok(OrderByValue::Identifier),
-            | "label_priority" => Ok(OrderByValue::LabelPriority),
-            | "last_activity_at" => Ok(OrderByValue::LastActivityAt),
-            | "milestone_due" => Ok(OrderByValue::MilestoneDue),
-            | "name" => Ok(OrderByValue::Name),
-            | "path" => Ok(OrderByValue::Path),
-            | "popularity" => Ok(OrderByValue::Popularity),
-            | "priority" => Ok(OrderByValue::Priority),
-            | "relative_position" => Ok(OrderByValue::RelativePosition),
-            | "similarity" => Ok(OrderByValue::Similarity),
-            | "title" => Ok(OrderByValue::Title),
-            | "updated_at" => Ok(OrderByValue::UpdatedAt),
-            | "weight" => Ok(OrderByValue::Weight),
-            | _ => Err(format!("Invalid GitLab order_by value: {value}")),
-        }
-    }
-}
 impl TryFrom<&str> for SortValue {
     type Error = String;
 
@@ -982,6 +1149,88 @@ impl TryFrom<&str> for SortValue {
             | "asc" => Ok(SortValue::Ascending),
             | "desc" => Ok(SortValue::Descending),
             | _ => Err(format!("Invalid GitLab sort order: {value}")),
+        }
+    }
+}
+impl fmt::Display for EventAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            | EventAction::Approved => "approved",
+            | EventAction::Closed => "closed",
+            | EventAction::Commented => "commented",
+            | EventAction::CommentedOn => "commented on",
+            | EventAction::Created => "created",
+            | EventAction::Destroyed => "destroyed",
+            | EventAction::Expired => "expired",
+            | EventAction::Joined => "joined",
+            | EventAction::Left => "left",
+            | EventAction::Merged => "merged",
+            | EventAction::Pushed => "pushed",
+            | EventAction::PushedTo => "pushed to",
+            | EventAction::Reopened => "reopened",
+            | EventAction::Updated => "updated",
+            | EventAction::Deleted => "deleted",
+            | EventAction::Accepted => "accepted",
+            | EventAction::Unknown => "unknown",
+        };
+        write!(f, "{}", s)
+    }
+}
+impl core::str::FromStr for EventAction {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            | "approved" => Ok(EventAction::Approved),
+            | "closed" => Ok(EventAction::Closed),
+            | "commented" => Ok(EventAction::Commented),
+            | "commented on" => Ok(EventAction::CommentedOn),
+            | "created" => Ok(EventAction::Created),
+            | "destroyed" => Ok(EventAction::Destroyed),
+            | "expired" => Ok(EventAction::Expired),
+            | "joined" => Ok(EventAction::Joined),
+            | "left" => Ok(EventAction::Left),
+            | "merged" => Ok(EventAction::Merged),
+            | "pushed" => Ok(EventAction::Pushed),
+            | "pushed to" => Ok(EventAction::PushedTo),
+            | "reopened" => Ok(EventAction::Reopened),
+            | "updated" => Ok(EventAction::Updated),
+            | "deleted" => Ok(EventAction::Deleted),
+            | "accepted" => Ok(EventAction::Accepted),
+            | _ => Ok(EventAction::Unknown),
+        }
+    }
+}
+impl fmt::Display for TargetType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            | TargetType::Epic => "epic",
+            | TargetType::Issue => "issue",
+            | TargetType::MergeRequest => "merge_request",
+            | TargetType::Milestone => "milestone",
+            | TargetType::Note => "note",
+            | TargetType::Project => "project",
+            | TargetType::Snippet => "snippet",
+            | TargetType::User => "user",
+            | TargetType::Unknown => "unknown",
+        };
+        write!(f, "{}", s)
+    }
+}
+impl core::str::FromStr for TargetType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            | "epic" => Ok(TargetType::Epic),
+            | "issue" => Ok(TargetType::Issue),
+            | "merge_request" | "mergerequest" => Ok(TargetType::MergeRequest),
+            | "milestone" => Ok(TargetType::Milestone),
+            | "note" => Ok(TargetType::Note),
+            | "project" => Ok(TargetType::Project),
+            | "snippet" => Ok(TargetType::Snippet),
+            | "user" => Ok(TargetType::User),
+            | _ => Ok(TargetType::Unknown),
         }
     }
 }
@@ -994,32 +1243,6 @@ impl TreeEntry {
     pub fn is_blob(&self) -> bool {
         let Self { entry_type, .. } = self;
         entry_type.eq(&TreeEntryType::Blob)
-    }
-}
-impl ErrorResponse {
-    fn is_terminal_pagination_message(message: &str) -> bool {
-        let message = message.to_lowercase();
-        let invalid_page =
-            message.contains("page") && (message.contains("invalid") || message.contains("out of range") || message.contains("not found"));
-        let forbidden_page = message.contains("403") && message.contains("forbidden");
-        invalid_page || forbidden_page
-    }
-    fn is_terminal_pagination_error(&self) -> bool {
-        Self::is_terminal_pagination_message(&self.message())
-    }
-    fn message(&self) -> String {
-        let message = self
-            .message
-            .as_ref()
-            .and_then(|value| serde_json::to_string(value).ok())
-            .unwrap_or_default();
-        let error = self.error.clone().unwrap_or_default();
-        let description = self.error_description.clone().unwrap_or_default();
-        [message, error, description]
-            .into_iter()
-            .filter(|value| !value.trim().is_empty())
-            .collect::<Vec<_>>()
-            .join(" ")
     }
 }
 pub(crate) fn handle_tree_paths_response(response: ApiResult<TreeResponse>, page: u32) -> ApiResult<TreeResponse> {
@@ -1054,13 +1277,15 @@ pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationRespons
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
             | Ok(endpoint) => {
-                let mut params = vec![
-                    param!(Header, "PRIVATE-TOKEN", &token),
-                    param!(Body, "description", &description),
-                    param!(Body, &format!("{runner_type}_id"), &options.identifier.as_deref().unwrap_or_default()),
-                    param!(Body, "runner_type", &format!("{runner_type}_type")),
-                    param!(Body, "run_untagged", &run_untagged.to_string()),
-                ];
+                let mut params = auth_header("PRIVATE-TOKEN", &token)
+                    .into_iter()
+                    .chain([
+                        param!(Body, "description", &description),
+                        param!(Body, &format!("{runner_type}_id"), &options.identifier.as_deref().unwrap_or_default()),
+                        param!(Body, "runner_type", &format!("{runner_type}_type")),
+                        param!(Body, "run_untagged", &run_untagged.to_string()),
+                    ])
+                    .collect::<Vec<_>>();
                 if !tags.is_empty() {
                     params.push(param!(Body, "tag_list", &tags.join(",")));
                 }
@@ -1097,12 +1322,14 @@ pub async fn groups(options: &Options) -> ApiResult<GroupsResponse> {
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
             | Ok(endpoint) => {
-                let params = vec![
-                    param!(Header, "PRIVATE-TOKEN", &token),
-                    param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-                    param!(FieldList, "page", "1"),
-                    param!(KeyValuePair, "per_page", "100"),
-                ];
+                let params = auth_header("PRIVATE-TOKEN", &token)
+                    .into_iter()
+                    .chain([
+                        param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
+                        param!(FieldList, "page", "1"),
+                        param!(KeyValuePair, "per_page", "100"),
+                    ])
+                    .collect();
                 let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
                 endpoint.handle_or::<GroupsResponse, Fallback<ErrorResponse>>(response)
             }
@@ -1121,10 +1348,10 @@ pub async fn language_use(options: &Options) -> ApiResult<ProgrammingLanguageUse
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
             | Ok(endpoint) => {
-                let params = vec![
-                    param!(Header, "PRIVATE-TOKEN", &token),
-                    param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-                ];
+                let params = auth_header("PRIVATE-TOKEN", &token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default())])
+                    .collect();
                 let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
                 endpoint.handle::<ProgrammingLanguageUseResponse>(response)
             }
@@ -1180,16 +1407,18 @@ pub async fn merge_request_note(options: &Options) -> ApiResult<NoteMetadata> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
             | Ok(endpoint) => {
                 let body = options.body.as_deref().unwrap_or_default();
-                let params = vec![
-                    param!(Header, "PRIVATE-TOKEN", &token),
-                    param!(Body, "body", &body),
-                    param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-                    param!(
-                        TemplateValue,
-                        "internal_identifier",
-                        &options.internal_identifier.as_deref().unwrap_or_default()
-                    ),
-                ];
+                let params = auth_header("PRIVATE-TOKEN", &token)
+                    .into_iter()
+                    .chain([
+                        param!(Body, "body", &body),
+                        param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
+                        param!(
+                            TemplateValue,
+                            "internal_identifier",
+                            &options.internal_identifier.as_deref().unwrap_or_default()
+                        ),
+                    ])
+                    .collect();
                 let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
                 endpoint.handle::<NoteMetadata>(response)
             }
@@ -1206,10 +1435,10 @@ pub async fn runner(options: &Options) -> ApiResult<RunnerMetadata> {
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
             | Ok(endpoint) => {
-                let params = vec![
-                    param!(Header, "PRIVATE-TOKEN", &token),
-                    param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-                ];
+                let params = auth_header("PRIVATE-TOKEN", &token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default())])
+                    .collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle::<RunnerMetadata>(response)
             }
@@ -1226,7 +1455,7 @@ pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
             | Ok(endpoint) => {
-                let params = vec![param!(Header, "PRIVATE-TOKEN", &token)];
+                let params = auth_header("PRIVATE-TOKEN", &token).into_iter().collect();
                 let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
                 endpoint.handle_or::<RunnersResponse, Fallback<ErrorResponse>>(response)
             }
@@ -1254,7 +1483,7 @@ pub(crate) async fn tree_paths(options: &Options) -> ApiResult<TreeResponse> {
                 Some(options.token.clone())
             };
             if let Some(token) = token.filter(|value| !value.trim().is_empty()) {
-                params.push(param!(Header, "PRIVATE-TOKEN", &token));
+                params.extend(auth_header("PRIVATE-TOKEN", &token));
             }
             let response = endpoint.invoke(action, Some(params)).await;
             handle_tree_paths_response(endpoint.handle_or::<TreeResponse, Fallback<ErrorResponse>>(response), options.page)

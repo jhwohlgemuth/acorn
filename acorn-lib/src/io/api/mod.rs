@@ -727,6 +727,21 @@ impl ValueValidator for EmptyField {
         true
     }
 }
+/// Create an authentication header parameter when the token is non-empty
+pub(crate) fn auth_header(name: &str, token: &str) -> Option<Param> {
+    let value = token.trim();
+    (!value.is_empty()).then(|| Param::of_type(ParamStyle::Header).values(vec![vec![Some(value)]]).with_key(name))
+}
+/// Create a bearer authentication header parameter when the token is non-empty
+pub(crate) fn bearer_auth_header(token: &str) -> Option<Param> {
+    let value = token.trim();
+    (!value.is_empty()).then(|| {
+        let header = format!("Bearer {value}");
+        Param::of_type(ParamStyle::Header)
+            .values(vec![vec![Some(header.as_str())]])
+            .with_key("Authorization")
+    })
+}
 pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
     fn extract_key(expression: &str) -> Option<String> {
         let trimmed = expression.trim().trim_matches('-');

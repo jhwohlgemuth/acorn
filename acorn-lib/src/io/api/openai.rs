@@ -2,7 +2,7 @@
 //!
 //! See <https://platform.openai.com/docs/api-reference> for more information
 //!
-use crate::io::api::{ApiResult, Configuration, Endpoint, Fallback, RemoteResource};
+use crate::io::api::{bearer_auth_header, ApiResult, Configuration, Endpoint, Fallback, RemoteResource};
 use crate::param;
 use crate::prelude::var;
 use crate::util::Label;
@@ -195,7 +195,7 @@ pub async fn chat_completion(options: Options) -> ApiResult<ChatCompletionRespon
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match body {
             | Some(value) if !value.is_empty() => {
-                let params = vec![param!(Header, "Authorization", &format!("Bearer {token}")), param!(Body, &value)];
+                let params = bearer_auth_header(&token).into_iter().chain([param!(Body, &value)]).collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle_or::<ChatCompletionResponse, Fallback<ErrorResponse>>(response)
             }
@@ -219,7 +219,7 @@ pub async fn chat_completion_list(options: Options) -> ApiResult<ChatCompletionL
     let action = "chat-completion::list";
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => {
-            let mut params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
+            let mut params = bearer_auth_header(&token).into_iter().collect::<Vec<_>>();
             if let Some(value) = after.filter(|value| !value.is_empty()) {
                 params.push(param!(KeyValuePair, "after", &value));
             }
@@ -248,10 +248,10 @@ pub async fn chat_completion_delete(options: Options) -> ApiResult<DeleteRespons
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match identifier {
             | Some(value) if !value.is_empty() => {
-                let params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
+                let params = bearer_auth_header(&token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &value)])
+                    .collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle_or::<DeleteResponseOutput, Fallback<ErrorResponse>>(response)
             }
@@ -276,10 +276,10 @@ pub async fn chat_completion_messages(options: Options) -> ApiResult<ChatComplet
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match identifier {
             | Some(value) if !value.is_empty() => {
-                let mut params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
+                let mut params = bearer_auth_header(&token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &value)])
+                    .collect::<Vec<_>>();
                 if let Some(value) = after.filter(|value| !value.is_empty()) {
                     params.push(param!(KeyValuePair, "after", &value));
                 }
@@ -307,10 +307,10 @@ pub async fn chat_completion_retrieve(options: Options) -> ApiResult<ChatComplet
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match identifier {
             | Some(value) if !value.is_empty() => {
-                let params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
+                let params = bearer_auth_header(&token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &value)])
+                    .collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle_or::<ChatCompletionResponse, Fallback<ErrorResponse>>(response)
             }
@@ -333,11 +333,10 @@ pub async fn chat_completion_update(options: Options) -> ApiResult<ChatCompletio
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match (identifier, body) {
             | (Some(id), Some(value)) if !id.is_empty() && !value.is_empty() => {
-                let params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &id),
-                    param!(Body, &value),
-                ];
+                let params = bearer_auth_header(&token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &id), param!(Body, &value)])
+                    .collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle_or::<ChatCompletionResponse, Fallback<ErrorResponse>>(response)
             }
@@ -357,10 +356,10 @@ pub async fn model(options: Options) -> ApiResult<Model> {
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match identifier {
             | Some(value) if !value.is_empty() => {
-                let params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
+                let params = bearer_auth_header(&token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &value)])
+                    .collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle_or::<Model, Fallback<ErrorResponse>>(response)
             }
@@ -379,10 +378,10 @@ pub async fn model_delete(options: Options) -> ApiResult<ModelDeleteOutput> {
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match identifier {
             | Some(value) if !value.is_empty() => {
-                let params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
+                let params = bearer_auth_header(&token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &value)])
+                    .collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle_or::<ModelDeleteOutput, Fallback<ErrorResponse>>(response)
             }
@@ -398,7 +397,7 @@ pub async fn models(options: Options) -> ApiResult<ListModelsResponse> {
     let action = "models";
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => {
-            let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
+            let params = bearer_auth_header(&token).into_iter().collect();
             let response = endpoint.invoke(action, Some(params)).await;
             endpoint.handle_or::<ListModelsResponse, Fallback<ErrorResponse>>(response)
         }
@@ -413,7 +412,7 @@ pub async fn response(options: Options) -> ApiResult<CreateResponseOutput> {
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match body {
             | Some(value) if !value.is_empty() => {
-                let params = vec![param!(Header, "Authorization", &format!("Bearer {token}")), param!(Body, &value)];
+                let params = bearer_auth_header(&token).into_iter().chain([param!(Body, &value)]).collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle_or::<CreateResponseOutput, Fallback<ErrorResponse>>(response)
             }
@@ -432,10 +431,10 @@ pub async fn response_delete(options: Options) -> ApiResult<DeleteResponseOutput
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match identifier {
             | Some(value) if !value.is_empty() => {
-                let params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
+                let params = bearer_auth_header(&token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &value)])
+                    .collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle_or::<DeleteResponseOutput, Fallback<ErrorResponse>>(response)
             }
@@ -460,10 +459,10 @@ pub async fn response_input_items(options: Options) -> ApiResult<ResponseInputIt
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match identifier {
             | Some(value) if !value.is_empty() => {
-                let mut params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
+                let mut params = bearer_auth_header(&token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &value)])
+                    .collect::<Vec<_>>();
                 if let Some(value) = after.filter(|value| !value.is_empty()) {
                     params.push(param!(KeyValuePair, "after", &value));
                 }
@@ -491,10 +490,10 @@ pub async fn response_cancel(options: Options) -> ApiResult<CreateResponseOutput
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match identifier {
             | Some(value) if !value.is_empty() => {
-                let params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
+                let params = bearer_auth_header(&token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &value)])
+                    .collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle_or::<CreateResponseOutput, Fallback<ErrorResponse>>(response)
             }
@@ -513,10 +512,10 @@ pub async fn response_retrieve(options: Options) -> ApiResult<CreateResponseOutp
     match Endpoint::from_template(template).map(|e| e.with_domain(domain.as_str())) {
         | Ok(endpoint) => match identifier {
             | Some(value) if !value.is_empty() => {
-                let params = vec![
-                    param!(Header, "Authorization", &format!("Bearer {token}")),
-                    param!(TemplateValue, "identifier", &value),
-                ];
+                let params = bearer_auth_header(&token)
+                    .into_iter()
+                    .chain([param!(TemplateValue, "identifier", &value)])
+                    .collect();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle_or::<CreateResponseOutput, Fallback<ErrorResponse>>(response)
             }

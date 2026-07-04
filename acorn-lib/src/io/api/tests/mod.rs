@@ -7,8 +7,8 @@
 )]
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
-    self, extract_template_keys, orcid, require_non_empty_secret, ror, Endpoint, IntoBody, Param, ParamStyle, RemoteResource, Resource,
-    ResponseContent, INCLUDED_ENDPOINTS,
+    self, auth_header, bearer_auth_header, extract_template_keys, orcid, require_non_empty_secret, ror, Endpoint, IntoBody, IntoHeaders, Param,
+    ParamStyle, RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,
 };
 use crate::io::read_file;
 use crate::param;
@@ -197,6 +197,31 @@ fn test_require_non_empty_secret_rejects_empty_values() {
 fn test_require_non_empty_secret_trims_and_accepts_value() {
     let token = require_non_empty_secret("  secret-token  ", "RAiD", &["RAID_API_TOKEN"]).expect("non-empty token must pass");
     assert_eq!(token, "secret-token");
+}
+#[test]
+fn test_bearer_auth_header_returns_authorization_header() {
+    let headers = bearer_auth_header("  secret-token  ").into_iter().collect::<Vec<_>>().into_headers();
+    let value = headers.get("Authorization").expect("Authorization header should exist");
+    assert_eq!(value.to_str().expect("header should be visible"), "Bearer secret-token");
+    assert!(value.is_sensitive());
+}
+#[test]
+fn test_bearer_auth_header_rejects_empty_token() {
+    assert!(bearer_auth_header("   ").is_none());
+}
+#[test]
+fn test_auth_header_returns_named_header() {
+    let headers = auth_header("PRIVATE-TOKEN", "  secret-token  ")
+        .into_iter()
+        .collect::<Vec<_>>()
+        .into_headers();
+    let value = headers.get("PRIVATE-TOKEN").expect("PRIVATE-TOKEN header should exist");
+    assert_eq!(value.to_str().expect("header should be visible"), "secret-token");
+    assert!(value.is_sensitive());
+}
+#[test]
+fn test_auth_header_rejects_empty_token() {
+    assert!(auth_header("PRIVATE-TOKEN", "   ").is_none());
 }
 #[test]
 fn test_into_body() {

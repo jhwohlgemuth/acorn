@@ -70,6 +70,15 @@ changelog-release:
 	@git pull origin main --tags
 	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN} --latest
 
+check:
+	@cargo check -p acorn-lib
+	@cargo check -p acorn-lib --no-default-features --features core
+	@cargo check -p acorn-lib --no-default-features --features alloc
+	@cargo check -p acorn-lib --no-default-features
+	@cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
+	@cargo check -p acorn-lib --features std,analysis
+	@cargo check -p acorn-cli
+
 cover: clean lint
 	@cargo tarpaulin --out lcov --line --skip-clean --no-dead-code --engine llvm
 

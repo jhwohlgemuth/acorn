@@ -2,7 +2,7 @@
 //!
 //! See <https://metadata.raid.org> for more information
 //!
-use crate::io::api::{require_non_empty_secret, ApiResult, Configuration, Endpoint, Fallback, RemoteResource};
+use crate::io::api::{bearer_auth_header, require_non_empty_secret, ApiResult, Configuration, Endpoint, Fallback, RemoteResource};
 use crate::param;
 use crate::prelude::var;
 use crate::schema::pid::raid::Metadata;
@@ -220,7 +220,7 @@ pub async fn create_record(options: Options) -> ApiResult<Metadata> {
             | Ok(endpoint) => match metadata {
                 | Some(value) => match serde_json::to_string(&value) {
                     | Ok(body) => {
-                        let params = vec![param!(Header, "Authorization", &format!("Bearer {token}")), param!(Body, &body)];
+                        let params = bearer_auth_header(&token).into_iter().chain([param!(Body, &body)]).collect();
                         let response = endpoint.invoke(action, Some(params)).await;
                         endpoint.handle_or::<Metadata, Fallback<ErrorResponse>>(response)
                     }
@@ -255,15 +255,15 @@ pub async fn record(options: Options) -> ApiResult<Vec<Metadata>> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
             | Ok(endpoint) => match identifier {
                 | Some(value) if !value.is_empty() => {
-                    let params = vec![
-                        param!(Header, "Authorization", &format!("Bearer {token}")),
-                        param!(TemplateValue, "identifier", &value),
-                    ];
+                    let params = bearer_auth_header(&token)
+                        .into_iter()
+                        .chain([param!(TemplateValue, "identifier", &value)])
+                        .collect();
                     let response = endpoint.invoke(action, Some(params)).await;
                     endpoint.handle::<Metadata>(response).map(|r| vec![r])
                 }
                 | Some(_) | None => {
-                    let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
+                    let params = bearer_auth_header(&token).into_iter().collect();
                     let response = endpoint.invoke(action, Some(params)).await;
                     endpoint.handle::<Vec<Metadata>>(response)
                 }
@@ -295,15 +295,15 @@ pub async fn service_point(options: Options) -> ApiResult<Vec<ServicePointRespon
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&domain)) {
             | Ok(endpoint) => match identifier {
                 | Some(value) if !value.is_empty() => {
-                    let params = vec![
-                        param!(Header, "Authorization", &format!("Bearer {token}")),
-                        param!(TemplateValue, "identifier", &value),
-                    ];
+                    let params = bearer_auth_header(&token)
+                        .into_iter()
+                        .chain([param!(TemplateValue, "identifier", &value)])
+                        .collect();
                     let response = endpoint.invoke(action, Some(params)).await;
                     endpoint.handle::<ServicePointResponse>(response).map(|r| vec![r])
                 }
                 | Some(_) | None => {
-                    let params = vec![param!(Header, "Authorization", &format!("Bearer {token}"))];
+                    let params = bearer_auth_header(&token).into_iter().collect();
                     let response = endpoint.invoke(action, Some(params)).await;
                     endpoint.handle::<Vec<ServicePointResponse>>(response)
                 }
