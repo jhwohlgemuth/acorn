@@ -1,8 +1,7 @@
 //! Module for interacting with GitHub API
 //!
-use crate::io::api::{Endpoint, RemoteResource, TreeEntryType};
+use crate::io::api::{Endpoint, Params, RemoteResource, TreeEntryType};
 use crate::io::ApiResult;
-use crate::param;
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -123,14 +122,11 @@ pub(crate) fn collect_tree(entries: Vec<TreeEntry>, prefix: &str) -> (Vec<String
     })
 }
 async fn fetch_tree(endpoint: &Endpoint, path: &str, branch: &str, recursive: bool) -> ApiResult<TreeResponse> {
-    let params = match recursive {
-        | true => vec![
-            param!(TemplateValue, "path", path),
-            param!(TemplateValue, "branch", branch),
-            param!(KeyValuePair, "recursive", "1"),
-        ],
-        | false => vec![param!(TemplateValue, "path", path), param!(TemplateValue, "branch", branch)],
-    };
+    let params = Params::new()
+        .with_template("path", Some(path))
+        .with_template("branch", Some(branch))
+        .with_keyvalue("recursive", recursive.then_some("1"))
+        .build();
     let response = endpoint.invoke("tree", Some(params)).await;
     endpoint.handle::<TreeResponse>(response)
 }

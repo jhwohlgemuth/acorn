@@ -7,6 +7,7 @@ use crate::io::database::{schema::Table, Database};
 use crate::io::http::HttpMethod;
 use crate::io::http::{delete, get, patch, post, put};
 use crate::io::ApiResult;
+use crate::param;
 use crate::prelude::HashSet;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::util::{detect_json, detect_xml, Constant, Label, Searchable};
@@ -17,6 +18,7 @@ use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::{fmt, marker::PhantomData};
+use core::iter::once;
 use derive_more::Display;
 use fluent_uri::Uri;
 use lazy_static::lazy_static;
@@ -52,6 +54,14 @@ pub trait Configuration {
     fn with_body(self, value: impl Into<String>) -> Self;
     /// Return a copy of this configuration with the specified domain set
     fn with_domain(self, value: impl Into<String>) -> Self;
+    /// Return a copy of this configuration with the specified resource identifier set
+    fn with_identifier(self, value: impl Into<String>) -> Self;
+    /// Return the authentication token
+    fn token(&self) -> &str;
+    /// Return the API domain
+    fn domain(&self) -> &str;
+    /// Return the optional resource identifier
+    fn identifier(&self) -> Option<&str>;
 }
 /// Trait for objects that can be persisted in a database
 #[async_trait]
@@ -293,6 +303,22 @@ pub struct Param {
     #[builder(default = false)]
     pub required: bool,
 }
+/// Builder for constructing `Vec<Param>` with a fluent, immutable API.
+///
+/// Methods consume `self` and return `Self` — no mutation, always chainable.
+///
+/// # Examples
+///
+/// ```ignore
+/// use acorn::io::api::Params;
+///
+/// let params = Params::new()
+///     .with_auth("sk-xxx", None)
+///     .with_template("identifier", Some("chat-123"))
+///     .with_keyvalue("limit", Some("10"))
+///     .build();
+/// ```
+pub struct Params(Vec<Param>);
 /// Represents a resource for an API endpoint, which can be used to generate full paths for requests
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
@@ -517,6 +543,79 @@ impl Param {
         rendered.unwrap_or_default()
     }
 }
+impl Default for Params {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Params {
+    /// Start building an empty param list
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+    /// Build and return the underlying `Vec<Param>`
+    pub fn build(self) -> Vec<Param> {
+        self.0
+    }
+    /// Add any pre-built `Param` value
+    pub fn with(self, param: Param) -> Self {
+        Self(self.0.into_iter().chain(once(param)).collect())
+    }
+    /// Populate with Bearer auth header and identifier template value from a
+    /// [`Configuration`] provider.
+    pub fn from_config(config: &impl Configuration) -> Self {
+        Self::new()
+            .with_auth(config.token(), None)
+            .with_template("identifier", config.identifier())
+    }
+    /// Add an authentication header if `token` is non-empty.
+    ///
+    /// When `name` is `None`, adds `Authorization: Bearer {token}` (Bearer auth).
+    /// When `name` is `Some(header_name)`, adds `{header_name}: {token}` (custom header).
+    ///
+    /// Used by Bearer providers (OpenAI, RAiD) and custom-header providers (GitLab's `PRIVATE-TOKEN`).
+    pub fn with_auth(self, token: &str, name: Option<&str>) -> Self {
+        let value = token.trim();
+        if !value.is_empty() {
+            let (header_name, header_value): (&str, String) = match name {
+                | None => ("Authorization", format!("Bearer {value}")),
+                | Some(name) => (name, value.to_string()),
+            };
+            self.with(param!(Header, header_name, header_value.as_str()))
+        } else {
+            self
+        }
+    }
+    /// Add a template-value parameter, skipping if the value is `None` or empty
+    pub fn with_template(self, key: &str, value: Option<&str>) -> Self {
+        match value {
+            | Some(v) if !v.is_empty() => self.with(param!(ParamStyle::TemplateValue, key, v)),
+            | _ => self,
+        }
+    }
+    /// Add a query key-value pair, skipping if the value is `None` or empty
+    pub fn with_keyvalue(self, key: &str, value: Option<&str>) -> Self {
+        match value {
+            | Some(v) if !v.is_empty() => self.with(param!(ParamStyle::KeyValuePair, key, v)),
+            | _ => self,
+        }
+    }
+    /// Add a named body parameter (always added)
+    pub fn with_body(self, key: &str, value: &str) -> Self {
+        self.with(param!(ParamStyle::Body, key, value))
+    }
+    /// Add a named body parameter, skipping if the value is `None` or empty
+    pub fn with_body_maybe(self, key: &str, value: Option<&str>) -> Self {
+        match value {
+            | Some(v) if !v.is_empty() => self.with(param!(ParamStyle::Body, key, v)),
+            | _ => self,
+        }
+    }
+    /// Add a field-list parameter (always added)
+    pub fn with_field(self, key: &str, value: &str) -> Self {
+        self.with(param!(ParamStyle::FieldList, key, value))
+    }
+}
 impl IntoBody for Vec<Param> {
     fn into_body(self) -> serde_json::Value {
         let params: Vec<Param> = self.into_iter().filter(|Param { style, .. }| style.is_body()).collect();
@@ -727,21 +826,7 @@ impl ValueValidator for EmptyField {
         true
     }
 }
-/// Create an authentication header parameter when the token is non-empty
-pub(crate) fn auth_header(name: &str, token: &str) -> Option<Param> {
-    let value = token.trim();
-    (!value.is_empty()).then(|| Param::of_type(ParamStyle::Header).values(vec![vec![Some(value)]]).with_key(name))
-}
-/// Create a bearer authentication header parameter when the token is non-empty
-pub(crate) fn bearer_auth_header(token: &str) -> Option<Param> {
-    let value = token.trim();
-    (!value.is_empty()).then(|| {
-        let header = format!("Bearer {value}");
-        Param::of_type(ParamStyle::Header)
-            .values(vec![vec![Some(header.as_str())]])
-            .with_key("Authorization")
-    })
-}
+
 pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
     fn extract_key(expression: &str) -> Option<String> {
         let trimmed = expression.trim().trim_matches('-');

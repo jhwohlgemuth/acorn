@@ -3,14 +3,13 @@
 // TODO: Add custom field list and query pair type
 // TODO: Finish modeling necessary API endpoints
 use crate::io::api::{
-    auth_header, require_non_empty_secret, Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, RemoteResource, ResponseContent,
+    require_non_empty_secret, Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, Params, RemoteResource, ResponseContent,
     TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS,
 };
 use crate::io::config::{RunnerDetails, RunnerStatus, RunnerType};
 use crate::io::database::schema::{ProgrammingLanguageRow, Table};
 use crate::io::database::{Database, Operations};
 use crate::io::{first_env_var, with_progress, ApiResult, ProgressType};
-use crate::param;
 use crate::prelude::var;
 use crate::prelude::HashMap;
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
@@ -840,60 +839,52 @@ impl ErrorResponse {
             .join(" ")
     }
 }
-impl Default for RunnerMetadata {
-    fn default() -> Self {
-        Self::init().build()
+impl fmt::Display for EventAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            | EventAction::Approved => "approved",
+            | EventAction::Closed => "closed",
+            | EventAction::Commented => "commented",
+            | EventAction::CommentedOn => "commented on",
+            | EventAction::Created => "created",
+            | EventAction::Destroyed => "destroyed",
+            | EventAction::Expired => "expired",
+            | EventAction::Joined => "joined",
+            | EventAction::Left => "left",
+            | EventAction::Merged => "merged",
+            | EventAction::Pushed => "pushed",
+            | EventAction::PushedTo => "pushed to",
+            | EventAction::Reopened => "reopened",
+            | EventAction::Updated => "updated",
+            | EventAction::Deleted => "deleted",
+            | EventAction::Accepted => "accepted",
+            | EventAction::Unknown => "unknown",
+        };
+        write!(f, "{}", s)
     }
 }
-impl From<RunnerDetails> for RunnerMetadata {
-    fn from(value: RunnerDetails) -> Self {
-        let RunnerDetails {
-            name,
-            runner_type,
-            description,
-            tags,
-            ..
-        } = value;
-        Self {
-            access_level: None,
-            active: false,
-            architecture: None,
-            contacted_at: None,
-            created_at: None,
-            created_by: None,
-            description,
-            groups: None,
-            identifier: None,
-            ip_address: None,
-            job_execution_status: None,
-            paused: false,
-            maintenance_note: None,
-            maximum_timeout: None,
-            name,
-            online: Some(false),
-            platform: None,
-            projects: None,
-            revision: None,
-            shared: matches!(runner_type, RunnerType::Instance),
-            runner_type,
-            run_untagged: false,
-            status: None,
-            tags,
-            version: None,
-        }
-    }
-}
-impl RunnerMetadata {
-    /// Whether the runner is active and online
-    pub fn is_available(&self) -> bool {
-        let Self { active, online, paused, .. } = self;
-        *active && online.unwrap_or(false) && !*paused
-    }
-    /// Return a copy of runner metadata with project or group identifier set
-    pub fn with_identifier(self, value: u64) -> Self {
-        Self {
-            identifier: Some(value),
-            ..self
+impl core::str::FromStr for EventAction {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            | "approved" => Ok(EventAction::Approved),
+            | "closed" => Ok(EventAction::Closed),
+            | "commented" => Ok(EventAction::Commented),
+            | "commented on" => Ok(EventAction::CommentedOn),
+            | "created" => Ok(EventAction::Created),
+            | "destroyed" => Ok(EventAction::Destroyed),
+            | "expired" => Ok(EventAction::Expired),
+            | "joined" => Ok(EventAction::Joined),
+            | "left" => Ok(EventAction::Left),
+            | "merged" => Ok(EventAction::Merged),
+            | "pushed" => Ok(EventAction::Pushed),
+            | "pushed to" => Ok(EventAction::PushedTo),
+            | "reopened" => Ok(EventAction::Reopened),
+            | "updated" => Ok(EventAction::Updated),
+            | "deleted" => Ok(EventAction::Deleted),
+            | "accepted" => Ok(EventAction::Accepted),
+            | _ => Ok(EventAction::Unknown),
         }
     }
 }
@@ -934,15 +925,27 @@ impl Configuration for Options {
             ..self
         }
     }
-}
-impl Options {
     /// Return a copy of options with project or group identifier set
-    pub fn with_identifier(self, value: impl Into<String>) -> Self {
+    fn with_identifier(self, value: impl Into<String>) -> Self {
         Self {
             identifier: Some(value.into()),
             ..self
         }
     }
+    /// Return the authentication token
+    fn token(&self) -> &str {
+        &self.token
+    }
+    /// Return the GitLab domain
+    fn domain(&self) -> &str {
+        &self.domain
+    }
+    /// Return the optional project or group identifier
+    fn identifier(&self) -> Option<&str> {
+        self.identifier.as_deref()
+    }
+}
+impl Options {
     /// Return a copy of options with page number set
     pub fn with_page(self, value: u32) -> Self {
         Self { page: value, ..self }
@@ -1141,6 +1144,63 @@ impl ValueValidator for PaginationField {
         }
     }
 }
+impl Default for RunnerMetadata {
+    fn default() -> Self {
+        Self::init().build()
+    }
+}
+impl From<RunnerDetails> for RunnerMetadata {
+    fn from(value: RunnerDetails) -> Self {
+        let RunnerDetails {
+            name,
+            runner_type,
+            description,
+            tags,
+            ..
+        } = value;
+        Self {
+            access_level: None,
+            active: false,
+            architecture: None,
+            contacted_at: None,
+            created_at: None,
+            created_by: None,
+            description,
+            groups: None,
+            identifier: None,
+            ip_address: None,
+            job_execution_status: None,
+            paused: false,
+            maintenance_note: None,
+            maximum_timeout: None,
+            name,
+            online: Some(false),
+            platform: None,
+            projects: None,
+            revision: None,
+            shared: matches!(runner_type, RunnerType::Instance),
+            runner_type,
+            run_untagged: false,
+            status: None,
+            tags,
+            version: None,
+        }
+    }
+}
+impl RunnerMetadata {
+    /// Whether the runner is active and online
+    pub fn is_available(&self) -> bool {
+        let Self { active, online, paused, .. } = self;
+        *active && online.unwrap_or(false) && !*paused
+    }
+    /// Return a copy of runner metadata with project or group identifier set
+    pub fn with_identifier(self, value: u64) -> Self {
+        Self {
+            identifier: Some(value),
+            ..self
+        }
+    }
+}
 impl TryFrom<&str> for SortValue {
     type Error = String;
 
@@ -1149,55 +1209,6 @@ impl TryFrom<&str> for SortValue {
             | "asc" => Ok(SortValue::Ascending),
             | "desc" => Ok(SortValue::Descending),
             | _ => Err(format!("Invalid GitLab sort order: {value}")),
-        }
-    }
-}
-impl fmt::Display for EventAction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            | EventAction::Approved => "approved",
-            | EventAction::Closed => "closed",
-            | EventAction::Commented => "commented",
-            | EventAction::CommentedOn => "commented on",
-            | EventAction::Created => "created",
-            | EventAction::Destroyed => "destroyed",
-            | EventAction::Expired => "expired",
-            | EventAction::Joined => "joined",
-            | EventAction::Left => "left",
-            | EventAction::Merged => "merged",
-            | EventAction::Pushed => "pushed",
-            | EventAction::PushedTo => "pushed to",
-            | EventAction::Reopened => "reopened",
-            | EventAction::Updated => "updated",
-            | EventAction::Deleted => "deleted",
-            | EventAction::Accepted => "accepted",
-            | EventAction::Unknown => "unknown",
-        };
-        write!(f, "{}", s)
-    }
-}
-impl core::str::FromStr for EventAction {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            | "approved" => Ok(EventAction::Approved),
-            | "closed" => Ok(EventAction::Closed),
-            | "commented" => Ok(EventAction::Commented),
-            | "commented on" => Ok(EventAction::CommentedOn),
-            | "created" => Ok(EventAction::Created),
-            | "destroyed" => Ok(EventAction::Destroyed),
-            | "expired" => Ok(EventAction::Expired),
-            | "joined" => Ok(EventAction::Joined),
-            | "left" => Ok(EventAction::Left),
-            | "merged" => Ok(EventAction::Merged),
-            | "pushed" => Ok(EventAction::Pushed),
-            | "pushed to" => Ok(EventAction::PushedTo),
-            | "reopened" => Ok(EventAction::Reopened),
-            | "updated" => Ok(EventAction::Updated),
-            | "deleted" => Ok(EventAction::Deleted),
-            | "accepted" => Ok(EventAction::Accepted),
-            | _ => Ok(EventAction::Unknown),
         }
     }
 }
@@ -1274,21 +1285,18 @@ pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationRespons
     let description = runner_metadata.description.as_deref().unwrap_or_default();
     let tags = runner_metadata.tags.as_deref().unwrap_or_default();
     let run_untagged = runner_metadata.run_untagged;
+    let tag_list = if tags.is_empty() { None } else { Some(tags.join(",")) };
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
-        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
-                let mut params = auth_header("PRIVATE-TOKEN", &token)
-                    .into_iter()
-                    .chain([
-                        param!(Body, "description", &description),
-                        param!(Body, &format!("{runner_type}_id"), &options.identifier.as_deref().unwrap_or_default()),
-                        param!(Body, "runner_type", &format!("{runner_type}_type")),
-                        param!(Body, "run_untagged", &run_untagged.to_string()),
-                    ])
-                    .collect::<Vec<_>>();
-                if !tags.is_empty() {
-                    params.push(param!(Body, "tag_list", &tags.join(",")));
-                }
+                let params = Params::new()
+                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_body("description", description)
+                    .with_body(&format!("{runner_type}_id"), options.identifier.as_deref().unwrap_or_default())
+                    .with_body("runner_type", &format!("{runner_type}_type"))
+                    .with_body("run_untagged", &run_untagged.to_string())
+                    .with_body_maybe("tag_list", tag_list.as_deref())
+                    .build();
                 let response = endpoint.invoke(action, Some(params)).await;
                 match response {
                     | Ok(ResponseContent::Json(content)) => match serde_json::from_str::<StrictRunnerCreationResponse>(&content) {
@@ -1320,16 +1328,14 @@ pub async fn groups(options: &Options) -> ApiResult<GroupsResponse> {
     let action = "groups";
     let path = format!("{template}::{action}");
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
-        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
-                let params = auth_header("PRIVATE-TOKEN", &token)
-                    .into_iter()
-                    .chain([
-                        param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-                        param!(FieldList, "page", "1"),
-                        param!(KeyValuePair, "per_page", "100"),
-                    ])
-                    .collect();
+                let params = Params::new()
+                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_template("identifier", options.identifier())
+                    .with_field("page", "1")
+                    .with_keyvalue("per_page", Some("100"))
+                    .build();
                 let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
                 endpoint.handle_or::<GroupsResponse, Fallback<ErrorResponse>>(response)
             }
@@ -1346,12 +1352,12 @@ pub async fn language_use(options: &Options) -> ApiResult<ProgrammingLanguageUse
     let action = "languages";
     let path = format!("{template}::{action}");
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
-        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
-                let params = auth_header("PRIVATE-TOKEN", &token)
-                    .into_iter()
-                    .chain([param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default())])
-                    .collect();
+                let params = Params::new()
+                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_template("identifier", options.identifier())
+                    .build();
                 let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
                 endpoint.handle::<ProgrammingLanguageUseResponse>(response)
             }
@@ -1404,21 +1410,15 @@ pub async fn merge_request_note(options: &Options) -> ApiResult<NoteMetadata> {
     let action = "merge-request-note";
     let path = format!("{template}::{action}");
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
-        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let body = options.body.as_deref().unwrap_or_default();
-                let params = auth_header("PRIVATE-TOKEN", &token)
-                    .into_iter()
-                    .chain([
-                        param!(Body, "body", &body),
-                        param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-                        param!(
-                            TemplateValue,
-                            "internal_identifier",
-                            &options.internal_identifier.as_deref().unwrap_or_default()
-                        ),
-                    ])
-                    .collect();
+                let params = Params::new()
+                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_body("body", body)
+                    .with_template("identifier", options.identifier())
+                    .with_template("internal_identifier", options.internal_identifier.as_deref())
+                    .build();
                 let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
                 endpoint.handle::<NoteMetadata>(response)
             }
@@ -1433,12 +1433,12 @@ pub async fn runner(options: &Options) -> ApiResult<RunnerMetadata> {
     let action = "runner";
     let path = format!("{template}::{action}");
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
-        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
-                let params = auth_header("PRIVATE-TOKEN", &token)
-                    .into_iter()
-                    .chain([param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default())])
-                    .collect();
+                let params = Params::new()
+                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_template("identifier", options.identifier())
+                    .build();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle::<RunnerMetadata>(response)
             }
@@ -1453,9 +1453,9 @@ pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
     let action = "runners";
     let path = format!("{template}::{action}");
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
-        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+        | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
-                let params = auth_header("PRIVATE-TOKEN", &token).into_iter().collect();
+                let params = Params::new().with_auth(&token, Some("PRIVATE-TOKEN")).build();
                 let response = endpoint.invoke_with::<PaginationField, EmptyField>(action, Some(params)).await;
                 endpoint.handle_or::<RunnersResponse, Fallback<ErrorResponse>>(response)
             }
@@ -1468,24 +1468,24 @@ pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
 pub(crate) async fn tree_paths(options: &Options) -> ApiResult<TreeResponse> {
     let template = "gitlab::api";
     let action = "tree";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain.as_str())) {
+    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
         | Ok(endpoint) => {
-            let mut params = vec![
-                param!(TemplateValue, "identifier", &options.identifier.as_deref().unwrap_or_default()),
-                param!(KeyValuePair, "per_page", "100"),
-                param!(KeyValuePair, "page", &options.page.to_string()),
-                param!(KeyValuePair, "recursive", "true"),
-                param!(KeyValuePair, "path", &options.path.as_deref().unwrap_or_default()),
-            ];
+            let params = Params::new()
+                .with_template("identifier", options.identifier())
+                .with_keyvalue("per_page", Some("100"))
+                .with_keyvalue("page", Some(&options.page.to_string()))
+                .with_keyvalue("recursive", Some("true"))
+                .with_keyvalue("path", options.path.as_deref());
             let token = if options.token.trim().is_empty() {
                 first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES)
             } else {
                 Some(options.token.clone())
             };
-            if let Some(token) = token.filter(|value| !value.trim().is_empty()) {
-                params.extend(auth_header("PRIVATE-TOKEN", &token));
-            }
-            let response = endpoint.invoke(action, Some(params)).await;
+            let params = match token.as_ref().filter(|v| !v.trim().is_empty()) {
+                | Some(token) => params.with_auth(token, Some("PRIVATE-TOKEN")),
+                | None => params,
+            };
+            let response = endpoint.invoke(action, Some(params.build())).await;
             handle_tree_paths_response(endpoint.handle_or::<TreeResponse, Fallback<ErrorResponse>>(response), options.page)
         }
         | Err(why) => Err(why),

@@ -7,8 +7,8 @@
 )]
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
-    self, auth_header, bearer_auth_header, extract_template_keys, orcid, require_non_empty_secret, ror, Endpoint, IntoBody, IntoHeaders, Param,
-    ParamStyle, RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,
+    self, extract_template_keys, orcid, require_non_empty_secret, ror, Endpoint, IntoBody, IntoHeaders, Param, ParamStyle, Params, RemoteResource,
+    Resource, ResponseContent, INCLUDED_ENDPOINTS,
 };
 use crate::io::read_file;
 use crate::param;
@@ -101,18 +101,13 @@ fn test_search_resource_find_by_name() {
 #[test]
 fn test_endpoint_context() {
     let params = vec![
-        api::Param::of_type(api::ParamStyle::QueryPair)
-            .values(vec![
-                vec![Some("affiliation-org-name"), Some("Lyrasis")],
-                vec![Some("ror-org-id"), Some("\"https://ror.org/01qz5mb56\"")],
-            ])
-            .with_key("q"),
-        api::Param::of_type(api::ParamStyle::TemplateValue)
-            .values(vec![vec![Some("two")]])
-            .with_key("one"),
-        api::Param::of_type(api::ParamStyle::TemplateValue)
-            .values(vec![vec![Some("four")]])
-            .with_key("three"),
+        param!(
+            QueryPair,
+            "q",
+            (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""))
+        ),
+        param!(TemplateValue, "one", "two"),
+        param!(TemplateValue, "three", "four"),
     ];
     let data = Some(params);
     let endpoint = Endpoint::at("example.org").root("v3.0").resources(vec![]).build();
@@ -199,29 +194,30 @@ fn test_require_non_empty_secret_trims_and_accepts_value() {
     assert_eq!(token, "secret-token");
 }
 #[test]
-fn test_bearer_auth_header_returns_authorization_header() {
-    let headers = bearer_auth_header("  secret-token  ").into_iter().collect::<Vec<_>>().into_headers();
+fn test_with_auth_bearer_adds_authorization_header() {
+    let params = Params::new().with_auth("  secret-token  ", None).build();
+    let headers = params.into_headers();
     let value = headers.get("Authorization").expect("Authorization header should exist");
     assert_eq!(value.to_str().expect("header should be visible"), "Bearer secret-token");
     assert!(value.is_sensitive());
 }
 #[test]
-fn test_bearer_auth_header_rejects_empty_token() {
-    assert!(bearer_auth_header("   ").is_none());
+fn test_with_auth_bearer_rejects_empty_token() {
+    let params = Params::new().with_auth("   ", None).build();
+    assert!(params.is_empty());
 }
 #[test]
-fn test_auth_header_returns_named_header() {
-    let headers = auth_header("PRIVATE-TOKEN", "  secret-token  ")
-        .into_iter()
-        .collect::<Vec<_>>()
-        .into_headers();
+fn test_with_auth_custom_header() {
+    let params = Params::new().with_auth("  secret-token  ", Some("PRIVATE-TOKEN")).build();
+    let headers = params.into_headers();
     let value = headers.get("PRIVATE-TOKEN").expect("PRIVATE-TOKEN header should exist");
     assert_eq!(value.to_str().expect("header should be visible"), "secret-token");
     assert!(value.is_sensitive());
 }
 #[test]
-fn test_auth_header_rejects_empty_token() {
-    assert!(auth_header("PRIVATE-TOKEN", "   ").is_none());
+fn test_with_auth_custom_rejects_empty_token() {
+    let params = Params::new().with_auth("   ", Some("PRIVATE-TOKEN")).build();
+    assert!(params.is_empty());
 }
 #[test]
 fn test_into_body() {
@@ -237,10 +233,7 @@ fn test_into_body_parses_json_string_for_body_key() {
 }
 #[test]
 fn test_into_body_keyed_multiple_values_as_object_array() {
-    let payload = vec![Param::of_type(ParamStyle::Body)
-        .values(vec![vec![Some("one")], vec![Some("two")]])
-        .with_key("items")]
-    .into_body();
+    let payload = vec![param!(ParamStyle::Body, "items", vec![vec!["one"], vec!["two"]])].into_body();
     assert_eq!(payload, serde_json::json!({ "items": ["one", "two"] }));
 }
 #[test]
@@ -251,12 +244,8 @@ fn test_into_body_keyed_empty_values_as_object_null() {
 #[test]
 fn test_query_params_empty_field() {
     let params = vec![
-        Param::of_type(api::ParamStyle::FieldList)
-            .values(vec![vec![Some("Oak Ridge")]])
-            .with_key("query"),
-        Param::of_type(api::ParamStyle::QueryPair)
-            .values(vec![vec![Some("status"), Some("inactive")]])
-            .with_key("filter"),
+        param!(FieldList, "query", "Oak Ridge"),
+        param!(QueryPair, "filter", ("status", "inactive")),
     ];
     let query = Param::to_query_string::<api::EmptyField, api::EmptyField>(params);
     insta::assert_snapshot!(query);
@@ -731,43 +720,26 @@ mod orcid_api {
     #[test]
     fn test_param_query_pair() {
         // Test QueryPair style
-        let param = Param::of_type(ParamStyle::QueryPair)
-            .values(vec![
-                vec![Some("given-names"), Some("Jason")],
-                vec![Some("family-name"), Some("Wohlgemuth")],
-            ])
-            .with_key("q");
+        let param = param!(QueryPair, "q", (("given-names", "Jason"), ("family-name", "Wohlgemuth")));
         let rendered = param.to_string::<SearchField, OutputColumn>();
         let expected = "q=given-names:Jason+AND+family-name:Wohlgemuth";
         assert_eq!(rendered, expected);
         // Test QueryPair with invalid field names (should be filtered)
-        let param = Param::of_type(ParamStyle::QueryPair)
-            .values(vec![
-                vec![Some("invalid-field"), Some("value")],
-                vec![Some("given-names"), Some("Jason")],
-                vec![Some("another-invalid"), Some("data")],
-            ])
-            .with_key("q");
+        let param = param!(
+            QueryPair,
+            "q",
+            (("invalid-field", "value"), ("given-names", "Jason"), ("another-invalid", "data"))
+        );
         let rendered = param.to_string::<SearchField, OutputColumn>();
         let expected = "q=given-names:Jason";
         assert_eq!(rendered, expected);
         // Test QueryPair with invalid field values (invalid ORCiD should be filtered)
-        let param = Param::of_type(ParamStyle::QueryPair)
-            .values(vec![
-                vec![Some("orcid"), Some("0000-0002-1823-1234")],
-                vec![Some("given-names"), Some("Jason")],
-            ])
-            .with_key("q");
+        let param = param!(QueryPair, "q", (("orcid", "0000-0002-1823-1234"), ("given-names", "Jason")));
         let rendered = param.to_string::<SearchField, OutputColumn>();
         let expected = "q=given-names:Jason";
         assert_eq!(rendered, expected);
         // Test QueryPair with valid ORCiD value (should be included)
-        let param = Param::of_type(ParamStyle::QueryPair)
-            .values(vec![
-                vec![Some("orcid"), Some("0000-0002-2057-9115")],
-                vec![Some("given-names"), Some("Jason")],
-            ])
-            .with_key("q");
+        let param = param!(QueryPair, "q", (("orcid", "0000-0002-2057-9115"), ("given-names", "Jason")));
         let rendered = param.to_string::<SearchField, OutputColumn>();
         let expected = "q=orcid:0000-0002-2057-9115+AND+given-names:Jason";
         assert_eq!(rendered, expected);
@@ -793,15 +765,11 @@ mod orcid_api {
     fn test_params_into_body() {
         use crate::io::api::IntoBody;
         // Test single value body param
-        let params = vec![Param::of_type(ParamStyle::Body)
-            .values(vec![vec![Some("test value")]])
-            .with_key("message")];
+        let params = vec![param!(Body, "message", "test value")];
         let body = params.into_body();
         assert_eq!(body["message"], serde_json::Value::String("test value".to_string()));
         // Test multiple values body param (should be an array)
-        let params = vec![Param::of_type(ParamStyle::Body)
-            .values(vec![vec![Some("value1")], vec![Some("value2")]])
-            .with_key("items")];
+        let params = vec![param!(ParamStyle::Body, "items", vec![vec!["value1"], vec!["value2"]])];
         let body = params.into_body();
         assert_eq!(body["items"], serde_json::json!(["value1", "value2"]));
         // Test empty body param (should be null)
@@ -810,15 +778,9 @@ mod orcid_api {
         assert_eq!(body["empty"], serde_json::Value::Null);
         // Test mixed params (only body params should be included)
         let params = vec![
-            Param::of_type(ParamStyle::Body)
-                .values(vec![vec![Some("body value")]])
-                .with_key("body_field"),
-            Param::of_type(ParamStyle::QueryPair)
-                .values(vec![vec![Some("query"), Some("value")]])
-                .with_key("q"),
-            Param::of_type(ParamStyle::Header)
-                .values(vec![vec![Some("Bearer token")]])
-                .with_key("Authorization"),
+            param!(Body, "body_field", "body value"),
+            param!(QueryPair, "q", ("query", "value")),
+            param!(Header, "Authorization", "Bearer token"),
         ];
         let body = params.into_body();
         assert_eq!(body["body_field"], serde_json::Value::String("body value".to_string()));
