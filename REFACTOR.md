@@ -14,7 +14,8 @@ This document captures cross-crate refactor and hardening recommendations for `a
 6. [Portability Backlog: no-std + WASM](#portability-backlog-no-std--wasm)
 7. [Analyzer Backlog](#analyzer-backlog)
 8. [io::api Backlog](#ioapi-backlog)
-9. [Reference Inventories](#reference-inventories)
+9. [acorn-cmd: Standalone Crate Extraction](#acorn-cmd-standalone-crate-extraction)
+10. [Reference Inventories](#reference-inventories)
 
 ## Goals
 
@@ -1054,5 +1055,91 @@ Manual review checklist:
 - HTML notes are plain text in DCAT.
 - ORCID identifiers are normalized.
 - `qualifiedRelation` uses stable URI/role mapping.
+
+---
+
+## acorn-cmd: Standalone Crate Extraction
+
+This section documents the plan to extract `cmd!`, `args!`, and `cmd_sh_words!` into a standalone `acorn-cmd` crate usable without the rest of `acorn-lib`.
+
+### Motivation
+
+- `cmd!` is a general-purpose shell-command macro (inspired by xshell) with no ACORN-specific dependencies.
+- Users who want ergonomic command execution should not need the full ACORN schema/analysis surface.
+- A separate crate enables independent versioning, focused documentation, and a smaller compile surface for downstream consumers.
+
+### Current Location
+
+- Proc-macro `cmd_sh_words!`: `acorn-macros/src/lib.rs` (the `CmdWord` enum, `read_interpolation`, `expand_cmd_sh_words`)
+- Declarative macros `cmd!` and `args!`: `acorn-lib/src/util/macros.rs` (gated behind `#[cfg(feature = "cmd")]`)
+- Runtime helpers (`run_output`, `run_status`, `parse_sh`, etc.): `acorn-lib/src/util/cmd.rs` (gated behind `#[cfg(feature = "std")]`)
+- Tests: `acorn-lib/src/util/tests/cmd.rs` (gated behind `#[cfg(feature = "cmd")]`)
+- Re-export: `acorn-lib/src/lib.rs` (`pub use acorn_macros::cmd_sh_words;`)
+
+### Extraction Steps
+
+| Step | Action | Dependencies |
+|------|--------|-------------|
+| 1 | Create `acorn-cmd/Cargo.toml` with `proc-macro` crate depending on `syn`, `quote`, `proc-macro2` | None |
+| 2 | Move `CmdWord` enum, `read_interpolation`, `expand_cmd_sh_words`, and parsing tests from `acorn-macros` to `acorn-cmd` | Step 1 |
+| 3 | Move `cmd!`, `args!` declarative macros and runtime helpers (`run_output`, `run_status`, `parse_sh`, etc.) into `acorn-cmd` as non-proc-macro library code | Step 2 |
+| 4 | Add `shell-words` dependency to `acorn-cmd` (currently in `acorn-macros`) | Step 3 |
+| 5 | Add integration tests matching current coverage | Step 4 |
+| 6 | In `acorn-lib`, change `pub use acorn_macros::cmd_sh_words` to `pub use acorn_cmd::cmd_sh_words` and re-export `cmd!`/`args!` from new crate | Step 5 |
+| 7 | Adjust feature gating: replace `cmd` feature in `acorn-lib` with direct dep on `acorn-cmd` (always on when `cmd` feature enabled) | Step 6 |
+
+### New `acorn-cmd/Cargo.toml`
+
+```toml
+[package]
+name = "acorn-cmd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
+shell-words = "1"
+```
+
+### acorn-lib After Extraction
+
+```toml
+[dependencies]
+acorn-cmd = { version = "0.1.59", path = "../acorn-cmd", optional = true }
+
+[features]
+cmd = ["dep:acorn-cmd"]
+```
+
+### New `acorn-cmd/src/lib.rs` Structure
+
+```rust
+// Proc-macro portion
+#[proc_macro]
+pub fn cmd_sh_words(input: TokenStream) -> TokenStream { ... }
+
+// Runtime portions (behind `std` feature if needed)
+#[cfg(feature = "std")]
+pub mod cmd; // run_output, run_status, parse_sh, etc.
+
+// Declarative macros
+#[macro_export]
+macro_rules! cmd { ... }
+
+#[macro_export]
+macro_rules! args { ... }
+```
+
+### Status
+
+- **Feature gate (`#[cfg(feature = "cmd")]`)**: ✅ Complete (current state)
+- **Extraction to new crate**: 🔜 Future work (documented here for planning)
+
+### Rationale for Ordering
+
+The feature gate on `acorn-lib` was implemented first because it provides immediate value: users who want ACORN without `cmd!` can disable the feature today. The standalone crate extraction is a mechanical next step that does not change the macro API surface.
 
 

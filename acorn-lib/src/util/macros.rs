@@ -202,6 +202,7 @@
 /// let extra: Option<&str> = None;
 /// let output = cmd!(try "cargo publish {dry_run...} {extra...}")?;
 /// ```
+#[cfg(feature = "cmd")]
 #[macro_export]
 macro_rules! cmd {
     // ── sh status ──────────────────────────────────────────────
@@ -609,6 +610,7 @@ macro_rules! cmd {
 /// ```
 ///
 /// Internally composes iterator chains and collects — no mutable state.
+#[cfg(feature = "cmd")]
 #[macro_export]
 macro_rules! args {
     // Spread with trailing items

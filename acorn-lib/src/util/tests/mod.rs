@@ -19,6 +19,7 @@ use similar_asserts::assert_eq;
 
 const FIXTURES: &str = "../tests/fixtures";
 
+#[cfg(feature = "cmd")]
 mod cmd;
 
 #[test]

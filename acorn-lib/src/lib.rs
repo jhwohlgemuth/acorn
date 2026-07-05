@@ -15,6 +15,7 @@ extern crate alloc;
 extern crate std;
 
 #[doc(hidden)]
+#[cfg(feature = "cmd")]
 pub use acorn_macros::cmd_sh_words;
 
 use core::convert::Infallible;

@@ -124,7 +124,7 @@ wasm = ["alloc"]
 unicode = ["console/std"]
 agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
 analysis = ["alloc", "std", "dep:ariadne", "dep:bat", "dep:flate2", "dep:polars", "dep:rayon", "dep:rust-ini", "dep:tar"]
-default = ["analysis", "agentic", "shell-lint", "unicode"]
+default = ["analysis", "agentic", "cmd", "shell-lint", "unicode"]
 doctor = ["std", "dep:sysinfo"]
 duckdb = ["std", "dep:duckdb"]
 powerpoint = ["std"]
@@ -154,6 +154,7 @@ std = [
   "dep:which",
   "dep:zip",
 ]
+cmd = ["std"]
 shell-lint = ["std", "dep:shuck-linter", "dep:shuck-parser"]
 
 [lints]
