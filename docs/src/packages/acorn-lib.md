@@ -11,10 +11,9 @@ The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `ac
 > When ACORN validates a PID, it does not *just* use regular expressions, but also includes checksum validation when part of the associated PID specification. ARKs[^ark], ISBNs[^isbn], ORCiDs[^orcid], and RORs[^ror] all include some form of checksum, and `acorn-lib` validates these as well to ensure the PID is not only well-formed but also valid according to its specification.
 
 ## Installation
-- Add `acorn-lib` as a dependency in your `Cargo.toml`[^version]
-  ```toml
-  [dependencies]
-  acorn-lib = "0.1.58"
+- Add `acorn-lib` as a dependency[^version]
+  ```sh
+  cargo add acorn-lib
   ```  
 - Use `acorn-lib` functions in your Rust code
   ```rust
@@ -25,10 +24,9 @@ The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `ac
   assert!(is_orcid("https://orcid.org/0000-0002-2057-9115"));
   assert!(is_ror("01qz5mb56"));
   ```
-- If you want to use the full capability of `acorn-lib` to build your own CLI app, be sure to include the following in your `Cargo.toml` to enable the `doctor` and `powerpoint` features[^features]
-  ```toml
-  [dependencies]
-  acorn-lib = { version = "0.1.58", features = ["doctor", "powerpoint"] }
+- If you want to use the full capability of `acorn-lib` to build your own CLI app, be sure to enable the `doctor` and `powerpoint` features[^features]
+  ```sh
+  cargo add acorn-lib --features doctor,powerpoint
   ```
 
 

@@ -1,6 +1,9 @@
 # Cargo configuration for ACORN project
 # This file is automatically read by Cargo
 
+[alias]
+xtask = "run --package xtask --"
+
 # On macOS, PyO3 extension modules must NOT link Python at build time.
 # Python symbols are resolved at runtime when Python loads the .dylib.
 # The -undefined dynamic_lookup flag tells the linker to allow this.

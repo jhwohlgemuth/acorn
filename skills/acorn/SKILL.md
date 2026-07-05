@@ -64,13 +64,13 @@ scoop install acorn
 
 **Windows (PowerShell):**
 ```powershell
-irm -OutFile acorn.exe -Uri https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-pc-windows-gnu/v0.1.50/acorn.exe
+irm -OutFile acorn.exe -Uri https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-pc-windows-gnu/v<version>/acorn.exe
 .\acorn.exe help
 ```
 
 **Linux:**
 ```shell
-curl -LO https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-unknown-linux-musl/v0.1.50/acorn
+curl -LO https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-unknown-linux-musl/v<version>/acorn
 chmod +x acorn
 ./acorn help
 ```

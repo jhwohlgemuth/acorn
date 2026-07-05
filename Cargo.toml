@@ -1,9 +1,9 @@
 [workspace]
-members = ["acorn-cli", "acorn-lib", "acorn-macros", "acorn-py", "acorn-tui"]
+members = ["acorn-cli", "acorn-lib", "acorn-macros", "acorn-py", "acorn-tui", "xtask"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.58"
+version = "0.1.59"
 rust-version = "1.95.0"
 license = "MIT"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]

@@ -77,18 +77,18 @@
 ### Download pre-compiled binary
 - Download the latest release from the [ACORN GitLab Releases page](https://code.ornl.gov/research-enablement/acorn/-/releases)
     - 🪟 Windows
-        - Open a PowerShell terminal and run:
+        - Open a PowerShell terminal, visit the releases page to find the latest version, and run:
             ```powershell
-            irm -OutFile acorn.exe -Uri https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-pc-windows-gnu/v0.1.50/acorn.exe
+            irm -OutFile acorn.exe -Uri https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-pc-windows-gnu/v<version>/acorn.exe
             ```
         - Test the downloaded executable:
             ```powershell
             .\acorn.exe help
             ```
     - 🐧 Linux
-        - Open a terminal and run:
+        - Open a terminal, visit the releases page to find the latest version, and run:
             ```sh
-            curl -LO https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-unknown-linux-musl/v0.1.50/acorn
+            curl -LO https://code.ornl.gov/api/v4/projects/16689/packages/generic/x86_64-unknown-linux-musl/v<version>/acorn
             ```
         - Make the downloaded file executable:
             ```sh

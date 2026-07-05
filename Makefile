@@ -129,6 +129,13 @@ version:
 rust-version:
 	@echo $(RUST_VERSION)
 
+check-version:
+	@cargo xtask check-version
+
+release-version:
+	@cargo xtask release-version $(VERSION)
+	@$(MAKE) check-version
+
 acorn-clean:
 	@docker rmi -f acorn:$(VERSION)
 	@docker rmi -f acorn:latest
@@ -276,6 +283,8 @@ TASKS = \
 	test \
 	test-ci \
 	version \
+	release-version \
+	check-version \
 	acorn-clean \
 	acorn-build-in-image \
 	acorn-image \

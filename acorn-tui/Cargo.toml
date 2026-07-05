@@ -15,7 +15,7 @@ name = "acorn-tui"
 path = "src/main.rs"
 
 [dependencies]
-acorn-lib = { version = "0.1.57", path = "../acorn-lib", features = ["doctor"] }
+acorn-lib = { version = "0.1.59", path = "../acorn-lib", features = ["doctor"] }
 ratatui = { version = "0.30", features = ["crossterm"] }
 crossterm = "0.28"
 chrono = { workspace = true, features = ["std", "clock"] }

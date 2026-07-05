@@ -258,7 +258,7 @@ The project uses Cargo workspaces with three main crates:
 - **acorn-py**: Python bindings (PyO3)
 
 ### Current Version
-Version: **0.1.50** (see Cargo.toml workspace.package.version)
+The current version is defined in `[workspace.package].version` in `Cargo.toml`.
 
 ### Feature Flags
 The library uses feature flags for optional functionality:
@@ -566,6 +566,6 @@ When implementing refactors, start with the Critical Priorities section for high
 - **Repository**: https://code.ornl.gov/research-enablement/acorn
 - **Documentation**: https://acorn.ornl.gov
 - **License**: MIT
-- **Version**: 0.1.50
+- **Version**: Defined in `[workspace.package].version` in `Cargo.toml`
 - **Rust Edition**: 2021
 - **Release Profile**: Optimized for size (`opt-level = "s"`) with LTO enabled
