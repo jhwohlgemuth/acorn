@@ -300,6 +300,107 @@ mod cmd_macro {
         assert!(output.status.success());
         assert_eq!(output.stdout(), "{args...}");
     }
+    #[test]
+    fn test_sh_literal_var_output() {
+        let msg = "hello";
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {msg}").expect("single var")
+        } else {
+            cmd!(sh "cmd /c echo {msg}").expect("single var")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello");
+        let name = "acorn".to_string();
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {name}").expect("var String")
+        } else {
+            cmd!(sh "cmd /c echo {name}").expect("var String")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "acorn");
+    }
+    #[test]
+    fn test_sh_literal_var_status_and_try() {
+        let msg = "status-check";
+        let status = if cfg!(unix) {
+            cmd!(sh status "echo {msg}").expect("single var")
+        } else {
+            cmd!(sh status "cmd /c echo {msg}").expect("single var")
+        };
+        assert!(status.success());
+        let msg = "try-check";
+        let value = if cfg!(unix) {
+            cmd!(try sh "echo {msg}").expect("try var")
+        } else {
+            cmd!(try sh "cmd /c echo {msg}").expect("try var")
+        };
+        assert_eq!(value, "try-check");
+    }
+    #[test]
+    fn test_literal_direct_exec_basic() {
+        let output = if cfg!(unix) {
+            cmd!("echo", ["direct"]).expect("array form works")
+        } else {
+            cmd!("cmd", ["/c", "echo", "direct"]).expect("array form works")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "direct");
+        let output = if cfg!(unix) {
+            cmd!("echo" "cli-style").expect("cli-style works")
+        } else {
+            cmd!("cmd" "/c" "echo" "cli-style").expect("cli-style works")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "cli-style");
+    }
+    #[test]
+    fn test_literal_direct_exec_sh_words() {
+        let msg = "interpolated";
+        let output = if cfg!(unix) {
+            cmd!("echo {msg}").expect("bare literal var")
+        } else {
+            cmd!("cmd /c echo {msg}").expect("bare literal var")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "interpolated");
+        let args = ["hello", "world"];
+        let output = if cfg!(unix) {
+            cmd!("echo {args...}").expect("bare literal splat")
+        } else {
+            cmd!("cmd /c echo {args...}").expect("bare literal splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello world");
+    }
+    #[test]
+    fn test_literal_direct_exec_status_try() {
+        let msg = "status-test";
+        let status = if cfg!(unix) {
+            cmd!(status "echo {msg}").expect("bare status var")
+        } else {
+            cmd!(status "cmd /c echo {msg}").expect("bare status var")
+        };
+        assert!(status.success());
+        let msg = "try-test";
+        let value = if cfg!(unix) {
+            cmd!(try "echo {msg}").expect("bare try var")
+        } else {
+            cmd!(try "cmd /c echo {msg}").expect("bare try var")
+        };
+        assert_eq!(value, "try-test");
+    }
+    #[test]
+    fn test_literal_mixed_var_and_splat() {
+        let greeting = "Hello";
+        let names = ["Alice", "Bob"];
+        let output = if cfg!(unix) {
+            cmd!("echo {greeting} {names...}").expect("mixed var and splat")
+        } else {
+            cmd!("cmd /c echo {greeting} {names...}").expect("mixed var and splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "Hello Alice Bob");
+    }
     #[cfg(feature = "shell-lint")]
     #[test]
     fn test_shell_lint_blocks_invalid_bash() {

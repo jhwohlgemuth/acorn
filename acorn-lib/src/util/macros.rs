@@ -7,74 +7,135 @@
 ///
 /// Supports several calling conventions:
 ///
-/// | Prefix    | Returns                        | Description                             |
-/// |-----------|--------------------------------|-----------------------------------------|
-/// | *(none)*  | `io::Result<Output>`           | Run and capture output                  |
-/// | `status`  | `io::Result<ExitStatus>`       | Exit status only (no output)            |
-/// | `sh`      | `io::Result<Output>`           | Parse string, capture output            |
-/// | `sh status` | `io::Result<ExitStatus>`    | Parse string, exit status only          |
-/// | `bash`    | `io::Result<Output>`           | Run via `bash -c <command>`             |
-/// | `pwsh`    | `io::Result<Output>`           | Run via `pwsh -NoProfile -Command ...`  |
-/// | `try`     | `Result<String, String>`       | Run, return stdout or error message     |
+/// | Prefix         | Returns                        | Description                              |
+/// |----------------|--------------------------------|------------------------------------------|
+/// | `"literal"`    | `io::Result<Output>`           | Interpolated literal, capture output     |
+/// | `status "lit"` | `io::Result<ExitStatus>`       | Interpolated literal, exit status only   |
+/// | `try "lit"`    | `Result<String, String>`       | Interpolated literal, stdout or error    |
+/// | *(none)*       | `io::Result<Output>`           | Run and capture output                   |
+/// | `status`       | `io::Result<ExitStatus>`       | Exit status only (no output)             |
+/// | `sh`           | `io::Result<Output>`           | Parse string, capture output             |
+/// | `sh status`    | `io::Result<ExitStatus>`       | Parse string, exit status only           |
+/// | `try sh`       | `Result<String, String>`       | Parse string, stdout or error            |
+/// | `bash`         | `io::Result<Output>`           | Run via `bash -c <command>`              |
+/// | `pwsh`         | `io::Result<Output>`           | Run via `pwsh -NoProfile -Command ...`   |
+/// | `try`          | `Result<String, String>`       | Run, return stdout or error message      |
 ///
 /// All forms support an optional `; dir: path` suffix to set the working directory.
 ///
-/// The runtime `sh` variants use shell-aware word splitting (handles quoted
-/// arguments via the `shell-words` crate). Literal `sh` command strings also
-/// support splat interpolation with `{name...}` to expand arrays, vectors, and
-/// options into zero or more command arguments.
+/// # When to use each form
 ///
-/// Splat interpolation is only available for literal `sh` command strings. Use
-/// `format!` or build an argument list explicitly when the command string is
-/// dynamic.
+/// | Use case                            | Recommended form                        |
+/// |-------------------------------------|-----------------------------------------|
+/// | Known command, no shell features    | `cmd!("git rev-parse {branch}")`        |
+/// | Known command, with interpolation   | `cmd!("echo {name}")`                   |
+/// | Simple static command               | `cmd!("git" "status")`                  |
+/// | Dynamic command string              | `cmd!(sh format!("diff {file}"))`       |
+/// | Need shell features (pipes, globs)  | `cmd!(bash "echo * \| wc -l")`          |
+/// | Need PowerShell                     | `cmd!(pwsh "Get-ChildItem \| Select-Object Name")` |
 ///
-/// # Splat interpolation
+/// On the surface `cmd!("...")` and `cmd!(sh "...")` both accept a literal string, but
+/// the bare literal form is the preferred entry point — it's the simplest, avoids the
+/// unnecessary `sh` prefix, and supports the full `{var}` / `{args...}` interpolation.
+/// The `sh` prefix is useful when the command string is a *runtime expression* (e.g.
+/// `format!(...)`), since `cmd!(sh $expr)` parses it with shell-aware word splitting.
+///
+/// # Literal interpolation
+///
+/// A literal string (a bare `"..."` token without `sh`) is parsed at compile time
+/// and supports both interpolation forms:
+///
+/// - **`{name}`** — expands a single value implementing `AsRef<OsStr>` (works with
+///   `String`, `&str`, `OsString`, `PathBuf`, etc.) into one command argument
+/// - **`{name...}`** — expands an iterable (splat) into zero or more command
+///   arguments
+///
+/// Both forms must occupy a full unquoted shell word. Embedded or double-quoted
+/// interpolation like `--flag={name}` and `"{name}"` is rejected at compile time.
+/// Single quotes keep the placeholder literal:
+///
+/// ```ignore
+/// cmd!("echo '{name}'")  // prints {name}
+/// cmd!("echo '{args...}'") // prints {args...}
+/// ```
+///
+/// ## Single-value `{var}` interpolation
+///
+/// ```ignore
+/// let msg = "hello world";
+/// let output = cmd!("echo {msg}")?;
+/// assert_eq!(output.stdout(), "hello world");
+///
+/// let branch = "main".to_string();
+/// let output = cmd!("git rev-parse {branch}")?;
+/// ```
+///
+/// `{var}` accepts any type implementing [`AsRef<OsStr>`] — this includes `str`,
+/// `String`, `OsStr`, `OsString`, `Path`, and `PathBuf`. For types like integers
+/// that don't implement `AsRef<OsStr>`, convert first:
+///
+/// ```ignore
+/// let port = 8080;
+/// cmd!("curl http://localhost:{port}");              // compile error
+/// cmd!("curl http://localhost:{}", port.to_string()); // use .to_string()
+/// let p = format!("localhost:{}", port);
+/// cmd!("curl http://{p}");                           // works via String
+/// ```
+///
+/// ## Splat `{args...}` interpolation
 ///
 /// Splat placeholders expand a local variable that implements borrowed
-/// iteration into command arguments:
+/// iteration (arrays, `Vec`, `Option`, slices, etc.):
 ///
 /// ```ignore
 /// let args = ["hello", "world"];
-/// let output = cmd!(sh "echo {args...}")?;
+/// let output = cmd!("echo {args...}")?;
 /// assert_eq!(output.stdout(), "hello world");
 ///
 /// let arg1: Option<&str> = Some("hello");
 /// let arg2: Option<&str> = None;
-/// let output = cmd!(sh "echo {arg1...} {arg2...}")?;
+/// let output = cmd!("echo {arg1...} {arg2...}")?;
 /// assert_eq!(output.stdout(), "hello");
 /// ```
 ///
-/// The same syntax works for `sh status`, `try sh`, and `; dir:` forms:
+/// ## In `sh` literals
+///
+/// The same `{var}` and `{args...}` interpolation also works in literal `sh`
+/// command strings:
 ///
 /// ```ignore
-/// let args = ["hello"];
-/// let status = cmd!(sh status "echo {args...}")?;
-/// let value = cmd!(try sh "echo {args...}")?;
-/// let output = cmd!(sh "echo {args...}"; dir: project_dir)?;
+/// cmd!(sh "echo {msg}")
+/// cmd!(sh "echo {args...}")
+/// cmd!(sh status "echo {msg}")
+/// cmd!(try sh "echo {args...}")
+/// cmd!(sh "echo {msg}"; dir: project_dir)
 /// ```
 ///
-/// A splat must occupy a full unquoted shell word, such as `{args...}`. Embedded
-/// or double-quoted splats like `--flag={args...}` and `"{args...}"` are rejected
-/// at compile time. Single quotes keep the placeholder literal:
-///
-/// ```ignore
-/// cmd!(sh "echo '{args...}'") // prints {args...}
-/// ```
+/// Runtime `sh` strings (non-literal `$cmd:expr`) are split via `shell-words`
+/// at runtime and do not support interpolation — use `format!` or build an
+/// argument list explicitly.
 ///
 /// # Syntax
 ///
 /// ```ignore
-/// // String form (shell-aware quoting)
+/// // Interpolated literal (compile-time parsed, fastest)
+/// cmd!("git rev-parse {branch}")
+/// cmd!("echo {args...}")
+/// cmd!(status "git status")
+/// cmd!(try "git rev-parse HEAD")
+/// cmd!("echo {msg}"; dir: project_dir)
+///
+/// // String form via sh (shell-aware quoting)
 /// cmd!(sh "git diff --name-only")
 /// cmd!(sh format!("git diff --name-only {branch}"))
 /// cmd!(sh "echo 'hello world'")   // handles quotes
-/// cmd!(sh "echo {args...}")       // literal-only splat interpolation
+/// cmd!(sh "echo {args...}")       // literal-only interpolation
 /// cmd!(sh status "echo {args...}")
 /// cmd!(try sh "echo {args...}")
 /// cmd!(bash "echo 'hello world'")
 /// cmd!(pwsh "Write-Output 'hello world'")
 ///
-/// // CLI-style literals (fastest)
+/// // CLI-style literals
 /// cmd!("git" "diff-tree" "--no-commit-id" "--name-only")
 /// cmd!("git" "log" "--oneline"; dir: repo_path)
 ///
@@ -101,8 +162,11 @@
 /// use acorn::cmd;
 /// use acorn::prelude::CommandOutput;
 ///
-/// // String form with shell-aware quoting
+/// // Interpolated literal (no shell overhead)
 /// let branch = "main";
+/// let output = cmd!("git rev-parse {branch}")?;
+///
+/// // String form with shell-aware quoting
 /// match cmd!(sh format!("git diff --name-only {branch}")) {
 ///     Ok(output) if output.status.success() => {
 ///         println!("{}", output.stdout());
@@ -129,14 +193,14 @@
 /// let output = cmd!(bash "echo bash-mode")?;
 /// let output = cmd!(pwsh "Write-Output 'pwsh-mode'")?;
 ///
-/// // Literal sh splat interpolation
+/// // Splat interpolation
 /// let args = ["hello", "world"];
-/// let output = cmd!(sh "echo {args...}")?;
+/// let output = cmd!("echo {args...}")?;
 /// assert_eq!(output.stdout(), "hello world");
 ///
 /// let dry_run = Some("--dry-run");
 /// let extra: Option<&str> = None;
-/// let output = cmd!(try sh "cargo publish {dry_run...} {extra...}")?;
+/// let output = cmd!(try "cargo publish {dry_run...} {extra...}")?;
 /// ```
 #[macro_export]
 macro_rules! cmd {
@@ -342,6 +406,85 @@ macro_rules! cmd {
         $crate::util::cmd::try_from_output(
             $crate::util::cmd::run_shell_output("pwsh", &["-NoProfile", "-Command"], &$cmd.to_string(), None),
         )
+    }};
+    // ── status literal interpolation ─────────────────────────
+    // status literal + dir
+    (status $cmd:literal; dir: $dir:expr) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::run_status(&__binary, __args, Some($dir.as_ref()))
+            }
+            | None => Err($crate::prelude::io::Error::other("cmd!(...): empty command string")),
+        }
+    }};
+    // status literal (no dir)
+    (status $cmd:literal) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::run_status(&__binary, __args, None)
+            }
+            | None => Err($crate::prelude::io::Error::other("cmd!(...): empty command string")),
+        }
+    }};
+    // ── try literal interpolation ──────────────────────────
+    // try literal + dir
+    (try $cmd:literal; dir: $dir:expr) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::try_from_output(
+                    $crate::util::cmd::run_output(&__binary, __args, Some($dir.as_ref())),
+                )
+            }
+            | None => Err("cmd!(...): empty command string".to_string()),
+        }
+    }};
+    // try literal (no dir)
+    (try $cmd:literal) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::try_from_output(
+                    $crate::util::cmd::run_output(&__binary, __args, None),
+                )
+            }
+            | None => Err("cmd!(...): empty command string".to_string()),
+        }
+    }};
+    // ── default output literal interpolation ──────────────
+    // literal + dir
+    ($cmd:literal; dir: $dir:expr) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::run_output(&__binary, __args, Some($dir.as_ref()))
+            }
+            | None => Err($crate::prelude::io::Error::other("cmd!(...): empty command string")),
+        }
+    }};
+    // literal (no dir)
+    ($cmd:literal) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::run_output(&__binary, __args, None)
+            }
+            | None => Err($crate::prelude::io::Error::other("cmd!(...): empty command string")),
+        }
     }};
     // ── status CLI-style ───────────────────────────────────────
     // status CLI-style + dir

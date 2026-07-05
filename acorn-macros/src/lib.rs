@@ -41,7 +41,7 @@ pub fn derive_database_row(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand_database_row(&input).unwrap_or_else(|why| why.to_compile_error()).into()
 }
-/// Parses a literal `cmd!(sh "...")` command into shell words with `{args...}` splats.
+/// Parses a literal `cmd!("...")` command into shell words with `{var}` and `{args...}` interpolation.
 #[proc_macro]
 pub fn cmd_sh_words(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as LitStr);
@@ -54,6 +54,7 @@ struct RowConfig {
 #[derive(Debug)]
 enum CmdWord {
     Literal(String),
+    Var(String),
     Splat(String),
 }
 fn expand_cmd_sh_words(input: &LitStr) -> syn::Result<proc_macro2::TokenStream> {
@@ -62,10 +63,20 @@ fn expand_cmd_sh_words(input: &LitStr) -> syn::Result<proc_macro2::TokenStream> 
         | CmdWord::Literal(value) => quote! {
             ::std::iter::once(::std::ffi::OsString::from(#value)).collect::<::std::vec::Vec<::std::ffi::OsString>>()
         },
+        | CmdWord::Var(name) => {
+            let ident = syn::Ident::new(&name, input.span());
+            quote! {
+                ::std::iter::once(
+                    ::std::convert::AsRef::<::std::ffi::OsStr>::as_ref(&#ident).to_os_string()
+                ).collect::<::std::vec::Vec<::std::ffi::OsString>>()
+            }
+        }
         | CmdWord::Splat(name) => {
             let ident = syn::Ident::new(&name, input.span());
             quote! {
-                (&#ident).into_iter().map(::std::ffi::OsString::from).collect::<::std::vec::Vec<::std::ffi::OsString>>()
+                (&#ident).into_iter().map(|__x| {
+                    ::std::convert::AsRef::<::std::ffi::OsStr>::as_ref(&__x).to_os_string()
+                }).collect::<::std::vec::Vec<::std::ffi::OsString>>()
             }
         }
     });
@@ -98,37 +109,41 @@ fn parse_cmd_words(command: &str) -> Result<Vec<CmdWord>, String> {
             | '"' => {
                 index += 1;
                 while index < chars.len() && chars[index] != '"' {
-                    if chars[index] == '{' && read_splat(&chars, index).is_some() {
-                        return Err("cmd!(sh ...): splat interpolation must occupy an unquoted shell word".to_string());
+                    if chars[index] == '{' && read_interpolation(&chars, index).is_some() {
+                        return Err("cmd!(...): interpolation must occupy an unquoted shell word".to_string());
                     }
                     if chars[index] == '\\' {
                         index += 1;
                         if index == chars.len() {
-                            return Err("cmd!(sh ...): trailing escape in double quote".to_string());
+                            return Err("cmd!(...): trailing escape in double quote".to_string());
                         }
                     }
                     current.push(chars[index]);
                     index += 1;
                 }
                 if index == chars.len() {
-                    return Err("cmd!(sh ...): unterminated double quote".to_string());
+                    return Err("cmd!(...): unterminated double quote".to_string());
                 }
                 index += 1;
             }
             | '\\' => {
                 index += 1;
                 if index == chars.len() {
-                    return Err("cmd!(sh ...): trailing escape".to_string());
+                    return Err("cmd!(...): trailing escape".to_string());
                 }
                 current.push(chars[index]);
                 index += 1;
             }
-            | '{' => match read_splat(&chars, index) {
-                | Some((name, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
+            | '{' => match read_interpolation(&chars, index) {
+                | Some((name, false, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
+                    words.push(CmdWord::Var(name));
+                    index = next;
+                }
+                | Some((name, true, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
                     words.push(CmdWord::Splat(name));
                     index = next;
                 }
-                | Some(_) => return Err("cmd!(sh ...): splat interpolation must occupy a full shell word".to_string()),
+                | Some(_) => return Err("cmd!(...): interpolation must occupy a full shell word".to_string()),
                 | None => {
                     current.push(chars[index]);
                     index += 1;
@@ -142,7 +157,7 @@ fn parse_cmd_words(command: &str) -> Result<Vec<CmdWord>, String> {
     }
     push_literal(&mut words, &mut current);
     if words.is_empty() {
-        Err("cmd!(sh ...): empty command string".to_string())
+        Err("cmd!(...): empty command string".to_string())
     } else {
         Ok(words)
     }
@@ -152,15 +167,20 @@ fn push_literal(words: &mut Vec<CmdWord>, current: &mut String) {
         words.push(CmdWord::Literal(core::mem::take(current)));
     }
 }
-fn read_splat(chars: &[char], start: usize) -> Option<(String, usize)> {
+fn read_interpolation(chars: &[char], start: usize) -> Option<(String, bool, usize)> {
     let close = chars
         .iter()
         .enumerate()
         .skip(start + 1)
         .find_map(|(index, ch)| (*ch == '}').then_some(index))?;
     let content = chars[start + 1..close].iter().collect::<String>();
-    let name = content.strip_suffix("...")?;
-    is_ident(name).then(|| (name.to_string(), close + 1))
+    if let Some(name) = content.strip_suffix("...") {
+        is_ident(name).then(|| (name.to_string(), true, close + 1))
+    } else if is_ident(&content) {
+        Some((content, false, close + 1))
+    } else {
+        None
+    }
 }
 fn is_ident(value: &str) -> bool {
     let mut chars = value.chars();
@@ -436,12 +456,41 @@ mod tests {
     #[test]
     fn test_cmd_words_rejects_double_quoted_splat() {
         let error = parse_cmd_words("echo \"{args...}\"").expect_err("double quoted splat should fail");
-        assert!(error.contains("unquoted shell word"));
+        assert!(error.contains("interpolation must occupy an unquoted shell word"));
     }
     #[test]
     fn test_cmd_words_keeps_single_quoted_splat_literal() {
         let words = parse_cmd_words("echo '{args...}'").expect("single quoted splat should parse");
         assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));
         assert!(matches!(words.get(1), Some(CmdWord::Literal(value)) if value == "{args...}"));
+    }
+    #[test]
+    fn test_cmd_words_var_parses_non_splat() {
+        let words = parse_cmd_words("echo {name}").expect("var should parse");
+        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));
+        assert!(matches!(words.get(1), Some(CmdWord::Var(value)) if value == "name"));
+    }
+    #[test]
+    fn test_cmd_words_var_rejects_non_ident() {
+        let words = parse_cmd_words("echo {123}").expect("non-ident should be literal");
+        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));
+        assert!(matches!(words.get(1), Some(CmdWord::Literal(value)) if value == "{123}"));
+    }
+    #[test]
+    fn test_cmd_words_var_must_occupy_full_word() {
+        let error = parse_cmd_words("echo{name}").expect_err("joined var should fail");
+        assert!(error.contains("interpolation must occupy a full shell word"));
+    }
+    #[test]
+    fn test_cmd_words_var_rejects_double_quoted() {
+        let error = parse_cmd_words("echo \"{var}\"").expect_err("double quoted var should fail");
+        assert!(error.contains("interpolation must occupy an unquoted shell word"));
+    }
+    #[test]
+    fn test_cmd_words_mixed_var_and_splat() {
+        let words = parse_cmd_words("git {cmd} {args...}").expect("mixed should parse");
+        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "git"));
+        assert!(matches!(words.get(1), Some(CmdWord::Var(value)) if value == "cmd"));
+        assert!(matches!(words.get(2), Some(CmdWord::Splat(value)) if value == "args"));
     }
 }
