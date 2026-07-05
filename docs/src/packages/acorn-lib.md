@@ -28,7 +28,7 @@ The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `ac
 - If you want to use the full capability of `acorn-lib` to build your own CLI app, be sure to include the following in your `Cargo.toml` to enable the `doctor` and `powerpoint` features[^features]
   ```toml
   [dependencies]
-  acorn-lib = { version = "0.1.52", features = ["doctor", "powerpoint"] }
+  acorn-lib = { version = "0.1.58", features = ["doctor", "powerpoint"] }
   ```
 
 

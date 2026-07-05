@@ -19,8 +19,8 @@ path = "src/main.rs"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-acorn-lib = { version = "0.1.57", path = "../acorn-lib", features = ["doctor", "powerpoint"] }
-acorn-tui = { version = "0.1.57", path = "../acorn-tui", optional = true }
+acorn-lib = { version = "0.1.58", path = "../acorn-lib", features = ["doctor", "powerpoint"] }
+acorn-tui = { version = "0.1.58", path = "../acorn-tui", optional = true }
 bon = "3.3.2"
 chrono = { workspace = true, features = ["std", "clock"] }
 clap = { version = "4.4.2", features = ["derive", "unstable-doc"] }
