@@ -14,7 +14,7 @@ The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `ac
 - Add `acorn-lib` as a dependency in your `Cargo.toml`[^version]
   ```toml
   [dependencies]
-  acorn-lib = "0.1.52"
+  acorn-lib = "0.1.58"
   ```  
 - Use `acorn-lib` functions in your Rust code
   ```rust
