@@ -24,6 +24,8 @@ use std::collections::HashMap;
 use tera::{Context, Tera};
 use validator::{Validate, ValidationError};
 
+pub mod opencode;
+
 /// Benchmark evaluation harness or framework
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 pub enum Harness {
@@ -225,7 +227,7 @@ pub enum Provider {
     ZhipuAI,
     /// Unknown provider
     #[display("{}", _0)]
-    Unknown(String),
+    Custom(String),
 }
 /// Benchmark evaluation result
 #[skip_serializing_none]
@@ -647,7 +649,7 @@ impl From<&str> for Provider {
             | "xai" => Self::XAI,
             | "xiaomi" => Self::Xiaomi,
             | "zhipuai" => Self::ZhipuAI,
-            | _ => Self::Unknown(value.into()),
+            | _ => Self::Custom(value.into()),
         }
     }
 }
