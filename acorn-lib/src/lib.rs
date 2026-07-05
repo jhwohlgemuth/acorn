@@ -14,6 +14,9 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 extern crate std;
 
+#[doc(hidden)]
+pub use acorn_macros::cmd_sh_words;
+
 use core::convert::Infallible;
 use core::str::FromStr;
 use derive_more::Display;

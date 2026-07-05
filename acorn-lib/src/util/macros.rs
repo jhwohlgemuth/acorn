@@ -19,8 +19,47 @@
 ///
 /// All forms support an optional `; dir: path` suffix to set the working directory.
 ///
-/// The `sh` variants use shell-aware word splitting (handles quoted arguments via
-/// the `shell-words` crate).
+/// The runtime `sh` variants use shell-aware word splitting (handles quoted
+/// arguments via the `shell-words` crate). Literal `sh` command strings also
+/// support splat interpolation with `{name...}` to expand arrays, vectors, and
+/// options into zero or more command arguments.
+///
+/// Splat interpolation is only available for literal `sh` command strings. Use
+/// `format!` or build an argument list explicitly when the command string is
+/// dynamic.
+///
+/// # Splat interpolation
+///
+/// Splat placeholders expand a local variable that implements borrowed
+/// iteration into command arguments:
+///
+/// ```ignore
+/// let args = ["hello", "world"];
+/// let output = cmd!(sh "echo {args...}")?;
+/// assert_eq!(output.stdout(), "hello world");
+///
+/// let arg1: Option<&str> = Some("hello");
+/// let arg2: Option<&str> = None;
+/// let output = cmd!(sh "echo {arg1...} {arg2...}")?;
+/// assert_eq!(output.stdout(), "hello");
+/// ```
+///
+/// The same syntax works for `sh status`, `try sh`, and `; dir:` forms:
+///
+/// ```ignore
+/// let args = ["hello"];
+/// let status = cmd!(sh status "echo {args...}")?;
+/// let value = cmd!(try sh "echo {args...}")?;
+/// let output = cmd!(sh "echo {args...}"; dir: project_dir)?;
+/// ```
+///
+/// A splat must occupy a full unquoted shell word, such as `{args...}`. Embedded
+/// or double-quoted splats like `--flag={args...}` and `"{args...}"` are rejected
+/// at compile time. Single quotes keep the placeholder literal:
+///
+/// ```ignore
+/// cmd!(sh "echo '{args...}'") // prints {args...}
+/// ```
 ///
 /// # Syntax
 ///
@@ -29,6 +68,9 @@
 /// cmd!(sh "git diff --name-only")
 /// cmd!(sh format!("git diff --name-only {branch}"))
 /// cmd!(sh "echo 'hello world'")   // handles quotes
+/// cmd!(sh "echo {args...}")       // literal-only splat interpolation
+/// cmd!(sh status "echo {args...}")
+/// cmd!(try sh "echo {args...}")
 /// cmd!(bash "echo 'hello world'")
 /// cmd!(pwsh "Write-Output 'hello world'")
 ///
@@ -86,15 +128,48 @@
 /// // Explicit shell selection
 /// let output = cmd!(bash "echo bash-mode")?;
 /// let output = cmd!(pwsh "Write-Output 'pwsh-mode'")?;
+///
+/// // Literal sh splat interpolation
+/// let args = ["hello", "world"];
+/// let output = cmd!(sh "echo {args...}")?;
+/// assert_eq!(output.stdout(), "hello world");
+///
+/// let dry_run = Some("--dry-run");
+/// let extra: Option<&str> = None;
+/// let output = cmd!(try sh "cargo publish {dry_run...} {extra...}")?;
 /// ```
 #[macro_export]
 macro_rules! cmd {
     // ── sh status ──────────────────────────────────────────────
+    // sh status literal + dir
+    (sh status $cmd:literal; dir: $dir:expr) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::run_status(&__binary, __args, Some($dir.as_ref()))
+            }
+            | None => Err($crate::prelude::io::Error::other("cmd!(sh ...): empty command string")),
+        }
+    }};
     // sh status string + dir
     (sh status $cmd:expr; dir: $dir:expr) => {{
         match $crate::util::cmd::parse_sh(&$cmd.to_string()) {
             Ok((binary, args)) => $crate::util::cmd::run_status(&binary, &args, Some($dir.as_ref())),
             Err(e) => Err(e),
+        }
+    }};
+    // sh status literal (no dir)
+    (sh status $cmd:literal) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::run_status(&__binary, __args, None)
+            }
+            | None => Err($crate::prelude::io::Error::other("cmd!(sh ...): empty command string")),
         }
     }};
     // sh status string (no dir)
@@ -105,11 +180,35 @@ macro_rules! cmd {
         }
     }};
     // ── sh output ──────────────────────────────────────────────
+    // sh literal + dir
+    (sh $cmd:literal; dir: $dir:expr) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::run_output(&__binary, __args, Some($dir.as_ref()))
+            }
+            | None => Err($crate::prelude::io::Error::other("cmd!(sh ...): empty command string")),
+        }
+    }};
     // sh string + dir
     (sh $cmd:expr; dir: $dir:expr) => {{
         match $crate::util::cmd::parse_sh(&$cmd.to_string()) {
             Ok((binary, args)) => $crate::util::cmd::run_output(&binary, &args, Some($dir.as_ref())),
             Err(e) => Err(e),
+        }
+    }};
+    // sh literal (no dir)
+    (sh $cmd:literal) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::run_output(&__binary, __args, None)
+            }
+            | None => Err($crate::prelude::io::Error::other("cmd!(sh ...): empty command string")),
         }
     }};
     // sh string (no dir)
@@ -172,6 +271,20 @@ macro_rules! cmd {
         $crate::util::cmd::run_shell_output("pwsh", &["-NoProfile", "-Command"], &$cmd.to_string(), None)
     }};
     // ── try sh ─────────────────────────────────────────────────
+    // try sh literal + dir
+    (try sh $cmd:literal; dir: $dir:expr) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::try_from_output(
+                    $crate::util::cmd::run_output(&__binary, __args, Some($dir.as_ref())),
+                )
+            }
+            | None => Err("cmd!(sh ...): empty command string".to_string()),
+        }
+    }};
     // try sh string + dir
     (try sh $cmd:expr; dir: $dir:expr) => {{
         match $crate::util::cmd::parse_sh(&$cmd.to_string()) {
@@ -179,6 +292,20 @@ macro_rules! cmd {
                 $crate::util::cmd::run_output(&binary, &args, Some($dir.as_ref())),
             ),
             Err(e) => Err(format!("{e}")),
+        }
+    }};
+    // try sh literal (no dir)
+    (try sh $cmd:literal) => {{
+        let mut __parts = $crate::cmd_sh_words!($cmd).into_iter();
+        match __parts.next() {
+            | Some(__binary) => {
+                let __binary = __binary.to_string_lossy().to_string();
+                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                $crate::util::cmd::try_from_output(
+                    $crate::util::cmd::run_output(&__binary, __args, None),
+                )
+            }
+            | None => Err("cmd!(sh ...): empty command string".to_string()),
         }
     }};
     // try sh string (no dir)

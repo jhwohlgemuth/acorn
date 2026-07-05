@@ -222,9 +222,83 @@ mod cmd_macro {
         } else {
             assert!(output.stderr().contains("oops") || output.stdout().contains("oops"));
         }
-
         let output = cmd!(exit_bin(), exit_args(42)).expect("exit code");
         assert!(!output.status.success());
+    }
+    #[test]
+    fn test_sh_literal_splat_output() {
+        let args = ["hello", "world"];
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {args...}").expect("array splat")
+        } else {
+            cmd!(sh "cmd /c echo {args...}").expect("array splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello world");
+        let args = vec!["vector".to_string(), "splat".to_string()];
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {args...}").expect("vector splat")
+        } else {
+            cmd!(sh "cmd /c echo {args...}").expect("vector splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "vector splat");
+        let arg1: Option<&str> = Some("optional");
+        let arg2: Option<&str> = None;
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {arg1...} {arg2...}").expect("option splat")
+        } else {
+            cmd!(sh "cmd /c echo {arg1...} {arg2...}").expect("option splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "optional");
+    }
+    #[test]
+    fn test_sh_literal_splat_empty_iterable() {
+        let args: Option<&str> = None;
+        let output = if cfg!(unix) {
+            cmd!(sh "true {args...}").expect("empty splat")
+        } else {
+            cmd!(sh "cmd /c rem {args...}").expect("empty splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "");
+    }
+    #[test]
+    fn test_sh_literal_splat_status_try_and_dir() {
+        let args = ["status"];
+        let status = if cfg!(unix) {
+            cmd!(sh status "echo {args...}").expect("splat status")
+        } else {
+            cmd!(sh status "cmd /c echo {args...}").expect("splat status")
+        };
+        assert!(status.success());
+        let args = ["try"];
+        let value = if cfg!(unix) {
+            cmd!(try sh "echo {args...}").expect("splat try")
+        } else {
+            cmd!(try sh "cmd /c echo {args...}").expect("splat try")
+        };
+        assert_eq!(value, "try");
+        let cwd = std::env::current_dir().expect("current directory");
+        let args = ["dir"];
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {args...}"; dir: cwd).expect("splat dir")
+        } else {
+            cmd!(sh "cmd /c echo {args...}"; dir: cwd).expect("splat dir")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "dir");
+    }
+    #[test]
+    fn test_sh_literal_splat_single_quotes_are_literal() {
+        let output = if cfg!(unix) {
+            cmd!(sh "echo '{args...}'").expect("quoted splat")
+        } else {
+            cmd!(sh "cmd /c echo '{args...}'").expect("quoted splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "{args...}");
     }
     #[cfg(feature = "shell-lint")]
     #[test]
