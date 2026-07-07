@@ -12,7 +12,6 @@ use crate::io::api::{
 };
 use crate::io::read_file;
 use crate::param;
-use crate::prelude::HashMap;
 use crate::schema::pid::{PersistentIdentifierParse, DOI};
 use crate::test::utils::fixture_path;
 use crate::util::Searchable;
@@ -311,109 +310,6 @@ mod github_api {
         let (paths, pending) = collect_tree(entries, "content");
         assert_eq!(paths, vec!["content/index.json".to_string()]);
         assert!(pending.is_empty());
-    }
-}
-#[cfg(test)]
-mod gitlab_api {
-    use super::*;
-    use crate::io::api::gitlab::{
-        handle_tree_paths_response, PaginationKey, ProgrammingLanguageDetails, ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse,
-        TreeResponse,
-    };
-
-    #[test]
-    fn test_query_string() {
-        let param = param!(KeyValuePair, "per_page", "100");
-        let query = param.to_string::<PaginationKey, api::EmptyField>();
-        assert_eq!(query, "per_page=100");
-    }
-    #[test]
-    fn test_params_to_query_string() {
-        let params = vec![param!(KeyValuePair, "per_page", "100"), param!(KeyValuePair, "page", "2")];
-        let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
-        assert_eq!(query, "?per_page=100&page=2");
-    }
-    #[test]
-    fn test_params_to_query_string_with_invalid_fields() {
-        let params = vec![param!(KeyValuePair, "every_page", "100"), param!(KeyValuePair, "page", "42")];
-        let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
-        assert_eq!(query, "?page=42");
-    }
-    #[test]
-    fn test_params_to_query_string_with_invalid_values() {
-        let params = vec![param!(KeyValuePair, "per_page", "100"), param!(KeyValuePair, "page", "not a number")];
-        let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
-        assert_eq!(query, "?per_page=100");
-        let params = vec![param!(KeyValuePair, "per_page", "{}"), param!(KeyValuePair, "page", "not a number")];
-        let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
-        assert!(query.is_empty());
-    }
-    #[test]
-    fn test_programming_languages_response_parse_filters_programming_only() {
-        let data = HashMap::from_iter([
-            (
-                "Python".to_string(),
-                ProgrammingLanguageDetails {
-                    language_id: Some(303),
-                    language_type: Some("programming".to_string()),
-                    color: Some("#3572A5".to_string()),
-                    group: None,
-                },
-            ),
-            (
-                "YAML".to_string(),
-                ProgrammingLanguageDetails {
-                    language_id: Some(407),
-                    language_type: Some("data".to_string()),
-                    color: Some("#cb171e".to_string()),
-                    group: None,
-                },
-            ),
-        ]);
-        let response = ProgrammingLanguagesResponse::parse(data);
-        assert_eq!(response.languages.len(), 1);
-        assert_eq!(response.languages[0].name, "Python");
-        assert_eq!(response.languages[0].language_id, Some(303));
-    }
-    #[test]
-    fn test_programming_language_use_response_deserializes_map() {
-        let json = r#"{"Rust":98.12,"Makefile":0.5,"Python":0.49}"#;
-        let response: ProgrammingLanguageUseResponse = serde_json::from_str(json).expect("should deserialize language usage map");
-        assert_eq!(response.languages.len(), 3);
-        assert_eq!(response.languages[0].name, "Makefile");
-        assert_eq!(response.languages[0].percentage, 0.5);
-        assert_eq!(response.languages[1].name, "Python");
-        assert_eq!(response.languages[2].name, "Rust");
-    }
-    #[test]
-    fn test_parse_tree_paths_response_filters_blob_entries() {
-        let json = r#"[
-            {"id":"1","name":"README.md","type":"blob","path":"README.md","mode":"100644"},
-            {"id":"2","name":"content","type":"tree","path":"content","mode":"040000"}
-        ]"#;
-        let response: TreeResponse = serde_json::from_str(json).expect("tree entries should parse");
-        assert_eq!(response.paths, vec!["README.md".to_string()]);
-    }
-    #[test]
-    fn test_parse_tree_paths_response_treats_later_page_403_as_terminal() {
-        let json = r#"{"message":"403 Forbidden"}"#;
-        let response: TreeResponse = serde_json::from_str(json).expect("error payload should deserialize as tree response");
-        assert!(response.error.is_some());
-        let response = handle_tree_paths_response(Ok(response), 3).expect("later-page forbidden should be terminal");
-        assert!(response.paths.is_empty());
-    }
-    #[test]
-    fn test_parse_tree_paths_response_returns_error_on_first_page_403() {
-        let json = r#"{"message":"403 Forbidden"}"#;
-        let response: TreeResponse = serde_json::from_str(json).expect("error payload should deserialize as tree response");
-        let why = handle_tree_paths_response(Ok(response), 1).expect_err("first-page forbidden should fail");
-        assert!(why.to_string().contains("403 Forbidden"));
-    }
-    #[test]
-    fn test_parse_tree_paths_response_returns_actionable_error_for_non_json() {
-        let html = "<!doctype html><html><body>403 Forbidden</body></html>";
-        let why = serde_json::from_str::<TreeResponse>(html).expect_err("non-json response should fail with parse error");
-        assert!(why.to_string().contains("expected value"));
     }
 }
 #[cfg(test)]

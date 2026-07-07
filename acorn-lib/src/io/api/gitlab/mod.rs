@@ -1631,3 +1631,6 @@ pub(crate) async fn tree_paths(options: &Options) -> ApiResult<TreeResponse> {
         | Err(why) => Err(why),
     }
 }
+
+#[cfg(test)]
+mod tests;

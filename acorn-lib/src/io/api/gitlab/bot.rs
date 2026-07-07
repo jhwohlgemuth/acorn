@@ -445,7 +445,7 @@ impl GitLabBot {
         }
     }
     /// Process a GitLab events response and update bot state.
-    fn process_events(&self, response: EventsResponse) -> ApiResult<PollSummary> {
+    pub(crate) fn process_events(&self, response: EventsResponse) -> ApiResult<PollSummary> {
         let latest_after = response.iter().map(|event| event.created_at.as_str()).max().map(str::to_string);
         let events: Vec<_> = response.iter().filter_map(|e| MergeRequestNoteEvent::try_from(e).ok()).collect();
         let summary = PollSummary {
@@ -545,89 +545,4 @@ fn default_merge_request_note_handler(event: MergeRequestNoteEvent) -> ApiResult
         event.event_id, event.merge_request_iid
     );
     Ok(())
-}
-
-#[cfg(test)]
-#[allow(clippy::unwrap_used)]
-mod tests {
-    use super::*;
-    use crate::io::api::gitlab::{NoteMetadata, UserMetadata};
-
-    fn user() -> UserMetadata {
-        UserMetadata {
-            avatar_url: "https://example.com/avatar.png".to_string(),
-            identifier: 1,
-            locked: false,
-            name: "Test User".to_string(),
-            email: None,
-            state: "active".to_string(),
-            username: "tester".to_string(),
-            url: "https://example.com/tester".to_string(),
-        }
-    }
-    fn note(noteable_type: &str, noteable_iid: u64) -> NoteMetadata {
-        NoteMetadata {
-            identifier: 10,
-            note_type: None,
-            body: "hello".to_string(),
-            author: user(),
-            created_at: "2026-07-06T00:00:01Z".to_string(),
-            updated_at: "2026-07-06T00:00:01Z".to_string(),
-            system: false,
-            noteable_id: 20,
-            noteable_iid,
-            noteable_type: noteable_type.to_string(),
-            project_id: 30,
-            resolvable: false,
-            confidential: false,
-            internal: false,
-            imported: false,
-            imported_from: "none".to_string(),
-            commands_changes: serde_json::json!({}),
-        }
-    }
-    fn event(created_at: &str, noteable_type: &str) -> EventDetails {
-        EventDetails {
-            identifier: 100,
-            project_id: 30,
-            action_name: EventAction::Commented,
-            target_id: 10,
-            target_iid: 11,
-            target_type: TargetType::Note,
-            author_id: 1,
-            target_title: "note".to_string(),
-            created_at: created_at.to_string(),
-            author: user(),
-            imported: false,
-            imported_from: "none".to_string(),
-            push_data: None,
-            author_username: "tester".to_string(),
-            note: Some(note(noteable_type, 42)),
-        }
-    }
-
-    #[test]
-    fn extracts_merge_request_iid_from_note_event() {
-        let extracted = MergeRequestNoteEvent::try_from(&event("2026-07-06T00:00:01Z", "MergeRequest")).unwrap();
-        assert_eq!(extracted.merge_request_iid, 42);
-    }
-    #[test]
-    fn ignores_non_merge_request_note_event() {
-        let extracted = MergeRequestNoteEvent::try_from(&event("2026-07-06T00:00:01Z", "Issue"));
-        assert!(extracted.is_err());
-    }
-    #[test]
-    fn processing_updates_after_to_latest_event_timestamp() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap());
-        let bot = GitLabBot::new(config);
-        let summary = bot
-            .process_events(vec![
-                event("2026-07-06T00:00:01Z", "MergeRequest"),
-                event("2026-07-06T00:00:03Z", "Issue"),
-            ])
-            .unwrap();
-        assert_eq!(summary.latest_after, Some("2026-07-06T00:00:03Z".to_string()));
-        assert_eq!(summary.processed_count, 1);
-        assert_eq!(bot.snapshot().unwrap().after, "2026-07-06T00:00:03Z");
-    }
 }
