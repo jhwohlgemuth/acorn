@@ -332,7 +332,7 @@ pub enum CreateCommands {
     /// GitLab runner
     Runner(Box<arguments::Runner>),
     /// Bot server container
-    Bot(Box<arguments::CreateBot>),
+    Bot(Box<arguments::bot::Create>),
 }
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]
@@ -361,7 +361,7 @@ pub enum SchemaCommands {
 #[command(long_about = None)]
 pub enum ServeCommands {
     /// Webhook/API bot server that polls GitLab for merge request note events
-    Bot(Box<arguments::Bot>),
+    Bot(Box<arguments::bot::Serve>),
     /// Model context protocol (MCP) server
     Mcp,
 }

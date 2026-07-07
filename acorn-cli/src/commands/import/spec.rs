@@ -54,7 +54,7 @@ pub(super) fn endpoint_from_import(
     let name = required_value(name, "name")?;
     let domain = required_value(domain, "domain")?;
     import_resources_from_openapi(spec).map(|resources| {
-        Endpoint::at(domain)
+        Endpoint::at("")
             .name(name.to_string())
             .maybe_root(root.clone())
             .maybe_authentication(auth_token.as_ref().map(|token| Authentication {
@@ -63,5 +63,6 @@ pub(super) fn endpoint_from_import(
             }))
             .resources(resources)
             .build()
+            .with_domain(domain)
     })
 }

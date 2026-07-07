@@ -8,7 +8,6 @@ use crate::io::http::HttpMethod;
 use crate::io::http::{delete, get, patch, post, put};
 use crate::io::ApiResult;
 use crate::param;
-use crate::prelude::HashSet;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::util::{detect_json, detect_xml, Constant, Label, Searchable};
 use crate::{Location, Repository, Scheme};
@@ -20,7 +19,8 @@ use color_eyre::eyre::{self, eyre};
 use core::iter::once;
 use core::{fmt, marker::PhantomData};
 use derive_more::Display;
-use fluent_uri::Uri;
+use fluent_uri::{Uri, UriRef};
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use owo_colors::OwoColorize;
 use schemars::JsonSchema;
@@ -345,6 +345,17 @@ pub struct TextResponse {
     pub content: String,
 }
 impl Endpoint {
+    /// Create an endpoint from explicit domain, scheme, and port parts.
+    ///
+    /// Unspecified parts fall back to the same defaults as [`Endpoint::default`].
+    pub fn from_parts(domain: String, scheme: Option<Scheme>, port: Option<u16>) -> Self {
+        Self {
+            domain,
+            scheme,
+            port,
+            ..Self::default()
+        }
+    }
     /// Get the base URL for the API endpoint, constructed from scheme, domain, and port if not provided
     pub fn base(&self) -> String {
         let Self { domain, root, .. } = self;
@@ -355,10 +366,34 @@ impl Endpoint {
     }
     /// Create a new endpoint with a custom domain while preserving all other properties
     pub fn with_domain(&self, domain: impl Into<String>) -> Self {
+        let (domain, scheme, port) = Self::split_domain(domain.into().as_str());
         Self {
-            domain: domain.into(),
+            domain,
+            scheme: scheme.or_else(|| self.scheme.clone()),
+            port: port.or(self.port),
             ..self.clone()
         }
+    }
+    fn split_domain(value: &str) -> (String, Option<Scheme>, Option<u16>) {
+        Uri::parse(value)
+            .ok()
+            .and_then(|uri| {
+                uri.authority().map(|authority| {
+                    (
+                        authority.host().to_string(),
+                        Some(Scheme::from(uri.scheme().as_str())).filter(|scheme| *scheme != Scheme::Unsupported),
+                        authority.port_to_u16().ok().flatten(),
+                    )
+                })
+            })
+            .or_else(|| {
+                let authority = format!("//{}", value.trim());
+                UriRef::parse(authority.as_str()).ok().and_then(|uri| {
+                    uri.authority()
+                        .map(|parsed| (parsed.host().to_string(), None, parsed.port_to_u16().ok().flatten()))
+                })
+            })
+            .unwrap_or_else(|| (value.trim().to_string(), None, None))
     }
     /// Find an endpoint template by name from [`INCLUDED_ENDPOINTS`]
     ///
@@ -435,24 +470,25 @@ impl fmt::Display for TextResponse {
 }
 impl Default for Endpoint {
     fn default() -> Self {
-        Endpoint::at("https://example.com").build()
+        Endpoint::at("example.com").scheme(Scheme::default()).build()
     }
 }
 impl<'a> From<Uri<&'a str>> for Endpoint {
     fn from(value: Uri<&'a str>) -> Self {
-        let domain: String = value
-            .authority()
-            .map(|auth| format!("{}://{}", value.scheme().as_str(), auth.host()))
-            .unwrap_or_default();
-        let port: Option<u16> = value.authority().and_then(|auth| auth.port_to_u16().ok()).flatten();
-        Endpoint::at(domain).maybe_port(port).build()
+        let domain = value.authority().map(|auth| auth.host().to_string()).unwrap_or_default();
+        let port = value.authority().and_then(|auth| auth.port_to_u16().ok()).flatten();
+        Self::from_parts(
+            domain,
+            Some(Scheme::from(value.scheme().as_str())).filter(|scheme| *scheme != Scheme::Unsupported),
+            port,
+        )
     }
 }
 impl From<Location> for Endpoint {
     fn from(value: Location) -> Self {
-        let domain = value.host().map(|h| format!("{}://{}", value.scheme(), h)).unwrap_or_default();
+        let domain = value.host().unwrap_or_default();
         let port = value.port();
-        Endpoint::at(domain).maybe_port(port).build()
+        Self::from_parts(domain, Some(value.scheme()), port)
     }
 }
 impl From<Repository> for Endpoint {
@@ -807,11 +843,11 @@ impl RemoteResource for Endpoint {
         F: QueryField,
     {
         let Self { resources, .. } = self;
-        let mut context = self.context_with::<Q, F>(data.clone());
+        let context = self.context_with::<Q, F>(data.clone());
         let resource = resources.find_by_name(name);
         match resource {
             | Some(Resource { method, template, .. }) => {
-                let path = render(&template, &mut context);
+                let path = render(&template, &context);
                 let params = data.unwrap_or_default();
                 let headers = params.clone().into_headers();
                 let body = params.into_body();
@@ -868,13 +904,12 @@ pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
             .and_then(|base| base.split_whitespace().next().map(str::trim))
             .and_then(|key| (!key.is_empty()).then(|| key.to_string()))
     }
-    let mut seen = HashSet::new();
     template
         .split("{{")
         .skip(1)
         .filter_map(|segment| segment.split_once("}}").map(|(before, _)| before))
         .filter_map(extract_key)
-        .filter(|key| seen.insert(key.clone()))
+            .unique()
         .collect()
 }
 /// Create a query string component from a key-value pair with key and value validation
@@ -1013,15 +1048,19 @@ pub(crate) fn query_string<Q: QueryField + ValueValidator, F: QueryField>(
     ];
     Param::to_query_string::<Q, F>(params)
 }
-pub(crate) fn render(template: &str, context: &mut Context) -> String {
-    let mut tera = Tera::default();
-    let keys = extract_template_keys(template);
-    keys.into_iter().for_each(|key| {
-        if !context.contains_key(&key) {
-            context.insert(&key, "");
-        }
-    });
-    tera.render_str(template, context).unwrap_or_default()
+pub(crate) fn render(template: &str, context: &Context) -> String {
+    let missing_values = extract_template_keys(template)
+        .into_iter()
+        .filter(|key| !context.contains_key(key))
+        .map(|key| (key, serde_json::Value::String(String::new())));
+    let merged = match context.clone().into_json() {
+        | serde_json::Value::Object(existing) => serde_json::Value::Object(existing.into_iter().chain(missing_values).collect()),
+        | _ => serde_json::Value::Object(missing_values.collect()),
+    };
+    Context::from_serialize(merged)
+        .ok()
+        .and_then(|context| Tera::one_off(template, &context, false).ok())
+        .unwrap_or_default()
 }
 /// Validate that a required secret is present and non-empty
 /// ### Note

@@ -113,10 +113,11 @@ pub enum Repository {
 /// See [RFC 8089] for more information
 ///
 /// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
-#[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Scheme {
     /// Secure HTTP
+    #[default]
     #[display("https")]
     HTTPS,
     /// Insecure HTTP included primarily for contexts necessitating its use (ex., local development)
@@ -153,18 +154,10 @@ impl FromStr for Location {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match UriRef::parse(s).ok().and_then(|uri| uri.scheme()) {
-            | Some(scheme) => {
-                let detected = match scheme.as_str().to_ascii_lowercase().as_str() {
-                    | "https" => Scheme::HTTPS,
-                    | "http" => Scheme::HTTP,
-                    | "file" => Scheme::File,
-                    | _ => Scheme::Unsupported,
-                };
-                Ok(Location::Detailed {
-                    scheme: detected,
-                    uri: s.to_string(),
-                })
-            }
+            | Some(scheme) => Ok(Location::Detailed {
+                scheme: Scheme::from(scheme.as_str()),
+                uri: s.to_string(),
+            }),
             | None => Ok(Location::Simple(s.to_string())),
         }
     }
@@ -208,15 +201,9 @@ impl Location {
     /// ```
     pub fn scheme(&self) -> Scheme {
         match self {
-            | Location::Simple(value) => match Uri::parse(value.as_str()) {
-                | Ok(uri) => match uri.scheme().as_str().to_ascii_lowercase().as_str() {
-                    | "https" => Scheme::HTTPS,
-                    | "http" => Scheme::HTTP,
-                    | "file" => Scheme::File,
-                    | _ => Scheme::Unsupported,
-                },
-                | Err(_) => Scheme::Unsupported,
-            },
+            | Location::Simple(value) => Uri::parse(value.as_str())
+                .map(|uri| Scheme::from(uri.scheme().as_str()))
+                .unwrap_or(Scheme::Unsupported),
             | Location::Detailed { scheme, .. } => scheme.clone(),
         }
     }
@@ -435,6 +422,16 @@ impl Repository {
         }
     }
 }
+impl From<&str> for Scheme {
+    fn from(value: &str) -> Self {
+        match value.to_ascii_lowercase().as_str() {
+            | "https" => Scheme::HTTPS,
+            | "http" => Scheme::HTTP,
+            | "file" => Scheme::File,
+            | _ => Scheme::Unsupported,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -445,8 +442,15 @@ mod tests {
         clippy::panic,
         clippy::unwrap_used
     )]
-    use super::{Location, Repository};
+    use super::{Location, Repository, Scheme};
 
+    #[test]
+    fn test_scheme_from_str() {
+        assert_eq!(Scheme::from("https"), Scheme::HTTPS);
+        assert_eq!(Scheme::from("HTTP"), Scheme::HTTP);
+        assert_eq!(Scheme::from("file"), Scheme::File);
+        assert_eq!(Scheme::from("ssh"), Scheme::Unsupported);
+    }
     #[test]
     fn test_repository_default_is_local_git() {
         let repository = Repository::default();

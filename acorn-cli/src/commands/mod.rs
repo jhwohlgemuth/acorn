@@ -126,14 +126,15 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             | Some(CreateCommands::Mcp) => Err(eyre::eyre!("MCP server creation is not yet implemented")),
             | Some(CreateCommands::Bot(args)) => with_runtime(async {
                 initialize_database(config).await?;
+                let bind = args.common.bind_address_if_configured();
                 create::bot::run(
-                    &args.identifier,
+                    &args.common.identifier,
                     &args.name,
                     &args.image,
-                    &args.runtime,
-                    &args.bind,
-                    &args.poll_interval,
-                    &args.after,
+                    &args.common.runtime,
+                    &bind,
+                    &args.common.poll_interval,
+                    &args.common.after,
                     &args.domain,
                 )
                 .await
@@ -310,13 +311,14 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
         },
         | Some(Commands::Serve { command, .. }) => match command {
             | Some(ServeCommands::Bot(args)) => with_runtime(async {
+                let bind = args.common.bind_address();
                 serve::bot::run(
-                    &args.identifier,
-                    args.bind.as_deref().unwrap_or("127.0.0.1:3000"),
-                    args.after.as_deref(),
-                    Some(args.poll_interval),
+                    &args.common.identifier,
+                    &bind,
+                    args.common.after.as_deref(),
+                    Some(args.common.poll_interval.unwrap_or(30)),
                     args.detach,
-                    &args.runtime,
+                    &args.common.runtime,
                 )
                 .await
             }),

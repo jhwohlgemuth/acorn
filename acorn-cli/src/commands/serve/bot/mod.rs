@@ -3,6 +3,7 @@ use acorn::io::api::Configuration;
 use acorn::io::Executor;
 use color_eyre::eyre::{self, Report, Result};
 use core::time::Duration;
+use std::net::{SocketAddr, ToSocketAddrs};
 
 /// Start a GitLab bot server
 ///
@@ -19,7 +20,7 @@ pub async fn run(
         run_detached(identifier, bind, after, poll_interval, runtime).await
     } else {
         let options = gitlab::Options::from_env().with_identifier(identifier);
-        let address: core::net::SocketAddr = bind.parse().map_err(|e| eyre::eyre!("Invalid bind address '{bind}': {e}"))?;
+        let address = resolve_bind_address(bind)?;
         let mut config = bot::Config::new(options, address);
         if let Some(after) = after {
             config = config.with_after(after);
@@ -49,4 +50,10 @@ async fn run_detached(
         &None,
     )
     .await
+}
+fn resolve_bind_address(bind: &str) -> Result<SocketAddr, Report> {
+    bind.to_socket_addrs()
+        .map_err(|e| eyre::eyre!("Invalid bind address '{bind}' — {e}"))?
+        .next()
+        .ok_or_else(|| eyre::eyre!("Invalid bind address '{bind}' — no address resolved"))
 }

@@ -26,6 +26,20 @@ fn test_endpoint_from_import_applies_metadata() {
     assert!(endpoint.authentication.is_some());
 }
 #[test]
+fn test_endpoint_from_import_normalizes_uri_domain() {
+    let endpoint = endpoint_from_import(
+        &Some("widgets::api".to_string()),
+        &Some("https://api.example.com:9443".to_string()),
+        &Some("v1".to_string()),
+        &None,
+        SPEC,
+    )
+    .unwrap();
+    assert_eq!(endpoint.domain, "api.example.com");
+    assert_eq!(endpoint.scheme, Some(acorn::Scheme::HTTPS));
+    assert_eq!(endpoint.port, Some(9443));
+}
+#[test]
 fn test_endpoint_from_import_requires_name() {
     let result = endpoint_from_import(&None, &Some("api.example.com".to_string()), &None, &None, SPEC);
     assert!(result.is_err());

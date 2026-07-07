@@ -8,7 +8,111 @@ use clap::ValueEnum;
 use clap::{Args, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use derive_more::Display;
+/// Bot command arguments.
+pub(crate) mod bot {
+    use super::{parse_executor, Executor, Verbosity};
+    use clap::Args;
 
+    const DEFAULT_HOST: &str = "localhost";
+    const DEFAULT_PORT: u16 = 3000;
+
+    /// Arguments shared by bot commands
+    #[derive(Clone, Debug, Args)]
+    pub(crate) struct Common {
+        /// GitLab project or group identifier to poll for note events
+        #[arg(value_name = "IDENTIFIER", help_heading = "ARGS")]
+        pub(crate) identifier: String,
+        /// Address and port for the bot HTTP server to bind to
+        #[arg(short, long, value_name = "ADDRESS", help_heading = "OPTIONS")]
+        pub(crate) bind: Option<String>,
+        /// Port for the bot HTTP server to bind to
+        #[arg(short, long, value_name = "PORT", help_heading = "OPTIONS")]
+        pub(crate) port: Option<u16>,
+        /// Initial ISO 8601 timestamp to start polling from
+        #[arg(long, value_name = "TIMESTAMP", help_heading = "OPTIONS")]
+        pub(crate) after: Option<String>,
+        /// Polling interval in seconds
+        #[arg(long, value_name = "SECONDS", help_heading = "OPTIONS")]
+        pub(crate) poll_interval: Option<u64>,
+        /// Container runtime (docker, podman, apptainer)
+        #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
+        pub(crate) runtime: Option<Executor>,
+    }
+    impl Common {
+        /// Resolve the bot bind address from optional host and port arguments.
+        pub(crate) fn bind_address(&self) -> String {
+            let host = self.bind.as_deref().map(bind_host).unwrap_or(DEFAULT_HOST);
+            let port = self.port.or_else(|| self.bind.as_deref().and_then(bind_port)).unwrap_or(DEFAULT_PORT);
+
+            format!("{host}:{port}")
+        }
+        /// Resolve a bind address only when the user configured bind-related options.
+        pub(crate) fn bind_address_if_configured(&self) -> Option<String> {
+            (self.bind.is_some() || self.port.is_some()).then(|| self.bind_address())
+        }
+    }
+    fn bind_host(bind: &str) -> &str {
+        bind.rsplit_once(':')
+            .and_then(|(host, port)| port.parse::<u16>().ok().map(|_| host))
+            .unwrap_or(bind)
+    }
+    fn bind_port(bind: &str) -> Option<u16> {
+        bind.rsplit_once(':').and_then(|(_, port)| port.parse().ok())
+    }
+    /// Arguments for `acorn create bot`
+    #[derive(Clone, Debug, Args)]
+    #[command(long_about = None)]
+    pub(crate) struct Create {
+        #[command(flatten)]
+        pub(crate) common: Common,
+        /// Container name (defaults to `acorn-bot-{identifier}`)
+        #[arg(short, long, value_name = "NAME", help_heading = "OPTIONS")]
+        pub(crate) name: Option<String>,
+        /// Acorn Docker image to use for the bot container
+        #[arg(short, long, default_value = "acorn:latest", value_name = "IMAGE", help_heading = "OPTIONS")]
+        pub(crate) image: Option<String>,
+        /// GitLab domain override (e.g., code.ornl.gov)
+        #[arg(short = 'd', long, value_name = "DOMAIN", help_heading = "OPTIONS")]
+        pub(crate) domain: Option<String>,
+        #[command(flatten)]
+        pub(crate) verbose: Verbosity,
+    }
+    /// Arguments for `acorn serve bot`
+    #[derive(Clone, Debug, Args)]
+    #[command(long_about = None)]
+    pub(crate) struct Serve {
+        #[command(flatten)]
+        pub(crate) common: Common,
+        /// Create and run the bot in a detached Docker/Podman container instead of in-process
+        #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
+        pub(crate) detach: bool,
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::Common;
+
+        fn common(bind: Option<&str>, port: Option<u16>) -> Common {
+            Common {
+                identifier: "123".to_string(),
+                bind: bind.map(String::from),
+                port,
+                after: None,
+                poll_interval: None,
+                runtime: None,
+            }
+        }
+
+        #[test]
+        fn bind_address_uses_default_host_with_port() {
+            assert_eq!(common(None, Some(8080)).bind_address(), "localhost:8080");
+            assert_eq!(common(Some("0.0.0.0"), Some(8080)).bind_address(), "0.0.0.0:8080");
+            assert_eq!(common(Some("0.0.0.0"), None).bind_address(), "0.0.0.0:3000");
+            assert_eq!(common(Some("0.0.0.0:9000"), Some(8080)).bind_address(), "0.0.0.0:8080");
+            assert_eq!(common(None, None).bind_address_if_configured(), None);
+        }
+    }
+}
 /// Database backend used for local cache and history tables.
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq, ValueEnum)]
 pub enum DatabaseBackend {
@@ -457,59 +561,6 @@ pub(crate) struct Runner {
     pub(crate) runtime: Option<Executor>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
-}
-/// Arguments for `acorn create bot`
-#[derive(Clone, Debug, Args)]
-#[command(long_about = None)]
-pub(crate) struct CreateBot {
-    /// GitLab project or group identifier to poll for note events
-    #[arg(value_name = "IDENTIFIER", help_heading = "ARGS")]
-    pub(crate) identifier: String,
-    /// Container name (defaults to `acorn-bot-{identifier}`)
-    #[arg(short, long, value_name = "NAME", help_heading = "OPTIONS")]
-    pub(crate) name: Option<String>,
-    /// Acorn Docker image to use for the bot container
-    #[arg(short, long, default_value = "acorn:latest", value_name = "IMAGE", help_heading = "OPTIONS")]
-    pub(crate) image: Option<String>,
-    /// Container runtime (docker, podman, apptainer)
-    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
-    pub(crate) runtime: Option<Executor>,
-    /// Address and port for the bot HTTP server to bind to
-    #[arg(short, long, value_name = "ADDRESS", help_heading = "OPTIONS")]
-    pub(crate) bind: Option<String>,
-    /// Polling interval in seconds
-    #[arg(long, value_name = "SECONDS", help_heading = "OPTIONS")]
-    pub(crate) poll_interval: Option<u64>,
-    /// Initial ISO 8601 timestamp to start polling from
-    #[arg(long, value_name = "TIMESTAMP", help_heading = "OPTIONS")]
-    pub(crate) after: Option<String>,
-    /// GitLab domain override (e.g., code.ornl.gov)
-    #[arg(short = 'd', long, value_name = "DOMAIN", help_heading = "OPTIONS")]
-    pub(crate) domain: Option<String>,
-    #[command(flatten)]
-    pub(crate) verbose: Verbosity,
-}
-#[derive(Clone, Debug, Args)]
-#[command(long_about = None)]
-pub(crate) struct Bot {
-    /// GitLab project or group identifier to poll for note events
-    #[arg(value_name = "IDENTIFIER", help_heading = "ARGS")]
-    pub(crate) identifier: String,
-    /// Address and port for the bot HTTP server to bind to
-    #[arg(short, long, default_value = "127.0.0.1:3000", value_name = "ADDRESS", help_heading = "OPTIONS")]
-    pub(crate) bind: Option<String>,
-    /// Initial ISO 8601 timestamp to start polling from (e.g., 2026-07-06T00:00:00Z)
-    #[arg(long, value_name = "TIMESTAMP", help_heading = "OPTIONS")]
-    pub(crate) after: Option<String>,
-    /// Polling interval in seconds
-    #[arg(long, default_value_t = 30, value_name = "SECONDS", help_heading = "OPTIONS")]
-    pub(crate) poll_interval: u64,
-    /// Create and run the bot in a detached Docker/Podman container instead of in-process
-    #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
-    pub(crate) detach: bool,
-    /// Container runtime (docker, podman, apptainer). Only used with --detach.
-    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
-    pub(crate) runtime: Option<Executor>,
 }
 impl FileFormat {
     pub fn is_structured(&self) -> bool {

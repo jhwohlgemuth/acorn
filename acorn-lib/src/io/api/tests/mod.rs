@@ -7,7 +7,7 @@
 )]
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
-    self, extract_template_keys, orcid, require_non_empty_secret, ror, Configuration, Endpoint, IntoBody, IntoHeaders, Param, ParamStyle, Params,
+    self, extract_template_keys, orcid, render, require_non_empty_secret, ror, Configuration, Endpoint, IntoBody, IntoHeaders, Param, ParamStyle, Params,
     RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,
 };
 use crate::io::read_file;
@@ -179,6 +179,26 @@ fn test_extract_template_keys() {
     let keys = extract_template_keys(template);
     let expected: Vec<String> = vec![];
     assert_eq!(keys, expected);
+}
+#[test]
+fn test_render_replaces_known_values() {
+    let mut context = tera::Context::new();
+    context.insert("base", "https://example.org");
+    context.insert("identifier", "abc-123");
+    let rendered = render("{{ base }}/items/{{ identifier }}", &context);
+    assert_eq!(rendered, "https://example.org/items/abc-123");
+}
+#[test]
+fn test_render_inserts_empty_for_missing_values() {
+    let context = tera::Context::new();
+    let rendered = render("{{ base }}/items/{{ identifier }}{{ query }}", &context);
+    assert_eq!(rendered, "/items/");
+}
+#[test]
+fn test_render_prefills_empty_before_default_filter() {
+    let context = tera::Context::new();
+    let rendered = render("{{ query | default(value=\"all\") }}", &context);
+    assert_eq!(rendered, "");
 }
 #[test]
 fn test_require_non_empty_secret_rejects_empty_values() {
@@ -689,6 +709,41 @@ mod orcid_api {
         assert_eq!(updated.domain, "custom.domain.com");
         assert_eq!(updated.root, Some("api/v1".to_string()));
         assert_eq!(endpoint.domain, "original.com");
+    }
+    #[test]
+    fn test_endpoint_with_domain_accepts_uri() {
+        let endpoint = Endpoint::at("original.com").root("api/v1").build();
+        let updated = endpoint.with_domain("http://custom.domain.com:8080/path");
+        assert_eq!(updated.domain, "custom.domain.com");
+        assert_eq!(updated.scheme, Some(crate::Scheme::HTTP));
+        assert_eq!(updated.port, Some(8080));
+        assert_eq!(updated.root, Some("api/v1".to_string()));
+    }
+    #[test]
+    fn test_endpoint_with_domain_accepts_host_port() {
+        let endpoint = Endpoint::at("original.com").build();
+        let updated = endpoint.with_domain("localhost:3000");
+        assert_eq!(updated.domain, "localhost");
+        assert_eq!(updated.scheme, None);
+        assert_eq!(updated.port, Some(3000));
+    }
+    #[test]
+    fn test_endpoint_from_parts_sets_explicit_values() {
+        let endpoint = Endpoint::from_parts("api.example.com".to_string(), Some(crate::Scheme::HTTP), Some(8080));
+        assert_eq!(endpoint.domain, "api.example.com");
+        assert_eq!(endpoint.scheme, Some(crate::Scheme::HTTP));
+        assert_eq!(endpoint.port, Some(8080));
+    }
+    #[test]
+    fn test_endpoint_from_parts_preserves_defaults_for_missing_values() {
+        let endpoint = Endpoint::from_parts("api.example.com".to_string(), None, None);
+        assert_eq!(endpoint.domain, "api.example.com");
+        assert_eq!(endpoint.scheme, None);
+        assert_eq!(endpoint.port, None);
+        assert_eq!(endpoint.name, String::new());
+        assert_eq!(endpoint.root, None);
+        assert!(endpoint.resources.is_empty());
+        assert!(endpoint.authentication.is_none());
     }
     #[test]
     fn test_from_template_with_domain() {
