@@ -424,9 +424,6 @@ pub(crate) struct Runner {
     /// Runner description (alternative to providing a configuration file)
     #[arg(short, long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
     pub(crate) description: Option<String>,
-    /// GitLab runner executor type
-    #[arg(short, long, value_name = "TYPE", value_parser = parse_executor, help_heading = "OPTIONS")]
-    pub(crate) executor: Option<Executor>,
     /// GitLab group ID to create a runner for (alternative to providing a configuration file)
     #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
     pub(crate) group: Option<u64>,
@@ -455,8 +452,64 @@ pub(crate) struct Runner {
     /// Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
     #[arg(short, long, conflicts_with = "tags", help_heading = "FLAGS")]
     pub(crate) untagged: bool,
+    /// Container runtime override (docker, podman, apptainer). Defaults to the executor's runtime.
+    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
+    pub(crate) runtime: Option<Executor>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
+}
+/// Arguments for `acorn create bot`
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct CreateBot {
+    /// GitLab project or group identifier to poll for note events
+    #[arg(value_name = "IDENTIFIER", help_heading = "ARGS")]
+    pub(crate) identifier: String,
+    /// Container name (defaults to `acorn-bot-{identifier}`)
+    #[arg(short, long, value_name = "NAME", help_heading = "OPTIONS")]
+    pub(crate) name: Option<String>,
+    /// Acorn Docker image to use for the bot container
+    #[arg(short, long, default_value = "acorn:latest", value_name = "IMAGE", help_heading = "OPTIONS")]
+    pub(crate) image: Option<String>,
+    /// Container runtime (docker, podman, apptainer)
+    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
+    pub(crate) runtime: Option<Executor>,
+    /// Address and port for the bot HTTP server to bind to
+    #[arg(short, long, value_name = "ADDRESS", help_heading = "OPTIONS")]
+    pub(crate) bind: Option<String>,
+    /// Polling interval in seconds
+    #[arg(long, value_name = "SECONDS", help_heading = "OPTIONS")]
+    pub(crate) poll_interval: Option<u64>,
+    /// Initial ISO 8601 timestamp to start polling from
+    #[arg(long, value_name = "TIMESTAMP", help_heading = "OPTIONS")]
+    pub(crate) after: Option<String>,
+    /// GitLab domain override (e.g., code.ornl.gov)
+    #[arg(short = 'd', long, value_name = "DOMAIN", help_heading = "OPTIONS")]
+    pub(crate) domain: Option<String>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Bot {
+    /// GitLab project or group identifier to poll for note events
+    #[arg(value_name = "IDENTIFIER", help_heading = "ARGS")]
+    pub(crate) identifier: String,
+    /// Address and port for the bot HTTP server to bind to
+    #[arg(short, long, default_value = "127.0.0.1:3000", value_name = "ADDRESS", help_heading = "OPTIONS")]
+    pub(crate) bind: Option<String>,
+    /// Initial ISO 8601 timestamp to start polling from (e.g., 2026-07-06T00:00:00Z)
+    #[arg(long, value_name = "TIMESTAMP", help_heading = "OPTIONS")]
+    pub(crate) after: Option<String>,
+    /// Polling interval in seconds
+    #[arg(long, default_value_t = 30, value_name = "SECONDS", help_heading = "OPTIONS")]
+    pub(crate) poll_interval: u64,
+    /// Create and run the bot in a detached Docker/Podman container instead of in-process
+    #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) detach: bool,
+    /// Container runtime (docker, podman, apptainer). Only used with --detach.
+    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
+    pub(crate) runtime: Option<Executor>,
 }
 impl FileFormat {
     pub fn is_structured(&self) -> bool {

@@ -1,7 +1,5 @@
 //! Module for interacting with GitLab API
 //!
-// TODO: Add custom field list and query pair type
-// TODO: Finish modeling necessary API endpoints
 use crate::io::api::{
     require_non_empty_secret, Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, Param, Params, RemoteResource, ResponseContent,
     TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS,
@@ -12,7 +10,7 @@ use crate::io::database::{Database, Operations};
 use crate::io::{first_env_var, with_progress, ApiResult, ProgressType};
 use crate::prelude::var;
 use crate::prelude::HashMap;
-use crate::schema::validate::is_date;
+use crate::schema::validate::is_iso_date_or_rfc3339_timestamp;
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use crate::util::{Label, Searchable};
 use async_trait::async_trait;
@@ -326,6 +324,8 @@ pub struct EventDetails {
     pub push_data: Option<PushData>,
     /// Author username
     pub author_username: String,
+    /// Note details for note events
+    pub note: Option<NoteMetadata>,
 }
 /// Runner group details
 #[skip_serializing_none]
@@ -952,8 +952,8 @@ impl ValueValidator for EventFilterKey {
         match self {
             | EventFilterKey::Action => EventAction::try_from(value).is_ok(),
             | EventFilterKey::TargetType => TargetType::try_from(value).is_ok(),
-            | EventFilterKey::After => is_date(value).is_ok(),
-            | EventFilterKey::Before => is_date(value).is_ok(),
+            | EventFilterKey::After => is_iso_date_or_rfc3339_timestamp(value),
+            | EventFilterKey::Before => is_iso_date_or_rfc3339_timestamp(value),
             | EventFilterKey::Sort => SortValue::try_from(value).is_ok(),
         }
     }

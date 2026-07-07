@@ -29,7 +29,7 @@ acorn-macros = { version = "0.1.59", path = "../acorn-macros" }
 aho-corasick = { version = "1.1.4", default-features = false }
 ariadne = { version = "0.6.0", features = ["auto-color"], default-features = false, optional = true }
 async-trait = { workspace = true }
-axum = { workspace = true, optional = true }
+axum = { workspace = true, features = ["http1", "json", "tokio"], optional = true }
 bat = { version = "0.26.0", features = ["regex-onig"], default-features = false, optional = true }
 bon = { version = "3.8.1", default-features = false }
 chrono = { workspace = true }
@@ -88,7 +88,7 @@ sophia = { workspace = true }
 sysinfo = { version = "0.38.2", features = ["network", "system"], default-features = false, optional = true}
 tar = { version = "0.4.45", default-features = false, optional = true }
 tera = { workspace = true, optional = true }
-tokio = { version = "1.48.0", default-features = false, features = ["rt"], optional = true }
+tokio = { version = "1.48.0", default-features = false, features = ["net", "rt", "time"], optional = true }
 tracing = { workspace = true }
 tower = { workspace = true, optional = true, features = ["timeout", "util"] }
 triomphe = { workspace = true }

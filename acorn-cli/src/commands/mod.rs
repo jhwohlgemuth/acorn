@@ -1,4 +1,6 @@
-use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, SchemaCommands, Void};
+use crate::cli::{
+    arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, SchemaCommands, ServeCommands, Void,
+};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::fail;
 use acorn::schema::pid::raid::Metadata;
@@ -20,6 +22,7 @@ pub mod format;
 pub mod gather;
 pub mod import;
 pub mod link;
+pub mod serve;
 pub mod tui;
 
 pub use db::{initialize_database, DatabaseConfig};
@@ -121,6 +124,20 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
         }),
         | Some(Commands::Create { command, .. }) => match command {
             | Some(CreateCommands::Mcp) => Err(eyre::eyre!("MCP server creation is not yet implemented")),
+            | Some(CreateCommands::Bot(args)) => with_runtime(async {
+                initialize_database(config).await?;
+                create::bot::run(
+                    &args.identifier,
+                    &args.name,
+                    &args.image,
+                    &args.runtime,
+                    &args.bind,
+                    &args.poll_interval,
+                    &args.after,
+                    &args.domain,
+                )
+                .await
+            }),
             | Some(CreateCommands::Runner(args)) => with_runtime(async {
                 initialize_database(config).await?;
                 create::runner::run(
@@ -133,7 +150,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     &args.project,
                     &args.tags,
                     &args.untagged,
-                    &args.executor,
+                    &args.runtime,
                     &args.verbose,
                 )
                 .await
@@ -290,6 +307,21 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
         | Some(Commands::Schema { command, .. }) => match command {
             | Some(SchemaCommands::Rad) | None => print_rad_schema(),
             | Some(SchemaCommands::Raid) => print_raid_schema(),
+        },
+        | Some(Commands::Serve { command, .. }) => match command {
+            | Some(ServeCommands::Bot(args)) => with_runtime(async {
+                serve::bot::run(
+                    &args.identifier,
+                    args.bind.as_deref().unwrap_or("127.0.0.1:3000"),
+                    args.after.as_deref(),
+                    Some(args.poll_interval),
+                    args.detach,
+                    &args.runtime,
+                )
+                .await
+            }),
+            | Some(ServeCommands::Mcp) => with_runtime(async { serve::mcp::run().await }),
+            | None => Err(eyre::eyre!("No subcommand provided for 'serve'")),
         },
         | Some(Commands::Tui) => tui::run(),
         | None if args.interactive => {

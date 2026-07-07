@@ -28,7 +28,7 @@ pub async fn run(
     project: &Option<u64>,
     tags: &[String],
     untagged: &bool,
-    _executor: &Option<Executor>,
+    runtime: &Option<Executor>,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
     let config = ApplicationConfiguration::resolve(config)
@@ -102,7 +102,7 @@ pub async fn run(
                                     let RunnerCreationResponse { identifier, token, .. } = response;
                                     let container_name = format!("{base_name}-{identifier}");
                                     let details = details.with_name(container_name).with_id(identifier).with_token(token);
-                                    register_runner(details, verbose)
+                                    register_runner(details, verbose, runtime)
                                         .await
                                         .map(|_| ())
                                         .map_err(|why| format!("{base_name} — {why}"))
@@ -146,7 +146,7 @@ pub async fn run(
                         let RunnerCreationResponse { identifier, token, .. } = response;
                         let container_name = format!("{base_name}-{identifier}");
                         let details = details.with_name(container_name).with_id(identifier).with_token(token);
-                        register_runner(details, verbose).await
+                        register_runner(details, verbose, runtime).await
                     }
                     | Err(why) => Err(why),
                 }
@@ -216,7 +216,7 @@ async fn create_runner(details: &RunnerDetails) -> Result<RunnerCreationResponse
         | (_, _, Err(why)) => Err(why).wrap_err("GitLab list runners request failed"),
     }
 }
-async fn register_runner(details: RunnerDetails, verbose: &Verbosity) -> Result<(), Report> {
+async fn register_runner(details: RunnerDetails, verbose: &Verbosity, runtime: &Option<Executor>) -> Result<(), Report> {
     let RunnerDetails {
         docker_image,
         executor,
@@ -231,7 +231,11 @@ async fn register_runner(details: RunnerDetails, verbose: &Verbosity) -> Result<
     let gitlab_url = host.as_deref().unwrap_or("gitlab.com");
     let url = format!("https://{gitlab_url}/");
     let name = &name.unwrap_or_else(|| "gitlab-runner".to_string());
-    let binary = executor.command().unwrap_or("gitlab-runner");
+    let binary = runtime
+        .as_ref()
+        .and_then(|r| r.command())
+        .or_else(|| executor.command())
+        .unwrap_or("gitlab-runner");
     let description = format!("GitLab Runner [{identifier}]");
     let log_level = if verbose.is_silent() { "panic" } else { "debug" };
     let config_host_dir = Executor::default_gitlab_runner_config_directory();

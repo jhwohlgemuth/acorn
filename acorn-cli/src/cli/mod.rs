@@ -304,6 +304,19 @@ pub enum Commands {
         #[command(subcommand)]
         command: Option<SchemaCommands>,
     },
+    /// Start a server (bot, MCP, etc.)
+    ///
+    ///     Start a GitLab bot server
+    ///     $> acorn serve bot <project-id>
+    ///
+    ///     Start an MCP server
+    ///     $> acorn serve mcp
+    ///
+    #[clap(verbatim_doc_comment)]
+    Serve {
+        #[command(subcommand)]
+        command: Option<ServeCommands>,
+    },
     /// Launch the interactive terminal user interface (TUI)
     ///
     ///     $> acorn tui
@@ -318,6 +331,8 @@ pub enum CreateCommands {
     Mcp,
     /// GitLab runner
     Runner(Box<arguments::Runner>),
+    /// Bot server container
+    Bot(Box<arguments::CreateBot>),
 }
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]
@@ -341,6 +356,14 @@ pub enum SchemaCommands {
     Rad,
     /// Print research activity identifier (RAiD) metadata JSON schema to stdout
     Raid,
+}
+#[derive(Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum ServeCommands {
+    /// Webhook/API bot server that polls GitLab for merge request note events
+    Bot(Box<arguments::Bot>),
+    /// Model context protocol (MCP) server
+    Mcp,
 }
 /// Returns a vector of PathBuf from the given options
 ///

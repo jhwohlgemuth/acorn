@@ -235,6 +235,10 @@ pub fn is_country_code(value: impl ToString) -> Result<(), ValidationError> {
         | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
 }
+/// Check if value is either an ISO 8601 date (`YYYY-MM-DD`) or an RFC3339 timestamp.
+pub fn is_iso_date_or_rfc3339_timestamp(value: &str) -> bool {
+    is_date(value).is_ok() || DateTime::parse_from_rfc3339(value).is_ok()
+}
 /// Check if value is a valid ISO 639 language code (two-letter code with optional region subtag, e.g., "en" or "en-US")
 ///
 /// ISO 639 is the internationally recognized code for the representation of the world's languages and language groups
