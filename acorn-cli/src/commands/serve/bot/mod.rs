@@ -28,7 +28,7 @@ pub async fn run(
         if let Some(interval) = poll_interval {
             config = config.with_poll_interval(Duration::from_secs(interval));
         }
-        bot::GitLabBot::new(config).run().await
+        bot::Server::new(config).run().await
     }
 }
 /// Create a detached Docker/Podman container running `acorn serve bot <identifier>`

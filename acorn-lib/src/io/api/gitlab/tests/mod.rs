@@ -179,7 +179,7 @@ mod bot {
     #[test]
     fn processing_updates_after_to_latest_event_timestamp() {
         let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap());
-        let bot = GitLabBot::new(config);
+        let bot = Server::new(config);
         let summary = bot
             .process_events(vec![
                 event("2026-07-06T00:00:01Z", "MergeRequest"),

@@ -7,8 +7,8 @@
 )]
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
-    self, extract_template_keys, orcid, render, require_non_empty_secret, ror, Configuration, Endpoint, IntoBody, IntoHeaders, Param, ParamStyle, Params,
-    RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,
+    self, extract_template_keys, orcid, render, require_non_empty_secret, ror, Configuration, Endpoint, IntoBody, IntoHeaders, Param, ParamStyle,
+    Params, RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,
 };
 use crate::io::read_file;
 use crate::param;
@@ -45,39 +45,45 @@ async fn test_citeas() {
 }
 #[test]
 fn test_endpoint_from_location() {
-    let expected = "https://api.example.com";
-    let location = Location::Simple(expected.to_string());
+    let expected_domain = "api.example.com";
+    let expected_base = "https://api.example.com";
+    let location = Location::Simple(expected_base.to_string());
     let endpoint: Endpoint = location.into();
-    assert_eq!(endpoint.domain, expected);
-    let expected = "https://api.example.com";
-    let location = Location::Simple(format!("{expected}:8080/v1/data"));
+    assert_eq!(endpoint.domain, expected_domain);
+    assert_eq!(endpoint.base(), expected_base);
+    let location = Location::Simple(format!("{expected_base}:8080/v1/data"));
     let endpoint: Endpoint = location.into();
-    assert_eq!(endpoint.domain, expected);
+    assert_eq!(endpoint.domain, expected_domain);
     assert_eq!(endpoint.port, Some(8080));
+    assert_eq!(endpoint.base(), "https://api.example.com:8080");
     let location = Location::Detailed {
         scheme: Scheme::HTTPS,
         uri: "http://api.example.com".to_string(),
     };
     let endpoint: Endpoint = location.into();
-    assert_eq!(endpoint.domain, expected);
+    assert_eq!(endpoint.domain, expected_domain);
+    assert_eq!(endpoint.base(), expected_base);
     let location = Location::Detailed {
         scheme: Scheme::HTTPS,
         uri: "http://api.example.com:8080".to_string(),
     };
     let endpoint: Endpoint = location.into();
-    assert_eq!(endpoint.domain, expected);
+    assert_eq!(endpoint.domain, expected_domain);
     assert_eq!(endpoint.port, Some(8080));
+    assert_eq!(endpoint.base(), "https://api.example.com:8080");
 }
 #[test]
 fn test_endpoint_from_repository() {
-    let expected = "https://code.ornl.gov";
-    let uri = format!("{expected}/research-enablement/buckets/nssd");
+    let expected_domain = "code.ornl.gov";
+    let expected_base = "https://code.ornl.gov";
+    let uri = format!("{expected_base}/research-enablement/buckets/nssd");
     let nssd = Repository::GitLab {
         id: Some(1234_u64),
         location: Location::Simple(uri.clone()),
     };
     let endpoint: Endpoint = nssd.into();
-    assert_eq!(endpoint.domain, expected);
+    assert_eq!(endpoint.domain, expected_domain);
+    assert_eq!(endpoint.base(), expected_base);
 }
 #[test]
 fn test_search_resource_find_by_name() {

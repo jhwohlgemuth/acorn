@@ -19,7 +19,7 @@
 //!         .with_after("2026-07-06T00:00:00Z")
 //!         .with_poll_interval(Duration::from_secs(30));
 //!
-//!     bot::GitLabBot::new(config).run().await?;
+//!     bot::Server::new(config).run().await?;
 //!     Ok(())
 //! }
 //! ```
@@ -102,7 +102,7 @@ pub type MergeRequestNoteHandler = Arc<dyn Fn(MergeRequestNoteEvent) -> ApiResul
 /// }
 /// ```
 #[derive(Clone)]
-pub struct GitLabBot {
+pub struct Server {
     config: Config,
     state: SharedState,
 }
@@ -272,7 +272,7 @@ impl Config {
         Self { handler, ..self }
     }
 }
-impl GitLabBot {
+impl Server {
     /// Create a GitLab bot from configuration.
     ///
     /// # Example

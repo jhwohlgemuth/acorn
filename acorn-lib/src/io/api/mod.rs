@@ -909,7 +909,7 @@ pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
         .skip(1)
         .filter_map(|segment| segment.split_once("}}").map(|(before, _)| before))
         .filter_map(extract_key)
-            .unique()
+        .unique()
         .collect()
 }
 /// Create a query string component from a key-value pair with key and value validation
