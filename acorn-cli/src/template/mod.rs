@@ -132,14 +132,14 @@ impl TargetLabel {
 impl View for HtmlFooter {
     fn render(&self) -> VirtualNode {
         let path = format!("fact-sheet/{}/footer.jpg", self.label.folder());
-        let style = format!("background-image: url({});", DataUri::from_asset(&path));
         html! {
-            <footer style={ style }>
+            <footer>
+                <img class="footer-bg" src={ DataUri::from_asset(&path) } width="816" height="110"/>
                 <div class="wrapper">
                     <div id="disclaimer">{ DISCLAIMER }</div>
                     <div class="logo-wrapper">
-                        <div><img src={ DataUri::from_asset("logo_ornl_white.svg") } id="logo-ornl"/></div>
-                        <div><img src={ DataUri::from_asset("logo_doe_white.png") } id="logo-doe"/></div>
+                        <div><img src={ DataUri::from_asset("logo_ornl_white.svg") } id="logo-ornl" width="160" height="32"/></div>
+                        <div><img src={ DataUri::from_asset("logo_doe_white.png") } id="logo-doe" width="120" height="40"/></div>
                         <div id="organization">{ &self.label.to_string() }</div>
                     </div>
                 </div>
@@ -149,11 +149,10 @@ impl View for HtmlFooter {
 }
 impl View for HtmlHead<'_> {
     fn render(&self) -> VirtualNode {
-        let page_css = "letter portrait";
+        let page_css = "@page { size: Letter portrait; margin: 0; }";
         let styles = Style::to_string(self.stylesheet.to_string());
         let style = html! {
             <style>
-                { generate_font_faces() }
                 { page_css }
                 { styles }
             </style>
@@ -195,7 +194,6 @@ impl Convert for ResearchActivity {
         let footer = HtmlFooter { label };
         let folder = label.folder();
         let path = format!("fact-sheet/{folder}/header.jpg");
-        let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
         let graphic = meta.clone().first_image_content_url();
         let caption = meta.clone().first_image_caption();
         let qrcode = match generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)) {
@@ -209,9 +207,10 @@ impl Convert for ResearchActivity {
             <html>
                 { head }
                 <body>
-                    <header style={ header_style }>
+                    <header>
+                        <img class="header-bg" src={ DataUri::from_asset(&path) } width="816" height="195"/>
                         <div class="wrapper">
-                            <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
+                            <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } width="60" height="76"/>
                             <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
                             <div id="title">{ title }</div>
                             <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
@@ -236,7 +235,7 @@ impl Convert for ResearchActivity {
                             </section>
                         </main>
                         <aside>
-                            <div class="graphic"><img src={ graphic }/></div>
+                            <div class="graphic"><img src={ graphic } width="300" height="200"/></div>
                             <div class="caption">{ caption }</div>
                             <div class="research-focus">
                                 <h3>{ "Research Focus" }</h3>
@@ -244,7 +243,7 @@ impl Convert for ResearchActivity {
                                 <ul><li>{ areas.join("</li><li>") }</li></ul>
                             </div>
                             <div class="qrcode">
-                                <img src={ qrcode }/>
+                                <img src={ qrcode } width="125" height="125"/>
                             </div>
                         </aside>
                     </div>
@@ -255,20 +254,6 @@ impl Convert for ResearchActivity {
         };
         node
     }
-}
-fn generate_font_faces() -> String {
-    format!(
-        r#"
-        @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:normal;font-weight:400;}}
-        @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:normal;font-weight:600;}}
-        @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:normal;font-weight:700;}}
-        @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:italic;font-weight:400;}}
-        "#,
-        DataUri::from_asset("aptos.ttf"),
-        DataUri::from_asset("aptos_bold.ttf"),
-        DataUri::from_asset("aptos_bold.ttf"),
-        DataUri::from_asset("aptos_italic.ttf"),
-    )
 }
 fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
     let code = match QRBuilder::new(text).build() {
@@ -293,3 +278,4 @@ fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
         }
     }
 }
+

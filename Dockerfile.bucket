@@ -18,14 +18,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
         curl \
         git-lfs \
         gnupg \
-        npm \
     && git config --global http.sslVerify false \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -k -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update && apt-get install --no-install-recommends --yes \
-        nodejs \
-    && npx playwright install-deps \
     && curl -L "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" -o /root/vale.tar.gz \
     && tar -xvzf /root/vale.tar.gz -C /bin \
     && curl -L "http://code.ornl.gov/api/v4/projects/16689/packages/generic/${DEFAULT_TARGET}/v${ACORN_VERSION}/acorn" -o /usr/local/bin/acorn \

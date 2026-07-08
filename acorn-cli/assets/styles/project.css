@@ -14,21 +14,28 @@ header {
     margin: 0;
     padding: 0;
     padding-left: 55px;
-    background-repeat: no-repeat;
-    background-position: bottom center;
-    background-size: cover;
     height: 195px;
-    position: fixed;
+    position: relative;
+    overflow: hidden;
     width: 100%;
+    top: auto;
+}
+header>.header-bg {
+    position: absolute;
     top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
 }
 .main {
-    display: grid;
-    grid-gap: 0px;
-    grid-template-columns: 500px auto;
-    grid-template-rows: auto auto auto;
-    margin: 220px 0px 0px 50px;
-    position: absolute;
+    display: flex;
+    gap: 0;
+    margin: 25px 0px 0px 50px;
+    position: relative;
 }
 main {
     font-family: "aptos";
@@ -54,8 +61,7 @@ section>h3 {
     text-transform: uppercase;
 }
 .main>aside {
-    grid-column: 2;
-    grid-row: 1;
+    margin-left: 20px;
 }
 aside>.graphic {
     background-color: #FFFFFF;
@@ -107,56 +113,63 @@ aside>div>h3 {
     font-size: 10pt;
 }
 footer {
-    background-position: bottom center;
-    background-repeat: no-repeat;
-    background-size: cover;
-    bottom: 0;
+    bottom: auto;
     height: 110px;
     margin: 0;
     padding: 0;
-    position: fixed;
+    position: relative;
+    overflow: hidden;
     width: 100%;
 }
+footer>.footer-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+}
 .wrapper {
-    display: grid;
+    display: block;
 }
 header>.wrapper {
     align-items: center;
-    grid-gap: 5px;
-    grid-template-columns: 70px auto;
-    grid-template-rows: auto auto auto;
+    padding-left: 70px;
     margin-top: 35px;
+    position: relative;
+    z-index: 1;
 }
 footer>.wrapper {
     align-items: center;
     color: #FFFFFF;
-    grid-gap: 5px;
-    grid-template-columns: auto;
-    grid-template-rows: auto auto;
     margin-top: 0;
+    position: relative;
+    text-align: center;
+    z-index: 1;
 }
 footer>.wrapper>.logo-wrapper {
-    display: grid;
-    grid-template-columns: auto auto auto;
-    grid-template-rows: auto;
+    display: flex;
+    justify-content: center;
+    gap: 40px;
     text-align: center;
     height: 66px;
     line-height: 66px;
 }
 #contact {
     background-color: #e6e7e8;
-    bottom: 110px;
-    position: fixed;
+    bottom: auto;
+    position: relative;
     text-align: center;
     width: 100%;
 }
 #contact>div {
     align-items: center;
     justify-content: center;
-    display: grid;
-    grid-gap: 7px;
-    grid-template-columns: auto auto auto 5px auto 5px auto 5px auto;
-    grid-template-rows: auto;
+    display: flex;
+    gap: 7px;
     padding: 10px 0;
     margin-left: 0px;
     /* weasyprint */
@@ -186,15 +199,14 @@ footer>.wrapper>.logo-wrapper {
     font-family: "aptos";
     font-weight: 600;
     font-size: 10pt;
-    grid-column: 1;
-    grid-row: 1;
     height: 31px;
     line-height: 31px;
     text-align: center;
 }
 #logo {
-    grid-column: 1;
-    grid-row: 1 / 4;
+    position: absolute;
+    left: 0;
+    top: 0;
     width: 60px;
 }
 #logo-doe {
@@ -217,8 +229,6 @@ footer>.wrapper>.logo-wrapper {
     text-transform: uppercase;
 }
 #ornl-header {
-    grid-column: 2;
-    grid-row: 1;
     color: #FFFFFF;
     font-family: "aptos";
     font-size: 11pt;
@@ -227,16 +237,12 @@ footer>.wrapper>.logo-wrapper {
     text-transform: uppercase;
 }
 #title {
-    grid-column: 2;
-    grid-row: 2;
     color: #FFFFFF;
     font-family: "aptos";
     font-size: 30pt;
     font-weight: bold;
 }
 #subtitle {
-    grid-column: 2;
-    grid-row: 3;
     color: #FFFFFF;
     font-family: "aptos";
     font-size: 16pt;

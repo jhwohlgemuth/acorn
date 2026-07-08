@@ -6,7 +6,7 @@
 //! - JSON export (from YAML source)
 //! - YAML export (from JSON source)
 //! - Markdown export (from JSON source)
-//! - PDF export (ignored by default - requires playwright)
+//! - PDF export (ironpress-based, no external dependencies)
 //! - Combine flag for multiple files
 //!
 //! Test artifacts are created in `target/test_artifacts/` and cleaned up
@@ -120,7 +120,6 @@ async fn test_export_powerpoint_format() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
-#[ignore = "Requires Playwright for PDF generation"]
 async fn test_export_pdf_format() -> Result<()> {
     let temp_dir = temp_test_dir("export_pdf");
     let _cleanup = TestCleanup::new(temp_dir.clone());
@@ -132,9 +131,9 @@ async fn test_export_pdf_format() -> Result<()> {
     copy(&source, &dest)?;
     let output_dir = temp_dir.join("output");
     create_dir_all(&output_dir)?;
-    let _result = run(
+    let result = run(
         &Some(output_dir.clone()),
-        &Some(test_data_dir),
+        &Some(test_data_dir.clone()),
         &None,
         &None,
         &[],
@@ -154,6 +153,17 @@ async fn test_export_pdf_format() -> Result<()> {
         OFFLINE,
     )
     .await;
+    assert!(result.is_ok(), "Export to PDF format should succeed");
+    let pdf_files: Vec<_> = read_dir(&output_dir)?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().and_then(|s| s.to_str()).map(|s| s == "pdf").unwrap_or(false))
+        .collect();
+    assert!(!pdf_files.is_empty(), "PDF file should be created");
+    if let Some(pdf_file) = pdf_files.first() {
+        let pdf_content = read_to_string(pdf_file.path())?;
+        let starts_with_pdf_header = pdf_content.starts_with("%PDF");
+        assert!(starts_with_pdf_header, "PDF file should start with %PDF header");
+    }
     Ok(())
 }
 #[tokio::test]

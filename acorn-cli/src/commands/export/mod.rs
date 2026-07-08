@@ -136,37 +136,30 @@ impl ExportHandler for PdfExportHandler {
             #[cfg(feature = "pdf")]
             {
                 match resolve_paths(&_request.path, &_request.options).await {
-                    | Ok(paths) => match pdf::initialize_page().await {
-                        | Ok(page) => {
-                            let page = &page;
-                            let output = _request.output.clone();
-                            let progress = with_progress(
-                                paths,
-                                |path| format!("Generating PDF for {}", path.file_name_with_parent()),
-                                |path| {
-                                    let output = output.clone();
-                                    async move {
-                                        let pdf_options = CommandOptions::init().path(path.clone()).maybe_output(output).build();
-                                        pdf::create(page, pdf_options).await
-                                    }
-                                },
-                                |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
-                                Some(1),
-                                _request.progress_type,
-                            );
-                            match progress.await {
-                                | Ok(_) => {
-                                    let _close = page.close(Some(false)).await;
-                                    Ok(())
+                    | Ok(paths) => {
+                        let output = _request.output.clone();
+                        let progress = with_progress(
+                            paths,
+                            |path| format!("Generating PDF for {}", path.file_name_with_parent()),
+                            |path| {
+                                let output = output.clone();
+                                async move {
+                                    let pdf_options = CommandOptions::init().path(path.clone()).maybe_output(output).build();
+                                    pdf::create(pdf_options).await
                                 }
-                                | Err(why) => {
-                                    fail!("Generate PDF — {}", why);
-                                    Err(eyre!("Generate PDF — {why}"))
-                                }
+                            },
+                            |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
+                            Some(1),
+                            _request.progress_type,
+                        );
+                        match progress.await {
+                            | Ok(_) => Ok(()),
+                            | Err(why) => {
+                                fail!("Generate PDF — {}", why);
+                                Err(eyre!("Generate PDF — {why}"))
                             }
                         }
-                        | Err(why) => Err(why),
-                    },
+                    }
                     | Err(why) => Err(why),
                 }
             }
