@@ -59,7 +59,7 @@ use core::time::Duration;
 use serde::Serialize;
 use std::sync::Mutex;
 use tokio::net::TcpListener;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 /// Shared mutable state used by the Axum handlers and background poller.
 type SharedState = Arc<Mutex<State>>;
@@ -434,7 +434,10 @@ impl Server {
         loop {
             interval.tick().await;
             match self.poll_once().await {
-                | Ok(summary) => debug!("GitLab bot poll summary: {summary:?}"),
+                | Ok(summary) => {
+                    // TODO: Process events
+                    println!("GitLab bot poll summary: {summary:?}")
+                }
                 | Err(why) => {
                     error!("GitLab bot polling failed: {why}");
                     if let Err(lock_error) = self.record_error(why.to_string()) {
@@ -500,15 +503,18 @@ impl<'a> TryFrom<&'a EventDetails> for MergeRequestNoteEvent {
             matches!(event.target_type, TargetType::Note),
             matches!(event.action_name, EventAction::Commented | EventAction::CommentedOn),
         ) {
-            | (Some(note), true, true) if note.noteable_type.eq_ignore_ascii_case("MergeRequest") => Ok(Self {
-                event_id: event.identifier,
-                project_id: event.project_id,
-                merge_request_iid: note.noteable_iid,
-                note_id: note.identifier,
-                created_at: event.created_at.clone(),
-                body: note.body.clone(),
-                author_username: note.author.username.clone(),
-            }),
+            | (Some(note), true, true) if note.noteable_type.eq_ignore_ascii_case("MergeRequest") => match note.noteable_iid {
+                | Some(merge_request_iid) => Ok(Self {
+                    event_id: event.identifier,
+                    project_id: event.project_id,
+                    merge_request_iid,
+                    note_id: note.identifier,
+                    created_at: event.created_at.clone(),
+                    body: note.body.clone(),
+                    author_username: note.author.username.clone(),
+                }),
+                | None => Err("Merge request note is missing noteable_iid"),
+            },
             | (None, _, _) => Err("Event has no note"),
             | (_, false, _) => Err("Event is not a note event"),
             | (_, _, false) => Err("Event action is not a comment"),

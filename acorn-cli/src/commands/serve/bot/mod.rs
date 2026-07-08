@@ -2,8 +2,9 @@ use acorn::io::api::gitlab::{self, bot};
 use acorn::io::api::Configuration;
 use acorn::io::Executor;
 use color_eyre::eyre::{self, Report, Result};
+use core::net::SocketAddr;
 use core::time::Duration;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::ToSocketAddrs;
 
 /// Start a GitLab bot server
 ///

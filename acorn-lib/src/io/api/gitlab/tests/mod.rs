@@ -134,8 +134,8 @@ mod bot {
             created_at: "2026-07-06T00:00:01Z".to_string(),
             updated_at: "2026-07-06T00:00:01Z".to_string(),
             system: false,
-            noteable_id: 20,
-            noteable_iid,
+            noteable_id: Some(20),
+            noteable_iid: Some(noteable_iid),
             noteable_type: noteable_type.to_string(),
             project_id: 30,
             resolvable: false,
@@ -151,8 +151,8 @@ mod bot {
             identifier: 100,
             project_id: 30,
             action_name: EventAction::Commented,
-            target_id: 10,
-            target_iid: 11,
+            target_id: Some(10),
+            target_iid: Some(11),
             target_type: TargetType::Note,
             author_id: 1,
             target_title: "note".to_string(),
@@ -175,6 +175,76 @@ mod bot {
     fn ignores_non_merge_request_note_event() {
         let extracted = MergeRequestNoteEvent::try_from(&event("2026-07-06T00:00:01Z", "Issue"));
         assert!(extracted.is_err());
+    }
+    #[test]
+    fn ignores_merge_request_note_without_iid() {
+        let mut event = event("2026-07-06T00:00:01Z", "MergeRequest");
+        if let Some(note) = event.note.as_mut() {
+            note.noteable_iid = None;
+        }
+        let extracted = MergeRequestNoteEvent::try_from(&event);
+        assert!(extracted.is_err());
+    }
+    #[test]
+    fn deserializes_event_with_null_target_ids() {
+        let event = serde_json::json!({
+            "id": 100,
+            "project_id": 30,
+            "action_name": "commented on",
+            "target_id": null,
+            "target_iid": null,
+            "target_type": "Note",
+            "author_id": 1,
+            "target_title": "note",
+            "created_at": "2026-07-06T00:00:01Z",
+            "author": {
+                "id": 1,
+                "username": "tester",
+                "public_email": null,
+                "name": "Test User",
+                "state": "active",
+                "locked": false,
+                "avatar_url": "https://example.com/avatar.png",
+                "web_url": "https://example.com/tester"
+            },
+            "imported": false,
+            "imported_from": "none",
+            "push_data": null,
+            "author_username": "tester",
+            "note": {
+                "id": 10,
+                "type": null,
+                "body": "hello",
+                "author": {
+                    "id": 1,
+                    "username": "tester",
+                    "public_email": null,
+                    "name": "Test User",
+                    "state": "active",
+                    "locked": false,
+                    "avatar_url": "https://example.com/avatar.png",
+                    "web_url": "https://example.com/tester"
+                },
+                "created_at": "2026-07-06T00:00:01Z",
+                "updated_at": "2026-07-06T00:00:01Z",
+                "system": false,
+                "noteable_id": null,
+                "noteable_iid": null,
+                "noteable_type": "MergeRequest",
+                "project_id": 30,
+                "resolvable": false,
+                "confidential": false,
+                "internal": false,
+                "imported": false,
+                "imported_from": "none",
+                "commands_changes": {}
+            }
+        });
+
+        let event: EventDetails = serde_json::from_value(event).unwrap();
+        assert_eq!(event.target_id, None);
+        assert_eq!(event.target_iid, None);
+        assert!(MergeRequestNoteEvent::try_from(&event).is_err());
     }
     #[test]
     fn processing_updates_after_to_latest_event_timestamp() {

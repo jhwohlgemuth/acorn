@@ -8,7 +8,7 @@
 // The `-V` assertion changed from `is_ok()` to `is_err()` because clap's auto-generated
 // version flag (used after removing the problematic custom `version` + `disable_version_flag`)
 // returns Err during `try_parse_from` as a signal to display version info.
-use crate::cli::{resolve_paths, Arguments, CommandOptions};
+use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateCommands, ServeCommands};
 use acorn::io::filter_ignored_with_root;
 use acorn::prelude::{Path, PathBuf};
 use clap::{CommandFactory, Parser};
@@ -89,6 +89,61 @@ fn test_cli() {
         "api.example.com"
     ])
     .is_err());
+}
+#[test]
+fn test_bot_identifier_from_ci_project_id_env() {
+    temp_env::with_vars([("CI_PROJECT_ID", Some("16689"))], || {
+        let serve = Arguments::try_parse_from(["acorn", "serve", "bot"]).unwrap();
+        match serve.command {
+            | Some(Commands::Serve {
+                command: Some(ServeCommands::Bot(args)),
+            }) => assert_eq!(args.common.identifier, "16689"),
+            | other => panic!("unexpected command: {other:?}"),
+        }
+        let create = Arguments::try_parse_from(["acorn", "create", "bot"]).unwrap();
+        match create.command {
+            | Some(Commands::Create {
+                command: Some(CreateCommands::Bot(args)),
+            }) => assert_eq!(args.common.identifier, "16689"),
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
+}
+#[test]
+fn test_bot_identifier_positional_overrides_ci_project_id_env() {
+    temp_env::with_vars([("CI_PROJECT_ID", Some("16689"))], || {
+        let serve = Arguments::try_parse_from(["acorn", "serve", "bot", "12345"]).unwrap();
+        match serve.command {
+            | Some(Commands::Serve {
+                command: Some(ServeCommands::Bot(args)),
+            }) => assert_eq!(args.common.identifier, "12345"),
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
+}
+#[test]
+fn test_create_bot_domain_from_ci_server_host_env() {
+    temp_env::with_vars([("CI_PROJECT_ID", Some("16689")), ("CI_SERVER_HOST", Some("code.ornl.gov"))], || {
+        let create = Arguments::try_parse_from(["acorn", "create", "bot"]).unwrap();
+        match create.command {
+            | Some(Commands::Create {
+                command: Some(CreateCommands::Bot(args)),
+            }) => assert_eq!(args.domain.as_deref(), Some("code.ornl.gov")),
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
+}
+#[test]
+fn test_create_bot_domain_option_overrides_ci_server_host_env() {
+    temp_env::with_vars([("CI_SERVER_HOST", Some("code.ornl.gov"))], || {
+        let create = Arguments::try_parse_from(["acorn", "create", "bot", "16689", "--domain", "gitlab.example.com"]).unwrap();
+        match create.command {
+            | Some(Commands::Create {
+                command: Some(CreateCommands::Bot(args)),
+            }) => assert_eq!(args.domain.as_deref(), Some("gitlab.example.com")),
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
 }
 #[test]
 fn test_filter_paths_by_pattern_keeps_only_matching_relative_paths() {

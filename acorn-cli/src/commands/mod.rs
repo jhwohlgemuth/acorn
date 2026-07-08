@@ -127,13 +127,14 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             | Some(CreateCommands::Bot(args)) => with_runtime(async {
                 initialize_database(config).await?;
                 let bind = args.common.bind_address_if_configured();
+                let poll_interval = Some(args.common.poll_interval);
                 create::bot::run(
                     &args.common.identifier,
                     &args.name,
                     &args.image,
                     &args.common.runtime,
                     &bind,
-                    &args.common.poll_interval,
+                    &poll_interval,
                     &args.common.after,
                     &args.domain,
                 )
@@ -316,7 +317,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     &args.common.identifier,
                     &bind,
                     args.common.after.as_deref(),
-                    Some(args.common.poll_interval.unwrap_or(30)),
+                    Some(args.common.poll_interval),
                     args.detach,
                     &args.common.runtime,
                 )

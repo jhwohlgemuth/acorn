@@ -303,9 +303,9 @@ pub struct EventDetails {
     /// Event action name
     pub action_name: EventAction,
     /// Numeric target identifier
-    pub target_id: u64,
+    pub target_id: Option<u64>,
     /// Internal target identifier
-    pub target_iid: u64,
+    pub target_iid: Option<u64>,
     /// Target type
     pub target_type: TargetType,
     /// Numeric author identifier
@@ -484,9 +484,9 @@ pub struct NoteMetadata {
     /// Whether this is a system note
     pub system: bool,
     /// Numeric identifier of associated noteable object
-    pub noteable_id: u64,
+    pub noteable_id: Option<u64>,
     /// Internal identifier (IID) of associated noteable object
-    pub noteable_iid: u64,
+    pub noteable_iid: Option<u64>,
     /// Type of associated noteable object
     pub noteable_type: String,
     /// Numeric project identifier

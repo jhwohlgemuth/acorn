@@ -47,6 +47,7 @@ dependencies = [
  "serde_with 3.21.0",
  "sophia",
  "strum 0.28.0",
+ "temp-env",
  "tera",
  "tokio",
  "tracing",

@@ -78,6 +78,7 @@ assert_cmd = "2.0.16"
 insta = { workspace = true }
 mockall = "0.14.0"
 pretty_assertions = "1.4.1"
+temp-env = "0.3.6"
 
 [lints]
 workspace = true

@@ -19,8 +19,8 @@ pub(crate) mod bot {
     /// Arguments shared by bot commands
     #[derive(Clone, Debug, Args)]
     pub(crate) struct Common {
-        /// GitLab project or group identifier to poll for note events
-        #[arg(value_name = "IDENTIFIER", help_heading = "ARGS")]
+        /// GitLab project identifier to poll for note events
+        #[arg(value_name = "PROJECT_ID", env = "CI_PROJECT_ID", help_heading = "ARGS")]
         pub(crate) identifier: String,
         /// Address and port for the bot HTTP server to bind to
         #[arg(short, long, value_name = "ADDRESS", help_heading = "OPTIONS")]
@@ -32,18 +32,45 @@ pub(crate) mod bot {
         #[arg(long, value_name = "TIMESTAMP", help_heading = "OPTIONS")]
         pub(crate) after: Option<String>,
         /// Polling interval in seconds
-        #[arg(long, value_name = "SECONDS", help_heading = "OPTIONS")]
-        pub(crate) poll_interval: Option<u64>,
+        #[arg(long, default_value_t = 10, value_name = "SECONDS", help_heading = "OPTIONS")]
+        pub(crate) poll_interval: u64,
         /// Container runtime (docker, podman, apptainer)
         #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
         pub(crate) runtime: Option<Executor>,
+    }
+    /// Arguments for `acorn create bot`
+    #[derive(Clone, Debug, Args)]
+    #[command(long_about = None)]
+    pub(crate) struct Create {
+        #[command(flatten)]
+        pub(crate) common: Common,
+        /// Container name (defaults to `acorn-bot-{identifier}`)
+        #[arg(short, long, value_name = "NAME", help_heading = "OPTIONS")]
+        pub(crate) name: Option<String>,
+        /// Acorn Docker image to use for the bot container
+        #[arg(short, long, default_value = "acorn:latest", value_name = "IMAGE", help_heading = "OPTIONS")]
+        pub(crate) image: Option<String>,
+        /// GitLab domain override (e.g., code.ornl.gov)
+        #[arg(short = 'd', long, env = "CI_SERVER_HOST", value_name = "DOMAIN", help_heading = "OPTIONS")]
+        pub(crate) domain: Option<String>,
+        #[command(flatten)]
+        pub(crate) verbose: Verbosity,
+    }
+    /// Arguments for `acorn serve bot`
+    #[derive(Clone, Debug, Args)]
+    #[command(long_about = None)]
+    pub(crate) struct Serve {
+        #[command(flatten)]
+        pub(crate) common: Common,
+        /// Create and run the bot in a detached Docker/Podman container instead of in-process
+        #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
+        pub(crate) detach: bool,
     }
     impl Common {
         /// Resolve the bot bind address from optional host and port arguments.
         pub(crate) fn bind_address(&self) -> String {
             let host = self.bind.as_deref().map(bind_host).unwrap_or(DEFAULT_HOST);
             let port = self.port.or_else(|| self.bind.as_deref().and_then(bind_port)).unwrap_or(DEFAULT_PORT);
-
             format!("{host}:{port}")
         }
         /// Resolve a bind address only when the user configured bind-related options.
@@ -59,34 +86,6 @@ pub(crate) mod bot {
     fn bind_port(bind: &str) -> Option<u16> {
         bind.rsplit_once(':').and_then(|(_, port)| port.parse().ok())
     }
-    /// Arguments for `acorn create bot`
-    #[derive(Clone, Debug, Args)]
-    #[command(long_about = None)]
-    pub(crate) struct Create {
-        #[command(flatten)]
-        pub(crate) common: Common,
-        /// Container name (defaults to `acorn-bot-{identifier}`)
-        #[arg(short, long, value_name = "NAME", help_heading = "OPTIONS")]
-        pub(crate) name: Option<String>,
-        /// Acorn Docker image to use for the bot container
-        #[arg(short, long, default_value = "acorn:latest", value_name = "IMAGE", help_heading = "OPTIONS")]
-        pub(crate) image: Option<String>,
-        /// GitLab domain override (e.g., code.ornl.gov)
-        #[arg(short = 'd', long, value_name = "DOMAIN", help_heading = "OPTIONS")]
-        pub(crate) domain: Option<String>,
-        #[command(flatten)]
-        pub(crate) verbose: Verbosity,
-    }
-    /// Arguments for `acorn serve bot`
-    #[derive(Clone, Debug, Args)]
-    #[command(long_about = None)]
-    pub(crate) struct Serve {
-        #[command(flatten)]
-        pub(crate) common: Common,
-        /// Create and run the bot in a detached Docker/Podman container instead of in-process
-        #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
-        pub(crate) detach: bool,
-    }
 
     #[cfg(test)]
     mod tests {
@@ -98,7 +97,7 @@ pub(crate) mod bot {
                 bind: bind.map(String::from),
                 port,
                 after: None,
-                poll_interval: None,
+                poll_interval: 10,
                 runtime: None,
             }
         }
