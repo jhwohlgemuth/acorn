@@ -781,8 +781,9 @@ mod orcid_api {
 mod models_dev {
     use super::*;
     use crate::io::api::models_dev::CatalogResponse;
-    use crate::io::database::schema::Table;
+    use crate::io::database::schema::{ModelRow, ProviderRow, Table};
     use crate::io::database::{Database, Operations};
+    use crate::schema::agent::{ModelDetails, ProviderDetails};
     use crate::test::utils::unique_path;
 
     #[test]
@@ -821,5 +822,109 @@ mod models_dev {
         let stored_providers = database.row_count(Table::Providers).expect("Failed to count provider rows");
         assert_eq!(stored_models, model_count);
         assert_eq!(stored_providers, provider_count);
+    }
+    #[test]
+    fn test_provider_row_models_are_comma_separated() {
+        let provider = ProviderDetails {
+            id: Some("openai".to_string()),
+            name: Some("OpenAI".to_string()),
+            models: Some(vec![
+                ModelDetails {
+                    id: Some("o3".to_string()),
+                    ..Default::default()
+                },
+                ModelDetails {
+                    id: Some("gpt-4o".to_string()),
+                    ..Default::default()
+                },
+                ModelDetails {
+                    id: Some("o3-mini".to_string()),
+                    ..Default::default()
+                },
+            ]),
+            ..Default::default()
+        };
+        let row = ProviderRow::from(provider);
+        assert_eq!(row.models.as_deref(), Some("o3,gpt-4o,o3-mini"));
+    }
+    #[test]
+    fn test_provider_row_models_omitted_when_empty() {
+        let provider = ProviderDetails {
+            id: Some("openai".to_string()),
+            models: Some(vec![]),
+            ..Default::default()
+        };
+        let row = ProviderRow::from(provider);
+        assert!(row.models.is_none());
+    }
+    #[test]
+    fn test_provider_row_models_omitted_when_none() {
+        let provider = ProviderDetails {
+            id: Some("openai".to_string()),
+            models: None,
+            ..Default::default()
+        };
+        let row = ProviderRow::from(provider);
+        assert!(row.models.is_none());
+    }
+    #[test]
+    fn test_provider_row_env_is_comma_separated() {
+        let provider = ProviderDetails {
+            id: Some("openai".to_string()),
+            env: Some(vec!["OPENAI_API_KEY".to_string(), "OPENAI_ORG_ID".to_string()]),
+            ..Default::default()
+        };
+        let row = ProviderRow::from(provider);
+        assert_eq!(row.env.as_deref(), Some("OPENAI_API_KEY,OPENAI_ORG_ID"));
+    }
+    #[test]
+    fn test_provider_row_env_omitted_when_empty() {
+        let provider = ProviderDetails {
+            id: Some("openai".to_string()),
+            env: Some(vec![]),
+            ..Default::default()
+        };
+        let row = ProviderRow::from(provider);
+        assert!(row.env.is_none());
+    }
+    #[test]
+    fn test_model_row_modalities_are_comma_separated() {
+        use crate::schema::research_activity::aspect::data::Modality;
+        let model = ModelDetails {
+            id: Some("gpt-4o".to_string()),
+            modalities: Some(crate::schema::agent::Modalities {
+                input: vec![Modality::Text, Modality::Audio, Modality::Image],
+                output: vec![Modality::Text, Modality::Video],
+            }),
+            ..Default::default()
+        };
+        let row = ModelRow::from(model);
+        assert_eq!(row.modality_input.as_deref(), Some("text,audio,image"));
+        assert_eq!(row.modality_output.as_deref(), Some("text,video"));
+    }
+    #[test]
+    fn test_model_row_modalities_omitted_when_empty() {
+        let model = ModelDetails {
+            id: Some("gpt-4o".to_string()),
+            modalities: Some(crate::schema::agent::Modalities {
+                input: vec![],
+                output: vec![],
+            }),
+            ..Default::default()
+        };
+        let row = ModelRow::from(model);
+        assert!(row.modality_input.is_none());
+        assert!(row.modality_output.is_none());
+    }
+    #[test]
+    fn test_catalog_provider_preserves_model_ids_in_row() {
+        let json = read_file(fixture_path("").join("catalog.json")).expect("Failed to read catalog fixture");
+        let catalog: CatalogResponse = serde_json::from_str(&json).expect("Failed to deserialize catalog fixture");
+        let openai = catalog.providers.get("openai").expect("Missing openai provider");
+        let row = ProviderRow::from(openai.clone());
+        let models = row.models.expect("openai provider should have models");
+        let model_ids: Vec<&str> = models.split(',').collect();
+        assert!(model_ids.contains(&"o3"), "models should contain o3, got: {models}");
+        assert!(model_ids.contains(&"gpt-4o"), "models should contain gpt-4o, got: {models}");
     }
 }

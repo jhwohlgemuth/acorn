@@ -211,6 +211,8 @@ pub struct ProviderRow {
     pub established_date: Option<String>,
     /// Date the provider details were last updated
     pub last_updated: Option<String>,
+    /// Comma-separated list of model IDs offered by this provider
+    pub models: Option<String>,
 }
 /// Link check cache entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -341,6 +343,7 @@ impl From<&BackendRow<'_>> for ProviderRow {
             url: row.get(9).ok(),
             established_date: row.get(10).ok(),
             last_updated: row.get(11).ok(),
+            models: row.get(12).ok(),
         }
     }
 }
@@ -603,6 +606,7 @@ impl From<ProviderRow> for Vec<String> {
             row.url.unwrap_or_default(),
             row.established_date.unwrap_or_default(),
             row.last_updated.unwrap_or_default(),
+            row.models.unwrap_or_default(),
         ]
     }
 }
@@ -854,7 +858,8 @@ impl TableSchemaProvider for Table {
                     npm TEXT,
                     url TEXT,
                     established_date TEXT,
-                    last_updated TEXT
+                    last_updated TEXT,
+                    models TEXT
                 "#
             }
         };
@@ -1310,6 +1315,7 @@ impl Row for ProviderRow {
             url,
             established_date,
             last_updated,
+            models,
             ..
         } = self.clone();
         let required = required1(provider_id);
@@ -1329,6 +1335,7 @@ impl Row for ProviderRow {
                         url,
                         established_date,
                         last_updated,
+                        models,
                     ];
                     execute_insert(&self, conn, params)
                 }

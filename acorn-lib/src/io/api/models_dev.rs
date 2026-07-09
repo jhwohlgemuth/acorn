@@ -72,8 +72,18 @@ impl From<ModelDetails> for ModelRow {
             .and_then(|c| c.context_over_200k.as_ref())
             .and_then(|c| serde_json::to_string(c).ok());
         let cost_tiers = cost.as_ref().and_then(|c| c.tiers.as_ref()).and_then(|t| serde_json::to_string(t).ok());
-        let modality_input = modalities.as_ref().and_then(|m| serde_json::to_string(&m.input).ok());
-        let modality_output = modalities.as_ref().and_then(|m| serde_json::to_string(&m.output).ok());
+        let modality_input = modalities
+            .as_ref()
+            .map(|m| &m.input)
+            .filter(|v| !v.is_empty())
+            .map(|v| v.iter().map(ToString::to_string).collect::<Vec<_>>())
+            .map(|v| v.join(","));
+        let modality_output = modalities
+            .as_ref()
+            .map(|m| &m.output)
+            .filter(|v| !v.is_empty())
+            .map(|v| v.iter().map(ToString::to_string).collect::<Vec<_>>())
+            .map(|v| v.join(","));
         let benchmarks_json = benchmarks.as_ref().and_then(|b| serde_json::to_string(b).ok());
         let weights_json = weights.as_ref().and_then(|w| serde_json::to_string(w).ok());
         ModelRow::init()
@@ -119,11 +129,17 @@ impl From<ProviderDetails> for ProviderRow {
         let endpoint = details.endpoint;
         let documentation = details.documentation;
         let authentication = details.authentication.as_ref().and_then(|a| serde_json::to_string(a).ok());
-        let env = details.env.as_ref().and_then(|e| serde_json::to_string(e).ok());
+        let env = details.env.filter(|e| !e.is_empty()).map(|e| e.join(","));
         let npm = details.npm;
         let url = details.url;
         let established_date = details.established_date;
         let last_updated = details.last_updated;
+        let models = details
+            .models
+            .as_ref()
+            .map(|m| m.iter().filter_map(|d| d.id.clone()).collect::<Vec<_>>())
+            .filter(|ids| !ids.is_empty())
+            .map(|ids| ids.join(","));
         ProviderRow::init()
             .maybe_provider_id(provider_id)
             .maybe_name(name)
@@ -136,6 +152,7 @@ impl From<ProviderDetails> for ProviderRow {
             .maybe_url(url)
             .maybe_established_date(established_date)
             .maybe_last_updated(last_updated)
+            .maybe_models(models)
             .build()
     }
 }

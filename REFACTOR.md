@@ -1142,4 +1142,68 @@ macro_rules! args { ... }
 
 The feature gate on `acorn-lib` was implemented first because it provides immediate value: users who want ACORN without `cmd!` can disable the feature today. The standalone crate extraction is a mechanical next step that does not change the macro API surface.
 
+---
+
+## Model Download Backlog
+
+This section tracks remaining ACORN-side work needed to make `acorn download model` the primary backend for downloading model weights used by Gold and local inference environments.
+
+### Goal
+
+Make ACORN responsible for model download orchestration so downstream projects do not need Python-specific Hugging Face tooling or duplicated model catalogs.
+
+### Current State
+
+- `acorn-cli` exposes a `download model` subcommand shape.
+- `acorn-cli/src/commands/download/model.rs` currently returns success without performing downloads.
+- Gold still uses `hf download` as the default model download backend.
+
+### High-Priority Tasks
+
+| Area | Task | Difficulty | Impact |
+|---|---|---:|---:|
+| Config | Add `models` attribute to `ApplicationConfiguration` in `acorn-lib/src/io/config.rs` to declare model download entries (name, source, output path, auth, filter rules) | Low | Critical |
+| CLI | Implement `acorn download model` in `acorn-cli/src/commands/download/model.rs` | Medium | Critical |
+| Sources | Support Hugging Face repository downloads | Medium | Critical |
+| Selection | Resolve model names from the local model database and/or a shared manifest | Medium | High |
+| Filtering | Apply include/filter/ignore rules to candidate model weight files | Low | High |
+| Auth | Resolve Hugging Face tokens from environment variables without command-line secrets | Low | High |
+| Filesystem | Use deterministic output paths compatible with `llama.cpp` and `llama-swap` | Low | High |
+| Reliability | Add skip-existing and resumable download behavior | Medium | High |
+| Validation | Add checksum or size verification when source metadata is available | Medium | Medium |
+
+### Recommended Implementation
+
+1. Add a `models` attribute to `ApplicationConfiguration` (`acorn-lib/src/io/config.rs`) that declares download entries with fields like name, source type, source URL/repository, output path, authentication requirements, and file filter rules.
+2. Define a small internal model download plan type with source URL/repository, selected files, output directory, and auth requirements.
+3. Add a Hugging Face resolver that lists or resolves repository files and applies include/filter/ignore selection before downloading.
+4. Support direct HTTP(S) model weight URLs as a simpler first path or fallback path.
+5. Resolve auth tokens from `HF_TOKEN`, `HF_API_TOKEN`, and `HUGGINGFACE_HUB_TOKEN` (use `acorn::io::first_env_var`).
+6. Never require tokens on the command line; if a command-line token option is added later, redact it from logs.
+7. Skip files that already exist and match expected size/checksum when metadata is available.
+8. Return typed errors for unknown models, missing auth, failed HTTP responses, and incomplete downloads.
+9. Keep the command implementation thin by moving source resolution and transfer logic into reusable modules.
+
+### Test Coverage
+
+Add tests for:
+
+1. Model name selection.
+2. Unknown model errors.
+3. Hugging Face repository resolution.
+4. Direct URL downloads.
+5. Include/filter/ignore behavior.
+6. Output path construction.
+7. Skip-existing behavior.
+8. Token environment resolution.
+9. Redacted verbose/log output.
+10. Partial download or failed response cleanup.
+
+### Completion Criteria
+
+1. `acorn download model smollm2 --output ./models` downloads the expected model weight file.
+2. `acorn download model qwen2.5 --output ./models` downloads the expected model weight file.
+3. Existing files are skipped safely by default or with an explicit flag.
+4. Private/gated Hugging Face models can be downloaded using environment-provided tokens.
+
 
