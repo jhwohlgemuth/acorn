@@ -19,6 +19,7 @@ use tracing_subscriber::EnvFilter;
 mod cli;
 mod commands;
 mod io;
+#[cfg(feature = "pdf")]
 mod template;
 
 use cli::{Arguments, Void};

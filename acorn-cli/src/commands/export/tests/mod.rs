@@ -119,6 +119,7 @@ async fn test_export_powerpoint_format() -> Result<()> {
     assert!(!pptx_files.is_empty(), "PowerPoint file should be created");
     Ok(())
 }
+#[cfg(all(feature = "pdf", not(target_os = "macos")))]
 #[tokio::test]
 #[ignore = "Requires Playwright for PDF generation"]
 async fn test_export_pdf_format() -> Result<()> {

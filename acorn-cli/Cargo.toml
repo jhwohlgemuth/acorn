@@ -32,7 +32,7 @@ derive_more = { workspace = true }
 dotenvy = { workspace = true }
 exitcode = { version = "1.1.2", default-features = false }
 fancy-regex = { workspace = true }
-fast_qr = { version = "0.13.0", features = ["image"] }
+fast_qr = { version = "0.13.0", features = ["image"], optional = true }
 futures = { workspace = true }
 indicatif = { version = "0.18.2", default-features = false }
 is-terminal = "0.4.16"
@@ -41,7 +41,8 @@ lazy_static = { workspace = true }
 keyring = { version = "3.0.5", default-features = true }
 nanoid = { workspace = true }
 owo-colors = { workspace = true }
-percy-dom = "0.10.0"
+percy-dom = { version = "0.10.0", optional = true }
+[target.'cfg(not(target_os = "macos"))'.dependencies]
 playwright = { version = "0.0.20", optional = true }
 rayon = { workspace = true }
 reqwest = { version = "0.13.2", features = ["blocking", "rustls", "json"], default-features = false }
@@ -70,7 +71,7 @@ which = { version = "8.0.0", features = ["real-sys"], default-features = false }
 [features]
 default = ["pdf", "tui"]
 duckdb = ["acorn-lib/duckdb"]
-pdf = ["dep:playwright"]
+pdf = ["dep:playwright", "dep:percy-dom", "dep:fast_qr"]
 tui = ["dep:acorn-tui"]
 
 [dev-dependencies]
