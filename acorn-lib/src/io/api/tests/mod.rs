@@ -783,15 +783,45 @@ mod models_dev {
     use crate::io::api::models_dev::CatalogResponse;
     use crate::io::database::schema::{ModelRow, ProviderRow, Table};
     use crate::io::database::{Database, Operations};
-    use crate::schema::agent::{ModelDetails, ProviderDetails};
+    use crate::schema::agent::{Metric, ModelDetails, ProviderDetails};
     use crate::test::utils::unique_path;
+    use std::collections::HashMap;
+
+    fn assert_models_dev_schema_variants(models: &HashMap<String, ModelDetails>) {
+        let missing_limit_output = models
+            .get("fixture/missing-limit-output")
+            .expect("fixture model with missing limit output should exist");
+        assert_eq!(missing_limit_output.limit.as_ref().and_then(|limit| limit.output), None);
+        assert!(missing_limit_output.benchmarks.is_none());
+        let single_benchmark = models
+            .get("fixture/single-benchmark-missing-metric")
+            .expect("fixture model with single benchmark object should exist");
+        let benchmarks = single_benchmark
+            .benchmarks
+            .as_ref()
+            .expect("benchmark object should deserialize as a list")
+            .as_slice();
+        assert_eq!(benchmarks.len(), 1);
+        assert!(benchmarks[0].metric.is_none());
+        let unknown_metric = models
+            .get("fixture/unknown-benchmark-metric")
+            .expect("fixture model with unknown benchmark metrics should exist");
+        let benchmarks = unknown_metric.benchmarks.as_ref().expect("benchmark list should deserialize").as_slice();
+        assert_eq!(benchmarks.len(), 2);
+        match benchmarks[0].metric.as_ref() {
+            | Some(Metric::Other(value)) => assert_eq!(value, "percent"),
+            | other => panic!("expected percent to deserialize as Metric::Other, got {other:?}"),
+        }
+        assert!(matches!(benchmarks[1].metric.as_ref(), Some(Metric::PercentResolved)));
+    }
 
     #[test]
     fn test_catalog_response_parse() {
         let json = read_file(fixture_path("").join("catalog.json")).expect("Failed to read catalog fixture");
         let catalog: CatalogResponse = serde_json::from_str(&json).expect("Failed to deserialize catalog fixture");
-        assert_eq!(catalog.models.len(), 215);
+        assert_eq!(catalog.models.len(), 218);
         assert_eq!(catalog.providers.len(), 145);
+        assert_models_dev_schema_variants(&catalog.models);
         let model = catalog.models.get("openai/o3").expect("Missing openai/o3 model");
         assert_eq!(model.name.as_deref(), Some("o3"));
         assert_eq!(model.family.as_deref(), Some("o"));
@@ -802,6 +832,12 @@ mod models_dev {
             .models
             .as_ref()
             .is_some_and(|models| models.iter().any(|model| model.id.as_deref() == Some("o3"))));
+    }
+    #[test]
+    fn test_models_fixture_covers_schema_variants() {
+        let json = read_file(fixture_path("").join("models.json")).expect("Failed to read models fixture");
+        let models: HashMap<String, ModelDetails> = serde_json::from_str(&json).expect("Failed to deserialize models fixture");
+        assert_models_dev_schema_variants(&models);
     }
     #[tokio::test]
     async fn test_catalog_fixture_persists_models_and_providers_to_local_database() {

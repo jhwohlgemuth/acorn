@@ -58,7 +58,7 @@ impl From<ModelDetails> for ModelRow {
         let benchmarks = details.benchmarks;
         let weights = details.weights;
         let limit_context = limit.as_ref().map(|l| l.context as i64);
-        let limit_output = limit.as_ref().map(|l| l.output as i64);
+        let limit_output = limit.as_ref().and_then(|l| l.output.map(|v| v as i64));
         let limit_input = limit.as_ref().and_then(|l| l.input.map(|v| v as i64));
         let cost_input = cost.as_ref().and_then(|c| c.input);
         let cost_output = cost.as_ref().and_then(|c| c.output);

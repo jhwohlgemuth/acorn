@@ -11,6 +11,7 @@ use crate::prelude::*;
 use crate::prelude::{Error, ErrorKind};
 use crate::schema::research_activity::aspect::data::Modality;
 use crate::schema::validate::is_partial_date;
+use crate::schema::OneOrMany;
 use crate::util::{SemanticVersion, ToMarkdown};
 use bon::Builder;
 use color_eyre::eyre::Report;
@@ -63,40 +64,38 @@ pub enum Harness {
     Terminus2,
 }
 /// Metric type for benchmark evaluation results
-#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub enum Metric {
     /// Average pass@1 across multiple coding tasks
-    #[display("average pass@1")]
     #[serde(rename = "average pass@1")]
     AveragePassAt1,
     /// Index score
-    #[display("index")]
     #[serde(rename = "index")]
     Index,
     /// Pass@1 score
-    #[display("pass@1")]
     #[serde(rename = "pass@1")]
     PassAt1,
     /// Percentage of correct answers
-    #[display("percent correct")]
     #[serde(rename = "percent correct")]
     PercentCorrect,
+    /// Percentage of tasks resolved
+    #[serde(rename = "percent resolved")]
+    PercentResolved,
     /// Rate at which issues are resolved
-    #[display("resolve rate")]
     #[serde(rename = "resolve rate")]
     ResolveRate,
     /// Percentage of tasks resolved
-    #[display("resolved")]
     #[serde(rename = "resolved")]
     Resolved,
     /// Numeric score
-    #[display("score")]
     #[serde(rename = "score")]
     Score,
     /// Rate of successful task completions
-    #[display("success rate")]
     #[serde(rename = "success rate")]
     SuccessRate,
+    /// Catch-all for unknown metric types added by upstream catalogs
+    #[serde(untagged)]
+    Other(String),
 }
 /// Opaque data artifact that is consumed by a given technology
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
@@ -239,7 +238,7 @@ pub struct Benchmark {
     #[validate(range(min = 0.0))]
     pub score: f64,
     /// Metric type for the score
-    pub metric: Metric,
+    pub metric: Option<Metric>,
     /// Source URL for the benchmark result
     #[validate(url)]
     pub source: String,
@@ -331,7 +330,7 @@ pub struct LimitDetails {
     /// Maximum context window size in tokens
     pub context: u64,
     /// Maximum output token count
-    pub output: u64,
+    pub output: Option<u64>,
     /// Maximum input token count (if different from context)
     pub input: Option<u64>,
 }
@@ -355,7 +354,8 @@ pub struct ModelDetails {
     /// Whether the model supports file attachment
     pub attachment: Option<bool>,
     /// Benchmark evaluation results
-    pub benchmarks: Option<Vec<Benchmark>>,
+    #[serde(default)]
+    pub benchmarks: Option<OneOrMany<Benchmark>>,
     /// Model family that generally describes model architecture (e.g., llama, gemma, qwen, etc.)
     pub family: Option<String>,
     /// Unique identifier for the model
@@ -502,6 +502,22 @@ pub struct Weight {
 impl Default for FrontMatter {
     fn default() -> Self {
         FrontMatter::init().build()
+    }
+}
+impl fmt::Display for Metric {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::AveragePassAt1 => write!(f, "average pass@1"),
+            | Self::Index => write!(f, "index"),
+            | Self::PassAt1 => write!(f, "pass@1"),
+            | Self::PercentCorrect => write!(f, "percent correct"),
+            | Self::PercentResolved => write!(f, "percent resolved"),
+            | Self::ResolveRate => write!(f, "resolve rate"),
+            | Self::Resolved => write!(f, "resolved"),
+            | Self::Score => write!(f, "score"),
+            | Self::SuccessRate => write!(f, "success rate"),
+            | Self::Other(value) => write!(f, "{value}"),
+        }
     }
 }
 impl ToMarkdown for ModelDetails {

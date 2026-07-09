@@ -1,5 +1,53 @@
 {
     "models": {
+        "fixture/missing-limit-output": {
+            "id": "fixture/missing-limit-output",
+            "name": "Missing Limit Output Fixture",
+            "family": "fixture",
+            "open_weights": false,
+            "limit": {
+                "context": 1000000
+            }
+        },
+        "fixture/single-benchmark-missing-metric": {
+            "id": "fixture/single-benchmark-missing-metric",
+            "name": "Single Benchmark Missing Metric Fixture",
+            "family": "fixture",
+            "open_weights": false,
+            "limit": {
+                "context": 200000,
+                "output": 32000
+            },
+            "benchmarks": {
+                "name": "Terminal Bench 2.1",
+                "score": 80.2,
+                "source": "https://console.sakana.ai/models"
+            }
+        },
+        "fixture/unknown-benchmark-metric": {
+            "id": "fixture/unknown-benchmark-metric",
+            "name": "Unknown Benchmark Metric Fixture",
+            "family": "fixture",
+            "open_weights": false,
+            "limit": {
+                "context": 200000,
+                "output": 32000
+            },
+            "benchmarks": [
+                {
+                    "name": "Novel Benchmark",
+                    "score": 47.2,
+                    "metric": "percent",
+                    "source": "https://example.invalid/benchmark"
+                },
+                {
+                    "name": "Resolve Benchmark",
+                    "score": 71.3,
+                    "metric": "percent resolved",
+                    "source": "https://example.invalid/benchmark"
+                }
+            ]
+        },
         "xai/grok-4.20-0309-non-reasoning": {
             "id": "xai/grok-4.20-0309-non-reasoning",
             "name": "Grok 4.20 (Non-Reasoning)",
