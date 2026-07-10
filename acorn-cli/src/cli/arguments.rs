@@ -311,7 +311,7 @@ pub(crate) struct DownloadModel {
     #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
     pub(crate) ignore: Vec<String>,
     /// Path to output directory where downloaded model weights should be saved
-    #[arg(default_value = "./models", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    #[arg(default_value = "./.models", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
     pub(crate) output: Option<PathBuf>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,

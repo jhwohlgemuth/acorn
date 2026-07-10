@@ -15,7 +15,8 @@ This document captures cross-crate refactor and hardening recommendations for `a
 7. [Analyzer Backlog](#analyzer-backlog)
 8. [io::api Backlog](#ioapi-backlog)
 9. [acorn-cmd: Standalone Crate Extraction](#acorn-cmd-standalone-crate-extraction)
-10. [Reference Inventories](#reference-inventories)
+10. [Model Download Backlog](#model-download-backlog)
+11. [Reference Inventories](#reference-inventories)
 
 ## Goals
 
@@ -51,6 +52,7 @@ Use this section to choose the next work item. Detailed notes for each task are 
 | Export/PPTX | Introduce shared `ExportContext` | Medium | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | io::api | Complete HTTP method dispatch in root invoke path | Low | Critical | [io::api Backlog](#ioapi-backlog) |
 | no-std/WASM | Isolate std-only modules from domain modules | Medium | Critical | [Portability Backlog](#portability-backlog-no-std--wasm) |
+| Model Download | Implement `acorn download model` weight downloads with `.gguf` defaults | Medium | Critical | [Model Download Backlog](#model-download-backlog) |
 | Analyzer | Extract link-check traversal helpers | Low | High | [Analyzer Backlog](#analyzer-backlog) |
 
 ### Visual Status Legend
@@ -1156,6 +1158,9 @@ Make ACORN responsible for model download orchestration so downstream projects d
 
 - `acorn-cli` exposes a `download model` subcommand shape.
 - `acorn-cli/src/commands/download/model.rs` currently returns success without performing downloads.
+- `acorn-cli/src/cli/mod.rs` currently describes `download model` as metadata download, but the intended behavior is model weight download; metadata import remains `acorn import model` and database initialization work.
+- `acorn-lib/src/schema/agent/mod.rs` already exposes `ModelDetails.weights`, and `acorn-lib/src/io/database/schema.rs` persists that data in `ModelRow.weights`.
+- `acorn-lib/src/io/api/models_dev.rs` already downloads and caches the models.dev catalog, so model resolution can use existing catalog/database paths before introducing a separate manifest.
 - Gold still uses `hf download` as the default model download backend.
 
 ### High-Priority Tasks
@@ -1165,24 +1170,210 @@ Make ACORN responsible for model download orchestration so downstream projects d
 | Config | Add `models` attribute to `ApplicationConfiguration` in `acorn-lib/src/io/config.rs` to declare model download entries (name, source, output path, auth, filter rules) | Low | Critical |
 | CLI | Implement `acorn download model` in `acorn-cli/src/commands/download/model.rs` | Medium | Critical |
 | Sources | Support Hugging Face repository downloads | Medium | Critical |
-| Selection | Resolve model names from the local model database and/or a shared manifest | Medium | High |
+| Planning | Define config and internal plan types for model sources, auth, filters, output paths, and selected files | Low | Critical |
+| Selection | Resolve model names from configured models, local `ModelRow.weights`, and models.dev `ModelDetails.weights` | Medium | High |
 | Filtering | Apply include/filter/ignore rules to candidate model weight files | Low | High |
+| Defaults | Prefer `.gguf` model weights by default for local inference, with ambiguity errors for multiple viable candidates | Low | High |
 | Auth | Resolve Hugging Face tokens from environment variables without command-line secrets | Low | High |
 | Filesystem | Use deterministic output paths compatible with `llama.cpp` and `llama-swap` | Low | High |
+| Safety | Download through `.part` files and atomically rename after verification | Medium | High |
 | Reliability | Add skip-existing and resumable download behavior | Medium | High |
+| Offline | Respect offline mode for catalog refreshes and network downloads | Low | High |
 | Validation | Add checksum or size verification when source metadata is available | Medium | Medium |
 
 ### Recommended Implementation
 
-1. Add a `models` attribute to `ApplicationConfiguration` (`acorn-lib/src/io/config.rs`) that declares download entries with fields like name, source type, source URL/repository, output path, authentication requirements, and file filter rules.
-2. Define a small internal model download plan type with source URL/repository, selected files, output directory, and auth requirements.
-3. Add a Hugging Face resolver that lists or resolves repository files and applies include/filter/ignore selection before downloading.
-4. Support direct HTTP(S) model weight URLs as a simpler first path or fallback path.
-5. Resolve auth tokens from `HF_TOKEN`, `HF_API_TOKEN`, and `HUGGINGFACE_HUB_TOKEN` (use `acorn::io::first_env_var`).
-6. Never require tokens on the command line; if a command-line token option is added later, redact it from logs.
-7. Skip files that already exist and match expected size/checksum when metadata is available.
-8. Return typed errors for unknown models, missing auth, failed HTTP responses, and incomplete downloads.
-9. Keep the command implementation thin by moving source resolution and transfer logic into reusable modules.
+1. Fix `DownloadCommands::Model` help text so `download model` is explicitly a weight-download command, not a metadata-import command.
+2. Add a `models` attribute to `ApplicationConfiguration` (`acorn-lib/src/io/config.rs`) that declares download entries with fields like name, source type, source URL/repository, output path, authentication requirements, and file filter rules.
+3. Define a small internal model download plan type with source URL/repository, selected files, output directory, auth requirements, expected size/checksum, and output filename.
+4. Resolve selectors from configured models first, then the local model database (`ModelRow.weights`), then the cached/refreshed models.dev catalog (`ModelDetails.weights`) when network access is allowed.
+5. Add a Hugging Face resolver that lists or resolves repository files and applies include/filter/ignore selection before downloading.
+6. Support direct HTTP(S) model weight URLs as a simpler first path or fallback path; direct URLs download exactly the requested file and bypass model format preference.
+7. Prefer `.gguf` weights by default for local inference targets (`llama.cpp`, `llama-swap`, Gold) unless filters/config explicitly select another format.
+8. Resolve auth tokens from `HF_TOKEN`, `HF_API_TOKEN`, and `HUGGINGFACE_HUB_TOKEN` (use `acorn::io::first_env_var`).
+9. Never require tokens on the command line; if a command-line token option is added later, redact it from logs.
+10. Download through temporary `.part` files, verify size/checksum when metadata is available, and atomically rename to the final path.
+11. Skip files that already exist and match expected size/checksum when metadata is available.
+12. Return typed errors for unknown models, ambiguous selections, missing auth, failed HTTP responses, and incomplete downloads.
+13. Keep the command implementation thin by moving source resolution and transfer logic into reusable modules.
+
+### Configuration Shape
+
+Add `models` to `.acorn.json` / `.acorn.yml` via `ApplicationConfiguration`.
+
+Example:
+
+```json
+{
+  "models": [
+    {
+      "name": "smollm2",
+      "source": {
+        "type": "huggingFace",
+        "repository": "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF",
+        "revision": "main"
+      },
+      "outputPath": "smollm2",
+      "auth": "optional",
+      "filter": ["\\.gguf$"],
+      "ignore": ["Q2_", "Q3_"]
+    }
+  ]
+}
+```
+
+Suggested public config types:
+
+1. `ModelDownloadEntry`
+2. `ModelSource`
+3. `ModelAuthRequirement`
+4. `ModelFileRule` or equivalent filter/ignore representation
+
+Implementation notes:
+
+1. Use `#[serde(rename_all = "camelCase")]` for new public config structs.
+2. Add doc comments for all public config types and fields because the workspace denies missing docs.
+3. Keep config parsing compatible with existing `ApplicationConfiguration::parse` and `InputOutput` paths.
+
+### Command Semantics
+
+`acorn download model` should download model weight files. Metadata import remains the responsibility of `acorn import model` or database initialization.
+
+Recommended behavior:
+
+1. `acorn download model smollm2 --output ./models`
+2. Resolve `smollm2` from configuration first, then local model database, then models.dev catalog when network access is allowed.
+3. Apply model-specific config `filter` / `ignore` first, then CLI `--filter` / `--ignore` as additional constraints.
+4. Write only selected model files to deterministic output paths.
+5. Treat an empty model selector list as an error unless configured models are available from `.acorn.json`.
+
+### Resolver Order
+
+Model selector resolution should be deterministic:
+
+1. Exact config `models[].name`.
+2. Exact `ModelRow.model_id` from the local database.
+3. Exact `ModelDetails.id` from `models_dev::download_cached()` when network access is allowed.
+4. Case-insensitive alias/name match only if it produces one result.
+5. Direct `http://` or `https://` URL fallback.
+6. Error on zero or multiple matches.
+
+Ambiguous model names should report matching candidates rather than choosing one.
+
+### Default Weight Selection
+
+When a model source exposes multiple weight formats, ACORN should prefer `.gguf` files by default because the first target consumers are `llama.cpp`, `llama-swap`, Gold, and local inference environments.
+
+Default precedence:
+
+1. User `--filter` / config `filter`.
+2. `.gguf`.
+3. `.safetensors`.
+4. `.bin`.
+5. `.pt` / `.pth`.
+
+Quantization selection for multiple `.gguf` files:
+
+1. Prefer explicit filter/config when provided.
+2. Otherwise prefer a balanced default quantization such as `Q4_K_M` when available.
+3. If no preferred quantization is available, choose the smallest non-experimental `.gguf` only if exactly one reasonable candidate remains.
+4. If multiple reasonable `.gguf` candidates remain, return an ambiguity error listing candidate filenames and suggesting `--filter`.
+
+Rules:
+
+1. Never download every `.gguf` quantization by default.
+2. Never prefer PyTorch/safetensors weights over `.gguf` unless explicitly requested.
+3. Direct URLs bypass format preference and download exactly the requested file.
+
+### Hugging Face Support
+
+Initial Hugging Face support should avoid depending on Python or the `hf` CLI.
+
+Minimum implementation:
+
+1. Support `https://huggingface.co/{org}/{repo}/resolve/{revision}/{path}` direct file URLs.
+2. Support repository listing through Hugging Face APIs.
+3. Default revision to `main`.
+4. Select weight-like files only after filters are applied.
+
+Candidate file extensions:
+
+1. `.gguf`
+2. `.safetensors`
+3. `.bin`
+4. `.pt`
+5. `.pth`
+
+### Output Layout
+
+Default destination should be stable and llama-friendly:
+
+```text
+{output}/{model-name}/{filename}
+```
+
+Rules:
+
+1. Sanitize model names for filesystem use.
+2. Preserve repository subdirectories only when needed to avoid filename collisions.
+3. Do not write outside `--output`.
+4. If one selected file is downloaded, return its final path in verbose output.
+
+### Auth
+
+Resolve Hugging Face tokens with:
+
+```rust
+first_env_var(&["HF_TOKEN", "HF_API_TOKEN", "HUGGINGFACE_HUB_TOKEN"])
+```
+
+Auth behavior:
+
+1. Public models work without tokens.
+2. Gated/private models return a clear missing-auth error on `401` or `403`.
+3. Tokens must not appear in CLI args, logs, errors, progress messages, or database rows.
+4. Use `Authorization: Bearer <token>` headers only inside request construction.
+
+### Transfer Reliability
+
+Implement downloads with safe file replacement:
+
+1. Download to `{target}.part`.
+2. Flush and close the partial file.
+3. Verify size/checksum when metadata is available.
+4. Atomically rename to final target.
+5. Remove partial files on failed response or failed verification.
+6. Skip existing files when size/checksum match.
+7. If size metadata is absent, skip existing files by default only when an explicit `--skip-existing` behavior is chosen.
+
+Resume support can be staged:
+
+1. Stage 1: safe partial download and skip-existing.
+2. Stage 2: HTTP range resume when server supports `Accept-Ranges`.
+3. Stage 3: checksum verification from source manifests when available.
+
+### Offline Behavior
+
+`download model` must respect global offline behavior.
+
+Rules:
+
+1. Direct local/config resolution is allowed offline.
+2. Local database lookup is allowed offline.
+3. Remote catalog refresh and remote downloads are blocked offline.
+4. Offline remote requests should fail before constructing network calls.
+
+### Implementation Order
+
+1. Fix CLI help text and make the current stub return useful errors for empty or unknown selections.
+2. Add config types and `ApplicationConfiguration.models`.
+3. Add a pure planning layer that turns selectors into `ModelDownloadPlan` values.
+4. Implement direct URL downloads with `.part` files and skip-existing behavior.
+5. Add Hugging Face resolver/listing and token handling.
+6. Add database/catalog model resolution from `ModelRow.weights` and `ModelDetails.weights`.
+7. Add `.gguf` default selection and quantization ambiguity handling.
+8. Add checksum/size verification when metadata is available.
+9. Add integration tests with mocked or local HTTP responses.
 
 ### Test Coverage
 
@@ -1190,20 +1381,27 @@ Add tests for:
 
 1. Model name selection.
 2. Unknown model errors.
-3. Hugging Face repository resolution.
-4. Direct URL downloads.
-5. Include/filter/ignore behavior.
-6. Output path construction.
-7. Skip-existing behavior.
-8. Token environment resolution.
-9. Redacted verbose/log output.
-10. Partial download or failed response cleanup.
+3. Ambiguous model errors.
+4. Hugging Face repository resolution.
+5. Direct URL downloads.
+6. Include/filter/ignore behavior.
+7. Default `.gguf` selection.
+8. Multiple `.gguf` quantization selection and ambiguity handling.
+9. Output path construction.
+10. Path traversal prevention.
+11. Skip-existing behavior.
+12. Token environment resolution.
+13. Redacted verbose/log output.
+14. Partial download or failed response cleanup.
+15. Offline mode blocking remote catalog refreshes and downloads.
 
 ### Completion Criteria
 
-1. `acorn download model smollm2 --output ./models` downloads the expected model weight file.
-2. `acorn download model qwen2.5 --output ./models` downloads the expected model weight file.
+1. `acorn download model smollm2 --output ./models` downloads the preferred `.gguf` weight file by default, or reports candidate `.gguf` files when selection is ambiguous.
+2. `acorn download model qwen2.5 --output ./models` downloads the preferred `.gguf` weight file by default, or reports candidate `.gguf` files when selection is ambiguous.
 3. Existing files are skipped safely by default or with an explicit flag.
 4. Private/gated Hugging Face models can be downloaded using environment-provided tokens.
+5. `download model` never shells out to Python-specific Hugging Face tooling.
+6. Direct URL downloads save exactly the requested file and bypass default model format selection.
 
 
