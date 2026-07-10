@@ -1,8 +1,12 @@
 //! OpenCode configuration data model
 //!
 //! See <https://opencode.ai/docs/config> for more information on OpenCode configuration.
-use super::{Provider, ProviderDetails};
+use crate::io::{read_file, ApiResult};
+use crate::prelude::PathBuf;
+use crate::schema::agent::{Provider, ProviderDetails};
 use alloc::collections::BTreeMap;
+use color_eyre::eyre::eyre;
+use directories::BaseDirs;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
@@ -535,32 +539,32 @@ pub struct WatcherConfig {
 }
 impl Config {
     /// Parse OpenCode configuration from a JSONC string
-    ///
-    /// Supports comments (`//` and `/* */`) and trailing commas.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the content is not valid JSONC or cannot be deserialized.
-    pub fn parse_jsonc(content: &str) -> color_eyre::Result<Self> {
-        crate::io::jsonc::parse(content)
+    /// ### Note
+    /// Supports JavaScript-style comments (`//` and `/* */`) and trailing commas.
+    pub fn parse_jsonc(content: &str) -> ApiResult<Self> {
+        let options = jsonc_parser::ParseOptions {
+            allow_comments: true,
+            allow_trailing_commas: true,
+            allow_loose_object_property_names: false,
+            allow_missing_commas: false,
+            allow_single_quoted_strings: false,
+            allow_hexadecimal_numbers: false,
+            allow_unary_plus_numbers: false,
+        };
+        jsonc_parser::parse_to_serde_value(content, &options).map_err(|why| eyre!("JSONC parse error — {why}"))
     }
     /// Load OpenCode configuration from a JSONC file path
-    ///
-    /// Searches for `opencode.jsonc` or `opencode.json` at the given path.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the file cannot be read or parsed.
     #[cfg(feature = "std")]
-    pub fn from_path(path: impl AsRef<std::path::Path>) -> color_eyre::Result<Self> {
-        use color_eyre::eyre::eyre;
+    pub fn from_path(path: impl AsRef<std::path::Path>) -> ApiResult<Self> {
         let path = path.as_ref();
-        let content = crate::io::read_file(path).map_err(|why| eyre!("Failed to read OpenCode config `{}` — {}", path.display(), why))?;
-        Self::parse_jsonc(&content).map_err(|why| eyre!("Failed to parse OpenCode config `{}` — {}", path.display(), why))
+        match read_file(path) {
+            | Ok(content) => Self::parse_jsonc(&content).map_err(|why| eyre!("Failed to parse OpenCode config `{}` — {}", path.display(), why)),
+            | Err(why) => Err(why),
+        }
     }
     /// Discover OpenCode configuration in standard locations
-    ///
-    /// Searches in order:
+    /// ### Note
+    /// Search order is (in order of precedence):
     /// 1. `opencode.jsonc` in the current directory
     /// 2. `opencode.json` in the current directory
     /// 3. `~/.config/opencode/opencode.jsonc`
@@ -568,17 +572,13 @@ impl Config {
     ///
     /// Returns the first successfully parsed configuration, or `None` if not found.
     #[cfg(feature = "std")]
-    pub fn discover() -> Option<Self> {
-        use std::path::PathBuf;
+    pub fn resolve() -> Option<Self> {
+        let home = BaseDirs::new().map(|dirs| dirs.config_dir().to_path_buf());
         let candidates = [
             Some(PathBuf::from("opencode.jsonc")),
             Some(PathBuf::from("opencode.json")),
-            std::env::var("HOME")
-                .ok()
-                .map(|home| PathBuf::from(home).join(".config").join("opencode").join("opencode.jsonc")),
-            std::env::var("HOME")
-                .ok()
-                .map(|home| PathBuf::from(home).join(".config").join("opencode").join("opencode.json")),
+            home.as_ref().map(|p| p.join("opencode").join("opencode.jsonc")),
+            home.as_ref().map(|p| p.join("opencode").join("opencode.json")),
         ];
         candidates
             .into_iter()

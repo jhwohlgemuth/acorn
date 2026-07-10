@@ -5,8 +5,8 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
+use crate::prelude::PathBuf;
 use crate::schema::agent::{opencode, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration};
-use std::path::PathBuf;
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
     [

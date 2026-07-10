@@ -226,29 +226,21 @@ impl ApplicationConfiguration {
     fn parse_json(content: impl AsRef<str>) -> Result<Self, eserde::DeserializationErrors> {
         eserde::json::from_str(content.as_ref())
     }
-    fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
-        serde_norway::from_str(content.as_ref())
-    }
     /// Parse ACORN configuration from JSONC content (supports comments and trailing commas)
     pub fn parse_jsonc(content: impl AsRef<str>) -> ApiResult<Self> {
-        crate::io::jsonc::parse(content.as_ref()).map_err(|why| eyre!("Failed to parse JSONC config — {why}"))
-    }
-    /// Read configuration (e.g., `.acorn.jsonc`) using JSONC parser
-    ///
-    /// Supports comments (`//` and `/* */`) and trailing commas.
-    pub fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) if !value.is_empty() => value,
-            | Ok(_) | Err(_) => {
-                error!(
-                    path = path.to_string_lossy().to_string(),
-                    "=> {} ACORN configuration JSONC content",
-                    Label::fail()
-                );
-                "{}".to_owned()
-            }
+        let options = jsonc_parser::ParseOptions {
+            allow_comments: true,
+            allow_trailing_commas: true,
+            allow_loose_object_property_names: false,
+            allow_missing_commas: false,
+            allow_single_quoted_strings: false,
+            allow_hexadecimal_numbers: false,
+            allow_unary_plus_numbers: false,
         };
-        Self::parse_jsonc(&content).map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why))
+        jsonc_parser::parse_to_serde_value(content.as_ref(), &options).map_err(|why| eyre!("JSONC parse error — {why}"))
+    }
+    fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
+        serde_norway::from_str(content.as_ref())
     }
 }
 impl InputOutput for ApplicationConfiguration {
@@ -285,6 +277,23 @@ impl InputOutput for ApplicationConfiguration {
                 Err(eyre!("{}", details.join("\n")))
             }
         }
+    }
+    /// Read configuration (e.g., `.acorn.jsonc`) using JSONC parser
+    ///
+    /// Supports comments (`//` and `/* */`) and trailing commas.
+    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) if !value.is_empty() => value,
+            | Ok(_) | Err(_) => {
+                error!(
+                    path = path.to_string_lossy().to_string(),
+                    "=> {} ACORN configuration JSONC content",
+                    Label::fail()
+                );
+                "{}".to_owned()
+            }
+        };
+        Self::parse_jsonc(&content).map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why))
     }
     /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {

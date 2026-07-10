@@ -63,7 +63,6 @@ pub mod config;
 pub mod database;
 pub mod docx;
 pub mod http;
-pub mod jsonc;
 #[cfg(feature = "agentic")]
 pub mod mcp;
 #[cfg(feature = "powerpoint")]
@@ -103,6 +102,10 @@ pub trait InputOutput: Sized {
     }
     /// Read data from specified JSON file path
     fn read_json(path: PathBuf) -> ApiResult<Self>;
+    /// Read data from specified JSONC file path
+    fn read_jsonc(_path: PathBuf) -> ApiResult<Self> {
+        Err(eyre!("JSONC read not implemented for this type"))
+    }
     /// Read data as Markdown from specified path
     fn read_markdown(_path: PathBuf) -> Option<Self> {
         None
