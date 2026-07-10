@@ -19,7 +19,7 @@ use tracing_subscriber::EnvFilter;
 mod cli;
 mod commands;
 mod io;
-#[cfg(feature = "pdf")]
+#[cfg(all(feature = "pdf", not(target_os = "macos")))]
 mod template;
 
 use cli::{Arguments, Void};
