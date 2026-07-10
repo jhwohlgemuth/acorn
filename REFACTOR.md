@@ -15,7 +15,7 @@ This document captures cross-crate refactor and hardening recommendations for `a
 7. [Analyzer Backlog](#analyzer-backlog)
 8. [io::api Backlog](#ioapi-backlog)
 9. [acorn-cmd: Standalone Crate Extraction](#acorn-cmd-standalone-crate-extraction)
-10. [Model Download Backlog](#model-download-backlog)
+10. [Model Download Implementation](#model-download-implementation)
 11. [Reference Inventories](#reference-inventories)
 
 ## Goals
@@ -52,7 +52,7 @@ Use this section to choose the next work item. Detailed notes for each task are 
 | Export/PPTX | Introduce shared `ExportContext` | Medium | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | io::api | Complete HTTP method dispatch in root invoke path | Low | Critical | [io::api Backlog](#ioapi-backlog) |
 | no-std/WASM | Isolate std-only modules from domain modules | Medium | Critical | [Portability Backlog](#portability-backlog-no-std--wasm) |
-| Model Download | Implement `acorn download model` weight downloads with `.gguf` defaults | Medium | Critical | [Model Download Backlog](#model-download-backlog) |
+| Model Download | Implement `acorn download model` weight downloads with `.gguf` defaults | Medium | Critical | [Model Download Implementation](#model-download-implementation) |
 | Analyzer | Extract link-check traversal helpers | Low | High | [Analyzer Backlog](#analyzer-backlog) |
 
 ### Visual Status Legend
@@ -1146,13 +1146,13 @@ The feature gate on `acorn-lib` was implemented first because it provides immedi
 
 ---
 
-## Model Download Backlog
+## Model Download Implementation
 
 This section tracks remaining ACORN-side work needed to make `acorn download model` the primary backend for downloading model weights used by Gold and local inference environments.
 
 ### Goal
 
-Make ACORN responsible for model download orchestration so downstream projects do not need Python-specific Hugging Face tooling or duplicated model catalogs.
+Make ACORN responsible for model download orchestration so downstream projects do not need Python-specific Hugging Face tooling or duplicated model catalogs. Will also be used as "brain" for acorn AI harness.
 
 ### Current State
 
@@ -1167,13 +1167,14 @@ Make ACORN responsible for model download orchestration so downstream projects d
 
 | Area | Task | Difficulty | Impact |
 |---|---|---:|---:|
-| Config | Add `models` attribute to `ApplicationConfiguration` in `acorn-lib/src/io/config.rs` to declare model download entries (name, source, output path, auth, filter rules) | Low | Critical |
+| Config | Add `models` attribute to `ApplicationConfiguration` in `acorn-lib/src/io/config.rs` to declare model download entries (name, source, output path, auth, include-style filter rules) | Low | Critical |
 | CLI | Implement `acorn download model` in `acorn-cli/src/commands/download/model.rs` | Medium | Critical |
 | Sources | Support Hugging Face repository downloads | Medium | Critical |
 | Planning | Define config and internal plan types for model sources, auth, filters, output paths, and selected files | Low | Critical |
 | Selection | Resolve model names from configured models, local `ModelRow.weights`, and models.dev `ModelDetails.weights` | Medium | High |
-| Filtering | Apply include/filter/ignore rules to candidate model weight files | Low | High |
+| Filtering | Preserve ACORN `--filter` regex syntax and convert safe patterns to Hugging Face include-style globs when needed | Medium | High |
 | Defaults | Prefer `.gguf` model weights by default for local inference, with ambiguity errors for multiple viable candidates | Low | High |
+| Defaults | Resolve omitted `--output` to `$HOME/.models`; do not rely on clap default-value interpolation | Low | High |
 | Auth | Resolve Hugging Face tokens from environment variables without command-line secrets | Low | High |
 | Filesystem | Use deterministic output paths compatible with `llama.cpp` and `llama-swap` | Low | High |
 | Safety | Download through `.part` files and atomically rename after verification | Medium | High |
@@ -1184,18 +1185,20 @@ Make ACORN responsible for model download orchestration so downstream projects d
 ### Recommended Implementation
 
 1. Fix `DownloadCommands::Model` help text so `download model` is explicitly a weight-download command, not a metadata-import command.
-2. Add a `models` attribute to `ApplicationConfiguration` (`acorn-lib/src/io/config.rs`) that declares download entries with fields like name, source type, source URL/repository, output path, authentication requirements, and file filter rules.
-3. Define a small internal model download plan type with source URL/repository, selected files, output directory, auth requirements, expected size/checksum, and output filename.
-4. Resolve selectors from configured models first, then the local model database (`ModelRow.weights`), then the cached/refreshed models.dev catalog (`ModelDetails.weights`) when network access is allowed.
-5. Add a Hugging Face resolver that lists or resolves repository files and applies include/filter/ignore selection before downloading.
-6. Support direct HTTP(S) model weight URLs as a simpler first path or fallback path; direct URLs download exactly the requested file and bypass model format preference.
-7. Prefer `.gguf` weights by default for local inference targets (`llama.cpp`, `llama-swap`, Gold) unless filters/config explicitly select another format.
-8. Resolve auth tokens from `HF_TOKEN`, `HF_API_TOKEN`, and `HUGGINGFACE_HUB_TOKEN` (use `acorn::io::first_env_var`).
-9. Never require tokens on the command line; if a command-line token option is added later, redact it from logs.
-10. Download through temporary `.part` files, verify size/checksum when metadata is available, and atomically rename to the final path.
-11. Skip files that already exist and match expected size/checksum when metadata is available.
-12. Return typed errors for unknown models, ambiguous selections, missing auth, failed HTTP responses, and incomplete downloads.
-13. Keep the command implementation thin by moving source resolution and transfer logic into reusable modules.
+2. Remove the clap `default_value = "./models"` behavior for `DownloadModel.output`; keep `output: Option<PathBuf>` and resolve the default inside command/config logic.
+3. Resolve omitted `--output` to `$HOME/.models`; return a clear error if the home directory cannot be resolved.
+4. Add a `models` attribute to `ApplicationConfiguration` (`acorn-lib/src/io/config.rs`) that declares download entries with fields like name, source type, source URL/repository, output path, authentication requirements, and include-style file filter rules.
+5. Define a small internal model download plan type with source URL/repository, selected files, output directory, auth requirements, expected size/checksum, and output filename.
+6. Resolve selectors from configured models first, then the local model database (`ModelRow.weights`), then the cached/refreshed models.dev catalog (`ModelDetails.weights`) when network access is allowed.
+7. Add a Hugging Face resolver that lists or resolves repository files, preserves ACORN `--filter` regex semantics, and converts safe regex patterns to Hugging Face include-style globs when a Hugging Face-compatible include list is required.
+8. Support direct HTTP(S) model weight URLs as a simpler first path or fallback path; direct URLs download exactly the requested file and bypass model format preference.
+9. Prefer `.gguf` weights by default for local inference targets (`llama.cpp`, `llama-swap`, Gold) unless filters/config explicitly select another format.
+10. Resolve auth tokens from `HF_TOKEN`, `HF_API_TOKEN`, and `HUGGINGFACE_HUB_TOKEN` (use `acorn::io::first_env_var`).
+11. Never require tokens on the command line; if a command-line token option is added later, redact it from logs.
+12. Download through temporary `.part` files, verify size/checksum when metadata is available, and atomically rename to the final path.
+13. Skip files that already exist and match expected size/checksum when metadata is available.
+14. Return typed errors for unknown models, ambiguous selections, missing auth, failed HTTP responses, and incomplete downloads.
+15. Keep the command implementation thin by moving source resolution and transfer logic into reusable modules.
 
 ### Configuration Shape
 
@@ -1227,7 +1230,7 @@ Suggested public config types:
 1. `ModelDownloadEntry`
 2. `ModelSource`
 3. `ModelAuthRequirement`
-4. `ModelFileRule` or equivalent filter/ignore representation
+4. `ModelFileRule` or equivalent regex filter/ignore representation plus derived Hugging Face glob include patterns
 
 Implementation notes:
 
@@ -1246,6 +1249,47 @@ Recommended behavior:
 3. Apply model-specific config `filter` / `ignore` first, then CLI `--filter` / `--ignore` as additional constraints.
 4. Write only selected model files to deterministic output paths.
 5. Treat an empty model selector list as an error unless configured models are available from `.acorn.json`.
+
+### Filter Semantics
+
+`acorn download model --filter` should keep the same user-facing regex syntax as `--filter` in other ACORN commands. Hugging Face download/listing paths that require include-style glob patterns should receive derived glob patterns produced by a small regex-to-glob conversion layer.
+
+Rules:
+
+1. `--filter` accepts one or more regex patterns and keeps only paths matching at least one pattern.
+2. When no `--filter` or config `filter` is provided, all candidate paths remain eligible before default weight-format selection.
+3. `--ignore` remains regex-based and removes matching paths after include/filter matching.
+4. Config `filter` and CLI `--filter` are combined as additional regex constraints; a path must satisfy configured filters and CLI filters when both are present.
+5. Pattern matching is performed against repository-relative paths using `/` separators.
+6. Invalid regex patterns should return a typed user-facing error before any network download starts.
+7. Examples: `--filter "\\.gguf$"`, `--filter "Q4_K_M.*\\.gguf$"`, `--filter "^models/.+\\.safetensors$"`.
+
+Hugging Face include conversion:
+
+1. Add a helper such as `regex_filter_to_hf_glob(pattern: &str) -> Option<String>` for safe, conservative regex-to-glob conversion.
+2. Convert common patterns losslessly where feasible: `\\.gguf$` to `*.gguf`, `.*\\.safetensors$` to `*.safetensors`, `Q4_K_M.*\\.gguf$` to `*Q4_K_M*.gguf`, and `^models/.+\\.gguf$` to `models/**/*.gguf`.
+3. Do not pretend all regex can be represented as glob. Unsupported regex patterns should still be valid ACORN filters; resolve repository file lists first, then apply the compiled regex locally before download.
+4. If an API/download path strictly requires a Hugging Face glob and no safe conversion exists, fall back to listing repository files and downloading selected resolved file URLs one by one.
+5. Apply final compiled regex filters locally even when derived Hugging Face glob includes are used, so broad derived globs cannot over-select files.
+6. Keep `--ignore` as regex-only local post-filtering unless a safe exclude-glob conversion is explicitly needed later.
+
+### Default Model Directory
+
+The default model root should be the user's home model cache:
+
+```text
+$HOME/.models
+```
+
+Clap does not expand environment variables in `#[arg(default_value = "...")]`, so do not set `default_value = "$HOME/.models"` in the clap annotation. Keep the parsed CLI field as `Option<PathBuf>` and resolve the default in command execution.
+
+Rules:
+
+1. `acorn download model smollm2` writes to `$HOME/.models/smollm2/{filename}` by default.
+2. `--output` overrides the model root exactly.
+3. Config `outputPath` is resolved relative to the model root unless it is absolute.
+4. If the home directory cannot be resolved, return a clear configuration error.
+5. Do not write model weights into the project working directory by default.
 
 ### Resolver Order
 
@@ -1266,7 +1310,7 @@ When a model source exposes multiple weight formats, ACORN should prefer `.gguf`
 
 Default precedence:
 
-1. User `--filter` / config `filter`.
+1. User `--filter` / config `filter` regex patterns, with derived Hugging Face include globs only as a transport optimization.
 2. `.gguf`.
 3. `.safetensors`.
 4. `.bin`.
@@ -1274,10 +1318,10 @@ Default precedence:
 
 Quantization selection for multiple `.gguf` files:
 
-1. Prefer explicit filter/config when provided.
+1. Prefer explicit regex filter/config when provided.
 2. Otherwise prefer a balanced default quantization such as `Q4_K_M` when available.
 3. If no preferred quantization is available, choose the smallest non-experimental `.gguf` only if exactly one reasonable candidate remains.
-4. If multiple reasonable `.gguf` candidates remain, return an ambiguity error listing candidate filenames and suggesting `--filter`.
+4. If multiple reasonable `.gguf` candidates remain, return an ambiguity error listing candidate filenames and suggesting `--filter` with a more specific regex.
 
 Rules:
 
@@ -1294,7 +1338,7 @@ Minimum implementation:
 1. Support `https://huggingface.co/{org}/{repo}/resolve/{revision}/{path}` direct file URLs.
 2. Support repository listing through Hugging Face APIs.
 3. Default revision to `main`.
-4. Select weight-like files only after filters are applied.
+4. Select weight-like files only after regex filters and ignore rules are applied locally; use derived Hugging Face include globs only to reduce remote candidate lists when safe.
 
 Candidate file extensions:
 
@@ -1309,8 +1353,10 @@ Candidate file extensions:
 Default destination should be stable and llama-friendly:
 
 ```text
-{output}/{model-name}/{filename}
+{model-root}/{model-name}/{filename}
 ```
+
+Default model root is `$HOME/.models`; `--output` overrides it.
 
 Rules:
 
@@ -1368,12 +1414,14 @@ Rules:
 1. Fix CLI help text and make the current stub return useful errors for empty or unknown selections.
 2. Add config types and `ApplicationConfiguration.models`.
 3. Add a pure planning layer that turns selectors into `ModelDownloadPlan` values.
-4. Implement direct URL downloads with `.part` files and skip-existing behavior.
-5. Add Hugging Face resolver/listing and token handling.
-6. Add database/catalog model resolution from `ModelRow.weights` and `ModelDetails.weights`.
-7. Add `.gguf` default selection and quantization ambiguity handling.
-8. Add checksum/size verification when metadata is available.
-9. Add integration tests with mocked or local HTTP responses.
+4. Add default model root resolution to `$HOME/.models` outside clap annotations.
+5. Implement regex filter compilation for `--filter` / config `filter`, plus conservative regex-to-Hugging-Face-glob conversion for safe include optimization.
+6. Implement direct URL downloads with `.part` files and skip-existing behavior.
+7. Add Hugging Face resolver/listing and token handling.
+8. Add database/catalog model resolution from `ModelRow.weights` and `ModelDetails.weights`.
+9. Add `.gguf` default selection and quantization ambiguity handling.
+10. Add checksum/size verification when metadata is available.
+11. Add integration tests with mocked or local HTTP responses.
 
 ### Test Coverage
 
@@ -1384,7 +1432,7 @@ Add tests for:
 3. Ambiguous model errors.
 4. Hugging Face repository resolution.
 5. Direct URL downloads.
-6. Include/filter/ignore behavior.
+6. `--filter` regex behavior matching other ACORN commands.
 7. Default `.gguf` selection.
 8. Multiple `.gguf` quantization selection and ambiguity handling.
 9. Output path construction.
@@ -1394,6 +1442,16 @@ Add tests for:
 13. Redacted verbose/log output.
 14. Partial download or failed response cleanup.
 15. Offline mode blocking remote catalog refreshes and downloads.
+16. Default model root resolution to `$HOME/.models`.
+17. `--output` override behavior.
+18. Missing home directory error.
+19. Config `outputPath` relative vs absolute resolution.
+20. Config `filter` combined with CLI `--filter` as additional regex constraints.
+21. `--ignore` regex exclusion after include/filter matching.
+22. Invalid regex pattern errors before network download starts.
+23. Regex-to-glob conversion for common Hugging Face include cases.
+24. Unsupported regex fallback to repository listing plus local regex filtering.
+25. Final local regex filtering after derived Hugging Face include glob narrowing.
 
 ### Completion Criteria
 
@@ -1403,5 +1461,7 @@ Add tests for:
 4. Private/gated Hugging Face models can be downloaded using environment-provided tokens.
 5. `download model` never shells out to Python-specific Hugging Face tooling.
 6. Direct URL downloads save exactly the requested file and bypass default model format selection.
+7. `acorn download model smollm2` writes to `$HOME/.models/smollm2/` by default.
+8. `acorn download model smollm2 --filter "Q4_K_M.*\\.gguf$"` selects matching repository-relative files using ACORN regex semantics, with safe conversion to a Hugging Face include glob such as `*Q4_K_M*.gguf` when applicable.
 
 
