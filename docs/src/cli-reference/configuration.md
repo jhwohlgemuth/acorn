@@ -1,7 +1,7 @@
 # Configuration
 
 ## Flat file
-ACORN can be configured using JSON or YAML format flat files. These configuration files allow users to specify options and settings for the ACORN CLI tool, including input and output directories and logging levels.
+ACORN can be configured using JSON, JSONC (JSON with Comments), or YAML format flat files. These configuration files allow users to specify options and settings for the ACORN CLI tool, including input and output directories and logging levels.
 
 ### Example
 `.acorn.json` file
@@ -36,6 +36,26 @@ ACORN can be configured using JSON or YAML format flat files. These configuratio
     ]
 }
 ```
+
+`.acorn.jsonc` file
+```jsonc
+{
+    // ACORN bucket configuration
+    "buckets": [
+        {
+            "name": "bessd",
+            "repository": {
+                "provider": "gitlab",
+                "id": 17603,
+                "uri": "https://code.ornl.gov/research-enablement/buckets/bessd"
+            }
+        },
+    ]
+}
+```
+
+> [!TIP]
+> `.jsonc` files permit `//` line comments, `/* block */` comments, and trailing commas. All other syntax follows standard JSON rules. Rename a `.json` file to `.jsonc` if you need comments.
 > [!TIP]
 > `.acorn.json` is the default configuration file name the ACORN tool looks for in the current working directory. You can also specify a different configuration file using the `--config <FILE>` flag when running ACORN commands.
 

@@ -235,8 +235,13 @@ fn test_mimetype() {
     let mime = MimeType::from_path(&PathBuf::from("file.yaml"));
     assert_eq!(mime, MimeType::Yaml);
     assert_eq!(MimeType::Json.file_type(), "json");
+    assert_eq!(MimeType::Jsonc.file_type(), "jsonc");
     assert_eq!(MimeType::Ttf.file_type(), "ttf");
     assert_eq!(MimeType::Yaml.file_type(), "yaml");
+    let mime = MimeType::from_path(Path::new("a.jsonc"));
+    assert_eq!(mime, MimeType::Jsonc);
+    let mime = MimeType::from("config.jsonc");
+    assert_eq!(mime, MimeType::Jsonc);
 }
 #[test]
 fn test_param_body_shorthand_no_comma() {

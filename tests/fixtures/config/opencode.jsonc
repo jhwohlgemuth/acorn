@@ -1,0 +1,24 @@
+{
+    // OpenCode configuration (JSONC format)
+    "$schema": "https://opencode.ai/config.json",
+    "model": "anthropic/claude-sonnet-4-5",
+    "logLevel": "INFO",
+    "agent": {
+        "build": {
+            // Build agent config
+            "model": "anthropic/claude-sonnet-4-5",
+            "steps": 50,
+        },
+        "explore": {
+            "description": "Explore the codebase",
+            "mode": "subagent",
+        },
+    },
+    "mcp": {
+        "github": {
+            "type": "remote",
+            "url": "https://api.githubcopilot.com/mcp/",
+            "enabled": true,
+        },
+    },
+}

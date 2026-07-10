@@ -14,6 +14,9 @@ acorn download --config /path/to/.acorn.json
 
 # Download research activity data to a specific output directory
 acorn download --config /path/to/.acorn.yml --output /path/to/output
+
+# Download using JSONC configuration (supports comments and trailing commas)
+acorn download --config /path/to/.acorn.jsonc
 ```
 
 ## Local vs Remote

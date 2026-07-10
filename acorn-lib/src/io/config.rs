@@ -1,6 +1,6 @@
 //! Application configuration functions and data structures
 //!
-//! ACORN is configured by a JSON or YAML file (typically named `.acorn.json`)
+//! ACORN is configured by a JSON, JSONC, or YAML file (typically named `.acorn.json`)
 //!
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
@@ -229,13 +229,35 @@ impl ApplicationConfiguration {
     fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
         serde_norway::from_str(content.as_ref())
     }
+    /// Parse ACORN configuration from JSONC content (supports comments and trailing commas)
+    pub fn parse_jsonc(content: impl AsRef<str>) -> ApiResult<Self> {
+        crate::io::jsonc::parse(content.as_ref()).map_err(|why| eyre!("Failed to parse JSONC config — {why}"))
+    }
+    /// Read configuration (e.g., `.acorn.jsonc`) using JSONC parser
+    ///
+    /// Supports comments (`//` and `/* */`) and trailing commas.
+    pub fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) if !value.is_empty() => value,
+            | Ok(_) | Err(_) => {
+                error!(
+                    path = path.to_string_lossy().to_string(),
+                    "=> {} ACORN configuration JSONC content",
+                    Label::fail()
+                );
+                "{}".to_owned()
+            }
+        };
+        Self::parse_jsonc(&content).map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why))
+    }
 }
 impl InputOutput for ApplicationConfiguration {
-    /// Read and parse application configuration file (JSON or YAML)
+    /// Read and parse application configuration file (JSON, JSONC, or YAML)
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
         match MimeType::from_path(&source) {
             | MimeType::Json => Self::read_json(source.clone()),
+            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
             | MimeType::Yaml => Self::read_yaml(source.clone()),
             | _ => Err(eyre!("Unsupported configuration file extension")),
         }
@@ -279,11 +301,13 @@ impl InputOutput for ApplicationConfiguration {
         };
         Self::parse_yaml(content).map_err(|why| eyre!("Failed to parse YAML config — {why}"))
     }
-    /// Write configuration to specified path (detects JSON or YAML from extension)
+    /// Write configuration to specified path (detects JSON, JSONC, or YAML from extension)
+    ///
+    /// JSONC files are written as strict JSON (no comments generated).
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let target = path.into();
         match MimeType::from_path(&target) {
-            | MimeType::Json => self.write_json(&target),
+            | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
             | MimeType::Yaml => self.write_yaml(&target),
             | _ => Err(eyre!("Unsupported configuration file extension")),
         }

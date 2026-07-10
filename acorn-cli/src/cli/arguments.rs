@@ -279,7 +279,7 @@ pub(crate) struct Download {
     /// Bucket repository URL(s)
     #[arg(value_name = "URL", required = false, value_delimiter = ',', value_hint = ValueHint::Url, help_heading = "ARGS")]
     pub(crate) url: Vec<String>,
-    /// Path to configuration file (alternative to URL argument)
+    /// Path to configuration file (JSON, JSONC, or YAML)
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, conflicts_with = "url", help_heading = "OPTIONS")]
     pub(crate) config: Option<PathBuf>,
     /// Regular expression pattern(s) used to include files while downloading

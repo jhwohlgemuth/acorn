@@ -1,0 +1,13 @@
+{
+    // ACORN bucket configuration (JSONC format)
+    "buckets": [
+        {
+            "name": "test-bucket",
+            "description": "A test bucket for JSONC config testing",
+            "repository": {
+                "provider": "git",
+                "location": "file:./tests/fixtures/data/bucket/"
+            }
+        }
+    ],
+}

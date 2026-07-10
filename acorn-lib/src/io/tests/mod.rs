@@ -168,6 +168,70 @@ fn test_config_with_endpoints() {
     assert_eq!(endpoints[0].resources.len(), 2);
 }
 #[test]
+fn test_bucket_config_jsonc() {
+    let path = fixtures_dir().join("config").join("with_buckets.jsonc");
+    let config = ApplicationConfiguration::read_jsonc(path).unwrap();
+    let buckets = config.buckets.unwrap();
+    assert_eq!(buckets.len(), 1);
+    assert_eq!(buckets[0].name.as_deref(), Some("test-bucket"));
+}
+#[test]
+fn test_jsonc_parse_with_line_comments() {
+    let content = r#"{
+        // This is a comment
+        "buckets": [{"name": "test", "repository": {"provider": "git", "location": "file:./"}}]
+    }"#;
+    let config = ApplicationConfiguration::parse_jsonc(content).unwrap();
+    let buckets = config.buckets.unwrap();
+    assert_eq!(buckets.len(), 1);
+}
+#[test]
+fn test_jsonc_parse_with_block_comments() {
+    let content = r#"{
+        /* Block comment */
+        "buckets": []
+    }"#;
+    let config = ApplicationConfiguration::parse_jsonc(content).unwrap();
+    assert!(config.buckets.unwrap().is_empty());
+}
+#[test]
+fn test_jsonc_parse_with_trailing_commas() {
+    let content = r#"{
+        "buckets": [],
+    }"#;
+    let config = ApplicationConfiguration::parse_jsonc(content).unwrap();
+    assert!(config.buckets.unwrap().is_empty());
+}
+#[test]
+fn test_jsonc_rejects_single_quotes() {
+    let content = r#"{'buckets': []}"#;
+    assert!(ApplicationConfiguration::parse_jsonc(content).is_err());
+}
+#[test]
+fn test_jsonc_rejects_unquoted_keys() {
+    let content = r#"{ buckets: [] }"#;
+    assert!(ApplicationConfiguration::parse_jsonc(content).is_err());
+}
+#[test]
+fn test_json_equivalent_to_jsonc() {
+    let json = r#"{"buckets":[{"name":"t","repository":{"provider":"git","location":"file:./"}}]}"#;
+    let jsonc = r#"{
+        // comment
+        "buckets": [{"name":"t","repository":{"provider":"git","location":"file:./"}},]
+    }"#;
+    let a = ApplicationConfiguration::parse(json).unwrap();
+    let b = ApplicationConfiguration::parse_jsonc(jsonc).unwrap();
+    assert_eq!(a.buckets.as_ref().unwrap().len(), b.buckets.as_ref().unwrap().len());
+}
+#[test]
+fn test_json_still_rejects_comments() {
+    let content = r#"{
+        // This comment should be invalid in .json
+        "buckets": []
+    }"#;
+    assert!(ApplicationConfiguration::parse(content).is_err());
+}
+#[test]
 fn test_create_rsa_keypair_returns_keys() {
     let result = create_rsa_keypair();
     assert!(result.is_ok(), "create_rsa_keypair should produce a keypair");

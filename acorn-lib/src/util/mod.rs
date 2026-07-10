@@ -296,6 +296,11 @@ pub enum MimeType {
     /// See <https://www.json.org/json-en.html>
     #[display("application/json")]
     Json,
+    /// JSON with Comments (JSONC)
+    ///
+    /// See <https://code.visualstudio.com/docs/languages/json#_json-with-comments>
+    #[display("application/jsonc")]
+    Jsonc,
     /// Markdown
     #[display("text/markdown")]
     Markdown,
@@ -735,6 +740,7 @@ where
     /// | jpg | image/jpeg |
     /// | jpeg | image/jpeg |
     /// | json | application/json |
+    /// | jsonc | application/jsonc |
     /// | jsonld | application/ld+json |
     /// | md | text/markdown |
     /// | otf | font/otf |
@@ -759,6 +765,7 @@ where
                 | "gguf" => MimeType::Gguf,
                 | "jpg" | "jpeg" => MimeType::Jpeg,
                 | "json" => MimeType::Json,
+                | "jsonc" => MimeType::Jsonc,
                 | "jsonld" | "json-ld" => MimeType::LdJson,
                 | "md" | "markdown" => MimeType::Markdown,
                 | "onnx" => MimeType::Onnx,
@@ -799,6 +806,7 @@ impl MimeType {
             | MimeType::Gguf => "gguf",
             | MimeType::Jpeg => "jpeg",
             | MimeType::Json => "json",
+            | MimeType::Jsonc => "jsonc",
             | MimeType::LdJson => "jsonld",
             | MimeType::Markdown => "md",
             | MimeType::ModelCard => "modelcard",

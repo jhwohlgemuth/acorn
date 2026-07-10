@@ -63,6 +63,7 @@ pub mod config;
 pub mod database;
 pub mod docx;
 pub mod http;
+pub mod jsonc;
 #[cfg(feature = "agentic")]
 pub mod mcp;
 #[cfg(feature = "powerpoint")]

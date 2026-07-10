@@ -1,4 +1,12 @@
-use crate::schema::agent::{PromptFileAsset, PromptTemplate, PromptTemplateConfiguration};
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects
+)]
+use crate::schema::agent::{opencode, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration};
+use std::path::PathBuf;
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
     [
@@ -59,4 +67,46 @@ fn snapshot_prompt_asset_template_headers() {
         .filter_map(|asset| PromptTemplate::from_asset(&asset.to_string()).map(|content| content.lines().take(6).collect::<Vec<&str>>().join("\n")))
         .collect();
     insta::assert_yaml_snapshot!("prompt_asset_template_headers", headers);
+}
+fn fixtures_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("tests/fixtures")
+}
+#[test]
+fn test_opencode_config_from_jsonc_file() {
+    let path = fixtures_dir().join("config").join("opencode.jsonc");
+    let config = opencode::Config::from_path(&path).unwrap();
+    assert_eq!(config.model.as_deref(), Some("anthropic/claude-sonnet-4-5"));
+    let agents = config.agent.unwrap();
+    let build = agents.get("build").unwrap();
+    assert_eq!(build.steps, Some(50));
+}
+#[test]
+fn test_opencode_config_from_jsonc_string() {
+    let content = r#"{
+        // MCP server config
+        "mcp": {
+            "local-tool": {
+                "type": "local",
+                "command": ["npx", "my-tool"],
+                "enabled": true
+            }
+        }
+    }"#;
+    let config = opencode::Config::parse_jsonc(content).unwrap();
+    let mcp = config.mcp.unwrap();
+    assert!(mcp.contains_key("local-tool"));
+}
+#[test]
+fn test_opencode_config_from_jsonc_with_trailing_commas() {
+    let content = r#"{
+        "model": "openai/gpt-4o",
+        "logLevel": "DEBUG",
+    }"#;
+    let config = opencode::Config::parse_jsonc(content).unwrap();
+    assert_eq!(config.model.as_deref(), Some("openai/gpt-4o"));
+}
+#[test]
+fn test_opencode_config_from_jsonc_rejects_invalid() {
+    let content = r#"{ model: invalid }"#;
+    assert!(opencode::Config::parse_jsonc(content).is_err());
 }

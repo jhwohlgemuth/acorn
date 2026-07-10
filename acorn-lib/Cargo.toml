@@ -52,6 +52,7 @@ human-units = { version = "0.5.3", default-features = false }
 indicatif = { version = "0.18.2", default-features = false, optional = true }
 is_executable = { version = "1.0.5", default-features = false, optional = true }
 itertools = { workspace = true }
+jsonc-parser = { workspace = true }
 lazy_static = { workspace = true }
 lychee-lib = { version = "0.23.0", default-features = false, optional = true }
 nanoid = { workspace = true, optional = true }
