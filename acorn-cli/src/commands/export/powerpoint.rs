@@ -298,10 +298,11 @@ mod tests {
         clippy::arithmetic_side_effects
     )]
     use super::prepare_destination;
+    use std::env::temp_dir;
 
     #[test]
     fn test_prepare_destination() {
-        let base = std::env::temp_dir();
+        let base = temp_dir();
         let output = Some(base.clone());
         let path = prepare_destination(&output, "example").unwrap();
         let expected = base.join("example.pptx");

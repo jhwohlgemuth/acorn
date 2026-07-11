@@ -5,6 +5,8 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+use std::env::temp_dir;
+
 use crate::io::api::{IntoBody, ParamStyle};
 use crate::io::{
     command_exists, extract_zip, file_name_with_parent, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand,
@@ -458,7 +460,7 @@ fn test_to_absolute_string() {
 }
 #[test]
 fn test_file_name_with_parent() {
-    let root = std::env::temp_dir().join(format!("acorn-test-path-{}", generate_guid()));
+    let root = temp_dir().join(format!("acorn-test-path-{}", generate_guid()));
     // Folder
     let directory = root.join("folder");
     let created = std::fs::create_dir_all(&directory);

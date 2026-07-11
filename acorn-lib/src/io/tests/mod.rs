@@ -22,6 +22,7 @@ use crate::{Location, Repository, Scheme};
 use color_eyre::Report;
 use fluent_uri::Uri as UriParse;
 use rsa::traits::PublicKeyParts;
+use std::env::temp_dir;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -242,7 +243,7 @@ fn test_create_rsa_keypair_returns_keys() {
 #[test]
 fn test_write_rsa_keypair_writes_files() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = std::env::temp_dir().join(format!("acorn-write-rsa-keypair-{stamp}"));
+    let dir = temp_dir().join(format!("acorn-write-rsa-keypair-{stamp}"));
     create_dir_all(dir.clone()).unwrap();
     let path = dir.join("test_key");
     let keypair = create_rsa_keypair().unwrap();
@@ -292,7 +293,7 @@ fn test_write_rsa_keypair_uses_current_dir_when_path_is_none() {
 #[test]
 fn test_write_rsa_keypair_returns_error_for_invalid_path() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = std::env::temp_dir().join(format!("acorn-write-rsa-keypair-invalid-{stamp}"));
+    let dir = temp_dir().join(format!("acorn-write-rsa-keypair-invalid-{stamp}"));
     let path = dir.join("subdir").join("test_key");
     let keypair = create_rsa_keypair().unwrap();
     let result = write_rsa_keypair(keypair, Some(path.clone()));
@@ -301,7 +302,7 @@ fn test_write_rsa_keypair_returns_error_for_invalid_path() {
 #[test]
 fn test_write_rsa_keypair_returns_error_when_public_key_write_fails() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = std::env::temp_dir().join(format!("acorn-write-rsa-keypair-pub-fail-{stamp}"));
+    let dir = temp_dir().join(format!("acorn-write-rsa-keypair-pub-fail-{stamp}"));
     create_dir_all(dir.clone()).unwrap();
     let path = dir.join("test_key");
 
@@ -428,7 +429,7 @@ fn test_archive() {
 #[test]
 fn test_bagit() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let temp_dir = std::env::temp_dir().join(format!("acorn-bagit-{stamp}"));
+    let temp_dir = temp_dir().join(format!("acorn-bagit-{stamp}"));
     let _ = create_dir_all(temp_dir.clone());
     let info = BagInfo::init()
         .organization(vec!["Oak Ridge National Laboratory".to_string()])
@@ -454,7 +455,7 @@ fn test_bagit() {
 #[test]
 fn test_baginfo_save_repeatable_fields() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = std::env::temp_dir().join(format!("acorn-baginfo-{stamp}"));
+    let dir = temp_dir().join(format!("acorn-baginfo-{stamp}"));
     create_dir_all(dir.clone()).unwrap();
     let info = BagInfo::init()
         .organization(vec!["Org One".to_string(), "Org Two".to_string()])
@@ -486,7 +487,7 @@ fn test_baginfo_save_repeatable_fields() {
 #[test]
 fn test_baginfo_save_single_value_fields_only() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = std::env::temp_dir().join(format!("acorn-baginfo-single-{stamp}"));
+    let dir = temp_dir().join(format!("acorn-baginfo-single-{stamp}"));
     create_dir_all(dir.clone()).unwrap();
     let info = BagInfo::init().date(TEST_BAGGING_DATE.to_string()).size("42 KB".to_string()).build();
     let path = info.save(dir.clone()).unwrap();
@@ -743,7 +744,7 @@ fn test_image_paths() {
 #[test]
 fn test_read_large_file() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = std::env::temp_dir().join(format!("acorn-read-large-file-{stamp}.txt"));
+    let path = temp_dir().join(format!("acorn-read-large-file-{stamp}.txt"));
     let expected = "ACORN ".repeat(500_000);
     write(path.clone(), expected.clone()).unwrap();
     let content = read_large_file(path.clone()).unwrap();
@@ -753,7 +754,7 @@ fn test_read_large_file() {
 #[test]
 fn test_read_file_large_content() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = std::env::temp_dir().join(format!("acorn-read-file-large-{stamp}.txt"));
+    let path = temp_dir().join(format!("acorn-read-file-large-{stamp}.txt"));
     let expected = "ACORN-LARGE ".repeat(800_000);
     write(path.clone(), expected.clone()).unwrap();
     let content = read_file(path.clone()).unwrap();
@@ -763,7 +764,7 @@ fn test_read_file_large_content() {
 #[tokio::test]
 async fn test_read_source_from_local_path() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = std::env::temp_dir().join(format!("acorn-read-source-local-{stamp}.yaml"));
+    let path = temp_dir().join(format!("acorn-read-source-local-{stamp}.yaml"));
     let expected = "openapi: 3.1.0\n".to_string();
     write(path.clone(), expected.clone()).unwrap();
     let content = Source::read(path.to_string_lossy().as_ref(), false).await.unwrap();
@@ -774,7 +775,7 @@ async fn test_read_source_from_local_path() {
 #[tokio::test]
 async fn test_read_source_from_file_uri_localhost() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = std::env::temp_dir().join(format!("acorn-read-source-localhost-{stamp}.yaml"));
+    let path = temp_dir().join(format!("acorn-read-source-localhost-{stamp}.yaml"));
     let expected = "openapi: 3.1.0\ninfo:\n  title: Localhost\n".to_string();
     write(path.clone(), expected.clone()).unwrap();
     let source = format!("file://localhost{}", path.to_string_lossy());
@@ -785,7 +786,7 @@ async fn test_read_source_from_file_uri_localhost() {
 #[tokio::test]
 async fn test_read_source_from_file_uri() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = std::env::temp_dir().join(format!("acorn-read-source-uri-{stamp}.yaml"));
+    let path = temp_dir().join(format!("acorn-read-source-uri-{stamp}.yaml"));
     let expected = "openapi: 3.1.0\ninfo:\n  title: URI\n".to_string();
     write(path.clone(), expected.clone()).unwrap();
     let source = if cfg!(windows) {
@@ -863,7 +864,7 @@ fn test_uri_to_path() {
 #[tokio::test]
 async fn test_write_file_bytes_creates_parent_and_writes_content() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = std::env::temp_dir().join(format!("acorn-write-file-bytes-{stamp}"));
+    let dir = temp_dir().join(format!("acorn-write-file-bytes-{stamp}"));
     let path = dir.join("nested").join("output.bin");
     let expected = b"acorn-bytes".to_vec();
     let result = write_file_bytes(path.clone(), || async { Ok::<Vec<u8>, Report>(expected.clone()) }).await;
@@ -875,7 +876,7 @@ async fn test_write_file_bytes_creates_parent_and_writes_content() {
 #[tokio::test]
 async fn test_write_file_bytes_propagates_get_bytes_error() {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let dir = std::env::temp_dir().join(format!("acorn-write-file-bytes-error-{stamp}"));
+    let dir = temp_dir().join(format!("acorn-write-file-bytes-error-{stamp}"));
     let path = dir.join("nested").join("output.bin");
     let result = write_file_bytes(path.clone(), || async { Err::<Vec<u8>, Report>(Report::msg("byte source failure")) }).await;
     assert!(result.is_err());

@@ -13,6 +13,7 @@ use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, write, CommandOutput, PathBuf};
 use chrono::Utc;
 use core::time::Duration;
+use std::env::temp_dir;
 use std::time::SystemTime;
 
 pub(crate) fn cleanup(path: &PathBuf) {
@@ -49,7 +50,7 @@ pub(crate) async fn temp_database_with_licenses() -> ApiResult<PathBuf> {
     Ok(path)
 }
 pub(crate) fn temp_file() -> PathBuf {
-    let dir = std::env::temp_dir();
+    let dir = temp_dir();
     let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
     let filename = format!("test_docx_{}.docx", timestamp);
     dir.join(filename)

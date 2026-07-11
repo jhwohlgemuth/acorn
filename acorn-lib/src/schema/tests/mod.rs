@@ -5,6 +5,8 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+use std::env::temp_dir;
+
 use crate::schema::geonames::{CodeFormat, Country, GeonamesParser};
 use crate::schema::research_activity::aspect::Maturity;
 use crate::schema::research_activity::*;
@@ -963,7 +965,7 @@ async fn test_is_license() {
 #[test]
 #[ignore = "requires isolated process (run with cargo nextest)"]
 fn test_is_license_invalid_database_path() {
-    let dir = std::env::temp_dir().join("acorn_test_invalid_db");
+    let dir = temp_dir().join("acorn_test_invalid_db");
     std::fs::create_dir_all(&dir).expect("failed to create temp dir");
     let corrupt_db = dir.join("corrupt.db");
     std::fs::write(&corrupt_db, b"not a sqlite database").expect("failed to write corrupt db");
