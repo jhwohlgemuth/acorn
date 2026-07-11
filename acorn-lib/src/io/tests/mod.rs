@@ -13,8 +13,8 @@ use crate::io::http::policy::{http_timeout_layer, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
-    files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, read_file, read_large_file,
-    unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput, Source,
+    files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
+    read_large_file, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput, Source,
 };
 use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
@@ -181,7 +181,7 @@ fn test_jsonc_parse_with_line_comments() {
         // This is a comment
         "buckets": [{"name": "test", "repository": {"provider": "git", "location": "file:./"}}]
     }"#;
-    let config = ApplicationConfiguration::parse_jsonc(content).unwrap();
+    let config = ApplicationConfiguration::parse(content).unwrap();
     let buckets = config.buckets.unwrap();
     assert_eq!(buckets.len(), 1);
 }
@@ -191,7 +191,7 @@ fn test_jsonc_parse_with_block_comments() {
         /* Block comment */
         "buckets": []
     }"#;
-    let config = ApplicationConfiguration::parse_jsonc(content).unwrap();
+    let config = ApplicationConfiguration::parse(content).unwrap();
     assert!(config.buckets.unwrap().is_empty());
 }
 #[test]
@@ -199,18 +199,18 @@ fn test_jsonc_parse_with_trailing_commas() {
     let content = r#"{
         "buckets": [],
     }"#;
-    let config = ApplicationConfiguration::parse_jsonc(content).unwrap();
+    let config = ApplicationConfiguration::parse(content).unwrap();
     assert!(config.buckets.unwrap().is_empty());
 }
 #[test]
 fn test_jsonc_rejects_single_quotes() {
     let content = r#"{'buckets': []}"#;
-    assert!(ApplicationConfiguration::parse_jsonc(content).is_err());
+    assert!(jsonc_parse_value(content).is_err());
 }
 #[test]
 fn test_jsonc_rejects_unquoted_keys() {
     let content = r#"{ buckets: [] }"#;
-    assert!(ApplicationConfiguration::parse_jsonc(content).is_err());
+    assert!(jsonc_parse_value(content).is_err());
 }
 #[test]
 fn test_json_equivalent_to_jsonc() {
@@ -220,16 +220,16 @@ fn test_json_equivalent_to_jsonc() {
         "buckets": [{"name":"t","repository":{"provider":"git","location":"file:./"}},]
     }"#;
     let a = ApplicationConfiguration::parse(json).unwrap();
-    let b = ApplicationConfiguration::parse_jsonc(jsonc).unwrap();
+    let b = ApplicationConfiguration::parse(jsonc).unwrap();
     assert_eq!(a.buckets.as_ref().unwrap().len(), b.buckets.as_ref().unwrap().len());
 }
 #[test]
-fn test_json_still_rejects_comments() {
+fn test_json_accepts_comments_via_jsonc_fallback() {
     let content = r#"{
-        // This comment should be invalid in .json
+        // This comment is valid via JSONC fallback
         "buckets": []
     }"#;
-    assert!(ApplicationConfiguration::parse(content).is_err());
+    assert!(ApplicationConfiguration::parse(content).is_ok());
 }
 #[test]
 fn test_create_rsa_keypair_returns_keys() {
@@ -439,7 +439,7 @@ fn test_bagit() {
         .info(info)
         .build()
         .with_payload();
-    assert_eq!(bag.payload.len(), 27);
+    assert_eq!(bag.payload.len(), 28);
     assert_eq!(bag.clone().info.unwrap().entries().len(), 2);
     let save_path = temp_dir.join("bag");
     match bag.save(save_path.to_str().unwrap()) {

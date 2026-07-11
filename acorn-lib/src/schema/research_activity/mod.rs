@@ -7,7 +7,7 @@ use crate::fail;
 #[cfg(feature = "std")]
 use crate::io::ApiResult;
 #[cfg(feature = "std")]
-use crate::io::{image_paths, parent, read_file, write_file, FromPath, InputOutput};
+use crate::io::{image_paths, jsonc_parse_value, parent, read_file, write_file, FromPath, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
 use crate::prelude::*;
@@ -469,11 +469,12 @@ impl LinkedData for ResearchActivityMetadata {
 }
 #[cfg(feature = "std")]
 impl InputOutput for ResearchActivity {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<ResearchActivity> {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into().clone();
         let result = match MimeType::from_path(&source) {
-            | MimeType::Json => ResearchActivity::read_json(source.clone()),
-            | MimeType::Yaml => ResearchActivity::read_yaml(source.clone()),
+            | MimeType::Json => Self::read_json(source.clone()),
+            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
+            | MimeType::Yaml => Self::read_yaml(source.clone()),
             | _ => Err(eyre!("Unsupported research activity data file extension")),
         };
         if let Ok(data) = &result {
@@ -482,9 +483,9 @@ impl InputOutput for ResearchActivity {
         }
         result
     }
-    fn read_json(path: PathBuf) -> ApiResult<ResearchActivity> {
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
         read_file(path.clone()).and_then(|content| {
-            eserde::json::from_str::<ResearchActivity>(&content).map_err(|errors| {
+            eserde::json::from_str::<Self>(&content).map_err(|errors| {
                 let details: Vec<String> = errors
                     .iter()
                     .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
@@ -493,7 +494,24 @@ impl InputOutput for ResearchActivity {
             })
         })
     }
-    fn read_markdown(path: PathBuf) -> Option<ResearchActivity> {
+    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
+        read_file(path.clone()).and_then(|content| {
+            jsonc_parse_value(&content).and_then(|value| {
+                serde_json::to_string(&value)
+                    .map_err(|why| eyre!("JSONC conversion error — {why}"))
+                    .and_then(|json| {
+                        eserde::json::from_str::<Self>(&json).map_err(|errors| {
+                            let details: Vec<String> = errors
+                                .iter()
+                                .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                                .collect();
+                            eyre!("{}", details.join("\n"))
+                        })
+                    })
+            })
+        })
+    }
+    fn read_markdown(path: PathBuf) -> Option<Self> {
         let content = match read_file(path.clone()) {
             | Ok(value) => value,
             | Err(_) => {
@@ -514,7 +532,7 @@ impl InputOutput for ResearchActivity {
         };
         None
     }
-    fn read_yaml(path: PathBuf) -> ApiResult<ResearchActivity> {
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
         read_file(path.clone()).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML RAD — {why}")))
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
@@ -522,7 +540,7 @@ impl InputOutput for ResearchActivity {
         let mime = MimeType::from_path(&output);
         match mime {
             | MimeType::Cff => self.write_cff(output),
-            | MimeType::Json => self.write_json(output),
+            | MimeType::Json | MimeType::Jsonc => self.write_json(output),
             | MimeType::Markdown => self.write_markdown(output),
             | MimeType::Yaml => self.write_yaml(output),
             | _ => Err(eyre!("Unsupported research activity data file extension for writing")),
@@ -536,7 +554,7 @@ impl InputOutput for ResearchActivity {
             .and_then(|content| write_file(output, content))
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("json");
+        let output = path.into();
         serde_json::to_string_pretty(&self)
             .map_err(|why| eyre!("Failed to serialize JSON RAD — {why}"))
             .and_then(|content| write_file(output, content))
@@ -563,7 +581,7 @@ impl ResearchActivity {
     #[cfg(feature = "std")]
     pub fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
         match mime {
-            | MimeType::Json => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON RAD — {why}")),
+            | MimeType::Json | MimeType::Jsonc => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON RAD — {why}")),
             | MimeType::Yaml => serde_json::to_value(self)
                 .map_err(|why| eyre!("Failed to convert RAD to value for YAML serialization — {why}"))
                 .and_then(|value| serde_norway::to_string(&value).map_err(|why| eyre!("Failed to serialize YAML RAD — {why}"))),

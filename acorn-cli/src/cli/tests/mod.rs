@@ -191,9 +191,20 @@ fn test_resolve_paths_applies_ignore_to_relative_local_paths() {
     let root = fixture_content_root();
     let options = CommandOptions::init().maybe_ignore(Some("(?:acorn)".to_string())).build();
     let resolved = block_on(resolve_paths(&Some(root), &options)).unwrap();
-    assert_eq!(resolved.len(), 2);
+    assert_eq!(resolved.len(), 3);
     assert!(resolved.iter().any(|path| has_suffix(path, "sansr/index.yaml")));
     assert!(resolved.iter().any(|path| has_suffix(path, "other/index.json")));
+    assert!(resolved.iter().any(|path| has_suffix(path, "jsonc/index.jsonc")));
     assert!(!resolved.iter().any(|path| has_suffix(path, "acorn/index.json")));
     assert!(!resolved.iter().any(|path| has_suffix(path, "other/notes.txt")));
+}
+#[test]
+fn test_resolve_paths_discovers_jsonc_files() {
+    let root = fixture_content_root();
+    let options = CommandOptions::init().build();
+    let resolved = block_on(resolve_paths(&Some(root), &options)).unwrap();
+    assert!(
+        resolved.iter().any(|path| has_suffix(path, "jsonc/index.jsonc")),
+        "resolve_paths should discover .jsonc files, got: {resolved:?}"
+    );
 }

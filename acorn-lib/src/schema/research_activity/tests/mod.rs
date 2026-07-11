@@ -675,3 +675,80 @@ fn test_malformed_fixture_has_multiple_eserde_errors() {
     let errors = result.unwrap_err();
     assert!(errors.len() >= 2, "expected multiple errors, got {}: {:?}", errors.len(), errors);
 }
+#[test]
+fn test_read_jsonc_with_comments() {
+    let content = r#"{
+        // This is a comment
+        "title": "JSONC Project",
+        "sections": {
+            "mission": "Mission statement",
+            "challenge": "Challenge description",
+            "approach": ["Approach item"],
+            "impact": ["Impact item"],
+            "research": {
+                "focus": "Focus area",
+                "areas": ["Area 1"]
+            }
+        },
+        "contact": {
+            "title": "PI",
+            "first": "Jane",
+            "last": "Doe"
+        }
+    }"#;
+    let result = crate::io::jsonc_parse_value(content);
+    assert!(result.is_ok(), "JSONC parse should succeed with comments");
+    let value = result.unwrap();
+    assert_eq!(value["title"], "JSONC Project");
+    assert_eq!(value["sections"]["mission"], "Mission statement");
+}
+#[test]
+fn test_read_jsonc_with_trailing_commas() {
+    let content = r#"{
+        "title": "Trailing Commas",
+        "sections": {
+            "mission": "Mission",
+            "challenge": "Challenge",
+            "approach": ["Approach",],
+            "impact": ["Impact",],
+            "research": {
+                "focus": "Focus",
+                "areas": ["Area",],
+            },
+        },
+        "contact": {
+            "title": "PI",
+            "first": "Jane",
+            "last": "Doe",
+        },
+    }"#;
+    let result = crate::io::jsonc_parse_value(content);
+    assert!(result.is_ok(), "JSONC parse should succeed with trailing commas");
+    let value = result.unwrap();
+    assert_eq!(value["title"], "Trailing Commas");
+}
+#[test]
+fn test_read_jsonc_rejects_single_quotes() {
+    let content = r#"{'title': 'single quotes'}"#;
+    let result = crate::io::jsonc_parse_value(content);
+    assert!(result.is_err(), "JSONC parse should reject single quotes");
+}
+#[test]
+fn test_read_jsonc_rejects_unquoted_keys() {
+    let content = r#"{ title: 'unquoted' }"#;
+    let result = crate::io::jsonc_parse_value(content);
+    assert!(result.is_err(), "JSONC parse should reject unquoted keys");
+}
+#[test]
+fn test_malformed_jsonc_reports_error() {
+    let content = r#"{
+        // Valid comment
+        "title": 123,
+        "sections": "not an object"
+    }"#;
+    let result = crate::io::jsonc_parse_value(content);
+    assert!(result.is_ok(), "JSONC syntax should parse, but deserialization may fail");
+    let value = result.unwrap();
+    let rad = eserde::json::from_str::<ResearchActivity>(&serde_json::to_string(&value).unwrap());
+    assert!(rad.is_err(), "JSONC with wrong types should fail schema validation");
+}

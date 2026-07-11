@@ -4,11 +4,11 @@
 //!
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
-use crate::io::api::github;
-use crate::io::api::gitlab;
-use crate::io::api::{Configuration, Endpoint};
-use crate::io::{files_all, read_file, with_progress, write_file, write_file_bytes, FromPath, InputOutput, ProgressType, Source};
-use crate::io::{ApiResult, Executor};
+use crate::io::api::{github, gitlab, Configuration, Endpoint};
+use crate::io::{
+    files_all, jsonc_parse_value, read_file, with_progress, write_file, write_file_bytes, ApiResult, Executor, FromPath, InputOutput, ProgressType,
+    Source,
+};
 use crate::prelude::{self, env, exit, Arc, PathBuf};
 use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
@@ -202,22 +202,46 @@ impl ApplicationConfiguration {
                 .find(|candidate| candidate.exists())
         })
     }
-    /// Parse ACORN configuration in JSON or YAML format
+    /// Parse ACORN configuration in JSON, JSONC, or YAML format
+    /// ### Note
+    /// If the content is valid JSON, it is parsed as JSON.
+    /// If it is not valid JSON but starts with `{` or `[`, it is first attempted to be parsed as JSON, and if that fails, it is attempted to be parsed as YAML.
+    /// If the content does not start with `{` or `[`, it is parsed as YAML.
     pub fn parse(content: impl AsRef<str>) -> ApiResult<Self> {
-        let content = content.as_ref();
-        if detect_json(content) {
-            match Self::parse_json(content) {
+        let trimmed = content.as_ref().trim();
+        if detect_json(trimmed) {
+            match Self::parse_json(trimmed) {
                 | Ok(value) => Ok(value),
-                | Err(errors) => {
-                    let details: Vec<String> = errors
-                        .iter()
-                        .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                        .collect();
-                    Err(eyre!("{}", details.join("\n")))
-                }
+                | Err(json_errors) => match Self::parse_jsonc(trimmed) {
+                    | Ok(value) => Ok(value),
+                    | Err(_) => {
+                        let details: Vec<String> = json_errors
+                            .iter()
+                            .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                            .collect();
+                        Err(eyre!("{}", details.join("\n")))
+                    }
+                },
+            }
+        } else if trimmed.starts_with('{') || trimmed.starts_with('[') {
+            match Self::parse_json(trimmed) {
+                | Ok(value) => Ok(value),
+                | Err(json_errors) => match Self::parse_yaml(trimmed) {
+                    | Ok(value) => Ok(value),
+                    | Err(why) => {
+                        let details: Vec<String> = json_errors
+                            .iter()
+                            .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                            .collect();
+                        Err(eyre!(
+                            "Failed to parse ACORN configuration as JSON or YAML.\nJSON errors:\n{}\nYAML error: {why}",
+                            details.join("\n")
+                        ))
+                    }
+                },
             }
         } else {
-            match Self::parse_yaml(content) {
+            match Self::parse_yaml(trimmed) {
                 | Ok(value) => Ok(value),
                 | Err(why) => Err(eyre!("Failed to parse ACORN configuration YAML — {why}")),
             }
@@ -226,18 +250,8 @@ impl ApplicationConfiguration {
     fn parse_json(content: impl AsRef<str>) -> Result<Self, eserde::DeserializationErrors> {
         eserde::json::from_str(content.as_ref())
     }
-    /// Parse ACORN configuration from JSONC content (supports comments and trailing commas)
-    pub fn parse_jsonc(content: impl AsRef<str>) -> ApiResult<Self> {
-        let options = jsonc_parser::ParseOptions {
-            allow_comments: true,
-            allow_trailing_commas: true,
-            allow_loose_object_property_names: false,
-            allow_missing_commas: false,
-            allow_single_quoted_strings: false,
-            allow_hexadecimal_numbers: false,
-            allow_unary_plus_numbers: false,
-        };
-        jsonc_parser::parse_to_serde_value(content.as_ref(), &options).map_err(|why| eyre!("JSONC parse error — {why}"))
+    fn parse_jsonc(content: impl AsRef<str>) -> ApiResult<Self> {
+        jsonc_parse_value(content.as_ref()).and_then(|value| serde_json::from_value(value).map_err(|why| eyre!("JSONC deserialize error — {why}")))
     }
     fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
         serde_norway::from_str(content.as_ref())
@@ -799,5 +813,11 @@ mod tests {
         let message = operations_complete_message(None, 0, 0);
         assert!(message.contains("Obtained"));
         assert!(message.contains("<URL>"));
+    }
+    #[test]
+    fn test_parse_supports_yaml_flow_mapping_when_json_detection_fails() {
+        let content = "{endpoints: []}";
+        let result = ApplicationConfiguration::parse(content);
+        assert!(result.is_ok());
     }
 }

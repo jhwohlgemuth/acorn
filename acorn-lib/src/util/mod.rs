@@ -15,6 +15,7 @@
 //! }
 //! ```
 //!
+use crate::io::jsonc_parse_value;
 use crate::prelude::HashMap;
 #[cfg(feature = "std")]
 use crate::prelude::Path;
@@ -994,9 +995,10 @@ fn crockford_digit(value: char) -> Option<u128> {
     let byte = normalized as u8;
     CROCKFORD_BASE32_ALPHABET.iter().position(|&b| b == byte).map(|index| index as u128)
 }
-/// Try to parse text as JSON and return `true` if successful, `false` otherwise
+/// Try to parse text as JSON or JSONC and return `true` if successful, `false` otherwise
 pub fn detect_json(text: impl ToString) -> bool {
-    serde_json::from_str::<Value>(&text.to_string()).is_ok()
+    let text = text.to_string();
+    serde_json::from_str::<Value>(&text).is_ok() || jsonc_parse_value(&text).is_ok()
 }
 /// Try to parse text as XML and return `true` if successful, `false` otherwise
 pub fn detect_xml(text: impl ToString) -> bool {

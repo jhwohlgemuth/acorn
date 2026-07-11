@@ -1,0 +1,19 @@
+{
+  // Minimal valid RAD in JSONC format for path discovery testing
+  "title": "JSONC Fixture",
+  "sections": {
+    "mission": "Test mission",
+    "challenge": "Test challenge",
+    "approach": ["Test approach"],
+    "impact": ["Test impact"],
+    "research": {
+      "focus": "Test focus",
+      "areas": ["Test area"]
+    }
+  },
+  "contact": {
+    "title": "PI",
+    "first": "Jane",
+    "last": "Doe"
+  }
+}

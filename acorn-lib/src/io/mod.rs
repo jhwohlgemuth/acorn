@@ -44,6 +44,7 @@ use futures::Future;
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
+use jsonc_parser::{parse_to_serde_value, ParseOptions};
 use rand::rngs::OsRng;
 use ring::digest::{Context, SHA256};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
@@ -1462,6 +1463,21 @@ where
         finish_progress_bar(&progress, finish_message(count));
     }
     output
+}
+/// Parse JSONC content to a [`serde_json::Value`]
+/// ### Note
+/// Supports JavaScript-style comments (`//` and `/* */`) and trailing commas.
+pub fn jsonc_parse_value(content: &str) -> ApiResult<serde_json::Value> {
+    let options = ParseOptions {
+        allow_comments: true,
+        allow_trailing_commas: true,
+        allow_loose_object_property_names: false,
+        allow_missing_commas: false,
+        allow_single_quoted_strings: false,
+        allow_hexadecimal_numbers: false,
+        allow_unary_plus_numbers: false,
+    };
+    parse_to_serde_value(content, &options).map_err(|why| eyre!("JSONC parse error — {why}"))
 }
 /// Writes the given content to a file at the given path
 ///
