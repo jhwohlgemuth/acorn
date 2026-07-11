@@ -52,7 +52,7 @@ Use this section to choose the next work item. Detailed notes for each task are 
 | Export/PPTX | Introduce shared `ExportContext` | Medium | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | io::api | Complete HTTP method dispatch in root invoke path | Low | Critical | [io::api Backlog](#ioapi-backlog) |
 | no-std/WASM | Isolate std-only modules from domain modules | Medium | Critical | [Portability Backlog](#portability-backlog-no-std--wasm) |
-| Model Download | Implement `acorn download model` weight downloads with `.gguf` defaults | Medium | Critical | [Model Download Implementation](#model-download-implementation) |
+| Model Download | Implement `acorn download model` weight downloads with `.gguf` defaults | Medium | Critical | [Model Download Implementation](#model-download-implementation) — Phase 1 ✅, Phase 2 planned |
 | Analyzer | Extract link-check traversal helpers | Low | High | [Analyzer Backlog](#analyzer-backlog) |
 
 ### Visual Status Legend
@@ -95,21 +95,12 @@ Excluded:
 
 ## Core Refactor Backlog
 
-This section contains cross-crate tasks that affect CLI orchestration, export behavior, schema I/O, and shared abstractions.
-
 ### Critical Impact
 
 #### 3. Finish hardening OOXML interpolation and slide-copy mutations
 - Difficulty: Medium
 - Status: Partially complete — parser-backed presentation and relationship updates exist; interpolation and slide-copy mutations still need cleanup.
-- Why: Remaining regex/string-based OOXML manipulation is brittle and can produce malformed PPTX content.
-- Evidence:
-  - `acorn-cli/src/commands/export/powerpoint.rs`
-  - `acorn-lib/src/io/powerpoint/mod.rs`
-- Completed:
-  1. `presentation.xml` slide ID updates use parser-backed XML event handling.
-  2. Relationship target updates use parsed relationship structures.
-  3. Export validates generated OOXML before archive write.
+- Evidence: `acorn-cli/src/commands/export/powerpoint.rs`, `acorn-lib/src/io/powerpoint/mod.rs`
 - Recommendation:
   1. Replace remaining regex-based paragraph selection and bullet interpolation with parser-backed XML transforms.
   2. Replace slide-copy relationship/path string replacements with structured OOXML relationship and XML updates.
@@ -119,9 +110,7 @@ This section contains cross-crate tasks that affect CLI orchestration, export be
 
 #### 4. Fail fast on missing export/template assets
 - Difficulty: Low
-- Why: Silent empty-string fallbacks hide output corruption.
-- Evidence:
-  - `acorn-cli/src/template/mod.rs`
+- Evidence: `acorn-cli/src/template/mod.rs`
 - Recommendation:
   1. Return `Result` from asset lookup/embedding paths.
   2. Bubble failures into export command errors.
@@ -129,10 +118,7 @@ This section contains cross-crate tasks that affect CLI orchestration, export be
 
 #### 5. Eliminate duplicate export field extraction across HTML and PPTX paths
 - Difficulty: Medium
-- Why: Same `ResearchActivity` fields are mapped in multiple places, increasing drift risk.
-- Evidence:
-  - `acorn-cli/src/template/mod.rs`
-  - `acorn-lib/src/io/powerpoint/mod.rs`
+- Evidence: `acorn-cli/src/template/mod.rs`, `acorn-lib/src/io/powerpoint/mod.rs`
 - Recommendation:
   1. Introduce shared `ExportContext` (library-side).
   2. Extract fields once and consume in all format-specific renderers.
@@ -140,9 +126,7 @@ This section contains cross-crate tasks that affect CLI orchestration, export be
 
 #### 6. Split CLI startup concerns out of `main`
 - Difficulty: Medium
-- Why: Logging/env/runtime/database/bootstrap/dispatch concerns are tightly mixed.
-- Evidence:
-  - `acorn-cli/src/main.rs`
+- Evidence: `acorn-cli/src/main.rs`
 - Recommendation:
   1. Extract setup units: logging, runtime/thread pool, database bootstrap, command dispatch.
   2. Keep main as orchestration glue with uniform error boundary.
@@ -151,30 +135,21 @@ This section contains cross-crate tasks that affect CLI orchestration, export be
 
 #### 8. Consolidate interpolation primitives under one shared utility
 - Difficulty: Low
-- Why: Placeholder logic is split between generic interpolation and PowerPoint-specific behavior.
-- Evidence:
-  - `acorn-lib/src/util/mod.rs`
-  - `acorn-lib/src/io/powerpoint/mod.rs`
+- Evidence: `acorn-lib/src/util/mod.rs`, `acorn-lib/src/io/powerpoint/mod.rs`
 - Recommendation:
   1. Extend shared interpolation trait(s) for list/bullet use-cases.
   2. Remove parallel interpolation stacks.
 
 #### 9. Introduce stronger shared API-client contract
 - Difficulty: Medium
-- Why: API modules repeat health/auth/endpoint patterns without a fully unified contract.
-- Evidence:
-  - `acorn-lib/src/io/api/mod.rs`
-  - `acorn-lib/src/io/api/raid.rs`
-  - `acorn-lib/src/io/api/gitlab.rs`
+- Evidence: `acorn-lib/src/io/api/mod.rs`, `acorn-lib/src/io/api/raid.rs`, `acorn-lib/src/io/api/gitlab.rs`
 - Recommendation:
   1. Expand common trait surface for health, auth, endpoint rendering, and error normalization.
   2. Move duplicated logic behind shared helper modules.
 
 #### 10. Reduce binding-layer repetition in Python wrapper
 - Difficulty: Medium
-- Why: Wrapper boilerplate increases maintenance cost and schema drift risk.
-- Evidence:
-  - `acorn-py/src/lib.rs`
+- Evidence: `acorn-py/src/lib.rs`
 - Recommendation:
   1. Complete data exposure shape first.
   2. Then apply macro-based codegen for repetitive PID wrapper patterns.
@@ -183,21 +158,14 @@ This section contains cross-crate tasks that affect CLI orchestration, export be
 
 #### 11. Tighten schema I/O and format validation handoff between CLI and library
 - Difficulty: High
-- Why: CLI and library each carry partial format assumptions and validation behavior.
-- Evidence:
-  - `acorn-lib/src/io/mod.rs`
-  - `acorn-lib/src/schema/research_activity/mod.rs`
-  - `acorn-cli/src/commands/export/mod.rs`
+- Evidence: `acorn-lib/src/io/mod.rs`, `acorn-lib/src/schema/research_activity/mod.rs`, `acorn-cli/src/commands/export/mod.rs`
 - Recommendation:
   1. Extend `InputOutput` with stricter read/validate variants.
   2. Make CLI rely on library-side strict format validation consistently.
 
 #### 13. Separate parsed CLI model from execution options model
 - Difficulty: Medium
-- Why: Routing and options conversion remain repetitive and tightly coupled.
-- Evidence:
-  - `acorn-cli/src/cli/mod.rs`
-  - `acorn-cli/src/main.rs`
+- Evidence: `acorn-cli/src/cli/mod.rs`, `acorn-cli/src/main.rs`
 - Recommendation:
   1. Keep clap parse structs isolated.
   2. Normalize conversion to execution options in one layer.
@@ -209,48 +177,22 @@ This section contains cross-crate tasks that affect CLI orchestration, export be
 3. Unified interpolation extension in `acorn-lib` for string + list placeholders.
 4. Single CLI error boundary mapping internal `Result` errors to exit codes.
 
-### Suggested Migration Order
+### Completion Criteria
 
-1. Reliability triage: ✅ COMPLETE
-   - Remove panic/unimplemented/exit-heavy internal command flow.
-   - Normalize command/helper `Result` contracts.
-2. Boundary hardening:
-   - Harden OOXML and path handling.
-   - Fail fast on asset lookup and invalid filters.
-3. Shared abstractions:
-   - Introduce `ExportContext`, `SafePath`, unified interpolation utility.
-4. Structural modularization:
-   - Split `main` setup concerns.
-   - Tighten API client and schema I/O contracts.
-5. Refinement:
-   - Binding-layer macroization and lower-priority cleanup.
-
-### Completion Criteria For Refactor Work
-
-1. No production `unimplemented!()`/`panic!()` in command paths. ✅
-2. Export paths fail with typed errors, never silent corruption. ✅
-3. Path normalization and containment are centralized and reused.
-4. Export field mapping exists in one shared context object.
-5. Cross-crate interpolation behavior is unified and test-covered.
+1. Export paths fail with typed errors, never silent corruption.
+2. Path normalization and containment are centralized and reused.
+3. Export field mapping exists in one shared context object.
+4. Cross-crate interpolation behavior is unified and test-covered.
 
 ---
 
 ## Portability Backlog: no-std + WASM
 
-This section focuses on positioning `acorn-lib` as a high-capability no-std-first library with strong WASM support.
-
-Prioritization rule:
-1. Impact on no-std correctness and portability first.
-2. Difficulty second within each impact tier.
-
 ### Critical Impact
 
 #### 1. Isolate std-only modules from shared domain modules
 - Difficulty: Medium
-- Why: std-bound imports leak into major surfaces, limiting no-std portability.
-- Evidence:
-  - `acorn-lib/src/analyzer/mod.rs` imports `crate::io::*`, process APIs, filesystem-like behaviors.
-  - `acorn-lib/src/io/mod.rs` is std-heavy and currently broad.
+- Evidence: `acorn-lib/src/analyzer/mod.rs` imports `crate::io::*`, process APIs, filesystem-like behaviors.
 - Recommendation:
   1. Move std-heavy logic into `io/std/*` and keep pure transformations in `io/core/*`.
   2. Keep schema parsing/validation and formatting logic independent from command/process/network concerns.
@@ -260,9 +202,7 @@ Prioritization rule:
 
 #### 2. Replace no-std-hostile error/reporting surface for core builds
 - Difficulty: Medium
-- Why: `color-eyre` is excellent for CLI UX but not ideal as core-library baseline for no-std/WASM.
-- Evidence:
-  - `acorn-lib/src/io/mod.rs` and other modules use `ApiResult<T> = Result<T, Report>`.
+- Evidence: `acorn-lib/src/io/mod.rs` and other modules use `ApiResult<T> = Result<T, Report>`.
 - Recommendation:
   1. Introduce a core error enum (`AcornError`) with `thiserror`/`core::fmt` support.
   2. Keep `color-eyre` conversion in std adapters only.
@@ -270,9 +210,8 @@ Prioritization rule:
      - no-std: `Result<T, AcornError>`
      - std CLI adapters: map to rich reports.
 
-#### 3. Add dedicated WASM feature path (not just no-std)
+#### 3. Add dedicated WASM feature path
 - Difficulty: Medium
-- Why: WASM has different constraints than bare-metal no-std (target-specific panic, allocator, networking, fs absence).
 - Recommendation:
   1. Add `wasm` feature with wasm-safe dep toggles.
   2. Provide `wasm-bindgen`/`js-sys` adapters in a separate module and avoid pulling browser crates into non-wasm no-std builds.
@@ -282,18 +221,14 @@ Prioritization rule:
 
 #### 4. Refactor prelude into strict capability preludes
 - Difficulty: Low
-- Why: prelude currently provides both std and no-std exports, but module callers still mix concerns.
-- Evidence:
-  - `acorn-lib/src/prelude.rs` has dual exports, but call sites in analyzer/util/io often assume std APIs.
+- Evidence: `acorn-lib/src/prelude.rs` has dual exports, but call sites in analyzer/util/io often assume std APIs.
 - Recommendation:
   1. Create explicit `prelude::core`, `prelude::alloc`, `prelude::std` modules.
   2. Restrict imports by module capability level to prevent accidental std usage.
 
 #### 5. Partition utility module into pure and std submodules
 - Difficulty: Medium
-- Why: `util/mod.rs` includes table formatting, console emoji, diff rendering, embedding support, and generic helpers together.
-- Evidence:
-  - `acorn-lib/src/util/mod.rs` imports `comfy_table`, `console`, `owo-colors`, `rust_embed` unconditionally at module scope.
+- Evidence: `acorn-lib/src/util/mod.rs` imports `comfy_table`, `console`, `owo-colors`, `rust_embed` unconditionally at module scope.
 - Recommendation:
   1. Move pure string/identifier/interpolation helpers into `util/core`.
   2. Move console formatting/rendering into `util/std`.
@@ -301,7 +236,6 @@ Prioritization rule:
 
 #### 6. Introduce host-abstraction traits for runtime services
 - Difficulty: Medium
-- Why: file/network/process/runtime dependencies are currently concrete, reducing portability.
 - Recommendation:
   1. Define traits: `FileStore`, `HttpClient`, `Clock`, `Entropy`, `ProcessRunner`.
   2. Provide std implementations in adapters.
@@ -311,16 +245,13 @@ Prioritization rule:
 
 #### 7. Tighten workspace dependency defaults for no-std friendliness
 - Difficulty: Medium
-- Why: workspace-level defaults currently include `chrono/std` and other std-oriented defaults that can leak into no-std planning.
-- Evidence:
-  - `Cargo.toml` workspace dependency for `chrono` includes `features = ["serde", "std"]`.
+- Evidence: `Cargo.toml` workspace dependency for `chrono` includes `features = ["serde", "std"]`.
 - Recommendation:
   1. Move std-dependent feature toggles from workspace defaults into crate-level feature wiring.
   2. Prefer alloc/core-only defaults in workspace where possible.
 
 #### 8. Add no-std and wasm CI matrix as a first-class quality gate
 - Difficulty: Low
-- Why: regressions are likely without continuous compile checks.
 - Recommendation:
   1. Add CI jobs:
      - `cargo check -p acorn-lib --no-default-features`
@@ -337,726 +268,190 @@ Prioritization rule:
 5. `wasm` feature for wasm32 adapters and constraints.
 6. Domain features (`analysis`, `doctor`, `powerpoint`, `agentic`, `database`, `export-html`, `export-pptx`) layered on top of capability features.
 
-### Practical Execution Steps
-
-1. Stage 1 (architecture): split pure/domain code from std adapters, add host traits.
-2. Stage 2 (WASM): add dedicated `wasm` adapters and host implementations.
-3. Stage 3 (enforcement): add CI matrix and feature-leak checks.
-
-### Completion Criteria for no-std/WASM Positioning
-
-1. Core schema and validation APIs remain usable without std.
-2. std-only concerns live behind adapter modules and explicit features.
-3. CI enforces no-std + wasm compile guarantees.
-
 ### Implementation PR Plan
-
-This is an implementation-oriented sequence designed to be executed as small, reviewable PRs.
 
 #### PR 4: Separate Core Domain Logic from std Adapters
 
-Goal:
-- Keep pure domain/schema/transform code portable while isolating host concerns.
+Goal: Keep pure domain/schema/transform code portable while isolating host concerns.
 
 Primary edits:
-1. Introduce module splits:
-  - `acorn-lib/src/io/core/` for pure data transforms
-  - `acorn-lib/src/io/std/` for filesystem/network/runtime/process operations
-  - `acorn-lib/src/util/core/` and `acorn-lib/src/util/std/` split where needed
+1. Introduce module splits: `io/core/`, `io/std/`, `util/core/`, `util/std/`.
+2. Add capability-scoped preludes: `prelude::core`, `prelude::alloc`, `prelude::std`.
 
-2. `acorn-lib/src/prelude.rs`
-  - Add capability-scoped preludes:
-    - `prelude::core`
-    - `prelude::alloc`
-    - `prelude::std`
-  - Restrict imports in each module to avoid accidental std leakage.
+Validation: `cargo check -p acorn-lib --no-default-features --features alloc` and `cargo check -p acorn-lib --features std`
 
-Validation commands:
-1. `cargo check -p acorn-lib --no-default-features --features alloc`
-2. `cargo check -p acorn-lib --features std`
-
-Acceptance criteria:
-1. Core modules compile without std imports.
-2. std-only APIs are contained under feature-gated adapter modules.
+Acceptance criteria: Core modules compile without std imports; std-only APIs are contained under feature-gated adapter modules.
 
 #### PR 5: Introduce Host Traits + Implementations
 
-Goal:
-- Replace concrete runtime dependencies with pluggable host interfaces.
+Goal: Replace concrete runtime dependencies with pluggable host interfaces.
 
 Primary edits:
-1. Add new traits (suggested location: `acorn-lib/src/io/host.rs`):
-  - `FileStore`
-  - `HttpClient`
-  - `Clock`
-  - `Entropy`
-  - `ProcessRunner`
-
-2. Add implementations:
-  - std impls in `io/std/host_impl.rs`
-  - wasm impl stubs/adapters in `io/wasm/host_impl.rs`
-
+1. Add traits in `io/host.rs`: `FileStore`, `HttpClient`, `Clock`, `Entropy`, `ProcessRunner`.
+2. Add std impls in `io/std/host_impl.rs`, wasm stubs in `io/wasm/host_impl.rs`.
 3. Refactor selected callsites in analyzer/io/api to use trait abstractions.
 
-Validation commands:
-1. `cargo check -p acorn-lib --features std,analysis`
-2. `cargo check -p acorn-lib --no-default-features --features wasm`
-
-Acceptance criteria:
-1. Host-sensitive logic no longer hardcodes std APIs in core paths.
+Validation: `cargo check -p acorn-lib --features std,analysis` and `cargo check -p acorn-lib --no-default-features --features wasm`
 
 #### PR 6: WASM Target Enablement
 
-Goal:
-- Provide a first-class WASM-capable build mode.
+Goal: Provide a first-class WASM-capable build mode.
 
 Primary edits:
-1. `acorn-lib/Cargo.toml`
-  - Add target-specific dependency blocks for wasm where required.
-  - Ensure wasm feature enables only wasm-compatible crates.
+1. `acorn-lib/Cargo.toml` — Add target-specific dependency blocks for wasm.
+2. Add wasm-specific module wiring: `acorn-lib/src/io/wasm/mod.rs`.
 
-2. Add wasm-specific module wiring:
-  - `acorn-lib/src/io/wasm/mod.rs`
-  - optional wrappers for JS interop if required by public API.
-
-Environment requirement:
-1. Install target: `rustup target add wasm32-unknown-unknown`
-
-Validation commands:
-1. `cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown`
-2. `cargo check -p acorn-lib --no-default-features --features alloc --target wasm32-unknown-unknown`
-
-Acceptance criteria:
-1. wasm checks pass for at least one useful feature set.
+Validation: `cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown`
 
 ### Dependency Replacement Candidates
 
-Use replacement only when needed to achieve capability goals:
-
-1. `color-eyre` for core library path
-  - Impact: High
-  - Difficulty: Medium
-  - Action: keep `color-eyre` in std adapters; introduce core error type for no-std path.
-
-2. `rayon` in analyzer/domain pathways
-  - Impact: Medium
-  - Difficulty: Medium
-  - Action: gate strictly behind `analysis` + `std`; avoid in portable core.
-
-3. `docx-rs`, `tera`, `percy-dom`, `indicatif`
-  - Impact: Medium
-  - Difficulty: Low
-  - Action: isolate under export/template features; do not load in base alloc/no-std builds.
-
-4. `chrono`
-  - Impact: Medium
-  - Difficulty: Low
-  - Action: ensure `chrono/std` only enabled by std feature.
-
-5. `rusqlite`, `reqwest`, `tokio`, `axum`, `tower`, `which`
-  - Impact: High
-  - Difficulty: Low
-  - Action: keep optional and std-only.
+1. `color-eyre` — keep in std adapters; introduce core error type for no-std path.
+2. `rayon` — gate strictly behind `analysis` + `std`; avoid in portable core.
+3. `docx-rs`, `tera`, `percy-dom`, `indicatif` — isolate under export/template features.
+4. `chrono` — ensure `chrono/std` only enabled by std feature.
+5. `rusqlite`, `reqwest`, `tokio`, `axum`, `tower`, `which` — keep optional and std-only.
 
 ---
 
 ## Analyzer Backlog
 
-This section focuses only on code in acorn-lib/src/analyzer and identifies improvements using constructs such as functor, traversable, monoid, and algebraic folds.
-
-Sort order:
-1. Difficulty first.
-2. Impact second within each difficulty level.
-
 ### Low Difficulty
 
 #### 1. Functor plus Traversable extraction for link-check futures
-- Difficulty: Low
-- Impact: High
-- Evidence:
-  - acorn-lib/src/analyzer/mod.rs
-  - Cff website checks build multiple optional futures through repeated map, flatten, collect chains.
-- Opportunity:
-  1. Introduce a small helper based on functor and traversable style.
-  2. Transform optional URL fields with map into optional futures.
-  3. Traverse into one list of futures with a reusable combinator.
-  4. Replace repeated root, identifier, and reference URL builders with one generic mapper.
-- Why this helps:
-  - Reduces repeated branching and keeps URL-to-Check transformation compositional.
+- Evidence: `acorn-lib/src/analyzer/mod.rs` — Cff website checks build multiple optional futures through repeated map, flatten, collect chains.
+- Opportunity: Introduce a small helper based on functor and traversable style; replace repeated URL-to-Check transformation with one generic mapper.
 
 #### 2. Monoid for Check collection accumulation
-- Difficulty: Low
-- Impact: High
-- Evidence:
-  - acorn-lib/src/analyzer/mod.rs
-  - acorn-lib/src/analyzer/check.rs
-  - Repeated join_all await flatten collect patterns.
-- Opportunity:
-  1. Introduce CheckBatch newtype with identity as empty list.
-  2. Define associative combine as concatenation.
-  3. Use fold_map style accumulation from paths and nested structures.
-- Why this helps:
-  - Makes accumulation strategy explicit and reusable across Cff, ResearchActivity, Docx, and Text analyzers.
+- Evidence: `acorn-lib/src/analyzer/mod.rs`, `acorn-lib/src/analyzer/check.rs` — repeated `join_all await flatten collect` patterns.
+- Opportunity: Introduce `CheckBatch` newtype with identity as empty list, associative combine as concatenation, `fold_map` style accumulation.
 
 #### 3. Monoid for summary aggregation
-- Difficulty: Low
-- Impact: Medium
-- Evidence:
-  - acorn-lib/src/analyzer/check.rs summary logic aggregates per-category counts via chained map and collect.
-- Opportunity:
-  1. Represent summary as a monoidal record where fields combine by addition.
-  2. Fold checks directly into one summary value instead of building intermediates.
-- Why this helps:
-  - Cleaner associative aggregation and easier extension for new categories.
+- Evidence: `acorn-lib/src/analyzer/check.rs` — summary logic aggregates per-category counts via chained map and collect.
+- Opportunity: Represent summary as a monoidal record where fields combine by addition; fold checks directly into one summary value.
 
 #### 4. Endomorphism monoid for ValeConfig normalization pipeline
-- Difficulty: Low
-- Impact: Medium
-- Evidence:
-  - acorn-lib/src/analyzer/mod.rs ValeConfig package resolution and configuration mutations.
-- Opportunity:
-  1. Model each config transformation as function from ValeConfig to ValeConfig.
-  2. Compose transformations and apply once.
-- Why this helps:
-  - Avoids ad hoc mutation sequencing and makes configuration transformation declarative.
+- Evidence: `acorn-lib/src/analyzer/mod.rs` — ValeConfig package resolution and configuration mutations.
+- Opportunity: Model each config transformation as `ValeConfig -> ValeConfig`; compose transformations and apply once.
 
 ### Medium Difficulty
 
 #### 5. Catamorphism style fold for validation error trees
-- Difficulty: Medium
-- Impact: High
-- Evidence:
-  - acorn-lib/src/analyzer/error.rs process recursively matches Field, Struct, List with duplicated path-context handling.
-- Opportunity:
-  1. Define one algebra over ValidationErrorsKind nodes.
-  2. Implement a generic fold carrying path context and returning flattened ValidatorIssue values.
-- Why this helps:
-  - Centralizes recursion semantics and reduces drift in error flattening behavior.
+- Evidence: `acorn-lib/src/analyzer/error.rs` — process recursively matches Field, Struct, List with duplicated path-context handling.
+- Opportunity: Define one algebra over `ValidationErrorsKind` nodes; implement a generic fold carrying path context.
 
 #### 6. Applicative validation for composed checks
-- Difficulty: Medium
-- Impact: High
-- Evidence:
-  - acorn-lib/src/analyzer/mod.rs and acorn-lib/src/analyzer/check.rs mix success and error paths with repeated match scaffolding.
-- Opportunity:
-  1. Convert independent check computations into applicative composition where possible.
-  2. Accumulate multiple failures in one pass rather than short-circuit branching.
-- Why this helps:
-  - Better fit for analyzer workflows that aim to collect all issues.
+- Evidence: `acorn-lib/src/analyzer/mod.rs`, `acorn-lib/src/analyzer/check.rs` — mix success and error paths with repeated match scaffolding.
+- Opportunity: Convert independent check computations into applicative composition where possible; accumulate multiple failures in one pass.
 
 #### 7. Reader-like context functor for CheckOptions flow
-- Difficulty: Medium
-- Impact: Medium
-- Evidence:
-  - acorn-lib/src/analyzer/mod.rs repeatedly threads options and derived context through nested async closures.
-- Opportunity:
-  1. Introduce explicit analysis context and composable context-to-result functions.
-  2. Use map and and_then style composition to remove repeated option plumbing.
-- Why this helps:
-  - Reduces ceremony and improves testability of pure transformations.
+- Evidence: `acorn-lib/src/analyzer/mod.rs` — repeatedly threads options and derived context through nested async closures.
+- Opportunity: Introduce explicit analysis context and composable context-to-result functions.
 
 #### 8. Result functor normalization for conversion boundaries
-- Difficulty: Medium
-- Impact: Medium
-- Evidence:
-  - acorn-lib/src/analyzer/mod.rs and acorn-lib/src/analyzer/vale.rs contain repeated match blocks that map failures to defaults or fallback checks.
-- Opportunity:
-  1. Use map_err and recovery combinators through one consistent pipeline.
-  2. Separate error policy mapping from business transformation logic.
-- Why this helps:
-  - Improves predictability and composability of error handling.
+- Evidence: `acorn-lib/src/analyzer/mod.rs`, `acorn-lib/src/analyzer/vale.rs` — repeated match blocks that map failures to defaults.
+- Opportunity: Use `map_err` and recovery combinators through one consistent pipeline.
 
 ### High Difficulty
 
 #### 9. Higher-level Traversable abstraction across standards
-- Difficulty: High
-- Impact: High
-- Evidence:
-  - acorn-lib/src/analyzer/mod.rs has near-isomorphic implementations for Cff, ResearchActivity, Docx, and Text check methods.
-- Opportunity:
-  1. Define generic traversal strategy over readable artifacts and check categories.
-  2. Keep per-standard adapters only for reading and URL extraction.
-- Why this helps:
-  - Significant duplication reduction and lower cost to add new standards.
+- Evidence: `acorn-lib/src/analyzer/mod.rs` — near-isomorphic implementations for Cff, ResearchActivity, Docx, and Text check methods.
+- Opportunity: Define generic traversal strategy over readable artifacts and check categories; keep per-standard adapters only for reading and URL extraction.
 
 #### 10. Typed semiring-like scoring model for readability and prose checks
-- Difficulty: High
-- Impact: Medium
-- Evidence:
-  - acorn-lib/src/analyzer/readability/mod.rs and acorn-lib/src/analyzer/check.rs map scoring and severity via ad hoc conditionals.
-- Opportunity:
-  1. Introduce typed score algebra where combine and threshold are explicit.
-  2. Map algebra outputs to CheckSeverity through one interpreter layer.
-- Why this helps:
-  - Provides a principled basis for combining heterogeneous quality signals.
+- Evidence: `acorn-lib/src/analyzer/readability/mod.rs`, `acorn-lib/src/analyzer/check.rs` — map scoring and severity via ad hoc conditionals.
+- Opportunity: Introduce typed score algebra where combine and threshold are explicit; map outputs to `CheckSeverity` through one interpreter layer.
 
-### Recommended Implementation Order for This Section
+### Recommended Implementation Order
 
-1. Start with item 1 and item 2 to reduce duplication quickly in analyzer/mod.rs.
-2. Follow with item 5 to simplify and stabilize validation error flattening.
-3. Then apply item 9 if broad standard-level deduplication is desired.
+1. Items 1 and 2 to reduce duplication in `analyzer/mod.rs`.
+2. Item 5 to stabilize validation error flattening.
+3. Item 9 if broad standard-level deduplication is desired.
 
 ---
 
 ## io::api Backlog
-
-This section groups reusable API-client work. The first subsection is sorted by difficulty and impact; the module-scan subsection captures concrete extraction opportunities found in current provider code.
 
 ### Improvement Ideas
 
 #### Low Difficulty
 
 ##### 1. Standardize Auth Header Construction Across API Modules
-- Difficulty: Low
-- Impact: High
-- Opportunity:
-  1. Add one shared helper in `acorn-lib/src/io/api/mod.rs` for bearer token headers.
-  2. Replace per-module duplicated header creation in `gitlab`, `raid`, and `openai`.
-  3. Add focused tests for empty-token behavior and header map output.
+- Add one shared helper in `acorn-lib/src/io/api/mod.rs` for bearer token headers; replace per-module duplicated header creation in `gitlab`, `raid`, and `openai`.
 
 ##### 2. Add Shared Request Builders for Common API Shapes
-- Difficulty: Low
-- Impact: High
-- Opportunity:
-  1. Add utility helpers for `{token + template value}` and `{token + JSON body}` parameter sets.
-  2. Remove repeated `param!` vector assembly boilerplate from individual modules.
-  3. Keep module-specific logic focused on action names and response types.
+- Add utility helpers for `{token + template value}` and `{token + JSON body}` parameter sets; remove repeated `param!` vector assembly boilerplate.
 
 ##### 3. Normalize Environment Variable Discovery Rules
-- Difficulty: Low
-- Impact: Medium
-- Opportunity:
-  1. Define a consistent fallback sequence for token/domain variables across modules.
-  2. Expose one helper for required vs optional secrets.
-  3. Keep `.env` loading behavior uniform and testable.
+- Define a consistent fallback sequence for token/domain variables across modules; expose one helper for required vs optional secrets.
 
 #### Medium Difficulty
 
 ##### 4. Introduce Shared API Error Envelope Traits
-- Difficulty: Medium
-- Impact: High
-- Opportunity:
-  1. Define a trait for extracting user-facing error strings from provider-specific error payloads.
-  2. Implement for `gitlab`, `raid`, and `openai` error responses.
-  3. Centralize fallback error rendering in `handle_or` helpers.
+- Define a trait for extracting user-facing error strings from provider-specific error payloads; implement for `gitlab`, `raid`, and `openai` error responses.
 
 ##### 5. Add OpenAPI-Aware Endpoint Validation Utilities
-- Difficulty: Medium
-- Impact: High
-- Opportunity:
-  1. Add utility functions that check endpoint template names and required template keys.
-  2. Validate key mappings for action names at startup or in unit tests.
-  3. Catch template drift early when `application.json` changes.
+- Add utility functions that check endpoint template names and required template keys; catch template drift early when `application.json` changes.
 
 ##### 6. Add Lightweight Response DTO Layer for Evolving APIs
-- Difficulty: Medium
-- Impact: Medium
-- Opportunity:
-  1. Keep baseline raw `serde_json::Value` support for broad schemas.
-  2. Layer optional typed DTOs for stable subfields (`id`, `object`, usage metadata).
-  3. Improve compile-time safety without losing forward compatibility.
+- Layer optional typed DTOs for stable subfields (`id`, `object`, usage metadata) over baseline raw `serde_json::Value` support.
 
 #### High Difficulty
 
 ##### 7. Generate API Module Skeletons from OpenAPI Specs
-- Difficulty: High
-- Impact: High
-- Opportunity:
-  1. Create an internal codegen path that emits endpoint definitions and baseline DTOs.
-  2. Use generated modules as a starting point, then keep hand-written ergonomic wrappers.
-  3. Reduce maintenance drift for rapidly evolving APIs.
+- Create an internal codegen path that emits endpoint definitions and baseline DTOs; use generated modules as a starting point.
 
 ##### 8. Unified Capability Matrix for io::api Providers
-- Difficulty: High
-- Impact: Medium
-- Opportunity:
-  1. Define one capability descriptor (`supports_pagination`, `supports_streaming`, `requires_token`, etc.).
-  2. Drive command-layer behavior from capability metadata instead of per-provider conditionals.
-  3. Enable cleaner extension as additional providers are introduced.
+- Define one capability descriptor (`supports_pagination`, `supports_streaming`, `requires_token`, etc.); drive command-layer behavior from capability metadata.
 
 ### Reuse Opportunities From Module Scan
-
-This section captures concrete extraction opportunities identified by scanning the existing API modules (`openai`, `gitlab`, `raid`, `orcid`, `ror`, `citeas`, `geonames`, `spdx`) with a focus on code that can move into `acorn-lib/src/io/api/mod.rs` and be reused.
 
 #### Critical
 
 ##### 1. Complete HTTP method dispatch in root invoke path
 - Difficulty: Low
 - Impact: Critical
-- Evidence:
-  - `acorn-lib/src/io/api/mod.rs` currently dispatches only `GET`, `POST`, and `PUT` and falls through to `unimplemented!` for other methods.
-  - `openai::api` now includes `DELETE` resources.
-- Opportunity:
-  1. Add full `HttpMethod` dispatch support in `RemoteResource::invoke_with`.
-  2. Remove `unimplemented!` fallback for declared resource methods.
-  3. Add tests for method routing parity between template methods and request dispatch.
+- Evidence: `acorn-lib/src/io/api/mod.rs` currently dispatches only `GET`, `POST`, and `PUT` and falls through to `unimplemented!` for other methods; `openai::api` now includes `DELETE` resources.
+- Opportunity: Add full `HttpMethod` dispatch support in `RemoteResource::invoke_with`; remove `unimplemented!` fallback; add tests for method routing parity.
 
 #### High Impact
 
 ##### 2. Extract endpoint resolution helpers
-- Difficulty: Low
-- Impact: High
-- Evidence:
-  - Repeated `Endpoint::from_template(template).map(|e| e.with_domain(...))` across `openai`, `gitlab`, and `raid`.
-  - Repeated `INCLUDED_ENDPOINTS.find_by_name(name)` across `orcid`, `ror`, `citeas`, `geonames`, and `spdx`.
-- Opportunity:
-  1. Add root helpers for template+domain endpoint resolution and named endpoint lookup.
-  2. Centralize endpoint-not-found error message formatting.
+- Evidence: Repeated `Endpoint::from_template(template).map(|e| e.with_domain(...))` across `openai`, `gitlab`, and `raid`.
+- Opportunity: Add root helpers for template+domain endpoint resolution and named endpoint lookup.
 
 ##### 3. Extract auth-header parameter builders
-- Difficulty: Low
-- Impact: High
-- Evidence:
-  - Repeated `Authorization: Bearer` parameter construction in `openai` and `raid`.
-  - Repeated `PRIVATE-TOKEN` parameter construction in `gitlab`.
-- Opportunity:
-  1. Add reusable helpers for common header param styles.
-  2. Standardize token handling and reduce per-module header string literals.
+- Evidence: Repeated `Authorization: Bearer` in `openai`/`raid`, `PRIVATE-TOKEN` in `gitlab`.
+- Opportunity: Add reusable helpers for common header param styles.
 
 ##### 4. Extract required-input validators
-- Difficulty: Low
-- Impact: High
-- Evidence:
-  - Repeated required `identifier` and required `body` match branches in `openai`.
-  - Similar identifier branching in `raid` and parts of `gitlab`.
-- Opportunity:
-  1. Add root validators for required non-empty identifier/body values.
-  2. Return uniform, provider-specific error messages via helper formatting.
+- Evidence: Repeated required `identifier` and required `body` match branches in `openai`, `raid`, and `gitlab`.
+- Opportunity: Add root validators for required non-empty identifier/body values.
 
 ##### 5. Extract invoke-and-parse convenience wrappers
-- Difficulty: Medium
-- Impact: High
-- Evidence:
-  - Repeated sequence: build params → invoke/invoke_with → handle/handle_or across most provider functions.
-- Opportunity:
-  1. Add wrappers that combine invocation and parse strategy.
-  2. Allow optional fallback parser type where error envelopes differ by provider.
+- Evidence: Repeated sequence: build params → invoke/invoke_with → handle/handle_or across most provider functions.
+- Opportunity: Add wrappers that combine invocation and parse strategy.
 
 #### Medium Impact
 
 ##### 6. Extract optional query parameter composition helper
-- Difficulty: Low
-- Impact: Medium
-- Evidence:
-  - Repeated optional list parameter insertion (`after`, `limit`, `order`, `model`) in `openai`.
-  - Similar optional query assembly in other modules.
-- Opportunity:
-  1. Add helper to append optional key/value query params when present and non-empty.
-  2. Keep module logic focused on endpoint actions rather than param plumbing.
+- Evidence: Repeated optional list parameter insertion in `openai` and other modules.
+- Opportunity: Add helper to append optional key/value query params when present and non-empty.
 
 ##### 7. Normalize environment configuration bootstrap
-- Difficulty: Medium
-- Impact: Medium
-- Evidence:
-  - Repeated `.env` load + env var fallback patterns in `openai`, `raid`, and `gitlab` options.
-- Opportunity:
-  1. Add root helper for consistent env loading and prioritized var resolution.
-  2. Reduce duplicated configuration boilerplate in provider `Configuration::from_env` implementations.
+- Evidence: Repeated `.env` load + env var fallback patterns in `openai`, `raid`, and `gitlab` options.
+- Opportunity: Add root helper for consistent env loading and prioritized var resolution.
 
 ##### 8. Extract status/health helper pattern
-- Difficulty: Low
-- Impact: Medium
-- Evidence:
-  - Similar `is_healthy` wrappers in `orcid`, `ror`, and `citeas` that map status result to bool.
-- Opportunity:
-  1. Add root utility for status-to-health checks with pluggable predicate.
-  2. Reduce repetitive status wrapper code in providers.
-
-#### Recommended Extraction Order
-
-1. Implement critical method dispatch support for all declared `HttpMethod` variants.
-2. Add endpoint resolution + auth/header builders.
-3. Add required-input validators + optional query param composition helper.
-4. Introduce invoke-and-parse wrappers with fallback support.
-5. Normalize environment bootstrap and health-check helpers.
-
----
-
-## Reference Inventories
-
-These sections support planning and fixture maintenance. They are intentionally separated from the actionable refactor backlogs above.
-
-### OpenAI OpenAPI Remaining Endpoint Templates
-
-Snapshot details:
-1. Source spec: https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml
-2. Total path templates in spec: 162
-3. Path templates currently covered in acorn openai module: 9
-4. Remaining path templates: 153
-
-#### assistants (2)
-
-1. /assistants
-2. /assistants/{assistant_id}
-
-#### audio (6)
-
-1. /audio/speech
-2. /audio/transcriptions
-3. /audio/translations
-4. /audio/voice_consents
-5. /audio/voice_consents/{consent_id}
-6. /audio/voices
-
-#### batches (3)
-
-1. /batches
-2. /batches/{batch_id}
-3. /batches/{batch_id}/cancel
-
-#### chatkit (5)
-
-1. /chatkit/sessions
-2. /chatkit/sessions/{session_id}/cancel
-3. /chatkit/threads
-4. /chatkit/threads/{thread_id}
-5. /chatkit/threads/{thread_id}/items
-
-#### completions (1)
-
-1. /completions
-
-#### containers (5)
-
-1. /containers
-2. /containers/{container_id}
-3. /containers/{container_id}/files
-4. /containers/{container_id}/files/{file_id}
-5. /containers/{container_id}/files/{file_id}/content
-
-#### conversations (4)
-
-1. /conversations
-2. /conversations/{conversation_id}
-3. /conversations/{conversation_id}/items
-4. /conversations/{conversation_id}/items/{item_id}
-
-#### embeddings (1)
-
-1. /embeddings
-
-#### evals (6)
-
-1. /evals
-2. /evals/{eval_id}
-3. /evals/{eval_id}/runs
-4. /evals/{eval_id}/runs/{run_id}
-5. /evals/{eval_id}/runs/{run_id}/output_items
-6. /evals/{eval_id}/runs/{run_id}/output_items/{output_item_id}
-
-#### files (3)
-
-1. /files
-2. /files/{file_id}
-3. /files/{file_id}/content
-
-#### fine_tuning (11)
-
-1. /fine_tuning/alpha/graders/run
-2. /fine_tuning/alpha/graders/validate
-3. /fine_tuning/checkpoints/{fine_tuned_model_checkpoint}/permissions
-4. /fine_tuning/checkpoints/{fine_tuned_model_checkpoint}/permissions/{permission_id}
-5. /fine_tuning/jobs
-6. /fine_tuning/jobs/{fine_tuning_job_id}
-7. /fine_tuning/jobs/{fine_tuning_job_id}/cancel
-8. /fine_tuning/jobs/{fine_tuning_job_id}/checkpoints
-9. /fine_tuning/jobs/{fine_tuning_job_id}/events
-10. /fine_tuning/jobs/{fine_tuning_job_id}/pause
-11. /fine_tuning/jobs/{fine_tuning_job_id}/resume
-
-#### images (3)
-
-1. /images/edits
-2. /images/generations
-3. /images/variations
-
-#### moderations (1)
-
-1. /moderations
-
-#### organization (46)
-
-1. /organization/admin_api_keys
-2. /organization/admin_api_keys/{key_id}
-3. /organization/audit_logs
-4. /organization/certificates
-5. /organization/certificates/{certificate_id}
-6. /organization/certificates/activate
-7. /organization/certificates/deactivate
-8. /organization/costs
-9. /organization/groups
-10. /organization/groups/{group_id}
-11. /organization/groups/{group_id}/roles
-12. /organization/groups/{group_id}/roles/{role_id}
-13. /organization/groups/{group_id}/users
-14. /organization/groups/{group_id}/users/{user_id}
-15. /organization/invites
-16. /organization/invites/{invite_id}
-17. /organization/projects
-18. /organization/projects/{project_id}
-19. /organization/projects/{project_id}/api_keys
-20. /organization/projects/{project_id}/api_keys/{api_key_id}
-21. /organization/projects/{project_id}/archive
-22. /organization/projects/{project_id}/certificates
-23. /organization/projects/{project_id}/certificates/activate
-24. /organization/projects/{project_id}/certificates/deactivate
-25. /organization/projects/{project_id}/groups
-26. /organization/projects/{project_id}/groups/{group_id}
-27. /organization/projects/{project_id}/rate_limits
-28. /organization/projects/{project_id}/rate_limits/{rate_limit_id}
-29. /organization/projects/{project_id}/service_accounts
-30. /organization/projects/{project_id}/service_accounts/{service_account_id}
-31. /organization/projects/{project_id}/users
-32. /organization/projects/{project_id}/users/{user_id}
-33. /organization/roles
-34. /organization/roles/{role_id}
-35. /organization/usage/audio_speeches
-36. /organization/usage/audio_transcriptions
-37. /organization/usage/code_interpreter_sessions
-38. /organization/usage/completions
-39. /organization/usage/embeddings
-40. /organization/usage/images
-41. /organization/usage/moderations
-42. /organization/usage/vector_stores
-43. /organization/users
-44. /organization/users/{user_id}
-45. /organization/users/{user_id}/roles
-46. /organization/users/{user_id}/roles/{role_id}
-
-#### projects (6)
-
-1. /projects/{project_id}/groups/{group_id}/roles
-2. /projects/{project_id}/groups/{group_id}/roles/{role_id}
-3. /projects/{project_id}/roles
-4. /projects/{project_id}/roles/{role_id}
-5. /projects/{project_id}/users/{user_id}/roles
-6. /projects/{project_id}/users/{user_id}/roles/{role_id}
-
-#### realtime (9)
-
-1. /realtime/calls
-2. /realtime/calls/{call_id}/accept
-3. /realtime/calls/{call_id}/hangup
-4. /realtime/calls/{call_id}/refer
-5. /realtime/calls/{call_id}/reject
-6. /realtime/client_secrets
-7. /realtime/sessions
-8. /realtime/transcription_sessions
-9. /realtime/translations/client_secrets
-
-#### responses (2)
-
-1. /responses/compact
-2. /responses/input_tokens
-
-#### skills (6)
-
-1. /skills
-2. /skills/{skill_id}
-3. /skills/{skill_id}/content
-4. /skills/{skill_id}/versions
-5. /skills/{skill_id}/versions/{version}
-6. /skills/{skill_id}/versions/{version}/content
-
-#### threads (11)
-
-1. /threads
-2. /threads/{thread_id}
-3. /threads/{thread_id}/messages
-4. /threads/{thread_id}/messages/{message_id}
-5. /threads/{thread_id}/runs
-6. /threads/{thread_id}/runs/{run_id}
-7. /threads/{thread_id}/runs/{run_id}/cancel
-8. /threads/{thread_id}/runs/{run_id}/steps
-9. /threads/{thread_id}/runs/{run_id}/steps/{step_id}
-10. /threads/{thread_id}/runs/{run_id}/submit_tool_outputs
-11. /threads/runs
-
-#### uploads (4)
-
-1. /uploads
-2. /uploads/{upload_id}/cancel
-3. /uploads/{upload_id}/complete
-4. /uploads/{upload_id}/parts
-
-#### vector_stores (10)
-
-1. /vector_stores
-2. /vector_stores/{vector_store_id}
-3. /vector_stores/{vector_store_id}/file_batches
-4. /vector_stores/{vector_store_id}/file_batches/{batch_id}
-5. /vector_stores/{vector_store_id}/file_batches/{batch_id}/cancel
-6. /vector_stores/{vector_store_id}/file_batches/{batch_id}/files
-7. /vector_stores/{vector_store_id}/files
-8. /vector_stores/{vector_store_id}/files/{file_id}
-9. /vector_stores/{vector_store_id}/files/{file_id}/content
-10. /vector_stores/{vector_store_id}/search
-
-#### videos (8)
-
-1. /videos
-2. /videos/{video_id}
-3. /videos/{video_id}/content
-4. /videos/{video_id}/remix
-5. /videos/characters
-6. /videos/characters/{character_id}
-7. /videos/edits
-8. /videos/extensions
-
-### CKAN Fixture Conversion to DCAT v3
-
-This section documents the rules for converting CKAN API format test fixtures (in `tests/fixtures/schema/ckan/`) to DCAT v3 compliant JSON (in `tests/fixtures/schema/dcat/`). The rules follow the ckanext-dcat mapping guide: <https://docs.ckan.org/projects/ckanext-dcat/en/latest/mapping/>.
-
-#### Source Shape
-
-Fixtures are CKAN dataset objects from `package_show.result`, not full `{ "success": true, "result": ... }` API envelopes. Custom fields may appear as first-level fields when CKAN uses scheming, or as legacy `extras[]` entries in older profiles. Current fixtures use first-level fields.
-
-#### Field Mapping CKAN → DCAT v3
-
-| CKAN field path | DCAT v3 path | Transformation |
-|---|---|---|
-| `title` | `title` | Wrap in array: `["CKAN value"]` |
-| `notes` (HTML) | `description` | Strip HTML tags, wrap in array |
-| `url` | `landingPage` | Wrap single string in array |
-| `identifier`, `guid`, `id` | `identifier` | Prefer custom `identifier`, then `guid`, then `id`; wrap in array |
-| `issued`, `metadata_created` | `issued` | Prefer custom/top-level `issued`, then `metadata_created` |
-| `modified`, `metadata_modified` | `modified` | Prefer custom/top-level `modified`, then `metadata_modified` |
-| `tags[].name` | `keywords` | Extract `.name` into array of strings |
-| `publisher[0]`, `organization` | `publisher` | Use first explicit publisher object; fall back to `organization.title` or `organization.name` |
-| `creator[]` | `creator[]` | Each → `Agent { name }`; normalize ORCID-like `identifier` values to `https://orcid.org/{id}` |
-| `contact[].email`, `maintainer_email`, `author_email` | `contactPoint` | Prefer contact entries; fall back to maintainer/author email; format as `mailto:` URI |
-| `qualified_relation[]` | `qualifiedRelation[]` | Use `uri` as `relation`; use `role` when present, otherwise `relation`, as `hadRole` |
-| `resources[]` | `distribution[]` | Each → `Distribution`; set `accessURL` from `access_url` then `url`; set `downloadURL` from `download_url`; map resource `name`, `description`, `mimetype`, `format`, `size`, `created`, `issued`, `modified`, and `metadata_modified` when present |
-
-#### Profile Notes From ckanext-dcat
-
-- Mapping is profile-dependent and intentionally loose; do not assume every CKAN instance uses the same custom fields.
-- `custom:` fields in ckanext-dcat may come from legacy `extras[]` or from first-level scheming fields.
-- CKAN dataset-level license values do not map cleanly to ACORN's current DCAT fixture shape because ckanext-dcat primarily maps license data at Distribution level.
-- Spatial, temporal, language, theme, `conformsTo`, and related profile fields are future fixture expansion candidates, not requirements for the current three fixtures.
-
-#### Fixture Files
-
-| Source (ckan/) | Target (dcat/) | Content |
-|---|---|---|
-| `0sbdv-gh024.json` | `0sbdv-gh024.json` | Full metadata: HTML notes, creators, publisher, contact, keywords, qualified relations, no resources |
-| `6rpmk-n3x82.json` | `6rpmk-n3x82.json` | Minimal dataset metadata and fallback behavior |
-| `j5xbm-d7v43.json` | `j5xbm-d7v43.json` | Medium fixture with multiple creators, contact, and relation coverage |
-
-#### Verification
-
-```bash
-cargo run --bin acorn -- check ./tests/fixtures/schema/dcat/ --standard dcat
-```
-
-Expected result: 0 schema validation errors and no URL validation failures for generated DCAT fixtures.
-
-Manual review checklist:
-
-- Date precedence uses `issued` / `modified` when present.
-- HTML notes are plain text in DCAT.
-- ORCID identifiers are normalized.
-- `qualifiedRelation` uses stable URI/role mapping.
+- Evidence: Similar `is_healthy` wrappers in `orcid`, `ror`, and `citeas`.
+- Opportunity: Add root utility for status-to-health checks with pluggable predicate.
+
+### Recommended Extraction Order
+
+1. Critical method dispatch support for all declared `HttpMethod` variants.
+2. Endpoint resolution + auth/header builders.
+3. Required-input validators + optional query param composition helper.
+4. Invoke-and-parse wrappers with fallback support.
+5. Environment bootstrap and health-check helpers.
 
 ---
 
@@ -1064,147 +459,72 @@ Manual review checklist:
 
 This section documents the plan to extract `cmd!`, `args!`, and `cmd_sh_words!` into a standalone `acorn-cmd` crate usable without the rest of `acorn-lib`.
 
-### Motivation
-
-- `cmd!` is a general-purpose shell-command macro (inspired by xshell) with no ACORN-specific dependencies.
-- Users who want ergonomic command execution should not need the full ACORN schema/analysis surface.
-- A separate crate enables independent versioning, focused documentation, and a smaller compile surface for downstream consumers.
-
 ### Current Location
 
-- Proc-macro `cmd_sh_words!`: `acorn-macros/src/lib.rs` (the `CmdWord` enum, `read_interpolation`, `expand_cmd_sh_words`)
+- Proc-macro `cmd_sh_words!`: `acorn-macros/src/lib.rs`
 - Declarative macros `cmd!` and `args!`: `acorn-lib/src/util/macros.rs` (gated behind `#[cfg(feature = "cmd")]`)
-- Runtime helpers (`run_output`, `run_status`, `parse_sh`, etc.): `acorn-lib/src/util/cmd.rs` (gated behind `#[cfg(feature = "std")]`)
-- Tests: `acorn-lib/src/util/tests/cmd.rs` (gated behind `#[cfg(feature = "cmd")]`)
-- Re-export: `acorn-lib/src/lib.rs` (`pub use acorn_macros::cmd_sh_words;`)
+- Runtime helpers: `acorn-lib/src/util/cmd.rs` (gated behind `#[cfg(feature = "std")]`)
+- Tests: `acorn-lib/src/util/tests/cmd.rs`
+
+### Status
+
+- Feature gate (`#[cfg(feature = "cmd")]`): ✅ Complete
+- Extraction to new crate: 🔜 Future work
 
 ### Extraction Steps
 
 | Step | Action | Dependencies |
 |------|--------|-------------|
-| 1 | Create `acorn-cmd/Cargo.toml` with `proc-macro` crate depending on `syn`, `quote`, `proc-macro2` | None |
-| 2 | Move `CmdWord` enum, `read_interpolation`, `expand_cmd_sh_words`, and parsing tests from `acorn-macros` to `acorn-cmd` | Step 1 |
-| 3 | Move `cmd!`, `args!` declarative macros and runtime helpers (`run_output`, `run_status`, `parse_sh`, etc.) into `acorn-cmd` as non-proc-macro library code | Step 2 |
-| 4 | Add `shell-words` dependency to `acorn-cmd` (currently in `acorn-macros`) | Step 3 |
+| 1 | Create `acorn-cmd/Cargo.toml` with proc-macro crate depending on `syn`, `quote`, `proc-macro2` | None |
+| 2 | Move `CmdWord` enum, `read_interpolation`, `expand_cmd_sh_words` from `acorn-macros` to `acorn-cmd` | Step 1 |
+| 3 | Move `cmd!`, `args!` declarative macros and runtime helpers into `acorn-cmd` as non-proc-macro library code | Step 2 |
+| 4 | Add `shell-words` dependency to `acorn-cmd` | Step 3 |
 | 5 | Add integration tests matching current coverage | Step 4 |
-| 6 | In `acorn-lib`, change `pub use acorn_macros::cmd_sh_words` to `pub use acorn_cmd::cmd_sh_words` and re-export `cmd!`/`args!` from new crate | Step 5 |
-| 7 | Adjust feature gating: replace `cmd` feature in `acorn-lib` with direct dep on `acorn-cmd` (always on when `cmd` feature enabled) | Step 6 |
-
-### New `acorn-cmd/Cargo.toml`
-
-```toml
-[package]
-name = "acorn-cmd"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-
-[dependencies]
-syn = { version = "2", features = ["full"] }
-quote = "1"
-proc-macro2 = "1"
-shell-words = "1"
-```
-
-### acorn-lib After Extraction
-
-```toml
-[dependencies]
-acorn-cmd = { version = "0.1.59", path = "../acorn-cmd", optional = true }
-
-[features]
-cmd = ["dep:acorn-cmd"]
-```
-
-### New `acorn-cmd/src/lib.rs` Structure
-
-```rust
-// Proc-macro portion
-#[proc_macro]
-pub fn cmd_sh_words(input: TokenStream) -> TokenStream { ... }
-
-// Runtime portions (behind `std` feature if needed)
-#[cfg(feature = "std")]
-pub mod cmd; // run_output, run_status, parse_sh, etc.
-
-// Declarative macros
-#[macro_export]
-macro_rules! cmd { ... }
-
-#[macro_export]
-macro_rules! args { ... }
-```
-
-### Status
-
-- **Feature gate (`#[cfg(feature = "cmd")]`)**: ✅ Complete (current state)
-- **Extraction to new crate**: 🔜 Future work (documented here for planning)
-
-### Rationale for Ordering
-
-The feature gate on `acorn-lib` was implemented first because it provides immediate value: users who want ACORN without `cmd!` can disable the feature today. The standalone crate extraction is a mechanical next step that does not change the macro API surface.
+| 6 | In `acorn-lib`, change `pub use acorn_macros::cmd_sh_words` to `pub use acorn_cmd::cmd_sh_words` | Step 5 |
+| 7 | Replace `cmd` feature in `acorn-lib` with direct dep on `acorn-cmd` | Step 6 |
 
 ---
 
 ## Model Download Implementation
 
-This section tracks remaining ACORN-side work needed to make `acorn download model` the primary backend for downloading model weights used by Gold and local inference environments.
+This section tracks ACORN-side work to make `acorn download model` the primary backend for downloading model weights used by Gold and local inference environments.
 
-### Goal
+### Phase 1: Config + CLI Foundation (✅ Complete)
 
-Make ACORN responsible for model download orchestration so downstream projects do not need Python-specific Hugging Face tooling or duplicated model catalogs. Will also be used as "brain" for acorn AI harness.
+- `ApplicationConfiguration` supports `models: Option<Vec<String>>` field.
+- `--config` / `-c` flag resolves application config and merges with positional models.
+- Positional-first deduplication with positional models always winning.
+- Default output dir resolves to `$HOME/.models` when `--output` is omitted.
+- Models validated against local database with clear error messages.
+- Offline mode rejects download immediately with error.
+- 17 tests passing covering config parsing, model resolution, and CLI integration.
 
-### Current State
+### Phase 2: GGUF Resolver + Weight Downloads (Planned)
 
-- `acorn-cli` exposes a `download model` subcommand shape.
-- `acorn-cli/src/commands/download/model.rs` currently returns success without performing downloads.
-- `acorn-cli/src/cli/mod.rs` currently describes `download model` as metadata download, but the intended behavior is model weight download; metadata import remains `acorn import model` and database initialization work.
-- `acorn-lib/src/schema/agent/mod.rs` already exposes `ModelDetails.weights`, and `acorn-lib/src/io/database/schema.rs` persists that data in `ModelRow.weights`.
-- `acorn-lib/src/io/api/models_dev.rs` already downloads and caches the models.dev catalog, so model resolution can use existing catalog/database paths before introducing a separate manifest.
-- Gold still uses `hf download` as the default model download backend.
+#### Goal
 
-### High-Priority Tasks
+Make ACORN responsible for model download orchestration so downstream projects do not need Python-specific Hugging Face tooling.
 
-| Area | Task | Difficulty | Impact |
-|---|---|---:|---:|
-| Config | Add `models` attribute to `ApplicationConfiguration` in `acorn-lib/src/io/config.rs` to declare model download entries (name, source, output path, auth, include-style filter rules) | Low | Critical |
-| CLI | Implement `acorn download model` in `acorn-cli/src/commands/download/model.rs` | Medium | Critical |
-| Sources | Support Hugging Face repository downloads | Medium | Critical |
-| Planning | Define config and internal plan types for model sources, auth, filters, output paths, and selected files | Low | Critical |
-| Selection | Resolve model names from configured models, local `ModelRow.weights`, and models.dev `ModelDetails.weights` | Medium | High |
-| Filtering | Preserve ACORN `--filter` regex syntax and convert safe patterns to Hugging Face include-style globs when needed | Medium | High |
-| Defaults | Prefer `.gguf` model weights by default for local inference, with ambiguity errors for multiple viable candidates | Low | High |
-| Defaults | Resolve omitted `--output` to `$HOME/.models`; do not rely on clap default-value interpolation | Low | High |
-| Auth | Resolve Hugging Face tokens from environment variables without command-line secrets | Low | High |
-| Filesystem | Use deterministic output paths compatible with `llama.cpp` and `llama-swap` | Low | High |
-| Safety | Download through `.part` files and atomically rename after verification | Medium | High |
-| Reliability | Add skip-existing and resumable download behavior | Medium | High |
-| Offline | Respect offline mode for catalog refreshes and network downloads | Low | High |
-| Validation | Add checksum or size verification when source metadata is available | Medium | Medium |
+#### Current State
 
-### Recommended Implementation
+- `acorn-cli` exposes `download model` with config-driven resolution and positional-first deduplication.
+- Actual weight download is deferred to Phase 2.
+- `acorn-lib/src/schema/agent/mod.rs` exposes `ModelDetails.weights`, `acorn-lib/src/io/database/schema.rs` persists in `ModelRow.weights`.
+- `acorn-lib/src/io/api/models_dev.rs` downloads and caches the models.dev catalog.
 
-1. Fix `DownloadCommands::Model` help text so `download model` is explicitly a weight-download command, not a metadata-import command.
-2. Remove the clap `default_value = "./models"` behavior for `DownloadModel.output`; keep `output: Option<PathBuf>` and resolve the default inside command/config logic.
-3. Resolve omitted `--output` to `$HOME/.models`; return a clear error if the home directory cannot be resolved.
-4. Add a `models` attribute to `ApplicationConfiguration` (`acorn-lib/src/io/config.rs`) that declares download entries with fields like name, source type, source URL/repository, output path, authentication requirements, and include-style file filter rules.
-5. Define a small internal model download plan type with source URL/repository, selected files, output directory, auth requirements, expected size/checksum, and output filename.
-6. Resolve selectors from configured models first, then the local model database (`ModelRow.weights`), then the cached/refreshed models.dev catalog (`ModelDetails.weights`) when network access is allowed.
-7. Add a Hugging Face resolver that lists or resolves repository files, preserves ACORN `--filter` regex semantics, and converts safe regex patterns to Hugging Face include-style globs when a Hugging Face-compatible include list is required.
-8. Support direct HTTP(S) model weight URLs as a simpler first path or fallback path; direct URLs download exactly the requested file and bypass model format preference.
-9. Prefer `.gguf` weights by default for local inference targets (`llama.cpp`, `llama-swap`, Gold) unless filters/config explicitly select another format.
-10. Resolve auth tokens from `HF_TOKEN`, `HF_API_TOKEN`, and `HUGGINGFACE_HUB_TOKEN` (use `acorn::io::first_env_var`).
-11. Never require tokens on the command line; if a command-line token option is added later, redact it from logs.
-12. Download through temporary `.part` files, verify size/checksum when metadata is available, and atomically rename to the final path.
-13. Skip files that already exist and match expected size/checksum when metadata is available.
-14. Return typed errors for unknown models, ambiguous selections, missing auth, failed HTTP responses, and incomplete downloads.
-15. Keep the command implementation thin by moving source resolution and transfer logic into reusable modules.
+#### Tasks
 
-### Configuration Shape
+1. Define `ModelDownloadPlan` type with source URL/repository, selected files, output directory, auth requirements, expected size/checksum.
+2. Resolve selectors from config → local database (`ModelRow.weights`) → models.dev catalog (`ModelDetails.weights`).
+3. Implement Hugging Face resolver: list/resolve repository files, preserve ACORN `--filter` regex semantics, convert safe regex to HF include-style globs.
+4. Support direct HTTP(S) model weight URLs as fallback.
+5. Prefer `.gguf` weights by default for `llama.cpp`, `llama-swap`, Gold.
+6. Resolve auth tokens from `HF_TOKEN`, `HF_API_TOKEN`, `HUGGINGFACE_HUB_TOKEN` via `acorn::io::first_env_var`.
+7. Download through `.part` files, verify size/checksum, atomic rename.
+8. Skip existing files matching expected size/checksum.
+9. Typed errors for unknown models, ambiguous selections, missing auth, failed HTTP, incomplete downloads.
 
-Add `models` to `.acorn.json` / `.acorn.yml` via `ApplicationConfiguration`.
-
-Example:
+#### Configuration Shape
 
 ```json
 {
@@ -1225,243 +545,234 @@ Example:
 }
 ```
 
-Suggested public config types:
+Suggested types: `ModelDownloadEntry`, `ModelSource`, `ModelAuthRequirement`, `ModelFileRule`.
 
-1. `ModelDownloadEntry`
-2. `ModelSource`
-3. `ModelAuthRequirement`
-4. `ModelFileRule` or equivalent regex filter/ignore representation plus derived Hugging Face glob include patterns
-
-Implementation notes:
-
-1. Use `#[serde(rename_all = "camelCase")]` for new public config structs.
-2. Add doc comments for all public config types and fields because the workspace denies missing docs.
-3. Keep config parsing compatible with existing `ApplicationConfiguration::parse` and `InputOutput` paths.
-
-### Command Semantics
-
-`acorn download model` should download model weight files. Metadata import remains the responsibility of `acorn import model` or database initialization.
-
-Recommended behavior:
-
-1. `acorn download model smollm2 --output ./models`
-2. Resolve `smollm2` from configuration first, then local model database, then models.dev catalog when network access is allowed.
-3. Apply model-specific config `filter` / `ignore` first, then CLI `--filter` / `--ignore` as additional constraints.
-4. Write only selected model files to deterministic output paths.
-5. Treat an empty model selector list as an error unless configured models are available from `.acorn.json`.
-
-### Filter Semantics
-
-`acorn download model --filter` should keep the same user-facing regex syntax as `--filter` in other ACORN commands. Hugging Face download/listing paths that require include-style glob patterns should receive derived glob patterns produced by a small regex-to-glob conversion layer.
-
-Rules:
-
-1. `--filter` accepts one or more regex patterns and keeps only paths matching at least one pattern.
-2. When no `--filter` or config `filter` is provided, all candidate paths remain eligible before default weight-format selection.
-3. `--ignore` remains regex-based and removes matching paths after include/filter matching.
-4. Config `filter` and CLI `--filter` are combined as additional regex constraints; a path must satisfy configured filters and CLI filters when both are present.
-5. Pattern matching is performed against repository-relative paths using `/` separators.
-6. Invalid regex patterns should return a typed user-facing error before any network download starts.
-7. Examples: `--filter "\\.gguf$"`, `--filter "Q4_K_M.*\\.gguf$"`, `--filter "^models/.+\\.safetensors$"`.
-
-Hugging Face include conversion:
-
-1. Add a helper such as `regex_filter_to_hf_glob(pattern: &str) -> Option<String>` for safe, conservative regex-to-glob conversion.
-2. Convert common patterns losslessly where feasible: `\\.gguf$` to `*.gguf`, `.*\\.safetensors$` to `*.safetensors`, `Q4_K_M.*\\.gguf$` to `*Q4_K_M*.gguf`, and `^models/.+\\.gguf$` to `models/**/*.gguf`.
-3. Do not pretend all regex can be represented as glob. Unsupported regex patterns should still be valid ACORN filters; resolve repository file lists first, then apply the compiled regex locally before download.
-4. If an API/download path strictly requires a Hugging Face glob and no safe conversion exists, fall back to listing repository files and downloading selected resolved file URLs one by one.
-5. Apply final compiled regex filters locally even when derived Hugging Face glob includes are used, so broad derived globs cannot over-select files.
-6. Keep `--ignore` as regex-only local post-filtering unless a safe exclude-glob conversion is explicitly needed later.
-
-### Default Model Directory
-
-The default model root should be the user's home model cache:
-
-```text
-$HOME/.models
-```
-
-Clap does not expand environment variables in `#[arg(default_value = "...")]`, so do not set `default_value = "$HOME/.models"` in the clap annotation. Keep the parsed CLI field as `Option<PathBuf>` and resolve the default in command execution.
-
-Rules:
-
-1. `acorn download model smollm2` writes to `$HOME/.models/smollm2/{filename}` by default.
-2. `--output` overrides the model root exactly.
-3. Config `outputPath` is resolved relative to the model root unless it is absolute.
-4. If the home directory cannot be resolved, return a clear configuration error.
-5. Do not write model weights into the project working directory by default.
-
-### Resolver Order
-
-Model selector resolution should be deterministic:
+#### Resolver Order
 
 1. Exact config `models[].name`.
-2. Exact `ModelRow.model_id` from the local database.
-3. Exact `ModelDetails.id` from `models_dev::download_cached()` when network access is allowed.
-4. Case-insensitive alias/name match only if it produces one result.
-5. Direct `http://` or `https://` URL fallback.
+2. Exact `ModelRow.model_id` from local database.
+3. Exact `ModelDetails.id` from models.dev (network allowed).
+4. Case-insensitive alias (single result only).
+5. Direct URL fallback.
 6. Error on zero or multiple matches.
 
-Ambiguous model names should report matching candidates rather than choosing one.
+#### Default Weight Selection
 
-### Default Weight Selection
+Precedence: User filter > `.gguf` > `.safetensors` > `.bin` > `.pt`/`.pth`.
 
-When a model source exposes multiple weight formats, ACORN should prefer `.gguf` files by default because the first target consumers are `llama.cpp`, `llama-swap`, Gold, and local inference environments.
+Quantization for multiple `.gguf`: explicit filter > `Q4_K_M` default > smallest if exactly one candidate > ambiguity error.
 
-Default precedence:
+#### Filter Semantics
 
-1. User `--filter` / config `filter` regex patterns, with derived Hugging Face include globs only as a transport optimization.
-2. `.gguf`.
-3. `.safetensors`.
-4. `.bin`.
-5. `.pt` / `.pth`.
+- `--filter` accepts regex patterns; matches against repository-relative paths.
+- Config `filter` and CLI `--filter` combined as additional regex constraints.
+- Safe regex-to-glob conversion: `\\.gguf$` → `*.gguf`, `Q4_K_M.*\\.gguf$` → `*Q4_K_M*.gguf`.
+- Unsupported regex falls back to listing repository files and applying regex locally.
 
-Quantization selection for multiple `.gguf` files:
+#### Hugging Face Support
 
-1. Prefer explicit regex filter/config when provided.
-2. Otherwise prefer a balanced default quantization such as `Q4_K_M` when available.
-3. If no preferred quantization is available, choose the smallest non-experimental `.gguf` only if exactly one reasonable candidate remains.
-4. If multiple reasonable `.gguf` candidates remain, return an ambiguity error listing candidate filenames and suggesting `--filter` with a more specific regex.
+- No Python or `hf` CLI dependency.
+- Direct file URLs: `https://huggingface.co/{org}/{repo}/resolve/{revision}/{path}`.
+- Repository listing via HF APIs; default revision `main`.
 
-Rules:
-
-1. Never download every `.gguf` quantization by default.
-2. Never prefer PyTorch/safetensors weights over `.gguf` unless explicitly requested.
-3. Direct URLs bypass format preference and download exactly the requested file.
-
-### Hugging Face Support
-
-Initial Hugging Face support should avoid depending on Python or the `hf` CLI.
-
-Minimum implementation:
-
-1. Support `https://huggingface.co/{org}/{repo}/resolve/{revision}/{path}` direct file URLs.
-2. Support repository listing through Hugging Face APIs.
-3. Default revision to `main`.
-4. Select weight-like files only after regex filters and ignore rules are applied locally; use derived Hugging Face include globs only to reduce remote candidate lists when safe.
-
-Candidate file extensions:
-
-1. `.gguf`
-2. `.safetensors`
-3. `.bin`
-4. `.pt`
-5. `.pth`
-
-### Output Layout
-
-Default destination should be stable and llama-friendly:
-
-```text
-{model-root}/{model-name}/{filename}
-```
-
-Default model root is `$HOME/.models`; `--output` overrides it.
-
-Rules:
-
-1. Sanitize model names for filesystem use.
-2. Preserve repository subdirectories only when needed to avoid filename collisions.
-3. Do not write outside `--output`.
-4. If one selected file is downloaded, return its final path in verbose output.
-
-### Auth
-
-Resolve Hugging Face tokens with:
+#### Auth
 
 ```rust
 first_env_var(&["HF_TOKEN", "HF_API_TOKEN", "HUGGINGFACE_HUB_TOKEN"])
 ```
 
-Auth behavior:
+- Public models work without tokens.
+- Gated/private models return clear missing-auth error on 401/403.
+- Tokens never appear in CLI args, logs, errors, or database rows.
 
-1. Public models work without tokens.
-2. Gated/private models return a clear missing-auth error on `401` or `403`.
-3. Tokens must not appear in CLI args, logs, errors, progress messages, or database rows.
-4. Use `Authorization: Bearer <token>` headers only inside request construction.
+#### Transfer Reliability
 
-### Transfer Reliability
+1. Download to `{target}.part`, flush/close, verify size/checksum, atomic rename.
+2. Remove partial files on failure.
+3. Stage 1: safe partial + skip-existing. Stage 2: HTTP range resume. Stage 3: checksum from manifests.
 
-Implement downloads with safe file replacement:
+#### Offline Behavior
 
-1. Download to `{target}.part`.
-2. Flush and close the partial file.
-3. Verify size/checksum when metadata is available.
-4. Atomically rename to final target.
-5. Remove partial files on failed response or failed verification.
-6. Skip existing files when size/checksum match.
-7. If size metadata is absent, skip existing files by default only when an explicit `--skip-existing` behavior is chosen.
+- Local/config resolution and database lookup allowed offline.
+- Remote catalog refresh and remote downloads blocked offline.
 
-Resume support can be staged:
+#### Test Coverage (Phase 2)
 
-1. Stage 1: safe partial download and skip-existing.
-2. Stage 2: HTTP range resume when server supports `Accept-Ranges`.
-3. Stage 3: checksum verification from source manifests when available.
+1. Hugging Face repository resolution.
+2. Direct URL downloads.
+3. `--filter` regex behavior matching other ACORN commands.
+4. Default `.gguf` selection and quantization ambiguity handling.
+5. Output path construction and path traversal prevention.
+6. Skip-existing behavior.
+7. Token environment resolution and redacted log output.
+8. Partial download cleanup.
+9. Offline mode blocking remote operations.
+10. Config `outputPath` relative vs absolute resolution.
 
-### Offline Behavior
+#### Completion Criteria (Phase 2)
 
-`download model` must respect global offline behavior.
+1. `acorn download model smollm2` downloads preferred `.gguf` or reports candidates when ambiguous.
+2. Existing files skipped safely by default or with explicit flag.
+3. Private/gated HF models downloadable via environment tokens.
+4. No Python tooling dependency.
+5. Direct URL downloads bypass format selection.
+6. Default model root `$HOME/.models`.
 
-Rules:
+---
 
-1. Direct local/config resolution is allowed offline.
-2. Local database lookup is allowed offline.
-3. Remote catalog refresh and remote downloads are blocked offline.
-4. Offline remote requests should fail before constructing network calls.
+## Reference Inventories
 
-### Implementation Order
+These sections support planning and fixture maintenance. They are intentionally separated from the actionable refactor backlogs above.
 
-1. Fix CLI help text and make the current stub return useful errors for empty or unknown selections.
-2. Add config types and `ApplicationConfiguration.models`.
-3. Add a pure planning layer that turns selectors into `ModelDownloadPlan` values.
-4. Add default model root resolution to `$HOME/.models` outside clap annotations.
-5. Implement regex filter compilation for `--filter` / config `filter`, plus conservative regex-to-Hugging-Face-glob conversion for safe include optimization.
-6. Implement direct URL downloads with `.part` files and skip-existing behavior.
-7. Add Hugging Face resolver/listing and token handling.
-8. Add database/catalog model resolution from `ModelRow.weights` and `ModelDetails.weights`.
-9. Add `.gguf` default selection and quantization ambiguity handling.
-10. Add checksum/size verification when metadata is available.
-11. Add integration tests with mocked or local HTTP responses.
+### OpenAI OpenAPI Remaining Endpoint Templates
 
-### Test Coverage
+Snapshot details:
+1. Source spec: https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml
+2. Total path templates in spec: 162
+3. Path templates currently covered: 9
+4. Remaining: 153
 
-Add tests for:
+<details>
+<summary>Expand full list (153 templates)</summary>
 
-1. Model name selection.
-2. Unknown model errors.
-3. Ambiguous model errors.
-4. Hugging Face repository resolution.
-5. Direct URL downloads.
-6. `--filter` regex behavior matching other ACORN commands.
-7. Default `.gguf` selection.
-8. Multiple `.gguf` quantization selection and ambiguity handling.
-9. Output path construction.
-10. Path traversal prevention.
-11. Skip-existing behavior.
-12. Token environment resolution.
-13. Redacted verbose/log output.
-14. Partial download or failed response cleanup.
-15. Offline mode blocking remote catalog refreshes and downloads.
-16. Default model root resolution to `$HOME/.models`.
-17. `--output` override behavior.
-18. Missing home directory error.
-19. Config `outputPath` relative vs absolute resolution.
-20. Config `filter` combined with CLI `--filter` as additional regex constraints.
-21. `--ignore` regex exclusion after include/filter matching.
-22. Invalid regex pattern errors before network download starts.
-23. Regex-to-glob conversion for common Hugging Face include cases.
-24. Unsupported regex fallback to repository listing plus local regex filtering.
-25. Final local regex filtering after derived Hugging Face include glob narrowing.
+#### assistants (2)
+1. /assistants
+2. /assistants/{assistant_id}
 
-### Completion Criteria
+#### audio (6)
+1. /audio/speech
+2. /audio/transcriptions
+3. /audio/translations
+4. /audio/voice_consents
+5. /audio/voice_consents/{consent_id}
+6. /audio/voices
 
-1. `acorn download model smollm2 --output ./models` downloads the preferred `.gguf` weight file by default, or reports candidate `.gguf` files when selection is ambiguous.
-2. `acorn download model qwen2.5 --output ./models` downloads the preferred `.gguf` weight file by default, or reports candidate `.gguf` files when selection is ambiguous.
-3. Existing files are skipped safely by default or with an explicit flag.
-4. Private/gated Hugging Face models can be downloaded using environment-provided tokens.
-5. `download model` never shells out to Python-specific Hugging Face tooling.
-6. Direct URL downloads save exactly the requested file and bypass default model format selection.
-7. `acorn download model smollm2` writes to `$HOME/.models/smollm2/` by default.
-8. `acorn download model smollm2 --filter "Q4_K_M.*\\.gguf$"` selects matching repository-relative files using ACORN regex semantics, with safe conversion to a Hugging Face include glob such as `*Q4_K_M*.gguf` when applicable.
+#### batches (3)
+1. /batches
+2. /batches/{batch_id}
+3. /batches/{batch_id}/cancel
 
+#### chatkit (5)
+1. /chatkit/sessions
+2. /chatkit/sessions/{session_id}/cancel
+3. /chatkit/threads
+4. /chatkit/threads/{thread_id}
+5. /chatkit/threads/{thread_id}/items
 
+#### completions (1)
+1. /completions
+
+#### containers (5)
+1. /containers
+2. /containers/{container_id}
+3. /containers/{container_id}/files
+4. /containers/{container_id}/files/{file_id}
+5. /containers/{container_id}/files/{file_id}/content
+
+#### conversations (4)
+1. /conversations
+2. /conversations/{conversation_id}
+3. /conversations/{conversation_id}/items
+4. /conversations/{conversation_id}/items/{item_id}
+
+#### embeddings (1)
+1. /embeddings
+
+#### evals (6)
+1. /evals
+2. /evals/{eval_id}
+3. /evals/{eval_id}/runs
+4. /evals/{eval_id}/runs/{run_id}
+5. /evals/{eval_id}/runs/{run_id}/output_items
+6. /evals/{eval_id}/runs/{run_id}/output_items/{output_item_id}
+
+#### files (3)
+1. /files
+2. /files/{file_id}
+3. /files/{file_id}/content
+
+#### fine_tuning (11)
+1. /fine_tuning/alpha/graders/run
+2. /fine_tuning/alpha/graders/validate
+3. /fine_tuning/checkpoints/{fine_tuned_model_checkpoint}/permissions
+4. /fine_tuning/checkpoints/{fine_tuned_model_checkpoint}/permissions/{permission_id}
+5. /fine_tuning/jobs
+6. /fine_tuning/jobs/{fine_tuning_job_id}
+7. /fine_tuning/jobs/{fine_tuning_job_id}/cancel
+8. /fine_tuning/jobs/{fine_tuning_job_id}/checkpoints
+9. /fine_tuning/jobs/{fine_tuning_job_id}/events
+10. /fine_tuning/jobs/{fine_tuning_job_id}/pause
+11. /fine_tuning/jobs/{fine_tuning_job_id}/resume
+
+#### images (3)
+1. /images/edits
+2. /images/generations
+3. /images/variations
+
+#### moderations (1)
+1. /moderations
+
+#### organization (46)
+1-46: /organization/... (admin_api_keys, audit_logs, certificates, costs, groups, invites, projects, roles, usage, users)
+
+#### projects (6)
+1-6: /projects/{project_id}/... (groups, roles, users)
+
+#### realtime (9)
+1-9: /realtime/... (calls, client_secrets, sessions, transcription_sessions, translations)
+
+#### responses (2)
+1. /responses/compact
+2. /responses/input_tokens
+
+#### skills (6)
+1-6: /skills/{skill_id}/... (content, versions)
+
+#### threads (11)
+1-11: /threads/{thread_id}/... (messages, runs, steps, submit_tool_outputs)
+
+#### uploads (4)
+1-4: /uploads/... (cancel, complete, parts)
+
+#### vector_stores (10)
+1-10: /vector_stores/{vector_store_id}/... (file_batches, files, search)
+
+#### videos (8)
+1-8: /videos/... (characters, edits, extensions)
+
+</details>
+
+### CKAN Fixture Conversion to DCAT v3
+
+This section documents the rules for converting CKAN API format test fixtures (in `tests/fixtures/schema/ckan/`) to DCAT v3 compliant JSON (in `tests/fixtures/schema/dcat/`).
+
+#### Field Mapping CKAN → DCAT v3
+
+| CKAN field path | DCAT v3 path | Transformation |
+|---|---|---|
+| `title` | `title` | Wrap in array |
+| `notes` (HTML) | `description` | Strip HTML tags, wrap in array |
+| `url` | `landingPage` | Wrap in array |
+| `identifier`, `guid`, `id` | `identifier` | Prefer custom `identifier`, then `guid`, then `id` |
+| `issued`, `metadata_created` | `issued` | Prefer custom/top-level `issued` |
+| `modified`, `metadata_modified` | `modified` | Prefer custom/top-level `modified` |
+| `tags[].name` | `keywords` | Extract `.name` into array |
+| `publisher[0]`, `organization` | `publisher` | Use first explicit publisher; fall back to `organization` |
+| `creator[]` | `creator[]` | Each → `Agent { name }`; normalize ORCID identifiers |
+| `contact[].email`, etc. | `contactPoint` | Format as `mailto:` URI |
+| `qualified_relation[]` | `qualifiedRelation[]` | Use `uri` as `relation`; `role` as `hadRole` |
+| `resources[]` | `distribution[]` | Each → `Distribution` |
+
+#### Fixture Files
+
+| Source (ckan/) | Target (dcat/) | Content |
+|---|---|---|
+| `0sbdv-gh024.json` | `0sbdv-gh024.json` | Full metadata, no resources |
+| `6rpmk-n3x82.json` | `6rpmk-n3x82.json` | Minimal, fallback behavior |
+| `j5xbm-d7v43.json` | `j5xbm-d7v43.json` | Medium, multiple creators |
+
+#### Verification
+
+```bash
+cargo run --bin acorn -- check ./tests/fixtures/schema/dcat/ --standard dcat
+```
