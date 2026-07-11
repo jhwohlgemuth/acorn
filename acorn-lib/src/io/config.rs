@@ -6,8 +6,8 @@
 //!
 use crate::io::api::{github, gitlab, Configuration, Endpoint};
 use crate::io::{
-    files_all, jsonc_parse_value, read_file, with_progress, write_file, write_file_bytes, ApiResult, Executor, FromPath, InputOutput, ProgressType,
-    Source,
+    files_all, parse_jsonc_cst, read_file, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, Executor, FromPath, InputOutput,
+    ProgressType, Source,
 };
 use crate::prelude::{self, env, exit, Arc, PathBuf};
 use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
@@ -92,6 +92,9 @@ pub enum RunnerType {
 /// ```
 #[derive(Clone, Debug, Default, Serialize, eserde::Deserialize)]
 pub struct ApplicationConfiguration {
+    /// CST root for JSONC comment-preserving round-trips
+    #[serde(skip)]
+    pub cst: Option<CstRootNode>,
     /// List of buckets
     #[eserde(compat)]
     pub buckets: Option<Vec<Bucket>>,
@@ -251,7 +254,10 @@ impl ApplicationConfiguration {
         eserde::json::from_str(content.as_ref())
     }
     fn parse_jsonc(content: impl AsRef<str>) -> ApiResult<Self> {
-        jsonc_parse_value(content.as_ref()).and_then(|value| serde_json::from_value(value).map_err(|why| eyre!("JSONC deserialize error — {why}")))
+        parse_jsonc_cst::<ApplicationConfiguration>(content.as_ref()).map(|(mut config, cst)| {
+            config.cst = Some(cst);
+            config
+        })
     }
     fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
         serde_norway::from_str(content.as_ref())
@@ -336,11 +342,16 @@ impl InputOutput for ApplicationConfiguration {
         }
     }
     /// Write configuration as JSON to specified path
+    ///
+    /// If the config was parsed from JSONC, preserves comments via CST.
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let target = path.into();
-        serde_json::to_string_pretty(&self)
-            .map_err(|why| eyre!("Failed to serialize JSON config — {why}"))
-            .and_then(|content| write_file(target.clone(), content))
+        match &self.cst {
+            | Some(cst) => write_file(target, cst.to_string()),
+            | None => serde_json::to_string_pretty(&self)
+                .map_err(|why| eyre!("Failed to serialize JSON config — {why}"))
+                .and_then(|content| write_file(target, content)),
+        }
     }
     /// Write configuration as YAML to specified path
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {

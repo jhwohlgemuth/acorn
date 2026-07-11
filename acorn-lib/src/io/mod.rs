@@ -50,7 +50,7 @@ use ring::digest::{Context, SHA256};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use strum::AsRefStr;
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, trace, warn};
@@ -70,6 +70,7 @@ pub mod mcp;
 pub mod powerpoint;
 pub mod source;
 
+pub use jsonc_parser::cst::CstRootNode;
 pub use source::Source;
 
 /// Utility type alias for I/O operation futures (e.g., read, write, copy, etc.)
@@ -1478,6 +1479,30 @@ pub fn jsonc_parse_value(content: &str) -> ApiResult<serde_json::Value> {
         allow_unary_plus_numbers: false,
     };
     parse_to_serde_value(content, &options).map_err(|why| eyre!("JSONC parse error — {why}"))
+}
+/// Parse JSONC content into a typed config with a CST root for comment-preserving round-trips
+/// ### Note
+/// Returns the deserialized config and the CST root. The caller should store the CST
+/// in the config's `cst` field for write-back.
+pub fn parse_jsonc_cst<T: DeserializeOwned>(content: &str) -> ApiResult<(T, CstRootNode)> {
+    let options = ParseOptions {
+        allow_comments: true,
+        allow_trailing_commas: true,
+        allow_loose_object_property_names: false,
+        allow_missing_commas: false,
+        allow_single_quoted_strings: false,
+        allow_hexadecimal_numbers: false,
+        allow_unary_plus_numbers: false,
+    };
+    CstRootNode::parse(content, &options)
+        .map_err(|why| eyre!("JSONC parse error — {why}"))
+        .and_then(|cst| {
+            cst.to_serde_value().ok_or_else(|| eyre!("JSONC conversion error")).and_then(|value| {
+                serde_json::from_value::<T>(value)
+                    .map_err(|why| eyre!("JSONC deserialize error — {why}"))
+                    .map(|config| (config, cst))
+            })
+        })
 }
 /// Writes the given content to a file at the given path
 ///

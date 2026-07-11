@@ -5,7 +5,8 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
-use crate::prelude::PathBuf;
+use crate::io::InputOutput;
+use crate::prelude::{env, remove_file, PathBuf};
 use crate::schema::agent::{opencode, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration};
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
@@ -109,4 +110,36 @@ fn test_opencode_config_from_jsonc_with_trailing_commas() {
 fn test_opencode_config_from_jsonc_rejects_invalid() {
     let content = r#"{ model: invalid }"#;
     assert!(opencode::Config::parse_jsonc(content).is_err());
+}
+#[test]
+fn test_opencode_config_read_json_round_trip() {
+    let json = r#"{"model":"anthropic/claude-sonnet-4-5","logLevel":"INFO"}"#;
+    let config: opencode::Config = serde_json::from_str(json).unwrap();
+    let temp = env::temp_dir().join("acorn_test_opencode.json");
+    config.write_json(&temp).unwrap();
+    let loaded = opencode::Config::read_json(temp.clone()).unwrap();
+    assert_eq!(loaded.model.as_deref(), Some("anthropic/claude-sonnet-4-5"));
+    assert!(loaded.log_level.is_some());
+    remove_file(temp).ok();
+}
+#[test]
+fn test_opencode_config_write_dispatches_by_extension() {
+    let json = r#"{"model":"test"}"#;
+    let config: opencode::Config = serde_json::from_str(json).unwrap();
+    let temp_json = env::temp_dir().join("acorn_test_opencode_dispatch.json");
+    let temp_jsonc = env::temp_dir().join("acorn_test_opencode_dispatch.jsonc");
+    config.write(&temp_json).unwrap();
+    config.write(&temp_jsonc).unwrap();
+    let loaded_json = opencode::Config::read(&temp_json).unwrap();
+    let loaded_jsonc = opencode::Config::read(&temp_jsonc).unwrap();
+    assert_eq!(loaded_json.model.as_deref(), Some("test"));
+    assert_eq!(loaded_jsonc.model.as_deref(), Some("test"));
+    remove_file(temp_json).ok();
+    remove_file(temp_jsonc).ok();
+}
+#[test]
+fn test_opencode_config_read_jsonc_file() {
+    let path = fixtures_dir().join("config").join("opencode.jsonc");
+    let config = opencode::Config::read(path).unwrap();
+    assert_eq!(config.model.as_deref(), Some("anthropic/claude-sonnet-4-5"));
 }
