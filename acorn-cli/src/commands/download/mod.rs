@@ -33,7 +33,6 @@ pub async fn run(
         .threads(threads)
         .supported(true)
         .build());
-    let database = Database::<Table>::from_path(database_path.clone());
     let options = BucketOptions::init()
         .filter(filter.to_vec())
         .ignore(ignore.to_vec())
@@ -74,15 +73,7 @@ pub async fn run(
                 }
                 if branch_result.is_ok() {
                     if let Some(path) = output {
-                        let activity = ActivityRow::init()
-                            .command("download")
-                            .executed_at(chrono::Utc::now())
-                            .user_path(path.to_absolute_string())
-                            .success(true)
-                            .build();
-                        if let Err(why) = database.insert(activity) {
-                            error!("=> {} Save download activity — {why}", Label::fail());
-                        }
+                        log_activity("download", path.to_absolute_string(), database_path, true);
                     }
                     if !quiet {
                         println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
@@ -92,15 +83,7 @@ pub async fn run(
             }
             | Err(why) => {
                 error!("=> {} Download data — {why}", Label::fail());
-                let activity = ActivityRow::init()
-                    .command("download")
-                    .executed_at(chrono::Utc::now())
-                    .user_path(path.file_name_with_parent())
-                    .success(false)
-                    .build();
-                if let Err(why) = database.insert(activity) {
-                    error!("=> {} Save download activity — {why}", Label::fail());
-                }
+                log_activity("download", path.file_name_with_parent(), database_path, false);
                 return Err(eyre!("Failed to process download configuration"));
             }
         }
@@ -134,15 +117,7 @@ pub async fn run(
                 }
             }
             if branch_result.is_ok() {
-                let activity = ActivityRow::init()
-                    .command("download")
-                    .executed_at(chrono::Utc::now())
-                    .user_path(path.to_absolute_string())
-                    .success(true)
-                    .build();
-                if let Err(why) = database.insert(activity) {
-                    error!("=> {} Save download activity — {why}", Label::fail());
-                }
+                log_activity("download", path.to_absolute_string(), database_path, true);
                 if !quiet {
                     println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
                 }
@@ -161,6 +136,19 @@ pub async fn run(
         Ok(())
     };
     result
+}
+
+fn log_activity(command: &str, path: impl Into<String>, database_path: &Option<PathBuf>, success: bool) {
+    let database = Database::<Table>::from_path(database_path.clone());
+    let activity = ActivityRow::init()
+        .command(command)
+        .executed_at(chrono::Utc::now())
+        .user_path(path)
+        .success(success)
+        .build();
+    if let Err(why) = database.insert(activity) {
+        error!("=> {} Save {command} activity — {why}", Label::fail());
+    }
 }
 
 #[cfg(test)]

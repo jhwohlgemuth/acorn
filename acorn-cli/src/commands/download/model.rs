@@ -1,11 +1,10 @@
 use crate::cli::Void;
 use acorn::io::config::{ApplicationConfiguration, ModelEntry, ModelEntryOptions};
-use acorn::io::database::schema::{ActivityRow, ModelRow, Table};
-use acorn::io::database::{Database, Operations, Row};
+use acorn::io::database::schema::ModelRow;
+use acorn::io::database::Row;
 use acorn::io::{home_directory, symlink, ApiResult, InputOutput, Source, SourceAction};
 use acorn::prelude::{copy, create_dir_all, HashSet, Path, PathBuf};
 use acorn::util::{suffix, Label, StringConversion};
-use chrono::Utc;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;
@@ -70,7 +69,7 @@ pub async fn run(
                 if !quiet {
                     print_models(&selectors);
                 }
-                log_activity(&root, database_path, failure_count == 0);
+                super::log_activity("download model", root.to_absolute_string(), database_path, failure_count == 0);
                 if failure_count > 0 {
                     Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))
                 } else {
@@ -238,20 +237,6 @@ fn resolve_selectors(positional: &[String], entries: &[ModelEntry], action: Opti
             (seen, selectors)
         })
         .1
-}
-/// Log the download activity to the database.
-fn log_activity(model_root: &PathBuf, database_path: &Option<PathBuf>, success: bool) {
-    let database = Database::<Table>::from_path(database_path.clone());
-    let activity_path = model_root.to_absolute_string();
-    let activity = ActivityRow::init()
-        .command("download model")
-        .executed_at(Utc::now())
-        .user_path(activity_path)
-        .success(success)
-        .build();
-    if let Err(why) = database.insert(activity) {
-        error!("=> {} Save download model activity — {why}", Label::fail());
-    }
 }
 /// Print the list of models to be downloaded.
 fn print_models(selectors: &[Source]) {
