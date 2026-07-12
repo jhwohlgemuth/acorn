@@ -45,6 +45,16 @@ pub enum SourceAction {
     /// Create a symlink to the source in the output directory
     Symlink,
 }
+impl SourceAction {
+    /// Resolve CLI `--copy` / `--symlink` flags into a source action.
+    pub fn from_options(copy: bool, symlink: bool) -> Option<Self> {
+        match (copy, symlink) {
+            | (true, false) => Some(Self::Copy),
+            | (false, true) => Some(Self::Symlink),
+            | _ => None,
+        }
+    }
+}
 impl Source {
     /// Reads source content from a URL or local file path.
     ///

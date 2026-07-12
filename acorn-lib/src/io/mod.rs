@@ -20,6 +20,8 @@
 //! ```
 //!
 use crate::cmd;
+#[cfg(unix)]
+use crate::prelude::symlink;
 use crate::prelude::CommandOutput;
 use crate::prelude::{
     canonicalize, consts, create_dir_all, current_dir, io, remove_file, var, var_os, write, BufReader, Cursor, File, HashSet, OpenOptions, Path,
@@ -27,6 +29,8 @@ use crate::prelude::{
 };
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
+#[cfg(windows)]
+use crate::prelude::{symlink_dir, symlink_file};
 use crate::util::constants::app::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
@@ -37,7 +41,7 @@ use core::fmt;
 use core::pin::Pin;
 use core::time::Duration;
 use data_encoding::HEXUPPER;
-use directories::ProjectDirs;
+use directories::{BaseDirs, ProjectDirs};
 use fancy_regex::Regex;
 use futures::stream::{self, StreamExt};
 use futures::Future;
@@ -1071,6 +1075,12 @@ pub fn git_default_branch_name() -> Option<String> {
         None
     }
 }
+/// Resolve a child directory path under the user's home directory
+pub fn home_directory(child: &str) -> ApiResult<PathBuf> {
+    BaseDirs::new()
+        .map(|dirs| dirs.home_dir().join(child))
+        .ok_or_else(|| eyre!("Failed to resolve home directory"))
+}
 /// Returns a vector of `PathBuf` representing paths to all images found in the given
 /// directory and all of its subdirectories.
 ///
@@ -1373,6 +1383,31 @@ where
         }
         | source if source.starts_with("file:") => PathBuf::from(source.trim_start_matches("file:")),
         | _ => path,
+    }
+}
+/// Creates a symbolic link from `target` to `source`.
+///
+/// On Windows, directory sources use directory symlinks and other sources use file symlinks.
+#[cfg(unix)]
+pub fn symlink(source: &Path, target: &Path) -> ApiResult<()> {
+    match prelude::symlink(source, target) {
+        | Ok(_) => Ok(()),
+        | Err(why) => Err(why.into()),
+    }
+}
+/// Creates a symbolic link from `target` to `source`
+/// ### Note
+/// On Windows, directory sources use directory symlinks and other sources use file symlinks.
+#[cfg(windows)]
+pub fn symlink(source: &Path, target: &Path) -> ApiResult<()> {
+    let result = if source.is_dir() {
+        symlink_dir(source, target)
+    } else {
+        symlink_file(source, target)
+    };
+    match result {
+        | Ok(_) => Ok(()),
+        | Err(why) => Err(why.into()),
     }
 }
 /// Creates a new progress bar with the specified count and progress type

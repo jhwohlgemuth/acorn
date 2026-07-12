@@ -8,14 +8,12 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
-use super::model::resolve_models;
 use super::run;
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::{config::ApplicationConfiguration, SourceAction};
 use acorn::prelude::{create_dir_all, env, read_to_string, write};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
-use std::fs;
 
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
@@ -148,12 +146,49 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
+async fn test_download_model_local_config_copy() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_local_config_copy");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("models");
+    let model_file = temp_dir.join("tiny.gguf");
+    let config_path = temp_dir.join(".acorn.json");
+    write(&model_file, b"fake model data")?;
+    write(
+        &config_path,
+        format!(
+            r#"{{"models": [{{"name": "tiny", "copy": true, "source": {{"provider": "git", "location": "file:{}"}}}}]}}"#,
+            model_file.display().to_string().replace('\\', "/")
+        ),
+    )?;
+    let verbose = Verbosity::new(0, 1);
+    let result = super::model::run(
+        &[],
+        &[],
+        &[],
+        &Some(config_path),
+        &Some(output_dir.clone()),
+        &None,
+        &verbose,
+        false,
+        false,
+        false,
+        &[],
+    )
+    .await;
+    assert!(result.is_ok(), "config copy mode should succeed");
+    assert!(
+        output_dir.join("tiny").join("tiny.gguf").exists(),
+        "config copy mode should place files in output dir"
+    );
+    Ok(())
+}
+#[tokio::test]
 async fn test_download_model_local_file_copy() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_local_copy");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let output_dir = temp_dir.join("models");
     let model_file = temp_dir.join("tiny.gguf");
-    fs::write(&model_file, b"fake model data")?;
+    write(&model_file, b"fake model data")?;
     let verbose = Verbosity::new(0, 1);
     let result = super::model::run(
         &[model_file.display().to_string()],
@@ -180,7 +215,7 @@ async fn test_download_model_local_file_reference() -> Result<()> {
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let output_dir = temp_dir.join("models");
     let model_file = temp_dir.join("tiny.gguf");
-    fs::write(&model_file, b"fake model data")?;
+    write(&model_file, b"fake model data")?;
     let verbose = Verbosity::new(0, 1);
     let result = super::model::run(
         &[model_file.display().to_string()],
@@ -231,7 +266,7 @@ async fn test_download_model_local_mixed_offline_errors() -> Result<()> {
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let output_dir = temp_dir.join("models");
     let model_file = temp_dir.join("tiny.gguf");
-    fs::write(&model_file, b"fake model data")?;
+    write(&model_file, b"fake model data")?;
     let verbose = Verbosity::new(0, 1);
     // Local + remote in offline mode: should fail because remote is present
     let result = super::model::run(
@@ -257,7 +292,7 @@ async fn test_download_model_local_offline_succeeds() -> Result<()> {
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let output_dir = temp_dir.join("models");
     let model_file = temp_dir.join("tiny.gguf");
-    fs::write(&model_file, b"fake model data")?;
+    write(&model_file, b"fake model data")?;
     let verbose = Verbosity::new(0, 1);
     let result = super::model::run(
         &[model_file.display().to_string()],
@@ -391,9 +426,9 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
 }
 #[test]
 fn test_resolve_cli_action() {
-    assert_eq!(super::model::resolve_cli_action(false, false), None);
-    assert_eq!(super::model::resolve_cli_action(true, false), Some(SourceAction::Copy));
-    assert_eq!(super::model::resolve_cli_action(false, true), Some(SourceAction::Symlink));
+    assert_eq!(SourceAction::from_options(false, false), None);
+    assert_eq!(SourceAction::from_options(true, false), Some(SourceAction::Copy));
+    assert_eq!(SourceAction::from_options(false, true), Some(SourceAction::Symlink));
 }
 #[test]
 fn test_resolve_default_config_path_none_when_missing() -> Result<()> {
@@ -418,45 +453,4 @@ fn test_resolve_default_config_path_prefers_standard_names() -> Result<()> {
     assert_eq!(resolved, Some(expected));
     let _cleanup = TestCleanup::new(temp_dir.clone());
     Ok(())
-}
-#[test]
-fn test_resolve_models_all_empty_returns_empty() {
-    let positional = vec!["".to_string(), "  ".to_string()];
-    let config = Some(vec!["".to_string()]);
-    let result = resolve_models(&positional, config.as_deref());
-    assert!(result.is_empty());
-}
-#[test]
-fn test_resolve_models_config_only() {
-    let positional: Vec<String> = vec![];
-    let config = Some(vec!["x".to_string(), "y".to_string()]);
-    let result = resolve_models(&positional, config.as_deref());
-    assert_eq!(result, vec!["x", "y"]);
-}
-#[test]
-fn test_resolve_models_dedup_preserves_positional_first() {
-    let positional = vec!["m1".to_string(), "m2".to_string()];
-    let config = Some(vec!["m2".to_string(), "m3".to_string(), "m1".to_string()]);
-    let result = resolve_models(&positional, config.as_deref());
-    assert_eq!(result, vec!["m1", "m2", "m3"]);
-}
-#[test]
-fn test_resolve_models_positional_only() {
-    let positional = vec!["a".to_string(), "b".to_string()];
-    let result = resolve_models(&positional, None);
-    assert_eq!(result, vec!["a", "b"]);
-}
-#[test]
-fn test_resolve_models_positional_overrides_config() {
-    let positional = vec!["b".to_string()];
-    let config = Some(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
-    let result = resolve_models(&positional, config.as_deref());
-    assert_eq!(result, vec!["b", "a", "c"]);
-}
-#[test]
-fn test_resolve_models_skips_empty_entries() {
-    let positional = vec!["".to_string(), "  ".to_string(), "a".to_string()];
-    let config = Some(vec!["".to_string(), "b".to_string()]);
-    let result = resolve_models(&positional, config.as_deref());
-    assert_eq!(result, vec!["a", "b"]);
 }
