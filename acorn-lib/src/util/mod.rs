@@ -1166,6 +1166,24 @@ pub fn is_uri_or_path(value: &str) -> bool {
             false
         })
 }
+/// Merge two string collections, preserving first-seen order and removing duplicates.
+///
+/// Values are trimmed before comparison and output. Empty or whitespace-only values
+/// are skipped.
+pub fn merge<A, B, S, T>(a: A, b: Option<B>) -> Vec<String>
+where
+    A: IntoIterator<Item = S>,
+    B: IntoIterator<Item = T>,
+    S: AsRef<str>,
+    T: AsRef<str>,
+{
+    let mut seen = HashSet::new();
+    a.into_iter()
+        .map(|value| value.as_ref().trim().to_string())
+        .chain(b.into_iter().flatten().map(|value| value.as_ref().trim().to_string()))
+        .filter(|value| !value.is_empty() && seen.insert(value.clone()))
+        .collect()
+}
 /// Prints a diff of changes between two strings.
 ///
 /// If there are no changes between `old` and `new`, prints a debug message indicating so.

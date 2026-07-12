@@ -119,7 +119,6 @@ mod tests {
         let result = my_function("valid");
         assert!(result.is_ok());
     }
-
     #[test]
     fn test_function_with_edge_case() {
         let result = my_function("");
@@ -218,7 +217,6 @@ pub struct MySchema {
     // Primitive/String fields — no compat needed
     pub name: String,
     pub count: Option<u32>,
-
     // Nested types still using serde::Deserialize — add compat
     #[eserde(compat)]
     pub nested: MyNestedType,
@@ -322,16 +320,7 @@ Always use `color-eyre` for rich error reporting:
 ```rust
 use color_eyre::eyre::{self, eyre, Result, WrapErr};
 
-fn my_function() -> Result<String> {
-    let file = std::fs::read_to_string("path")
-        .wrap_err("Failed to read configuration file")?;
-    
-    if file.is_empty() {
-        return Err(eyre!("Configuration file cannot be empty"));
-    }
-    
-    Ok(file)
-}
+Err(eyre!("Configuration file cannot be empty"))
 ```
 
 Note: Command functions return `Void` (aliased as `eyre::Result<(), eyre::Report>`) in main.rs.
@@ -348,11 +337,9 @@ use owo_colors::OwoColorize;
 #[instrument(skip(large_data))]
 fn process_data(data: Vec<u8>, verbose: &Verbosity) -> eyre::Result<()> {
     debug!("Processing {} bytes", data.len());
-    
     if data.is_empty() {
         warn!("Empty data provided");
     }
-    
     info!("{} {} items processed", Label::pass(), count.cyan().bold());
     Ok(())
 }
@@ -444,7 +431,6 @@ let response = network_get_request(url)?;
 // BAD
 println!("Processing...");
 println!("Done");
-
 // GOOD
 info!("{} Processing file", Label::run());
 info!("{} Complete", Label::pass());

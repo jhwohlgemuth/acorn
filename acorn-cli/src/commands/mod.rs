@@ -177,9 +177,11 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                         &args.model,
                         &args.filter,
                         &args.ignore,
+                        &args.config,
                         &args.output,
                         &config.database_path,
                         &args.verbose,
+                        offline,
                     )
                     .await
                 }

@@ -246,6 +246,54 @@ fn test_mimetype() {
     assert_eq!(mime, MimeType::Jsonc);
 }
 #[test]
+fn test_merge_chain_positional_only() {
+    let positional = vec!["a".to_string(), "b".to_string()];
+    let result = merge(&positional, None::<&[String]>);
+    assert_eq!(result, vec!["a", "b"]);
+}
+#[test]
+fn test_merge_chain_config_only() {
+    let positional: Vec<String> = vec![];
+    let config = Some(vec!["x".to_string(), "y".to_string()]);
+    let result = merge(&positional, config.as_deref());
+    assert_eq!(result, vec!["x", "y"]);
+}
+#[test]
+fn test_merge_positional_takes_priority() {
+    let positional = vec!["b".to_string()];
+    let config = Some(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+    let result = merge(&positional, config.as_deref());
+    assert_eq!(result, vec!["b", "a", "c"]);
+}
+#[test]
+fn test_merge_dedup_first_seen_wins() {
+    let positional = vec!["m1".to_string(), "m2".to_string()];
+    let config = Some(vec!["m2".to_string(), "m3".to_string(), "m1".to_string()]);
+    let result = merge(&positional, config.as_deref());
+    assert_eq!(result, vec!["m1", "m2", "m3"]);
+}
+#[test]
+fn test_merge_filters_blank_entries() {
+    let positional = vec!["", "  ", "a"];
+    let config = Some(["", "b"]);
+    let result = merge(positional, config);
+    assert_eq!(result, vec!["a", "b"]);
+}
+#[test]
+fn test_merge_all_blank_is_empty() {
+    let positional = vec!["", "  "];
+    let config = Some([""]);
+    let result = merge(positional, config);
+    assert!(result.is_empty());
+}
+#[test]
+fn test_merge_trims_whitespace() {
+    let positional = [" a ", "b"];
+    let config = Some(vec!["b".to_string(), " c ".to_string()]);
+    let result = merge(positional, config);
+    assert_eq!(result, vec!["a", "b", "c"]);
+}
+#[test]
 fn test_param_body_shorthand_no_comma() {
     let body = "{\"title\":\"ACORN\"}";
     let body_param = param!(Body & body);

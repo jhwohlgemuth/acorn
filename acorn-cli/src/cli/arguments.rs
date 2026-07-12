@@ -301,9 +301,12 @@ pub(crate) struct Download {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct DownloadModel {
-    /// Model ID/name(s) from models.dev, or direct HTTP(S) model weight URL(s)
+    /// Model ID/name(s) from models.dev, or direct Hugging Face repository ID(s)
     #[arg(value_name = "MODEL", required = false, value_delimiter = ',', value_hint = ValueHint::Url, help_heading = "ARGS")]
     pub(crate) model: Vec<String>,
+    /// Path to configuration file listing models to download
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
     /// Regular expression pattern(s) used to include model weight sources while downloading
     #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
     pub(crate) filter: Vec<String>,
@@ -311,7 +314,9 @@ pub(crate) struct DownloadModel {
     #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
     pub(crate) ignore: Vec<String>,
     /// Path to output directory where downloaded model weights should be saved
-    #[arg(default_value = "./.models", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    ///
+    /// Defaults to $HOME/.models when omitted
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
     pub(crate) output: Option<PathBuf>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,

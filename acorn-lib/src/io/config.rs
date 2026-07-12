@@ -104,6 +104,9 @@ pub struct ApplicationConfiguration {
     /// List of runners
     #[eserde(compat)]
     pub runners: Option<Vec<RunnerDetails>>,
+    /// List of Hugging Face model repository IDs to download
+    #[eserde(compat)]
+    pub models: Option<Vec<String>>,
 }
 /// Struct for bucket data
 #[skip_serializing_none]

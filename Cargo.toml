@@ -47,6 +47,7 @@ derive_more = { version = "2.1.1", features = [
   "display",
   "from_str",
 ], default-features = false }
+directories = { version = "6.0.0", default-features = false }
 dotenvy = { version = "0.15.0", default-features = false }
 docx-rs = { version = "0.4.17", default-features = false }
 duckdb = { version = "1.10502.0", default-features = false }

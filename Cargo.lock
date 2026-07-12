@@ -17,6 +17,7 @@ dependencies = [
  "color-eyre",
  "data-encoding",
  "derive_more",
+ "directories",
  "dotenvy",
  "eserde",
  "exitcode",
