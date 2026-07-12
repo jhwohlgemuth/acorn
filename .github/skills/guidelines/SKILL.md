@@ -97,3 +97,6 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Leverage Rust's powerful type system to create abstractions that promote immutability and composability, such as using `Option` and `Result` types for error handling instead of mutable state.
 - Always prefer `core` over `std` when possible, as it is more lightweight and promotes a functional programming style by avoiding unnecessary dependencies and side effects.
 - Use `exitcode` module to pass exit codes instead of `0`, `1`, etc. This improves readability and maintainability by providing meaningful names for exit codes.
+
+## General Guidelines
+- Do NOT insert blank lines between code blocks. Avoid adding extra whitespace that does not serve a clear purpose.

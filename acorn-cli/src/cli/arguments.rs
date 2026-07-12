@@ -301,8 +301,8 @@ pub(crate) struct Download {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct DownloadModel {
-    /// Model ID/name(s) from models.dev, or direct Hugging Face repository ID(s)
-    #[arg(value_name = "MODEL", required = false, value_delimiter = ',', value_hint = ValueHint::Url, help_heading = "ARGS")]
+    /// Model ID/name(s), local path(s), or direct URL(s) to download
+    #[arg(value_name = "MODEL", required = false, value_delimiter = ',', help_heading = "ARGS")]
     pub(crate) model: Vec<String>,
     /// Path to configuration file listing models to download
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
@@ -318,6 +318,15 @@ pub(crate) struct DownloadModel {
     /// Defaults to $HOME/.models when omitted
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
     pub(crate) output: Option<PathBuf>,
+    /// Copy local model files into the model directory instead of referencing in place
+    #[arg(long, conflicts_with = "symlink", help_heading = "OPTIONS")]
+    pub(crate) copy: bool,
+    /// Create symlinks to local model files in the model directory instead of referencing in place
+    #[arg(long, conflicts_with = "copy", help_heading = "OPTIONS")]
+    pub(crate) symlink: bool,
+    /// Only download models with these user-facing names
+    #[arg(long, value_name = "NAME", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) whitelist: Vec<String>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

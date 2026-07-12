@@ -26,11 +26,15 @@ use tracing::error;
 
 const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
 
-struct FilterSet {
-    ignore: Vec<Regex>,
-    filter: Vec<Regex>,
+/// Model config entry — either a bare selector string or a detailed download entry
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ModelEntry {
+    /// Bare model ID / path / URL string
+    Selector(String),
+    /// Detailed model download entry
+    Entry(ModelEntryOptions),
 }
-
 /// Runner status for CI/CD pipelines
 #[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -101,12 +105,29 @@ pub struct ApplicationConfiguration {
     /// List of endpoints
     #[eserde(compat)]
     pub endpoints: Option<Vec<Endpoint>>,
+    /// List of models to download — bare IDs/paths or detailed download entries
+    #[eserde(compat)]
+    pub models: Option<Vec<ModelEntry>>,
     /// List of runners
     #[eserde(compat)]
     pub runners: Option<Vec<RunnerDetails>>,
-    /// List of Hugging Face model repository IDs to download
-    #[eserde(compat)]
-    pub models: Option<Vec<String>>,
+}
+/// Detailed model download entry for use in `ApplicationConfiguration.models`
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[builder(start_fn = init)]
+pub struct ModelEntryOptions {
+    /// User-facing model name
+    pub name: String,
+    /// Model weight source (local path, URL, or Hugging Face repository)
+    pub source: Repository,
+    /// Copy local model files into the model directory instead of referencing in place
+    #[serde(default)]
+    pub copy: Option<bool>,
+    /// Symlink local model files into the model directory instead of referencing in place
+    #[serde(default)]
+    pub symlink: Option<bool>,
 }
 /// Struct for bucket data
 #[skip_serializing_none]
@@ -146,6 +167,10 @@ pub struct BucketOptions {
     /// Regex pattern(s) of files to include
     #[builder(default)]
     pub filter: Vec<String>,
+}
+struct FilterSet {
+    ignore: Vec<Regex>,
+    filter: Vec<Regex>,
 }
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[builder(start_fn = at, on(String, into))]
@@ -196,9 +221,6 @@ pub struct RunnerDetails {
 }
 impl ApplicationConfiguration {
     /// Resolve application configuration path
-    ///
-    /// If `path` is an existing file, it is returned.
-    /// Otherwise, the first existing default config file in the current working directory is returned.
     pub fn resolve(path: &Option<PathBuf>) -> Option<PathBuf> {
         path.as_ref().filter(|value| value.is_file()).cloned().or_else(|| {
             let directory = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -370,6 +392,7 @@ impl Bucket {
         let location = match &self.code_repository {
             | Repository::GitHub { location } | Repository::GitLab { location, .. } => location,
             | Repository::Git { .. } => return Err(eyre!("Domain is unsupported for generic Git repositories")),
+            | Repository::HuggingFace { .. } => return Err(eyre!("Domain is unsupported for Hugging Face repositories")),
         };
         match location.scheme() {
             | Scheme::HTTPS => location.host().ok_or_else(|| eyre!("Failed to parse repository host from URI")),
@@ -522,6 +545,7 @@ impl Bucket {
                 },
                 | None => Err(eyre!("Missing GitLab project id for {bucket_name} bucket")),
             },
+            | Repository::HuggingFace { .. } => Err(eyre!("Hugging Face repositories are unsupported for bucket downloads")),
         }
     }
 }

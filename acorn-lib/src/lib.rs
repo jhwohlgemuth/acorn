@@ -42,10 +42,11 @@ pub mod util;
 use crate::analyzer::{link_check, Check};
 #[cfg(feature = "std")]
 use crate::io::http::get;
-#[cfg(feature = "std")]
-use crate::prelude::PathBuf;
 use crate::prelude::{format, String, ToString, Vec};
+#[cfg(feature = "std")]
+use crate::prelude::{Path, PathBuf};
 use crate::util::Label;
+use strum::EnumIs;
 
 /// **Descriptive/persistent** location reference for use in configuration (buckets, repositories, etc.).
 ///
@@ -71,6 +72,9 @@ pub enum Location {
         scheme: Scheme,
         /// Full URI value
         uri: String,
+        /// Optional branch, tag, or revision for versioned locations
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        revision: Option<String>,
     },
 }
 /// Git hosting repository data
@@ -83,6 +87,7 @@ pub enum Repository {
     #[display("git")]
     Git {
         /// Repository location information
+        #[serde(alias = "uri")]
         location: Location,
     },
     /// GitHub
@@ -107,13 +112,22 @@ pub enum Repository {
         #[serde(alias = "uri")]
         location: Location,
     },
+    /// Hugging Face
+    ///
+    /// See <https://huggingface.co/docs/hub/repositories-getting-started>
+    #[display("huggingface")]
+    HuggingFace {
+        /// Repository location information
+        #[serde(alias = "uri")]
+        location: Location,
+    },
 }
 /// URI Scheme
 ///
 /// See [RFC 8089] for more information
 ///
 /// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
-#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, PartialEq, EnumIs)]
 #[serde(rename_all = "lowercase")]
 pub enum Scheme {
     /// Secure HTTP
@@ -153,16 +167,43 @@ impl FromStr for Location {
     type Err = Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from(s))
+    }
+}
+impl From<&str> for Location {
+    fn from(s: &str) -> Self {
         match UriRef::parse(s).ok().and_then(|uri| uri.scheme()) {
-            | Some(scheme) => Ok(Location::Detailed {
+            | Some(scheme) => Location::Detailed {
                 scheme: Scheme::from(scheme.as_str()),
                 uri: s.to_string(),
-            }),
-            | None => Ok(Location::Simple(s.to_string())),
+                revision: None,
+            },
+            | None => Location::Simple(s.to_string()),
         }
     }
 }
 impl Location {
+    /// Returns true when a source string points to a local filesystem path.
+    pub fn is_local(&self) -> bool {
+        let value = match self {
+            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value.trim(),
+        };
+        let is_file_scheme = match self {
+            | Location::Detailed { scheme, .. } => scheme.is_file(),
+            | Location::Simple(_) => false,
+        };
+        let is_local_path = value.starts_with("file:") || value.starts_with("./") || value.starts_with("../") || {
+            #[cfg(feature = "std")]
+            {
+                Path::new(value).is_absolute()
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                false
+            }
+        };
+        is_file_scheme || is_local_path
+    }
     /// Get associated location hash
     /// > Useful for standardizing file path handling across local and remote contexts
     /// ### Example
@@ -234,7 +275,7 @@ impl Location {
     pub fn uri(&self) -> Option<String> {
         match self {
             | Location::Simple(value) => Some(value.clone()),
-            | Location::Detailed { scheme, uri } => match Uri::parse(uri.as_str()) {
+            | Location::Detailed { scheme, uri, .. } => match Uri::parse(uri.as_str()) {
                 | Ok(parsed) => {
                     let authority = parsed.authority().map(|auth| auth.as_str().to_string());
                     let path = parsed.path().to_string();
@@ -315,6 +356,7 @@ impl Repository {
             | Repository::Git { location, .. } => location,
             | Repository::GitHub { location, .. } => location,
             | Repository::GitLab { location, .. } => location,
+            | Repository::HuggingFace { location, .. } => location,
         }
     }
     /// Get repository ID
@@ -322,6 +364,7 @@ impl Repository {
         match self {
             | Repository::Git { .. } => None,
             | Repository::GitHub { .. } => None,
+            | Repository::HuggingFace { location } => location.path().map(|path| path.trim_start_matches('/').to_string()),
             | Repository::GitLab { id, location } => match id {
                 | Some(value) => Some(value.to_string()),
                 | None => match location.path() {
@@ -345,6 +388,7 @@ impl Repository {
     async fn releases(self) -> Vec<Release> {
         let maybe_url = match &self {
             | Repository::Git { .. } => None,
+            | Repository::HuggingFace { .. } => None,
             | Repository::GitHub { location } => {
                 let host = location.host();
                 let path = location.path();
@@ -418,7 +462,7 @@ impl Repository {
                 }
             },
             | Repository::GitLab { location, .. } => Some(format!("{location}/-/raw/main/{path}")),
-            | Repository::Git { .. } => None,
+            | Repository::Git { .. } | Repository::HuggingFace { .. } => None,
         }
     }
 }

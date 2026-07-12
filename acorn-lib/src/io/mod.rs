@@ -71,7 +71,7 @@ pub mod powerpoint;
 pub mod source;
 
 pub use jsonc_parser::cst::CstRootNode;
-pub use source::Source;
+pub use source::{Source, SourceAction};
 
 /// Utility type alias for I/O operation futures (e.g., read, write, copy, etc.)
 pub type ApiFuture<'a> = Pin<Box<dyn Future<Output = ApiResult<()>> + 'a>>;
@@ -1346,17 +1346,22 @@ pub fn unique_file_extensions(paths: &[PathBuf]) -> Vec<String> {
     extensions.sort_unstable();
     extensions
 }
-/// Converts a `file://` URI to a [`PathBuf`].
-///
-/// If the input does not start with `file://`, it is returned unchanged.
-pub fn uri_to_path<P>(path: P) -> PathBuf
+/// Converts `file:` source values to a [`PathBuf`].
+/// ### Note
+/// Supports shorthand paths like `file:./data.json`, URI forms like `file:///tmp/data.json` or `file://localhost/tmp/data.json`, and leaves non-file paths unchanged.
+pub fn uri_to_path<P>(value: P) -> PathBuf
 where
     P: Into<PathBuf>,
 {
-    let value: PathBuf = path.into();
-    let s = value.to_string_lossy().into_owned();
-    s.strip_prefix("file://")
-        .map(|stripped| {
+    let path: PathBuf = value.into();
+    let s = path.to_string_lossy().into_owned();
+    match s.as_str() {
+        | source if source.starts_with("file://localhost/") => {
+            let stripped = source.trim_start_matches("file://localhost/");
+            uri_to_path(PathBuf::from(format!("file:///{stripped}")))
+        }
+        | source if source.starts_with("file://") => {
+            let stripped = source.trim_start_matches("file://");
             #[cfg(windows)]
             let normalized = match stripped.get(1..3) {
                 | Some(drive) if drive.contains(':') => &stripped[1..],
@@ -1365,8 +1370,10 @@ where
             #[cfg(not(windows))]
             let normalized = stripped;
             PathBuf::from(normalized)
-        })
-        .unwrap_or(value)
+        }
+        | source if source.starts_with("file:") => PathBuf::from(source.trim_start_matches("file:")),
+        | _ => path,
+    }
 }
 /// Creates a new progress bar with the specified count and progress type
 pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> ProgressBar {
@@ -1401,7 +1408,6 @@ pub fn finish_progress_bar(progress: &ProgressBar, message: String) {
 /// Process a collection of data items with progress indication.
 ///
 /// # Arguments
-///
 /// * `items` - Collection of items to process
 /// * `message` - Function to generate progress message for each item
 /// * `operation` - Async function to apply to each item
@@ -1410,7 +1416,6 @@ pub fn finish_progress_bar(progress: &ProgressBar, message: String) {
 /// * `progress_type` - Type of progress indicator (Bar, Spinner, Counter, Silent)
 ///
 /// # Example
-///
 /// ```ignore
 /// let result = with_progress(
 ///     items,

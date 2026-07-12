@@ -1,8 +1,9 @@
 //! Source readers for local paths, file URIs, and remote HTTP(S) URLs.
 use crate::io::{http, uri_to_path, ApiResult};
 use crate::prelude::{read, PathBuf};
-use crate::{Location, Scheme};
+use crate::{Location, Repository, Scheme};
 use color_eyre::eyre::eyre;
+use strum::EnumIs;
 
 /// **Operational/transient** source — a one-shot parse-and-read type for I/O operations.
 ///
@@ -12,14 +13,37 @@ use color_eyre::eyre::eyre;
 ///
 /// Prefer to parse user-provided source strings with [`Source::read`] / [`Source::read_bytes`],
 /// and reserve [`Location`] for stored configuration values.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumIs)]
 pub enum Source {
     /// Local filesystem path.
-    Local(PathBuf),
-    /// Remote HTTP(S) URL.
-    Remote(String),
-    /// URI scheme that cannot be read as an ACORN source.
+    Local {
+        /// Optional display name for the source
+        name: Option<String>,
+        /// Local filesystem path
+        path: PathBuf,
+        /// Optional action to use when materializing the source
+        action: Option<SourceAction>,
+    },
+    /// Remote HTTP(S) URL
+    Remote {
+        /// Optional display name for the source
+        name: Option<String>,
+        /// Remote identifier, repository ID, or URL
+        identifier: String,
+    },
+    /// URI scheme that cannot be read as an ACORN source
     Unsupported(String),
+}
+/// Action to use when materializing a local source into an output directory
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SourceAction {
+    /// Reference the source in place
+    #[default]
+    Reference,
+    /// Copy the source into the output directory
+    Copy,
+    /// Create a symlink to the source in the output directory
+    Symlink,
 }
 impl Source {
     /// Reads source content from a URL or local file path.
@@ -40,27 +64,87 @@ impl Source {
         read_parsed_bytes(Self::parse(source), offline).await
     }
     /// Parses a user-provided source string into a source location.
-    ///
+    /// ### Note
     /// Delegates URI scheme detection to [`Location::from_str`].
     pub fn parse(source: &str) -> Self {
         // Infallible — Location::from_str always succeeds (Err = Infallible)
         let location: Location = source.parse().expect("Location::from_str is infallible");
         match location {
             | Location::Detailed { scheme: Scheme::File, .. } => {
-                let local_source = source
-                    .strip_prefix("file://localhost/")
-                    .map(|value| format!("file:///{value}"))
-                    .unwrap_or_else(|| source.to_string());
-                Self::Local(uri_to_path(PathBuf::from(local_source)))
+                let path = uri_to_path(source);
+                Self::Local {
+                    name: None,
+                    path,
+                    action: None,
+                }
             }
             | Location::Detailed {
                 scheme: Scheme::HTTPS | Scheme::HTTP,
                 ..
-            } => Self::Remote(source.to_string()),
+            } => Self::Remote {
+                name: None,
+                identifier: source.to_string(),
+            },
             | Location::Detailed {
                 scheme: Scheme::Unsupported, ..
             } => Self::Unsupported(source.to_string()),
-            | Location::Simple(_) => Self::Local(PathBuf::from(source)),
+            | Location::Simple(_) => Self::Local {
+                name: None,
+                path: PathBuf::from(source),
+                action: None,
+            },
+        }
+    }
+    /// Return the user-facing source name.
+    pub fn name(&self) -> String {
+        match self {
+            | Source::Local { name: Some(name), .. } | Source::Remote { name: Some(name), .. } => name.clone(),
+            | Source::Local { path, .. } => path.file_stem().and_then(|s| s.to_str()).unwrap_or("model").to_string(),
+            | Source::Remote { identifier, .. } | Source::Unsupported(identifier) => identifier.clone(),
+        }
+    }
+    /// Return a stable identifier for deduplication or output paths.
+    pub fn identifier(&self) -> String {
+        match self {
+            | Source::Local { path, .. } => path.display().to_string(),
+            | Source::Remote { identifier, .. } | Source::Unsupported(identifier) => identifier.clone(),
+        }
+    }
+    /// Return a source with a materialization action.
+    pub fn with_action(self, action: Option<SourceAction>) -> Self {
+        match self {
+            | Source::Local { name, path, .. } => Source::Local { name, path, action },
+            | other => other,
+        }
+    }
+    /// Return a source with a display name.
+    pub fn with_name(self, value: impl Into<String>) -> Self {
+        let binding = value.into();
+        let trimmed = binding.trim();
+        let name = (!trimmed.is_empty()).then(|| trimmed.to_string());
+        match self {
+            | Source::Local { path, action, .. } => Source::Local { name, path, action },
+            | Source::Remote { identifier, .. } => Source::Remote { name, identifier },
+            | Source::Unsupported(value) => Source::Unsupported(value),
+        }
+    }
+}
+impl From<&str> for Source {
+    fn from(selector: &str) -> Self {
+        let trimmed = selector.trim();
+        let location = Location::from(trimmed);
+        if location.is_local() {
+            let path = uri_to_path(trimmed);
+            Self::Local {
+                name: None,
+                path,
+                action: None,
+            }
+        } else {
+            Self::Remote {
+                name: Some(trimmed.to_string()),
+                identifier: trimmed.to_string(),
+            }
         }
     }
 }
@@ -69,20 +153,34 @@ impl From<Location> for Source {
         let scheme = location.scheme();
         let uri = location.uri().unwrap_or_default();
         match scheme {
-            | Scheme::File => Self::Local(uri_to_path(PathBuf::from(uri))),
-            | Scheme::HTTPS | Scheme::HTTP => Self::Remote(uri),
+            | Scheme::File => Self::Local {
+                name: None,
+                path: uri_to_path(&uri),
+                action: None,
+            },
+            | Scheme::HTTPS | Scheme::HTTP => Self::Remote { name: None, identifier: uri },
             | Scheme::Unsupported => Self::Unsupported(uri),
+        }
+    }
+}
+impl From<&Repository> for Source {
+    fn from(repository: &Repository) -> Self {
+        match repository {
+            | Repository::HuggingFace { location } => Self::Remote {
+                name: None,
+                identifier: repository.id().unwrap_or_else(|| location.uri().unwrap_or_default()),
+            },
+            | _ => Self::from(repository.location()),
         }
     }
 }
 async fn read_parsed_bytes(source: Source, offline: bool) -> ApiResult<Vec<u8>> {
     match source {
-        | Source::Local(path) => read(path).map_err(|why| eyre!("Failed to read source — {why}")),
-        | Source::Remote(url) => read_remote_source_bytes(&url, offline).await,
+        | Source::Local { path, .. } => read(path).map_err(|why| eyre!("Failed to read source — {why}")),
+        | Source::Remote { identifier, .. } => read_remote_source_bytes(&identifier, offline).await,
         | Source::Unsupported(scheme) => Err(eyre!("Unsupported source URI scheme '{scheme}'")),
     }
 }
-
 async fn read_remote_source_bytes(url: &str, offline: bool) -> ApiResult<Vec<u8>> {
     match offline {
         | true => Err(eyre!("Cannot read remote source while offline")),

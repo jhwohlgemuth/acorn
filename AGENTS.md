@@ -1,6 +1,6 @@
 # AGENTS.md
 
-**USE [guidelines SKILL](./.github/skills/guidelines/) WHENEVER CODE IS TOUCHED OR CONSIDERED**
+**USE [guidelines SKILL](./.github/skills/guidelines/SKILL.md) WHENEVER CODE IS TOUCHED OR CONSIDERED**
 
 This file provides guidance to agents (including WARP) when working with code in this repository.
 

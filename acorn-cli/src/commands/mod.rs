@@ -182,6 +182,9 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                         &config.database_path,
                         &args.verbose,
                         offline,
+                        args.copy,
+                        args.symlink,
+                        &args.whitelist,
                     )
                     .await
                 }

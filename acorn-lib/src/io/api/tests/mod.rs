@@ -59,6 +59,7 @@ fn test_endpoint_from_location() {
     let location = Location::Detailed {
         scheme: Scheme::HTTPS,
         uri: "http://api.example.com".to_string(),
+        revision: None,
     };
     let endpoint: Endpoint = location.into();
     assert_eq!(endpoint.domain, expected_domain);
@@ -66,6 +67,7 @@ fn test_endpoint_from_location() {
     let location = Location::Detailed {
         scheme: Scheme::HTTPS,
         uri: "http://api.example.com:8080".to_string(),
+        revision: None,
     };
     let endpoint: Endpoint = location.into();
     assert_eq!(endpoint.domain, expected_domain);

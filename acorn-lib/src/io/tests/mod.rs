@@ -14,7 +14,7 @@ use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
-    read_large_file, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput, Source,
+    read_large_file, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput, Source, SourceAction,
 };
 use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
@@ -353,11 +353,13 @@ async fn test_location_exists() {
     let location = Location::Detailed {
         scheme: Scheme::HTTPS,
         uri: "42".into(),
+        revision: None,
     };
     assert!(!location.exists().await);
     let location = Location::Detailed {
         scheme: Scheme::File,
         uri: "should fail to parse?".into(),
+        revision: None,
     };
     assert!(!location.exists().await);
 }
@@ -811,6 +813,63 @@ async fn test_read_source_rejects_unsupported_uri_scheme() {
     assert!(result.is_err());
     let why = result.unwrap_err().to_string();
     assert!(why.contains("Unsupported source URI scheme"));
+}
+#[test]
+fn test_uri_to_path_normalizes_file_sources() {
+    assert_eq!(uri_to_path("file:./models/qwen.gguf"), PathBuf::from("./models/qwen.gguf"));
+    assert_eq!(uri_to_path("./models/qwen.gguf"), PathBuf::from("./models/qwen.gguf"));
+    let path = temp_dir().join("acorn-local-source-to-path.gguf");
+    let localhost = if cfg!(windows) {
+        format!("file://localhost/{}", path.to_string_lossy().replace('\\', "/"))
+    } else {
+        format!("file://localhost{}", path.to_string_lossy())
+    };
+    let file_uri = if cfg!(windows) {
+        format!("file:///{}", path.to_string_lossy().replace('\\', "/"))
+    } else {
+        format!("file://{}", path.to_string_lossy())
+    };
+    assert_eq!(uri_to_path(&localhost), path);
+    assert_eq!(uri_to_path(&file_uri), path);
+}
+#[test]
+fn test_location_is_local_detects_local_paths() {
+    assert!(Location::from("file:./models/qwen.gguf").is_local());
+    assert!(Location::from("./models/qwen.gguf").is_local());
+    assert!(Location::from("../models/qwen.gguf").is_local());
+    assert!(Location::from(temp_dir().to_string_lossy().as_ref()).is_local());
+    assert!(!Location::from("meta-llama/Llama-2-7b-hf").is_local());
+    assert!(!Location::from("https://huggingface.co/hf-internal-testing/tiny-random-bert").is_local());
+}
+#[test]
+fn test_source_from_str_detects_local_paths() {
+    let source = Source::from("file:./models/qwen.gguf");
+    assert!(source.is_local());
+    assert_eq!(source.name(), "qwen");
+    let source = Source::from("./models/qwen.gguf");
+    assert!(source.is_local());
+    let source = Source::from("meta-llama/Llama-2-7b-hf");
+    assert!(source.is_remote());
+    assert_eq!(source.name(), "meta-llama/Llama-2-7b-hf");
+}
+#[test]
+fn test_source_from_repository_uses_hugging_face_identifier() {
+    let repository = Repository::HuggingFace {
+        location: Location::Simple("https://huggingface.co/hf-internal-testing/tiny-random-bert".to_string()),
+    };
+    let source = Source::from(&repository).with_name("tiny-bert");
+    assert!(source.is_remote());
+    assert_eq!(source.name(), "tiny-bert");
+    assert_eq!(source.identifier(), "hf-internal-testing/tiny-random-bert");
+}
+#[test]
+fn test_source_local_action_metadata() {
+    let source = Source::from("./models/qwen.gguf").with_action(Some(SourceAction::Copy));
+    assert_eq!(source.name(), "qwen");
+    match source {
+        | Source::Local { action, .. } => assert_eq!(action, Some(SourceAction::Copy)),
+        | _ => panic!("model selector should be local"),
+    }
 }
 #[test]
 fn test_should_retry_get_for_retryable_status_codes() {
