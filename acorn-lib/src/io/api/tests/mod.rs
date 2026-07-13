@@ -785,7 +785,7 @@ mod models_dev {
     use crate::io::api::models_dev::CatalogResponse;
     use crate::io::database::schema::{ModelRow, ProviderRow, Table};
     use crate::io::database::{Database, Operations};
-    use crate::schema::agent::{Metric, ModelDetails, ProviderDetails};
+    use crate::schema::agent::{Harness, Metric, ModelDetails, ProviderDetails};
     use crate::test::utils::unique_path;
     use std::collections::HashMap;
 
@@ -840,6 +840,59 @@ mod models_dev {
         let json = read_file(fixture_path("").join("models.json")).expect("Failed to read models fixture");
         let models: HashMap<String, ModelDetails> = serde_json::from_str(&json).expect("Failed to deserialize models fixture");
         assert_models_dev_schema_variants(&models);
+    }
+    #[test]
+    fn test_catalog_response_accepts_current_benchmark_values() {
+        let json = r#"{
+            "models": {
+                "xai/grok-4.3": {
+                    "id": "xai/grok-4.3",
+                    "benchmarks": [
+                        {"name": "Artificial Analysis Intelligence Index", "score": 53, "metric": "index score", "source": "https://example.com"},
+                        {"name": "GDPval-AA", "score": 1500, "metric": "Elo", "source": "https://example.com"},
+                        {"name": "IFBench", "score": 81, "metric": "accuracy", "source": "https://example.com"},
+                        {"name": "DeepSWE", "score": 53, "metric": "resolve rate", "harness": "mini-swe-agent", "source": "https://example.com"},
+                        {"name": "Kimi Code Bench", "score": 62, "harness": "Kimi Code CLI", "source": "https://example.com"},
+                        {"name": "Numeric Metric", "score": 1, "metric": 1, "source": "https://example.com"},
+                        {"name": "Boolean Metric", "score": 1, "metric": true, "source": "https://example.com"},
+                        {"name": "Object Metric", "score": 1, "metric": {"kind": "composite"}, "source": "https://example.com"}
+                    ]
+                }
+            },
+            "providers": {}
+        }"#;
+        let catalog: CatalogResponse = serde_json::from_str(json).expect("Failed to deserialize current benchmark values");
+        let model = catalog.models.get("xai/grok-4.3").expect("model should deserialize");
+        let benchmarks = model.benchmarks.as_ref().expect("benchmarks should deserialize").as_slice();
+        match benchmarks[0].metric.as_ref() {
+            | Some(Metric::Other(value)) => assert_eq!(value, "index score"),
+            | other => panic!("expected new metric label to deserialize as Metric::Other, got {other:?}"),
+        }
+        match benchmarks[1].metric.as_ref() {
+            | Some(Metric::Other(value)) => assert_eq!(value, "Elo"),
+            | other => panic!("expected new metric label to deserialize as Metric::Other, got {other:?}"),
+        }
+        match benchmarks[2].metric.as_ref() {
+            | Some(Metric::Other(value)) => assert_eq!(value, "accuracy"),
+            | other => panic!("expected new metric label to deserialize as Metric::Other, got {other:?}"),
+        }
+        assert!(matches!(benchmarks[3].harness, Some(Harness::MiniSweAgent)));
+        match benchmarks[4].harness.as_ref() {
+            | Some(Harness::Other(value)) => assert_eq!(value, "Kimi Code CLI"),
+            | other => panic!("expected unknown harness to deserialize as Harness::Other, got {other:?}"),
+        }
+        match benchmarks[5].metric.as_ref() {
+            | Some(Metric::Other(value)) => assert_eq!(value, "1"),
+            | other => panic!("expected numeric metric to deserialize as Metric::Other, got {other:?}"),
+        }
+        match benchmarks[6].metric.as_ref() {
+            | Some(Metric::Other(value)) => assert_eq!(value, "true"),
+            | other => panic!("expected boolean metric to deserialize as Metric::Other, got {other:?}"),
+        }
+        match benchmarks[7].metric.as_ref() {
+            | Some(Metric::Other(value)) => assert_eq!(value, r#"{"kind":"composite"}"#),
+            | other => panic!("expected object metric to deserialize as Metric::Other, got {other:?}"),
+        }
     }
     #[tokio::test]
     async fn test_catalog_fixture_persists_models_and_providers_to_local_database() {

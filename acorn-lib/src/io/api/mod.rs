@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumIs;
 use tera::{Context, Tera};
-use tracing::{trace, warn};
+use tracing::{info, trace, warn};
 use validator::Validate;
 
 pub mod citeas;
@@ -858,7 +858,7 @@ impl RemoteResource for Endpoint {
                     | HttpMethod::Post => post(path).json(&body),
                     | HttpMethod::Put => put(path).json(&body),
                 };
-                warn!("=> {} {}", Label::run(), request.cyan());
+                info!("=> {} {}", Label::run(), request.cyan());
                 match request.headers(headers).send().await {
                     | Ok(response) => match response.text().await {
                         | Ok(text) => {

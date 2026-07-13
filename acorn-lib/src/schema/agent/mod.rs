@@ -62,6 +62,10 @@ pub enum Harness {
     #[display("Terminus-2")]
     #[serde(rename = "Terminus-2")]
     Terminus2,
+    /// Catch-all for unknown harness names added by upstream catalogs
+    #[display("{}", _0)]
+    #[serde(untagged)]
+    Other(String),
 }
 /// Metric type for benchmark evaluation results
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
@@ -238,6 +242,7 @@ pub struct Benchmark {
     #[validate(range(min = 0.0))]
     pub score: f64,
     /// Metric type for the score
+    #[serde(default, deserialize_with = "deserialize_metric")]
     pub metric: Option<Metric>,
     /// Source URL for the benchmark result
     #[validate(url)]
@@ -248,6 +253,7 @@ pub struct Benchmark {
     /// Dataset used for evaluation
     pub dataset: Option<String>,
     /// Harness or framework used for evaluation
+    #[serde(default, deserialize_with = "deserialize_harness")]
     pub harness: Option<Harness>,
     /// Variant of the harness configuration
     pub variant: Option<String>,
@@ -504,6 +510,26 @@ impl Default for FrontMatter {
         FrontMatter::init().build()
     }
 }
+impl From<&str> for Harness {
+    fn from(value: &str) -> Self {
+        match value {
+            | "Claude Code" => Self::ClaudeCode,
+            | "Codex" => Self::Codex,
+            | "Codex CLI" => Self::CodexCli,
+            | "Cursor CLI" => Self::CursorCli,
+            | "Gemini CLI" => Self::GeminiCli,
+            | "Mini-SWE-Agent" | "mini-swe-agent" => Self::MiniSweAgent,
+            | "OpenCode" => Self::OpenCode,
+            | "Terminus-2" => Self::Terminus2,
+            | _ => Self::Other(value.to_string()),
+        }
+    }
+}
+impl From<String> for Harness {
+    fn from(value: String) -> Self {
+        Self::Other(value)
+    }
+}
 impl fmt::Display for Metric {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -518,6 +544,27 @@ impl fmt::Display for Metric {
             | Self::SuccessRate => write!(f, "success rate"),
             | Self::Other(value) => write!(f, "{value}"),
         }
+    }
+}
+impl From<&str> for Metric {
+    fn from(value: &str) -> Self {
+        match value {
+            | "average pass@1" => Self::AveragePassAt1,
+            | "index" => Self::Index,
+            | "pass@1" => Self::PassAt1,
+            | "percent correct" => Self::PercentCorrect,
+            | "percent resolved" => Self::PercentResolved,
+            | "resolve rate" => Self::ResolveRate,
+            | "resolved" => Self::Resolved,
+            | "score" => Self::Score,
+            | "success rate" => Self::SuccessRate,
+            | _ => Self::Other(value.to_string()),
+        }
+    }
+}
+impl From<String> for Metric {
+    fn from(value: String) -> Self {
+        Self::Other(value)
     }
 }
 impl ToMarkdown for ModelDetails {
@@ -710,6 +757,36 @@ where
         | Some(Models::Map(map)) => Ok(Some(map.into_values().collect())),
         | Some(Models::Vec(vec)) => Ok(Some(vec)),
         | None => Ok(None),
+    }
+}
+fn deserialize_metric<'de, D>(deserializer: D) -> Result<Option<Metric>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_optional_typed_value(deserializer)
+}
+fn deserialize_harness<'de, D>(deserializer: D) -> Result<Option<Harness>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_optional_typed_value(deserializer)
+}
+fn deserialize_optional_typed_value<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: for<'a> From<&'a str> + From<String>,
+{
+    Option::<serde_json::Value>::deserialize(deserializer)
+        .map(|value| value.filter(|value| !value.is_null()))
+        .map(|value| value.map(value_to_string_or_other::<T>))
+}
+fn value_to_string_or_other<T>(value: serde_json::Value) -> T
+where
+    T: for<'a> From<&'a str> + From<String>,
+{
+    match value {
+        | serde_json::Value::String(value) => T::from(value.as_str()),
+        | other => serde_json::to_string(&other).map_or_else(|_| T::from(other.to_string()), T::from),
     }
 }
 fn validate_open_weights(details: &ModelDetails) -> Result<(), ValidationError> {
