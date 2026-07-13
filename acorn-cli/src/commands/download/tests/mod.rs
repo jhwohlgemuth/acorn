@@ -10,6 +10,7 @@
 )]
 use super::run;
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
+use acorn::io::api::huggingface::RepositoryFile;
 use acorn::io::{config::ApplicationConfiguration, SourceAction};
 use acorn::prelude::{create_dir_all, env, read_to_string, write};
 use clap_verbosity_flag::Verbosity;
@@ -125,7 +126,12 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_config_resolve");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let config_path = temp_dir.join(".acorn.json");
-    write(&config_path, r#"{"models": ["hf-internal-testing/tiny-random-bert"]}"#)?;
+    let model_file = temp_dir.join("tiny.gguf");
+    write(&model_file, b"fake model data")?;
+    write(
+        &config_path,
+        format!(r#"{{"models": ["{}"]}}"#, model_file.display().to_string().replace('\\', "/")),
+    )?;
     let verbose = Verbosity::new(0, 1);
     let output_dir = temp_dir.join("models");
     let result = super::model::run(
@@ -137,7 +143,7 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
         &None,
         &verbose,
         false,
-        false,
+        true,
         false,
         &[],
     )
@@ -208,6 +214,119 @@ async fn test_download_model_local_file_copy() -> Result<()> {
     let model_dir = output_dir.join("tiny");
     assert!(model_dir.join("tiny.gguf").exists(), "copy mode should place files in output dir");
     Ok(())
+}
+#[tokio::test]
+async fn test_download_model_filter_keeps_matching_local_file() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_filter_local");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("models");
+    let model_file = temp_dir.join("tiny.gguf");
+    write(&model_file, b"fake model data")?;
+    let verbose = Verbosity::new(0, 1);
+    let result = super::model::run(
+        &[model_file.display().to_string()],
+        &["tiny\\.gguf$".to_string()],
+        &[],
+        &None,
+        &Some(output_dir.clone()),
+        &None,
+        &verbose,
+        false,
+        true,
+        false,
+        &[],
+    )
+    .await;
+    assert!(result.is_ok(), "matching filter should keep local model");
+    assert!(output_dir.join("tiny").join("tiny.gguf").exists());
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_ignore_local");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("models");
+    let model_file = temp_dir.join("tiny.gguf");
+    write(&model_file, b"fake model data")?;
+    let verbose = Verbosity::new(0, 1);
+    let result = super::model::run(
+        &[model_file.display().to_string()],
+        &[],
+        &["tiny\\.gguf$".to_string()],
+        &None,
+        &Some(output_dir),
+        &None,
+        &verbose,
+        false,
+        true,
+        false,
+        &[],
+    )
+    .await;
+    assert!(result.is_err(), "ignore should remove the only selected model");
+    Ok(())
+}
+#[test]
+fn test_model_select_preferred_file_prefers_marker() {
+    let policy = super::model::FileSelectionPolicy {
+        extension: ".gguf",
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let selected =
+        super::model::select_preferred_file(vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q4_K_M.gguf")], &policy).unwrap();
+    assert_eq!(selected.len(), 1);
+    assert_eq!(selected.first().map(|file| file.path.as_str()), Some("model.Q4_K_M.gguf"));
+}
+#[test]
+fn test_model_select_preferred_file_errors_when_ambiguous() {
+    let policy = super::model::FileSelectionPolicy {
+        extension: ".gguf",
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let selected = super::model::select_preferred_file(vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q6_K.gguf")], &policy);
+    assert!(selected.is_err());
+}
+#[test]
+fn test_model_filter_selectors_applies_filter_and_ignore() {
+    let selectors = vec![acorn::io::Source::from("alpha.gguf"), acorn::io::Source::from("beta.safetensors")];
+    let filtered = super::model::filter_by_patterns(
+        selectors,
+        &["gguf$".to_string()],
+        &["alpha".to_string()],
+        acorn::io::Source::identifier,
+        |_| true,
+    )
+    .unwrap();
+    assert!(filtered.is_empty());
+}
+#[tokio::test]
+async fn test_download_model_invalid_filter_errors() -> Result<()> {
+    let verbose = Verbosity::new(0, 1);
+    let result = super::model::run(
+        &["model.gguf".to_string()],
+        &["[".to_string()],
+        &[],
+        &None,
+        &None,
+        &None,
+        &verbose,
+        false,
+        false,
+        false,
+        &[],
+    )
+    .await;
+    assert!(result.is_err(), "invalid filter regex should fail");
+    Ok(())
+}
+
+fn candidate_file(path: &str) -> RepositoryFile {
+    RepositoryFile {
+        path: path.to_string(),
+        size: None,
+    }
 }
 #[tokio::test]
 async fn test_download_model_local_file_reference() -> Result<()> {
@@ -343,11 +462,14 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_positional_override");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let config_path = temp_dir.join(".acorn.json");
-    write(&config_path, r#"{"models": ["hf-internal-testing/tiny-random-bert"]}"#)?;
+    let model_file = temp_dir.join("tiny.gguf");
+    let model_path = model_file.display().to_string();
+    write(&model_file, b"fake model data")?;
+    write(&config_path, format!(r#"{{"models": ["{}"]}}"#, model_path.replace('\\', "/")))?;
     let verbose = Verbosity::new(0, 1);
     let output_dir = temp_dir.join("models");
     let result = super::model::run(
-        &["hf-internal-testing/tiny-random-bert".to_string()],
+        &[model_path],
         &[],
         &[],
         &Some(config_path),
@@ -355,7 +477,7 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
         &None,
         &verbose,
         false,
-        false,
+        true,
         false,
         &[],
     )
@@ -396,12 +518,20 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_whitelist_match");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let config_path = temp_dir.join(".acorn.json");
+    let keep_file = temp_dir.join("keep.gguf");
+    let drop_file = temp_dir.join("drop.gguf");
+    write(&keep_file, b"fake keep model data")?;
+    write(&drop_file, b"fake drop model data")?;
     write(
         &config_path,
-        r#"{"models": [
-            {"name": "keep", "source": {"provider": "huggingface", "location": "https://huggingface.co/hf-internal-testing/tiny-random-bert"}},
-            {"name": "drop", "source": {"provider": "huggingface", "location": "https://huggingface.co/hf-internal-testing/tiny-random-gpt2"}}
-        ]}"#,
+        format!(
+            r#"{{"models": [
+            {{"name": "keep", "copy": true, "source": {{"provider": "git", "location": "file:{}"}}}},
+            {{"name": "drop", "copy": true, "source": {{"provider": "git", "location": "file:{}"}}}}
+        ]}}"#,
+            keep_file.display().to_string().replace('\\', "/"),
+            drop_file.display().to_string().replace('\\', "/")
+        ),
     )?;
     let verbose = Verbosity::new(0, 1);
     let output_dir = temp_dir.join("models");
@@ -420,8 +550,8 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     )
     .await;
     assert!(result.is_ok(), "matching whitelist entry should succeed");
-    assert!(output_dir.join("hf-internal-testing/tiny-random-bert").exists());
-    assert!(!output_dir.join("hf-internal-testing/tiny-random-gpt2").exists());
+    assert!(output_dir.join("keep").join("keep.gguf").exists());
+    assert!(!output_dir.join("drop").join("drop.gguf").exists());
     Ok(())
 }
 #[test]

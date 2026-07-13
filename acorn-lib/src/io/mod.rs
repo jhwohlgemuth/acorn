@@ -1030,7 +1030,10 @@ pub fn filter_ignored_with_root(paths: Vec<PathBuf>, ignore: Option<String>, roo
 /// env::remove_var("MY_APP_CONFIG");
 /// ```
 pub fn first_env_var(names: &[&str]) -> Option<String> {
-    names.iter().find_map(|name| var(name).ok())
+    names
+        .iter()
+        .filter_map(|name| var(name).ok().map(|value| value.trim().to_string()))
+        .find(|value| !value.is_empty())
 }
 /// Returns the size of a folder in bytes
 pub fn folder_size<P: Into<PathBuf>>(path: P) -> u64 {

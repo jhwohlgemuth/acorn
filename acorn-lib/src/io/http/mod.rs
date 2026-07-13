@@ -1,23 +1,24 @@
 //! HTTP client utilities for ACORN IO operations
 use super::ApiResult;
+use crate::prelude::{File, Path, Write};
+use crate::util::constants::app::ACORN_USER_AGENT;
 use crate::util::Label;
 use async_trait::async_trait;
+use axum::http::header::{HeaderName, HeaderValue, AUTHORIZATION, USER_AGENT};
 use axum::http::HeaderMap;
 use chrono::Utc;
 use color_eyre::eyre::eyre;
 use core::fmt;
-use reqwest::header::USER_AGENT;
 use serde::{Deserialize, Serialize};
 use tower::{service_fn, ServiceExt};
 use tracing::{debug, warn};
 
 pub mod policy;
 
-/// See recommendation at <https://support.datacite.org/docs/api#api-versions>
-#[cfg(feature = "std")]
-const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), " (https://acorn.ornl.gov; mailto:research@ornl.gov)");
-#[cfg(not(feature = "std"))]
-const ACORN_USER_AGENT: &str = "ACORN (https://acorn.ornl.gov; mailto:research@ornl.gov)";
+struct DownloadError {
+    status_code: Option<u16>,
+    report: color_eyre::Report,
+}
 /// Async HTTP service abstraction for ACORN I/O.
 #[async_trait]
 pub trait HttpService {
@@ -113,9 +114,19 @@ impl fmt::Display for HttpRequestBuilder {
     }
 }
 impl HttpRequestBuilder {
+    /// Add a single header to the request, ignoring invalid names or values.
+    pub fn header(mut self, name: &str, value: &str) -> Self {
+        self.request.headers.extend(header(name, value));
+        self
+    }
     /// Add headers to the request.
     pub fn headers(mut self, headers: HeaderMap) -> Self {
         self.request.headers.extend(headers);
+        self
+    }
+    /// Add a Bearer `Authorization` header to the request when `token` is non-empty.
+    pub fn bearer_auth(mut self, token: &str) -> Self {
+        self.request.headers.extend(bearer_auth(token));
         self
     }
     /// Add a JSON body to the request.
@@ -156,6 +167,129 @@ impl HttpResponse {
 impl HttpService for ReqwestHttpService {
     async fn execute(&self, request: HttpRequest) -> ApiResult<HttpResponse> {
         execute_with_policy(self.client.clone(), request).await
+    }
+}
+impl ReqwestHttpService {
+    fn streaming() -> Self {
+        let policy = policy::shared_http_policy();
+        let client = reqwest::Client::builder()
+            .connect_timeout(policy.connect_timeout)
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+        Self { client }
+    }
+}
+/// Streams response bytes from `url` to `output` and reports cumulative progress
+pub async fn download_with_progress(
+    url: &str,
+    output: &Path,
+    mut progress: impl FnMut(u64, Option<u64>),
+    headers: Option<HeaderMap>,
+    error_message: Option<&str>,
+    auth_error_message: Option<&str>,
+) -> ApiResult<()> {
+    let error_message = error_message.unwrap_or("Failed to download file");
+    let service = ReqwestHttpService::streaming();
+    let request = HttpRequest {
+        headers: headers.unwrap_or_default(),
+        json_body: None,
+        method: HttpMethod::Get,
+        url: url.to_string(),
+    };
+    match stream_request_with_policy(service.client, request, output, error_message, auth_error_message, &mut progress).await {
+        | Ok(()) => Ok(()),
+        | Err(why) => Err(why),
+    }
+}
+async fn stream_request_with_policy(
+    client: reqwest::Client,
+    request: HttpRequest,
+    output: &Path,
+    error_message: &str,
+    auth_error_message: Option<&str>,
+    progress: &mut impl FnMut(u64, Option<u64>),
+) -> ApiResult<()> {
+    let policy = policy::shared_http_policy();
+    let method = request.method.clone();
+    let url = request.url.clone();
+    let max_attempts = policy.max_attempts();
+    let mut outcome = None;
+    for attempt in 1..=max_attempts {
+        let started = Utc::now();
+        let result = stream_request_once(client.clone(), request.clone(), output, error_message, auth_error_message, &mut *progress).await;
+        #[allow(clippy::arithmetic_side_effects)]
+        let elapsed_ms = (Utc::now() - started).num_milliseconds();
+        match result {
+            | Ok(()) => {
+                debug!(attempt, elapsed_ms, url, "=> {} HTTP download", Label::using());
+                outcome = Some(Ok(()));
+                break;
+            }
+            | Err(DownloadError { status_code, report }) => {
+                let retry = should_retry(&method, status_code);
+                if retry && attempt < max_attempts {
+                    warn!(attempt, elapsed_ms, url, "=> {} Retrying HTTP download — {report}", Label::using());
+                } else {
+                    warn!(attempt, elapsed_ms, url, "=> {} HTTP download failed — {report}", Label::fail());
+                    outcome = Some(Err(report));
+                    break;
+                }
+            }
+        }
+    }
+    match outcome {
+        | Some(result) => result,
+        | None => Err(eyre!("HTTP download failed after retry attempts")),
+    }
+}
+async fn stream_request_once(
+    client: reqwest::Client,
+    request: HttpRequest,
+    output: &Path,
+    error_message: &str,
+    auth_error_message: Option<&str>,
+    progress: &mut impl FnMut(u64, Option<u64>),
+) -> Result<(), DownloadError> {
+    let HttpRequest { headers, url, .. } = request;
+    let request = client.get(url).header(USER_AGENT, ACORN_USER_AGENT).headers(headers);
+    match request.send().await {
+        | Ok(response) if matches!(response.status().as_u16(), 401 | 403) => {
+            let status_code = response.status().as_u16();
+            Err(DownloadError {
+                status_code: Some(status_code),
+                report: eyre!("{}", auth_error_message.unwrap_or("Failed to download file — authentication required")),
+            })
+        }
+        | Ok(mut response) if response.status().is_success() => match File::create(output) {
+            | Ok(mut file) => {
+                let total = response.content_length();
+                let mut downloaded = 0_u64;
+                progress(downloaded, total);
+                loop {
+                    match response.chunk().await {
+                        | Ok(Some(chunk)) => match file.write_all(&chunk) {
+                            | Ok(_) => {
+                                downloaded = downloaded.saturating_add(chunk.len() as u64);
+                                progress(downloaded, total);
+                            }
+                            | Err(why) => break Err(eyre!("{error_message} — failed to write download chunk — {why}")),
+                        },
+                        | Ok(None) => break Ok(()),
+                        | Err(why) => break Err(eyre!("{error_message} — {why}")),
+                    }
+                }
+            }
+            | Err(why) => Err(eyre!("{error_message} — failed to create output file {} — {why}", output.display())),
+        }
+        .map_err(|report| DownloadError { status_code: None, report }),
+        | Ok(response) => Err(DownloadError {
+            status_code: Some(response.status().as_u16()),
+            report: eyre!("{error_message} — HTTP {}", response.status()),
+        }),
+        | Err(why) => Err(DownloadError {
+            status_code: None,
+            report: eyre!("{error_message} — {why}"),
+        }),
     }
 }
 async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
@@ -215,23 +349,48 @@ async fn execute_with_timeout(client: reqwest::Client, request: HttpRequest) -> 
         .await
         .map_err(|why| eyre!("HTTP service timeout or middleware error — {why}"))
 }
-/// Utility method to employ best practices when using a Reqwest client to make async HTTP GET requests.
+/// Build a header map from string name-value pairs, skipping invalid entries.
+pub fn headers<'a>(values: impl IntoIterator<Item = (&'a str, &'a str)>) -> HeaderMap {
+    values.into_iter().fold(HeaderMap::new(), |mut headers, (name, value)| {
+        if let (Ok(name), Ok(mut value)) = (HeaderName::from_bytes(name.as_bytes()), HeaderValue::from_str(value)) {
+            value.set_sensitive(name == AUTHORIZATION);
+            headers.append(name, value);
+        }
+        headers
+    })
+}
+/// Build a one-entry header map, skipping invalid names or values.
+pub fn header(name: &str, value: &str) -> HeaderMap {
+    headers([(name, value)])
+}
+/// Build a Bearer authorization header when `token` is non-empty.
+pub fn bearer_auth(token: &str) -> HeaderMap {
+    match token.trim() {
+        | "" => HeaderMap::new(),
+        | value => header(AUTHORIZATION.as_str(), format!("Bearer {value}").as_str()),
+    }
+}
+/// Build an HTTP request for a dynamic method.
+pub fn request(method: HttpMethod, url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(method, url)
+}
+/// Utility method to employ best practices when making async HTTP GET requests.
 pub fn get(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Get, url)
 }
-/// Utility method to employ best practices when using a Reqwest client to make async HTTP DELETE requests.
+/// Utility method to employ best practices when making async HTTP DELETE requests.
 pub fn delete(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Delete, url)
 }
-/// Utility method to employ best practices when using a Reqwest client to make async HTTP PATCH requests.
+/// Utility method to employ best practices when making async HTTP PATCH requests.
 pub fn patch(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Patch, url)
 }
-/// Utility method to employ best practices when using a Reqwest client to make async HTTP POST requests.
+/// Utility method to employ best practices when making async HTTP POST requests.
 pub fn post(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Post, url)
 }
-/// Utility method to employ best practices when using a Reqwest client to make async HTTP PUT requests.
+/// Utility method to employ best practices when making async HTTP PUT requests.
 pub fn put(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Put, url)
 }

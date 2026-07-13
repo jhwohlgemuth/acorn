@@ -69,9 +69,9 @@ impl TreeEntry {
     pub fn path(self) -> String {
         self.path
     }
-    /// Whether tree entry is a blob
-    pub fn is_blob(&self) -> bool {
-        self.entry_type.eq(&TreeEntryType::Blob)
+    /// Whether tree entry is a file ("blob")
+    pub fn is_file(&self) -> bool {
+        self.entry_type.eq(&TreeEntryType::File)
     }
 }
 /// Fetch repository tree blob paths for a GitHub repository and branch
@@ -110,10 +110,10 @@ pub(crate) async fn tree_paths(host: impl Into<String>, path: impl Into<String>,
 }
 pub(crate) fn collect_tree(entries: Vec<TreeEntry>, prefix: &str) -> (Vec<String>, Vec<(String, String)>) {
     entries.into_iter().fold((vec![], vec![]), |(mut paths, mut pending), entry| {
-        let is_blob = entry.is_blob();
+        let is_file = entry.is_file();
         let TreeEntry { path, sha, .. } = entry;
         let full_path = path_for(prefix, path.as_str());
-        if is_blob {
+        if is_file {
             paths.push(full_path);
         } else {
             pending.push((sha, full_path));

@@ -8,7 +8,7 @@
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
     self, extract_template_keys, orcid, render, require_non_empty_secret, ror, Configuration, Endpoint, IntoBody, IntoHeaders, Param, ParamStyle,
-    Params, RemoteResource, Resource, ResponseContent, INCLUDED_ENDPOINTS,
+    Params, RemoteResource, Resource, ResponseContent, TreeEntry, TreeEntryType, INCLUDED_ENDPOINTS,
 };
 use crate::io::read_file;
 use crate::param;
@@ -19,7 +19,26 @@ use crate::{Location, Repository, Scheme};
 
 #[test]
 fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 12);
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 13);
+}
+#[test]
+fn test_tree_entry_type_deserializes_provider_aliases() {
+    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""file""#).unwrap(), TreeEntryType::File);
+    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""blob""#).unwrap(), TreeEntryType::File);
+    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""directory""#).unwrap(), TreeEntryType::Directory);
+    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""tree""#).unwrap(), TreeEntryType::Directory);
+}
+#[test]
+fn test_tree_entry_deserializes_huggingface_shape() {
+    let entries: Vec<TreeEntry> = serde_json::from_str(
+        r#"[
+            {"path":"model.Q4_K_M.gguf","type":"file","size":123},
+            {"path":"refs","type":"directory"}
+        ]"#,
+    )
+    .unwrap();
+    assert!(entries[0].is_file());
+    assert!(entries[1].is_directory());
 }
 #[tokio::test]
 #[ignore = "Requires internet connection and citeas.org to be up"]
@@ -288,7 +307,6 @@ fn test_ror_search_response() {
 mod github_api {
     use super::*;
     use crate::io::api::github::{collect_tree, path_for, TreeEntry};
-    use crate::io::api::TreeEntryType;
 
     #[test]
     fn test_template_endpoint_for() {
@@ -307,7 +325,7 @@ mod github_api {
             TreeEntry {
                 path: "README.md".to_string(),
                 mode: "100644".to_string(),
-                entry_type: TreeEntryType::Blob,
+                entry_type: TreeEntryType::File,
                 sha: "blob-sha".to_string(),
                 size: Some(10),
                 url: "https://example.invalid/blob".to_string(),
@@ -315,7 +333,7 @@ mod github_api {
             TreeEntry {
                 path: "content".to_string(),
                 mode: "040000".to_string(),
-                entry_type: TreeEntryType::Tree,
+                entry_type: TreeEntryType::Directory,
                 sha: "tree-sha".to_string(),
                 size: None,
                 url: "https://example.invalid/tree".to_string(),
@@ -330,7 +348,7 @@ mod github_api {
         let entries = vec![TreeEntry {
             path: "index.json".to_string(),
             mode: "100644".to_string(),
-            entry_type: TreeEntryType::Blob,
+            entry_type: TreeEntryType::File,
             sha: "blob-sha".to_string(),
             size: Some(10),
             url: "https://example.invalid/blob".to_string(),

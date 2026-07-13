@@ -1,18 +1,214 @@
 use crate::cli::CommandOptions;
 use crate::commands::preflight;
+use acorn::io::api::huggingface;
 use acorn::io::config::{ApplicationConfiguration, Bucket, BucketOptions};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Operations};
-use acorn::io::InputOutput;
-use acorn::prelude::PathBuf;
+use acorn::io::{apply_progress_style, create_progress_bar, finish_progress_bar, http, ApiResult, InputOutput, ProgressType};
+use acorn::prelude::{create_dir_all, remove_file, Path, PathBuf, Vec};
 use acorn::util::constants::app::DEFAULT_CONFIG_FILENAMES;
 use acorn::util::{suffix, Label, StringConversion};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
+use fluent_uri::Uri;
 use owo_colors::OwoColorize;
+use std::fs::rename;
+use std::path::Component;
 use tracing::error;
+use tracing::info;
 
 pub mod model;
+
+#[derive(Clone, Debug)]
+struct DownloadItem {
+    url: String,
+    path: String,
+    size: Option<u64>,
+}
+#[derive(Clone, Debug)]
+struct DownloadItems {
+    destination: PathBuf,
+    items: Vec<DownloadItem>,
+    quiet: bool,
+}
+#[derive(Clone, Debug)]
+struct DownloadTask {
+    item: DownloadItem,
+    part: PathBuf,
+    target: PathBuf,
+    quiet: bool,
+}
+impl DownloadItem {
+    fn local_path(&self) -> PathBuf {
+        PathBuf::from(&self.path)
+    }
+    fn has_unsafe_path(&self) -> bool {
+        self.local_path()
+            .components()
+            .any(|component| matches!(component, Component::ParentDir | Component::RootDir | Component::Prefix(_)))
+    }
+    fn target(&self, destination: &Path) -> PathBuf {
+        destination.join(self.local_path())
+    }
+    fn partial_path(&self, destination: &Path) -> PathBuf {
+        let target = self.target(destination);
+        target.with_extension(format!(
+            "{}part",
+            target
+                .extension()
+                .and_then(|value| value.to_str())
+                .map(|value| format!("{value}."))
+                .unwrap_or_default()
+        ))
+    }
+    fn is_huggingface(&self) -> bool {
+        Uri::parse(self.url.as_str())
+            .ok()
+            .and_then(|uri| uri.authority().map(|authority| authority.host().to_string()))
+            .is_some_and(|host| host == "huggingface.co" || host.ends_with(".huggingface.co"))
+    }
+    fn error_message(&self) -> &'static str {
+        match self.is_huggingface() {
+            | true => "Failed to download Hugging Face file",
+            | false => "Failed to download model file",
+        }
+    }
+    fn auth_error_message(&self) -> Option<String> {
+        match (self.is_huggingface(), huggingface::has_auth_token()) {
+            | (true, true) => {
+                Some("Hugging Face denied access to this model file; verify your token has access to the repository and gated/Xet files".to_string())
+            }
+            | _ => Some("Model download requires authentication; set HF_TOKEN, HF_API_TOKEN, or HUGGINGFACE_HUB_TOKEN".to_string()),
+        }
+    }
+    fn is_complete_at(&self, target: &Path) -> bool {
+        target.exists()
+            && self
+                .size
+                .is_none_or(|size| target.metadata().map(|metadata| metadata.len() == size).unwrap_or(false))
+    }
+    fn validate_downloaded_size(&self, path: &Path) -> ApiResult<()> {
+        match self.size {
+            | Some(size) => match path.metadata() {
+                | Ok(metadata) if metadata.len() == size => Ok(()),
+                | Ok(metadata) => Err(eyre!(
+                    "Downloaded model size did not match expected size (expected {size}, got {})",
+                    metadata.len()
+                )),
+                | Err(why) => Err(eyre!("Failed to inspect downloaded model file {} — {why}", path.display())),
+            },
+            | None => Ok(()),
+        }
+    }
+}
+impl DownloadTask {
+    fn new(item: DownloadItem, destination: &Path, quiet: bool) -> Self {
+        Self {
+            part: item.partial_path(destination),
+            target: item.target(destination),
+            item,
+            quiet,
+        }
+    }
+    async fn download(self) -> ApiResult<()> {
+        match self.item.has_unsafe_path() {
+            | true => Err(eyre!("Model file path is unsafe: {}", self.item.path)),
+            | false if self.item.is_complete_at(&self.target) => {
+                if !self.quiet {
+                    println!("=> {} Skipping existing model file {}", Label::pass(), self.target.display());
+                }
+                Ok(())
+            }
+            | false => {
+                let stale_part_removed = match self.part.exists() {
+                    | true => remove_file(&self.part).map_err(|why| eyre!("Failed to remove stale partial download {} — {why}", self.part.display())),
+                    | false => Ok(()),
+                };
+                let parent_ready = stale_part_removed.and_then(|_| match self.part.parent() {
+                    | Some(parent) => create_dir_all(parent).map_err(|why| eyre!("Failed to create model output directory — {why}")),
+                    | None => Err(eyre!("Model output path has no parent directory")),
+                });
+                match parent_ready {
+                    | Ok(_) => match self.clone().stream().await.and_then(|_| self.item.validate_downloaded_size(&self.part)) {
+                        | Ok(_) => rename(&self.part, &self.target)
+                            .map_err(|why| eyre!("Failed to finalize model download {} — {why}", self.target.display())),
+                        | Err(why) => {
+                            if self.part.exists() {
+                                let _ = remove_file(&self.part);
+                            }
+                            Err(why)
+                        }
+                    },
+                    | Err(why) => Err(why),
+                }
+            }
+        }
+    }
+    async fn stream(self) -> ApiResult<()> {
+        let progress_type = match (self.quiet, self.item.size) {
+            | (true, _) => ProgressType::Silent,
+            | (false, Some(_)) => ProgressType::Bar,
+            | (false, None) => ProgressType::Spinner,
+        };
+        let progress = create_progress_bar(
+            self.item.size.and_then(|value| usize::try_from(value).ok()).unwrap_or_default(),
+            progress_type,
+        );
+        match self.item.size {
+            | Some(_) => apply_progress_style(&progress, "  {spinner:.green} {bytes:>10}/{total_bytes:<10} [{bar:40.green}] {msg}"),
+            | None => apply_progress_style(&progress, "  {spinner:.green} {bytes:>10} {msg}"),
+        }
+        progress.set_message(self.target.display().to_string());
+        if !self.quiet {
+            info!("=> {} Downloading {}", Label::run(), self.target.display());
+        }
+        let auth_error_message = self.item.auth_error_message();
+        match http::download_with_progress(
+            &self.item.url,
+            &self.part,
+            |downloaded, total| {
+                if let Some(total) = total {
+                    progress.set_length(total);
+                }
+                progress.set_position(downloaded);
+            },
+            self.item.is_huggingface().then(huggingface::auth_headers),
+            Some(self.item.error_message()),
+            auth_error_message.as_deref(),
+        )
+        .await
+        {
+            | Ok(_) => {
+                if !self.quiet {
+                    finish_progress_bar(&progress, format!("{}Downloaded {}", Label::CHECKMARK, self.target.display()));
+                }
+                Ok(())
+            }
+            | Err(why) => {
+                progress.finish_and_clear();
+                Err(why)
+            }
+        }
+    }
+}
+impl DownloadItems {
+    fn new(destination: &Path, items: Vec<DownloadItem>, quiet: bool) -> Self {
+        Self {
+            destination: destination.to_path_buf(),
+            items,
+            quiet,
+        }
+    }
+    async fn download(self) -> ApiResult<()> {
+        let results = futures::future::join_all(self.items.into_iter().map(|item| {
+            let destination = self.destination.clone();
+            let quiet = self.quiet;
+            async move { DownloadTask::new(item, &destination, quiet).download().await }
+        }))
+        .await;
+        results.into_iter().find(|result| result.is_err()).unwrap_or(Ok(()))
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub async fn run(

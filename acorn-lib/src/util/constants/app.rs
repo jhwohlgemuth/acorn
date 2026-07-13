@@ -35,6 +35,12 @@ pub const DEFAULT_CONFIG_FILENAMES: [&str; 4] = [".acorn.json", ".acorn.jsonc", 
 pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
 /// Default base name used for configured GitLab runner containers.
 pub const DEFAULT_RUNNER_NAME: &str = "acorn-runner";
+/// Default ACORN HTTP User-Agent header value when std is available.
+#[cfg(feature = "std")]
+pub const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), " (https://acorn.ornl.gov; mailto:research@ornl.gov)");
+/// Default ACORN HTTP User-Agent header value when std is unavailable.
+#[cfg(not(feature = "std"))]
+pub const ACORN_USER_AGENT: &str = "ACORN (https://acorn.ornl.gov; mailto:research@ornl.gov)";
 /// RGB ORNL brand primary color.
 ///
 /// See <https://www.olcf.ornl.gov/about-olcf/media-assets/>.

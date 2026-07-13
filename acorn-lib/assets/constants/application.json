@@ -51,6 +51,18 @@
       ]
     },
     {
+      "name": "huggingface::api",
+      "domain": "huggingface.co",
+      "root": "api",
+      "resources": [
+        {
+          "name": "tree",
+          "method": "get",
+          "template": "{{ base }}/models/{{ identifier }}/tree/{{ revision }}{{ query }}"
+        }
+      ]
+    },
+    {
       "name": "gitlab::api",
       "domain": "gitlab.com",
       "root": "api/v4",

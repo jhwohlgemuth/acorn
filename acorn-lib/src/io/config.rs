@@ -168,9 +168,13 @@ pub struct BucketOptions {
     #[builder(default)]
     pub filter: Vec<String>,
 }
-struct FilterSet {
-    ignore: Vec<Regex>,
-    filter: Vec<Regex>,
+/// Struct for filtering files based on regex patterns
+#[derive(Clone, Debug)]
+pub struct FilterSet {
+    /// Regex patterns to ignore
+    pub ignore: Vec<Regex>,
+    /// Regex patterns to include
+    pub filter: Vec<Regex>,
 }
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[builder(start_fn = at, on(String, into))]
@@ -406,7 +410,7 @@ impl Bucket {
     pub async fn copy_files(self: Bucket, options: &BucketOptions) -> ApiResult<usize> {
         let BucketOptions { output, ignore, filter, .. } = options;
         let output = Arc::new(output.clone().unwrap_or_default());
-        match compile_filter_set(ignore, filter) {
+        match FilterSet::compile(ignore, filter) {
             | Ok(filters) => {
                 let Bucket { name, code_repository, .. } = self.clone();
                 match code_repository.is_local() {
@@ -461,7 +465,7 @@ impl Bucket {
     /// Downloads files concurrently using buffered streams
     pub async fn download_files(self: Bucket, options: &BucketOptions) -> ApiResult<usize> {
         let BucketOptions { filter, ignore, .. } = options;
-        match compile_filter_set(ignore, filter) {
+        match FilterSet::compile(ignore, filter) {
             | Ok(filters) => {
                 let name = self.name.clone();
                 let code_repository = self.code_repository.clone();
@@ -596,6 +600,18 @@ impl BucketOptions {
         }
     }
 }
+impl FilterSet {
+    /// Compile ignore and filter regex patterns into a filter set
+    pub fn compile(ignore: &[String], filter: &[String]) -> ApiResult<Self> {
+        let compile = |patterns: &[String]| {
+            patterns
+                .iter()
+                .map(|pattern| Regex::new(pattern).map_err(|why| eyre!("Invalid regex/filter pattern '{pattern}': {why}")))
+                .collect::<ApiResult<Vec<Regex>>>()
+        };
+        compile(ignore).and_then(|ignore| compile(filter).map(|filter| Self { ignore, filter }))
+    }
+}
 impl fmt::Display for RunnerType {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
@@ -637,15 +653,6 @@ impl From<String> for RunnerType {
     fn from(value: String) -> Self {
         Self::from(value.as_str())
     }
-}
-fn compile_filter_set(ignore: &[String], filter: &[String]) -> ApiResult<FilterSet> {
-    compile_regex_patterns(ignore).and_then(|ignore| compile_regex_patterns(filter).map(|filter| FilterSet { ignore, filter }))
-}
-fn compile_regex_patterns(patterns: &[String]) -> ApiResult<Vec<Regex>> {
-    patterns
-        .iter()
-        .map(|pattern| Regex::new(pattern).map_err(|why| eyre!("Invalid regex/filter pattern '{pattern}': {why}")))
-        .collect()
 }
 fn count_json_files(paths: &[String]) -> usize {
     paths.iter().filter(|&path| path.to_lowercase().ends_with(".json")).count()
@@ -816,22 +823,24 @@ mod tests {
     }
     #[test]
     fn test_is_ignored_path() {
-        let ignore = compile_regex_patterns(&[r"\.jpeg$".to_string(), r"notes\.txt$".to_string()]).unwrap();
+        let ignore = FilterSet::compile(&[r"\.jpeg$".to_string(), r"notes\.txt$".to_string()], &[])
+            .unwrap()
+            .ignore;
         assert!(is_ignored_path("/tmp/photo.jpeg", &ignore));
         assert!(is_ignored_path("/tmp/notes.txt", &ignore));
         assert!(!is_ignored_path("/tmp/index.json", &ignore));
-        let invalid = compile_regex_patterns(&["[".to_string()]);
+        let invalid = FilterSet::compile(&["[".to_string()], &[]);
         assert!(invalid.is_err());
         let ignore: Vec<Regex> = vec![];
         assert!(is_ignored_path("/tmp/README.md", &ignore));
     }
     #[test]
     fn test_is_filtered_path() {
-        let filter = compile_regex_patterns(&[r"\.json$".to_string(), r"img/".to_string()]).unwrap();
+        let filter = FilterSet::compile(&[], &[r"\.json$".to_string(), r"img/".to_string()]).unwrap().filter;
         assert!(is_filtered_path("/tmp/data.json", &filter));
         assert!(is_filtered_path("/tmp/img/photo.jpg", &filter));
         assert!(!is_filtered_path("/tmp/README.md", &filter));
-        let invalid = compile_regex_patterns(&["[".to_string()]);
+        let invalid = FilterSet::compile(&[], &["[".to_string()]);
         assert!(invalid.is_err());
         let filter: Vec<Regex> = vec![];
         assert!(is_filtered_path("/tmp/README.md", &filter));

@@ -2,7 +2,7 @@
 //!
 use crate::io::api::{
     require_non_empty_secret, Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, Param, Params, RemoteResource, ResponseContent,
-    TreeEntryType, ValueValidator, INCLUDED_ENDPOINTS,
+    TreeEntry, ValueValidator, INCLUDED_ENDPOINTS,
 };
 use crate::io::config::{RunnerDetails, RunnerStatus, RunnerType};
 use crate::io::database::schema::{ProgrammingLanguageRow, Table};
@@ -769,28 +769,6 @@ pub struct RunnerScope {
     #[serde(rename = "web_url")]
     pub url: Option<String>,
 }
-/// Struct for GitLab tree entry
-///
-/// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
-#[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TreeEntry {
-    /// Integer ID of GitLab project
-    ///
-    /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
-    pub id: String,
-    /// Name of tree entry
-    pub name: String,
-    /// Type of tree entry
-    #[serde(rename = "type")]
-    pub entry_type: TreeEntryType,
-    /// Path of tree entry
-    ///
-    /// The path inside the repository Used to get content of subdirectories
-    pub path: String,
-    /// Mode of tree entry
-    pub mode: String,
-}
 #[derive(Clone, Debug, Default, Serialize)]
 /// GitLab tree response normalized to blob file paths
 pub struct TreeResponse {
@@ -1313,17 +1291,6 @@ impl TryFrom<&str> for TargetType {
         value.parse()
     }
 }
-impl TreeEntry {
-    /// Get path of tree entry
-    pub fn path(self) -> String {
-        self.path
-    }
-    /// Whether tree entry is a blob
-    pub fn is_blob(&self) -> bool {
-        let Self { entry_type, .. } = self;
-        entry_type.eq(&TreeEntryType::Blob)
-    }
-}
 impl<'de> serde::Deserialize<'de> for TreeResponse {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
@@ -1335,7 +1302,7 @@ impl<'de> serde::Deserialize<'de> for TreeResponse {
 
         match TreeResponseValue::deserialize(deserializer)? {
             | TreeResponseValue::Entries(entries) => Ok(Self {
-                paths: entries.into_iter().filter(|entry| entry.is_blob()).map(|entry| entry.path()).collect(),
+                paths: entries.into_iter().filter(TreeEntry::is_file).map(TreeEntry::path).collect(),
                 error: None,
             }),
             | TreeResponseValue::Error(why) => Ok(Self {

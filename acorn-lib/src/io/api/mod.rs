@@ -35,6 +35,7 @@ pub mod citeas;
 pub mod geonames;
 pub mod github;
 pub mod gitlab;
+pub mod huggingface;
 pub mod models_dev;
 pub mod openai;
 pub mod openapi;
@@ -216,20 +217,54 @@ pub enum ResponseContent {
     /// XML response content
     Xml(String),
 }
-/// Type for Git(Hub/Lab) tree entry
+/// Generic repository tree entry shared across provider APIs
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TreeEntry {
+    /// Repository-relative path
+    pub path: String,
+    /// Entry type normalized across provider naming
+    #[serde(rename = "type")]
+    pub entry_type: TreeEntryType,
+    /// File size in bytes, when provided
+    pub size: Option<u64>,
+    /// Provider-specific identifier, when provided
+    pub id: Option<String>,
+    /// Entry basename, when provided
+    pub name: Option<String>,
+    /// File mode, when provided
+    pub mode: Option<String>,
+    /// Git object SHA, when provided
+    pub sha: Option<String>,
+    /// Provider URL, when provided
+    pub url: Option<String>,
+}
+/// Type for repository tree entry
 #[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 #[serde(rename_all = "lowercase")]
 pub enum TreeEntryType {
-    /// List of files and directories
-    ///
-    /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
-    #[display("tree")]
-    Tree,
-    /// Base64 encoded content
-    ///
-    /// See <https://docs.gitlab.com/api/repositories/#get-a-blob-from-repository>
-    #[display("blob")]
-    Blob,
+    /// File-like repository entry
+    #[serde(alias = "blob")]
+    #[display("file")]
+    File,
+    /// Directory-like repository entry
+    #[serde(alias = "tree")]
+    #[display("directory")]
+    Directory,
+}
+impl TreeEntry {
+    /// Whether this tree entry is a file
+    pub fn is_file(&self) -> bool {
+        self.entry_type == TreeEntryType::File
+    }
+    /// Whether this tree entry is a directory
+    pub fn is_directory(&self) -> bool {
+        self.entry_type == TreeEntryType::Directory
+    }
+    /// Consume the entry and return its repository-relative path
+    pub fn path(self) -> String {
+        self.path
+    }
 }
 /// Wrapper that enables any `Deserialize + fmt::Debug` type as a fallback
 /// error response parser

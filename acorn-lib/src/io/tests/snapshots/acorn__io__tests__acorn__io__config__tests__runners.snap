@@ -12,6 +12,7 @@ Some(
                 location: Detailed {
                     scheme: HTTPS,
                     uri: "https://code.ornl.gov/research-enablement/acorn",
+                    revision: None,
                 },
             },
             name: None,

@@ -5,8 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use crate::io::api::gitlab::TreeEntry;
-use crate::io::api::TreeEntryType;
+use crate::io::api::{TreeEntry, TreeEntryType};
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::config::{ApplicationConfiguration, Bucket};
 use crate::io::http::policy::{http_timeout_layer, shared_http_policy};
@@ -329,13 +328,16 @@ fn test_current_date() {
 #[test]
 fn test_gitlab_tree_entry() {
     let entry = TreeEntry {
-        id: 1234.to_string(),
-        name: "acorn".to_string(),
-        entry_type: TreeEntryType::Tree,
+        id: Some(1234.to_string()),
+        name: Some("acorn".to_string()),
+        entry_type: TreeEntryType::Directory,
         path: "acorn".to_string(),
-        mode: "example".to_string(),
+        mode: Some("example".to_string()),
+        sha: None,
+        size: None,
+        url: None,
     };
-    assert!(!entry.is_blob());
+    assert!(!entry.is_file());
     assert_eq!(entry.path(), "acorn");
 }
 #[tokio::test]
@@ -632,6 +634,9 @@ fn test_first_env_var() {
     // Test with multiple variables where first one wins
     temp_env::with_vars([("WINNING_VAR", Some("winning_value")), ("LOSING_VAR", Some("losing_value"))], || {
         assert_eq!(first_env_var(&["WINNING_VAR", "LOSING_VAR"]), Some("winning_value".to_string()));
+    });
+    temp_env::with_vars([("EMPTY_VAR", Some("  ")), ("FALLBACK_VAR", Some("fallback_value"))], || {
+        assert_eq!(first_env_var(&["EMPTY_VAR", "FALLBACK_VAR"]), Some("fallback_value".to_string()));
     });
 }
 #[test]

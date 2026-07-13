@@ -1,5 +1,6 @@
 use acorn::io::{
     files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored, filter_ignored_with_root, ApiResult,
+    Source, SourceAction,
 };
 use acorn::prelude::PathBuf;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
@@ -41,6 +42,12 @@ pub struct CommandOptions {
     pub ignore: Option<String>,
     /// Path to file or folder to be used for output
     pub output: Option<PathBuf>,
+    /// Runtime source selector for commands that process one selected input at a time
+    pub selector: Option<Source>,
+    /// Runtime source materialization action for commands that copy, symlink, or reference sources
+    pub action: Option<SourceAction>,
+    /// Path to the local database used for cache/history storage
+    pub database_path: Option<PathBuf>,
     /// Path to reference file
     ///
     /// e.g. reference.pptx for exporting RAD to PowerPoint
