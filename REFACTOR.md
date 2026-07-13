@@ -15,8 +15,8 @@ This document captures cross-crate refactor and hardening recommendations for `a
 7. [Analyzer Backlog](#analyzer-backlog)
 8. [io::api Backlog](#ioapi-backlog)
 9. [acorn-cmd: Standalone Crate Extraction](#acorn-cmd-standalone-crate-extraction)
-10. [Model Download Implementation](#model-download-implementation)
-11. [Reference Inventories](#reference-inventories)
+10. [Reference Inventories](#reference-inventories)
+11. [Model Download Implementation](#model-download-implementation)
 
 ## Goals
 
@@ -52,7 +52,7 @@ Use this section to choose the next work item. Detailed notes for each task are 
 | Export/PPTX | Introduce shared `ExportContext` | Medium | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | io::api | Complete HTTP method dispatch in root invoke path | Low | Critical | [io::api Backlog](#ioapi-backlog) |
 | no-std/WASM | Isolate std-only modules from domain modules | Medium | Critical | [Portability Backlog](#portability-backlog-no-std--wasm) |
-| Model Download | Implement `acorn download model` weight downloads with `.gguf` defaults | Medium | Critical | [Model Download Implementation](#model-download-implementation) — Phase 1 ✅, Phase 2 planned |
+| Model Download | Implement `acorn download model` weight downloads with GGUF-first defaults | Medium | Critical | [Model Download Implementation](#model-download-implementation) — Phase 1 complete, GGUF-first phases planned |
 | Analyzer | Extract link-check traversal helpers | Low | High | [Analyzer Backlog](#analyzer-backlog) |
 
 ### Visual Status Legend
@@ -485,141 +485,6 @@ This section documents the plan to extract `cmd!`, `args!`, and `cmd_sh_words!` 
 
 ---
 
-## Model Download Implementation
-
-This section tracks ACORN-side work to make `acorn download model` the primary backend for downloading model weights used by Gold and local inference environments.
-
-### Phase 1: Config + CLI Foundation (✅ Complete)
-
-- `ApplicationConfiguration` supports `models: Option<Vec<String>>` field.
-- `--config` / `-c` flag resolves application config and merges with positional models.
-- Positional-first deduplication with positional models always winning.
-- Default output dir resolves to `$HOME/.models` when `--output` is omitted.
-- Models validated against local database with clear error messages.
-- Offline mode rejects download immediately with error.
-- 17 tests passing covering config parsing, model resolution, and CLI integration.
-
-### Phase 2: GGUF Resolver + Weight Downloads (Planned)
-
-#### Goal
-
-Make ACORN responsible for model download orchestration so downstream projects do not need Python-specific Hugging Face tooling.
-
-#### Current State
-
-- `acorn-cli` exposes `download model` with config-driven resolution and positional-first deduplication.
-- Actual weight download is deferred to Phase 2.
-- `acorn-lib/src/schema/agent/mod.rs` exposes `ModelDetails.weights`, `acorn-lib/src/io/database/schema.rs` persists in `ModelRow.weights`.
-- `acorn-lib/src/io/api/models_dev.rs` downloads and caches the models.dev catalog.
-
-#### Tasks
-
-1. Define `ModelDownloadPlan` type with source URL/repository, selected files, output directory, auth requirements, expected size/checksum.
-2. Resolve selectors from config → local database (`ModelRow.weights`) → models.dev catalog (`ModelDetails.weights`).
-3. Implement Hugging Face resolver: list/resolve repository files, preserve ACORN `--filter` regex semantics, convert safe regex to HF include-style globs.
-4. Support direct HTTP(S) model weight URLs as fallback.
-5. Prefer `.gguf` weights by default for `llama.cpp`, `llama-swap`, Gold.
-6. Resolve auth tokens from `HF_TOKEN`, `HF_API_TOKEN`, `HUGGINGFACE_HUB_TOKEN` via `acorn::io::first_env_var`.
-7. Download through `.part` files, verify size/checksum, atomic rename.
-8. Skip existing files matching expected size/checksum.
-9. Typed errors for unknown models, ambiguous selections, missing auth, failed HTTP, incomplete downloads.
-
-#### Configuration Shape
-
-```json
-{
-  "models": [
-    {
-      "name": "smollm2",
-      "source": {
-        "type": "huggingFace",
-        "repository": "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF",
-        "revision": "main"
-      },
-      "outputPath": "smollm2",
-      "auth": "optional",
-      "filter": ["\\.gguf$"],
-      "ignore": ["Q2_", "Q3_"]
-    }
-  ]
-}
-```
-
-Suggested types: `ModelDownloadEntry`, `ModelSource`, `ModelAuthRequirement`, `ModelFileRule`.
-
-#### Resolver Order
-
-1. Exact config `models[].name`.
-2. Exact `ModelRow.model_id` from local database.
-3. Exact `ModelDetails.id` from models.dev (network allowed).
-4. Case-insensitive alias (single result only).
-5. Direct URL fallback.
-6. Error on zero or multiple matches.
-
-#### Default Weight Selection
-
-Precedence: User filter > `.gguf` > `.safetensors` > `.bin` > `.pt`/`.pth`.
-
-Quantization for multiple `.gguf`: explicit filter > `Q4_K_M` default > smallest if exactly one candidate > ambiguity error.
-
-#### Filter Semantics
-
-- `--filter` accepts regex patterns; matches against repository-relative paths.
-- Config `filter` and CLI `--filter` combined as additional regex constraints.
-- Safe regex-to-glob conversion: `\\.gguf$` → `*.gguf`, `Q4_K_M.*\\.gguf$` → `*Q4_K_M*.gguf`.
-- Unsupported regex falls back to listing repository files and applying regex locally.
-
-#### Hugging Face Support
-
-- No Python or `hf` CLI dependency.
-- Direct file URLs: `https://huggingface.co/{org}/{repo}/resolve/{revision}/{path}`.
-- Repository listing via HF APIs; default revision `main`.
-
-#### Auth
-
-```rust
-first_env_var(&["HF_TOKEN", "HF_API_TOKEN", "HUGGINGFACE_HUB_TOKEN"])
-```
-
-- Public models work without tokens.
-- Gated/private models return clear missing-auth error on 401/403.
-- Tokens never appear in CLI args, logs, errors, or database rows.
-
-#### Transfer Reliability
-
-1. Download to `{target}.part`, flush/close, verify size/checksum, atomic rename.
-2. Remove partial files on failure.
-3. Stage 1: safe partial + skip-existing. Stage 2: HTTP range resume. Stage 3: checksum from manifests.
-
-#### Offline Behavior
-
-- Local/config resolution and database lookup allowed offline.
-- Remote catalog refresh and remote downloads blocked offline.
-
-#### Test Coverage (Phase 2)
-
-1. Hugging Face repository resolution.
-2. Direct URL downloads.
-3. `--filter` regex behavior matching other ACORN commands.
-4. Default `.gguf` selection and quantization ambiguity handling.
-5. Output path construction and path traversal prevention.
-6. Skip-existing behavior.
-7. Token environment resolution and redacted log output.
-8. Partial download cleanup.
-9. Offline mode blocking remote operations.
-10. Config `outputPath` relative vs absolute resolution.
-
-#### Completion Criteria (Phase 2)
-
-1. `acorn download model smollm2` downloads preferred `.gguf` or reports candidates when ambiguous.
-2. Existing files skipped safely by default or with explicit flag.
-3. Private/gated HF models downloadable via environment tokens.
-4. No Python tooling dependency.
-5. Direct URL downloads bypass format selection.
-6. Default model root `$HOME/.models`.
-
----
-
 ## Reference Inventories
 
 These sections support planning and fixture maintenance. They are intentionally separated from the actionable refactor backlogs above.
@@ -776,3 +641,241 @@ This section documents the rules for converting CKAN API format test fixtures (i
 ```bash
 cargo run --bin acorn -- check ./tests/fixtures/schema/dcat/ --standard dcat
 ```
+
+---
+
+## Model Download Implementation
+
+This section tracks ACORN-side work to make `acorn download model` the primary backend for downloading model weights used by Gold, `llama.cpp`, `llama-swap`, and local inference environments. The default behavior is GGUF-first: `acorn download model <repo-or-model>` should prefer `*.gguf` files because this command is primarily meant for `llama.cpp`-compatible local inference.
+
+### Current State
+
+- `acorn-cli` exposes `download model` with config-driven resolution and positional-first deduplication.
+- `ApplicationConfiguration` supports model entries through `models: Option<Vec<ModelEntry>>`, including bare selectors and detailed entries.
+- `--filter` and `--ignore` are parsed and passed into `download::model::run`, but the implementation currently ignores them.
+- Remote weight download is not implemented yet; remote selectors currently resolve/validate output directories.
+- `acorn-lib/src/schema/agent/mod.rs` exposes `ModelDetails.weights`, `acorn-lib/src/io/database/schema.rs` persists `ModelRow.weights`, and `acorn-lib/src/io/api/models_dev.rs` downloads and caches the models.dev catalog.
+
+### Phase 1: Config + CLI Foundation (Complete)
+
+- Config files can declare model selectors and detailed model entries.
+- `--config` / `-c` resolves application config and merges with positional models.
+- Positional-first deduplication keeps positional models ahead of config entries.
+- Default output directory resolves to `$HOME/.models` when `--output` is omitted.
+- Models are validated against the local database when possible, with clear continuation messages when metadata is unavailable.
+- Offline mode rejects remote model selectors before any remote operation.
+- Existing tests cover config parsing, local model handling, model resolution, offline rejection, and CLI parsing.
+
+### Phase 2: Selector Filtering
+
+Goal: make the existing `--filter` and `--ignore` flags effective before full remote downloads are implemented.
+
+Tasks:
+1. Compile `--filter` and `--ignore` as regex patterns using semantics consistent with content downloads.
+2. Apply selector-level filtering after config/positional merge and deduplication, before offline checks and model resolution.
+3. Match local sources, direct URLs, remote repository IDs, and unsupported selectors against `Source::identifier()`.
+4. Treat empty `--filter` as include-all and non-empty `--filter` as include-if-any-pattern-matches.
+5. Treat `--ignore` as exclude-if-any-pattern-matches.
+6. Return clear errors for invalid regex patterns.
+7. Return a specific empty-selection error when all selectors are removed by `--filter`, `--ignore`, or `--whitelist`.
+
+Acceptance criteria:
+1. `acorn download model repo/name --filter name` keeps the selector.
+2. `acorn download model repo/name --ignore name` removes the selector and reports no matching models.
+3. Invalid regex input returns an actionable error.
+4. Existing local copy/reference behavior remains unchanged when no filters are provided.
+
+### Phase 3: Download Planning Types
+
+Goal: separate model selection, file planning, and transfer execution into testable units.
+
+Tasks:
+1. Define `ModelDownloadPlan` with source repository or URL, selected files, output directory, auth requirement, expected size, checksum, and transfer mode.
+2. Define file-level metadata types for repository-relative path, resolved URL, size, checksum, format, and quantization.
+3. Define typed errors for unknown models, multiple matches, no matching files, ambiguous quantization, missing auth, failed HTTP, path traversal, and incomplete downloads.
+4. Resolve selectors in this order: exact config `models[].name`, exact `ModelRow.model_id`, exact `ModelDetails.id` from models.dev when network is allowed, single case-insensitive alias match, direct URL fallback, then explicit error.
+5. Keep direct HTTP(S) file URLs as a fallback path that bypasses repository format selection.
+
+Suggested types: `ModelDownloadEntry`, `ModelSource`, `ModelAuthRequirement`, `ModelFileRule`, `ModelDownloadPlan`, `ModelFileCandidate`, `ModelDownloadError`.
+
+Configuration shape:
+
+```json
+{
+  "models": [
+    {
+      "name": "smollm2",
+      "source": {
+        "type": "huggingFace",
+        "repository": "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF",
+        "revision": "main"
+      },
+      "outputPath": "smollm2",
+      "auth": "optional",
+      "filter": ["\\.gguf$"],
+      "ignore": ["Q2_", "Q3_"]
+    }
+  ]
+}
+```
+
+### Phase 4: Hugging Face Resolution And GGUF Selection
+
+Goal: resolve Hugging Face repository files without requiring Python or the `hf` CLI, while mirroring the useful parts of `hf download --include` and `hf download --exclude`.
+
+Tasks:
+1. Implement Hugging Face repository listing through HF APIs with default revision `main`.
+2. Construct direct file URLs as `https://huggingface.co/{org}/{repo}/resolve/{revision}/{path}`.
+3. Preserve ACORN regex semantics for `--filter` and config `filter`, matching repository-relative paths.
+4. Preserve ACORN regex semantics for `--ignore` and config `ignore`, matching repository-relative paths.
+5. Convert safe regex patterns to HF-style include/exclude globs when possible, such as `\\.gguf$` to `*.gguf` and `Q4_K_M.*\\.gguf$` to `*Q4_K_M*.gguf`.
+6. Fall back to listing repository files and applying regex locally when regex-to-glob conversion is unsafe.
+7. Keep full-repo download as an explicit future capability, but do not make it the default for `acorn download model`.
+
+Default selection rules:
+1. If a user supplies `--filter` or config `filter`, select only matching files after applying ignores.
+2. Without user filters, prefer `*.gguf` files.
+3. If multiple GGUF files exist, prefer `Q4_K_M`.
+4. If no `Q4_K_M` exists and exactly one GGUF file remains, select it.
+5. If multiple GGUF candidates remain, return an ambiguity error listing candidates and suggesting `--filter`.
+6. If no GGUF files exist, report no GGUF candidates and suggest a GGUF repo or explicit `--filter` for non-GGUF formats.
+7. Direct file URLs bypass GGUF preference because the user already selected a file.
+
+Format fallback policy:
+1. GGUF is the default and preferred format for this command.
+2. `.safetensors`, `.bin`, `.pt`, and `.pth` are selected only when the user explicitly filters for them or a future explicit mode asks for Transformers/PyTorch behavior.
+3. Full Hugging Face repo download is safest for Transformers usage, but it is not the default for this command.
+
+### Phase 5: Transfer Reliability And Auth
+
+Goal: make downloads safe, restart-tolerant, and secure for public, gated, and private model repositories.
+
+Tasks:
+1. Resolve Hugging Face auth tokens from `HF_TOKEN`, `HF_API_TOKEN`, and `HUGGINGFACE_HUB_TOKEN` through `acorn::io::first_env_var`.
+2. Allow public model downloads without tokens.
+3. Return a clear missing-auth error for 401/403 responses from gated or private models.
+4. Never print tokens in CLI args, logs, errors, database rows, or debug output.
+5. Download to `{target}.part`, flush and close the file, verify expected size/checksum when available, then atomically rename.
+6. Remove partial files on failure.
+7. Skip existing files when size/checksum matches expected metadata.
+8. Prevent path traversal by resolving repository paths under the selected model output directory only.
+9. Keep HTTP range resume as a later reliability stage after safe partial downloads and skip-existing behavior are complete.
+
+Offline behavior:
+1. Local/config resolution and database lookup are allowed offline.
+2. Remote catalog refresh, Hugging Face repository listing, and remote downloads are blocked offline.
+3. Direct remote URLs are rejected offline before any network request.
+
+### Phase 6: CLI Help, Documentation, And Validation
+
+Goal: make the behavior understandable and testable from the CLI.
+
+Tasks:
+1. Document that `acorn download model` is GGUF-first by default for `llama.cpp`.
+2. Document that `--filter` behaves like an include rule and `--ignore` behaves like an exclude rule, while remaining regex-based rather than HF glob-based.
+3. Add examples for downloading the default GGUF, a specific quantization, and excluding low-quality quantizations.
+4. Add a note that ACORN does not require Python or `hf`, even though behavior maps conceptually to `hf download --include` and `hf download --exclude`.
+5. Add a note that Transformers/PyTorch users generally need a full repo or a broader include set containing weights, config, tokenizer, processor, chat template, and optional custom code files.
+
+Example commands:
+
+```bash
+acorn download model HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF
+acorn download model HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF --filter "Q4_K_M.*\\.gguf$"
+acorn download model HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF --ignore "Q2_|Q3_"
+```
+
+### Hugging Face Reference Notes
+
+The Hugging Face `hf` CLI does not require `--include` for full repository downloads:
+
+```bash
+hf download <org-or-user>/<model-name> --local-dir ./models/<model-name>
+```
+
+Use `--include` for selected files or glob patterns:
+
+```bash
+hf download <org-or-user>/<model-name> --local-dir ./models/<model-name> --include "*.safetensors" "config.json" "tokenizer.*"
+```
+
+Use `--exclude` to omit files:
+
+```bash
+hf download <org-or-user>/<model-name> --local-dir ./models/<model-name> --exclude "*.bin"
+```
+
+For ACORN, `--filter` maps conceptually to include behavior and `--ignore` maps conceptually to exclude behavior, but ACORN accepts regex patterns and should not shell out to `hf`.
+
+Common Transformers-style model files:
+
+| File | Purpose |
+|---|---|
+| `README.md` | Model card and usage notes |
+| `config.json` | Model architecture and hyperparameters |
+| `generation_config.json` | Default generation settings |
+| `*.safetensors` | Modern model weight format |
+| `pytorch_model.bin` | Older PyTorch weight format |
+| `*.index.json` | Index for sharded weight files |
+| `tokenizer.json` | Fast tokenizer definition |
+| `tokenizer_config.json` | Tokenizer metadata |
+| `special_tokens_map.json` | BOS/EOS/PAD/etc token mappings |
+| `vocab.json` | Token vocabulary, often used with BPE tokenizers |
+| `merges.txt` | BPE merge rules |
+| `spiece.model` | SentencePiece tokenizer model |
+| `chat_template.jinja` | Chat prompt formatting template |
+| `preprocessor_config.json` | Vision/audio preprocessing config |
+| `processor_config.json` | Multimodal processor config |
+| `adapter_config.json` | LoRA/PEFT adapter config |
+| `adapter_model.safetensors` | Adapter weights |
+
+BPE means Byte Pair Encoding. Hugging Face BPE tokenizers commonly use `vocab.json`, `merges.txt`, and `tokenizer.json`.
+
+GGUF is the native model format used by `llama.cpp`. For `llama.cpp`, users usually do not need PyTorch or Safetensors files and should focus on `*.gguf`.
+
+Common GGUF quantization choices:
+
+| Quant | Use case |
+|---|---|
+| `Q4_K_M` | Good default balance of quality and size |
+| `Q5_K_M` | Better quality, larger file |
+| `Q6_K` | Higher quality, much larger file |
+| `Q8_0` | Near full quality, very large file |
+| `F16` / `BF16` | Full-ish precision, huge file |
+| `Q2_K`, `Q3_K_*` | Smaller, lower quality |
+
+Example `llama.cpp` run after download:
+
+```bash
+llama-cli -m ./models/<model-name>/model.Q4_K_M.gguf -p "Hello"
+```
+
+### Test Coverage
+
+1. Selector-level `--filter` and `--ignore` behavior in the current command path.
+2. Invalid regex reporting for selector and repository-file filtering.
+3. Hugging Face repository resolution and repo-relative path filtering.
+4. Safe regex-to-glob conversion and fallback local filtering.
+5. GGUF default selection when no user filter is supplied.
+6. `Q4_K_M` quantization preference among multiple GGUF files.
+7. Ambiguity error when multiple GGUF candidates remain.
+8. Explicit non-GGUF filtering for `.safetensors`, `.bin`, `.pt`, and `.pth`.
+9. Direct URL downloads bypassing format selection.
+10. Output path construction and path traversal prevention.
+11. Skip-existing behavior using size/checksum metadata.
+12. Token environment resolution and redacted log output.
+13. Partial download cleanup.
+14. Offline mode blocking remote listing and downloads.
+15. Config `outputPath` relative vs absolute resolution.
+
+### Completion Criteria
+
+1. `acorn download model <repo>` downloads the preferred GGUF file by default or reports actionable candidates when ambiguous.
+2. Existing `--filter` and `--ignore` flags are honored for model selectors and repository-relative file paths.
+3. `Q4_K_M` is selected by default when multiple GGUF quantizations are available.
+4. Direct file URLs download exactly the requested file and bypass format preference.
+5. Private and gated Hugging Face models work through environment tokens without leaking secrets.
+6. Existing files are skipped safely by default when metadata matches.
+7. Failed transfers do not leave final-looking corrupt files.
+8. No Python tooling or `hf` CLI dependency is required.
+9. Default model root remains `$HOME/.models`.
