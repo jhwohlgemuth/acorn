@@ -259,7 +259,7 @@ where
     /// Create all tables defined by the variant provider type.
     pub fn migrate(&self) -> ApiResult<()> {
         T::all().iter().copied().try_fold((), |_, table| self.migrate_table(table)).inspect(|_| {
-            info!("=> {} Database migration", Label::pass());
+            info!("{} Database migration", Label::pass());
         })
     }
     /// Delete all rows from a table.

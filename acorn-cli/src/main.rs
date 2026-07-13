@@ -35,46 +35,13 @@ const DISPLAY_THREAD_NAME: bool = false;
 
 fn main() -> Void {
     color_eyre::install()?;
+    dotenv().ok();
     let args = Arguments::parse();
     if args.markdown_help {
         clap_markdown::print_help_markdown::<Arguments>();
         return Ok(());
     }
-    match dotenv() {
-        | Ok(_) if !dotenvy::var(LOG_LEVEL).unwrap_or_default().is_empty() => {
-            let indicatif_layer = IndicatifLayer::new();
-            let format = fmt::layer()
-                .with_ansi(true)
-                .with_ansi_sanitization(false)
-                .with_level(DISPLAY_LEVEL)
-                .with_line_number(DISPLAY_LINE_NUMBER)
-                .with_target(DISPLAY_TARGET)
-                .with_thread_ids(DISPLAY_THREAD_ID)
-                .with_thread_names(DISPLAY_THREAD_NAME)
-                .compact();
-            tracing_subscriber::registry()
-                .with(format)
-                .with(indicatif_layer)
-                .with(EnvFilter::from_env(LOG_LEVEL))
-                .init();
-        }
-        | _ => {
-            let format = fmt::format()
-                .with_ansi(true)
-                .with_level(DISPLAY_LEVEL)
-                .with_line_number(DISPLAY_LINE_NUMBER)
-                .with_target(DISPLAY_TARGET)
-                .with_thread_ids(DISPLAY_THREAD_ID)
-                .with_thread_names(DISPLAY_THREAD_NAME)
-                .without_time()
-                .compact();
-            tracing_subscriber::fmt()
-                .with_ansi_sanitization(false)
-                .with_max_level(args.verbose.log_level_filter().as_trace())
-                .event_format(format)
-                .init();
-        }
-    }
+    init_tracing(&args);
     let Arguments {
         offline,
         threads,
@@ -122,6 +89,26 @@ fn main() -> Void {
             exit(exitcode::SOFTWARE);
         }
     }
+}
+fn init_tracing(args: &Arguments) {
+    let indicatif_layer = IndicatifLayer::new();
+    let writer = indicatif_layer.get_stderr_writer();
+    let filter = dotenvy::var(LOG_LEVEL)
+        .ok()
+        .filter(|value| !value.is_empty())
+        .map_or_else(|| EnvFilter::new(args.verbose.log_level_filter().as_trace().to_string()), EnvFilter::new);
+    let format = fmt::layer()
+        .with_ansi(true)
+        .with_ansi_sanitization(false)
+        .with_level(DISPLAY_LEVEL)
+        .with_line_number(DISPLAY_LINE_NUMBER)
+        .with_target(DISPLAY_TARGET)
+        .with_thread_ids(DISPLAY_THREAD_ID)
+        .with_thread_names(DISPLAY_THREAD_NAME)
+        .without_time()
+        .compact()
+        .with_writer(writer);
+    tracing_subscriber::registry().with(filter).with(indicatif_layer).with(format).init();
 }
 
 #[cfg(test)]
