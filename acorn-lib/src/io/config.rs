@@ -26,6 +26,18 @@ use tracing::error;
 
 const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
 
+/// Authentication requirement for a configured model download source
+#[derive(Clone, Debug, Default, Display, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthenticationRequirement {
+    /// Authentication is not expected for this model source
+    None,
+    /// Authentication may be used when a token is configured
+    #[default]
+    Optional,
+    /// Authentication is required for this model source
+    Required,
+}
 /// Model config entry — either a bare selector string or a detailed download entry
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -122,6 +134,18 @@ pub struct ModelEntryOptions {
     pub name: String,
     /// Model weight source (local path, URL, or Hugging Face repository)
     pub source: Repository,
+    /// Optional repository revision, branch, or tag to resolve
+    #[serde(default)]
+    pub revision: Option<String>,
+    /// Authentication requirement for this model source
+    #[serde(default)]
+    pub auth: Option<AuthenticationRequirement>,
+    /// Regex pattern(s) used to include model files for this entry
+    #[serde(default)]
+    pub filter: Option<Vec<String>>,
+    /// Regex pattern(s) used to exclude model files for this entry
+    #[serde(default)]
+    pub ignore: Option<Vec<String>>,
     /// Copy local model files into the model directory instead of referencing in place
     #[serde(default)]
     pub copy: Option<bool>,

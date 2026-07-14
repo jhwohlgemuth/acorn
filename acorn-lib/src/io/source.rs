@@ -1,9 +1,12 @@
 //! Source readers for local paths, file URIs, and remote HTTP(S) URLs.
-use crate::io::{http, uri_to_path, ApiResult};
-use crate::prelude::{read, PathBuf};
+use crate::io::{http, symlink, uri_to_path, ApiResult};
+use crate::prelude::{copy, read, Path, PathBuf};
+use crate::schema::agent::{ModelDetails, Weight};
+use crate::util::Label;
 use crate::{Location, Repository, Scheme};
 use color_eyre::eyre::eyre;
 use strum::EnumIs;
+use tracing::error;
 
 /// **Operational/transient** source — a one-shot parse-and-read type for I/O operations.
 ///
@@ -54,6 +57,31 @@ impl SourceAction {
             | _ => None,
         }
     }
+    /// Materialize ("reify" or "persist") source path locally according to a given action
+    pub fn materialize(self, path: &Path, target: &Path, name: &str) -> ApiResult<String> {
+        let result = match self {
+            | SourceAction::Copy if target.exists() => Ok(format!("Skipping copy - '{name}' already exists at {}", target.display())),
+            | SourceAction::Copy => match copy(path, target) {
+                | Ok(_) => Ok(format!("Copied local model '{name}' -> {}", target.display())),
+                | Err(why) => {
+                    error!("=> {} Copy local model '{}' to {} - {why}", Label::fail(), name, target.display());
+                    Err(why.into())
+                }
+            },
+            | SourceAction::Symlink if target.exists() || target.symlink_metadata().map(|metadata| metadata.is_symlink()).unwrap_or(false) => {
+                Ok(format!("Skipping symlink - '{name}' already exists at {}", target.display()))
+            }
+            | SourceAction::Symlink => match symlink(path, target) {
+                | Ok(_) => Ok(format!("Symlinked local model '{name}' -> {}", target.display())),
+                | Err(why) => {
+                    error!("=> {} Symlink local model '{}' to {} - {why}", Label::fail(), name, target.display());
+                    Err(why)
+                }
+            },
+            | SourceAction::Reference => Ok(format!("Local model '{name}' referenced in place at {}", path.display())),
+        };
+        result
+    }
 }
 impl Source {
     /// Reads source content from a URL or local file path.
@@ -71,7 +99,7 @@ impl Source {
     ///
     /// HTTP(S) sources are rejected when `offline` is enabled.
     pub async fn read_bytes(source: &str, offline: bool) -> ApiResult<Vec<u8>> {
-        read_parsed_bytes(Self::parse(source), offline).await
+        Source::read_parsed_bytes(Self::parse(source), offline).await
     }
     /// Parses a user-provided source string into a source location.
     /// ### Note
@@ -138,6 +166,19 @@ impl Source {
             | Source::Unsupported(value) => Source::Unsupported(value),
         }
     }
+    async fn read_parsed_bytes(source: Source, offline: bool) -> ApiResult<Vec<u8>> {
+        match source {
+            | Source::Local { path, .. } => read(path).map_err(|why| eyre!("Failed to read source — {why}")),
+            | Source::Remote { identifier, .. } => Source::read_remote_bytes(&identifier, offline).await,
+            | Source::Unsupported(scheme) => Err(eyre!("Unsupported source URI scheme '{scheme}'")),
+        }
+    }
+    async fn read_remote_bytes(url: &str, offline: bool) -> ApiResult<Vec<u8>> {
+        match offline {
+            | true => Err(eyre!("Cannot read remote source while offline")),
+            | false => http::response_body_bytes(http::get(url).send().await, "Failed to download source").await,
+        }
+    }
 }
 impl From<&str> for Source {
     fn from(selector: &str) -> Self {
@@ -184,16 +225,15 @@ impl From<&Repository> for Source {
         }
     }
 }
-async fn read_parsed_bytes(source: Source, offline: bool) -> ApiResult<Vec<u8>> {
-    match source {
-        | Source::Local { path, .. } => read(path).map_err(|why| eyre!("Failed to read source — {why}")),
-        | Source::Remote { identifier, .. } => read_remote_source_bytes(&identifier, offline).await,
-        | Source::Unsupported(scheme) => Err(eyre!("Unsupported source URI scheme '{scheme}'")),
+impl From<ModelDetails> for Option<Source> {
+    fn from(details: ModelDetails) -> Self {
+        source_from_weights(details.weights.unwrap_or_default(), details.name.or(details.id))
     }
 }
-async fn read_remote_source_bytes(url: &str, offline: bool) -> ApiResult<Vec<u8>> {
-    match offline {
-        | true => Err(eyre!("Cannot read remote source while offline")),
-        | false => http::response_body_bytes(http::get(url).send().await, "Failed to download source").await,
-    }
+/// Return a source based on a list of weights
+pub fn source_from_weights(weights: Vec<Weight>, name: Option<String>) -> Option<Source> {
+    weights
+        .into_iter()
+        .find(|weight| !weight.url.trim().is_empty())
+        .map(|weight| Source::from(weight.url.as_str()).with_name(name.unwrap_or(weight.label)))
 }

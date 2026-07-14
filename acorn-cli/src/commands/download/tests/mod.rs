@@ -11,8 +11,9 @@
 use super::run;
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::RepositoryFile;
-use acorn::io::{config::ApplicationConfiguration, SourceAction};
+use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, SourceAction};
 use acorn::prelude::{create_dir_all, env, read_to_string, write};
+use acorn::util::merge;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 
@@ -25,6 +26,30 @@ fn test_config_parses_hugging_face_location_model_entry() {
     let config = ApplicationConfiguration::parse(content).unwrap();
     let models = config.models.unwrap();
     assert_eq!(models.len(), 1);
+}
+#[test]
+fn test_config_parses_model_download_options() {
+    let content = r#"{
+        "models": [{
+            "name": "tiny-bert",
+            "source": {"provider": "huggingface", "location": "https://huggingface.co/hf-internal-testing/tiny-random-bert"},
+            "revision": "refs/pr/1",
+            "auth": "required",
+            "filter": ["Q4_K_M.*\\.gguf$"],
+            "ignore": ["Q2_", "Q3_"]
+        }]
+    }"#;
+    let config = ApplicationConfiguration::parse(content).unwrap();
+    let models = config.models.unwrap();
+    match models.first().unwrap() {
+        | ModelEntry::Entry(entry) => {
+            assert_eq!(entry.revision.as_deref(), Some("refs/pr/1"));
+            assert_eq!(entry.auth, Some(AuthenticationRequirement::Required));
+            assert_eq!(entry.filter.as_ref().unwrap(), &["Q4_K_M.*\\.gguf$".to_string()]);
+            assert_eq!(entry.ignore.as_ref().unwrap(), &["Q2_".to_string(), "Q3_".to_string()]);
+        }
+        | ModelEntry::Selector(_) => panic!("expected detailed model entry"),
+    }
 }
 #[test]
 fn test_config_parses_local_model_entry() {
@@ -300,6 +325,23 @@ fn test_model_filter_selectors_applies_filter_and_ignore() {
     )
     .unwrap();
     assert!(filtered.is_empty());
+}
+#[tokio::test]
+async fn test_model_resolve_plan_matches_config_name() {
+    let content = r#"{"models": [{"name": "tiny", "revision": "dev", "filter": ["\\.gguf$"], "source": {"provider": "huggingface", "location": "https://huggingface.co/acme/tiny"}}]}"#;
+    let config = ApplicationConfiguration::parse(content).unwrap();
+    let plans = super::model::resolve_plans(&["tiny".to_string()], &config.models.unwrap(), None, &None, false)
+        .await
+        .unwrap();
+    assert_eq!(plans.len(), 1);
+    assert_eq!(plans.first().unwrap().name(), "tiny");
+    assert_eq!(plans.first().unwrap().revision, "dev");
+    assert_eq!(plans.first().unwrap().filter, vec!["\\.gguf$".to_string()]);
+}
+#[test]
+fn test_model_merge_patterns_keeps_config_and_cli_patterns() {
+    let merged = merge(&["Q4".to_string()], Some(&["\\.gguf$".to_string(), "Q4".to_string()]));
+    assert_eq!(merged, vec!["Q4".to_string(), "\\.gguf$".to_string()]);
 }
 #[tokio::test]
 async fn test_download_model_invalid_filter_errors() -> Result<()> {

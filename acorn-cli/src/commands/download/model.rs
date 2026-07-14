@@ -1,17 +1,23 @@
 use super::{DownloadItem, DownloadItems};
 use crate::cli::{CommandOptions, Void};
 use acorn::io::api::huggingface::{self, RepositoryFile};
-use acorn::io::config::{ApplicationConfiguration, FilterSet, ModelEntry, ModelEntryOptions};
+use acorn::io::api::models_dev;
+use acorn::io::config::{ApplicationConfiguration, FilterSet, AuthenticationRequirement, ModelEntry, ModelEntryOptions};
 use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
-use acorn::io::{home_directory, symlink, ApiResult, InputOutput, Source, SourceAction};
-use acorn::prelude::{copy, create_dir_all, HashSet, PathBuf, String, Vec};
-use acorn::util::{regex_join, suffix, Label, StringConversion};
+use acorn::io::source::source_from_weights;
+use acorn::io::{home_directory, ApiResult, InputOutput, Source, SourceAction};
+use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
+use acorn::schema::agent::Weight;
+use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
+use core::fmt;
 use fluent_uri::Uri;
 use owo_colors::OwoColorize;
 use tracing::{error, info};
+
+const DEFAULT_MODEL_REVISION: &str = "main";
 
 /// Download model weights for use with acorn research harnesses and local inference
 #[allow(clippy::too_many_arguments)]
@@ -39,12 +45,19 @@ pub async fn run(
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .collect::<HashSet<_>>();
+    let planned = match resolve_plans(model, &entries, action, database_path, offline).await {
+        | Ok(value) => value,
+        | Err(why) => {
+            error!("=> {} Resolve model selectors — {why}", Label::fail());
+            return Err(why);
+        }
+    };
     let selectors = match filter_by_patterns(
-        resolve_selectors(model, &entries, action),
+        planned,
         filter,
         ignore,
-        Source::identifier,
-        |selector| whitelist.is_empty() || whitelist.contains(&selector.name()),
+        |plan| plan.selector.identifier(),
+        |plan| plan.matches_whitelist(&whitelist),
     ) {
         | Ok(value) => value,
         | Err(why) => {
@@ -52,8 +65,12 @@ pub async fn run(
             return Err(why);
         }
     };
-    if offline && selectors.iter().any(Source::is_remote) {
-        let remote_names: Vec<String> = selectors.iter().filter(|source| source.is_remote()).map(Source::identifier).collect();
+    if offline && selectors.iter().any(ModelDownloadPlan::is_remote) {
+        let remote_names: Vec<String> = selectors
+            .iter()
+            .filter(|plan| plan.is_remote())
+            .map(|plan| plan.selector.identifier())
+            .collect();
         error!(
             "=> {} Offline mode cannot download remote models: {}",
             Label::fail(),
@@ -61,12 +78,12 @@ pub async fn run(
         );
         Err(eyre!("Offline mode cannot download remote models: {}", remote_names.join(", ")))
     } else if selectors.is_empty() {
-        let msg = if selectors.is_empty() {
+        let msg = if model.is_empty() && entries.is_empty() {
             "No models specified — provide model IDs or --config"
-        } else if whitelist.is_empty() {
-            "No models matched --filter/--ignore"
-        } else {
+        } else if !whitelist.is_empty() {
             "No models matched --whitelist"
+        } else {
+            "No models matched --filter/--ignore"
         };
         error!("=> {} {msg}", Label::fail());
         Err(eyre!(msg))
@@ -75,24 +92,26 @@ pub async fn run(
             | Ok(root) => {
                 let mut success_count = 0usize;
                 let mut failure_count = 0usize;
-                for selector in &selectors {
+                for plan in &selectors {
+                    let filter = merge(&plan.filter, Some(filter));
+                    let ignore = merge(&plan.ignore, Some(ignore));
                     let options = CommandOptions::init()
-                        .selector(selector.clone())
-                        .maybe_action(match selector {
+                        .selector(plan.selector.clone())
+                        .maybe_action(match &plan.selector {
                             | Source::Local { action, .. } => *action,
-                            | _ => None,
+                            | _ => plan.action,
                         })
                         .output(root.clone())
                         .maybe_database_path(database_path.clone())
                         .quiet(quiet)
-                        .maybe_filter(regex_join(filter))
-                        .maybe_ignore(regex_join(ignore))
+                        .maybe_filter(regex_join(&filter))
+                        .maybe_ignore(regex_join(&ignore))
                         .build();
-                    match resolve_model(options).await {
+                    match resolve_model(options, plan).await {
                         | Ok(_) => success_count = success_count.saturating_add(1),
                         | Err(why) => {
                             failure_count = failure_count.saturating_add(1);
-                            error!("=> {} Download model '{}' — {why}", Label::fail(), selector.name());
+                            error!("=> {} Download model '{}' — {why}", Label::fail(), plan.name());
                         }
                     }
                 }
@@ -120,30 +139,133 @@ pub async fn run(
     }
 }
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
+pub(crate) enum ModelDownloadError {
+    UnknownModel(String),
+    MultipleMatches(String),
+    NoMatchingFiles(String),
+    AmbiguousQuantization(String),
+    MissingAuth(String),
+    FailedHttp(String),
+    UnsafePath(String),
+    IncompleteDownload(String),
+}
+#[derive(Clone, Debug)]
 pub(crate) struct FileSelectionPolicy<'a> {
     pub(crate) extension: &'a str,
     pub(crate) preferred_marker: &'a str,
     pub(crate) no_match_message: &'a str,
 }
-/// Resolve a single model selector
-async fn resolve_model(options: CommandOptions) -> ApiResult<()> {
-    match options.selector.as_ref() {
-        | Some(Source::Local { path, .. }) if !path.exists() => {
-            error!("=> {} Local model path does not exist: {}", Label::fail(), path.display());
-            Err(eyre!("Local model path does not exist: {}", path.display()))
+#[derive(Clone, Debug)]
+pub(crate) struct ModelDownloadPlan {
+    pub(crate) selector: Source,
+    pub(crate) revision: String,
+    pub(crate) auth: AuthenticationRequirement,
+    pub(crate) filter: Vec<String>,
+    pub(crate) ignore: Vec<String>,
+    pub(crate) action: Option<SourceAction>,
+}
+impl fmt::Display for ModelDownloadError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::UnknownModel(value) => write!(formatter, "Unknown model selector: {value}"),
+            | Self::MultipleMatches(value) => write!(formatter, "Multiple model matches found: {value}"),
+            | Self::NoMatchingFiles(value) => write!(formatter, "No matching model files found: {value}"),
+            | Self::AmbiguousQuantization(value) => write!(formatter, "Ambiguous model quantization: {value}"),
+            | Self::MissingAuth(value) => write!(formatter, "Model download requires authentication: {value}"),
+            | Self::FailedHttp(value) => write!(formatter, "Model download HTTP request failed: {value}"),
+            | Self::UnsafePath(value) => write!(formatter, "Model file path is unsafe: {value}"),
+            | Self::IncompleteDownload(value) => write!(formatter, "Model download is incomplete: {value}"),
         }
-        | Some(Source::Local { .. }) => resolve_local_model(options),
-        | Some(Source::Remote { identifier, .. })
-            if Uri::parse(identifier.as_str())
-                .ok()
-                .is_some_and(|uri| matches!(uri.scheme().as_str(), "http" | "https")) =>
-        {
-            resolve_direct_url_model(options).await
-        }
-        | Some(Source::Remote { .. }) => resolve_huggingface_model(options).await,
-        | Some(Source::Unsupported(value)) => Err(eyre!("Unsupported model source — {value}")),
-        | None => Err(eyre!("Model selector is not configured")),
     }
+}
+impl core::error::Error for ModelDownloadError {}
+impl ModelDownloadPlan {
+    fn new(selector: Source) -> Self {
+        Self {
+            action: match &selector {
+                | Source::Local { action, .. } => *action,
+                | _ => None,
+            },
+            selector,
+            revision: DEFAULT_MODEL_REVISION.to_string(),
+            auth: AuthenticationRequirement::Optional,
+            filter: Vec::new(),
+            ignore: Vec::new(),
+        }
+    }
+    fn from_entry(entry: &ModelEntryOptions) -> Self {
+        let config_action = match (&entry.copy, &entry.symlink) {
+            | (Some(true), _) => Some(SourceAction::Copy),
+            | (_, Some(true)) => Some(SourceAction::Symlink),
+            | _ => None,
+        };
+        Self {
+            selector: Source::from(&entry.source).with_name(entry.name.as_str()).with_action(config_action),
+            revision: entry.revision.clone().unwrap_or_else(|| DEFAULT_MODEL_REVISION.to_string()),
+            auth: entry.auth.clone().unwrap_or_default(),
+            filter: entry.filter.clone().unwrap_or_default(),
+            ignore: entry.ignore.clone().unwrap_or_default(),
+            action: config_action,
+        }
+    }
+    fn with_action(self, action: Option<SourceAction>) -> Self {
+        match action {
+            | Some(value) => Self {
+                selector: self.selector.with_action(Some(value)),
+                action: Some(value),
+                ..self
+            },
+            | None => self,
+        }
+    }
+    fn is_remote(&self) -> bool {
+        self.selector.is_remote()
+    }
+    fn matches_whitelist(&self, whitelist: &HashSet<String>) -> bool {
+        whitelist.is_empty() || whitelist.contains(&self.name())
+    }
+    pub(crate) fn name(&self) -> String {
+        self.selector.name()
+    }
+}
+pub(crate) fn filter_by_patterns<T>(
+    items: Vec<T>,
+    filter: &[String],
+    ignore: &[String],
+    value: impl Fn(&T) -> String,
+    keep: impl Fn(&T) -> bool,
+) -> ApiResult<Vec<T>> {
+    match FilterSet::compile(ignore, filter) {
+        | Ok(FilterSet { ignore, filter }) => Ok(items
+            .into_iter()
+            .filter(|item| {
+                let value = value(item);
+                let ignored = ignore.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
+                let filtered = filter.is_empty() || filter.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
+                !ignored && filtered && keep(item)
+            })
+            .collect()),
+        | Err(why) => Err(why),
+    }
+}
+fn resolve_database_plan(selector: &str, database_path: &Option<PathBuf>) -> ApiResult<Option<ModelDownloadPlan>> {
+    let row = ModelRow::init().maybe_model_id(Some(selector.to_string())).build();
+    row.select(database_path.clone(), |candidate| candidate.model_id.as_deref() == Some(selector))
+        .and_then(|match_row| match match_row {
+            | Some(row) => {
+                let name = row.name.or(row.model_id);
+                let row_source = row
+                    .weights
+                    .and_then(|weights| serde_json::from_str::<Vec<Weight>>(&weights).ok())
+                    .and_then(|weights| source_from_weights(weights, name));
+                match row_source {
+                    | Some(source) => Ok(Some(ModelDownloadPlan::new(source))),
+                    | None => Err(eyre!("{}", ModelDownloadError::UnknownModel(selector.to_string()))),
+                }
+            }
+            | None => Ok(None),
+        })
 }
 fn resolve_local_model(options: CommandOptions) -> ApiResult<()> {
     match options.selector.clone() {
@@ -165,23 +287,28 @@ fn resolve_local_model(options: CommandOptions) -> ApiResult<()> {
                             );
                         }
                         match options.selector.clone() {
-                            | Some(Source::Local { path, .. }) => match options.action.unwrap_or_default() {
-                                | SourceAction::Reference => {
-                                    if !options.quiet {
-                                        info!(
-                                            "=> {} Local model '{}' referenced in place at {}",
-                                            Label::pass(),
-                                            options.selector.as_ref().map(Source::name).unwrap_or_else(|| "model".to_string()),
-                                            path.display()
-                                        );
-                                    }
-                                    Ok(())
+                            | Some(Source::Local { path, .. }) => {
+                                let action = options.action.unwrap_or_default();
+                                let target = match action {
+                                    | SourceAction::Reference => Ok(destination),
+                                    | SourceAction::Copy | SourceAction::Symlink => path
+                                        .file_name()
+                                        .map(|value| destination.join(value))
+                                        .ok_or_else(|| eyre!("Local model path has no file name")),
+                                };
+                                match target {
+                                    | Ok(target) => match action.materialize(&path, &target, &name) {
+                                        | Ok(msg) => {
+                                            if !options.quiet {
+                                                info!("=> {}", msg);
+                                            }
+                                            Ok(())
+                                        }
+                                        | Err(why) => Err(why),
+                                    },
+                                    | Err(why) => Err(why),
                                 }
-                                | SourceAction::Copy | SourceAction::Symlink => match path.file_name().map(|value| value.to_os_string()) {
-                                    | Some(file_name) => materialize_local_file(options, path, destination.join(file_name)),
-                                    | None => Err(eyre!("Local model path has no file name")),
-                                },
-                            },
+                            }
                             | Some(_) => Err(eyre!("Model selector is not local")),
                             | None => Err(eyre!("Model selector is not configured")),
                         }
@@ -196,77 +323,6 @@ fn resolve_local_model(options: CommandOptions) -> ApiResult<()> {
         }
         | Some(_) => Err(eyre!("Model selector is not local")),
         | None => Err(eyre!("Model selector is not configured")),
-    }
-}
-fn materialize_local_file(options: CommandOptions, path: PathBuf, target: PathBuf) -> ApiResult<()> {
-    match options.action.unwrap_or_default() {
-        | SourceAction::Copy if target.exists() => {
-            if !options.quiet {
-                info!(
-                    "=> {} Skipping copy — '{}' already exists at {}",
-                    Label::pass(),
-                    options.selector.as_ref().map(Source::name).unwrap_or_else(|| "model".to_string()),
-                    target.display()
-                );
-            }
-            Ok(())
-        }
-        | SourceAction::Copy => match copy(&path, &target) {
-            | Err(why) => {
-                error!(
-                    "=> {} Copy local model '{}' to {} — {why}",
-                    Label::fail(),
-                    options.selector.as_ref().map(Source::name).unwrap_or_else(|| "model".to_string()),
-                    target.display()
-                );
-                Err(why.into())
-            }
-            | Ok(_) => {
-                if !options.quiet {
-                    info!(
-                        "=> {} Copied local model '{}' → {}",
-                        Label::pass(),
-                        options.selector.as_ref().map(Source::name).unwrap_or_else(|| "model".to_string()),
-                        target.display()
-                    );
-                }
-                Ok(())
-            }
-        },
-        | SourceAction::Symlink if target.exists() || target.symlink_metadata().map(|m| m.is_symlink()).unwrap_or(false) => {
-            if !options.quiet {
-                info!(
-                    "=> {} Skipping symlink — '{}' already exists at {}",
-                    Label::pass(),
-                    options.selector.as_ref().map(Source::name).unwrap_or_else(|| "model".to_string()),
-                    target.display()
-                );
-            }
-            Ok(())
-        }
-        | SourceAction::Symlink => match symlink(&path, &target) {
-            | Err(why) => {
-                error!(
-                    "=> {} Symlink local model '{}' to {} — {why}",
-                    Label::fail(),
-                    options.selector.as_ref().map(Source::name).unwrap_or_else(|| "model".to_string()),
-                    target.display()
-                );
-                Err(why)
-            }
-            | Ok(_) => {
-                if !options.quiet {
-                    info!(
-                        "=> {} Symlinked local model '{}' → {}",
-                        Label::pass(),
-                        options.selector.as_ref().map(Source::name).unwrap_or_else(|| "model".to_string()),
-                        target.display()
-                    );
-                }
-                Ok(())
-            }
-        },
-        | SourceAction::Reference => Ok(()),
     }
 }
 async fn resolve_direct_url_model(options: CommandOptions) -> ApiResult<()> {
@@ -301,7 +357,7 @@ async fn resolve_direct_url_model(options: CommandOptions) -> ApiResult<()> {
         | _ => Err(eyre!("Model selector is not remote")),
     }
 }
-async fn resolve_huggingface_model(options: CommandOptions) -> ApiResult<()> {
+async fn resolve_huggingface_model(options: CommandOptions, plan: &ModelDownloadPlan) -> ApiResult<()> {
     match (options.selector.clone(), options.output.clone()) {
         | (Some(Source::Remote { identifier, .. }), Some(root)) => {
             let destination = root.join(&identifier);
@@ -326,7 +382,7 @@ async fn resolve_huggingface_model(options: CommandOptions) -> ApiResult<()> {
                         }
                         info!("=> {} Listing Hugging Face files for {}", Label::run(), identifier.cyan());
                     }
-                    match huggingface::repository_tree(&identifier, "main").await {
+                    match huggingface::repository_tree(&identifier, &plan.revision).await {
                         | Ok(files) => match select_huggingface_files(
                             files,
                             &options.filter.clone().into_iter().collect::<Vec<_>>(),
@@ -336,7 +392,7 @@ async fn resolve_huggingface_model(options: CommandOptions) -> ApiResult<()> {
                                 let items = selected
                                     .into_iter()
                                     .map(|file| DownloadItem {
-                                        url: format!("https://huggingface.co/{identifier}/resolve/main/{}", file.path),
+                                        url: format!("https://huggingface.co/{identifier}/resolve/{}/{}", plan.revision, file.path),
                                         path: file.path,
                                         size: file.size,
                                     })
@@ -359,33 +415,110 @@ async fn resolve_huggingface_model(options: CommandOptions) -> ApiResult<()> {
         | _ => Err(eyre!("Model selector is not remote")),
     }
 }
+/// Resolve a single model selector
+async fn resolve_model(options: CommandOptions, plan: &ModelDownloadPlan) -> ApiResult<()> {
+    if matches!(plan.auth, AuthenticationRequirement::Required) && plan.selector.is_remote() && !huggingface::has_auth_token() {
+        return Err(eyre!("{}", ModelDownloadError::MissingAuth(plan.name())));
+    }
+    match options.selector.as_ref() {
+        | Some(Source::Local { path, .. }) if !path.exists() => {
+            error!("=> {} Local model path does not exist: {}", Label::fail(), path.display());
+            Err(eyre!("Local model path does not exist: {}", path.display()))
+        }
+        | Some(Source::Local { .. }) => resolve_local_model(options),
+        | Some(Source::Remote { identifier, .. })
+            if Uri::parse(identifier.as_str())
+                .ok()
+                .is_some_and(|uri| matches!(uri.scheme().as_str(), "http" | "https")) =>
+        {
+            resolve_direct_url_model(options).await
+        }
+        | Some(Source::Remote { .. }) => resolve_huggingface_model(options, plan).await,
+        | Some(Source::Unsupported(value)) => Err(eyre!("Unsupported model source — {value}")),
+        | None => Err(eyre!("Model selector is not configured")),
+    }
+}
 /// Merge positional selectors with config selectors (positional first, deduplicated)
-fn resolve_selectors(positional: &[String], entries: &[ModelEntry], action: Option<SourceAction>) -> Vec<Source> {
-    positional
+pub(crate) async fn resolve_plans(
+    positional: &[String],
+    entries: &[ModelEntry],
+    action: Option<SourceAction>,
+    database_path: &Option<PathBuf>,
+    offline: bool,
+) -> ApiResult<Vec<ModelDownloadPlan>> {
+    let entry_options = entries
         .iter()
-        .map(|s| Source::from(s.as_str()))
-        .chain(entries.iter().filter_map(|entry| match entry {
-            | ModelEntry::Selector(s) => (!s.trim().is_empty()).then(|| Source::from(s.trim())),
-            | ModelEntry::Entry(ModelEntryOptions { copy, name, source, symlink }) => {
-                let config_action = match (&copy, &symlink) {
-                    | (Some(true), _) => Some(SourceAction::Copy),
-                    | (_, Some(true)) => Some(SourceAction::Symlink),
-                    | _ => None,
-                };
-                Some(Source::from(source).with_name(name.as_str()).with_action(config_action))
-            }
-        }))
-        .fold((HashSet::new(), Vec::new()), |(mut seen, mut selectors), selector| {
-            let selector = match action {
-                | Some(value) => selector.with_action(Some(value)),
-                | None => selector,
-            };
-            if seen.insert(selector.identifier()) {
-                selectors.push(selector);
-            }
-            (seen, selectors)
+        .filter_map(|entry| match entry {
+            | ModelEntry::Entry(options) => Some(options),
+            | ModelEntry::Selector(_) => None,
         })
-        .1
+        .collect::<Vec<_>>();
+    let mut plans = Vec::new();
+    for selector in positional {
+        plans.push(resolve_positional_plan(selector, &entry_options, action, database_path, offline).await?);
+    }
+    Ok(plans
+        .into_iter()
+        .chain(entries.iter().filter_map(|entry| match entry {
+            | ModelEntry::Selector(s) => (!s.trim().is_empty()).then(|| ModelDownloadPlan::new(Source::from(s.trim())).with_action(action)),
+            | ModelEntry::Entry(options) => Some(ModelDownloadPlan::from_entry(options).with_action(action)),
+        }))
+        .fold((HashSet::new(), Vec::new()), |(mut seen, mut plans), plan| {
+            if seen.insert(plan.selector.identifier()) {
+                plans.push(plan);
+            }
+            (seen, plans)
+        })
+        .1)
+}
+async fn resolve_positional_plan(
+    selector: &str,
+    entries: &[&ModelEntryOptions],
+    action: Option<SourceAction>,
+    database_path: &Option<PathBuf>,
+    offline: bool,
+) -> ApiResult<ModelDownloadPlan> {
+    let trimmed = selector.trim();
+    match entries.iter().find(|entry| entry.name == trimmed) {
+        | Some(entry) => return Ok(ModelDownloadPlan::from_entry(entry).with_action(action)),
+        | None => {}
+    }
+    let aliases = entries
+        .iter()
+        .filter(|entry| entry.name.eq_ignore_ascii_case(trimmed))
+        .collect::<Vec<_>>();
+    match aliases.as_slice() {
+        | [entry] => return Ok(ModelDownloadPlan::from_entry(entry).with_action(action)),
+        | [] => {}
+        | _ => return Err(eyre!("{}", ModelDownloadError::MultipleMatches(trimmed.to_string()))),
+    }
+    let is_http_url = Uri::parse(trimmed)
+        .ok()
+        .is_some_and(|uri| matches!(uri.scheme().as_str(), "http" | "https"));
+    if is_http_url {
+        Ok(ModelDownloadPlan::new(Source::from(trimmed)).with_action(action))
+    } else {
+        match resolve_database_plan(trimmed, database_path) {
+            | Ok(Some(plan)) => Ok(plan.with_action(action)),
+            | Ok(None) if !offline => {
+                let resolved = models_dev::download_cached().await.map(|catalog| {
+                    catalog
+                        .models
+                        .get(trimmed)
+                        .cloned()
+                        .or_else(|| catalog.models.values().find(|details| details.id.as_deref() == Some(selector)).cloned())
+                        .and_then(Option::<Source>::from)
+                        .map(ModelDownloadPlan::new)
+                });
+                match resolved {
+                    | Ok(Some(plan)) => Ok(plan.with_action(action)),
+                    | Ok(None) | Err(_) => Ok(ModelDownloadPlan::new(Source::from(trimmed)).with_action(action)),
+                }
+            }
+            | Ok(None) => Ok(ModelDownloadPlan::new(Source::from(trimmed)).with_action(action)),
+            | Err(_) => Ok(ModelDownloadPlan::new(Source::from(trimmed)).with_action(action)),
+        }
+    }
 }
 fn select_huggingface_files(files: Vec<RepositoryFile>, filter: &[String], ignore: &[String]) -> ApiResult<Vec<RepositoryFile>> {
     match filter_by_patterns(files, filter, ignore, |file| file.path.clone(), |_| true) {
@@ -413,26 +546,6 @@ fn select_huggingface_files(files: Vec<RepositoryFile>, filter: &[String], ignor
         | Err(why) => Err(why),
     }
 }
-pub(crate) fn filter_by_patterns<T>(
-    items: Vec<T>,
-    filter: &[String],
-    ignore: &[String],
-    value: impl Fn(&T) -> String,
-    keep: impl Fn(&T) -> bool,
-) -> ApiResult<Vec<T>> {
-    match FilterSet::compile(ignore, filter) {
-        | Ok(FilterSet { ignore, filter }) => Ok(items
-            .into_iter()
-            .filter(|item| {
-                let value = value(item);
-                let ignored = ignore.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
-                let filtered = filter.is_empty() || filter.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
-                !ignored && filtered && keep(item)
-            })
-            .collect()),
-        | Err(why) => Err(why),
-    }
-}
 pub(crate) fn select_preferred_file(files: Vec<RepositoryFile>, policy: &FileSelectionPolicy<'_>) -> ApiResult<Vec<RepositoryFile>> {
     match files.len() {
         | 0 => Err(eyre!("{}", policy.no_match_message)),
@@ -454,8 +567,8 @@ pub(crate) fn select_preferred_file(files: Vec<RepositoryFile>, policy: &FileSel
     }
 }
 /// Print the list of models to be downloaded.
-fn print_models(selectors: &[Source]) {
-    let local_count = selectors.iter().filter(|source| source.is_local()).count();
+fn print_models(selectors: &[ModelDownloadPlan]) {
+    let local_count = selectors.iter().filter(|plan| plan.selector.is_local()).count();
     let remote_count = selectors.len().saturating_sub(local_count);
     let parts = [(local_count, "local"), (remote_count, "remote")]
         .into_iter()
@@ -469,13 +582,13 @@ fn print_models(selectors: &[Source]) {
         suffix(selectors.len()),
         parts.join(", ")
     );
-    for selector in selectors {
-        match selector {
+    for plan in selectors {
+        match &plan.selector {
             | Source::Local { path, .. } => {
-                info!("  {} {} ({})", "→".cyan(), selector.name().green(), path.display().to_string().dimmed());
+                info!("  {} {} ({})", "→".cyan(), plan.name().green(), path.display().to_string().dimmed());
             }
             | Source::Remote { identifier, .. } => {
-                let name = selector.name();
+                let name = plan.name();
                 if name == *identifier {
                     info!("  {} {}", "→".cyan(), identifier.green());
                 } else {
