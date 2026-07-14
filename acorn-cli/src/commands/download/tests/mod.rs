@@ -319,19 +319,6 @@ fn test_model_select_preferred_file_errors_when_ambiguous() {
     let selected = files.select(&policy);
     assert!(selected.is_err());
 }
-#[test]
-fn test_model_filter_selectors_applies_filter_and_ignore() {
-    let selectors = vec![acorn::io::Source::from("alpha.gguf"), acorn::io::Source::from("beta.safetensors")];
-    let filtered = super::model::filter_by_patterns(
-        selectors,
-        &["gguf$".to_string()],
-        &["alpha".to_string()],
-        acorn::io::Source::identifier,
-        |_| true,
-    )
-    .unwrap();
-    assert!(filtered.is_empty());
-}
 #[tokio::test]
 async fn test_model_resolve_plan_matches_config_name() {
     let content = r#"{"models": [{"name": "tiny", "revision": "dev", "filter": ["\\.gguf$"], "source": {"provider": "huggingface", "location": "https://huggingface.co/acme/tiny"}}]}"#;

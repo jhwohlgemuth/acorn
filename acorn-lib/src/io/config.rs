@@ -635,6 +635,27 @@ impl FilterSet {
         };
         compile(ignore).and_then(|ignore| compile(filter).map(|filter| Self { ignore, filter }))
     }
+    /// Filter items based on ignore and filter regex patterns
+    pub fn filter<T>(
+        items: Vec<T>,
+        filter: &[String],
+        ignore: &[String],
+        value: impl Fn(&T) -> String,
+        keep: impl Fn(&T) -> bool,
+    ) -> ApiResult<Vec<T>> {
+        match FilterSet::compile(ignore, filter) {
+            | Ok(FilterSet { ignore, filter }) => Ok(items
+                .into_iter()
+                .filter(|item| {
+                    let value = value(item);
+                    let ignored = ignore.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
+                    let filtered = filter.is_empty() || filter.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
+                    !ignored && filtered && keep(item)
+                })
+                .collect()),
+            | Err(why) => Err(why),
+        }
+    }
 }
 impl fmt::Display for RunnerType {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

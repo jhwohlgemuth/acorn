@@ -52,13 +52,14 @@ pub async fn run(
             return Err(why);
         }
     };
-    let selectors = match filter_by_patterns(
+    let plans = FilterSet::filter(
         planned,
         filter,
         ignore,
         |plan| plan.selector.identifier(),
         |plan| plan.matches_whitelist(&whitelist),
-    ) {
+    );
+    let selectors = match plans {
         | Ok(value) => value,
         | Err(why) => {
             error!("=> {} Filter model selectors — {why}", Label::fail());
@@ -221,26 +222,6 @@ impl ModelDownloadPlan {
     }
     pub(crate) fn name(&self) -> String {
         self.selector.name()
-    }
-}
-pub(crate) fn filter_by_patterns<T>(
-    items: Vec<T>,
-    filter: &[String],
-    ignore: &[String],
-    value: impl Fn(&T) -> String,
-    keep: impl Fn(&T) -> bool,
-) -> ApiResult<Vec<T>> {
-    match FilterSet::compile(ignore, filter) {
-        | Ok(FilterSet { ignore, filter }) => Ok(items
-            .into_iter()
-            .filter(|item| {
-                let value = value(item);
-                let ignored = ignore.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
-                let filtered = filter.is_empty() || filter.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
-                !ignored && filtered && keep(item)
-            })
-            .collect()),
-        | Err(why) => Err(why),
     }
 }
 fn resolve_database_plan(selector: &str, database_path: &Option<PathBuf>) -> ApiResult<Option<ModelDownloadPlan>> {

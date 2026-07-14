@@ -7,7 +7,7 @@
 )]
 use crate::io::api::{TreeEntry, TreeEntryType};
 use crate::io::bagit::{Bag, BagInfo, Save};
-use crate::io::config::{ApplicationConfiguration, Bucket};
+use crate::io::config::{ApplicationConfiguration, Bucket, FilterSet};
 use crate::io::http::policy::{http_timeout_layer, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
@@ -738,6 +738,13 @@ fn test_filter_ignored() {
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].file_name().unwrap().to_str().unwrap(), "a.txt");
     }
+}
+#[test]
+fn test_filter_set_filter() {
+    use crate::io::Source;
+    let selectors = vec![Source::from("alpha.gguf"), Source::from("beta.safetensors")];
+    let filtered = FilterSet::filter(selectors, &["gguf$".to_string()], &["alpha".to_string()], Source::identifier, |_| true).unwrap();
+    assert!(filtered.is_empty());
 }
 #[test]
 fn test_image_paths() {

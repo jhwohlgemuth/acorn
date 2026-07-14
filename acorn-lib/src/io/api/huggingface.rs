@@ -42,7 +42,7 @@ impl HuggingFaceRepository for RepositoryFiles {
         let ignore_vec = ignore.into_iter().map(String::from).collect::<Vec<_>>();
         let filtered = match try_glob_filter(self, filter, ignore) {
             | Some(result) => Ok(result),
-            | None => filter_by_patterns(
+            | None => FilterSet::filter(
                 self.clone(),
                 &filter_vec,
                 &ignore_vec,
