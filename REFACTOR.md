@@ -16,7 +16,7 @@ This document captures cross-crate refactor and hardening recommendations for `a
 8. [io::api Backlog](#ioapi-backlog)
 9. [acorn-cmd: Standalone Crate Extraction](#acorn-cmd-standalone-crate-extraction)
 10. [Reference Inventories](#reference-inventories)
-11. [Model Download Implementation](#model-download-implementation)
+11. [Model Download Remaining Work](#model-download-remaining-work)
 
 ## Goals
 
@@ -37,11 +37,10 @@ Use this section to choose the next work item. Detailed notes for each task are 
 
 | Phase | Status | Focus | Primary outcomes |
 |---|---|---|---|
-| 1. Reliability triage | Complete | Command flow and internal error contracts | Panic/unimplemented/exit-heavy command paths removed |
-| 2. Boundary hardening | Next | OOXML, path handling, export assets | Export failures become typed errors instead of silent corruption |
-| 3. Shared abstractions | Planned | `ExportContext`, `SafePath`, interpolation | Shared behavior replaces duplicated mappings and path logic |
-| 4. Structural modularization | Planned | CLI startup, API clients, schema I/O | Boundaries are explicit and easier to test |
-| 5. Refinement | Planned | Bindings, portability, lower-priority cleanup | Repetition decreases and build targets broaden |
+| 1. Boundary hardening | Next | OOXML, path handling, export assets | Export failures become typed errors instead of silent corruption |
+| 2. Shared abstractions | Planned | `ExportContext`, `SafePath`, interpolation | Shared behavior replaces duplicated mappings and path logic |
+| 3. Structural modularization | Planned | CLI startup, API clients, schema I/O | Boundaries are explicit and easier to test |
+| 4. Refinement | Planned | Bindings, portability, lower-priority cleanup | Repetition decreases and build targets broaden |
 
 ### High-Priority Next Tasks
 
@@ -50,14 +49,12 @@ Use this section to choose the next work item. Detailed notes for each task are 
 | Export/PPTX | Finish hardening OOXML interpolation and slide-copy mutations | Medium | Critical | [Core Refactor Backlog](#core-refactor-backlog) |
 | Export/Templates | Fail fast on missing embedded assets | Low | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | Export/PPTX | Introduce shared `ExportContext` | Medium | High | [Core Refactor Backlog](#core-refactor-backlog) |
-| io::api | Complete HTTP method dispatch in root invoke path | Low | Critical | [io::api Backlog](#ioapi-backlog) |
 | no-std/WASM | Isolate std-only modules from domain modules | Medium | Critical | [Portability Backlog](#portability-backlog-no-std--wasm) |
-| Model Download | Implement `acorn download model` weight downloads with GGUF-first defaults | Medium | Critical | [Model Download Implementation](#model-download-implementation) — Phase 1 complete, GGUF-first phases planned |
+| Model Download | Finish model download planning, reliability, and documentation gaps | Medium | Critical | [Model Download Remaining Work](#model-download-remaining-work) |
 | Analyzer | Extract link-check traversal helpers | Low | High | [Analyzer Backlog](#analyzer-backlog) |
 
 ### Visual Status Legend
 
-- **Complete**: implementation exists and the task should move to verification or cleanup only.
 - **Next**: best candidate for immediate implementation.
 - **Planned**: scoped but depends on earlier work or has lower urgency.
 - **Reference**: supporting inventory, not an implementation task by itself.
@@ -99,7 +96,7 @@ Excluded:
 
 #### 3. Finish hardening OOXML interpolation and slide-copy mutations
 - Difficulty: Medium
-- Status: Partially complete — parser-backed presentation and relationship updates exist; interpolation and slide-copy mutations still need cleanup.
+- Status: Remaining cleanup needed for interpolation and slide-copy mutations.
 - Evidence: `acorn-cli/src/commands/export/powerpoint.rs`, `acorn-lib/src/io/powerpoint/mod.rs`
 - Recommendation:
   1. Replace remaining regex-based paragraph selection and bullet interpolation with parser-backed XML transforms.
@@ -405,53 +402,44 @@ Validation: `cargo check -p acorn-lib --no-default-features --features wasm --ta
 
 ### Reuse Opportunities From Module Scan
 
-#### Critical
-
-##### 1. Complete HTTP method dispatch in root invoke path
-- Difficulty: Low
-- Impact: Critical
-- Evidence: `acorn-lib/src/io/api/mod.rs` currently dispatches only `GET`, `POST`, and `PUT` and falls through to `unimplemented!` for other methods; `openai::api` now includes `DELETE` resources.
-- Opportunity: Add full `HttpMethod` dispatch support in `RemoteResource::invoke_with`; remove `unimplemented!` fallback; add tests for method routing parity.
-
 #### High Impact
 
-##### 2. Extract endpoint resolution helpers
+##### 1. Extract endpoint resolution helpers
 - Evidence: Repeated `Endpoint::from_template(template).map(|e| e.with_domain(...))` across `openai`, `gitlab`, and `raid`.
 - Opportunity: Add root helpers for template+domain endpoint resolution and named endpoint lookup.
 
-##### 3. Extract auth-header parameter builders
+##### 2. Extract auth-header parameter builders
 - Evidence: Repeated `Authorization: Bearer` in `openai`/`raid`, `PRIVATE-TOKEN` in `gitlab`.
 - Opportunity: Add reusable helpers for common header param styles.
 
-##### 4. Extract required-input validators
+##### 3. Extract required-input validators
 - Evidence: Repeated required `identifier` and required `body` match branches in `openai`, `raid`, and `gitlab`.
 - Opportunity: Add root validators for required non-empty identifier/body values.
 
-##### 5. Extract invoke-and-parse convenience wrappers
+##### 4. Extract invoke-and-parse convenience wrappers
 - Evidence: Repeated sequence: build params → invoke/invoke_with → handle/handle_or across most provider functions.
 - Opportunity: Add wrappers that combine invocation and parse strategy.
 
 #### Medium Impact
 
-##### 6. Extract optional query parameter composition helper
+##### 5. Extract optional query parameter composition helper
 - Evidence: Repeated optional list parameter insertion in `openai` and other modules.
 - Opportunity: Add helper to append optional key/value query params when present and non-empty.
 
-##### 7. Normalize environment configuration bootstrap
+##### 6. Normalize environment configuration bootstrap
 - Evidence: Repeated `.env` load + env var fallback patterns in `openai`, `raid`, and `gitlab` options.
 - Opportunity: Add root helper for consistent env loading and prioritized var resolution.
 
-##### 8. Extract status/health helper pattern
+##### 7. Extract status/health helper pattern
 - Evidence: Similar `is_healthy` wrappers in `orcid`, `ror`, and `citeas`.
 - Opportunity: Add root utility for status-to-health checks with pluggable predicate.
 
 ### Recommended Extraction Order
 
-1. Critical method dispatch support for all declared `HttpMethod` variants.
-2. Endpoint resolution + auth/header builders.
-3. Required-input validators + optional query param composition helper.
-4. Invoke-and-parse wrappers with fallback support.
-5. Environment bootstrap and health-check helpers.
+1. Endpoint resolution + auth/header builders.
+2. Required-input validators + optional query param composition helper.
+3. Invoke-and-parse wrappers with fallback support.
+4. Environment bootstrap and health-check helpers.
 
 ---
 
@@ -465,11 +453,6 @@ This section documents the plan to extract `cmd!`, `args!`, and `cmd_sh_words!` 
 - Declarative macros `cmd!` and `args!`: `acorn-lib/src/util/macros.rs` (gated behind `#[cfg(feature = "cmd")]`)
 - Runtime helpers: `acorn-lib/src/util/cmd.rs` (gated behind `#[cfg(feature = "std")]`)
 - Tests: `acorn-lib/src/util/tests/cmd.rs`
-
-### Status
-
-- Feature gate (`#[cfg(feature = "cmd")]`): ✅ Complete
-- Extraction to new crate: 🔜 Future work
 
 ### Extraction Steps
 
@@ -607,85 +590,11 @@ Snapshot details:
 
 </details>
 
-### CKAN Fixture Conversion to DCAT v3
+## Model Download Remaining Work
 
-This section documents the rules for converting CKAN API format test fixtures (in `tests/fixtures/schema/ckan/`) to DCAT v3 compliant JSON (in `tests/fixtures/schema/dcat/`).
+This section tracks remaining ACORN-side work for `acorn download model`.
 
-#### Field Mapping CKAN → DCAT v3
-
-| CKAN field path | DCAT v3 path | Transformation |
-|---|---|---|
-| `title` | `title` | Wrap in array |
-| `notes` (HTML) | `description` | Strip HTML tags, wrap in array |
-| `url` | `landingPage` | Wrap in array |
-| `identifier`, `guid`, `id` | `identifier` | Prefer custom `identifier`, then `guid`, then `id` |
-| `issued`, `metadata_created` | `issued` | Prefer custom/top-level `issued` |
-| `modified`, `metadata_modified` | `modified` | Prefer custom/top-level `modified` |
-| `tags[].name` | `keywords` | Extract `.name` into array |
-| `publisher[0]`, `organization` | `publisher` | Use first explicit publisher; fall back to `organization` |
-| `creator[]` | `creator[]` | Each → `Agent { name }`; normalize ORCID identifiers |
-| `contact[].email`, etc. | `contactPoint` | Format as `mailto:` URI |
-| `qualified_relation[]` | `qualifiedRelation[]` | Use `uri` as `relation`; `role` as `hadRole` |
-| `resources[]` | `distribution[]` | Each → `Distribution` |
-
-#### Fixture Files
-
-| Source (ckan/) | Target (dcat/) | Content |
-|---|---|---|
-| `0sbdv-gh024.json` | `0sbdv-gh024.json` | Full metadata, no resources |
-| `6rpmk-n3x82.json` | `6rpmk-n3x82.json` | Minimal, fallback behavior |
-| `j5xbm-d7v43.json` | `j5xbm-d7v43.json` | Medium, multiple creators |
-
-#### Verification
-
-```bash
-cargo run --bin acorn -- check ./tests/fixtures/schema/dcat/ --standard dcat
-```
-
----
-
-## Model Download Implementation
-
-This section tracks ACORN-side work to make `acorn download model` the primary backend for downloading model weights used by Gold, `llama.cpp`, `llama-swap`, and local inference environments. The default behavior is GGUF-first: `acorn download model <repo-or-model>` should prefer `*.gguf` files because this command is primarily meant for `llama.cpp`-compatible local inference.
-
-### Current State
-
-- `acorn-cli` exposes `download model` with config-driven resolution and positional-first deduplication.
-- `ApplicationConfiguration` supports model entries through `models: Option<Vec<ModelEntry>>`, including bare selectors and detailed entries.
-- `--filter` and `--ignore` are parsed and passed into `download::model::run`, but the implementation currently ignores them.
-- Remote weight download is not implemented yet; remote selectors currently resolve/validate output directories.
-- `acorn-lib/src/schema/agent/mod.rs` exposes `ModelDetails.weights`, `acorn-lib/src/io/database/schema.rs` persists `ModelRow.weights`, and `acorn-lib/src/io/api/models_dev.rs` downloads and caches the models.dev catalog.
-
-### Phase 1: Config + CLI Foundation (Complete)
-
-- Config files can declare model selectors and detailed model entries.
-- `--config` / `-c` resolves application config and merges with positional models.
-- Positional-first deduplication keeps positional models ahead of config entries.
-- Default output directory resolves to `$HOME/.models` when `--output` is omitted.
-- Models are validated against the local database when possible, with clear continuation messages when metadata is unavailable.
-- Offline mode rejects remote model selectors before any remote operation.
-- Existing tests cover config parsing, local model handling, model resolution, offline rejection, and CLI parsing.
-
-### Phase 2: Selector Filtering
-
-Goal: make the existing `--filter` and `--ignore` flags effective before full remote downloads are implemented.
-
-Tasks:
-1. Compile `--filter` and `--ignore` as regex patterns using semantics consistent with content downloads.
-2. Apply selector-level filtering after config/positional merge and deduplication, before offline checks and model resolution.
-3. Match local sources, direct URLs, remote repository IDs, and unsupported selectors against `Source::identifier()`.
-4. Treat empty `--filter` as include-all and non-empty `--filter` as include-if-any-pattern-matches.
-5. Treat `--ignore` as exclude-if-any-pattern-matches.
-6. Return clear errors for invalid regex patterns.
-7. Return a specific empty-selection error when all selectors are removed by `--filter`, `--ignore`, or `--whitelist`.
-
-Acceptance criteria:
-1. `acorn download model repo/name --filter name` keeps the selector.
-2. `acorn download model repo/name --ignore name` removes the selector and reports no matching models.
-3. Invalid regex input returns an actionable error.
-4. Existing local copy/reference behavior remains unchanged when no filters are provided.
-
-### Phase 3: Download Planning Types
+### Phase 1: Download Planning Types
 
 Goal: separate model selection, file planning, and transfer execution into testable units.
 
@@ -719,54 +628,25 @@ Configuration shape:
 }
 ```
 
-### Phase 4: Hugging Face Resolution And GGUF Selection
+### Phase 2: Remaining Hugging Face Selection Gaps
 
-Goal: resolve Hugging Face repository files without requiring Python or the `hf` CLI, while mirroring the useful parts of `hf download --include` and `hf download --exclude`.
-
-Tasks:
-1. Implement Hugging Face repository listing through HF APIs with default revision `main`.
-2. Construct direct file URLs as `https://huggingface.co/{org}/{repo}/resolve/{revision}/{path}`.
-3. Preserve ACORN regex semantics for `--filter` and config `filter`, matching repository-relative paths.
-4. Preserve ACORN regex semantics for `--ignore` and config `ignore`, matching repository-relative paths.
-5. Convert safe regex patterns to HF-style include/exclude globs when possible, such as `\\.gguf$` to `*.gguf` and `Q4_K_M.*\\.gguf$` to `*Q4_K_M*.gguf`.
-6. Fall back to listing repository files and applying regex locally when regex-to-glob conversion is unsafe.
-7. Keep full-repo download as an explicit future capability, but do not make it the default for `acorn download model`.
-
-Default selection rules:
-1. If a user supplies `--filter` or config `filter`, select only matching files after applying ignores.
-2. Without user filters, prefer `*.gguf` files.
-3. If multiple GGUF files exist, prefer `Q4_K_M`.
-4. If no `Q4_K_M` exists and exactly one GGUF file remains, select it.
-5. If multiple GGUF candidates remain, return an ambiguity error listing candidates and suggesting `--filter`.
-6. If no GGUF files exist, report no GGUF candidates and suggest a GGUF repo or explicit `--filter` for non-GGUF formats.
-7. Direct file URLs bypass GGUF preference because the user already selected a file.
-
-Format fallback policy:
-1. GGUF is the default and preferred format for this command.
-2. `.safetensors`, `.bin`, `.pt`, and `.pth` are selected only when the user explicitly filters for them or a future explicit mode asks for Transformers/PyTorch behavior.
-3. Full Hugging Face repo download is safest for Transformers usage, but it is not the default for this command.
-
-### Phase 5: Transfer Reliability And Auth
-
-Goal: make downloads safe, restart-tolerant, and secure for public, gated, and private model repositories.
+Goal: close remaining selection gaps while preserving the current Python-free Hugging Face download path.
 
 Tasks:
-1. Resolve Hugging Face auth tokens from `HF_TOKEN`, `HF_API_TOKEN`, and `HUGGINGFACE_HUB_TOKEN` through `acorn::io::first_env_var`.
-2. Allow public model downloads without tokens.
-3. Return a clear missing-auth error for 401/403 responses from gated or private models.
-4. Never print tokens in CLI args, logs, errors, database rows, or debug output.
-5. Download to `{target}.part`, flush and close the file, verify expected size/checksum when available, then atomically rename.
-6. Remove partial files on failure.
-7. Skip existing files when size/checksum matches expected metadata.
-8. Prevent path traversal by resolving repository paths under the selected model output directory only.
-9. Keep HTTP range resume as a later reliability stage after safe partial downloads and skip-existing behavior are complete.
+1. Convert safe regex patterns to HF-style include/exclude globs when useful, such as `\\.gguf$` to `*.gguf` and `Q4_K_M.*\\.gguf$` to `*Q4_K_M*.gguf`.
+2. Keep repository listing and local regex filtering as the fallback when regex-to-glob conversion is unsafe.
+3. Keep full-repo download as an explicit future capability, but do not make it the default for `acorn download model`.
 
-Offline behavior:
-1. Local/config resolution and database lookup are allowed offline.
-2. Remote catalog refresh, Hugging Face repository listing, and remote downloads are blocked offline.
-3. Direct remote URLs are rejected offline before any network request.
+### Phase 3: Remaining Transfer Reliability Gaps
 
-### Phase 6: CLI Help, Documentation, And Validation
+Goal: extend the current partial-file and size-check transfer path with stronger verification and resume support.
+
+Tasks:
+1. Add checksum verification when reliable checksum metadata is available.
+2. Add HTTP range resume after safe partial downloads and skip-existing behavior.
+3. Add regression tests that verify tokens never appear in CLI args, logs, errors, database rows, or debug output.
+
+### Phase 4: CLI Help, Documentation, And Validation
 
 Goal: make the behavior understandable and testable from the CLI.
 
@@ -777,105 +657,9 @@ Tasks:
 4. Add a note that ACORN does not require Python or `hf`, even though behavior maps conceptually to `hf download --include` and `hf download --exclude`.
 5. Add a note that Transformers/PyTorch users generally need a full repo or a broader include set containing weights, config, tokenizer, processor, chat template, and optional custom code files.
 
-Example commands:
+### Remaining Test Coverage
 
-```bash
-acorn download model HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF
-acorn download model HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF --filter "Q4_K_M.*\\.gguf$"
-acorn download model HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF --ignore "Q2_|Q3_"
-```
-
-### Hugging Face Reference Notes
-
-The Hugging Face `hf` CLI does not require `--include` for full repository downloads:
-
-```bash
-hf download <org-or-user>/<model-name> --local-dir ./models/<model-name>
-```
-
-Use `--include` for selected files or glob patterns:
-
-```bash
-hf download <org-or-user>/<model-name> --local-dir ./models/<model-name> --include "*.safetensors" "config.json" "tokenizer.*"
-```
-
-Use `--exclude` to omit files:
-
-```bash
-hf download <org-or-user>/<model-name> --local-dir ./models/<model-name> --exclude "*.bin"
-```
-
-For ACORN, `--filter` maps conceptually to include behavior and `--ignore` maps conceptually to exclude behavior, but ACORN accepts regex patterns and should not shell out to `hf`.
-
-Common Transformers-style model files:
-
-| File | Purpose |
-|---|---|
-| `README.md` | Model card and usage notes |
-| `config.json` | Model architecture and hyperparameters |
-| `generation_config.json` | Default generation settings |
-| `*.safetensors` | Modern model weight format |
-| `pytorch_model.bin` | Older PyTorch weight format |
-| `*.index.json` | Index for sharded weight files |
-| `tokenizer.json` | Fast tokenizer definition |
-| `tokenizer_config.json` | Tokenizer metadata |
-| `special_tokens_map.json` | BOS/EOS/PAD/etc token mappings |
-| `vocab.json` | Token vocabulary, often used with BPE tokenizers |
-| `merges.txt` | BPE merge rules |
-| `spiece.model` | SentencePiece tokenizer model |
-| `chat_template.jinja` | Chat prompt formatting template |
-| `preprocessor_config.json` | Vision/audio preprocessing config |
-| `processor_config.json` | Multimodal processor config |
-| `adapter_config.json` | LoRA/PEFT adapter config |
-| `adapter_model.safetensors` | Adapter weights |
-
-BPE means Byte Pair Encoding. Hugging Face BPE tokenizers commonly use `vocab.json`, `merges.txt`, and `tokenizer.json`.
-
-GGUF is the native model format used by `llama.cpp`. For `llama.cpp`, users usually do not need PyTorch or Safetensors files and should focus on `*.gguf`.
-
-Common GGUF quantization choices:
-
-| Quant | Use case |
-|---|---|
-| `Q4_K_M` | Good default balance of quality and size |
-| `Q5_K_M` | Better quality, larger file |
-| `Q6_K` | Higher quality, much larger file |
-| `Q8_0` | Near full quality, very large file |
-| `F16` / `BF16` | Full-ish precision, huge file |
-| `Q2_K`, `Q3_K_*` | Smaller, lower quality |
-
-Example `llama.cpp` run after download:
-
-```bash
-llama-cli -m ./models/<model-name>/model.Q4_K_M.gguf -p "Hello"
-```
-
-### Test Coverage
-
-1. Selector-level `--filter` and `--ignore` behavior in the current command path.
-2. Invalid regex reporting for selector and repository-file filtering.
-3. Hugging Face repository resolution and repo-relative path filtering.
-4. Safe regex-to-glob conversion and fallback local filtering.
-5. GGUF default selection when no user filter is supplied.
-6. `Q4_K_M` quantization preference among multiple GGUF files.
-7. Ambiguity error when multiple GGUF candidates remain.
-8. Explicit non-GGUF filtering for `.safetensors`, `.bin`, `.pt`, and `.pth`.
-9. Direct URL downloads bypassing format selection.
-10. Output path construction and path traversal prevention.
-11. Skip-existing behavior using size/checksum metadata.
-12. Token environment resolution and redacted log output.
-13. Partial download cleanup.
-14. Offline mode blocking remote listing and downloads.
-15. Config `outputPath` relative vs absolute resolution.
-
-### Completion Criteria
-
-1. `acorn download model <repo>` downloads the preferred GGUF file by default or reports actionable candidates when ambiguous.
-2. Existing `--filter` and `--ignore` flags are honored for model selectors and repository-relative file paths.
-3. `Q4_K_M` is selected by default when multiple GGUF quantizations are available.
-4. Direct file URLs download exactly the requested file and bypass format preference.
-5. Private and gated Hugging Face models work through environment tokens without leaking secrets.
-6. Existing files are skipped safely by default when metadata matches.
-7. Failed transfers do not leave final-looking corrupt files.
-8. No Python tooling or `hf` CLI dependency is required.
-9. Default model root remains `$HOME/.models`.
+1. Safe regex-to-glob conversion and fallback local filtering.
+2. Checksum verification when checksum metadata is available.
+3. HTTP range resume behavior.
+4. Token redaction in CLI args, logs, errors, database rows, and debug output.
