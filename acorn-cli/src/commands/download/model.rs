@@ -1,8 +1,8 @@
 use super::{DownloadItem, DownloadItems};
 use crate::cli::{CommandOptions, Void};
-use acorn::io::api::huggingface::{self, RepositoryFile};
+use acorn::io::api::huggingface::{self, HuggingFaceRepository};
 use acorn::io::api::models_dev;
-use acorn::io::config::{ApplicationConfiguration, FilterSet, AuthenticationRequirement, ModelEntry, ModelEntryOptions};
+use acorn::io::config::{ApplicationConfiguration, AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions};
 use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
 use acorn::io::source::source_from_weights;
@@ -149,12 +149,6 @@ pub(crate) enum ModelDownloadError {
     FailedHttp(String),
     UnsafePath(String),
     IncompleteDownload(String),
-}
-#[derive(Clone, Debug)]
-pub(crate) struct FileSelectionPolicy<'a> {
-    pub(crate) extension: &'a str,
-    pub(crate) preferred_marker: &'a str,
-    pub(crate) no_match_message: &'a str,
 }
 #[derive(Clone, Debug)]
 pub(crate) struct ModelDownloadPlan {
@@ -383,11 +377,7 @@ async fn resolve_huggingface_model(options: CommandOptions, plan: &ModelDownload
                         info!("=> {} Listing Hugging Face files for {}", Label::run(), identifier.cyan());
                     }
                     match huggingface::repository_tree(&identifier, &plan.revision).await {
-                        | Ok(files) => match select_huggingface_files(
-                            files,
-                            &options.filter.clone().into_iter().collect::<Vec<_>>(),
-                            &options.ignore.clone().into_iter().collect::<Vec<_>>(),
-                        ) {
+                        | Ok(files) => match files.filter(options.filter.as_deref(), options.ignore.as_deref()) {
                             | Ok(selected) => {
                                 let items = selected
                                     .into_iter()
@@ -517,52 +507,6 @@ async fn resolve_positional_plan(
             }
             | Ok(None) => Ok(ModelDownloadPlan::new(Source::from(trimmed)).with_action(action)),
             | Err(_) => Ok(ModelDownloadPlan::new(Source::from(trimmed)).with_action(action)),
-        }
-    }
-}
-fn select_huggingface_files(files: Vec<RepositoryFile>, filter: &[String], ignore: &[String]) -> ApiResult<Vec<RepositoryFile>> {
-    match filter_by_patterns(files, filter, ignore, |file| file.path.clone(), |_| true) {
-        | Ok(filtered) => {
-            if !filter.is_empty() {
-                match filtered.is_empty() {
-                    | true => Err(eyre!("No model files matched --filter/--ignore")),
-                    | false => Ok(filtered),
-                }
-            } else {
-                let policy = FileSelectionPolicy {
-                    extension: ".gguf",
-                    preferred_marker: "Q4_K_M",
-                    no_match_message: "No GGUF model files found; use a GGUF repository or provide --filter for another format",
-                };
-                select_preferred_file(
-                    filtered
-                        .into_iter()
-                        .filter(|file| file.path.to_ascii_lowercase().ends_with(policy.extension))
-                        .collect::<Vec<_>>(),
-                    &policy,
-                )
-            }
-        }
-        | Err(why) => Err(why),
-    }
-}
-pub(crate) fn select_preferred_file(files: Vec<RepositoryFile>, policy: &FileSelectionPolicy<'_>) -> ApiResult<Vec<RepositoryFile>> {
-    match files.len() {
-        | 0 => Err(eyre!("{}", policy.no_match_message)),
-        | 1 => Ok(files),
-        | _ => {
-            let preferred = files
-                .iter()
-                .filter(|file| file.path.to_ascii_uppercase().contains(policy.preferred_marker))
-                .cloned()
-                .collect::<Vec<_>>();
-            match preferred.len() {
-                | 1 => Ok(preferred),
-                | _ => Err(eyre!(
-                    "Multiple model file candidates found; use --filter to choose one: {}",
-                    files.iter().map(|file| file.path.clone()).collect::<Vec<_>>().join(", ")
-                )),
-            }
         }
     }
 }

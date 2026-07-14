@@ -406,6 +406,41 @@ fn test_regex_join() {
     assert_eq!(regex_join(&patterns), Some("(?:\\.json$)|(?:^README)".to_string()));
 }
 #[test]
+fn test_regex_to_glob() {
+    assert_eq!(regex_to_glob("\\.gguf$"), Some("*.gguf".to_string()));
+    assert_eq!(regex_to_glob("Q4_K_M.*\\.gguf$"), Some("*Q4_K_M*.gguf".to_string()));
+    assert_eq!(regex_to_glob("gguf$"), Some("*gguf".to_string()));
+    assert_eq!(regex_to_glob("tiny\\.gguf"), Some("*tiny.gguf*".to_string()));
+    assert_eq!(regex_to_glob("^model\\.bin"), Some("model.bin*".to_string()));
+    assert_eq!(regex_to_glob("Q2_"), Some("*Q2_*".to_string()));
+    assert_eq!(regex_to_glob("^model\\.bin$"), Some("model.bin".to_string()));
+    assert!(regex_to_glob("[a-z]+\\.gguf$").is_none());
+    assert!(regex_to_glob("\\.(gguf|safetensors)$").is_none());
+    assert!(regex_to_glob("model+.gguf").is_none());
+    assert!(regex_to_glob("(?=model).*\\.gguf").is_none());
+    assert!(regex_to_glob("model$extra").is_none());
+    assert!(regex_to_glob("").is_none());
+    assert!(regex_to_glob("\\d+\\.gguf$").is_none());
+    assert!(regex_to_glob("\\bmodel\\b").is_none());
+}
+#[test]
+fn test_glob_matches() {
+    assert!(glob_matches("model.Q4_K_M.gguf", "*.gguf"));
+    assert!(!glob_matches("model.Q4_K_M.gguf", "*.safetensors"));
+    assert!(glob_matches("model.gguf", "model.ggu?"));
+    assert!(!glob_matches("model.gguf", "model.ggu??"));
+    assert!(glob_matches("tiny.model.gguf", "*.gguf"));
+    assert!(glob_matches("model.gguf", "model*"));
+    assert!(glob_matches("model.Q4_K_M.gguf", "model*.gguf"));
+    assert!(glob_matches("model.Q4_K_S.gguf", "model*.gguf"));
+    assert!(!glob_matches("other.Q4_K_M.gguf", "model*.gguf"));
+    assert!(glob_matches("model.gguf", "model.gguf"));
+    assert!(!glob_matches("model.gguf", "other.gguf"));
+    assert!(!glob_matches("model.gguf", ""));
+    assert!(glob_matches("a.b.c.gguf", "*.gguf"));
+    assert!(glob_matches("a.b.c.gguf", "*.*"));
+}
+#[test]
 fn test_semantic_version() {
     let version = SemanticVersion::from("3");
     assert_eq!(version.major, 3);

@@ -50,7 +50,7 @@ Use this section to choose the next work item. Detailed notes for each task are 
 | Export/Templates | Fail fast on missing embedded assets | Low | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | Export/PPTX | Introduce shared `ExportContext` | Medium | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | no-std/WASM | Isolate std-only modules from domain modules | Medium | Critical | [Portability Backlog](#portability-backlog-no-std--wasm) |
-| Model Download | Finish model download planning, reliability, and documentation gaps | Medium | Critical | [Model Download Remaining Work](#model-download-remaining-work) |
+| Model Download | Finish model download reliability, documentation, and test gaps | Medium | Critical | [Model Download Remaining Work](#model-download-remaining-work) |
 | Analyzer | Extract link-check traversal helpers | Low | High | [Analyzer Backlog](#analyzer-backlog) |
 
 ### Visual Status Legend
@@ -594,50 +594,7 @@ Snapshot details:
 
 This section tracks remaining ACORN-side work for `acorn download model`.
 
-### Phase 1: Download Planning Types
-
-Goal: separate model selection, file planning, and transfer execution into testable units.
-
-Tasks:
-1. Define `ModelDownloadPlan` with source repository or URL, selected files, output directory, auth requirement, expected size, checksum, and transfer mode.
-2. Define file-level metadata types for repository-relative path, resolved URL, size, checksum, format, and quantization.
-3. Define typed errors for unknown models, multiple matches, no matching files, ambiguous quantization, missing auth, failed HTTP, path traversal, and incomplete downloads.
-4. Resolve selectors in this order: exact config `models[].name`, exact `ModelRow.model_id`, exact `ModelDetails.id` from models.dev when network is allowed, single case-insensitive alias match, direct URL fallback, then explicit error.
-5. Keep direct HTTP(S) file URLs as a fallback path that bypasses repository format selection.
-
-Suggested types: `ModelDownloadEntry`, `ModelSource`, `ModelAuthRequirement`, `ModelFileRule`, `ModelDownloadPlan`, `ModelFileCandidate`, `ModelDownloadError`.
-
-Configuration shape:
-
-```json
-{
-  "models": [
-    {
-      "name": "smollm2",
-      "source": {
-        "type": "huggingFace",
-        "repository": "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF",
-        "revision": "main"
-      },
-      "outputPath": "smollm2",
-      "auth": "optional",
-      "filter": ["\\.gguf$"],
-      "ignore": ["Q2_", "Q3_"]
-    }
-  ]
-}
-```
-
-### Phase 2: Remaining Hugging Face Selection Gaps
-
-Goal: close remaining selection gaps while preserving the current Python-free Hugging Face download path.
-
-Tasks:
-1. Convert safe regex patterns to HF-style include/exclude globs when useful, such as `\\.gguf$` to `*.gguf` and `Q4_K_M.*\\.gguf$` to `*Q4_K_M*.gguf`.
-2. Keep repository listing and local regex filtering as the fallback when regex-to-glob conversion is unsafe.
-3. Keep full-repo download as an explicit future capability, but do not make it the default for `acorn download model`.
-
-### Phase 3: Remaining Transfer Reliability Gaps
+### Phase 1: Remaining Transfer Reliability Gaps
 
 Goal: extend the current partial-file and size-check transfer path with stronger verification and resume support.
 
@@ -646,7 +603,7 @@ Tasks:
 2. Add HTTP range resume after safe partial downloads and skip-existing behavior.
 3. Add regression tests that verify tokens never appear in CLI args, logs, errors, database rows, or debug output.
 
-### Phase 4: CLI Help, Documentation, And Validation
+### Phase 2: CLI Help, Documentation, And Validation
 
 Goal: make the behavior understandable and testable from the CLI.
 
@@ -659,7 +616,6 @@ Tasks:
 
 ### Remaining Test Coverage
 
-1. Safe regex-to-glob conversion and fallback local filtering.
-2. Checksum verification when checksum metadata is available.
-3. HTTP range resume behavior.
-4. Token redaction in CLI args, logs, errors, database rows, and debug output.
+1. Checksum verification when checksum metadata is available.
+2. HTTP range resume behavior.
+3. Token redaction in CLI args, logs, errors, database rows, and debug output.

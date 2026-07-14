@@ -1145,6 +1145,18 @@ pub fn generate_guid() -> String {
         String::new()
     }
 }
+/// Simple glob pattern matching supporting `*` (any sequence) and `?` (any single char).
+pub fn glob_matches(path: &str, pattern: &str) -> bool {
+    fn go(path: &[u8], pattern: &[u8]) -> bool {
+        match pattern.split_first() {
+            | None => path.is_empty(),
+            | Some((b'*', rest)) => go(path, rest) || path.split_first().is_some_and(|(_, tail)| go(tail, pattern)),
+            | Some((b'?', rest)) => path.split_first().is_some_and(|(_, tail)| go(tail, rest)),
+            | Some((p, rest)) => path.split_first().is_some_and(|(q, tail)| p == q && go(tail, rest)),
+        }
+    }
+    go(path.as_bytes(), pattern.as_bytes())
+}
 /// Check if value is a URI or filesystem path
 pub fn is_uri_or_path(value: &str) -> bool {
     value.starts_with('/')
@@ -1288,6 +1300,61 @@ pub fn regex_join(patterns: &[String]) -> Option<String> {
 /// Invert a regex pattern using negative lookahead so matches become exclusions.
 pub fn regex_inverse(pattern: impl AsRef<str>) -> String {
     format!("^(?!.*(?:{})).*$", pattern.as_ref())
+}
+/// Attempt to convert a safe regex pattern to a glob pattern.
+///
+/// Returns `Some(glob)` if the regex is simple enough for safe conversion, `None` otherwise.
+///
+/// Handles common model filter patterns:
+/// - `\\.gguf$` → `*.gguf`
+/// - `Q4_K_M.*\\.gguf$` → `*Q4_K_M*.gguf`
+/// - `gguf$` → `*gguf`
+/// - `tiny\\.gguf` → `*tiny.gguf*`
+pub fn regex_to_glob(pattern: impl AsRef<str>) -> Option<String> {
+    let mut bytes = pattern.as_ref().as_bytes().iter().peekable();
+    let mut glob = String::new();
+    let mut ok = true;
+    let mut anchored_start = false;
+    let mut anchored_end = false;
+    if bytes.peek() == Some(&&b'^') {
+        anchored_start = true;
+        bytes.next();
+    }
+    while let Some(&byte) = bytes.next() {
+        match byte {
+            | b'\\' => match bytes.next() {
+                | Some(&b'.') => glob.push('.'),
+                | Some(b'd' | b'D' | b'w' | b'W' | b's' | b'S' | b'b' | b'B') => ok = false,
+                | Some(&other) => glob.push(other as char),
+                | None => ok = false,
+            },
+            | b'.' if bytes.peek() == Some(&&b'*') => {
+                bytes.next();
+                glob.push('*');
+            }
+            | b'.' if bytes.peek() == Some(&&b'+') => {
+                bytes.next();
+                glob.push('?');
+                glob.push('*');
+            }
+            | b'.' => ok = false,
+            | b'?' | b'+' | b'[' | b'(' | b'|' | b'{' => ok = false,
+            | b'$' if bytes.peek().is_some() => ok = false,
+            | b'$' => anchored_end = true,
+            | other => glob.push(other as char),
+        }
+    }
+    if ok && !glob.is_empty() {
+        if !anchored_start {
+            glob.insert(0, '*');
+        }
+        if !anchored_end {
+            glob.push('*');
+        }
+        Some(glob)
+    } else {
+        None
+    }
 }
 /// Converts the given string to snake case.
 /// ### Example

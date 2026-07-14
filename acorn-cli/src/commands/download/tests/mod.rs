@@ -10,7 +10,7 @@
 )]
 use super::run;
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
-use acorn::io::api::huggingface::RepositoryFile;
+use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceRepository, RepositoryFile};
 use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, SourceAction};
 use acorn::prelude::{create_dir_all, env, read_to_string, write};
 use acorn::util::merge;
@@ -19,6 +19,13 @@ use color_eyre::eyre::Result;
 
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
+
+fn candidate_file(path: &str) -> RepositoryFile {
+    RepositoryFile {
+        path: path.to_string(),
+        size: None,
+    }
+}
 
 #[test]
 fn test_config_parses_hugging_face_location_model_entry() {
@@ -293,24 +300,23 @@ async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> 
 }
 #[test]
 fn test_model_select_preferred_file_prefers_marker() {
-    let policy = super::model::FileSelectionPolicy {
-        extension: ".gguf",
+    let policy = FileSelectionPolicy {
         preferred_marker: "Q4_K_M",
         no_match_message: "No GGUF model files found",
     };
-    let selected =
-        super::model::select_preferred_file(vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q4_K_M.gguf")], &policy).unwrap();
+    let files = vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q4_K_M.gguf")];
+    let selected = files.select(&policy).unwrap();
     assert_eq!(selected.len(), 1);
     assert_eq!(selected.first().map(|file| file.path.as_str()), Some("model.Q4_K_M.gguf"));
 }
 #[test]
 fn test_model_select_preferred_file_errors_when_ambiguous() {
-    let policy = super::model::FileSelectionPolicy {
-        extension: ".gguf",
+    let policy = FileSelectionPolicy {
         preferred_marker: "Q4_K_M",
         no_match_message: "No GGUF model files found",
     };
-    let selected = super::model::select_preferred_file(vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q6_K.gguf")], &policy);
+    let files = vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q6_K.gguf")];
+    let selected = files.select(&policy);
     assert!(selected.is_err());
 }
 #[test]
@@ -362,13 +368,6 @@ async fn test_download_model_invalid_filter_errors() -> Result<()> {
     .await;
     assert!(result.is_err(), "invalid filter regex should fail");
     Ok(())
-}
-
-fn candidate_file(path: &str) -> RepositoryFile {
-    RepositoryFile {
-        path: path.to_string(),
-        size: None,
-    }
 }
 #[tokio::test]
 async fn test_download_model_local_file_reference() -> Result<()> {
@@ -625,4 +624,46 @@ fn test_resolve_default_config_path_prefers_standard_names() -> Result<()> {
     assert_eq!(resolved, Some(expected));
     let _cleanup = TestCleanup::new(temp_dir.clone());
     Ok(())
+}
+#[test]
+fn test_huggingface_filter_extension() {
+    let files = vec![
+        candidate_file("model.Q4_K_M.gguf"),
+        candidate_file("model.Q4_K_S.gguf"),
+        candidate_file("config.json"),
+        candidate_file("tokenizer.model"),
+    ];
+    let result = files.filter(Some("\\.gguf$"), None).unwrap();
+    assert_eq!(result.len(), 2);
+    assert!(result.iter().all(|f| f.path.ends_with(".gguf")));
+}
+#[test]
+fn test_huggingface_filter_ignore() {
+    let files = vec![
+        candidate_file("model.Q4_K_M.gguf"),
+        candidate_file("model.Q2_K.gguf"),
+        candidate_file("model.Q3_K.gguf"),
+    ];
+    let result = files.filter(None, Some("Q2_")).unwrap();
+    assert_eq!(result.len(), 1);
+    assert!(result.iter().all(|f| f.path != "model.Q2_K.gguf"));
+    assert_eq!(result.first().map(|f| f.path.as_str()), Some("model.Q4_K_M.gguf"));
+}
+#[test]
+fn test_huggingface_filter_combined() {
+    let files = vec![
+        candidate_file("model.Q4_K_M.gguf"),
+        candidate_file("model.Q4_K_S.gguf"),
+        candidate_file("model.Q2_K.gguf"),
+        candidate_file("config.json"),
+    ];
+    let result = files.filter(Some("\\.gguf$"), Some("Q2_")).unwrap();
+    assert_eq!(result.len(), 2);
+    assert!(result.iter().all(|f| f.path.ends_with(".gguf") && !f.path.contains("Q2_")));
+}
+#[test]
+fn test_huggingface_filter_works_with_complex_patterns() {
+    let files = vec![candidate_file("model.gguf")];
+    let result = files.filter(Some("[a-z]+"), None);
+    assert!(result.is_ok());
 }
