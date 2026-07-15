@@ -276,6 +276,28 @@ acorn download --config /path/to/buckets.yml --output ./content
 
 Default output directory: `./content`
 
+### `acorn download model` — Download Model Weights
+
+Downloads model weights for use with ACORN research harnesses and local inference. By default, ACORN selects GGUF model files from Hugging Face repositories and prefers the Q4_K_M quantization. Python, pip, or `hf` are not required.
+
+```shell
+# Download default GGUF (Q4_K_M) from a Hugging Face repo
+acorn download model meta-llama/Llama-3.1-8B
+
+# Download a specific quantization
+acorn download model meta-llama/Llama-3.1-8B --filter "Q8_0.*\\.gguf$"
+
+# Exclude low-quality quantizations
+acorn download model meta-llama/Llama-3.1-8B --ignore "Q2_|Q3_|imatrix"
+
+# Download models from a config file
+acorn download model --config .acorn.json
+```
+
+**Filter/ignore semantics:** `--filter` is an include rule (only matching sources are downloaded). `--ignore` is an exclude rule (matching sources are removed). Both accept regular expression patterns, not Hugging Face glob patterns.
+
+> Transformers/PyTorch users typically need the full repository or a broader filter that includes `config.json`, tokenizer files, `tokenizer_config.json`, and optionally custom code files. The default GGUF-only filter is designed for llama.cpp inference.
+
 ---
 
 ### `acorn doctor` — System Diagnostics

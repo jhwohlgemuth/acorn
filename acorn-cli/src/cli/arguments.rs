@@ -299,7 +299,26 @@ pub(crate) struct Download {
     pub(crate) verbose: Verbosity,
 }
 #[derive(Clone, Debug, Args)]
-#[command(long_about = None)]
+#[command(
+    long_about = "Download model weights for use with ACORN research harnesses and local inference.\n\
+        \n\
+        By default, when downloading from a Hugging Face repository, ACORN selects GGUF model\n\
+        files and prefers the Q4_K_M quantization. Use --filter to override this behavior.\n\
+        \n\
+        The --filter flag behaves as an include rule: only sources matching at least one pattern\n\
+        will be downloaded. The --ignore flag behaves as an exclude rule: sources matching any\n\
+        ignore pattern are excluded even if they match a filter pattern. Both flags accept\n\
+        regular expression patterns (not Hugging Face glob patterns). Simple patterns are\n\
+        automatically optimized to glob matching for Hugging Face repositories.\n\
+        \n\
+        ACORN downloads model weights directly via HTTP. Python, pip, or the huggingface-cli\n\
+        (hf) tool are not required.\n\
+        \n\
+        Users of Transformers or PyTorch typically need the full repository or a broader filter\n\
+        that includes config.json, tokenizer files, tokenizer_config.json, and optionally\n\
+        custom code files. The default GGUF-only filter is designed for llama.cpp inference.",
+    verbatim_doc_comment
+)]
 pub(crate) struct DownloadModel {
     /// Model ID/name(s), local path(s), or direct URL(s) to download
     #[arg(value_name = "MODEL", required = false, value_delimiter = ',', help_heading = "ARGS")]
@@ -308,9 +327,13 @@ pub(crate) struct DownloadModel {
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) config: Option<PathBuf>,
     /// Regular expression pattern(s) used to include model weight sources while downloading
+    ///
+    /// Only sources matching at least one pattern will be downloaded
     #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
     pub(crate) filter: Vec<String>,
     /// Regular expression pattern(s) to ignore model weight sources while downloading
+    ///
+    /// Sources matching any ignore pattern are excluded even if they match a filter pattern
     #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
     pub(crate) ignore: Vec<String>,
     /// Path to output directory where downloaded model weights should be saved

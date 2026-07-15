@@ -50,7 +50,7 @@ Use this section to choose the next work item. Detailed notes for each task are 
 | Export/Templates | Fail fast on missing embedded assets | Low | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | Export/PPTX | Introduce shared `ExportContext` | Medium | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | no-std/WASM | Isolate std-only modules from domain modules | Medium | Critical | [Portability Backlog](#portability-backlog-no-std--wasm) |
-| Model Download | Finish model download reliability, documentation, and test gaps | Medium | Critical | [Model Download Remaining Work](#model-download-remaining-work) |
+| Model Download | Finish model download transfer reliability (checksum, resume, token redaction tests) | Medium | Critical | [Model Download Remaining Work](#model-download-remaining-work) |
 | Analyzer | Extract link-check traversal helpers | Low | High | [Analyzer Backlog](#analyzer-backlog) |
 
 ### Visual Status Legend
@@ -594,28 +594,44 @@ Snapshot details:
 
 This section tracks remaining ACORN-side work for `acorn download model`.
 
+### Completed
+
+- ~~Phase 2: CLI help, documentation, and validation~~ — Completed. `DownloadModel` help text now documents GGUF-first default, `--filter`/`--ignore` regex semantics, examples, no Python/hf requirement, and Transformers/PyTorch guidance. See `acorn-cli/src/cli/arguments.rs`, `skills/acorn/SKILL.md`, and `docs/src/cli-reference/commands/download.md`.
+
 ### Phase 1: Remaining Transfer Reliability Gaps
+
+Difficulty: Medium | Impact: Critical
 
 Goal: extend the current partial-file and size-check transfer path with stronger verification and resume support.
 
-Tasks:
-1. Add checksum verification when reliable checksum metadata is available.
-2. Add HTTP range resume after safe partial downloads and skip-existing behavior.
-3. Add regression tests that verify tokens never appear in CLI args, logs, errors, database rows, or debug output.
+Current state: `DownloadItem` in `acorn-cli/src/commands/download/mod.rs` carries `url`, `path`, `size`. `DownloadTask::download` removes stale `.part` files before every attempt. `stream_request_once` in `acorn-lib/src/io/http/mod.rs:245` always starts from byte 0. `file_checksum` in `acorn-lib/src/io/mod.rs:722` computes SHA-256 via `ring` but is not wired into the download path. HF tree API (`acorn-lib/src/io/api/huggingface.rs:130`) returns `TreeEntry` with `sha` (Git object SHA, not content hash) and `size` but no checksum metadata.
 
-### Phase 2: CLI Help, Documentation, And Validation
+#### 1. Add checksum verification when reliable checksum metadata is available
 
-Goal: make the behavior understandable and testable from the CLI.
+- Extend `DownloadItem` with optional `expected_sha256: Option<String>`, populated when HF `.sha256` sidecar files are present in the repo tree.
+- Add helper to scan `RepositoryFiles` for adjacent `{stem}.sha256` / `{stem}.sha256sum` sidecar files and extract the hex digest.
+- After `validate_downloaded_size` in `DownloadTask::download` (`mod.rs:132`), call `file_checksum(&self.part, None)` and compare against `expected_sha256`. On mismatch, remove `.part` and return `ModelDownloadError::IncompleteDownload`.
+- Add `--skip-verify-checksum` boolean flag (default: false) to `DownloadModel` in `acorn-cli/src/cli/arguments.rs:303`. When set, skip post-download `file_checksum` comparison even when sidecar metadata is present. Reuses the naming convention from `CheckOptions::skip_verify_checksum` in `acorn-lib/src/analyzer/check.rs:223`.
 
-Tasks:
-1. Document that `acorn download model` is GGUF-first by default for `llama.cpp`.
-2. Document that `--filter` behaves like an include rule and `--ignore` behaves like an exclude rule, while remaining regex-based rather than HF glob-based.
-3. Add examples for downloading the default GGUF, a specific quantization, and excluding low-quality quantizations.
-4. Add a note that ACORN does not require Python or `hf`, even though behavior maps conceptually to `hf download --include` and `hf download --exclude`.
-5. Add a note that Transformers/PyTorch users generally need a full repo or a broader include set containing weights, config, tokenizer, processor, chat template, and optional custom code files.
+#### 2. Add HTTP range resume after safe partial downloads
+
+- In `DownloadTask::download` (`mod.rs:113`), instead of unconditionally removing `.part` files, check whether the `.part` exists and the server supports `Accept-Ranges: bytes` (via HEAD or first GET response headers). If ranges are supported and `.part` size is less than expected total, keep it.
+- In `stream_request_once` (`http/mod.rs:245`), accept optional `resume_from: Option<u64>`. When `Some(offset)`, add `Range: bytes={offset}-` header. When response is `206 Partial Content`, append to output file and adjust progress counter. When `200 OK`, truncate and start from byte 0.
+- Thread `resume_from` through `download_with_progress` → `stream_request_with_policy` → `stream_request_once`.
+- In `DownloadTask::download`, after keeping `.part`, pass `Some(part_size)` as `resume_from`.
+- The `resume_from` parameter should be `Option<u64>` with default `None` to avoid breaking existing callers outside model download.
+
+#### 3. Add regression tests for token redaction
+
+- Add test in `acorn-cli/src/commands/download/tests/mod.rs` that sets `HF_TOKEN=test-secret-token-12345`, runs `resolve_plans` with a HuggingFace selector, and asserts token does not appear in any `ModelDownloadError` display string.
+- Add test that captures `tracing` output during model resolution and asserts the token is not in captured log text.
+- Add test that writes an `ActivityRow` via `log_activity` and reads it back from a temp database, asserting no token in any column.
+- Verify `DownloadItem` URL field never contains the token (HF URLs use `https://huggingface.co/{id}/resolve/{rev}/{path}`, token goes in headers only — tests make this a permanent regression guard).
 
 ### Remaining Test Coverage
 
-1. Checksum verification when checksum metadata is available.
-2. HTTP range resume behavior.
-3. Token redaction in CLI args, logs, errors, database rows, and debug output.
+| Test | Location | What it validates |
+|------|----------|-------------------|
+| Checksum verification when metadata available | `download/tests/mod.rs` | `.sha256` sidecar → `file_checksum` comparison → reject on mismatch |
+| HTTP range resume behavior | `download/tests/mod.rs` | Local mock server returns 206 for Range requests; `.part` with partial content is completed, not restarted |
+| Token redaction in CLI args, logs, DB | `download/tests/mod.rs` | `HF_TOKEN` env var does not appear in error display, tracing output, or DB activity rows |

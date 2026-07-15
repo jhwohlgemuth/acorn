@@ -212,7 +212,7 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Doctor(Box<arguments::Doctor>),
-    /// Download research activity data from buckets or links
+    /// Download research activity data from buckets or model weights for local inference
     ///
     ///     Download research activity data from a bucket repository URL
     ///     $> acorn download https://github.com/user/repo
@@ -226,6 +226,18 @@ pub enum Commands {
     ///     Download using default configuration in current directory (first match):
     ///     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml
     ///     $> acorn download
+    ///
+    ///     Download default GGUF (Q4_K_M) model from a Hugging Face repository
+    ///     $> acorn download model meta-llama/Llama-3.1-8B
+    ///
+    ///     Download a specific quantization
+    ///     $> acorn download model meta-llama/Llama-3.1-8B --filter "Q8_0.*\\.gguf$"
+    ///
+    ///     Exclude low-quality quantizations
+    ///     $> acorn download model meta-llama/Llama-3.1-8B --ignore "Q2_|Q3_|imatrix"
+    ///
+    ///     Download models from a config file
+    ///     $> acorn download model --config .acorn.json
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     #[command(visible_alias = "fetch")]
@@ -344,7 +356,7 @@ pub enum CreateCommands {
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum DownloadCommands {
-    /// Download model metadata from models.dev into the local database
+    /// Download model weights for use with ACORN research harnesses and local inference
     Model(Box<arguments::DownloadModel>),
 }
 #[derive(Debug, Subcommand)]
