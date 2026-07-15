@@ -594,12 +594,6 @@ Snapshot details:
 
 This section tracks remaining ACORN-side work for `acorn download model`.
 
-### Completed
-
-- ~~Phase 2: CLI help, documentation, and validation~~ — Completed. `DownloadModel` help text now documents GGUF-first default, `--filter`/`--ignore` regex semantics, examples, no Python/hf requirement, and Transformers/PyTorch guidance. See `acorn-cli/src/cli/arguments.rs`, `skills/acorn/SKILL.md`, and `docs/src/cli-reference/commands/download.md`.
-
-### Phase 1: Remaining Transfer Reliability Gaps
-
 Difficulty: Medium | Impact: Critical
 
 Goal: extend the current partial-file and size-check transfer path with stronger verification and resume support.
