@@ -460,7 +460,11 @@ async fn resolve_positional_plan(
         .iter()
         .filter(|entry| entry.name.eq_ignore_ascii_case(trimmed))
         .collect::<Vec<_>>();
-    match (entry_options.iter().find(|entry| entry.name == trimmed), aliases.as_slice(), is_http_or_https(trimmed)) {
+    match (
+        entry_options.iter().find(|entry| entry.name == trimmed),
+        aliases.as_slice(),
+        is_http_or_https(trimmed),
+    ) {
         | (Some(entry), _, _) => Ok(ModelDownloadPlan::from_entry(entry).with_action(action)),
         | (_, [entry], _) => Ok(ModelDownloadPlan::from_entry(entry).with_action(action)),
         | (_, [_, ..], _) => Err(eyre!("{}", ModelDownloadError::MultipleMatches(trimmed.to_string()))),
