@@ -26,13 +26,10 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
         mingw-w64 \
         musl-tools \
         pkg-config \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update && apt-get install --no-install-recommends --yes \
-        nodejs \
+    && apt-get install --no-install-recommends --yes \
+        npm \
     && npx playwright install-deps \
-    && curl -L -o /tmp/powershell.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz \
+    && curl -fkL -o /tmp/powershell.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz \
     && mkdir -p /opt/microsoft/powershell/7 \
     && tar zxf /tmp/powershell.tar.gz -C /opt/microsoft/powershell/7 \
     && chmod +x /opt/microsoft/powershell/7/pwsh \
@@ -45,4 +42,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
     && rm -rf /usr/share/man/?? \
     && rm -rf /usr/share/man/??_*
 HEALTHCHECK NONE
+RUN mkdir -p /tmp/build-playwright-rust \
+    && curl -kL --retry 3 -o /tmp/build-playwright-rust/driver.zip \
+         "https://playwright.azureedge.net/builds/driver/next/playwright-1.11.0-1620331022000-linux.zip"
 CMD ["/bin/bash"]

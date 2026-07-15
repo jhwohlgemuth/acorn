@@ -8,14 +8,23 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
+extern crate alloc;
 use super::run;
+use crate::test::server::{spawn_range_server, spawn_sidecar_server};
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceRepository, RepositoryFile};
+use acorn::io::database::schema::{ActivityRow, Table};
+use acorn::io::database::{Database, Row};
 use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, SourceAction};
 use acorn::prelude::{create_dir_all, env, read_to_string, write};
 use acorn::util::merge;
+use alloc::sync::Arc;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
+use std::io::Write;
+use std::sync::Mutex;
+use temp_env::with_var;
+use tracing_subscriber::fmt::MakeWriter;
 
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
@@ -177,6 +186,7 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
         false,
         true,
         false,
+        false,
         &[],
     )
     .await;
@@ -210,6 +220,7 @@ async fn test_download_model_local_config_copy() -> Result<()> {
         false,
         false,
         false,
+        false,
         &[],
     )
     .await;
@@ -239,6 +250,7 @@ async fn test_download_model_local_file_copy() -> Result<()> {
         false,
         true, // copy
         false,
+        false,
         &[],
     )
     .await;
@@ -266,6 +278,7 @@ async fn test_download_model_filter_keeps_matching_local_file() -> Result<()> {
         false,
         true,
         false,
+        false,
         &[],
     )
     .await;
@@ -291,6 +304,7 @@ async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> 
         &verbose,
         false,
         true,
+        false,
         false,
         &[],
     )
@@ -350,6 +364,7 @@ async fn test_download_model_invalid_filter_errors() -> Result<()> {
         false,
         false,
         false,
+        false,
         &[],
     )
     .await;
@@ -372,6 +387,7 @@ async fn test_download_model_local_file_reference() -> Result<()> {
         &Some(output_dir.clone()),
         &None,
         &verbose,
+        false,
         false,
         false,
         false,
@@ -401,6 +417,7 @@ async fn test_download_model_local_missing_path_errors() -> Result<()> {
         false,
         false,
         false,
+        false,
         &[],
     )
     .await;
@@ -425,6 +442,7 @@ async fn test_download_model_local_mixed_offline_errors() -> Result<()> {
         &None,
         &verbose,
         true, // offline
+        false,
         false,
         false,
         &[],
@@ -452,6 +470,7 @@ async fn test_download_model_local_offline_succeeds() -> Result<()> {
         true, // offline — local should still work
         false,
         false,
+        false,
         &[],
     )
     .await;
@@ -461,7 +480,7 @@ async fn test_download_model_local_offline_succeeds() -> Result<()> {
 #[tokio::test]
 async fn test_download_model_no_models_errors() -> Result<()> {
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(&[], &[], &[], &None, &None, &None, &verbose, false, false, false, &[]).await;
+    let result = super::model::run(&[], &[], &[], &None, &None, &None, &verbose, false, false, false, false, &[]).await;
     assert!(result.is_err(), "empty model list should return an error");
     Ok(())
 }
@@ -477,6 +496,7 @@ async fn test_download_model_offline_rejects() -> Result<()> {
         &None,
         &verbose,
         true,
+        false,
         false,
         false,
         &[],
@@ -507,6 +527,7 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
         false,
         true,
         false,
+        false,
         &[],
     )
     .await;
@@ -532,6 +553,7 @@ async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<(
         &Some(output_dir),
         &None,
         &verbose,
+        false,
         false,
         false,
         false,
@@ -571,6 +593,7 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
         &Some(output_dir.clone()),
         &None,
         &verbose,
+        false,
         false,
         false,
         false,
@@ -653,4 +676,210 @@ fn test_huggingface_filter_works_with_complex_patterns() {
     let files = vec![candidate_file("model.gguf")];
     let result = files.filter(Some("[a-z]+"), None);
     assert!(result.is_ok());
+}
+#[test]
+fn test_download_item_checksum_mismatch_returns_incomplete_download_error() {
+    let temp_dir = temp_test_dir("download_model_checksum_mismatch");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let file_path = temp_dir.join("model.gguf.part");
+    write(&file_path, b"abc").expect("write model part");
+    let item = super::DownloadItem {
+        url: "https://example.test/model.gguf".to_string(),
+        path: "model.gguf".to_string(),
+        size: Some(3),
+        sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+    };
+    let result = item.verify_checksum(&file_path, false);
+    assert!(result.is_err());
+    let text = format!("{}", result.expect_err("checksum error"));
+    assert!(text.contains("Model download is incomplete"));
+}
+#[tokio::test]
+async fn test_download_task_resumes_partial_file_with_http_range() {
+    let payload = b"abcdefghij".to_vec();
+    let (url, handle) = spawn_range_server(payload.clone());
+    let temp_dir = temp_test_dir("download_model_range_resume");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let destination = temp_dir.join("models");
+    match create_dir_all(&destination) {
+        | Ok(()) => {}
+        | Err(why) => panic!("create destination directory failed: {why}"),
+    }
+    let item = super::DownloadItem {
+        url,
+        path: "model.gguf".to_string(),
+        size: Some(payload.len() as u64),
+        sha: None,
+    };
+    let part = item.partial_path(&destination);
+    if let Some(parent) = part.parent() {
+        match create_dir_all(parent) {
+            | Ok(()) => {}
+            | Err(why) => panic!("create parent directory failed: {why}"),
+        }
+    }
+    match write(&part, &payload[..4]) {
+        | Ok(()) => {}
+        | Err(why) => panic!("seed partial file failed: {why}"),
+    }
+    let task = super::DownloadTask::new(item, &destination, true, false);
+    let result = task.download().await;
+    assert!(result.is_ok(), "resume download should succeed: {result:?}");
+    let final_file = destination.join("model.gguf");
+    assert!(final_file.exists(), "final file should be moved into place");
+    let final_bytes = match std::fs::read(final_file) {
+        | Ok(bytes) => bytes,
+        | Err(why) => panic!("read resumed file failed: {why}"),
+    };
+    assert_eq!(final_bytes, payload, "resumed download should append remaining bytes");
+    handle.join().expect("join server thread");
+}
+#[tokio::test]
+async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
+    let model_bytes = b"checksum-success-payload".to_vec();
+    let sidecar_dir = temp_test_dir("download_model_checksum_sidecar_seed");
+    let _sidecar_cleanup = TestCleanup::new(sidecar_dir.clone());
+    let sidecar_file = sidecar_dir.join("model.gguf");
+    match write(&sidecar_file, &model_bytes) {
+        | Ok(()) => {}
+        | Err(why) => panic!("write sidecar seed file failed: {why}"),
+    }
+    let digest = acorn::io::file_checksum(sidecar_file.clone(), None)
+        .expect("checksum should be computed")
+        .checksum_value;
+    let sidecar_content = format!("{digest}  model.gguf\n");
+    let (base_url, handle) = spawn_sidecar_server(model_bytes.clone(), sidecar_content);
+
+    let served_sidecar = match acorn::io::http::get(format!("{base_url}/repo/resolve/main/model.gguf.sha256"))
+        .send()
+        .await
+    {
+        | Ok(response) => response.text().await.expect("read sidecar response body"),
+        | Err(why) => panic!("fetch served sidecar failed: {why}"),
+    };
+    let served_digest = served_sidecar
+        .split_whitespace()
+        .find(|token| token.len() == 64 && token.chars().all(|character| character.is_ascii_hexdigit()))
+        .map(|value| value.to_ascii_lowercase())
+        .expect("extract digest from sidecar");
+
+    let destination = temp_test_dir("download_model_checksum_sidecar_dest");
+    let _dest_cleanup = TestCleanup::new(destination.clone());
+    match create_dir_all(&destination) {
+        | Ok(()) => {}
+        | Err(why) => panic!("create destination directory failed: {why}"),
+    }
+    let item = super::DownloadItem {
+        url: format!("{base_url}/repo/resolve/main/model.gguf"),
+        path: "model.gguf".to_string(),
+        size: Some(model_bytes.len() as u64),
+        sha: Some(served_digest),
+    };
+    let task = super::DownloadTask::new(item, &destination, true, false);
+    let result = task.download().await;
+    assert!(result.is_ok(), "download with valid sidecar checksum should succeed: {result:?}");
+
+    let final_file = destination.join("model.gguf");
+    assert!(final_file.exists(), "final file should exist after successful checksum validation");
+    let final_bytes = match std::fs::read(final_file) {
+        | Ok(bytes) => bytes,
+        | Err(why) => panic!("read downloaded model failed: {why}"),
+    };
+    assert_eq!(final_bytes, model_bytes);
+    handle.join().expect("join sidecar server thread");
+}
+#[test]
+fn test_hf_token_not_exposed_in_model_download_error_display() {
+    let token = "test-secret-token-12345";
+    with_var("HF_TOKEN", Some(token), || {
+        let config = ApplicationConfiguration::parse(
+            r#"{"models":[{"name":"tiny","source":{"provider":"huggingface","location":"https://huggingface.co/hf-internal-testing/tiny-random-bert"}}]}"#,
+        )
+        .expect("parse config");
+        let plans = futures::executor::block_on(super::model::resolve_plans(
+            &["tiny".to_string()],
+            &config.models.unwrap_or_default(),
+            None,
+            &None,
+            true,
+        ))
+        .expect("resolve plans");
+        assert!(!plans.is_empty());
+        let displays = plans
+            .iter()
+            .map(|plan| format!("{}", super::model::ModelDownloadError::MissingAuth(plan.name())))
+            .collect::<Vec<_>>();
+        assert!(displays.iter().all(|line| !line.contains(token)));
+        let urls = plans
+            .iter()
+            .map(|plan| format!("https://huggingface.co/{}/resolve/main/model.gguf", plan.selector.identifier()))
+            .collect::<Vec<_>>();
+        assert!(urls.iter().all(|url| !url.contains(token)));
+    });
+}
+#[test]
+fn test_hf_token_not_exposed_in_model_resolution_logs() {
+    #[derive(Clone)]
+    struct SharedWriter(Arc<Mutex<Vec<u8>>>);
+    impl<'a> MakeWriter<'a> for SharedWriter {
+        type Writer = SharedWriterGuard;
+        fn make_writer(&'a self) -> Self::Writer {
+            SharedWriterGuard(self.0.clone())
+        }
+    }
+    struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
+    impl Write for SharedWriterGuard {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("lock log buffer").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let token = "test-secret-token-12345";
+    let logs = Arc::new(Mutex::new(Vec::new()));
+    let writer = SharedWriter(logs.clone());
+    let subscriber = tracing_subscriber::fmt().with_ansi(false).with_writer(writer).finish();
+    with_var("HF_TOKEN", Some(token), || {
+        tracing::subscriber::with_default(subscriber, || {
+            let _ = futures::executor::block_on(super::model::resolve_plans(
+                &["hf-internal-testing/tiny-random-bert".to_string()],
+                &[],
+                None,
+                &None,
+                true,
+            ));
+        });
+    });
+    let text = String::from_utf8(logs.lock().expect("lock logs").clone()).unwrap_or_default();
+    assert!(!text.contains(token));
+}
+#[test]
+fn test_hf_token_not_persisted_in_activity_rows() {
+    let token = "test-secret-token-12345";
+    with_var("HF_TOKEN", Some(token), || {
+        let temp_dir = temp_test_dir("download_model_activity_redaction");
+        let _cleanup = TestCleanup::new(temp_dir.clone());
+        let database_path = temp_dir.join("activity.duckdb");
+        let database = Database::<Table>::from_path(Some(database_path.clone()));
+        database.migrate().expect("migrate db");
+        super::log_activity(
+            "download model",
+            temp_dir.join("models").display().to_string(),
+            &Some(database_path.clone()),
+            true,
+        );
+        let row = ActivityRow::default()
+            .select(Some(database_path), |_| true)
+            .expect("select activity row")
+            .expect("activity row exists");
+        let columns = [
+            row.command.unwrap_or_default(),
+            row.user_path.unwrap_or_default(),
+            row.executed_at.map(|value| value.to_rfc3339()).unwrap_or_default(),
+            row.success.map(|value| value.to_string()).unwrap_or_default(),
+        ];
+        assert!(columns.iter().all(|value| !value.contains(token)));
+    });
 }

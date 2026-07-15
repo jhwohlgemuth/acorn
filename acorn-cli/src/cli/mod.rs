@@ -61,6 +61,9 @@ pub struct CommandOptions {
     /// Flag used to suppress output
     #[builder(default)]
     pub quiet: bool,
+    /// Flag used to skip checksum verification when supported by a command
+    #[builder(default)]
+    pub skip_verify_checksum: bool,
     /// Flag used to indicate if offline mode is supported for the command
     #[builder(default)]
     pub supported: bool,

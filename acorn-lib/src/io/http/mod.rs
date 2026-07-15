@@ -1,10 +1,10 @@
 //! HTTP client utilities for ACORN IO operations
 use super::ApiResult;
-use crate::prelude::{File, Path, Write};
+use crate::prelude::{File, OpenOptions, Path, Write};
 use crate::util::constants::app::ACORN_USER_AGENT;
 use crate::util::Label;
 use async_trait::async_trait;
-use axum::http::header::{HeaderName, HeaderValue, AUTHORIZATION, USER_AGENT};
+use axum::http::header::{HeaderName, HeaderValue, ACCEPT_RANGES, AUTHORIZATION, RANGE, USER_AGENT};
 use axum::http::HeaderMap;
 use chrono::Utc;
 use color_eyre::eyre::eyre;
@@ -187,8 +187,8 @@ pub async fn download_with_progress(
     headers: Option<HeaderMap>,
     error_message: Option<&str>,
     auth_error_message: Option<&str>,
+    resume_from: Option<u64>,
 ) -> ApiResult<()> {
-    let error_message = error_message.unwrap_or("Failed to download file");
     let service = ReqwestHttpService::streaming();
     let request = HttpRequest {
         headers: headers.unwrap_or_default(),
@@ -196,18 +196,45 @@ pub async fn download_with_progress(
         method: HttpMethod::Get,
         url: url.to_string(),
     };
-    match stream_request_with_policy(service.client, request, output, error_message, auth_error_message, &mut progress).await {
+    let policy = stream_request_with_policy(
+        service.client,
+        request,
+        output,
+        &mut progress,
+        resume_from,
+        error_message,
+        auth_error_message,
+    );
+    match policy.await {
         | Ok(()) => Ok(()),
         | Err(why) => Err(why),
+    }
+}
+/// Check if a URL advertises byte-range support via `Accept-Ranges: bytes`.
+pub async fn supports_byte_ranges(url: &str, headers: Option<HeaderMap>) -> ApiResult<bool> {
+    let service = ReqwestHttpService::streaming();
+    let request = service
+        .client
+        .head(url)
+        .header(USER_AGENT, ACORN_USER_AGENT)
+        .headers(headers.unwrap_or_default());
+    match request.send().await {
+        | Ok(response) => Ok(response
+            .headers()
+            .get(ACCEPT_RANGES)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.eq_ignore_ascii_case("bytes"))),
+        | Err(why) => Err(eyre!("Failed to probe HTTP range support — {why}")),
     }
 }
 async fn stream_request_with_policy(
     client: reqwest::Client,
     request: HttpRequest,
     output: &Path,
-    error_message: &str,
-    auth_error_message: Option<&str>,
     progress: &mut impl FnMut(u64, Option<u64>),
+    resume_from: Option<u64>,
+    error_message: Option<&str>,
+    auth_error_message: Option<&str>,
 ) -> ApiResult<()> {
     let policy = policy::shared_http_policy();
     let method = request.method.clone();
@@ -216,7 +243,16 @@ async fn stream_request_with_policy(
     let mut outcome = None;
     for attempt in 1..=max_attempts {
         let started = Utc::now();
-        let result = stream_request_once(client.clone(), request.clone(), output, error_message, auth_error_message, &mut *progress).await;
+        let result = stream_request_once(
+            client.clone(),
+            request.clone(),
+            output,
+            &mut *progress,
+            resume_from,
+            error_message,
+            auth_error_message,
+        )
+        .await;
         #[allow(clippy::arithmetic_side_effects)]
         let elapsed_ms = (Utc::now() - started).num_milliseconds();
         match result {
@@ -246,12 +282,17 @@ async fn stream_request_once(
     client: reqwest::Client,
     request: HttpRequest,
     output: &Path,
-    error_message: &str,
-    auth_error_message: Option<&str>,
     progress: &mut impl FnMut(u64, Option<u64>),
+    resume_from: Option<u64>,
+    error_message: Option<&str>,
+    auth_error_message: Option<&str>,
 ) -> Result<(), DownloadError> {
+    let error_message = error_message.unwrap_or("Failed to download file");
     let HttpRequest { headers, url, .. } = request;
-    let request = client.get(url).header(USER_AGENT, ACORN_USER_AGENT).headers(headers);
+    let mut request = client.get(url).header(USER_AGENT, ACORN_USER_AGENT).headers(headers);
+    if let Some(offset) = resume_from {
+        request = request.header(RANGE, format!("bytes={offset}-"));
+    }
     match request.send().await {
         | Ok(response) if matches!(response.status().as_u16(), 401 | 403) => {
             let status_code = response.status().as_u16();
@@ -260,28 +301,37 @@ async fn stream_request_once(
                 report: eyre!("{}", auth_error_message.unwrap_or("Failed to download file — authentication required")),
             })
         }
-        | Ok(mut response) if response.status().is_success() => match File::create(output) {
-            | Ok(mut file) => {
-                let total = response.content_length();
-                let mut downloaded = 0_u64;
-                progress(downloaded, total);
-                loop {
-                    match response.chunk().await {
-                        | Ok(Some(chunk)) => match file.write_all(&chunk) {
-                            | Ok(_) => {
-                                downloaded = downloaded.saturating_add(chunk.len() as u64);
-                                progress(downloaded, total);
-                            }
-                            | Err(why) => break Err(eyre!("{error_message} — failed to write download chunk — {why}")),
-                        },
-                        | Ok(None) => break Ok(()),
-                        | Err(why) => break Err(eyre!("{error_message} — {why}")),
+        | Ok(mut response) if response.status().is_success() => {
+            let append = response.status().as_u16() == 206 && resume_from.is_some();
+            let file_result = if append {
+                OpenOptions::new().create(true).append(true).open(output)
+            } else {
+                File::create(output)
+            };
+            match file_result {
+                | Ok(mut file) => {
+                    let resumed = if append { resume_from.unwrap_or_default() } else { 0 };
+                    let total = response.content_length().map(|value| value.saturating_add(resumed));
+                    let mut downloaded = resumed;
+                    progress(downloaded, total);
+                    loop {
+                        match response.chunk().await {
+                            | Ok(Some(chunk)) => match file.write_all(&chunk) {
+                                | Ok(_) => {
+                                    downloaded = downloaded.saturating_add(chunk.len() as u64);
+                                    progress(downloaded, total);
+                                }
+                                | Err(why) => break Err(eyre!("{error_message} — failed to write download chunk — {why}")),
+                            },
+                            | Ok(None) => break Ok(()),
+                            | Err(why) => break Err(eyre!("{error_message} — {why}")),
+                        }
                     }
                 }
+                | Err(why) => Err(eyre!("{error_message} — failed to create output file {} — {why}", output.display())),
             }
-            | Err(why) => Err(eyre!("{error_message} — failed to create output file {} — {why}", output.display())),
+            .map_err(|report| DownloadError { status_code: None, report })
         }
-        .map_err(|report| DownloadError { status_code: None, report }),
         | Ok(response) => Err(DownloadError {
             status_code: Some(response.status().as_u16()),
             report: eyre!("{error_message} — HTTP {}", response.status()),

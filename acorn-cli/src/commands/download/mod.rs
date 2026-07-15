@@ -1,10 +1,11 @@
+use self::model::ModelDownloadError;
 use crate::cli::CommandOptions;
 use crate::commands::preflight;
 use acorn::io::api::huggingface;
 use acorn::io::config::{ApplicationConfiguration, Bucket, BucketOptions};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Operations};
-use acorn::io::{apply_progress_style, create_progress_bar, finish_progress_bar, http, ApiResult, InputOutput, ProgressType};
+use acorn::io::{apply_progress_style, create_progress_bar, file_checksum, finish_progress_bar, http, ApiResult, InputOutput, ProgressType};
 use acorn::prelude::{create_dir_all, remove_file, Path, PathBuf, Vec};
 use acorn::util::constants::app::DEFAULT_CONFIG_FILENAMES;
 use acorn::util::{suffix, Label, StringConversion};
@@ -24,12 +25,14 @@ struct DownloadItem {
     url: String,
     path: String,
     size: Option<u64>,
+    sha: Option<String>,
 }
 #[derive(Clone, Debug)]
 struct DownloadItems {
     destination: PathBuf,
     items: Vec<DownloadItem>,
     quiet: bool,
+    skip_verify_checksum: bool,
 }
 #[derive(Clone, Debug)]
 struct DownloadTask {
@@ -37,6 +40,7 @@ struct DownloadTask {
     part: PathBuf,
     target: PathBuf,
     quiet: bool,
+    skip_verify_checksum: bool,
 }
 impl DownloadItem {
     fn local_path(&self) -> PathBuf {
@@ -87,7 +91,7 @@ impl DownloadItem {
                 .size
                 .is_none_or(|size| target.metadata().map(|metadata| metadata.len() == size).unwrap_or(false))
     }
-    fn validate_downloaded_size(&self, path: &Path) -> ApiResult<()> {
+    fn verify_size(&self, path: &Path) -> ApiResult<()> {
         match self.size {
             | Some(size) => match path.metadata() {
                 | Ok(metadata) if metadata.len() == size => Ok(()),
@@ -100,14 +104,68 @@ impl DownloadItem {
             | None => Ok(()),
         }
     }
+    fn verify_checksum(&self, path: &Path, skip_verify_checksum: bool) -> ApiResult<()> {
+        match (skip_verify_checksum, self.sha.as_ref()) {
+            | (true, _) => Ok(()),
+            | (false, Some(expected)) => match file_checksum(path.to_path_buf(), None) {
+                | Some(actual) if actual.checksum_value.eq_ignore_ascii_case(expected) => Ok(()),
+                | Some(actual) => Err(eyre!(
+                    "{}",
+                    ModelDownloadError::IncompleteDownload(format!(
+                        "Checksum mismatch for {} (expected {expected}, got {})",
+                        self.path, actual.checksum_value
+                    ))
+                )),
+                | None => Err(eyre!(
+                    "{}",
+                    ModelDownloadError::IncompleteDownload(format!("Failed to compute SHA-256 for {}", self.path))
+                )),
+            },
+            | (false, None) => Ok(()),
+        }
+    }
 }
 impl DownloadTask {
-    fn new(item: DownloadItem, destination: &Path, quiet: bool) -> Self {
+    fn new(item: DownloadItem, destination: &Path, quiet: bool, skip_verify_checksum: bool) -> Self {
         Self {
             part: item.partial_path(destination),
             target: item.target(destination),
             item,
             quiet,
+            skip_verify_checksum,
+        }
+    }
+    async fn resume_from(&self) -> ApiResult<Option<u64>> {
+        match self.part.exists() {
+            | false => Ok(None),
+            | true => {
+                let metadata = self
+                    .part
+                    .metadata()
+                    .map_err(|why| eyre!("Failed to inspect partial download {} — {why}", self.part.display()));
+                match metadata {
+                    | Ok(data) => {
+                        let part_size = data.len();
+                        match self.item.size {
+                            | Some(expected) if part_size > 0 && part_size < expected => {
+                                let headers = self.item.is_huggingface().then(huggingface::auth_headers);
+                                let supports_ranges = http::supports_byte_ranges(&self.item.url, headers).await.unwrap_or(false);
+                                if supports_ranges {
+                                    Ok(Some(part_size))
+                                } else {
+                                    remove_file(&self.part)
+                                        .map_err(|why| eyre!("Failed to remove stale partial download {} — {why}", self.part.display()))
+                                        .map(|_| None)
+                                }
+                            }
+                            | _ => remove_file(&self.part)
+                                .map_err(|why| eyre!("Failed to remove stale partial download {} — {why}", self.part.display()))
+                                .map(|_| None),
+                        }
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
         }
     }
     async fn download(self) -> ApiResult<()> {
@@ -120,31 +178,36 @@ impl DownloadTask {
                 Ok(())
             }
             | false => {
-                let stale_part_removed = match self.part.exists() {
-                    | true => remove_file(&self.part).map_err(|why| eyre!("Failed to remove stale partial download {} — {why}", self.part.display())),
-                    | false => Ok(()),
-                };
-                let parent_ready = stale_part_removed.and_then(|_| match self.part.parent() {
+                let parent_ready = match self.part.parent() {
                     | Some(parent) => create_dir_all(parent).map_err(|why| eyre!("Failed to create model output directory — {why}")),
                     | None => Err(eyre!("Model output path has no parent directory")),
-                });
+                };
                 match parent_ready {
-                    | Ok(_) => match self.clone().stream().await.and_then(|_| self.item.validate_downloaded_size(&self.part)) {
-                        | Ok(_) => rename(&self.part, &self.target)
-                            .map_err(|why| eyre!("Failed to finalize model download {} — {why}", self.target.display())),
-                        | Err(why) => {
-                            if self.part.exists() {
-                                let _ = remove_file(&self.part);
+                    | Ok(_) => match self.resume_from().await {
+                        | Ok(resume_from) => match self
+                            .clone()
+                            .stream(resume_from)
+                            .await
+                            .and_then(|_| self.item.verify_size(&self.part))
+                            .and_then(|_| self.item.verify_checksum(&self.part, self.skip_verify_checksum))
+                        {
+                            | Ok(_) => rename(&self.part, &self.target)
+                                .map_err(|why| eyre!("Failed to finalize model download {} — {why}", self.target.display())),
+                            | Err(why) => {
+                                if self.part.exists() {
+                                    let _ = remove_file(&self.part);
+                                }
+                                Err(why)
                             }
-                            Err(why)
-                        }
+                        },
+                        | Err(why) => Err(why),
                     },
                     | Err(why) => Err(why),
                 }
             }
         }
     }
-    async fn stream(self) -> ApiResult<()> {
+    async fn stream(self, resume_from: Option<u64>) -> ApiResult<()> {
         let progress_type = match (self.quiet, self.item.size) {
             | (true, _) => ProgressType::Silent,
             | (false, Some(_)) => ProgressType::Bar,
@@ -163,7 +226,7 @@ impl DownloadTask {
             info!("=> {} Downloading {}", Label::run(), self.target.display());
         }
         let auth_error_message = self.item.auth_error_message();
-        match http::download_with_progress(
+        let result = http::download_with_progress(
             &self.item.url,
             &self.part,
             |downloaded, total| {
@@ -175,9 +238,9 @@ impl DownloadTask {
             self.item.is_huggingface().then(huggingface::auth_headers),
             Some(self.item.error_message()),
             auth_error_message.as_deref(),
-        )
-        .await
-        {
+            resume_from,
+        );
+        match result.await {
             | Ok(_) => {
                 if !self.quiet {
                     finish_progress_bar(&progress, format!("{}Downloaded {}", Label::CHECKMARK, self.target.display()));
@@ -192,18 +255,24 @@ impl DownloadTask {
     }
 }
 impl DownloadItems {
-    fn new(destination: &Path, items: Vec<DownloadItem>, quiet: bool) -> Self {
+    fn new(destination: &Path, items: Vec<DownloadItem>, quiet: bool, skip_verify_checksum: bool) -> Self {
         Self {
             destination: destination.to_path_buf(),
             items,
             quiet,
+            skip_verify_checksum,
         }
     }
     async fn download(self) -> ApiResult<()> {
-        let results = futures::future::join_all(self.items.into_iter().map(|item| {
-            let destination = self.destination.clone();
-            let quiet = self.quiet;
-            async move { DownloadTask::new(item, &destination, quiet).download().await }
+        let DownloadItems {
+            destination,
+            items,
+            quiet,
+            skip_verify_checksum,
+        } = self;
+        let results = futures::future::join_all(items.into_iter().map(|item| {
+            let destination = destination.clone();
+            async move { DownloadTask::new(item, &destination, quiet, skip_verify_checksum).download().await }
         }))
         .await;
         results.into_iter().find(|result| result.is_err()).unwrap_or(Ok(()))

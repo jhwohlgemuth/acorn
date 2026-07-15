@@ -6,8 +6,8 @@ use acorn::io::config::{ApplicationConfiguration, AuthenticationRequirement, Fil
 use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
 use acorn::io::source::source_from_weights;
-use acorn::io::{home_directory, ApiResult, InputOutput, Source, SourceAction};
-use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
+use acorn::io::{home_directory, http, ApiResult, InputOutput, Source, SourceAction};
+use acorn::prelude::{create_dir_all, HashMap, HashSet, PathBuf, String, Vec};
 use acorn::schema::agent::Weight;
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
 use clap_verbosity_flag::Verbosity;
@@ -34,6 +34,7 @@ pub async fn run(
     offline: bool,
     copy: bool,
     symlink: bool,
+    skip_verify_checksum: bool,
     whitelist: &[String],
 ) -> Void {
     let quiet = verbose.is_silent();
@@ -107,6 +108,7 @@ pub async fn run(
                         .output(root.clone())
                         .maybe_database_path(database_path.clone())
                         .quiet(quiet)
+                        .skip_verify_checksum(skip_verify_checksum)
                         .maybe_filter(regex_join(&filter))
                         .maybe_ignore(regex_join(&ignore))
                         .build();
@@ -171,15 +173,10 @@ pub async fn run(
     }
 }
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub(crate) enum ModelDownloadError {
     UnknownModel(String),
     MultipleMatches(String),
-    NoMatchingFiles(String),
-    AmbiguousQuantization(String),
     MissingAuth(String),
-    FailedHttp(String),
-    UnsafePath(String),
     IncompleteDownload(String),
 }
 #[derive(Clone, Debug)]
@@ -196,11 +193,7 @@ impl fmt::Display for ModelDownloadError {
         match self {
             | Self::UnknownModel(value) => write!(formatter, "Unknown model selector: {value}"),
             | Self::MultipleMatches(value) => write!(formatter, "Multiple model matches found: {value}"),
-            | Self::NoMatchingFiles(value) => write!(formatter, "No matching model files found: {value}"),
-            | Self::AmbiguousQuantization(value) => write!(formatter, "Ambiguous model quantization: {value}"),
             | Self::MissingAuth(value) => write!(formatter, "Model download requires authentication: {value}"),
-            | Self::FailedHttp(value) => write!(formatter, "Model download HTTP request failed: {value}"),
-            | Self::UnsafePath(value) => write!(formatter, "Model file path is unsafe: {value}"),
             | Self::IncompleteDownload(value) => write!(formatter, "Model download is incomplete: {value}"),
         }
     }
@@ -314,28 +307,35 @@ impl ModelDownloadPlan {
             | (Some(Source::Remote { identifier, .. }), Some(root)) => {
                 let destination = root.join(&identifier);
                 match create_dir_all(&destination) {
-                    | Ok(()) => {
-                        let items = huggingface::repository_tree(&identifier, &self.revision)
-                            .await
-                            .and_then(|files| files.filter(options.filter.as_deref(), options.ignore.as_deref()))
-                            .map(|selected| {
-                                selected
-                                    .into_iter()
-                                    .map(|file| DownloadItem {
-                                        url: format!("https://huggingface.co/{identifier}/resolve/{}/{}", self.revision, file.path),
-                                        path: file.path,
-                                        size: file.size,
-                                    })
-                                    .collect::<Vec<_>>()
-                            });
-                        match items {
+                    | Ok(()) => match huggingface::repository_tree(&identifier, &self.revision).await {
+                        | Ok(files) => match resolve_sidecar_sha256(&identifier, &self.revision, &files).await {
+                            | Ok(checksum_map) => {
+                                let items = files.filter(options.filter.as_deref(), options.ignore.as_deref()).map(|selected| {
+                                    selected
+                                        .into_iter()
+                                        .map(|file| {
+                                            let file_path = file.path;
+                                            DownloadItem {
+                                                url: format!("https://huggingface.co/{identifier}/resolve/{}/{}", self.revision, file_path),
+                                                path: file_path.clone(),
+                                                size: file.size,
+                                                sha: checksum_map.get(&file_path).cloned(),
+                                            }
+                                        })
+                                        .collect::<Vec<_>>()
+                                });
+                                match items {
+                                    | Ok(items) => DownloadItems::new(&destination, items, options.quiet, options.skip_verify_checksum)
+                                        .download()
+                                        .await
+                                        .map(|()| identifier),
+                                    | Err(why) => Err(why),
+                                }
+                            }
                             | Err(why) => Err(why),
-                            | Ok(items) => DownloadItems::new(&destination, items, options.quiet)
-                                .download()
-                                .await
-                                .map(|()| identifier),
-                        }
-                    }
+                        },
+                        | Err(why) => Err(why),
+                    },
                     | Err(why) => {
                         error!("=> {} Create output directory for '{identifier}' — {why}", Label::fail());
                         Err(eyre!(why))
@@ -372,13 +372,43 @@ async fn download_remote_model(options: CommandOptions) -> ApiResult<()> {
                 url: identifier,
                 path: filename,
                 size: None,
+                sha: None,
             };
-            DownloadItems::new(&destination, vec![item], options.quiet).download().await
+            DownloadItems::new(&destination, vec![item], options.quiet, false).download().await
         }
         | (_, None) => Err(eyre!("Model output directory is not configured")),
         | (None, _) => Err(eyre!("Model selector is not configured")),
         | _ => Err(eyre!("Model selector is not remote")),
     }
+}
+async fn resolve_sidecar_sha256(identifier: &str, revision: &str, files: &[huggingface::RepositoryFile]) -> ApiResult<HashMap<String, String>> {
+    let candidates = files
+        .iter()
+        .filter_map(|file| target_path_from_sidecar(&file.path).map(|target| (file.path.clone(), target)))
+        .collect::<Vec<_>>();
+    let mut checksums = HashMap::new();
+    for (sidecar_path, target_path) in candidates {
+        let sidecar_url = format!("https://huggingface.co/{identifier}/resolve/{revision}/{sidecar_path}");
+        let content = match http::get(sidecar_url).headers(huggingface::auth_headers()).send().await {
+            | Ok(response) => response.text().await.ok(),
+            | Err(_) => None,
+        };
+        if let Some(digest) = content.as_deref().and_then(extract_sha256) {
+            checksums.insert(target_path, digest);
+        }
+    }
+    Ok(checksums)
+}
+fn target_path_from_sidecar(path: &str) -> Option<String> {
+    path.strip_suffix(".sha256")
+        .or_else(|| path.strip_suffix(".sha256sum"))
+        .map(ToString::to_string)
+}
+fn extract_sha256(content: &str) -> Option<String> {
+    content
+        .split_whitespace()
+        .find(|token| token.len() == 64 && token.chars().all(|character| character.is_ascii_hexdigit()))
+        .map(|value| value.to_ascii_lowercase())
 }
 fn materialize_local_model(options: CommandOptions) -> ApiResult<String> {
     match options.selector.clone() {

@@ -350,6 +350,9 @@ pub(crate) struct DownloadModel {
     /// Only download models with these user-facing names
     #[arg(long, value_name = "NAME", value_delimiter = ',', help_heading = "OPTIONS")]
     pub(crate) whitelist: Vec<String>,
+    /// Skip SHA-256 checksum verification when checksum sidecar metadata is available
+    #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) skip_verify_checksum: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

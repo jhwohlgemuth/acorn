@@ -112,6 +112,7 @@ fn test_parse_tree_paths_response_returns_actionable_error_for_non_json() {
 mod bot {
     use super::*;
     use crate::io::api::gitlab::{bot::*, NoteMetadata, UserMetadata};
+    use crate::test::server::TestServer;
 
     fn user() -> UserMetadata {
         UserMetadata {
@@ -259,5 +260,32 @@ mod bot {
         assert_eq!(summary.latest_after, Some("2026-07-06T00:00:03Z".to_string()));
         assert_eq!(summary.processed_count, 1);
         assert_eq!(bot.snapshot().unwrap().after, "2026-07-06T00:00:03Z");
+    }
+    #[tokio::test]
+    async fn router_health_endpoint_returns_ok() {
+        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap());
+        let bot = Server::new(config);
+        let server = TestServer::start(bot.router()).await.unwrap();
+        let response = reqwest::get(format!("{}/health", server.base_url)).await.unwrap();
+        let status = response.status();
+        let body = response.text().await.unwrap();
+        assert_eq!(status, reqwest::StatusCode::OK);
+        assert_eq!(body, "ok");
+        server.stop().await.unwrap();
+    }
+    #[tokio::test]
+    async fn router_state_endpoint_returns_initial_snapshot() {
+        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_after("2026-07-06T00:00:00Z");
+        let bot = Server::new(config);
+        let server = TestServer::start(bot.router()).await.unwrap();
+        let response = reqwest::get(format!("{}/state", server.base_url)).await.unwrap();
+        let status = response.status();
+        let json = response.json::<serde_json::Value>().await.unwrap();
+        assert_eq!(status, reqwest::StatusCode::OK);
+        assert_eq!(json.get("after").and_then(serde_json::Value::as_str), Some("2026-07-06T00:00:00Z"));
+        assert_eq!(json.get("poll_count").and_then(serde_json::Value::as_u64), Some(0));
+        assert_eq!(json.get("processed_count").and_then(serde_json::Value::as_u64), Some(0));
+        assert!(json.get("last_error").is_some_and(serde_json::Value::is_null));
+        server.stop().await.unwrap();
     }
 }
