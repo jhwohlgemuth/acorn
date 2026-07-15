@@ -36,6 +36,14 @@ pub struct RepositoryFile {
     /// File size in bytes, when provided by Hugging Face
     pub size: Option<u64>,
 }
+impl From<TreeEntry> for RepositoryFile {
+    fn from(entry: TreeEntry) -> Self {
+        RepositoryFile {
+            path: entry.path,
+            size: entry.size,
+        }
+    }
+}
 impl HuggingFaceRepository for RepositoryFiles {
     fn filter(&self, filter: Option<&str>, ignore: Option<&str>) -> ApiResult<Self> {
         let filter_vec = filter.into_iter().map(String::from).collect::<Vec<_>>();
@@ -92,26 +100,6 @@ pub fn auth_headers() -> HeaderMap {
         .build()
         .into_headers()
 }
-pub(crate) fn filter_by_patterns<T>(
-    items: Vec<T>,
-    filter: &[String],
-    ignore: &[String],
-    value: impl Fn(&T) -> String,
-    keep: impl Fn(&T) -> bool,
-) -> ApiResult<Vec<T>> {
-    match FilterSet::compile(ignore, filter) {
-        | Ok(FilterSet { ignore, filter }) => Ok(items
-            .into_iter()
-            .filter(|item| {
-                let value = value(item);
-                let ignored = ignore.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
-                let filtered = filter.is_empty() || filter.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
-                !ignored && filtered && keep(item)
-            })
-            .collect()),
-        | Err(why) => Err(why),
-    }
-}
 /// Return whether a non-empty Hugging Face token is configured
 pub fn has_auth_token() -> bool {
     first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).is_some()
@@ -149,16 +137,7 @@ pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<Repo
     match Endpoint::from_template("huggingface::api") {
         | Ok(endpoint) => match endpoint.invoke("tree", Some(params)).await {
             | Ok(ResponseContent::Json(content)) => serde_json::from_str::<Vec<TreeEntry>>(&content)
-                .map(|entries| {
-                    entries
-                        .into_iter()
-                        .filter(TreeEntry::is_file)
-                        .map(|entry| RepositoryFile {
-                            path: entry.path,
-                            size: entry.size,
-                        })
-                        .collect()
-                })
+                .map(|entries| entries.into_iter().filter(TreeEntry::is_file).map(RepositoryFile::from).collect())
                 .map_err(|why| eyre!("Failed to parse Hugging Face repository file list — {why}")),
             | Ok(_) => Err(eyre!("Failed to list Hugging Face model files — response was not JSON")),
             | Err(why) => Err(eyre!("Failed to list Hugging Face model files — {why}")),
