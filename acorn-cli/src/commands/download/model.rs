@@ -110,7 +110,7 @@ pub async fn run(
                         .maybe_filter(regex_join(&filter))
                         .maybe_ignore(regex_join(&ignore))
                         .build();
-                    match plan.resolve(options).await {
+                    match plan.execute(options).await {
                         | Ok(_) => success_count = success_count.saturating_add(1),
                         | Err(why) => {
                             failure_count = failure_count.saturating_add(1);
@@ -254,7 +254,7 @@ impl ModelDownloadPlan {
     pub(crate) fn name(&self) -> String {
         self.selector.name()
     }
-    async fn resolve(&self, options: CommandOptions) -> ApiResult<()> {
+    async fn execute(&self, options: CommandOptions) -> ApiResult<()> {
         if matches!(self.auth, AuthenticationRequirement::Required) && self.selector.is_remote() && !huggingface::has_auth_token() {
             Err(eyre!("{}", ModelDownloadError::MissingAuth(self.name())))
         } else {
@@ -280,7 +280,7 @@ impl ModelDownloadPlan {
                     }
                 }),
                 | Some(Source::Remote { identifier, .. }) if is_http_or_https(identifier) => download_remote_model(options).await,
-                | Some(Source::Remote { .. }) => self.resolve_from_huggingface(options.clone()).await.map(|identifier| {
+                | Some(Source::Remote { .. }) => self.download_from_huggingface(options.clone()).await.map(|identifier| {
                     if !options.quiet {
                         let name = self.name();
                         let destination = options
@@ -309,29 +309,38 @@ impl ModelDownloadPlan {
             }
         }
     }
-    async fn resolve_from_huggingface(&self, options: CommandOptions) -> ApiResult<String> {
+    async fn download_from_huggingface(&self, options: CommandOptions) -> ApiResult<String> {
         match (options.selector.clone(), options.output.clone()) {
             | (Some(Source::Remote { identifier, .. }), Some(root)) => {
                 let destination = root.join(&identifier);
-                create_dir_all(&destination).map_err(|why| {
-                    error!("=> {} Create output directory for '{identifier}' — {why}", Label::fail());
-                    eyre!(why)
-                })?;
-                let items = huggingface::repository_tree(&identifier, &self.revision)
-                    .await
-                    .and_then(|files| files.filter(options.filter.as_deref(), options.ignore.as_deref()))
-                    .map(|selected| {
-                        selected
-                            .into_iter()
-                            .map(|file| DownloadItem {
-                                url: format!("https://huggingface.co/{identifier}/resolve/{}/{}", self.revision, file.path),
-                                path: file.path,
-                                size: file.size,
-                            })
-                            .collect::<Vec<_>>()
-                    })?;
-                DownloadItems::new(&destination, items, options.quiet).download().await?;
-                Ok(identifier)
+                match create_dir_all(&destination) {
+                    | Ok(()) => {
+                        let items = huggingface::repository_tree(&identifier, &self.revision)
+                            .await
+                            .and_then(|files| files.filter(options.filter.as_deref(), options.ignore.as_deref()))
+                            .map(|selected| {
+                                selected
+                                    .into_iter()
+                                    .map(|file| DownloadItem {
+                                        url: format!("https://huggingface.co/{identifier}/resolve/{}/{}", self.revision, file.path),
+                                        path: file.path,
+                                        size: file.size,
+                                    })
+                                    .collect::<Vec<_>>()
+                            });
+                        match items {
+                            | Err(why) => Err(why),
+                            | Ok(items) => DownloadItems::new(&destination, items, options.quiet)
+                                .download()
+                                .await
+                                .map(|()| identifier),
+                        }
+                    }
+                    | Err(why) => {
+                        error!("=> {} Create output directory for '{identifier}' — {why}", Label::fail());
+                        Err(eyre!(why))
+                    }
+                }
             }
             | (_, None) => Err(eyre!("Model output directory is not configured")),
             | (None, _) => Err(eyre!("Model selector is not configured")),
@@ -426,16 +435,17 @@ pub(crate) async fn resolve_plans(
     let future_plans = positional
         .iter()
         .map(|selector| resolve_positional_plan(selector, &entry_options, action, database_path, offline));
-    let plans = join_all(future_plans).await.into_iter().filter_map(Result::ok).collect::<Vec<_>>();
-    let plan = plans
+    let plans = join_all(future_plans)
+        .await
         .into_iter()
+        .filter_map(Result::ok)
         .chain(entries.iter().filter_map(|entry| match entry {
             | ModelEntry::Selector(s) => (!s.trim().is_empty()).then(|| ModelDownloadPlan::new(Source::from(s.trim())).with_action(action)),
             | ModelEntry::Entry(options) => Some(ModelDownloadPlan::from_entry(options).with_action(action)),
         }))
         .unique_by(|plan| plan.selector.identifier())
         .collect();
-    Ok(plan)
+    Ok(plans)
 }
 async fn resolve_positional_plan(
     selector: &str,
@@ -445,15 +455,12 @@ async fn resolve_positional_plan(
     offline: bool,
 ) -> ApiResult<ModelDownloadPlan> {
     let trimmed = selector.trim();
-    let fallback = || ModelDownloadPlan::new(Source::from(trimmed)).with_action(action);
-    let is_http_url = Uri::parse(trimmed)
-        .ok()
-        .is_some_and(|uri| matches!(uri.scheme().as_str(), "http" | "https"));
+    let fallback = || ModelDownloadPlan::new(Source::from(trimmed));
     let aliases = entry_options
         .iter()
         .filter(|entry| entry.name.eq_ignore_ascii_case(trimmed))
         .collect::<Vec<_>>();
-    match (entry_options.iter().find(|entry| entry.name == trimmed), aliases.as_slice(), is_http_url) {
+    match (entry_options.iter().find(|entry| entry.name == trimmed), aliases.as_slice(), is_http_or_https(trimmed)) {
         | (Some(entry), _, _) => Ok(ModelDownloadPlan::from_entry(entry).with_action(action)),
         | (_, [entry], _) => Ok(ModelDownloadPlan::from_entry(entry).with_action(action)),
         | (_, [_, ..], _) => Err(eyre!("{}", ModelDownloadError::MultipleMatches(trimmed.to_string()))),
@@ -476,8 +483,8 @@ async fn resolve_positional_plan(
                     }
                     | None => Ok(None),
                 });
-            match resolved {
-                | Ok(Some(plan)) => Ok(plan.with_action(action)),
+            let plan = match resolved {
+                | Ok(Some(plan)) => plan,
                 | Ok(None) if !offline => {
                     let resolved = models_dev::download_cached().await.map(|catalog| {
                         catalog
@@ -489,12 +496,13 @@ async fn resolve_positional_plan(
                             .map(ModelDownloadPlan::new)
                     });
                     match resolved {
-                        | Ok(Some(plan)) => Ok(plan.with_action(action)),
-                        | _ => Ok(fallback()),
+                        | Ok(Some(plan)) => plan,
+                        | _ => fallback(),
                     }
                 }
-                | _ => Ok(fallback()),
-            }
+                | _ => fallback(),
+            };
+            Ok(plan.with_action(action))
         }
     }
 }
