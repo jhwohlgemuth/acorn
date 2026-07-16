@@ -302,6 +302,7 @@ impl ModelDownloadPlan {
             }
         }
     }
+    // TODO: Move to huggingface model? Method on RepositoryFiles impl? Would have to create new Options, which is fine
     async fn download_from_huggingface(&self, options: CommandOptions) -> ApiResult<String> {
         match (options.selector.clone(), options.output.clone()) {
             | (Some(Source::Remote { identifier, .. }), Some(root)) => {

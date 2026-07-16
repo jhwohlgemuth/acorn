@@ -8,6 +8,7 @@ use crate::util::{glob_matches, regex_to_glob};
 use async_trait::async_trait;
 use axum::http::HeaderMap;
 use color_eyre::eyre::eyre;
+use futures::future::join_all;
 
 /// Repository files returned by the Hugging Face repository tree API
 pub type RepositoryFiles = Vec<RepositoryFile>;
@@ -104,7 +105,7 @@ impl HuggingFaceRepository for RepositoryFiles {
             .iter()
             .filter_map(|file| target_path_from_sidecar(&file.path).map(|target| (file.path.clone(), target)))
             .collect();
-        let digests = futures::future::join_all(candidates.into_iter().map(|(path, target)| async move {
+        let digests = join_all(candidates.into_iter().map(|(path, target)| async move {
             let url = format!("https://huggingface.co/{identifier}/resolve/{revision}/{path}");
             let content = match http::get(url).headers(auth_headers()).send().await {
                 | Ok(response) => response.text().await.ok(),
