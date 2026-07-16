@@ -5,12 +5,12 @@
     clippy::unwrap_used,
     clippy::arithmetic_side_effects
 )]
+use core::time::Duration;
 use std::fs::OpenOptions;
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpListener;
 use std::path::PathBuf;
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
 
 struct ParsedRequest {
     is_head: bool,

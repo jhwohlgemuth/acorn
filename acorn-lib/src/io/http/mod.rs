@@ -243,7 +243,7 @@ async fn stream_request_with_policy(
     let mut outcome = None;
     for attempt in 1..=max_attempts {
         let started = Utc::now();
-        let attempt_resume_from = resume_from.and_then(|_| partial_file_size(output));
+        let attempt_resume_from = resume_from.and_then(|_| output.metadata().ok().map(|metadata| metadata.len()).filter(|size| *size > 0));
         let result = stream_request_once(
             client.clone(),
             request.clone(),
@@ -278,9 +278,6 @@ async fn stream_request_with_policy(
         | Some(result) => result,
         | None => Err(eyre!("HTTP download failed after retry attempts")),
     }
-}
-fn partial_file_size(output: &Path) -> Option<u64> {
-    output.metadata().ok().map(|metadata| metadata.len()).filter(|size| *size > 0)
 }
 async fn stream_request_once(
     client: reqwest::Client,
