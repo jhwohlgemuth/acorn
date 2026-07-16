@@ -14,5 +14,13 @@ pub const SHELL_LINT_MIN_SEVERITY: &str = "ACORN_SHELL_LINT_MIN_SEVERITY";
 pub const GITLAB_TOKEN_VARIABLE_NAMES: [&str; 3] = ["CI_JOB_TOKEN", "GITLAB_TOKEN", "PRIVATE_TOKEN"];
 /// Environment variable names used to resolve Hugging Face API tokens.
 pub const HUGGINGFACE_TOKEN_VARIABLE_NAMES: [&str; 3] = ["HF_TOKEN", "HF_API_TOKEN", "HUGGINGFACE_HUB_TOKEN"];
+/// Hugging Face Hub cache locations in resolution order.
+pub const HUGGINGFACE_CACHE_LOCATIONS: [&str; 5] = [
+    "$HF_HUB_CACHE",
+    "$HUGGINGFACE_HUB_CACHE",
+    "$HF_HOME/hub",
+    "$XDG_CACHE_HOME/huggingface/hub",
+    "~/.cache/huggingface/hub",
+];
 /// Environment variable names used to resolve RAiD API tokens.
 pub const RAID_TOKEN_VARIABLE_NAMES: [&str; 1] = ["RAID_API_TOKEN"];
