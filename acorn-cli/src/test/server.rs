@@ -5,9 +5,12 @@
     clippy::unwrap_used,
     clippy::arithmetic_side_effects
 )]
-use std::io::{Read, Write};
+use std::fs::OpenOptions;
+use std::io::{ErrorKind, Read, Write};
 use std::net::TcpListener;
+use std::path::PathBuf;
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 struct ParsedRequest {
     is_head: bool,
@@ -32,6 +35,9 @@ fn parse_request(stream: &mut std::net::TcpStream) -> ParsedRequest {
 fn response_200_head(content_length: usize) -> Vec<u8> {
     format!("HTTP/1.1 200 OK\r\nAccept-Ranges: bytes\r\nContent-Length: {content_length}\r\nConnection: close\r\n\r\n").into_bytes()
 }
+fn response_200_head_without_ranges(content_length: usize) -> Vec<u8> {
+    format!("HTTP/1.1 200 OK\r\nContent-Length: {content_length}\r\nConnection: close\r\n\r\n").into_bytes()
+}
 fn response_200_with_body(body: &[u8]) -> Vec<u8> {
     let mut response = response_200_head(body.len());
     response.extend_from_slice(body);
@@ -52,6 +58,9 @@ fn response_206_with_body(offset: usize, total_len: usize, body: &[u8]) -> Vec<u
 fn response_404() -> Vec<u8> {
     b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
 }
+fn response_500() -> Vec<u8> {
+    b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
+}
 /// Spawn a local HTTP server that supports HEAD plus full and range GET responses for `/model.gguf`.
 pub(crate) fn spawn_range_server(content: Vec<u8>) -> (String, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
@@ -62,6 +71,88 @@ pub(crate) fn spawn_range_server(content: Vec<u8>) -> (String, JoinHandle<()>) {
             let parsed = parse_request(&mut stream);
             let response = if parsed.is_head {
                 response_200_head(content.len())
+            } else if let Some(offset) = parsed.range {
+                let tail = if offset < content.len() { &content[offset..] } else { &[] };
+                response_206_with_body(offset, content.len(), tail)
+            } else {
+                response_200_with_body(&content)
+            };
+            stream.write_all(&response).expect("write response");
+        }
+    });
+    (address, handle)
+}
+/// Spawn a local HTTP server that does not advertise byte-range support for `/model.gguf`.
+pub(crate) fn spawn_no_range_server(content: Vec<u8>) -> (String, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind no-range test server");
+    let address = format!("http://{}/model.gguf", listener.local_addr().expect("local addr"));
+    let handle = thread::spawn(move || {
+        for stream in listener.incoming().take(2) {
+            let mut stream = stream.expect("accept");
+            let parsed = parse_request(&mut stream);
+            let response = if parsed.is_head {
+                response_200_head_without_ranges(content.len())
+            } else {
+                response_200_with_body(&content)
+            };
+            stream.write_all(&response).expect("write response");
+        }
+    });
+    (address, handle)
+}
+/// Spawn a local HTTP server that advertises ranges but ignores Range on GET.
+pub(crate) fn spawn_ignored_range_server(content: Vec<u8>) -> (String, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind ignored-range test server");
+    let address = format!("http://{}/model.gguf", listener.local_addr().expect("local addr"));
+    let handle = thread::spawn(move || {
+        for stream in listener.incoming().take(2) {
+            let mut stream = stream.expect("accept");
+            let parsed = parse_request(&mut stream);
+            let response = if parsed.is_head {
+                response_200_head(content.len())
+            } else {
+                response_200_with_body(&content)
+            };
+            stream.write_all(&response).expect("write response");
+        }
+    });
+    (address, handle)
+}
+/// Spawn a local HTTP server whose first ranged GET grows the part file, then fails.
+pub(crate) fn spawn_retry_resume_server(
+    content: Vec<u8>,
+    part_path: PathBuf,
+    initial_offset: usize,
+    updated_offset: usize,
+) -> (String, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind retry-resume test server");
+    let address = format!("http://{}/model.gguf", listener.local_addr().expect("local addr"));
+    let handle = thread::spawn(move || {
+        listener.set_nonblocking(true).expect("set nonblocking");
+        let mut served = 0;
+        let mut idle = 0;
+        while served < 3 && idle < 200 {
+            let mut stream = match listener.accept() {
+                | Ok((stream, _)) => {
+                    idle = 0;
+                    served += 1;
+                    stream
+                }
+                | Err(why) if why.kind() == ErrorKind::WouldBlock => {
+                    idle += 1;
+                    thread::sleep(Duration::from_millis(10));
+                    continue;
+                }
+                | Err(why) => panic!("accept failed: {why}"),
+            };
+            let parsed = parse_request(&mut stream);
+            let response = if parsed.is_head {
+                response_200_head(content.len())
+            } else if parsed.range == Some(initial_offset) {
+                let end = updated_offset.min(content.len());
+                let mut file = OpenOptions::new().append(true).open(&part_path).expect("open partial file");
+                file.write_all(&content[initial_offset..end]).expect("extend partial file");
+                response_500()
             } else if let Some(offset) = parsed.range {
                 let tail = if offset < content.len() { &content[offset..] } else { &[] };
                 response_206_with_body(offset, content.len(), tail)

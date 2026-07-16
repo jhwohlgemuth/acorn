@@ -10,7 +10,7 @@
 )]
 extern crate alloc;
 use super::run;
-use crate::test::server::{spawn_range_server, spawn_sidecar_server};
+use crate::test::server::{spawn_ignored_range_server, spawn_no_range_server, spawn_range_server, spawn_retry_resume_server, spawn_sidecar_server};
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceRepository, RepositoryFile};
 use acorn::io::database::schema::{ActivityRow, Table};
@@ -736,6 +736,78 @@ async fn test_download_task_resumes_partial_file_with_http_range() {
     handle.join().expect("join server thread");
 }
 #[tokio::test]
+async fn test_download_task_restarts_partial_file_without_http_range_support() {
+    let payload = b"abcdefghij".to_vec();
+    let (url, handle) = spawn_no_range_server(payload.clone());
+    let temp_dir = temp_test_dir("download_model_no_range_restart");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let destination = temp_dir.join("models");
+    create_dir_all(&destination).expect("create destination directory");
+    let item = DownloadItem {
+        url,
+        path: "model.gguf".to_string(),
+        size: Some(payload.len() as u64),
+        sha: None,
+    };
+    let part = item.partial_path(&destination);
+    write(&part, b"stale").expect("seed stale partial file");
+    let task = DownloadTask::new(item, &destination, true, false);
+    let result = task.download().await;
+    assert!(result.is_ok(), "restart download should succeed: {result:?}");
+    let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read restarted file");
+    assert_eq!(
+        final_bytes, payload,
+        "download should restart from byte zero without appending stale content"
+    );
+    handle.join().expect("join no-range server thread");
+}
+#[tokio::test]
+async fn test_download_task_truncates_when_range_request_returns_200() {
+    let payload = b"abcdefghij".to_vec();
+    let (url, handle) = spawn_ignored_range_server(payload.clone());
+    let temp_dir = temp_test_dir("download_model_ignored_range_restart");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let destination = temp_dir.join("models");
+    create_dir_all(&destination).expect("create destination directory");
+    let item = DownloadItem {
+        url,
+        path: "model.gguf".to_string(),
+        size: Some(payload.len() as u64),
+        sha: None,
+    };
+    let part = item.partial_path(&destination);
+    write(&part, &payload[..4]).expect("seed partial file");
+    let task = DownloadTask::new(item, &destination, true, false);
+    let result = task.download().await;
+    assert!(result.is_ok(), "ignored range download should succeed: {result:?}");
+    let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read restarted file");
+    assert_eq!(final_bytes, payload, "200 OK to ranged GET should truncate partial file before writing");
+    handle.join().expect("join ignored-range server thread");
+}
+#[tokio::test]
+async fn test_download_task_retry_resumes_from_updated_partial_file_length() {
+    let payload = b"abcdefghij".to_vec();
+    let temp_dir = temp_test_dir("download_model_retry_resume_updated_offset");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let destination = temp_dir.join("models");
+    create_dir_all(&destination).expect("create destination directory");
+    let part = destination.join("model.gguf.part");
+    write(&part, &payload[..4]).expect("seed partial file");
+    let (url, handle) = spawn_retry_resume_server(payload.clone(), part.clone(), 4, 7);
+    let item = DownloadItem {
+        url,
+        path: "model.gguf".to_string(),
+        size: Some(payload.len() as u64),
+        sha: None,
+    };
+    let task = DownloadTask::new(item, &destination, true, false);
+    let result = task.download().await;
+    assert!(result.is_ok(), "retry should resume from updated partial length: {result:?}");
+    let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read retried file");
+    assert_eq!(final_bytes, payload, "retry should not duplicate bytes from the original resume offset");
+    handle.join().expect("join retry-resume server thread");
+}
+#[tokio::test]
 async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
     let model_bytes = b"checksum-success-payload".to_vec();
     let sidecar_dir = temp_test_dir("download_model_checksum_sidecar_seed");
@@ -788,6 +860,29 @@ async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
     };
     assert_eq!(final_bytes, model_bytes);
     handle.join().expect("join sidecar server thread");
+}
+#[tokio::test]
+async fn test_download_task_skip_verify_checksum_allows_checksum_mismatch() {
+    let payload = b"checksum-skip-payload".to_vec();
+    let (url, handle) = spawn_range_server(payload.clone());
+    let temp_dir = temp_test_dir("download_model_skip_checksum_mismatch");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let destination = temp_dir.join("models");
+    create_dir_all(&destination).expect("create destination directory");
+    let item = DownloadItem {
+        url,
+        path: "model.gguf".to_string(),
+        size: Some(payload.len() as u64),
+        sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+    };
+    let part = item.partial_path(&destination);
+    write(&part, &payload[..4]).expect("seed partial file");
+    let task = DownloadTask::new(item, &destination, true, true);
+    let result = task.download().await;
+    assert!(result.is_ok(), "skip checksum should allow mismatch: {result:?}");
+    let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read downloaded file");
+    assert_eq!(final_bytes, payload);
+    handle.join().expect("join range server thread");
 }
 #[test]
 fn test_hf_token_not_exposed_in_model_download_error_display() {

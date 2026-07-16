@@ -49,6 +49,9 @@ make clean
 # Generate documentation
 make doc
 
+# Regenerate command-line help markdown
+make help
+
 # Run tests with coverage
 make cover
 
@@ -388,6 +391,7 @@ Stop and ask the user if:
 - Current commands: check, doctor, download, export, format, link, schema
 - All commands accessed through main.rs match expression
 - Arguments parsed via `clap` with `#[derive(Parser)]`
+- `CommandLineHelp.md` is generated dynamically with `cargo run --bin acorn -- --markdown-help`; use `make help` after changing CLI arguments or command help text
 
 ### Analysis Features
 - Analyzer module in `acorn-lib/src/analyzer/`

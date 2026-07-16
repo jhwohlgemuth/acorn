@@ -109,9 +109,6 @@ test-ci: clean lint
 	@cargo test --lib --bins --tests
 	@cargo test --lib --bins --tests --no-default-features
 
-homebrew-formula:
-	@./scripts/homebrew/generate-formula.sh $(VERSION) ./Formula/acorn-cli.rb
-
 fuzz:
 	@cargo +nightly fuzz run --fuzz-dir fuzz $(FUZZ_TARGET) $(FUZZ_ARGS)
 
@@ -122,6 +119,12 @@ fuzz-repro:
 fuzz-smoke:
 	@cargo +nightly fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=10
 	@cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=10
+
+help:
+	@cargo run --bin acorn -- --markdown-help > CommandLineHelp.md
+
+homebrew-formula:
+	@./scripts/homebrew/generate-formula.sh $(VERSION) ./Formula/acorn-cli.rb
 
 version: 
 	@echo $(VERSION)
@@ -277,6 +280,7 @@ TASKS = \
 	lint \
 	fuzz \
 	fuzz-repro \
+	help \
 	homebrew-formula \
 	publish-book \
 	setup \

@@ -369,6 +369,7 @@ Download model weights for use with ACORN research harnesses and local inference
 * `--copy` — Copy local model files into the model directory instead of referencing in place
 * `--symlink` — Create symlinks to local model files in the model directory instead of referencing in place
 * `--whitelist <NAME>` — Only download models with these user-facing names
+* `--skip-verify-checksum` — Skip SHA-256 checksum verification when checksum sidecar metadata is available
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

@@ -256,3 +256,45 @@ pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<Repo
         | Err(why) => Err(eyre!("Failed to configure Hugging Face API — {why}")),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{extract_sha256, target_path_from_sidecar};
+
+    #[test]
+    fn test_target_path_from_sha256_sidecar() {
+        assert_eq!(target_path_from_sidecar("model.gguf.sha256"), Some("model.gguf".to_string()));
+    }
+
+    #[test]
+    fn test_target_path_from_sha256sum_sidecar() {
+        assert_eq!(
+            target_path_from_sidecar("nested/model.gguf.sha256sum"),
+            Some("nested/model.gguf".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_sha256_normalizes_uppercase_digest() {
+        let digest = "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD";
+        assert_eq!(
+            extract_sha256(format!("{digest}  model.gguf").as_str()).as_deref(),
+            Some("abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"),
+        );
+    }
+
+    #[test]
+    fn test_extract_sha256_from_multi_token_sidecar_line() {
+        let digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        assert_eq!(
+            extract_sha256(format!("SHA256 ({digest}) = {digest} model.gguf").as_str()).as_deref(),
+            Some(digest),
+        );
+    }
+
+    #[test]
+    fn test_extract_sha256_ignores_invalid_digest_content() {
+        assert_eq!(extract_sha256("not-a-sha model.gguf"), None);
+        assert_eq!(extract_sha256("0123456789abcdef"), None);
+    }
+}
