@@ -1,8 +1,54 @@
-//! Module for interacting with OpenAI-compatible interfaces
+//! Module for interacting with OpenAI-compatible interfaces.
 //!
-//! See <https://platform.openai.com/docs/api-reference> for more information
+//! This module intentionally implements the OpenAI-compatible endpoint subset
+//! supported by [llama-swap](https://github.com/mostlygeek/llama-swap):
+//! completions, chat completions, responses, embeddings, model listing, audio
+//! speech/transcriptions/voices, and image generations/edits. It does not try
+//! to mirror the full OpenAI API surface because ACORN primarily needs a stable
+//! interface for local OpenAI-compatible routers and model-swapping proxies.
 //!
-use crate::io::api::{ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource};
+//! Set `OPENAI_SERVER_HOST` to a llama-swap host such as `localhost:8080` or
+//! `http://localhost:8080`; when unset, requests default to `api.openai.com`.
+//! Set `OPENAI_API_KEY` when the upstream server requires Bearer auth.
+//!
+//! # Examples
+//!
+//! Create a chat completion against a local llama-swap server:
+//!
+//! ```no_run
+//! use acorn::io::api::Configuration;
+//! use acorn::io::api::openai;
+//!
+//! # async fn example() -> color_eyre::Result<()> {
+//! let body = r#"{
+//!     "model": "qwen3-coder",
+//!     "messages": [{"role": "user", "content": "Summarize ACORN."}]
+//! }"#;
+//! let options = openai::Options::from_env()
+//!     .with_domain("http://localhost:8080")
+//!     .with_body(body);
+//! let output = openai::chat_completion(&options).await?;
+//! println!("{output:#}");
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! List models exposed by the configured OpenAI-compatible server:
+//!
+//! ```no_run
+//! use acorn::io::api::Configuration;
+//! use acorn::io::api::openai;
+//!
+//! # async fn example() -> color_eyre::Result<()> {
+//! let options = openai::Options::from_env().with_domain("http://localhost:8080");
+//! let models = openai::models(&options).await?;
+//! for model in models.data {
+//!     println!("{}", model.id);
+//! }
+//! # Ok(())
+//! # }
+//! ```
+use crate::io::api::{ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource, TextResponse};
 use crate::param;
 use crate::prelude::var;
 use crate::util::Label;
@@ -12,41 +58,45 @@ use dotenvy;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
-/// Raw OpenAI chat completion response payload.
+/// Raw OpenAI completions response payload.
 ///
-/// The OpenAPI schema for chat completions is broad and evolves quickly,
+/// The OpenAI-compatible schema is broad and evolves quickly,
 /// so the baseline implementation preserves the full JSON document.
-pub type ChatCompletionListResponse = serde_json::Value;
+pub type CompletionResponse = serde_json::Value;
 /// Raw OpenAI chat completion response payload.
 ///
-/// The OpenAPI schema for chat completions is broad and evolves quickly,
+/// The OpenAI-compatible schema is broad and evolves quickly,
 /// so the baseline implementation preserves the full JSON document.
 pub type ChatCompletionResponse = serde_json::Value;
-/// Raw OpenAI response payload for chat completion message lists.
-///
-/// The OpenAPI schema for chat completion messages is broad and evolves quickly,
-/// so the baseline implementation preserves the full JSON document.
-pub type ChatCompletionMessagesResponse = serde_json::Value;
 /// Raw OpenAI responses API payload.
 ///
-/// The OpenAPI schema for responses is broad and evolves quickly,
+/// The OpenAI-compatible schema is broad and evolves quickly,
 /// so the baseline implementation preserves the full JSON document.
 pub type CreateResponseOutput = serde_json::Value;
-/// Raw OpenAI responses deletion payload.
+/// Raw OpenAI embeddings response payload.
 ///
-/// The OpenAPI schema for response deletion is broad and evolves quickly,
+/// The OpenAI-compatible schema is broad and evolves quickly,
 /// so the baseline implementation preserves the full JSON document.
-pub type DeleteResponseOutput = serde_json::Value;
-/// Raw OpenAI model deletion payload.
+pub type EmbeddingResponse = serde_json::Value;
+/// Raw OpenAI audio speech response payload.
 ///
-/// The OpenAPI schema for model deletion is broad and evolves quickly,
-/// so the baseline implementation preserves the full JSON document.
-pub type ModelDeleteOutput = serde_json::Value;
-/// Raw OpenAI response input item list payload.
+/// Audio speech usually returns non-JSON audio bytes, so this preserves the raw response text.
+pub type AudioSpeechResponse = TextResponse;
+/// Raw OpenAI audio transcription response payload.
 ///
-/// The OpenAPI schema for response input items is broad and evolves quickly,
+/// The OpenAI-compatible schema is broad and evolves quickly,
 /// so the baseline implementation preserves the full JSON document.
-pub type ResponseInputItemsOutput = serde_json::Value;
+pub type AudioTranscriptionResponse = serde_json::Value;
+/// Raw OpenAI audio voices response payload.
+///
+/// The OpenAI-compatible schema is broad and evolves quickly,
+/// so the baseline implementation preserves the full JSON document.
+pub type AudioVoicesResponse = serde_json::Value;
+/// Raw OpenAI image response payload.
+///
+/// The OpenAI-compatible schema is broad and evolves quickly,
+/// so the baseline implementation preserves the full JSON document.
+pub type ImageResponse = serde_json::Value;
 /// OpenAI API error payload
 ///
 /// Matches `#/components/schemas/Error` from the OpenAI OpenAPI specification.
@@ -108,16 +158,8 @@ pub struct Options {
     /// OpenAI API domain (defaults to `api.openai.com`)
     #[builder(default = String::from("api.openai.com"))]
     pub domain: String,
-    /// Optional model identifier for model retrieval
+    /// Optional resource identifier for custom API parameters
     pub identifier: Option<String>,
-    /// Optional cursor for paginated list APIs
-    pub after: Option<String>,
-    /// Optional page size for list APIs
-    pub limit: Option<u32>,
-    /// Optional ordering value for list APIs (for example, `asc` or `desc`)
-    pub order: Option<String>,
-    /// Optional model filter used by selected list APIs
-    pub model: Option<String>,
     /// Custom API parameters to include in every request
     #[builder(default = vec![])]
     pub custom_params: Vec<Param>,
@@ -135,10 +177,6 @@ impl Configuration for Options {
             body: None,
             domain: var("OPENAI_SERVER_HOST").unwrap_or_else(|_| String::from("api.openai.com")),
             identifier: None,
-            after: None,
-            limit: None,
-            order: None,
-            model: None,
             custom_params: vec![],
         }
     }
@@ -187,283 +225,73 @@ impl Configuration for Options {
         &self.custom_params
     }
 }
-impl Options {
-    /// Return a copy of options with list cursor set
-    pub fn with_after(self, value: impl Into<String>) -> Self {
-        Self {
-            after: Some(value.into()),
-            ..self
-        }
+enum BodyMode {
+    Required,
+    Empty,
+}
+async fn invoke<R>(options: &Options, action: &str, body_mode: BodyMode) -> ApiResult<R>
+where
+    R: for<'de> Deserialize<'de>,
+{
+    let template = "openai::api";
+    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
+        | Ok(endpoint) => match (body_mode, &options.body) {
+            | (BodyMode::Required, Some(value)) if !value.is_empty() => {
+                let params = Params::new()
+                    .with_auth(options.token(), None)
+                    .with(param!(Body, value.as_str()))
+                    .with_custom(options.params())
+                    .build();
+                let response = endpoint.invoke(action, Some(params)).await;
+                endpoint.handle_or::<R, Fallback<ErrorResponse>>(response)
+            }
+            | (BodyMode::Required, _) => Err(eyre!(format!("OpenAI {action} request body is required"))),
+            | (BodyMode::Empty, _) => {
+                let params = Params::from_config(options).with_custom(options.params()).build();
+                let response = endpoint.invoke(action, Some(params)).await;
+                endpoint.handle_or::<R, Fallback<ErrorResponse>>(response)
+            }
+        },
+        | Err(why) => Err(why),
     }
-    /// Return a copy of options with page size set
-    pub fn with_limit(self, value: u32) -> Self {
-        Self { limit: Some(value), ..self }
-    }
-    /// Return a copy of options with model filter set
-    pub fn with_model(self, value: impl Into<String>) -> Self {
-        Self {
-            model: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return a copy of options with order value set
-    pub fn with_order(self, value: impl Into<String>) -> Self {
-        Self {
-            order: Some(value.into()),
-            ..self
-        }
-    }
+}
+/// Create a completion via `POST /completions`.
+pub async fn completion(options: &Options) -> ApiResult<CompletionResponse> {
+    invoke(options, "completion", BodyMode::Required).await
 }
 /// Create a chat completion response via `POST /chat/completions`.
 pub async fn chat_completion(options: &Options) -> ApiResult<ChatCompletionResponse> {
-    let template = "openai::api";
-    let action = "chat-completion";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match &options.body {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::new()
-                    .with_auth(options.token(), None)
-                    .with(param!(Body, value.as_str()))
-                    .with_custom(options.params())
-                    .build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<ChatCompletionResponse, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI chat completion request body is required")),
-        },
-        | Err(why) => Err(why),
-    }
-}
-/// List stored chat completions via `GET /chat/completions`.
-pub async fn chat_completion_list(options: &Options) -> ApiResult<ChatCompletionListResponse> {
-    let template = "openai::api";
-    let action = "chat-completion::list";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => {
-            let params = Params::new()
-                .with_auth(options.token(), None)
-                .with_keyvalue("after", options.after.as_deref().filter(|v| !v.is_empty()))
-                .with_keyvalue("limit", options.limit.map(|v| v.to_string()).as_deref())
-                .with_keyvalue("order", options.order.as_deref().filter(|v| !v.is_empty()))
-                .with_keyvalue("model", options.model.as_deref().filter(|v| !v.is_empty()))
-                .with_custom(options.params())
-                .build();
-            let response = endpoint.invoke(action, Some(params)).await;
-            endpoint.handle_or::<ChatCompletionListResponse, Fallback<ErrorResponse>>(response)
-        }
-        | Err(why) => Err(why),
-    }
-}
-/// Delete a stored chat completion by identifier via `DELETE /chat/completions/{completion_id}`.
-pub async fn chat_completion_delete(options: &Options) -> ApiResult<DeleteResponseOutput> {
-    let template = "openai::api";
-    let action = "chat-completion::delete";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match options.identifier() {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::from_config(options).with_custom(options.params()).build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<DeleteResponseOutput, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI chat completion identifier is required")),
-        },
-        | Err(why) => Err(why),
-    }
-}
-/// List stored chat completion messages by completion identifier.
-pub async fn chat_completion_messages(options: &Options) -> ApiResult<ChatCompletionMessagesResponse> {
-    let template = "openai::api";
-    let action = "chat-completion::messages";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match &options.identifier {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::new()
-                    .with_auth(options.token(), None)
-                    .with_template("identifier", Some(value))
-                    .with_keyvalue("after", options.after.as_deref().filter(|v| !v.is_empty()))
-                    .with_keyvalue("limit", options.limit.map(|v| v.to_string()).as_deref())
-                    .with_keyvalue("order", options.order.as_deref().filter(|v| !v.is_empty()))
-                    .with_custom(options.params())
-                    .build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<ChatCompletionMessagesResponse, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI chat completion identifier is required")),
-        },
-        | Err(why) => Err(why),
-    }
-}
-/// Retrieve a stored chat completion by identifier via `GET /chat/completions/{completion_id}`.
-pub async fn chat_completion_retrieve(options: &Options) -> ApiResult<ChatCompletionResponse> {
-    let template = "openai::api";
-    let action = "chat-completion::retrieve";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match options.identifier() {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::from_config(options).with_custom(options.params()).build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<ChatCompletionResponse, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI chat completion identifier is required")),
-        },
-        | Err(why) => Err(why),
-    }
-}
-/// Update a stored chat completion by identifier via `POST /chat/completions/{completion_id}`.
-pub async fn chat_completion_update(options: &Options) -> ApiResult<ChatCompletionResponse> {
-    let template = "openai::api";
-    let action = "chat-completion::update";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match (&options.identifier, &options.body) {
-            | (Some(id), Some(value)) if !id.is_empty() && !value.is_empty() => {
-                let params = Params::new()
-                    .with_auth(options.token(), None)
-                    .with_template("identifier", Some(id))
-                    .with(param!(Body, value.as_str()))
-                    .with_custom(options.params())
-                    .build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<ChatCompletionResponse, Fallback<ErrorResponse>>(response)
-            }
-            | (Some(_), Some(_)) => Err(eyre!("OpenAI chat completion identifier and body are required")),
-            | _ => Err(eyre!("OpenAI chat completion identifier and body are required")),
-        },
-        | Err(why) => Err(why),
-    }
-}
-/// Retrieve details for a specific model identifier.
-pub async fn model(options: &Options) -> ApiResult<Model> {
-    let template = "openai::api";
-    let action = "model";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match options.identifier() {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::from_config(options).with_custom(options.params()).build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<Model, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI model identifier is required")),
-        },
-        | Err(why) => Err(why),
-    }
-}
-/// Delete a model by identifier via `DELETE /models/{model}`.
-pub async fn model_delete(options: &Options) -> ApiResult<ModelDeleteOutput> {
-    let template = "openai::api";
-    let action = "model::delete";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match options.identifier() {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::from_config(options).with_custom(options.params()).build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<ModelDeleteOutput, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI model identifier is required")),
-        },
-        | Err(why) => Err(why),
-    }
+    invoke(options, "chat-completion", BodyMode::Required).await
 }
 /// Retrieve all models available to the authenticated caller.
 pub async fn models(options: &Options) -> ApiResult<ListModelsResponse> {
-    let template = "openai::api";
-    let action = "models";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => {
-            let params = Params::from_config(options).with_custom(options.params()).build();
-            let response = endpoint.invoke(action, Some(params)).await;
-            endpoint.handle_or::<ListModelsResponse, Fallback<ErrorResponse>>(response)
-        }
-        | Err(why) => Err(why),
-    }
+    invoke(options, "models", BodyMode::Empty).await
 }
 /// Create a response via `POST /responses`.
 pub async fn response(options: &Options) -> ApiResult<CreateResponseOutput> {
-    let template = "openai::api";
-    let action = "response";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match &options.body {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::new()
-                    .with_auth(options.token(), None)
-                    .with(param!(Body, value.as_str()))
-                    .with_custom(options.params())
-                    .build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<CreateResponseOutput, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI responses request body is required")),
-        },
-        | Err(why) => Err(why),
-    }
+    invoke(options, "response", BodyMode::Required).await
 }
-/// Delete a response by identifier via `DELETE /responses/{response_id}`.
-pub async fn response_delete(options: &Options) -> ApiResult<DeleteResponseOutput> {
-    let template = "openai::api";
-    let action = "response::delete";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match options.identifier() {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::from_config(options).with_custom(options.params()).build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<DeleteResponseOutput, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI response identifier is required")),
-        },
-        | Err(why) => Err(why),
-    }
+/// Create embeddings via `POST /embeddings`.
+pub async fn embedding(options: &Options) -> ApiResult<EmbeddingResponse> {
+    invoke(options, "embedding", BodyMode::Required).await
 }
-/// List input items for a response by identifier via `GET /responses/{response_id}/input_items`.
-pub async fn response_input_items(options: &Options) -> ApiResult<ResponseInputItemsOutput> {
-    let template = "openai::api";
-    let action = "response::input-items";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match &options.identifier {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::new()
-                    .with_auth(options.token(), None)
-                    .with_template("identifier", Some(value))
-                    .with_keyvalue("after", options.after.as_deref().filter(|v| !v.is_empty()))
-                    .with_keyvalue("limit", options.limit.map(|v| v.to_string()).as_deref())
-                    .with_keyvalue("order", options.order.as_deref().filter(|v| !v.is_empty()))
-                    .with_custom(options.params())
-                    .build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<ResponseInputItemsOutput, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI response identifier is required")),
-        },
-        | Err(why) => Err(why),
-    }
+/// Create audio speech via `POST /audio/speech`.
+pub async fn audio_speech(options: &Options) -> ApiResult<AudioSpeechResponse> {
+    invoke(options, "audio-speech", BodyMode::Required).await
 }
-/// Cancel a response by identifier via `POST /responses/{response_id}/cancel`.
-pub async fn response_cancel(options: &Options) -> ApiResult<CreateResponseOutput> {
-    let template = "openai::api";
-    let action = "response::cancel";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match options.identifier() {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::from_config(options).with_custom(options.params()).build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<CreateResponseOutput, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI response identifier is required")),
-        },
-        | Err(why) => Err(why),
-    }
+/// Create an audio transcription via `POST /audio/transcriptions`.
+pub async fn audio_transcription(options: &Options) -> ApiResult<AudioTranscriptionResponse> {
+    invoke(options, "audio-transcription", BodyMode::Required).await
 }
-/// Retrieve a response by identifier via `GET /responses/{response_id}`.
-pub async fn response_retrieve(options: &Options) -> ApiResult<CreateResponseOutput> {
-    let template = "openai::api";
-    let action = "response::retrieve";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match options.identifier() {
-            | Some(value) if !value.is_empty() => {
-                let params = Params::from_config(options).with_custom(options.params()).build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<CreateResponseOutput, Fallback<ErrorResponse>>(response)
-            }
-            | Some(_) | None => Err(eyre!("OpenAI response identifier is required")),
-        },
-        | Err(why) => Err(why),
-    }
+/// Retrieve available audio voices via `GET /audio/voices`.
+pub async fn audio_voices(options: &Options) -> ApiResult<AudioVoicesResponse> {
+    invoke(options, "audio-voices", BodyMode::Empty).await
+}
+/// Create an image via `POST /images/generations`.
+pub async fn image_generation(options: &Options) -> ApiResult<ImageResponse> {
+    invoke(options, "image-generation", BodyMode::Required).await
+}
+/// Edit an image via `POST /images/edits`.
+pub async fn image_edit(options: &Options) -> ApiResult<ImageResponse> {
+    invoke(options, "image-edit", BodyMode::Required).await
 }

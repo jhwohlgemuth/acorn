@@ -157,44 +157,14 @@
       "root": "v1",
       "resources": [
         {
+          "name": "completion",
+          "method": "post",
+          "template": "{{ base }}/completions"
+        },
+        {
           "name": "chat-completion",
           "method": "post",
           "template": "{{ base }}/chat/completions"
-        },
-        {
-          "name": "chat-completion::delete",
-          "method": "delete",
-          "template": "{{ base }}/chat/completions/{{ identifier }}{{ query }}"
-        },
-        {
-          "name": "chat-completion::list",
-          "method": "get",
-          "template": "{{ base }}/chat/completions{{ query }}"
-        },
-        {
-          "name": "chat-completion::messages",
-          "method": "get",
-          "template": "{{ base }}/chat/completions/{{ identifier }}/messages{{ query }}"
-        },
-        {
-          "name": "chat-completion::retrieve",
-          "method": "get",
-          "template": "{{ base }}/chat/completions/{{ identifier }}{{ query }}"
-        },
-        {
-          "name": "chat-completion::update",
-          "method": "post",
-          "template": "{{ base }}/chat/completions/{{ identifier }}{{ query }}"
-        },
-        {
-          "name": "model",
-          "method": "get",
-          "template": "{{ base }}/models/{{ identifier }}{{ query }}"
-        },
-        {
-          "name": "model::delete",
-          "method": "delete",
-          "template": "{{ base }}/models/{{ identifier }}{{ query }}"
         },
         {
           "name": "models",
@@ -207,24 +177,34 @@
           "template": "{{ base }}/responses"
         },
         {
-          "name": "response::cancel",
+          "name": "embedding",
           "method": "post",
-          "template": "{{ base }}/responses/{{ identifier }}/cancel"
+          "template": "{{ base }}/embeddings"
         },
         {
-          "name": "response::delete",
-          "method": "delete",
-          "template": "{{ base }}/responses/{{ identifier }}{{ query }}"
+          "name": "audio-speech",
+          "method": "post",
+          "template": "{{ base }}/audio/speech"
         },
         {
-          "name": "response::input-items",
+          "name": "audio-transcription",
+          "method": "post",
+          "template": "{{ base }}/audio/transcriptions"
+        },
+        {
+          "name": "audio-voices",
           "method": "get",
-          "template": "{{ base }}/responses/{{ identifier }}/input_items{{ query }}"
+          "template": "{{ base }}/audio/voices{{ query }}"
         },
         {
-          "name": "response::retrieve",
-          "method": "get",
-          "template": "{{ base }}/responses/{{ identifier }}{{ query }}"
+          "name": "image-generation",
+          "method": "post",
+          "template": "{{ base }}/images/generations"
+        },
+        {
+          "name": "image-edit",
+          "method": "post",
+          "template": "{{ base }}/images/edits"
         }
       ]
     },

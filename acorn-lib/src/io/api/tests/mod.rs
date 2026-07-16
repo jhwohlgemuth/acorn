@@ -366,20 +366,26 @@ mod openai_api {
     fn test_template_endpoint_for() {
         let endpoint = Endpoint::from_template("openai::api").map(|e| e.with_domain("api.openai.com")).unwrap();
         assert_eq!(endpoint.base(), "https://api.openai.com/v1");
-        assert!(endpoint.resources.iter().any(|r| r.name == "models"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "model"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::delete"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::list"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::messages"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::retrieve"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "chat-completion::update"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "response"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "response::cancel"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "response::delete"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "response::input-items"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "response::retrieve"));
-        assert!(endpoint.resources.iter().any(|r| r.name == "model::delete"));
+        let names: Vec<&str> = endpoint.resources.iter().map(|resource| resource.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec![
+                "completion",
+                "chat-completion",
+                "models",
+                "response",
+                "embedding",
+                "audio-speech",
+                "audio-transcription",
+                "audio-voices",
+                "image-generation",
+                "image-edit",
+            ]
+        );
+        assert!(!endpoint.resources.iter().any(|r| r.name == "model"));
+        assert!(!endpoint.resources.iter().any(|r| r.name == "model::delete"));
+        assert!(!endpoint.resources.iter().any(|r| r.name.starts_with("chat-completion::")));
+        assert!(!endpoint.resources.iter().any(|r| r.name.starts_with("response::")));
     }
     #[test]
     fn test_from_template_with_domain() {
