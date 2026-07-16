@@ -307,13 +307,20 @@ impl ModelDownloadPlan {
                 match create_dir_all(&destination) {
                     | Ok(()) => match huggingface::repository_tree(&identifier, &self.revision).await {
                         | Ok(files) => {
+                            let CommandOptions {
+                                filter,
+                                ignore,
+                                quiet,
+                                skip_verify_checksum,
+                                ..
+                            } = options.clone();
                             let options = huggingface::Options::init()
                                 .identifier(&identifier)
-                                .maybe_output(Some(destination.to_absolute_string()))
-                                .maybe_filter(options.filter.clone())
-                                .maybe_ignore(options.ignore.clone())
-                                .skip_verify_checksum(options.skip_verify_checksum)
-                                .quiet(options.quiet)
+                                .maybe_filter(filter)
+                                .maybe_ignore(ignore)
+                                .output(destination.to_absolute_string())
+                                .quiet(quiet)
+                                .skip_verify_checksum(skip_verify_checksum)
                                 .build();
                             files.download(options).await
                         }
