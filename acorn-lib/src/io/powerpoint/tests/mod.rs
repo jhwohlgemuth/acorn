@@ -201,6 +201,12 @@ fn update_relationship_target_matches_previous_replacement_intent() {
     assert!(validate_xml_well_formed(&result));
 }
 #[test]
+fn update_relationship_target_rejects_missing_target() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>"#;
+    let result = update_relationship_target(xml, "../notesSlides/notesSlide1.xml", "../notesSlides/notesSlide2.xml");
+    assert!(result.is_err());
+}
+#[test]
 fn validate_xml_well_formed_rejects_unclosed_content() {
     assert!(!validate_xml_well_formed("<Relationships><Relationship></Relationship>"));
 }

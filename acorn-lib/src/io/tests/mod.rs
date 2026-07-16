@@ -22,9 +22,10 @@ use color_eyre::Report;
 use fluent_uri::Uri as UriParse;
 use rsa::traits::PublicKeyParts;
 use std::env::temp_dir;
-use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
+use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use zip::ZipArchive;
 
 const ENDPOINTS: &str = r#"{
     "endpoints": [
@@ -429,6 +430,12 @@ fn test_archive() {
     let path = fixtures_dir().join("data");
     let output_file = archive(path.clone(), None).unwrap();
     assert_eq!(output_file.file_name().unwrap().to_str().unwrap(), "data.zip");
+    let file = File::open(output_file).unwrap();
+    let mut zip = ZipArchive::new(file).unwrap();
+    let names = (0..zip.len())
+        .filter_map(|index| zip.by_index(index).ok().map(|entry| entry.name().to_string()))
+        .collect::<Vec<_>>();
+    assert!(names.iter().any(|name| name == "highlight/reference.pptx"));
 }
 #[test]
 fn test_bagit() {

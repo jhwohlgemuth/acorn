@@ -481,35 +481,45 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf
         None
     };
     if let Some(mut zip) = zip_file {
+        let archive_root = path.canonicalize();
         let files = files_all(path.clone(), None).into_iter().filter(|x| x.is_file());
         for file_path in files {
             if let Ok(file) = File::open(file_path.clone()) {
-                let name = match path.canonicalize() {
-                    | Ok(relative) => file_path.strip_prefix(relative).unwrap_or_else(|_| &file_path),
-                    | Err(_) => &file_path,
-                };
-                trace!(
-                    file = name.to_path_buf().to_absolute_string(),
-                    "=> {} Add file to archive",
-                    Label::using()
-                );
-                match zip.start_file_from_path(name, options) {
-                    | Ok(_) => {
-                        let mut buffer = Vec::new();
-                        match io::copy(&mut file.take(u64::MAX), &mut buffer) {
-                            | Ok(_) => match zip.write_all(&buffer) {
-                                | Ok(_) => {}
-                                | Err(why) => {
-                                    error!(file = file_path.to_absolute_string(), "=> {} Write zip archive — {why}", Label::fail())
+                let name = archive_root.as_ref().ok().and_then(|root| {
+                    file_path
+                        .canonicalize()
+                        .ok()
+                        .and_then(|absolute| absolute.strip_prefix(root).ok().map(Path::to_path_buf))
+                });
+                match name {
+                    | Some(name) => {
+                        trace!(file = name.to_absolute_string(), "=> {} Add file to archive", Label::using());
+                        match zip.start_file_from_path(name, options) {
+                            | Ok(_) => {
+                                let mut buffer = Vec::new();
+                                match io::copy(&mut file.take(u64::MAX), &mut buffer) {
+                                    | Ok(_) => match zip.write_all(&buffer) {
+                                        | Ok(_) => {}
+                                        | Err(why) => {
+                                            error!(file = file_path.to_absolute_string(), "=> {} Write zip archive — {why}", Label::fail())
+                                        }
+                                    },
+                                    | Err(why) => {
+                                        error!("=> {} Copy buffer - {why}", Label::fail())
+                                    }
                                 }
-                            },
+                            }
                             | Err(why) => {
-                                error!("=> {} Copy buffer - {why}", Label::fail())
+                                error!(file = file_path.to_absolute_string(), "=> {} Start zip archive - {why}", Label::fail());
                             }
                         }
                     }
-                    | Err(why) => {
-                        error!(file = file_path.to_absolute_string(), "=> {} Start zip archive - {why}", Label::fail());
+                    | None => {
+                        error!(
+                            file = file_path.to_absolute_string(),
+                            "=> {} Resolve relative zip archive path",
+                            Label::fail()
+                        );
                     }
                 }
             }

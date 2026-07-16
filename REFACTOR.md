@@ -93,7 +93,7 @@ Excluded:
 
 #### 3. Finish hardening OOXML interpolation and slide-copy mutations
 - Difficulty: Medium
-- Status: Remaining cleanup needed for interpolation and slide-copy mutations.
+- Status: Slide-copy mutations now fail with typed errors and use structured relationship updates; parser-backed paragraph selection and bullet interpolation remain.
 - Evidence: `acorn-cli/src/commands/export/powerpoint.rs`, `acorn-lib/src/io/powerpoint/mod.rs`
 - Recommendation:
   1. Replace remaining regex-based paragraph selection and bullet interpolation with parser-backed XML transforms.

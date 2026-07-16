@@ -531,29 +531,32 @@ pub fn add_slide_to_presentation_xml(xml: &str, slide_identifier: u32, revision_
         }
     }
 }
-/// Replace a relationship target with a new media target.
+/// Replace a relationship target, returning an error when the current target is absent.
 pub fn update_relationship_target(content: &str, current_target: &str, target: &str) -> ApiResult<String> {
     quick_xml::de::from_str::<Relationships>(content)
         .map_err(|why| eyre!("Failed to parse slide relationships — {why}"))
-        .and_then(|rels| {
-            let updated = rels
-                .relationship
-                .into_iter()
-                .map(|rel| match rel.target == current_target {
-                    | true => Relationship::init()
-                        .id(rel.id)
-                        .relationship_type(rel.relationship_type)
-                        .target(target.to_string())
-                        .maybe_target_mode(rel.target_mode)
-                        .build(),
-                    | false => rel,
-                })
-                .collect::<Vec<_>>();
-            Relationships::init()
-                .relationship(updated)
-                .build()
-                .to_string()
-                .map_err(|why| eyre!("Failed to serialize slide relationships — {why}"))
+        .and_then(|rels| match rels.relationship.iter().any(|rel| rel.target == current_target) {
+            | true => {
+                let updated = rels
+                    .relationship
+                    .into_iter()
+                    .map(|rel| match rel.target == current_target {
+                        | true => Relationship::init()
+                            .id(rel.id)
+                            .relationship_type(rel.relationship_type)
+                            .target(target.to_string())
+                            .maybe_target_mode(rel.target_mode)
+                            .build(),
+                        | false => rel,
+                    })
+                    .collect::<Vec<_>>();
+                Relationships::init()
+                    .relationship(updated)
+                    .build()
+                    .to_string()
+                    .map_err(|why| eyre!("Failed to serialize slide relationships — {why}"))
+            }
+            | false => Err(eyre!("Missing relationship target {current_target}")),
         })
 }
 /// Validate that XML content is well formed.
