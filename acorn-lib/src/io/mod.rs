@@ -64,6 +64,7 @@ pub mod bagit;
 pub mod config;
 pub mod database;
 pub mod docx;
+pub mod download;
 pub mod http;
 #[cfg(feature = "agentic")]
 pub mod mcp;

@@ -39,6 +39,102 @@ pub enum AuthenticationRequirement {
     Required,
 }
 /// Model config entry — either a bare selector string or a detailed download entry
+/// ### Notes
+/// Models can be specified in several ways in the `models` array:
+///
+/// **Bare selector string** — a model ID, path, or URL:
+/// ```json
+/// {
+///     "models": [
+///         "meta-llama/Llama-2-7b-hf",
+///         "microsoft/phi-2"
+///     ]
+/// }
+/// ```
+///
+/// **Detailed entry with Hugging Face source** (simple location string):
+/// ```json
+/// {
+///     "models": [
+///         {
+///             "name": "tiny-bert",
+///             "source": {
+///                 "provider": "huggingface",
+///                 "location": "https://huggingface.co/hf-internal-testing/tiny-random-bert"
+///             }
+///         }
+///     ]
+/// }
+/// ```
+///
+/// **Detailed entry with revision and auth**:
+/// ```json
+/// {
+///     "models": [
+///         {
+///             "name": "tiny-bert",
+///             "source": {
+///                 "provider": "huggingface",
+///                 "location": "https://huggingface.co/hf-internal-testing/tiny-random-bert"
+///             },
+///             "revision": "refs/pr/1",
+///             "auth": "required",
+///             "filter": ["Q4_K_M.*\\.gguf$"],
+///             "ignore": ["Q2_", "Q3_"]
+///         }
+///     ]
+/// }
+/// ```
+///
+/// **Detailed entry with Hugging Face source** (detailed location with scheme and revision):
+/// ```json
+/// {
+///     "models": [
+///         {
+///             "name": "tiny-bert",
+///             "source": {
+///                 "provider": "huggingface",
+///                 "location": {
+///                     "scheme": "https",
+///                     "uri": "https://huggingface.co/hf-internal-testing/tiny-random-bert",
+///                     "revision": "main"
+///                 }
+///             }
+///         }
+///     ]
+/// }
+/// ```
+///
+/// **Detailed entry with local Git repository source**:
+/// ```json
+/// {
+///     "models": [
+///         {
+///             "name": "qwen-local",
+///             "source": {
+///                 "provider": "git",
+///                 "location": "file:./models/qwen.gguf"
+///             }
+///         }
+///     ]
+/// }
+/// ```
+///
+/// **Mixed array** — bare strings and detailed entries together:
+/// ```json
+/// {
+///     "models": [
+///         "meta-llama/Llama-2-7b-hf",
+///         {
+///             "name": "qwen-local",
+///             "source": {
+///                 "provider": "git",
+///                 "location": "file:./models/qwen.gguf"
+///             }
+///         }
+///     ]
+/// }
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ModelEntry {
@@ -83,25 +179,40 @@ pub enum RunnerType {
     Project,
 }
 /// Struct for application configuration
-///
-/// ### Example `buckets.json`
+/// ### Example `.acorn` configuration file
 /// ```json
 /// {
 ///     "buckets": [
 ///         {
-///             "name": "example",
+///             "name": "big-science",
 ///             "repository": {
 ///                 "provider": "github",
 ///                 "uri": "https://github.com/username/example"
 ///             }
 ///         },
 ///         {
-///             "name": "example",
+///             "name": "does-it-scale",
 ///             "repository": {
 ///                 "provider": "gitlab",
 ///                 "id": 12345,
 ///                 "uri": "https://gitlab.com/username/example"
 ///             }
+///         }
+///     ],
+///     "models": [
+///         "meta-llama/Llama-2-7b-hf",
+///         "microsoft/phi-2"
+///     ],
+///     "runners": [
+///         {
+///             "name": "ACORN Runner B",
+///             "repository": {
+///                 "provider": "gitlab",
+///                 "id": 24758,
+///                 "uri": "https://code.ornl.gov/research-enablement"
+///             },
+///             "type": "group",
+///             "runUntagged": true
 ///         }
 ///     ]
 /// }

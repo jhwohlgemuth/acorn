@@ -1,10 +1,10 @@
-use super::{DownloadItem, DownloadItems};
 use crate::cli::{CommandOptions, Void};
 use acorn::io::api::huggingface::{self, HuggingFaceRepository};
 use acorn::io::api::models_dev;
 use acorn::io::config::{ApplicationConfiguration, AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions};
 use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
+use acorn::io::download::{DownloadItem, DownloadItems};
 use acorn::io::source::source_from_weights;
 use acorn::io::{home_directory, ApiResult, InputOutput, Source, SourceAction};
 use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
@@ -177,7 +177,6 @@ pub(crate) enum ModelDownloadError {
     UnknownModel(String),
     MultipleMatches(String),
     MissingAuth(String),
-    IncompleteDownload(String),
 }
 #[derive(Clone, Debug)]
 pub(crate) struct ModelDownloadPlan {
@@ -194,7 +193,6 @@ impl fmt::Display for ModelDownloadError {
             | Self::UnknownModel(value) => write!(formatter, "Unknown model selector: {value}"),
             | Self::MultipleMatches(value) => write!(formatter, "Multiple model matches found: {value}"),
             | Self::MissingAuth(value) => write!(formatter, "Model download requires authentication: {value}"),
-            | Self::IncompleteDownload(value) => write!(formatter, "Model download is incomplete: {value}"),
         }
     }
 }
@@ -302,39 +300,23 @@ impl ModelDownloadPlan {
             }
         }
     }
-    // TODO: Move to huggingface model? Method on RepositoryFiles impl? Would have to create new Options, which is fine
     async fn download_from_huggingface(&self, options: CommandOptions) -> ApiResult<String> {
         match (options.selector.clone(), options.output.clone()) {
             | (Some(Source::Remote { identifier, .. }), Some(root)) => {
                 let destination = root.join(&identifier);
                 match create_dir_all(&destination) {
                     | Ok(()) => match huggingface::repository_tree(&identifier, &self.revision).await {
-                        | Ok(files) => match files.checksums(&identifier, &self.revision).await {
-                            | Ok(checksum_map) => {
-                                let items = files.filter(options.filter.as_deref(), options.ignore.as_deref()).map(|selected| {
-                                    selected
-                                        .into_iter()
-                                        .map(|file| {
-                                            let file_path = file.path;
-                                            DownloadItem {
-                                                url: format!("https://huggingface.co/{identifier}/resolve/{}/{}", self.revision, file_path),
-                                                path: file_path.clone(),
-                                                size: file.size,
-                                                sha: checksum_map.get(&file_path).cloned(),
-                                            }
-                                        })
-                                        .collect::<Vec<_>>()
-                                });
-                                match items {
-                                    | Ok(items) => DownloadItems::new(&destination, items, options.quiet, options.skip_verify_checksum)
-                                        .download()
-                                        .await
-                                        .map(|()| identifier),
-                                    | Err(why) => Err(why),
-                                }
-                            }
-                            | Err(why) => Err(why),
-                        },
+                        | Ok(files) => {
+                            let options = huggingface::Options::init()
+                                .identifier(&identifier)
+                                .maybe_output(Some(destination.to_absolute_string()))
+                                .maybe_filter(options.filter.clone())
+                                .maybe_ignore(options.ignore.clone())
+                                .skip_verify_checksum(options.skip_verify_checksum)
+                                .quiet(options.quiet)
+                                .build();
+                            files.download(options).await
+                        }
                         | Err(why) => Err(why),
                     },
                     | Err(why) => {

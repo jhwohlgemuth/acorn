@@ -1,12 +1,15 @@
 //! Hugging Face Hub API helpers.
 use super::{Endpoint, IntoHeaders, Params, RemoteResource, ResponseContent, TreeEntry};
+use crate::io::api::Param;
 use crate::io::config::FilterSet;
+use crate::io::download::{DownloadItem, DownloadItems};
 use crate::io::{first_env_var, http, ApiResult};
-use crate::prelude::HashMap;
+use crate::prelude::{HashMap, Path};
 use crate::util::constants::env::HUGGINGFACE_TOKEN_VARIABLE_NAMES;
 use crate::util::{glob_matches, regex_to_glob};
 use async_trait::async_trait;
 use axum::http::HeaderMap;
+use bon::Builder;
 use color_eyre::eyre::eyre;
 use futures::future::join_all;
 
@@ -15,6 +18,8 @@ pub type RepositoryFiles = Vec<RepositoryFile>;
 /// Trait for selecting and filtering files from a Hugging Face repository.
 #[async_trait]
 pub trait HuggingFaceRepository {
+    /// Download files from a Hugging Face repository, returning the identifier of the downloaded resource
+    async fn download(&self, options: Options) -> ApiResult<String>;
     /// Filter repository files using glob patterns for include/exclude.
     fn filter(&self, filter: Option<&str>, ignore: Option<&str>) -> ApiResult<Self>
     where
@@ -34,6 +39,38 @@ pub struct FileSelectionPolicy<'a> {
     /// Error message to display when no files match.
     pub no_match_message: &'a str,
 }
+/// Options for HuggingFace API requests
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init, on(String, into))]
+pub struct Options {
+    /// Authentication token
+    pub token: Option<String>,
+    /// Model registry domain (default: "huggingface.co")
+    #[builder(default = String::from("huggingface.co"))]
+    pub domain: String,
+    /// Model repository identifier
+    pub identifier: Option<String>,
+    /// Model repository revision (branch, tag, or commit)
+    #[builder(default = String::from("main"))]
+    pub revision: String,
+    /// Repository path used for tree requests
+    pub path: Option<String>,
+    /// Regex pattern of files to include at a given path desginated by `path`
+    pub filter: Option<String>,
+    /// Regex pattern of files to ignore at a given path desginated by `path`
+    pub ignore: Option<String>,
+    /// Flag used to suppress output
+    #[builder(default)]
+    pub quiet: bool,
+    /// Custom API parameters to include in every request
+    #[builder(default = vec![])]
+    pub custom_params: Vec<Param>,
+    /// Skip SHA-256 checksum verification after download
+    #[builder(default)]
+    pub skip_verify_checksum: bool,
+    /// Output directory for downloaded files
+    pub output: Option<String>,
+}
 /// File metadata returned by the Hugging Face repository tree API
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RepositoryFile {
@@ -52,6 +89,42 @@ impl From<TreeEntry> for RepositoryFile {
 }
 #[async_trait]
 impl HuggingFaceRepository for RepositoryFiles {
+    async fn download(&self, options: Options) -> ApiResult<String> {
+        let Options {
+            identifier,
+            revision,
+            filter,
+            ignore,
+            quiet,
+            skip_verify_checksum,
+            output,
+            ..
+        } = options;
+        match (identifier, output) {
+            | (Some(identifier), Some(output)) => match self.checksums(&identifier, &revision).await {
+                | Ok(lookup) => match self.filter(filter.as_deref(), ignore.as_deref()) {
+                    | Ok(files) => {
+                        let items = files
+                            .into_iter()
+                            .map(|RepositoryFile { path, size, .. }| {
+                                let sha = lookup.get(&path).cloned();
+                                let url = format!("https://huggingface.co/{identifier}/resolve/{revision}/{path}");
+                                DownloadItem { path, sha, size, url }
+                            })
+                            .collect::<Vec<_>>();
+                        DownloadItems::new(Path::new(&output), items, quiet, skip_verify_checksum)
+                            .download()
+                            .await
+                            .map(|()| identifier)
+                    }
+                    | Err(why) => Err(why),
+                },
+                | Err(why) => Err(why),
+            },
+            | (None, _) => Err(eyre!("Missing Hugging Face repository identifier")),
+            | (_, None) => Err(eyre!("Missing output directory")),
+        }
+    }
     fn filter(&self, filter: Option<&str>, ignore: Option<&str>) -> ApiResult<Self> {
         let filter_vec = filter.into_iter().map(String::from).collect::<Vec<_>>();
         let ignore_vec = ignore.into_iter().map(String::from).collect::<Vec<_>>();
@@ -72,10 +145,11 @@ impl HuggingFaceRepository for RepositoryFiles {
                     | false => Ok(files),
                 }
             } else {
-                files.select(&FileSelectionPolicy {
+                let policy = FileSelectionPolicy {
                     preferred_marker: "Q4_K_M",
                     no_match_message: "No GGUF model files found; use a GGUF repository or provide --filter for another format",
-                })
+                };
+                files.select(&policy)
             }
         })
     }

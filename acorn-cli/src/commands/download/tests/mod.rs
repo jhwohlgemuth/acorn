@@ -15,6 +15,7 @@ use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceRepository, RepositoryFile};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Row};
+use acorn::io::download::{DownloadItem, DownloadTask};
 use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, SourceAction};
 use acorn::prelude::{create_dir_all, env, read_to_string, write};
 use acorn::util::merge;
@@ -683,7 +684,7 @@ fn test_download_item_checksum_mismatch_returns_incomplete_download_error() {
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let file_path = temp_dir.join("model.gguf.part");
     write(&file_path, b"abc").expect("write model part");
-    let item = super::DownloadItem {
+    let item = DownloadItem {
         url: "https://example.test/model.gguf".to_string(),
         path: "model.gguf".to_string(),
         size: Some(3),
@@ -705,7 +706,7 @@ async fn test_download_task_resumes_partial_file_with_http_range() {
         | Ok(()) => {}
         | Err(why) => panic!("create destination directory failed: {why}"),
     }
-    let item = super::DownloadItem {
+    let item = DownloadItem {
         url,
         path: "model.gguf".to_string(),
         size: Some(payload.len() as u64),
@@ -722,7 +723,7 @@ async fn test_download_task_resumes_partial_file_with_http_range() {
         | Ok(()) => {}
         | Err(why) => panic!("seed partial file failed: {why}"),
     }
-    let task = super::DownloadTask::new(item, &destination, true, false);
+    let task = DownloadTask::new(item, &destination, true, false);
     let result = task.download().await;
     assert!(result.is_ok(), "resume download should succeed: {result:?}");
     let final_file = destination.join("model.gguf");
@@ -769,13 +770,13 @@ async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
         | Ok(()) => {}
         | Err(why) => panic!("create destination directory failed: {why}"),
     }
-    let item = super::DownloadItem {
+    let item = DownloadItem {
         url: format!("{base_url}/repo/resolve/main/model.gguf"),
         path: "model.gguf".to_string(),
         size: Some(model_bytes.len() as u64),
         sha: Some(served_digest),
     };
-    let task = super::DownloadTask::new(item, &destination, true, false);
+    let task = DownloadTask::new(item, &destination, true, false);
     let result = task.download().await;
     assert!(result.is_ok(), "download with valid sidecar checksum should succeed: {result:?}");
 
