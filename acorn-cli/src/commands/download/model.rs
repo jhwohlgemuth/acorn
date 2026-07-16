@@ -6,8 +6,8 @@ use acorn::io::config::{ApplicationConfiguration, AuthenticationRequirement, Fil
 use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
 use acorn::io::source::source_from_weights;
-use acorn::io::{home_directory, http, ApiResult, InputOutput, Source, SourceAction};
-use acorn::prelude::{create_dir_all, HashMap, HashSet, PathBuf, String, Vec};
+use acorn::io::{home_directory, ApiResult, InputOutput, Source, SourceAction};
+use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
 use acorn::schema::agent::Weight;
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
 use clap_verbosity_flag::Verbosity;
@@ -308,7 +308,7 @@ impl ModelDownloadPlan {
                 let destination = root.join(&identifier);
                 match create_dir_all(&destination) {
                     | Ok(()) => match huggingface::repository_tree(&identifier, &self.revision).await {
-                        | Ok(files) => match resolve_sidecar_sha256(&identifier, &self.revision, &files).await {
+                        | Ok(files) => match files.checksums(&identifier, &self.revision).await {
                             | Ok(checksum_map) => {
                                 let items = files.filter(options.filter.as_deref(), options.ignore.as_deref()).map(|selected| {
                                     selected
@@ -380,35 +380,6 @@ async fn download_remote_model(options: CommandOptions) -> ApiResult<()> {
         | (None, _) => Err(eyre!("Model selector is not configured")),
         | _ => Err(eyre!("Model selector is not remote")),
     }
-}
-async fn resolve_sidecar_sha256(identifier: &str, revision: &str, files: &[huggingface::RepositoryFile]) -> ApiResult<HashMap<String, String>> {
-    let candidates = files
-        .iter()
-        .filter_map(|file| target_path_from_sidecar(&file.path).map(|target| (file.path.clone(), target)))
-        .collect::<Vec<_>>();
-    let mut checksums = HashMap::new();
-    for (sidecar_path, target_path) in candidates {
-        let sidecar_url = format!("https://huggingface.co/{identifier}/resolve/{revision}/{sidecar_path}");
-        let content = match http::get(sidecar_url).headers(huggingface::auth_headers()).send().await {
-            | Ok(response) => response.text().await.ok(),
-            | Err(_) => None,
-        };
-        if let Some(digest) = content.as_deref().and_then(extract_sha256) {
-            checksums.insert(target_path, digest);
-        }
-    }
-    Ok(checksums)
-}
-fn target_path_from_sidecar(path: &str) -> Option<String> {
-    path.strip_suffix(".sha256")
-        .or_else(|| path.strip_suffix(".sha256sum"))
-        .map(ToString::to_string)
-}
-fn extract_sha256(content: &str) -> Option<String> {
-    content
-        .split_whitespace()
-        .find(|token| token.len() == 64 && token.chars().all(|character| character.is_ascii_hexdigit()))
-        .map(|value| value.to_ascii_lowercase())
 }
 fn materialize_local_model(options: CommandOptions) -> ApiResult<String> {
     match options.selector.clone() {

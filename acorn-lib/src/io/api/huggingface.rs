@@ -1,15 +1,18 @@
 //! Hugging Face Hub API helpers.
 use super::{Endpoint, IntoHeaders, Params, RemoteResource, ResponseContent, TreeEntry};
 use crate::io::config::FilterSet;
-use crate::io::{first_env_var, ApiResult};
+use crate::io::{first_env_var, http, ApiResult};
+use crate::prelude::HashMap;
 use crate::util::constants::env::HUGGINGFACE_TOKEN_VARIABLE_NAMES;
 use crate::util::{glob_matches, regex_to_glob};
+use async_trait::async_trait;
 use axum::http::HeaderMap;
 use color_eyre::eyre::eyre;
 
 /// Repository files returned by the Hugging Face repository tree API
 pub type RepositoryFiles = Vec<RepositoryFile>;
 /// Trait for selecting and filtering files from a Hugging Face repository.
+#[async_trait]
 pub trait HuggingFaceRepository {
     /// Filter repository files using glob patterns for include/exclude.
     fn filter(&self, filter: Option<&str>, ignore: Option<&str>) -> ApiResult<Self>
@@ -19,6 +22,8 @@ pub trait HuggingFaceRepository {
     fn select(&self, policy: &FileSelectionPolicy<'_>) -> ApiResult<Self>
     where
         Self: Sized;
+    /// Resolve SHA-256 checksums for repository files from `.sha256` sidecar files
+    async fn checksums(&self, identifier: &str, revision: &str) -> ApiResult<HashMap<String, String>>;
 }
 /// Policy for selecting a preferred file when multiple candidates exist.
 #[derive(Clone, Debug)]
@@ -44,6 +49,7 @@ impl From<TreeEntry> for RepositoryFile {
         }
     }
 }
+#[async_trait]
 impl HuggingFaceRepository for RepositoryFiles {
     fn filter(&self, filter: Option<&str>, ignore: Option<&str>) -> ApiResult<Self> {
         let filter_vec = filter.into_iter().map(String::from).collect::<Vec<_>>();
@@ -92,6 +98,23 @@ impl HuggingFaceRepository for RepositoryFiles {
             }
         }
     }
+    /// Resolve SHA-256 checksums for repository files by fetching `.sha256` sidecar files.
+    async fn checksums(&self, identifier: &str, revision: &str) -> ApiResult<HashMap<String, String>> {
+        let candidates: Vec<_> = self
+            .iter()
+            .filter_map(|file| target_path_from_sidecar(&file.path).map(|target| (file.path.clone(), target)))
+            .collect();
+        let digests = futures::future::join_all(candidates.into_iter().map(|(path, target)| async move {
+            let url = format!("https://huggingface.co/{identifier}/resolve/{revision}/{path}");
+            let content = match http::get(url).headers(auth_headers()).send().await {
+                | Ok(response) => response.text().await.ok(),
+                | Err(_) => None,
+            };
+            (target, content.as_deref().and_then(extract_sha256))
+        }))
+        .await;
+        Ok(digests.into_iter().filter_map(|(target, digest)| digest.map(|d| (target, d))).collect())
+    }
 }
 /// Build Hugging Face authorization headers using configured environment token values.
 pub fn auth_headers() -> HeaderMap {
@@ -104,10 +127,21 @@ pub fn auth_headers() -> HeaderMap {
 pub fn has_auth_token() -> bool {
     first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).is_some()
 }
+fn extract_sha256(content: &str) -> Option<String> {
+    content
+        .split_whitespace()
+        .find(|token| token.len() == 64 && token.chars().all(|character| character.is_ascii_hexdigit()))
+        .map(|value| value.to_ascii_lowercase())
+}
+fn target_path_from_sidecar(path: &str) -> Option<String> {
+    path.strip_suffix(".sha256")
+        .or_else(|| path.strip_suffix(".sha256sum"))
+        .map(ToString::to_string)
+}
 /// Try to filter HuggingFace files using glob patterns
 /// ### Note
 /// Returns `Some(filtered)` if all patterns converted to globs successfully, `None` to signal regex fallback.
-pub(crate) fn try_glob_filter(files: &[RepositoryFile], filter: Option<&str>, ignore: Option<&str>) -> Option<Vec<RepositoryFile>> {
+pub(crate) fn try_glob_filter(files: &RepositoryFiles, filter: Option<&str>, ignore: Option<&str>) -> Option<Vec<RepositoryFile>> {
     match (filter.map(regex_to_glob), ignore.map(regex_to_glob)) {
         | (Some(None), _) | (_, Some(None)) => None,
         | (filter_opt, ignore_opt) => {
@@ -128,14 +162,16 @@ pub(crate) fn try_glob_filter(files: &[RepositoryFile], filter: Option<&str>, ig
 }
 /// List files in a Hugging Face model repository at `revision`
 pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<RepositoryFiles> {
+    let template = "huggingface::api";
+    let action = "tree";
     let params = Params::new()
         .with_auth(first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).unwrap_or_default().as_str(), None)
         .with_template("identifier", Some(identifier))
         .with_template("revision", Some(revision))
         .with_keyvalue("recursive", Some("1"))
         .build();
-    match Endpoint::from_template("huggingface::api") {
-        | Ok(endpoint) => match endpoint.invoke("tree", Some(params)).await {
+    match Endpoint::from_template(template) {
+        | Ok(endpoint) => match endpoint.invoke(action, Some(params)).await {
             | Ok(ResponseContent::Json(content)) => serde_json::from_str::<Vec<TreeEntry>>(&content)
                 .map(|entries| entries.into_iter().filter(TreeEntry::is_file).map(RepositoryFile::from).collect())
                 .map_err(|why| eyre!("Failed to parse Hugging Face repository file list — {why}")),

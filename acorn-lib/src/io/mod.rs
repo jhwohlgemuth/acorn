@@ -21,7 +21,7 @@
 //!
 use crate::cmd;
 use crate::prelude::{
-    self, canonicalize, consts, create_dir_all, current_dir, io, remove_file, var, var_os, write, BufReader, CommandOutput, Cursor, File, HashSet,
+    canonicalize, consts, create_dir_all, current_dir, io, remove_file, var, var_os, write, BufReader, CommandOutput, Cursor, File, HashSet,
     OpenOptions, Path, PathBuf, Read, Write,
 };
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
