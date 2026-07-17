@@ -7,7 +7,7 @@
 )]
 use crate::io::InputOutput;
 use crate::prelude::{env, remove_file, PathBuf};
-use crate::schema::agent::{opencode, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration};
+use crate::schema::agent::{opencode, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization};
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
     [
@@ -17,6 +17,20 @@ fn all_known_assets() -> [PromptFileAsset; 6] {
         PromptFileAsset::Summarize,
         PromptFileAsset::Teach,
         PromptFileAsset::Translate,
+    ]
+}
+fn all_known_quantizations() -> [Quantization; 10] {
+    [
+        Quantization::Q2k,
+        Quantization::Q3kS,
+        Quantization::Q3kM,
+        Quantization::Q3kL,
+        Quantization::Q4kM,
+        Quantization::Q5kM,
+        Quantization::Q6k,
+        Quantization::Q8_0,
+        Quantization::F16,
+        Quantization::BF16,
     ]
 }
 
@@ -33,6 +47,39 @@ fn prompt_file_asset_unknown_from_str_round_trips() {
     let value = "does-not-exist.prompt";
     let mapped = PromptFileAsset::from(value);
     assert_eq!(mapped.to_string(), value);
+}
+#[test]
+fn quantization_from_str_round_trips_for_known_values() {
+    all_known_quantizations().iter().for_each(|quantization| {
+        let name = quantization.to_string();
+        let mapped = Quantization::from(name.as_str());
+        assert_eq!(mapped.to_string(), name);
+    });
+}
+#[test]
+fn quantization_unknown_from_str_round_trips() {
+    let value = "Q3_K_X";
+    let mapped = Quantization::from(value);
+    assert_eq!(mapped.to_string(), value);
+}
+#[test]
+fn quantization_lowercase_from_str_round_trips() {
+    let value = "q2_k";
+    let mapped = Quantization::from(value);
+    assert_eq!(mapped.to_string(), "Q2_K");
+}
+#[test]
+fn weight_quantization_round_trips_in_json() {
+    let weight = crate::schema::agent::Weight {
+        label: "Q4_K_M".to_string(),
+        url: "https://example.com/model.gguf".to_string(),
+        is_open: Some(true),
+        quantization: Some(Quantization::Q4kM),
+    };
+    let json = serde_json::to_string(&weight).unwrap();
+    assert!(json.contains(r#""quantization":"Q4_K_M""#));
+    let decoded: crate::schema::agent::Weight = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.quantization.as_ref().map(ToString::to_string), Some("Q4_K_M".to_string()));
 }
 #[test]
 fn from_asset_returns_some_for_all_known_assets() {

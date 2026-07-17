@@ -232,6 +232,68 @@ pub enum Provider {
     #[display("{}", _0)]
     Custom(String),
 }
+/// Quantization level for a model weight file.
+///
+/// Suffixes follow common GGUF naming:
+/// - `K` marks the newer k-quants family
+/// - `L` means large, higher-quality size within that family
+/// - `M` means medium quality within that family
+/// - `S` means small, lower-quality size within that family
+///
+/// `Q4_K_M` is a GGUF quantization format for LLMs used in `llama.cpp`.
+/// It is often considered the sweet spot between model size and quality:
+/// - `Q4` means 4-bit precision per weight
+/// - `K` means k-quant, a group-wise quantization scheme
+/// - `M` means medium, where sensitive tensors are selectively raised to 5-6 bits
+///
+/// IQ is a separate I-quant family that uses an importance matrix for reconstruction.
+#[allow(non_camel_case_types)]
+#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+pub enum Quantization {
+    /// Lower quality, smallest file size (`Q2_K`)
+    #[display("Q2_K")]
+    #[serde(rename = "Q2_K")]
+    Q2k,
+    /// Smaller, lower quality (`Q3_K_S`)
+    #[display("Q3_K_S")]
+    #[serde(rename = "Q3_K_S")]
+    Q3kS,
+    /// Smaller, lower quality (`Q3_K_M`)
+    #[display("Q3_K_M")]
+    #[serde(rename = "Q3_K_M")]
+    Q3kM,
+    /// Smaller, lower quality, larger than `Q3_K_M` (`Q3_K_L`)
+    #[display("Q3_K_L")]
+    #[serde(rename = "Q3_K_L")]
+    Q3kL,
+    /// Good default balance of quality and size (`Q4_K_M`), often the sweet spot for GGUF LLMs
+    #[display("Q4_K_M")]
+    #[serde(rename = "Q4_K_M")]
+    Q4kM,
+    /// Better quality, larger file (`Q5_K_M`)
+    #[display("Q5_K_M")]
+    #[serde(rename = "Q5_K_M")]
+    Q5kM,
+    /// Higher quality, much larger file (`Q6_K`)
+    #[display("Q6_K")]
+    #[serde(rename = "Q6_K")]
+    Q6k,
+    /// Near full quality, very large file (`Q8_0`)
+    #[display("Q8_0")]
+    #[serde(rename = "Q8_0")]
+    Q8_0,
+    /// Full-ish precision, huge file (`F16`)
+    #[display("F16")]
+    #[serde(rename = "F16")]
+    F16,
+    /// Full-ish precision, huge file (`BF16`)
+    #[display("BF16")]
+    #[serde(rename = "BF16")]
+    BF16,
+    /// Catch-all for quantization tags added by upstream catalogs
+    #[display("{}", _0)]
+    Other(String),
+}
 /// Benchmark evaluation result
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
@@ -504,6 +566,8 @@ pub struct Weight {
     pub url: String,
     /// Whether the weights are openly available
     pub is_open: Option<bool>,
+    /// Quantization format used for the weights
+    pub quantization: Option<Quantization>,
 }
 impl Default for FrontMatter {
     fn default() -> Self {
@@ -714,6 +778,29 @@ impl From<&str> for Provider {
             | "zhipuai" => Self::ZhipuAI,
             | _ => Self::Custom(value.into()),
         }
+    }
+}
+impl From<&str> for Quantization {
+    fn from(value: &str) -> Self {
+        let normalized = value.to_ascii_uppercase();
+        match normalized.as_str() {
+            | "Q2_K" => Self::Q2k,
+            | "Q3_K_S" => Self::Q3kS,
+            | "Q3_K_M" => Self::Q3kM,
+            | "Q3_K_L" => Self::Q3kL,
+            | "Q4_K_M" => Self::Q4kM,
+            | "Q5_K_M" => Self::Q5kM,
+            | "Q6_K" => Self::Q6k,
+            | "Q8_0" => Self::Q8_0,
+            | "F16" => Self::F16,
+            | "BF16" => Self::BF16,
+            | _ => Self::Other(value.to_string()),
+        }
+    }
+}
+impl From<String> for Quantization {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
     }
 }
 impl ToMarkdown for ProviderDetails {
