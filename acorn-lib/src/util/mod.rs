@@ -15,7 +15,6 @@
 //! }
 //! ```
 //!
-use crate::io::jsonc_parse_value;
 use crate::prelude::HashMap;
 #[cfg(feature = "std")]
 use crate::prelude::Path;
@@ -37,6 +36,7 @@ use core::iter::successors;
 use derive_more::Display;
 use fancy_regex::Regex;
 use fluent_uri::UriRef;
+use jsonc_parser::{parse_to_serde_value, ParseOptions};
 #[cfg(feature = "std")]
 use nanoid::nanoid;
 use owo_colors::{OwoColorize, Style, Styled};
@@ -998,7 +998,16 @@ fn crockford_digit(value: char) -> Option<u128> {
 /// Try to parse text as JSON or JSONC and return `true` if successful, `false` otherwise
 pub fn detect_json(text: impl ToString) -> bool {
     let text = text.to_string();
-    serde_json::from_str::<Value>(&text).is_ok() || jsonc_parse_value(&text).is_ok()
+    let options = ParseOptions {
+        allow_comments: true,
+        allow_trailing_commas: true,
+        allow_loose_object_property_names: false,
+        allow_missing_commas: false,
+        allow_single_quoted_strings: false,
+        allow_hexadecimal_numbers: false,
+        allow_unary_plus_numbers: false,
+    };
+    serde_json::from_str::<Value>(&text).is_ok() || parse_to_serde_value::<Value>(&text, &options).is_ok()
 }
 /// Try to parse text as XML and return `true` if successful, `false` otherwise
 pub fn detect_xml(text: impl ToString) -> bool {

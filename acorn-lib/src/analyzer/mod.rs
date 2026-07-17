@@ -30,7 +30,7 @@ use color_eyre::eyre::eyre;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
 use flate2::read::GzDecoder;
-use futures::future::{join_all, BoxFuture, FutureExt};
+use futures::future::{BoxFuture, FutureExt};
 use ini::Ini;
 use lychee_lib::{CacheStatus, Response, Status};
 #[cfg(feature = "analysis")]
@@ -233,17 +233,13 @@ impl Analysis for Cff {
                             )
                             .collect::<Vec<_>>();
                         let futures: Vec<_> = root_futures.into_iter().chain(identifier_futures).chain(reference_futures).collect();
-                        join_all(futures)
-                            .await
-                            .into_iter()
-                            .map(|check| check.with_uri(Some(path.file_name_with_parent())))
-                            .collect()
+                        Self::collect_checks(futures, &path).await
                     }
                     | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
                 }
             }
         });
-        join_all(futures).await.into_iter().flatten().collect()
+        Self::flatten_checks(futures).await
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
@@ -327,18 +323,13 @@ impl Analysis for datacite::Record {
                                 | _ => None,
                             }
                         });
-                        let checks = join_all(root_futures.chain(rights_futures).chain(related_futures))
-                            .await
-                            .into_iter()
-                            .map(|check| check.with_uri(Some(path.file_name_with_parent())))
-                            .collect::<Vec<_>>();
-                        checks
+                        Self::collect_checks(root_futures.chain(rights_futures).chain(related_futures).collect::<Vec<_>>(), &path).await
                     }
                     | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
                 }
             }
         });
-        join_all(futures).await.into_iter().flatten().collect()
+        Self::flatten_checks(futures).await
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
@@ -422,18 +413,13 @@ impl Analysis for dcat::Dataset {
                                         )
                                     }))
                             });
-                        let checks = join_all(root_futures.chain(distribution_futures))
-                            .await
-                            .into_iter()
-                            .map(|check| check.with_uri(Some(path.file_name_with_parent())))
-                            .collect::<Vec<_>>();
-                        checks
+                        Self::collect_checks(root_futures.chain(distribution_futures).collect::<Vec<_>>(), &path).await
                     }
                     | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
                 }
             }
         });
-        join_all(futures).await.into_iter().flatten().collect()
+        Self::flatten_checks(futures).await
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
@@ -533,18 +519,13 @@ impl Analysis for invenio::Record {
                                     .map(|uri| link_check(Some(uri), Some(format!("metadata.rights[{index}].link"))))
                             })
                         });
-                        let checks = join_all(pid_futures.chain(related_futures).chain(rights_futures))
-                            .await
-                            .into_iter()
-                            .map(|check| check.with_uri(Some(path.file_name_with_parent())))
-                            .collect::<Vec<_>>();
-                        checks
+                        Self::collect_checks(pid_futures.chain(related_futures).chain(rights_futures).collect::<Vec<_>>(), &path).await
                     }
                     | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
                 }
             }
         });
-        join_all(futures).await.into_iter().flatten().collect()
+        Self::flatten_checks(futures).await
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
@@ -702,17 +683,13 @@ impl Analysis for ResearchActivity {
                         };
                         let contact = [link_check(Some(contact.url.as_str()), Some("contact.url".into()))];
                         let links: Vec<_> = [].into_iter().chain(dois).chain(websites).chain(contact).collect();
-                        join_all(links)
-                            .await
-                            .into_iter()
-                            .map(|check| check.with_uri(Some(path.file_name_with_parent())))
-                            .collect()
+                        Self::collect_checks(links, &path).await
                     }
                     | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
                 }
             }
         });
-        join_all(futures).await.into_iter().flatten().collect()
+        Self::flatten_checks(futures).await
     }
     fn output_path(path: &Path, data: &Self) -> PathBuf {
         let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("index.json");

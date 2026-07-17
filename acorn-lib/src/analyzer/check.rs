@@ -23,6 +23,8 @@ use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
 use core::fmt;
+#[cfg(feature = "std")]
+use core::future::Future;
 use core::ops::RangeInclusive;
 use derive_more::Display;
 use futures::future::join_all;
@@ -69,6 +71,21 @@ pub trait Analysis {
     fn output_path(path: &Path, data: &Self) -> PathBuf;
     /// Returns the metadata standard represented by the implementing type.
     fn standard() -> Standard;
+    /// Flatten a collection of futures that each return a vector of checks into a single vector
+    #[cfg(feature = "std")]
+    async fn flatten_checks<I, F>(futures: I) -> Vec<Check>
+    where
+        I: IntoIterator<Item = F> + Send,
+        F: Future<Output = Vec<Check>> + Send,
+    {
+        join_all(futures).await.into_iter().flatten().collect()
+    }
+    /// Collect link checks from futures and attach URI to each check
+    #[cfg(feature = "std")]
+    async fn collect_checks<'a>(futures: impl IntoIterator<Item = futures::future::BoxFuture<'a, Check>> + Send, path: &Path) -> Vec<Check> {
+        let uri = Some(path.to_path_buf().file_name_with_parent());
+        join_all(futures).await.into_iter().map(|check| check.with_uri(uri.clone())).collect()
+    }
 }
 /// Trait for converting to a vector of checks
 pub trait IntoChecks {

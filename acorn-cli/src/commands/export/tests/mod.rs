@@ -133,7 +133,7 @@ async fn test_export_pdf_format() -> Result<()> {
     copy(&source, &dest)?;
     let output_dir = temp_dir.join("output");
     create_dir_all(&output_dir)?;
-    let _result = run(
+    let result = run(
         &Some(output_dir.clone()),
         &Some(test_data_dir),
         &None,
@@ -155,6 +155,8 @@ async fn test_export_pdf_format() -> Result<()> {
         OFFLINE,
     )
     .await;
+    assert!(result.is_ok(), "Export to PDF format should succeed");
+    assert!(output_dir.join("valid-project.pdf").is_file(), "PDF file should be created");
     Ok(())
 }
 #[tokio::test]

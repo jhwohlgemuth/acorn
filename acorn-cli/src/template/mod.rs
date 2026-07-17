@@ -1,19 +1,21 @@
+use acorn::io::ApiResult;
 use acorn::schema::research_activity::{Research, ResearchActivity, Sections};
 use acorn::schema::ContactPoint;
 use acorn::util::constants::app::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
 use acorn::util::{Label, MimeType};
+use color_eyre::eyre::eyre;
 use core::str::from_utf8;
 use data_encoding::BASE64;
 use derive_more::Display;
 use fast_qr::convert::image::ImageBuilder;
 use fast_qr::convert::{Builder, Shape};
 use fast_qr::qr::QRBuilder;
-use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
+use percy_dom::prelude::{html, IterableNodes, VirtualNode};
 use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;
 
 pub trait Convert {
-    fn to_html(&self) -> VirtualNode;
+    fn to_html(&self) -> ApiResult<VirtualNode>;
 }
 /// Target artifact branding available when exporting research activity data using acorn
 ///
@@ -60,52 +62,37 @@ impl DataUri {
     fn from_bytes(data: &[u8], mime: MimeType) -> String {
         format!("data:{};base64,{}", mime, BASE64.encode(data))
     }
-    fn from_asset(value: &str) -> String {
+    fn from_asset(value: &str) -> ApiResult<String> {
         let mime = MimeType::from(value);
         match mime {
             | MimeType::Otf | MimeType::Ttf => match Font::get(value) {
                 | Some(binding) => {
                     let data = binding.data.as_ref();
-                    DataUri::from_bytes(data, mime)
+                    Ok(DataUri::from_bytes(data, mime))
                 }
-                | None => {
-                    error!(value, "=> {} Missing font asset", Label::fail());
-                    String::new()
-                }
+                | None => Err(eyre!("Missing embedded font asset: {value}")),
             },
             | MimeType::Jpeg | MimeType::Png | MimeType::Svg => match Image::get(value) {
                 | Some(binding) => {
                     let data = binding.data.as_ref();
-                    DataUri::from_bytes(data, mime)
+                    Ok(DataUri::from_bytes(data, mime))
                 }
-                | None => {
-                    error!(value, "=> {} Missing image asset", Label::fail());
-                    String::new()
-                }
+                | None => Err(eyre!("Missing embedded image asset: {value}")),
             },
-            | _ => {
-                error!(value, "=> {} Unsupported MIME type for DataUri asset", Label::fail());
-                String::new()
-            }
+            | _ => Err(eyre!("Unsupported embedded asset MIME type: {value}")),
         }
     }
 }
 impl Style {
-    pub fn to_string(file_name: String) -> String {
-        let data = match Style::get(&file_name) {
-            | Some(EmbeddedFile { data, .. }) => data,
-            | None => {
-                error!(file_name, "=> {} Import Style asset", Label::fail());
-                unimplemented!()
-            }
-        };
-        match from_utf8(data.as_ref()) {
-            | Ok(value) => value.to_string(),
-            | Err(why) => {
-                error!(file_name, "=> {} Decode style asset as UTF-8 — {why}", Label::fail());
-                String::new()
-            }
-        }
+    pub fn to_string(file_name: String) -> ApiResult<String> {
+        Style::get(&file_name)
+            .map(|EmbeddedFile { data, .. }| data)
+            .ok_or_else(|| eyre!("Missing embedded style asset: {file_name}"))
+            .and_then(|data| {
+                from_utf8(data.as_ref())
+                    .map(str::to_string)
+                    .map_err(|why| eyre!("Invalid UTF-8 in embedded style asset {file_name}: {why}"))
+            })
     }
 }
 impl TargetLabel {
@@ -129,47 +116,55 @@ impl TargetLabel {
         }
     }
 }
-impl View for HtmlFooter {
-    fn render(&self) -> VirtualNode {
+impl HtmlFooter {
+    fn render(&self) -> ApiResult<VirtualNode> {
         let path = format!("fact-sheet/{}/footer.jpg", self.label.folder());
-        let style = format!("background-image: url({});", DataUri::from_asset(&path));
-        html! {
-            <footer style={ style }>
-                <div class="wrapper">
-                    <div id="disclaimer">{ DISCLAIMER }</div>
-                    <div class="logo-wrapper">
-                        <div><img src={ DataUri::from_asset("logo_ornl_white.svg") } id="logo-ornl"/></div>
-                        <div><img src={ DataUri::from_asset("logo_doe_white.png") } id="logo-doe"/></div>
-                        <div id="organization">{ &self.label.to_string() }</div>
-                    </div>
-                </div>
-            </footer>
-        }
+        DataUri::from_asset(&path)
+            .and_then(|footer| DataUri::from_asset("logo_ornl_white.svg").map(|ornl| (footer, ornl)))
+            .and_then(|(footer, ornl)| DataUri::from_asset("logo_doe_white.png").map(|doe| (footer, ornl, doe)))
+            .map(|(footer, ornl, doe)| {
+                let style = format!("background-image: url({footer});");
+                html! {
+                    <footer style={ style }>
+                        <div class="wrapper">
+                            <div id="disclaimer">{ DISCLAIMER }</div>
+                            <div class="logo-wrapper">
+                                <div><img src={ ornl } id="logo-ornl"/></div>
+                                <div><img src={ doe } id="logo-doe"/></div>
+                                <div id="organization">{ &self.label.to_string() }</div>
+                            </div>
+                        </div>
+                    </footer>
+                }
+            })
     }
 }
-impl View for HtmlHead<'_> {
-    fn render(&self) -> VirtualNode {
+impl HtmlHead<'_> {
+    fn render(&self) -> ApiResult<VirtualNode> {
         let page_css = "letter portrait";
-        let styles = Style::to_string(self.stylesheet.to_string());
-        let style = html! {
-            <style>
-                { generate_font_faces() }
-                { page_css }
-                { styles }
-            </style>
-        };
-        html! {
-            <head>
-                <meta charset="utf-8">
-                <title>{ "Research Activity Data" }</title>
-                <meta name="description" content={ "Research Activity Data" }>
-                { style }
-            </head>
-        }
+        Style::to_string(self.stylesheet.to_string())
+            .and_then(|styles| generate_font_faces().map(|fonts| (styles, fonts)))
+            .map(|(styles, fonts)| {
+                let style = html! {
+                    <style>
+                        { fonts }
+                        { page_css }
+                        { styles }
+                    </style>
+                };
+                html! {
+                    <head>
+                        <meta charset="utf-8">
+                        <title>{ "Research Activity Data" }</title>
+                        <meta name="description" content={ "Research Activity Data" }>
+                        { style }
+                    </head>
+                }
+            })
     }
 }
 impl Convert for ResearchActivity {
-    fn to_html(&self) -> VirtualNode {
+    fn to_html(&self) -> ApiResult<VirtualNode> {
         let ResearchActivity {
             meta,
             title,
@@ -195,7 +190,6 @@ impl Convert for ResearchActivity {
         let footer = HtmlFooter { label };
         let folder = label.folder();
         let path = format!("fact-sheet/{folder}/header.jpg");
-        let header_style = format!("background-image: url({});", DataUri::from_asset(&path));
         let graphic = meta.clone().first_image_content_url();
         let caption = meta.clone().first_image_caption();
         let qrcode = match generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)) {
@@ -205,70 +199,78 @@ impl Convert for ResearchActivity {
                 String::new()
             }
         };
-        let node = html! {
-            <html>
-                { head }
-                <body>
-                    <header style={ header_style }>
-                        <div class="wrapper">
-                            <img id="logo" src={ DataUri::from_asset("logo_leaf.svg") } height="76px"/>
-                            <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
-                            <div id="title">{ title }</div>
-                            <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
-                        </div>
-                    </header>
-                    <div class="main">
-                        <main>
-                            <section>
-                                <p>{ mission }</p>
-                            </section>
-                            <section>
-                                <h3>{ "Challenge" }</h3>
-                                <p>{ challenge }</p>
-                            </section>
-                            <section>
-                                <h3>{ "Approach" }</h3>
-                                <ul><li>{ approach.join("</li><li>") }</li></ul>
-                            </section>
-                            <section>
-                                <h3>{ "Impact" }</h3>
-                                <ul><li>{ impact.join("</li><li>") }</li></ul>
-                            </section>
-                        </main>
-                        <aside>
-                            <div class="graphic"><img src={ graphic }/></div>
-                            <div class="caption">{ caption }</div>
-                            <div class="research-focus">
-                                <h3>{ "Research Focus" }</h3>
-                                <p>{ focus }</p>
-                                <ul><li>{ areas.join("</li><li>") }</li></ul>
+        head.render()
+            .and_then(|head| footer.render().map(|footer| (head, footer)))
+            .and_then(|(head, footer)| DataUri::from_asset(&path).map(|header| (head, footer, header)))
+            .and_then(|(head, footer, header)| DataUri::from_asset("logo_leaf.svg").map(|logo| (head, footer, header, logo)))
+            .map(|(head, footer, header, logo)| {
+                let header_style = format!("background-image: url({header});");
+                html! {
+                    <html>
+                        { head }
+                        <body>
+                            <header style={ header_style }>
+                                <div class="wrapper">
+                                    <img id="logo" src={ logo } height="76px"/>
+                                    <div id="ornl-header">{ "Oak Ridge National Laboratory" }</div>
+                                    <div id="title">{ title }</div>
+                                    <div id="subtitle">{ subtitle.clone().unwrap_or_else(|| "".to_string()) }</div>
+                                </div>
+                            </header>
+                            <div class="main">
+                                <main>
+                                    <section>
+                                        <p>{ mission }</p>
+                                    </section>
+                                    <section>
+                                        <h3>{ "Challenge" }</h3>
+                                        <p>{ challenge }</p>
+                                    </section>
+                                    <section>
+                                        <h3>{ "Approach" }</h3>
+                                        <ul><li>{ approach.join("</li><li>") }</li></ul>
+                                    </section>
+                                    <section>
+                                        <h3>{ "Impact" }</h3>
+                                        <ul><li>{ impact.join("</li><li>") }</li></ul>
+                                    </section>
+                                </main>
+                                <aside>
+                                    <div class="graphic"><img src={ graphic }/></div>
+                                    <div class="caption">{ caption }</div>
+                                    <div class="research-focus">
+                                        <h3>{ "Research Focus" }</h3>
+                                        <p>{ focus }</p>
+                                        <ul><li>{ areas.join("</li><li>") }</li></ul>
+                                    </div>
+                                    <div class="qrcode">
+                                        <img src={ qrcode }/>
+                                    </div>
+                                </aside>
                             </div>
-                            <div class="qrcode">
-                                <img src={ qrcode }/>
-                            </div>
-                        </aside>
-                    </div>
-                    { self.clone().contact }
-                    { footer }
-                </body>
-            </html>
-        };
-        node
+                            { self.clone().contact }
+                            { footer }
+                        </body>
+                    </html>
+                }
+            })
     }
 }
-fn generate_font_faces() -> String {
-    format!(
-        r#"
+fn generate_font_faces() -> ApiResult<String> {
+    DataUri::from_asset("aptos.ttf")
+        .and_then(|regular| DataUri::from_asset("aptos_bold.ttf").map(|bold| (regular, bold)))
+        .and_then(|(regular, bold)| DataUri::from_asset("aptos_italic.ttf").map(|italic| (regular, bold, italic)))
+        .map(|(regular, bold, italic)| {
+            format!(
+                r#"
         @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:normal;font-weight:400;}}
         @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:normal;font-weight:600;}}
         @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:normal;font-weight:700;}}
         @font-face {{font-family:"aptos";src:url({}) format("truetype");font-style:italic;font-weight:400;}}
         "#,
-        DataUri::from_asset("aptos.ttf"),
-        DataUri::from_asset("aptos_bold.ttf"),
-        DataUri::from_asset("aptos_bold.ttf"),
-        DataUri::from_asset("aptos_italic.ttf"),
-    )
+                regular, bold, bold, italic
+            )
+        })
 }
 fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
     let code = match QRBuilder::new(text).build() {
@@ -291,5 +293,33 @@ fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
             error!(?why, "=> {} Render QR code image", Label::fail());
             None
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::{DataUri, Style};
+    #[test]
+    fn required_embedded_assets_exist() {
+        let assets = [
+            "aptos.ttf",
+            "aptos_bold.ttf",
+            "aptos_italic.ttf",
+            "fact-sheet/bessd/footer.jpg",
+            "fact-sheet/bessd/header.jpg",
+            "fact-sheet/nssd/footer.jpg",
+            "fact-sheet/nssd/header.jpg",
+            "fact-sheet/wpp/footer.jpg",
+            "fact-sheet/wpp/header.jpg",
+            "logo_doe_white.png",
+            "logo_leaf.svg",
+            "logo_ornl_white.svg",
+        ];
+        assert!(assets.into_iter().all(|asset| DataUri::from_asset(asset).is_ok()));
+        assert!(Style::to_string("project.css".to_string()).is_ok());
+    }
+    #[test]
+    fn missing_embedded_assets_return_errors() {
+        assert!(DataUri::from_asset("missing.png").is_err());
+        assert!(Style::to_string("missing.css".to_string()).is_err());
     }
 }

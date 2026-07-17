@@ -137,8 +137,8 @@ impl ExportHandler for PdfExportHandler {
             {
                 match resolve_paths(&_request.path, &_request.options).await {
                     | Ok(paths) => match pdf::initialize_page().await {
-                        | Ok(page) => {
-                            let page = &page;
+                        | Ok(session) => {
+                            let page = session.page();
                             let output = _request.output.clone();
                             let progress = with_progress(
                                 paths,

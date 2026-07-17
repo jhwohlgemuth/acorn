@@ -45,10 +45,8 @@ Use this section to choose the next work item. Detailed notes for each task are 
 | Area | Task | Difficulty | Impact | Detail section |
 |---|---|---:|---:|---|
 | Export/PPTX | Finish hardening OOXML interpolation and slide-copy mutations | Medium | Critical | [Core Refactor Backlog](#core-refactor-backlog) |
-| Export/Templates | Fail fast on missing embedded assets | Low | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | Export/PPTX | Introduce shared `ExportContext` | Medium | High | [Core Refactor Backlog](#core-refactor-backlog) |
 | no-std/WASM | Isolate std-only modules from domain modules | Medium | Critical | [Portability Backlog](#portability-backlog-no-std--wasm) |
-| Analyzer | Extract link-check traversal helpers | Low | High | [Analyzer Backlog](#analyzer-backlog) |
 
 ### Visual Status Legend
 
@@ -101,14 +99,6 @@ Excluded:
   3. Centralize remaining OOXML utility helpers to avoid split behavior.
 
 ### High Impact
-
-#### 4. Fail fast on missing export/template assets
-- Difficulty: Low
-- Evidence: `acorn-cli/src/template/mod.rs`
-- Recommendation:
-  1. Return `Result` from asset lookup/embedding paths.
-  2. Bubble failures into export command errors.
-  3. Add one integration check for required embedded assets.
 
 #### 5. Eliminate duplicate export field extraction across HTML and PPTX paths
 - Difficulty: Medium
@@ -186,6 +176,7 @@ Excluded:
 
 #### 1. Isolate std-only modules from shared domain modules
 - Difficulty: Medium
+- Status: Initial boundary repaired. Pure JSON/JSONC detection no longer imports the std-gated `io` module; broader module isolation remains.
 - Evidence: `acorn-lib/src/analyzer/mod.rs` imports `crate::io::*`, process APIs, filesystem-like behaviors.
 - Recommendation:
   1. Move std-heavy logic into `io/std/*` and keep pure transformations in `io/core/*`.
@@ -311,10 +302,6 @@ Validation: `cargo check -p acorn-lib --no-default-features --features wasm --ta
 
 ### Low Difficulty
 
-#### 1. Functor plus Traversable extraction for link-check futures
-- Evidence: `acorn-lib/src/analyzer/mod.rs` — Cff website checks build multiple optional futures through repeated map, flatten, collect chains.
-- Opportunity: Introduce a small helper based on functor and traversable style; replace repeated URL-to-Check transformation with one generic mapper.
-
 #### 2. Monoid for Check collection accumulation
 - Evidence: `acorn-lib/src/analyzer/mod.rs`, `acorn-lib/src/analyzer/check.rs` — repeated `join_all await flatten collect` patterns.
 - Opportunity: Introduce `CheckBatch` newtype with identity as empty list, associative combine as concatenation, `fold_map` style accumulation.
@@ -357,7 +344,7 @@ Validation: `cargo check -p acorn-lib --no-default-features --features wasm --ta
 
 ### Recommended Implementation Order
 
-1. Items 1 and 2 to reduce duplication in `analyzer/mod.rs`.
+1. Item 2 to reduce duplication in `analyzer/mod.rs`.
 2. Item 5 to stabilize validation error flattening.
 3. Item 9 if broad standard-level deduplication is desired.
 
@@ -462,4 +449,3 @@ This section documents the plan to extract `cmd!`, `args!`, and `cmd_sh_words!` 
 | 5 | Add integration tests matching current coverage | Step 4 |
 | 6 | In `acorn-lib`, change `pub use acorn_macros::cmd_sh_words` to `pub use acorn_cmd::cmd_sh_words` | Step 5 |
 | 7 | Replace `cmd` feature in `acorn-lib` with direct dep on `acorn-cmd` | Step 6 |
-
