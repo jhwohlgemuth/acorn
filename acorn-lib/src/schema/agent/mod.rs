@@ -248,8 +248,13 @@ pub enum Provider {
 ///
 /// IQ is a separate I-quant family that uses an importance matrix for reconstruction.
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Display, Deserialize, Serialize, JsonSchema)]
 pub enum Quantization {
+    /// Good default balance of quality and size (`Q4_K_M`), often the sweet spot for GGUF LLMs
+    #[default]
+    #[display("Q4_K_M")]
+    #[serde(rename = "Q4_K_M")]
+    Q4kM,
     /// Lower quality, smallest file size (`Q2_K`)
     #[display("Q2_K")]
     #[serde(rename = "Q2_K")]
@@ -266,10 +271,6 @@ pub enum Quantization {
     #[display("Q3_K_L")]
     #[serde(rename = "Q3_K_L")]
     Q3kL,
-    /// Good default balance of quality and size (`Q4_K_M`), often the sweet spot for GGUF LLMs
-    #[display("Q4_K_M")]
-    #[serde(rename = "Q4_K_M")]
-    Q4kM,
     /// Better quality, larger file (`Q5_K_M`)
     #[display("Q5_K_M")]
     #[serde(rename = "Q5_K_M")]
