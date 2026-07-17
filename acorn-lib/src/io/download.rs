@@ -122,7 +122,6 @@ impl DownloadItem {
     /// Verifies the SHA-256 checksum of the downloaded file.
     pub fn verify_checksum(&self, path: &Path, skip_verify_checksum: bool) -> ApiResult<()> {
         match (skip_verify_checksum, self.sha.as_ref()) {
-            | (true, _) => Ok(()),
             | (false, Some(expected)) => match file_checksum(path.to_path_buf(), None) {
                 | Some(actual) if actual.checksum_value.eq_ignore_ascii_case(expected) => Ok(()),
                 | Some(actual) => Err(eyre!(
@@ -132,7 +131,7 @@ impl DownloadItem {
                 )),
                 | None => Err(eyre!("Model download is incomplete (failed to compute SHA-256 for {})", self.path)),
             },
-            | (false, None) => Ok(()),
+            | _ => Ok(()),
         }
     }
 }

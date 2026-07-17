@@ -272,7 +272,6 @@ impl From<&str> for Table {
     fn from(value: &str) -> Self {
         let normalized = value.trim().to_ascii_lowercase();
         match normalized.as_str() {
-            | "activity" => Self::Activity,
             | "catalog" => Self::Catalog,
             | "licenses" | "license" => Self::Licenses,
             | "link_cache" | "linkcache" => Self::LinkCache,

@@ -537,8 +537,7 @@ fn test_to_absolute_string() {
         | Ok(true) => {
             assert_eq!(PathBuf::from("../xylem-cli/Cargo.toml").to_absolute_string(), path);
         }
-        | Ok(false) => (),
-        | Err(_) => (),
+        | Ok(false) | Err(_) => (),
     }
 }
 #[test]

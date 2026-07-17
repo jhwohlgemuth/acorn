@@ -43,7 +43,6 @@ impl Severity {
 impl From<&str> for Severity {
     fn from(value: &str) -> Self {
         match value.trim().to_ascii_lowercase().as_str() {
-            | "hint" => Self::Hint,
             | "warning" | "warn" => Self::Warning,
             | "error" | "err" => Self::Error,
             | _ => Self::Hint,

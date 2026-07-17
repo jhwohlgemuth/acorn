@@ -63,13 +63,13 @@ fn extract_from_hyperlink(hyperlink: &Hyperlink) -> String {
             | ParagraphChild::Run(run) => extract_from_run(run),
             | ParagraphChild::Insert(insert) => extract_from_insert(insert),
             | ParagraphChild::Delete(delete) => extract_from_delete(delete),
-            | ParagraphChild::Hyperlink(_) => "".to_string(),
-            | ParagraphChild::PageNum(_) | ParagraphChild::NumPages(_) => " ".to_string(),
+            | ParagraphChild::Hyperlink(_)
             | ParagraphChild::BookmarkStart(_)
             | ParagraphChild::BookmarkEnd(_)
             | ParagraphChild::CommentStart(_)
             | ParagraphChild::CommentEnd(_)
             | ParagraphChild::StructuredDataTag(_) => "".to_string(),
+            | ParagraphChild::PageNum(_) | ParagraphChild::NumPages(_) => " ".to_string(),
         })
         .collect::<String>()
 }

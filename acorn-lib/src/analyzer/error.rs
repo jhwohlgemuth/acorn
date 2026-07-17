@@ -186,9 +186,8 @@ pub fn process(path: &str, kind: &ValidationErrorsKind) -> Vec<ValidatorIssue> {
                 .flat_map(|(field, kind)| {
                     let is_wrapper_recursion = matches!(kind, ValidationErrorsKind::Field(_)) && path == field && is_wrapper_field(field.as_ref());
                     let next_path = match (path.is_empty(), field.is_empty(), is_wrapper_recursion) {
-                        | (_, true, _) => path.to_string(),
                         | (true, false, _) => field.to_string(),
-                        | (false, false, true) => path.to_string(),
+                        | (_, true, _) | (false, false, true) => path.to_string(),
                         | (false, false, false) => format!("{path}.{field}"),
                     };
                     process(&next_path, &kind)

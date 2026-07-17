@@ -695,8 +695,7 @@ impl MediaObject {
     /// Returns the content URL of the media object
     pub fn content_url(self) -> Option<String> {
         match self {
-            | MediaObject::Image(ImageObject { content_url, .. }) => content_url,
-            | MediaObject::Video(VideoObject { content_url, .. }) => content_url,
+            | MediaObject::Image(ImageObject { content_url, .. }) | MediaObject::Video(VideoObject { content_url, .. }) => content_url,
         }
     }
     /// Returns the description of the media object
@@ -898,7 +897,6 @@ impl OrganizationType {
             | "division" => OrganizationType::Division,
             | "directorate" => OrganizationType::Directorate,
             | "group" => OrganizationType::Group,
-            | "institute" => OrganizationType::Institute,
             | "office" => OrganizationType::Office,
             | "program" => OrganizationType::Program,
             | "facility" => OrganizationType::Facility,

@@ -146,7 +146,6 @@ pub enum Patent {
 impl From<&str> for CountryCode {
     fn from(s: &str) -> Self {
         match s.to_uppercase().as_str() {
-            | "US" => CountryCode::US,
             | "CN" => CountryCode::CN,
             | "DE" => CountryCode::DE,
             | "EP" => CountryCode::EP,
@@ -274,10 +273,10 @@ impl Patent {
     {
         match Patent::parse(value.as_ref()) {
             | Some(result) => match result {
+                | Patent::Application { serial_number, .. } => !serial_number.is_empty(),
                 | Patent::Granted {
                     serial_number, kind_code, ..
-                } => !serial_number.is_empty() && kind_code != KindCode::Unknown,
-                | Patent::Application { serial_number, .. } => !serial_number.is_empty(),
+                }
                 | Patent::Publication {
                     serial_number, kind_code, ..
                 } => !serial_number.is_empty() && kind_code != KindCode::Unknown,

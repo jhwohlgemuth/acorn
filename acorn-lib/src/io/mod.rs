@@ -313,7 +313,7 @@ impl Executor {
     /// Returns the value passed to `gitlab-runner register --executor`.
     pub fn gitlab_runner_type(&self) -> &str {
         match self {
-            | Executor::Docker | Executor::Podman => "docker",
+            | Executor::Docker | Executor::Podman | Executor::Apptainer | Executor::Sandbox | Executor::Other(_) => "docker",
             | Executor::Shell => "shell",
             | Executor::Ssh => "ssh",
             | Executor::Kubernetes => "kubernetes",
@@ -321,7 +321,6 @@ impl Executor {
                 | "macos" => "parallels",
                 | _ => "virtualbox",
             },
-            | Executor::Apptainer | Executor::Sandbox | Executor::Other(_) => "docker",
         }
     }
     /// Returns the path to the socket file used to manage this executor, if applicable.
@@ -1062,8 +1061,7 @@ pub fn git_branch_name() -> Option<String> {
         let args = vec!["symbolic-ref", "--short", "HEAD"];
         match cmd!("git", args) {
             | Ok(output) if output.status.success() => output.stdout().split("/").last().map(|x| x.to_string()),
-            | Ok(_) => None,
-            | Err(_) => None,
+            | Ok(_) | Err(_) => None,
         }
     } else {
         None
@@ -1079,8 +1077,7 @@ pub fn git_default_branch_name() -> Option<String> {
         let args = vec!["symbolic-ref", "refs/remotes/origin/HEAD", "--short"];
         match cmd!("git", args) {
             | Ok(output) if output.status.success() => output.stdout().split("/").last().map(|x| x.to_string()),
-            | Ok(_) => None,
-            | Err(_) => None,
+            | Ok(_) | Err(_) => None,
         }
     } else {
         None

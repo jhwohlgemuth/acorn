@@ -353,17 +353,16 @@ impl Repository {
     /// Get repository location
     pub fn location(&self) -> Location {
         match self.clone() {
-            | Repository::Git { location, .. } => location,
-            | Repository::GitHub { location, .. } => location,
-            | Repository::GitLab { location, .. } => location,
+            | Repository::Git { location, .. }
+            | Repository::GitHub { location, .. }
+            | Repository::GitLab { location, .. }
             | Repository::HuggingFace { location, .. } => location,
         }
     }
     /// Get repository ID
     pub fn id(&self) -> Option<String> {
         match self {
-            | Repository::Git { .. } => None,
-            | Repository::GitHub { .. } => None,
+            | Repository::Git { .. } | Repository::GitHub { .. } => None,
             | Repository::HuggingFace { location } => location.path().map(|path| path.trim_start_matches('/').to_string()),
             | Repository::GitLab { id, location } => match id {
                 | Some(value) => Some(value.to_string()),
@@ -387,8 +386,7 @@ impl Repository {
     #[cfg(feature = "std")]
     async fn releases(self) -> Vec<Release> {
         let maybe_url = match &self {
-            | Repository::Git { .. } => None,
-            | Repository::HuggingFace { .. } => None,
+            | Repository::Git { .. } | Repository::HuggingFace { .. } => None,
             | Repository::GitHub { location } => {
                 let host = location.host();
                 let path = location.path();

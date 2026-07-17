@@ -105,12 +105,11 @@ impl Vendored for AcceleratorArchitecture {
         match self {
             | AcceleratorArchitecture::Ascend910 => Some(Vendor::Huawei),
             | AcceleratorArchitecture::Blackhole | AcceleratorArchitecture::Wormhole => Some(Vendor::Tenstorrent),
-            | AcceleratorArchitecture::Gaudi2 => Some(Vendor::Intel),
+            | AcceleratorArchitecture::Gaudi2 | AcceleratorArchitecture::Nervana => Some(Vendor::Intel),
             | AcceleratorArchitecture::GraphcoreGc200 => Some(Vendor::Other("Graphcore".to_string())),
             | AcceleratorArchitecture::Inferentia | AcceleratorArchitecture::Trainium => Some(Vendor::Amazon),
             | AcceleratorArchitecture::Lpu => Some(Vendor::Groq),
             | AcceleratorArchitecture::Maia => Some(Vendor::Microsoft),
-            | AcceleratorArchitecture::Nervana => Some(Vendor::Intel),
             | AcceleratorArchitecture::SambaNovaRdu => Some(Vendor::Other("SambaNova".to_string())),
             | AcceleratorArchitecture::TpuV4
             | AcceleratorArchitecture::TpuV5e

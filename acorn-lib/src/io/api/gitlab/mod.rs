@@ -930,8 +930,7 @@ impl ValueValidator for EventFilterKey {
         match self {
             | EventFilterKey::Action => EventAction::try_from(value).is_ok(),
             | EventFilterKey::TargetType => TargetType::try_from(value).is_ok(),
-            | EventFilterKey::After => is_iso_date_or_rfc3339_timestamp(value),
-            | EventFilterKey::Before => is_iso_date_or_rfc3339_timestamp(value),
+            | EventFilterKey::After | EventFilterKey::Before => is_iso_date_or_rfc3339_timestamp(value),
             | EventFilterKey::Sort => SortValue::try_from(value).is_ok(),
         }
     }
@@ -1176,8 +1175,7 @@ impl ValueValidator for PaginationKey {
     fn is_valid(&self, value: &str) -> bool {
         match self {
             | PaginationKey::OrderBy => OrderByValue::try_from(value).is_ok(),
-            | PaginationKey::Page => value.parse::<u64>().is_ok(),
-            | PaginationKey::PerPage => value.parse::<u64>().is_ok(),
+            | PaginationKey::Page | PaginationKey::PerPage => value.parse::<u64>().is_ok(),
             | PaginationKey::Sort => SortValue::try_from(value).is_ok(),
             | _ => true,
         }

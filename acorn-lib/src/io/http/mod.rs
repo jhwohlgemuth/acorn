@@ -89,7 +89,6 @@ impl From<&str> for HttpMethod {
     fn from(value: &str) -> Self {
         match value.to_uppercase().as_str() {
             | "DELETE" => HttpMethod::Delete,
-            | "GET" => HttpMethod::Get,
             | "PATCH" => HttpMethod::Patch,
             | "POST" => HttpMethod::Post,
             | "PUT" => HttpMethod::Put,

@@ -678,11 +678,9 @@ where
         match value.as_ref().to_lowercase().as_str() {
             | "agpl-3.0-only" => License::Agpl3Only,
             | "apache-2.0" => License::Apache2,
-            | "bsd-2-clause" => License::Bsd3Clause,
-            | "bsd-3-clause" => License::Bsd3Clause,
+            | "bsd-2-clause" | "bsd-3-clause" => License::Bsd3Clause,
             | "cc0-1.0" | "creative commons cc-0" => License::CreativeCommons,
-            | "gpl-1.0-or-later" => License::Gpl2Only,
-            | "gpl-2.0-only" => License::Gpl2Only,
+            | "gpl-1.0-or-later" | "gpl-2.0-only" => License::Gpl2Only,
             | "gpl-2.0-with-classpath-exception" => License::Gpl2WithClasspathException,
             | "gpl-3.0-only" => License::Gpl3Only,
             | "gpl-3.0-or-later" => License::Gpl3OrLater,
@@ -1333,9 +1331,8 @@ pub fn regex_to_glob(pattern: impl AsRef<str>) -> Option<String> {
         match byte {
             | b'\\' => match bytes.next() {
                 | Some(&b'.') => glob.push('.'),
-                | Some(b'd' | b'D' | b'w' | b'W' | b's' | b'S' | b'b' | b'B') => ok = false,
+                | Some(b'd' | b'D' | b'w' | b'W' | b's' | b'S' | b'b' | b'B') | None => ok = false,
                 | Some(&other) => glob.push(other as char),
-                | None => ok = false,
             },
             | b'.' if bytes.peek() == Some(&&b'*') => {
                 bytes.next();
@@ -1346,8 +1343,7 @@ pub fn regex_to_glob(pattern: impl AsRef<str>) -> Option<String> {
                 glob.push('?');
                 glob.push('*');
             }
-            | b'.' => ok = false,
-            | b'?' | b'+' | b'[' | b'(' | b'|' | b'{' => ok = false,
+            | b'.' | b'?' | b'+' | b'[' | b'(' | b'|' | b'{' => ok = false,
             | b'$' if bytes.peek().is_some() => ok = false,
             | b'$' => anchored_end = true,
             | other => glob.push(other as char),

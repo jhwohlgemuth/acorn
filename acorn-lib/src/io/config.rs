@@ -798,7 +798,6 @@ impl RunnerDetails {
 impl From<&str> for RunnerType {
     fn from(value: &str) -> Self {
         match value.to_uppercase().as_str() {
-            | "GROUP" => RunnerType::Group,
             | "INSTANCE" => RunnerType::Instance,
             | "PROJECT" => RunnerType::Project,
             | _ => RunnerType::Group,
