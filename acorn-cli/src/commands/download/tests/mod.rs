@@ -12,7 +12,7 @@ extern crate alloc;
 use super::run;
 use crate::test::server::{spawn_ignored_range_server, spawn_no_range_server, spawn_range_server, spawn_retry_resume_server, spawn_sidecar_server};
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
-use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceRepository, RepositoryFile};
+use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Row};
 use acorn::io::download::{DownloadItem, DownloadTask};
@@ -30,8 +30,8 @@ use tracing_subscriber::fmt::MakeWriter;
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
 
-fn candidate_file(path: &str) -> RepositoryFile {
-    RepositoryFile {
+fn candidate_file(path: &str) -> HuggingFaceRepositoryFile {
+    HuggingFaceRepositoryFile {
         path: path.to_string(),
         size: None,
     }
@@ -189,6 +189,8 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_ok(), "config-only model resolution should succeed");
@@ -223,6 +225,8 @@ async fn test_download_model_local_config_copy() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_ok(), "config copy mode should succeed");
@@ -253,6 +257,8 @@ async fn test_download_model_local_file_copy() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_ok(), "local file copy should succeed");
@@ -281,6 +287,8 @@ async fn test_download_model_filter_keeps_matching_local_file() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_ok(), "matching filter should keep local model");
@@ -308,6 +316,8 @@ async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> 
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_err(), "ignore should remove the only selected model");
@@ -367,6 +377,8 @@ async fn test_download_model_invalid_filter_errors() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_err(), "invalid filter regex should fail");
@@ -393,6 +405,8 @@ async fn test_download_model_local_file_reference() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_ok(), "local file reference should succeed");
@@ -420,6 +434,8 @@ async fn test_download_model_local_missing_path_errors() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_err(), "missing local model path should return an error");
@@ -447,6 +463,8 @@ async fn test_download_model_local_mixed_offline_errors() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_err(), "mixed local+remote in offline mode should fail");
@@ -473,6 +491,8 @@ async fn test_download_model_local_offline_succeeds() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_ok(), "local model should work in offline mode");
@@ -481,7 +501,7 @@ async fn test_download_model_local_offline_succeeds() -> Result<()> {
 #[tokio::test]
 async fn test_download_model_no_models_errors() -> Result<()> {
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(&[], &[], &[], &None, &None, &None, &verbose, false, false, false, false, &[]).await;
+    let result = super::model::run(&[], &[], &[], &None, &None, &None, &verbose, false, false, false, false, &[], false, 200).await;
     assert!(result.is_err(), "empty model list should return an error");
     Ok(())
 }
@@ -501,6 +521,8 @@ async fn test_download_model_offline_rejects() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_err(), "offline mode should reject remote model download");
@@ -530,6 +552,8 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
         false,
         false,
         &[],
+        false,
+        200,
     )
     .await;
     assert!(result.is_ok(), "positional + config with same model should succeed (deduplicated)");
@@ -559,6 +583,8 @@ async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<(
         false,
         false,
         &["missing".to_string()],
+        false,
+        200,
     )
     .await;
     assert!(result.is_err(), "non-matching whitelist should fail");
@@ -599,6 +625,8 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
         false,
         false,
         &["keep".to_string()],
+        false,
+        200,
     )
     .await;
     assert!(result.is_ok(), "matching whitelist entry should succeed");
@@ -883,6 +911,31 @@ async fn test_download_task_skip_verify_checksum_allows_checksum_mismatch() {
     let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read downloaded file");
     assert_eq!(final_bytes, payload);
     handle.join().expect("join range server thread");
+}
+#[test]
+fn test_gguf_fallback_trigger_conditions() {
+    let _error = color_eyre::eyre::eyre!(HuggingFaceError::NoGgufModelFiles);
+    let files = vec![candidate_file("config.json")];
+    let options = acorn::io::api::huggingface::Options::init().identifier("openai/gpt-oss-2b").build();
+    assert!(files.should_use_fallback(&options));
+    let offline = acorn::io::api::huggingface::Options::init()
+        .identifier("openai/gpt-oss-2b")
+        .offline(true)
+        .build();
+    assert!(!files.should_use_fallback(&offline));
+    let filtered = acorn::io::api::huggingface::Options::init()
+        .identifier("openai/gpt-oss-2b")
+        .filter("safetensors")
+        .build();
+    assert!(!files.should_use_fallback(&filtered));
+    let disabled = acorn::io::api::huggingface::Options::init()
+        .identifier("openai/gpt-oss-2b")
+        .no_fallback(true)
+        .build();
+    assert!(!files.should_use_fallback(&disabled));
+    let invalid_identifier = acorn::io::api::huggingface::Options::init().identifier("gpt-oss-2b").build();
+    assert!(!files.should_use_fallback(&invalid_identifier));
+    assert!(!vec![candidate_file("model.gguf")].should_use_fallback(&options));
 }
 #[test]
 fn test_hf_token_not_exposed_in_model_download_error_display() {

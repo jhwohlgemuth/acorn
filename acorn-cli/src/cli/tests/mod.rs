@@ -8,7 +8,7 @@
 // The `-V` assertion changed from `is_ok()` to `is_err()` because clap's auto-generated
 // version flag (used after removing the problematic custom `version` + `disable_version_flag`)
 // returns Err during `try_parse_from` as a signal to display version info.
-use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateCommands, ServeCommands};
+use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ServeCommands};
 use acorn::io::filter_ignored_with_root;
 use acorn::prelude::{Path, PathBuf};
 use clap::{CommandFactory, Parser};
@@ -89,6 +89,42 @@ fn test_cli() {
         "api.example.com"
     ])
     .is_err());
+}
+#[test]
+fn test_download_model_gguf_fallback_arguments() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "download",
+        "model",
+        "openai/gpt-oss-2b",
+        "--no-fallback",
+        "--gguf-search-limit",
+        "42",
+    ])
+    .unwrap();
+    match arguments.command {
+        | Some(Commands::Download(arguments)) => match arguments.command {
+            | Some(DownloadCommands::Model(arguments)) => {
+                assert!(arguments.no_fallback);
+                assert_eq!(arguments.gguf_search_limit, 42);
+            }
+            | other => panic!("unexpected download command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_download_model_gguf_search_limit_from_env() {
+    temp_env::with_var("ACORN_GGUF_SEARCH_LIMIT", Some("73"), || {
+        let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b"]).unwrap();
+        match arguments.command {
+            | Some(Commands::Download(arguments)) => match arguments.command {
+                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.gguf_search_limit, 73),
+                | other => panic!("unexpected download command: {other:?}"),
+            },
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
 }
 #[test]
 fn test_bot_identifier_from_ci_project_id_env() {

@@ -186,6 +186,8 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                         args.symlink,
                         args.skip_verify_checksum,
                         &args.whitelist,
+                        args.no_fallback,
+                        args.gguf_search_limit,
                     )
                     .await
                 }

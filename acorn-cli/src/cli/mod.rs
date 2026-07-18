@@ -58,6 +58,12 @@ pub struct CommandOptions {
     /// Flag used to indicate if ACORN is running in offline mode
     #[builder(default)]
     pub offline: bool,
+    /// Flag used to disable automatic GGUF quantization repository discovery
+    #[builder(default)]
+    pub no_fallback: bool,
+    /// Maximum number of repositories considered during GGUF fallback discovery
+    #[builder(default = 200)]
+    pub gguf_search_limit: usize,
     /// Flag used to suppress output
     #[builder(default)]
     pub quiet: bool,

@@ -353,6 +353,20 @@ pub(crate) struct DownloadModel {
     /// Skip SHA-256 checksum verification when checksum sidecar metadata is available
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) skip_verify_checksum: bool,
+    /// Maximum number of Hugging Face repositories to search when discovering GGUF quantizations
+    ///
+    /// Applies when the requested repository contains no GGUF files and automatic fallback is enabled
+    #[arg(
+        long,
+        value_name = "LIMIT",
+        env = "ACORN_GGUF_SEARCH_LIMIT",
+        default_value_t = 20,
+        help_heading = "OPTIONS"
+    )]
+    pub(crate) gguf_search_limit: usize,
+    /// Disable automatic GGUF quantization repository discovery when the target has no GGUF files
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) no_fallback: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

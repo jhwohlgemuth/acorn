@@ -11,15 +11,23 @@ use async_trait::async_trait;
 use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::eyre;
-use futures::future::join_all;
+use core::fmt;
+use futures::{future::join_all, TryStreamExt};
+use hf_hub::{repository::ModelInfo, HFClient};
+use serde_json::Value;
+
+/// Default Hugging Face repository revision used when none is specified.
+pub const DEFAULT_MODEL_REVISION: &str = "main";
 
 /// Repository files returned by the Hugging Face repository tree API
-pub type RepositoryFiles = Vec<RepositoryFile>;
+pub type HuggingFaceRepositoryFiles = Vec<HuggingFaceRepositoryFile>;
 /// Trait for selecting and filtering files from a Hugging Face repository.
 #[async_trait]
 pub trait HuggingFaceRepository {
+    /// Resolve SHA-256 checksums for repository files from `.sha256` sidecar files
+    async fn checksums(&self, identifier: &str, revision: &str) -> ApiResult<HashMap<String, String>>;
     /// Download files from a Hugging Face repository, returning the identifier of the downloaded resource
-    async fn download(&self, options: Options) -> ApiResult<String>;
+    async fn download(&self, options: &Options) -> ApiResult<String>;
     /// Filter repository files using glob patterns for include/exclude.
     fn filter(&self, filter: Option<&str>, ignore: Option<&str>) -> ApiResult<Self>
     where
@@ -28,8 +36,43 @@ pub trait HuggingFaceRepository {
     fn select(&self, policy: &FileSelectionPolicy<'_>) -> ApiResult<Self>
     where
         Self: Sized;
-    /// Resolve SHA-256 checksums for repository files from `.sha256` sidecar files
-    async fn checksums(&self, identifier: &str, revision: &str) -> ApiResult<HashMap<String, String>>;
+    /// Determine whether a failed download should trigger GGUF repository fallback discovery.
+    fn should_use_fallback(&self, options: &Options) -> bool;
+    /// Try to filter repository files using glob patterns, returning `None` when regex fallback is required.
+    fn try_glob(&self, filter: Option<&str>, ignore: Option<&str>) -> Option<Self>
+    where
+        Self: Sized;
+}
+/// Errors produced by Hugging Face repository selection and download helpers
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum HuggingFaceError {
+    /// No GGUF model files were present in the repository tree
+    NoGgufModelFiles,
+    /// No GGUF quantization repository declares the requested base model
+    NoGgufQuantizationRepository {
+        /// Requested Hugging Face base-model identifier
+        identifier: String,
+    },
+    /// The requested Hugging Face base-model identifier is invalid
+    InvalidBaseModelIdentifier {
+        /// Invalid Hugging Face base-model identifier
+        identifier: String,
+    },
+    /// The Hugging Face client could not be initialized
+    ClientInitializationFailed {
+        /// Underlying client initialization error
+        reason: String,
+    },
+    /// The Hugging Face model search could not be configured
+    ModelSearchConfigurationFailed {
+        /// Underlying search configuration error
+        reason: String,
+    },
+    /// The Hugging Face model search failed while reading results
+    ModelSearchFailed {
+        /// Underlying model search error
+        reason: String,
+    },
 }
 /// Policy for selecting a preferred file when multiple candidates exist.
 #[derive(Clone, Debug)]
@@ -51,7 +94,7 @@ pub struct Options {
     /// Model repository identifier
     pub identifier: Option<String>,
     /// Model repository revision (branch, tag, or commit)
-    #[builder(default = String::from("main"))]
+    #[builder(default = String::from(DEFAULT_MODEL_REVISION))]
     pub revision: String,
     /// Repository path used for tree requests
     pub path: Option<String>,
@@ -62,6 +105,15 @@ pub struct Options {
     /// Flag used to suppress output
     #[builder(default)]
     pub quiet: bool,
+    /// Whether network-backed fallback discovery is disabled by offline mode
+    #[builder(default)]
+    pub offline: bool,
+    /// Whether automatic GGUF quantization repository discovery is disabled
+    #[builder(default)]
+    pub no_fallback: bool,
+    /// Maximum number of repositories considered during GGUF fallback discovery
+    #[builder(default = 200)]
+    pub gguf_search_limit: usize,
     /// Custom API parameters to include in every request
     #[builder(default = vec![])]
     pub custom_params: Vec<Param>,
@@ -73,23 +125,68 @@ pub struct Options {
 }
 /// File metadata returned by the Hugging Face repository tree API
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RepositoryFile {
+pub struct HuggingFaceRepositoryFile {
     /// Repository-relative path
     pub path: String,
     /// File size in bytes, when provided by Hugging Face
     pub size: Option<u64>,
 }
-impl From<TreeEntry> for RepositoryFile {
+impl fmt::Display for HuggingFaceError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::NoGgufModelFiles => {
+                write!(
+                    formatter,
+                    "No GGUF model files found; use a GGUF repository or provide --filter for another format"
+                )
+            }
+            | Self::NoGgufQuantizationRepository { identifier } => {
+                write!(formatter, "no GGUF quantization repo found for {identifier}")
+            }
+            | Self::InvalidBaseModelIdentifier { identifier } => {
+                write!(formatter, "invalid Hugging Face base model identifier: {identifier}")
+            }
+            | Self::ClientInitializationFailed { reason } => {
+                write!(formatter, "failed to initialize Hugging Face client: {reason}")
+            }
+            | Self::ModelSearchConfigurationFailed { reason } => {
+                write!(formatter, "failed to configure Hugging Face model search: {reason}")
+            }
+            | Self::ModelSearchFailed { reason } => {
+                write!(formatter, "failed to search Hugging Face models: {reason}")
+            }
+        }
+    }
+}
+impl core::error::Error for HuggingFaceError {}
+impl From<TreeEntry> for HuggingFaceRepositoryFile {
     fn from(entry: TreeEntry) -> Self {
-        RepositoryFile {
+        HuggingFaceRepositoryFile {
             path: entry.path,
             size: entry.size,
         }
     }
 }
 #[async_trait]
-impl HuggingFaceRepository for RepositoryFiles {
-    async fn download(&self, options: Options) -> ApiResult<String> {
+impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
+    /// Resolve SHA-256 checksums for repository files by fetching `.sha256` sidecar files.
+    async fn checksums(&self, identifier: &str, revision: &str) -> ApiResult<HashMap<String, String>> {
+        let candidates: Vec<_> = self
+            .iter()
+            .filter_map(|file| target_path_from_sidecar(&file.path).map(|target| (file.path.clone(), target)))
+            .collect();
+        let digests = join_all(candidates.into_iter().map(|(path, target)| async move {
+            let url = format!("https://huggingface.co/{identifier}/resolve/{revision}/{path}");
+            let content = match http::get(url).headers(auth_headers()).send().await {
+                | Ok(response) => response.text().await.ok(),
+                | Err(_) => None,
+            };
+            (target, content.as_deref().and_then(extract_sha256))
+        }))
+        .await;
+        Ok(digests.into_iter().filter_map(|(target, digest)| digest.map(|d| (target, d))).collect())
+    }
+    async fn download(&self, options: &Options) -> ApiResult<String> {
         let Options {
             identifier,
             revision,
@@ -100,22 +197,22 @@ impl HuggingFaceRepository for RepositoryFiles {
             output,
             ..
         } = options;
-        match (identifier, output) {
-            | (Some(identifier), Some(output)) => match self.checksums(&identifier, &revision).await {
+        match (identifier.as_deref(), output.as_deref()) {
+            | (Some(identifier), Some(output)) => match self.checksums(identifier, revision).await {
                 | Ok(lookup) => match self.filter(filter.as_deref(), ignore.as_deref()) {
                     | Ok(files) => {
                         let items = files
                             .into_iter()
-                            .map(|RepositoryFile { path, size, .. }| {
+                            .map(|HuggingFaceRepositoryFile { path, size, .. }| {
                                 let sha = lookup.get(&path).cloned();
                                 let url = format!("https://huggingface.co/{identifier}/resolve/{revision}/{path}");
                                 DownloadItem { path, sha, size, url }
                             })
                             .collect::<Vec<_>>();
-                        DownloadItems::new(Path::new(&output), items, quiet, skip_verify_checksum)
+                        DownloadItems::new(Path::new(output), items, *quiet, *skip_verify_checksum)
                             .download()
                             .await
-                            .map(|()| identifier)
+                            .map(|()| identifier.to_string())
                     }
                     | Err(why) => Err(why),
                 },
@@ -128,13 +225,13 @@ impl HuggingFaceRepository for RepositoryFiles {
     fn filter(&self, filter: Option<&str>, ignore: Option<&str>) -> ApiResult<Self> {
         let filter_vec = filter.into_iter().map(String::from).collect::<Vec<_>>();
         let ignore_vec = ignore.into_iter().map(String::from).collect::<Vec<_>>();
-        let filtered = match try_glob_filter(self, filter, ignore) {
+        let filtered = match self.try_glob(filter, ignore) {
             | Some(result) => Ok(result),
             | None => FilterSet::filter(
                 self.clone(),
                 &filter_vec,
                 &ignore_vec,
-                |file: &RepositoryFile| file.path.clone(),
+                |file: &HuggingFaceRepositoryFile| file.path.clone(),
                 |_| true,
             ),
         };
@@ -153,13 +250,13 @@ impl HuggingFaceRepository for RepositoryFiles {
             }
         })
     }
-    fn select(&self, policy: &FileSelectionPolicy<'_>) -> ApiResult<Vec<RepositoryFile>> {
-        let gguf_files: Vec<&RepositoryFile> = self.iter().filter(|file| file.path.to_ascii_lowercase().ends_with(".gguf")).collect();
+    fn select(&self, policy: &FileSelectionPolicy<'_>) -> ApiResult<Vec<HuggingFaceRepositoryFile>> {
+        let gguf_files: Vec<&HuggingFaceRepositoryFile> = self.iter().filter(|file| file.path.to_ascii_lowercase().ends_with(".gguf")).collect();
         match gguf_files.len() {
-            | 0 => Err(eyre!("{}", policy.no_match_message)),
+            | 0 => Err(eyre!(HuggingFaceError::NoGgufModelFiles)),
             | 1 => Ok(gguf_files.into_iter().cloned().collect()),
             | _ => {
-                let preferred: Vec<&RepositoryFile> = gguf_files
+                let preferred: Vec<&HuggingFaceRepositoryFile> = gguf_files
                     .into_iter()
                     .filter(|file| file.path.to_ascii_uppercase().contains(policy.preferred_marker))
                     .collect();
@@ -173,22 +270,39 @@ impl HuggingFaceRepository for RepositoryFiles {
             }
         }
     }
-    /// Resolve SHA-256 checksums for repository files by fetching `.sha256` sidecar files.
-    async fn checksums(&self, identifier: &str, revision: &str) -> ApiResult<HashMap<String, String>> {
-        let candidates: Vec<_> = self
-            .iter()
-            .filter_map(|file| target_path_from_sidecar(&file.path).map(|target| (file.path.clone(), target)))
-            .collect();
-        let digests = join_all(candidates.into_iter().map(|(path, target)| async move {
-            let url = format!("https://huggingface.co/{identifier}/resolve/{revision}/{path}");
-            let content = match http::get(url).headers(auth_headers()).send().await {
-                | Ok(response) => response.text().await.ok(),
-                | Err(_) => None,
-            };
-            (target, content.as_deref().and_then(extract_sha256))
-        }))
-        .await;
-        Ok(digests.into_iter().filter_map(|(target, digest)| digest.map(|d| (target, d))).collect())
+    fn should_use_fallback(&self, options: &Options) -> bool {
+        let Options {
+            identifier,
+            offline,
+            no_fallback,
+            filter,
+            ..
+        } = options;
+        let is_huggingface_repo_id = identifier
+            .as_deref()
+            .and_then(|value| value.split_once('/'))
+            .is_some_and(|(owner, name)| !owner.is_empty() && !name.is_empty() && !name.contains('/'));
+        let contains_gguf_files = self.iter().any(|file| file.path.to_ascii_lowercase().ends_with(".gguf"));
+        is_huggingface_repo_id && filter.is_none() && !(contains_gguf_files || *offline || *no_fallback)
+    }
+    fn try_glob(&self, filter: Option<&str>, ignore: Option<&str>) -> Option<Self> {
+        match (filter.map(regex_to_glob), ignore.map(regex_to_glob)) {
+            | (Some(None), _) | (_, Some(None)) => None,
+            | (filter_opt, ignore_opt) => {
+                let filter_glob = filter_opt.flatten();
+                let ignore_glob = ignore_opt.flatten();
+                let filtered = self
+                    .iter()
+                    .filter(|file| {
+                        let ignored = ignore_glob.as_ref().is_some_and(|pattern| glob_matches(&file.path, pattern));
+                        let kept = filter_glob.as_ref().is_none_or(|pattern| glob_matches(&file.path, pattern));
+                        !ignored && kept
+                    })
+                    .cloned()
+                    .collect();
+                Some(filtered)
+            }
+        }
     }
 }
 /// Build Hugging Face authorization headers using configured environment token values.
@@ -202,41 +316,56 @@ pub fn auth_headers() -> HeaderMap {
 pub fn has_auth_token() -> bool {
     first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).is_some()
 }
-fn extract_sha256(content: &str) -> Option<String> {
-    content
-        .split_whitespace()
-        .find(|token| token.len() == 64 && token.chars().all(|character| character.is_ascii_hexdigit()))
-        .map(|value| value.to_ascii_lowercase())
-}
-fn target_path_from_sidecar(path: &str) -> Option<String> {
-    path.strip_suffix(".sha256")
-        .or_else(|| path.strip_suffix(".sha256sum"))
-        .map(ToString::to_string)
-}
-/// Try to filter HuggingFace files using glob patterns
-/// ### Note
-/// Returns `Some(filtered)` if all patterns converted to globs successfully, `None` to signal regex fallback.
-pub(crate) fn try_glob_filter(files: &RepositoryFiles, filter: Option<&str>, ignore: Option<&str>) -> Option<Vec<RepositoryFile>> {
-    match (filter.map(regex_to_glob), ignore.map(regex_to_glob)) {
-        | (Some(None), _) | (_, Some(None)) => None,
-        | (filter_opt, ignore_opt) => {
-            let filter_glob = filter_opt.flatten();
-            let ignore_glob = ignore_opt.flatten();
-            let filtered = files
-                .iter()
-                .filter(|file| {
-                    let ignored = ignore_glob.as_ref().is_some_and(|pattern| glob_matches(&file.path, pattern));
-                    let kept = filter_glob.as_ref().is_none_or(|pattern| glob_matches(&file.path, pattern));
-                    !ignored && kept
-                })
-                .cloned()
-                .collect();
-            Some(filtered)
+/// Find the most-downloaded GGUF repository that declares `base_model` as its source.
+///
+/// # Examples
+///
+/// ```no_run
+/// use acorn::io::api::huggingface::find_best_gguf;
+///
+/// # async fn example() -> acorn::io::ApiResult<()> {
+///     let repository = find_best_gguf("openai/gpt-oss-2b", 20).await?;
+///     assert!(repository.contains('/'));
+///     Ok(())
+/// # }
+/// ```
+pub async fn find_best_gguf(identifier: &str, limit: usize) -> ApiResult<String> {
+    let basename = identifier.rsplit('/').next().filter(|value| !value.is_empty());
+    match (basename, HFClient::new()) {
+        | (Some(basename), Ok(client)) => {
+            let response = client
+                .list_models()
+                .search(basename)
+                .filter("gguf")
+                .sort("downloads")
+                .full(true)
+                .card_data(true)
+                .limit(limit)
+                .send();
+            match response {
+                | Ok(stream) => match stream.try_collect::<Vec<ModelInfo>>().await {
+                    | Ok(models) => models
+                        .into_iter()
+                        .filter(|model| is_declared_quantization_of(model, identifier))
+                        .max_by_key(|model| model.downloads.unwrap_or_default())
+                        .map(|ModelInfo { id, .. }| id)
+                        .ok_or_else(|| {
+                            let identifier = identifier.to_string();
+                            eyre!(HuggingFaceError::NoGgufQuantizationRepository { identifier })
+                        }),
+                    | Err(why) => Err(eyre!(HuggingFaceError::ModelSearchFailed { reason: why.to_string() })),
+                },
+                | Err(why) => Err(eyre!(HuggingFaceError::ModelSearchConfigurationFailed { reason: why.to_string() })),
+            }
         }
+        | (None, _) => Err(eyre!(HuggingFaceError::InvalidBaseModelIdentifier {
+            identifier: identifier.to_string()
+        })),
+        | (_, Err(why)) => Err(eyre!(HuggingFaceError::ClientInitializationFailed { reason: why.to_string() })),
     }
 }
 /// List files in a Hugging Face model repository at `revision`
-pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<RepositoryFiles> {
+pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<HuggingFaceRepositoryFiles> {
     let template = "huggingface::api";
     let action = "tree";
     let params = Params::new()
@@ -248,7 +377,13 @@ pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<Repo
     match Endpoint::from_template(template) {
         | Ok(endpoint) => match endpoint.invoke(action, Some(params)).await {
             | Ok(ResponseContent::Json(content)) => serde_json::from_str::<Vec<TreeEntry>>(&content)
-                .map(|entries| entries.into_iter().filter(TreeEntry::is_file).map(RepositoryFile::from).collect())
+                .map(|entries| {
+                    entries
+                        .into_iter()
+                        .filter(TreeEntry::is_file)
+                        .map(HuggingFaceRepositoryFile::from)
+                        .collect()
+                })
                 .map_err(|why| eyre!("Failed to parse Hugging Face repository file list — {why}")),
             | Ok(_) => Err(eyre!("Failed to list Hugging Face model files — response was not JSON")),
             | Err(why) => Err(eyre!("Failed to list Hugging Face model files — {why}")),
@@ -256,11 +391,78 @@ pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<Repo
         | Err(why) => Err(eyre!("Failed to configure Hugging Face API — {why}")),
     }
 }
+fn extract_sha256(content: &str) -> Option<String> {
+    content
+        .split_whitespace()
+        .find(|token| token.len() == 64 && token.chars().all(|character| character.is_ascii_hexdigit()))
+        .map(|value| value.to_ascii_lowercase())
+}
+fn is_declared_quantization_of(model: &ModelInfo, identifier: &str) -> bool {
+    let declares_base_model = model
+        .base_models
+        .as_ref()
+        .is_some_and(|models| models.iter().any(|value| value.eq_ignore_ascii_case(identifier)));
+    let declares_card_base_model = model
+        .card_data
+        .as_ref()
+        .and_then(|value| value.get("base_model"))
+        .is_some_and(|value| match value {
+            | Value::String(value) => value.eq_ignore_ascii_case(identifier),
+            | Value::Array(values) => values
+                .iter()
+                .filter_map(Value::as_str)
+                .any(|value| value.eq_ignore_ascii_case(identifier)),
+            | _ => false,
+        });
+    let has_quantized_base_model_tag = model
+        .tags
+        .as_ref()
+        .is_some_and(|tags| tags.iter().any(|tag| is_quantized_base_model_tag(tag, identifier)));
+    declares_base_model || declares_card_base_model || has_quantized_base_model_tag
+}
+fn is_quantized_base_model_tag(tag: &str, identifier: &str) -> bool {
+    let mut parts = tag.splitn(3, ':');
+    match (parts.next(), parts.next(), parts.next()) {
+        | (Some(kind), Some(relation), Some(value)) => {
+            kind.eq_ignore_ascii_case("base_model") && relation.eq_ignore_ascii_case("quantized") && value.eq_ignore_ascii_case(identifier)
+        }
+        | _ => false,
+    }
+}
+fn target_path_from_sidecar(path: &str) -> Option<String> {
+    path.strip_suffix(".sha256")
+        .or_else(|| path.strip_suffix(".sha256sum"))
+        .map(ToString::to_string)
+}
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
-    use super::{extract_sha256, target_path_from_sidecar};
+    use super::{extract_sha256, is_declared_quantization_of, target_path_from_sidecar, ModelInfo, Value};
+    use serde_json::json;
 
+    fn model(value: Value) -> ModelInfo {
+        serde_json::from_value(value).unwrap()
+    }
+    #[test]
+    fn declared_quantization_matches_base_models_field() {
+        let candidate = model(json!({"id": "community/quantized", "baseModels": ["OpenAI/GPT-OSS-2B"]}));
+        assert!(is_declared_quantization_of(&candidate, "openai/gpt-oss-2b"));
+    }
+    #[test]
+    fn declared_quantization_matches_quantized_tag() {
+        let candidate = model(json!({"id": "community/quantized", "tags": ["base_model:quantized:openai/gpt-oss-2b"]}));
+        assert!(is_declared_quantization_of(&candidate, "openai/gpt-oss-2b"));
+    }
+    #[test]
+    fn declared_quantization_rejects_unrelated_model() {
+        let candidate = model(json!({
+            "id": "community/quantized",
+            "baseModels": ["other/model"],
+            "tags": ["base_model:quantized:other/model"]
+        }));
+        assert!(!is_declared_quantization_of(&candidate, "openai/gpt-oss-2b"));
+    }
     #[test]
     fn test_target_path_from_sidecar() {
         assert_eq!(target_path_from_sidecar("model.gguf.sha256"), Some("model.gguf".to_string()));

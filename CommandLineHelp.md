@@ -370,6 +370,12 @@ Download model weights for use with ACORN research harnesses and local inference
 * `--symlink` — Create symlinks to local model files in the model directory instead of referencing in place
 * `--whitelist <NAME>` — Only download models with these user-facing names
 * `--skip-verify-checksum` — Skip SHA-256 checksum verification when checksum sidecar metadata is available
+* `--gguf-search-limit <LIMIT>` — Maximum number of Hugging Face repositories to search when discovering GGUF quantizations
+
+   Applies when the requested repository contains no GGUF files and automatic fallback is enabled
+
+  Default value: `200`
+* `--no-fallback` — Disable automatic GGUF quantization repository discovery when the target has no GGUF files
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

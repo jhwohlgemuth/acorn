@@ -303,6 +303,44 @@ fn test_ror_search_response() {
     let response: ror::SearchResponse = serde_json::from_str(&json).expect("Failed to deserialize JSON");
     insta::assert_snapshot!(format!("{:#?}", response));
 }
+mod gguf {
+    use crate::io::api::huggingface::HuggingFaceError;
+
+    #[test]
+    fn discovery_errors_include_context() {
+        let identifier = "openai/gpt-oss-2b".to_string();
+        assert_eq!(
+            HuggingFaceError::NoGgufQuantizationRepository { identifier }.to_string(),
+            "no GGUF quantization repo found for openai/gpt-oss-2b"
+        );
+        let identifier = "openai/gpt-oss-2b".to_string();
+        assert_eq!(
+            HuggingFaceError::InvalidBaseModelIdentifier { identifier }.to_string(),
+            "invalid Hugging Face base model identifier: openai/gpt-oss-2b"
+        );
+        assert_eq!(
+            HuggingFaceError::ClientInitializationFailed {
+                reason: "invalid endpoint".to_string()
+            }
+            .to_string(),
+            "failed to initialize Hugging Face client: invalid endpoint"
+        );
+        assert_eq!(
+            HuggingFaceError::ModelSearchConfigurationFailed {
+                reason: "invalid query".to_string()
+            }
+            .to_string(),
+            "failed to configure Hugging Face model search: invalid query"
+        );
+        assert_eq!(
+            HuggingFaceError::ModelSearchFailed {
+                reason: "request failed".to_string()
+            }
+            .to_string(),
+            "failed to search Hugging Face models: request failed"
+        );
+    }
+}
 #[cfg(test)]
 mod github_api {
     use super::*;

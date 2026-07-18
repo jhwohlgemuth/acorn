@@ -1,5 +1,5 @@
 use crate::cli::{CommandOptions, Void};
-use acorn::io::api::huggingface::{self, HuggingFaceRepository};
+use acorn::io::api::huggingface::{self, HuggingFaceError, HuggingFaceRepository};
 use acorn::io::api::models_dev;
 use acorn::io::config::{ApplicationConfiguration, AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions};
 use acorn::io::database::schema::ModelRow;
@@ -7,19 +7,18 @@ use acorn::io::database::Row;
 use acorn::io::download::{DownloadItem, DownloadItems};
 use acorn::io::source::source_from_weights;
 use acorn::io::{home_directory, ApiResult, InputOutput, Source, SourceAction};
-use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
+use acorn::prelude::{create_dir_all, HashSet, Path, PathBuf, String, Vec};
 use acorn::schema::agent::Weight;
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
+use bon::Builder;
 use clap_verbosity_flag::Verbosity;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use fluent_uri::Uri;
 use futures::future::join_all;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use tracing::{error, info};
-
-const DEFAULT_MODEL_REVISION: &str = "main";
 
 /// Download model weights for use with acorn research harnesses and local inference
 #[allow(clippy::too_many_arguments)]
@@ -36,6 +35,8 @@ pub async fn run(
     symlink: bool,
     skip_verify_checksum: bool,
     whitelist: &[String],
+    no_fallback: bool,
+    gguf_search_limit: usize,
 ) -> Void {
     let quiet = verbose.is_silent();
     let action = SourceAction::from_options(copy, symlink);
@@ -107,6 +108,9 @@ pub async fn run(
                         })
                         .output(root.clone())
                         .maybe_database_path(database_path.clone())
+                        .offline(offline)
+                        .no_fallback(no_fallback)
+                        .gguf_search_limit(gguf_search_limit)
                         .quiet(quiet)
                         .skip_verify_checksum(skip_verify_checksum)
                         .maybe_filter(regex_join(&filter))
@@ -178,12 +182,17 @@ pub(crate) enum ModelDownloadError {
     MultipleMatches(String),
     MissingAuth(String),
 }
-#[derive(Clone, Debug)]
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init)]
 pub(crate) struct ModelDownloadPlan {
     pub(crate) selector: Source,
+    #[builder(default = String::from(huggingface::DEFAULT_MODEL_REVISION))]
     pub(crate) revision: String,
+    #[builder(default)]
     pub(crate) auth: AuthenticationRequirement,
+    #[builder(default = Vec::new())]
     pub(crate) filter: Vec<String>,
+    #[builder(default = Vec::new())]
     pub(crate) ignore: Vec<String>,
     pub(crate) action: Option<SourceAction>,
 }
@@ -199,17 +208,11 @@ impl fmt::Display for ModelDownloadError {
 impl core::error::Error for ModelDownloadError {}
 impl ModelDownloadPlan {
     fn new(selector: Source) -> Self {
-        Self {
-            action: match &selector {
-                | Source::Local { action, .. } => *action,
-                | _ => None,
-            },
-            selector,
-            revision: DEFAULT_MODEL_REVISION.to_string(),
-            auth: AuthenticationRequirement::Optional,
-            filter: Vec::new(),
-            ignore: Vec::new(),
-        }
+        let action = match &selector {
+            | Source::Local { action, .. } => *action,
+            | _ => None,
+        };
+        Self::init().selector(selector).maybe_action(action).build()
     }
     fn from_entry(entry: &ModelEntryOptions) -> Self {
         let config_action = match (&entry.copy, &entry.symlink) {
@@ -217,14 +220,14 @@ impl ModelDownloadPlan {
             | (_, Some(true)) => Some(SourceAction::Symlink),
             | _ => None,
         };
-        Self {
-            selector: Source::from(&entry.source).with_name(entry.name.as_str()).with_action(config_action),
-            revision: entry.revision.clone().unwrap_or_else(|| DEFAULT_MODEL_REVISION.to_string()),
-            auth: entry.auth.clone().unwrap_or_default(),
-            filter: entry.filter.clone().unwrap_or_default(),
-            ignore: entry.ignore.clone().unwrap_or_default(),
-            action: config_action,
-        }
+        Self::init()
+            .selector(Source::from(&entry.source).with_name(entry.name.as_str()).with_action(config_action))
+            .revision(entry.revision.clone().unwrap_or_else(|| huggingface::DEFAULT_MODEL_REVISION.to_string()))
+            .auth(entry.auth.clone().unwrap_or_default())
+            .filter(entry.filter.clone().unwrap_or_default())
+            .ignore(entry.ignore.clone().unwrap_or_default())
+            .maybe_action(config_action)
+            .build()
     }
     fn with_action(self, action: Option<SourceAction>) -> Self {
         match action {
@@ -310,6 +313,9 @@ impl ModelDownloadPlan {
                             let CommandOptions {
                                 filter,
                                 ignore,
+                                offline,
+                                no_fallback,
+                                gguf_search_limit,
                                 quiet,
                                 skip_verify_checksum,
                                 ..
@@ -320,9 +326,18 @@ impl ModelDownloadPlan {
                                 .maybe_ignore(ignore)
                                 .output(destination.to_absolute_string())
                                 .quiet(quiet)
+                                .offline(offline)
+                                .no_fallback(no_fallback)
+                                .gguf_search_limit(gguf_search_limit)
                                 .skip_verify_checksum(skip_verify_checksum)
                                 .build();
-                            files.download(options).await
+                            let is_gguf_error = |e: &eyre::Report| e.downcast_ref::<HuggingFaceError>() == Some(&HuggingFaceError::NoGgufModelFiles);
+                            match files.download(&options).await {
+                                | Err(why) if files.should_use_fallback(&options) && !is_gguf_error(&why) => {
+                                    download_gguf_fallback(&root, options).await
+                                }
+                                | result => result,
+                            }
                         }
                         | Err(why) => Err(why),
                     },
@@ -338,8 +353,65 @@ impl ModelDownloadPlan {
         }
     }
 }
+async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<String> {
+    let huggingface::Options {
+        identifier,
+        quiet,
+        gguf_search_limit,
+        filter,
+        ignore,
+        offline,
+        skip_verify_checksum,
+        ..
+    } = options;
+    match identifier.as_deref() {
+        | Some(identifier) => {
+            if !quiet {
+                info!(
+                    "=> {} GGUF fallback: searching for quantization repositories derived from '{}'",
+                    Label::run(),
+                    identifier
+                );
+            }
+            match huggingface::find_best_gguf(identifier, gguf_search_limit).await {
+                | Ok(fallback_identifier) => {
+                    let destination = root.join(&fallback_identifier);
+                    match create_dir_all(&destination) {
+                        | Ok(()) => match huggingface::repository_tree(&fallback_identifier, huggingface::DEFAULT_MODEL_REVISION).await {
+                            | Ok(files) => {
+                                let fallback_options = huggingface::Options::init()
+                                    .identifier(&fallback_identifier)
+                                    .maybe_filter(filter)
+                                    .maybe_ignore(ignore)
+                                    .output(destination.to_absolute_string())
+                                    .quiet(quiet)
+                                    .offline(offline)
+                                    .no_fallback(true)
+                                    .gguf_search_limit(gguf_search_limit)
+                                    .skip_verify_checksum(skip_verify_checksum)
+                                    .build();
+                                files.download(&fallback_options).await
+                            }
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(eyre!(why)),
+                    }
+                }
+                | Err(why) => Err(why),
+            }
+        }
+        | None => Err(eyre!("Model identifier is not configured for GGUF fallback")),
+    }
+}
 async fn download_remote_model(options: CommandOptions) -> ApiResult<()> {
-    match (options.selector.clone(), options.output.clone()) {
+    let CommandOptions {
+        selector,
+        output,
+        quiet,
+        skip_verify_checksum,
+        ..
+    } = options;
+    match (selector, output) {
         | (Some(Source::Remote { identifier, .. }), Some(root)) => {
             let filename = match Uri::parse(identifier.as_str()) {
                 | Ok(uri) => uri
@@ -364,7 +436,7 @@ async fn download_remote_model(options: CommandOptions) -> ApiResult<()> {
                 size: None,
                 sha: None,
             };
-            DownloadItems::new(&destination, vec![item], options.quiet, false).download().await
+            DownloadItems::new(&destination, vec![item], quiet, skip_verify_checksum).download().await
         }
         | (_, None) => Err(eyre!("Model output directory is not configured")),
         | (None, _) => Err(eyre!("Model selector is not configured")),
