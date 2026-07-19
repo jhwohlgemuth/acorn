@@ -8,11 +8,15 @@ use crate::io::InputOutput;
 #[cfg(feature = "analysis")]
 use crate::prelude::Cursor;
 use crate::prelude::{Arc, HashMap, Path, PathBuf};
+#[cfg(feature = "std")]
+use crate::schema::pid::raid::Metadata;
+#[cfg(feature = "std")]
+use crate::schema::research_activity::ResearchActivity;
 use crate::schema::standard::crosswalk::mapping::{
     datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
 };
 use crate::schema::standard::crosswalk::{ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
-use crate::schema::standard::{datacite, dcat, huwise, invenio};
+use crate::schema::standard::{cff, datacite, dcat, huwise, invenio, text};
 use crate::schema::OneOrMany;
 use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
 use crate::util::{Label, MimeType, StringConversion, ToProse};
@@ -35,6 +39,8 @@ use polars::{
     prelude::{AnyValue, DataFrame, PolarsResult, SerWriter},
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+#[cfg(feature = "std")]
+use schemars::schema_for;
 use serde_json::{Map, Value};
 use strum::EnumIter;
 use tracing::{debug, error, info};
@@ -883,6 +889,31 @@ impl Standard {
             "Unsupported metadata crosswalk pair: {self} -> {target} (supported: datacite, dcat, invenio, huwise)"
         ))
     }
+    /// Print JSON or YAML schema for this standard to stdout
+    #[cfg(feature = "std")]
+    pub fn to_schema(&self, format: &str) {
+        match *self {
+            | Standard::ResearchActivityData => ResearchActivity::to_schema(format),
+            | Standard::Raid => Metadata::to_schema(format),
+            | Standard::CitationFileFormat => print_schema::<cff::Cff>(format),
+            | Standard::Datacite => print_schema::<datacite::Record>(format),
+            | Standard::Dcat => print_schema::<dcat::Dataset>(format),
+            | Standard::Huwise => print_schema::<huwise::Dataset>(format),
+            | Standard::Invenio => print_schema::<invenio::Record>(format),
+            | Standard::Text | Standard::Docx => print_schema::<text::Text>(format),
+            | Standard::DublinCore => eprintln!("Schema generation not supported for Dublin Core (no schema defined)"),
+        }
+    }
+}
+/// Print JSON or YAML schema for type `T` to stdout
+#[cfg(feature = "std")]
+fn print_schema<T: schemars::JsonSchema>(format: &str) {
+    let schema = schema_for!(T);
+    let output = match format.to_lowercase().as_str() {
+        | "yaml" | "yml" => serde_norway::to_string(&schema).unwrap_or_default(),
+        | _ => serde_json::to_string_pretty(&schema).unwrap_or_default(),
+    };
+    println!("{output}");
 }
 #[cfg(feature = "analysis")]
 pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>

@@ -319,22 +319,6 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Link(Box<arguments::Link>),
-    /// Print research activity data (RAD) or research activity identifier (RAiD) metadata JSON schema to stdout
-    ///
-    ///     Print RAD JSON schema (default)
-    ///     $> acorn schema
-    ///
-    ///     Print RAD JSON schema
-    ///     $> acorn schema rad
-    ///
-    ///     Print RAiD JSON schema
-    ///     $> acorn schema raid
-    #[clap(verbatim_doc_comment)]
-    #[command(long_about = None)]
-    Schema {
-        #[command(subcommand)]
-        command: Option<SchemaCommands>,
-    },
     /// Start a server (bot, MCP, etc.)
     ///
     ///     Start a GitLab bot server
@@ -379,14 +363,6 @@ pub enum ImportCommands {
     /// Import endpoint resources from an API specification
     #[command(name = "spec", visible_alias = "openapi")]
     Spec(Box<arguments::Spec>),
-}
-#[derive(Debug, Subcommand)]
-#[command(long_about = None)]
-pub enum SchemaCommands {
-    /// Print research activity data (RAD) JSON schema to stdout
-    Rad,
-    /// Print research activity identifier (RAiD) metadata JSON schema to stdout
-    Raid,
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]

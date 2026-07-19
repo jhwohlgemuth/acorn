@@ -20,9 +20,6 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli import model`↴](#acorn-cli-import-model)
 * [`acorn-cli import spec`↴](#acorn-cli-import-spec)
 * [`acorn-cli link`↴](#acorn-cli-link)
-* [`acorn-cli schema`↴](#acorn-cli-schema)
-* [`acorn-cli schema rad`↴](#acorn-cli-schema-rad)
-* [`acorn-cli schema raid`↴](#acorn-cli-schema-raid)
 * [`acorn-cli serve`↴](#acorn-cli-serve)
 * [`acorn-cli serve bot`↴](#acorn-cli-serve-bot)
 * [`acorn-cli serve mcp`↴](#acorn-cli-serve-mcp)
@@ -60,7 +57,6 @@ This document contains the help content for the `acorn-cli` command-line program
 * `gather` — Gather (extract) research activity data
 * `import` — Import external metadata into ACORN
 * `link` — Add linked data context to research activity data
-* `schema` — Print research activity data (RAD) or research activity identifier (RAiD) metadata JSON schema to stdout
 * `serve` — Start a server (bot, MCP, etc.)
 * `tui` — Launch the interactive terminal user interface (TUI)
 
@@ -419,6 +415,8 @@ Export research activity data to a specific target
 * `--dry-run` — Run export without making changes. Will print what would happen
 * `-f`, `--format <FORMAT>` — Export target file format
 
+   When used with --schema, specifies the output format (json or yaml)
+
   Default value: `pdf`
 
   Possible values: `pdf`, `bag`, `cff`, `json`, `markdown`, `powerpoint`, `yaml`
@@ -437,6 +435,9 @@ Export research activity data to a specific target
 * `-o`, `--output <DIRECTORY>` — Path to output directory where the export artifacts should be saved
 
   Default value: `./export`
+* `--schema` — Print JSON or YAML schema for the selected standard to stdout
+
+   Use --format to specify output format (default: json)
 * `--raw` — Suppress output from external commands while preserving ACORN output — useful for piping
 * `-S`, `--skip <LIST>` — Skip one or more available export check categories
 * `-r`, `--reference <PATH>` — Path to reference file to be used when exporting to PowerPoint
@@ -628,35 +629,6 @@ Add linked data context to research activity data
   Default value: `rads`
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
-
-
-
-## `acorn-cli schema`
-
-Print research activity data (RAD) or research activity identifier (RAiD) metadata JSON schema to stdout
-
-**Usage:** `acorn-cli schema [COMMAND]`
-
-###### **Subcommands:**
-
-* `rad` — Print research activity data (RAD) JSON schema to stdout
-* `raid` — Print research activity identifier (RAiD) metadata JSON schema to stdout
-
-
-
-## `acorn-cli schema rad`
-
-Print research activity data (RAD) JSON schema to stdout
-
-**Usage:** `acorn-cli schema rad`
-
-
-
-## `acorn-cli schema raid`
-
-Print research activity identifier (RAiD) metadata JSON schema to stdout
-
-**Usage:** `acorn-cli schema raid`
 
 
 

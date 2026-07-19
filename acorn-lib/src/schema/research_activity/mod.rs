@@ -588,14 +588,15 @@ impl ResearchActivity {
             | _ => Err(eyre!("Unsupported mime type for research activity serialization: {mime:?}")),
         }
     }
-    /// Print research activity schema as JSON schema
+    /// Print research activity schema as JSON or YAML schema
     #[cfg(feature = "std")]
-    pub fn to_schema() {
+    pub fn to_schema(format: &str) {
         let schema = schema_for!(ResearchActivity);
-        match serde_json::to_string_pretty(&schema) {
-            | Ok(json) => println!("{}", json),
-            | Err(why) => eprintln!("Failed to serialize schema: {}", why),
-        }
+        let output = match format.to_lowercase().as_str() {
+            | "yaml" | "yml" => serde_norway::to_string(&schema).unwrap_or_default(),
+            | _ => serde_json::to_string_pretty(&schema).unwrap_or_default(),
+        };
+        println!("{output}");
     }
     /// Creates a copy of a `ResearchActivity`
     pub fn copy(&self) -> ResearchActivity {

@@ -1,10 +1,6 @@
-use crate::cli::{
-    arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, SchemaCommands, ServeCommands, Void,
-};
+use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands, Void};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::fail;
-use acorn::schema::pid::raid::Metadata;
-use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::Label;
 use color_eyre::eyre;
 use color_eyre::eyre::eyre;
@@ -208,51 +204,61 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 }
             }
         }),
-        | Some(Commands::Export(arguments)) => with_runtime(async {
-            let arguments::Export {
-                output,
-                path,
-                branch,
-                commit,
-                filter,
-                ignore,
-                format,
-                reference,
-                from,
-                to,
-                combine,
-                merge_request,
-                raw,
-                skip,
-                dry_run,
-                strict,
-                verbose,
-                ..
-            } = arguments.as_ref();
-            initialize_database(config).await?;
-            export::run(
-                output,
-                path,
-                branch,
-                commit,
-                filter,
-                ignore,
-                format,
-                reference,
-                from,
-                to,
-                combine,
-                merge_request,
-                raw,
-                skip,
-                *dry_run,
-                *strict,
-                threads,
-                verbose,
-                offline,
-            )
-            .await
-        }),
+        | Some(Commands::Export(arguments)) => {
+            if arguments.schema {
+                let format = arguments.format.to_string().to_lowercase();
+                if format != "json" && format != "yaml" {
+                    return Err(eyre!("--schema only supports JSON or YAML output (got '{format}')"));
+                }
+                arguments.standard.to_schema(&format);
+                return Ok(());
+            }
+            with_runtime(async {
+                let arguments::Export {
+                    output,
+                    path,
+                    branch,
+                    commit,
+                    filter,
+                    ignore,
+                    format,
+                    reference,
+                    from,
+                    to,
+                    combine,
+                    merge_request,
+                    raw,
+                    skip,
+                    dry_run,
+                    strict,
+                    verbose,
+                    ..
+                } = arguments.as_ref();
+                initialize_database(config).await?;
+                export::run(
+                    output,
+                    path,
+                    branch,
+                    commit,
+                    filter,
+                    ignore,
+                    format,
+                    reference,
+                    from,
+                    to,
+                    combine,
+                    merge_request,
+                    raw,
+                    skip,
+                    *dry_run,
+                    *strict,
+                    threads,
+                    verbose,
+                    offline,
+                )
+                .await
+            })
+        }
         | Some(Commands::Format(arguments)) => with_runtime(async {
             let arguments::Format {
                 path,
@@ -315,10 +321,6 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             }),
             | None => Err(eyre::eyre!("No subcommand provided for 'import'")),
         },
-        | Some(Commands::Schema { command, .. }) => match command {
-            | Some(SchemaCommands::Rad) | None => print_rad_schema(),
-            | Some(SchemaCommands::Raid) => print_raid_schema(),
-        },
         | Some(Commands::Serve { command, .. }) => match command {
             | Some(ServeCommands::Bot(args)) => with_runtime(async {
                 let bind = args.common.bind_address();
@@ -358,14 +360,6 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             Ok(())
         }
     }
-}
-fn print_rad_schema() -> Void {
-    ResearchActivity::to_schema();
-    Ok(())
-}
-fn print_raid_schema() -> Void {
-    Metadata::to_schema();
-    Ok(())
 }
 fn with_runtime<F>(fut: F) -> Void
 where

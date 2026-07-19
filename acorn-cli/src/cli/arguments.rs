@@ -380,24 +380,26 @@ pub(crate) struct Export {
     #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
     pub(crate) path: Option<PathBuf>,
     /// Export files that were changed in a given Git branch
-    #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
+    #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) branch: Option<String>,
     /// Combine all export artifacts into a single artifact
-    #[arg(long = "combine", value_name = "BOOL", help_heading = "FLAGS")]
+    #[arg(long = "combine", value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
     pub(crate) combine: bool,
     /// Export files that were changed in a given Git commit
-    #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
+    #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) commit: Option<String>,
     /// Run export without making changes. Will print what would happen.
-    #[arg(long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+    #[arg(long = "dry-run", value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
     pub(crate) dry_run: bool,
     /// Export target file format
+    ///
+    /// When used with --schema, specifies the output format (json or yaml)
     #[arg(default_value = "pdf", short, long, value_name = "FORMAT", help_heading = "OPTIONS")]
     pub(crate) format: FileFormat,
     /// Regular expression pattern(s) applied to absolute paths of files to include during export
     ///
     /// Only files matching at least one pattern will be processed
-    #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) filter: Vec<String>,
     /// Regular expression pattern(s) applied to absolute paths of files to exclude from export process
     ///
@@ -406,24 +408,36 @@ pub(crate) struct Export {
     /// Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
     ///
     /// Example: --ignore "[/]valid.json$,[/]draft.json$"
-    #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    #[arg(
+        short,
+        long,
+        value_name = "LIST",
+        value_delimiter = ',',
+        help_heading = "OPTIONS",
+        conflicts_with = "schema"
+    )]
     pub(crate) ignore: Vec<String>,
     /// Export files that were changed in a given merge request (Gitlab) or pull request (GitHub)
-    #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
+    #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
     pub(crate) merge_request: bool,
     /// Path to output directory where the export artifacts should be saved
-    #[arg(default_value = "./export", short, long, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    #[arg(default_value = "./export", short, long, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) output: Option<PathBuf>,
+    /// Print JSON or YAML schema for the selected standard to stdout
+    ///
+    /// Use --format to specify output format (default: json)
+    #[arg(long = "schema", value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) schema: bool,
     /// Suppress output from external commands while preserving ACORN output — useful for piping
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) raw: bool,
     /// Skip one or more available export check categories
-    #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', value_parser = parse_check_category, help_heading = "OPTIONS")]
+    #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', value_parser = parse_check_category, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) skip: Vec<analyzer::CheckCategory>,
     /// Path to reference file to be used when exporting to PowerPoint
     ///
     /// Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
-    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) reference: Option<PathBuf>,
     /// Metadata standard to validate against
     ///
@@ -431,17 +445,17 @@ pub(crate) struct Export {
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     /// Fail if conversion loses data (only for crosswalk exports)
-    #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+    #[arg(long, value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
     pub(crate) strict: bool,
     /// Metadata standard to use for source data inference (default: auto-detect)
     ///
     /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
-    #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+    #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) from: Option<Standard>,
     /// Target metadata standard for crosswalk conversion
     ///
     /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
-    #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+    #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) to: Option<Standard>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,

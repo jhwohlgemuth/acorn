@@ -863,3 +863,20 @@ fn test_vale_output_item_source_text_uses_word_match() {
     };
     assert_eq!(item.source_text(), "geo-spatial");
 }
+#[test]
+fn test_standard_to_schema_does_not_panic() {
+    let standards = [
+        Standard::ResearchActivityData,
+        Standard::CitationFileFormat,
+        Standard::Datacite,
+        Standard::Dcat,
+        Standard::Huwise,
+        Standard::Invenio,
+        Standard::Raid,
+        Standard::Text,
+        Standard::Docx,
+    ];
+    for standard in standards {
+        standard.to_schema("json");
+    }
+}
