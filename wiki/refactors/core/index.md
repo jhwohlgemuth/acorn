@@ -1,0 +1,16 @@
+# Core Refactor Plans
+
+## Next
+
+- [OOXML interpolation and slide-copy hardening](ooxml-interpolation-and-slide-copy.md) - Replace remaining fragile OOXML mutations.
+- [Shared export context](export-context.md) - Centralize renderer input extraction.
+
+## Planned
+
+- [CLI startup separation](cli-startup-separation.md) - Reduce `main` to orchestration.
+- [Shared interpolation primitives](interpolation-primitives.md) - Unify string and list placeholder behavior.
+- [Python binding deduplication](python-binding-deduplication.md) - Reduce repetitive PID wrappers.
+- [Schema I/O validation handoff](schema-io-validation-handoff.md) - Centralize strict format validation.
+- [CLI parse and execution models](cli-parse-execution-models.md) - Separate clap parsing from execution options.
+- [Safe path abstraction](safe-path.md) - Centralize normalization and containment.
+- [CLI error boundary](cli-error-boundary.md) - Map internal errors to exit codes in one place.

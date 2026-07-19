@@ -1,0 +1,16 @@
+# Analyzer Refactor Plans
+
+## Recommended first
+
+- [Check batch monoid](check-batch-monoid.md) - Reduce repeated asynchronous collection assembly.
+- [Validation error tree fold](validation-error-tree-fold.md) - Centralize recursive error flattening.
+- [Standards traversal](standards-traversal.md) - Deduplicate near-isomorphic standard analysis flows after smaller abstractions stabilize.
+
+## Additional plans
+
+- [Summary monoid](summary-monoid.md) - Fold checks into one additive summary.
+- [Vale configuration normalization](vale-config-normalization.md) - Compose configuration transformations.
+- [Applicative validation](applicative-validation.md) - Accumulate independent failures.
+- [Check options context](check-options-context.md) - Stop repeatedly threading derived options.
+- [Result boundary normalization](result-boundary-normalization.md) - Standardize conversion and recovery.
+- [Typed scoring model](typed-scoring-model.md) - Make score combination and severity interpretation explicit.

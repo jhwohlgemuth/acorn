@@ -543,13 +543,11 @@ make book        # Build the book
 make book-write  # Serve and auto-rebuild on changes
 ```
 
-## Refactor Documentation
+## OKF Planning Wiki
 
-The refactor initiative is documented in a single comprehensive file:
+The authoritative entry point for refactor, fix, migration, and implementation plans is **[wiki/index.md](wiki/index.md)**. The `wiki/` directory is an Open Knowledge Format bundle with one plan concept per atomic topic.
 
-- **REFACTOR.md** - Contains overview, roadmap, critical priorities, technical specifications, progress tracking tables, and all original recommendations
-
-When implementing refactors, start with the Critical Priorities section for highest-impact items, then follow the Implementation Roadmap. Use the Technical Specifications section for implementation guidance and update the Progress Tracking tables to monitor status.
+Before implementing planned work, read the relevant concept and verify its evidence and status against the current code. New plans must use the Plan metadata and authoring rules in the wiki index, including difficulty, impact, and a non-empty package list. When work changes or finishes, update the concept's status, evidence, validation, and acceptance criteria together, then move its entry to the appropriate group in the nearest index.
 
 ## Repository Information
 
