@@ -374,8 +374,9 @@ Download model weights for use with ACORN research harnesses and local inference
 
    Applies when the requested repository contains no GGUF files and automatic fallback is enabled
 
-  Default value: `200`
+  Default value: `20`
 * `--no-fallback` — Disable automatic GGUF quantization repository discovery when the target has no GGUF files
+* `--interactive` — Open an interactive picker when GGUF fallback finds multiple repositories
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 
