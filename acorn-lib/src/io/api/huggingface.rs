@@ -3,12 +3,15 @@ use super::{Endpoint, IntoHeaders, Params, RemoteResource, ResponseContent, Tree
 use crate::io::api::Param;
 use crate::io::config::FilterSet;
 use crate::io::download::{DownloadItem, DownloadItems};
-use crate::io::{first_env_var, http, ApiResult};
+use crate::io::{first_env_var, http, ApiResult, Source};
 use crate::prelude::{HashMap, Path};
-use crate::schema::agent::Quantization;
-use crate::util::constants::app::{DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_HUGGINGFACE_SEARCH_TERM};
+use crate::schema::agent::{Quantization, Weights};
+use crate::util::constants::app::{
+    DEFAULT_HUGGINGFACE_DOMAIN, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_HUGGINGFACE_SEARCH_TERM,
+};
 use crate::util::constants::env::HUGGINGFACE_TOKEN_VARIABLE_NAMES;
 use crate::util::{glob_matches, regex_to_glob, Label};
+use crate::{Location, Repository};
 use alloc::boxed::Box;
 use alloc::collections::BTreeSet;
 use async_trait::async_trait;
@@ -392,6 +395,23 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
         }
     }
 }
+impl Weights {
+    /// Resolve the first non-empty model weight URL into a downloadable source.
+    pub fn to_source(self, name: Option<String>) -> Option<Source> {
+        self.0.into_iter().find(|weight| !weight.url.trim().is_empty()).map(|weight| {
+            let location = Location::from(weight.url.as_str());
+            let is_repository = location.host().is_some_and(|host| host.eq_ignore_ascii_case(DEFAULT_HUGGINGFACE_DOMAIN))
+                && location
+                    .path()
+                    .is_some_and(|path| path.split('/').filter(|segment| !segment.is_empty()).count() == 2);
+            let source = match is_repository {
+                | true => Source::from(&Repository::HuggingFace { location }),
+                | false => Source::from(weight.url.as_str()),
+            };
+            source.with_name(name.unwrap_or(weight.label))
+        })
+    }
+}
 /// Build Hugging Face authorization headers using configured environment token values.
 pub fn auth_headers() -> HeaderMap {
     Params::new()
@@ -534,6 +554,7 @@ fn target_path_from_sidecar(path: &str) -> Option<String> {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::{extract_sha256, is_declared_quantization_of, target_path_from_sidecar, Candidate, ModelInfo, Value};
+    use crate::schema::agent::{Weight, Weights};
     use serde_json::json;
 
     fn model(value: Value) -> ModelInfo {
@@ -569,6 +590,33 @@ mod tests {
         assert_eq!(candidate.likes, Some(7));
         assert_eq!(candidate.quantizations, vec!["Q4_K_M", "Q5_K_M"]);
         assert_eq!(candidate.to_string(), "community/quantized");
+    }
+    #[test]
+    fn test_weights_to_source_uses_hugging_face_repository_identifier() {
+        let source = Weights(vec![Weight {
+            label: "Hugging Face".to_string(),
+            url: "https://huggingface.co/openai/gpt-oss-20b".to_string(),
+            is_open: Some(true),
+            quantization: None,
+        }])
+        .to_source(Some("GPT OSS 20B".to_string()))
+        .unwrap();
+        assert_eq!(source.identifier(), "openai/gpt-oss-20b");
+        assert_eq!(source.name(), "GPT OSS 20B");
+    }
+    #[test]
+    fn test_weights_to_source_keeps_direct_hugging_face_file_url() {
+        let url = "https://huggingface.co/openai/gpt-oss-20b/resolve/main/model.gguf".to_string();
+        let source = Weights(vec![Weight {
+            label: "GGUF".to_string(),
+            url: url.to_string(),
+            is_open: Some(true),
+            quantization: None,
+        }])
+        .to_source(None)
+        .unwrap();
+        assert_eq!(source.identifier(), url);
+        assert_eq!(source.name(), "GGUF");
     }
     #[test]
     fn test_target_path_from_sidecar() {

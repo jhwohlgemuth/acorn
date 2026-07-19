@@ -1,7 +1,7 @@
 //! Source readers for local paths, file URIs, and remote HTTP(S) URLs.
 use crate::io::{http, symlink, uri_to_path, ApiResult};
 use crate::prelude::{copy, read, Path, PathBuf};
-use crate::schema::agent::{ModelDetails, Weight};
+use crate::schema::agent::ModelDetails;
 use crate::util::Label;
 use crate::{Location, Repository, Scheme};
 use color_eyre::eyre::eyre;
@@ -227,13 +227,6 @@ impl From<&Repository> for Source {
 }
 impl From<ModelDetails> for Option<Source> {
     fn from(details: ModelDetails) -> Self {
-        source_from_weights(details.weights.unwrap_or_default(), details.name.or(details.id))
+        details.weights.and_then(|weights| weights.to_source(details.name.or(details.id)))
     }
-}
-/// Return a source based on a list of weights
-pub fn source_from_weights(weights: Vec<Weight>, name: Option<String>) -> Option<Source> {
-    weights
-        .into_iter()
-        .find(|weight| !weight.url.trim().is_empty())
-        .map(|weight| Source::from(weight.url.as_str()).with_name(name.unwrap_or(weight.label)))
 }

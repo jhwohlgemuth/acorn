@@ -5,12 +5,11 @@ use acorn::io::config::{ApplicationConfiguration, AuthenticationRequirement, Fil
 use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
 use acorn::io::download::{DownloadItem, DownloadItems};
-use acorn::io::source::source_from_weights;
 use acorn::io::{home_directory, ApiResult, InputOutput, Source, SourceAction};
 #[cfg(feature = "tui")]
 use acorn::prelude::io;
 use acorn::prelude::{create_dir_all, HashSet, Path, PathBuf, String, Vec};
-use acorn::schema::agent::Weight;
+use acorn::schema::agent::Weights;
 use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MODEL_REVISION;
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
 use bon::Builder;
@@ -562,8 +561,8 @@ async fn resolve_positional_plan(
                         let name = row.name.or(row.model_id);
                         let row_source = row
                             .weights
-                            .and_then(|weights| serde_json::from_str::<Vec<Weight>>(&weights).ok())
-                            .and_then(|weights| source_from_weights(weights, name));
+                            .and_then(|weights| serde_json::from_str::<Weights>(&weights).ok())
+                            .and_then(|weights| weights.to_source(name));
                         match row_source {
                             | Some(source) => Ok(Some(ModelDownloadPlan::new(source))),
                             | None => Err(eyre!("{}", ModelDownloadError::UnknownModel(selector.to_string()))),

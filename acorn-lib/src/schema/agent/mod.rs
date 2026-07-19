@@ -482,7 +482,7 @@ pub struct ModelDetails {
     /// Version of the model
     pub version: Option<SemanticVersion>,
     /// Download sources for model weights
-    pub weights: Option<Vec<Weight>>,
+    pub weights: Option<Weights>,
 }
 /// Struct for using and sharing prompt templates
 ///
@@ -589,6 +589,10 @@ pub struct Weight {
     /// Quantization format used for the weights
     pub quantization: Option<Quantization>,
 }
+/// Collection of model weight sources
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+#[serde(transparent)]
+pub struct Weights(pub Vec<Weight>);
 impl Default for FrontMatter {
     fn default() -> Self {
         FrontMatter::init().build()
@@ -898,7 +902,7 @@ where
 }
 fn validate_open_weights(details: &ModelDetails) -> Result<(), ValidationError> {
     let ModelDetails { open_weights, weights, .. } = details;
-    let has_open_weight = weights.iter().flatten().any(|w| w.is_open == Some(true));
+    let has_open_weight = weights.iter().flat_map(|weights| &weights.0).any(|weight| weight.is_open == Some(true));
     if has_open_weight && !open_weights.unwrap_or(false) {
         Err(ValidationError::new("open_weights").with_message("open_weights must be true when any weight has is_open: true".into()))
     } else {

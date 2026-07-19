@@ -34,6 +34,8 @@ pub const APPLICATION: &str = "acorn";
 pub const ORGANIZATION: &str = "ornl";
 /// Organization qualifier.
 pub const QUALIFIER: &str = "org";
+/// Default HuggingFace domain
+pub const DEFAULT_HUGGINGFACE_DOMAIN: &str = "huggingface.co";
 /// Default Hugging Face repository revision used when none is specified.
 pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";
 /// Default model search result limit.
