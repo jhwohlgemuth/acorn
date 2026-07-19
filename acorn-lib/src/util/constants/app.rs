@@ -34,6 +34,12 @@ pub const APPLICATION: &str = "acorn";
 pub const ORGANIZATION: &str = "ornl";
 /// Organization qualifier.
 pub const QUALIFIER: &str = "org";
+/// Default Hugging Face repository revision used when none is specified.
+pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";
+/// Default model search result limit.
+pub const DEFAULT_HUGGINGFACE_SEARCH_LIMIT: usize = 20;
+/// Default Hugging Face model search term.
+pub const DEFAULT_HUGGINGFACE_SEARCH_TERM: &str = "gguf";
 /// Default cache TTL in seconds (1 month = 30 days)
 pub const DEFAULT_CACHE_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
 /// File size threshold in bytes for switching to large-file read strategy (100 MB).

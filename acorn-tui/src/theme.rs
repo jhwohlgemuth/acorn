@@ -20,13 +20,14 @@ pub struct Theme {
     pub selection_fg: Color,
 }
 impl Theme {
-    pub const NAMES: [&'static str; 6] = [
+    pub const NAMES: [&'static str; 7] = [
         "nord",
         "one-dark",
         "high-contrast-dark",
         "high-contrast-light",
         "colorblind",
         "monochrome",
+        "ornl",
     ];
     pub fn nord() -> Self {
         Self {
@@ -124,6 +125,22 @@ impl Theme {
             selection_fg: Color::Black,
         }
     }
+    pub fn ornl() -> Self {
+        Self {
+            name: "ornl",
+            bg: Color::Rgb(55, 58, 54),
+            surface: Color::Rgb(0, 69, 77),
+            text: Color::Rgb(255, 255, 255),
+            text_muted: Color::Rgb(219, 220, 219),
+            border: Color::Rgb(0, 87, 118),
+            accent: Color::Rgb(0, 102, 44),
+            success: Color::Rgb(125, 186, 0),
+            warning: Color::Rgb(255, 158, 27),
+            error: Color::Rgb(254, 80, 0),
+            selection_bg: Color::Rgb(0, 102, 44),
+            selection_fg: Color::Rgb(255, 255, 255),
+        }
+    }
     pub fn from_env() -> Self {
         if var("NO_COLOR").is_ok() {
             Self::monochrome()
@@ -139,6 +156,7 @@ impl Theme {
             | "high-contrast-light" | "high_contrast_light" => Some(Self::high_contrast_light()),
             | "colorblind" | "color-blind" => Some(Self::colorblind()),
             | "monochrome" | "no-color" | "no_color" => Some(Self::monochrome()),
+            | "ornl" => Some(Self::ornl()),
             | _ => None,
         }
     }

@@ -6,6 +6,7 @@ use crate::io::download::{DownloadItem, DownloadItems};
 use crate::io::{first_env_var, http, ApiResult};
 use crate::prelude::{HashMap, Path};
 use crate::schema::agent::Quantization;
+use crate::util::constants::app::{DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_HUGGINGFACE_SEARCH_TERM};
 use crate::util::constants::env::HUGGINGFACE_TOKEN_VARIABLE_NAMES;
 use crate::util::{glob_matches, regex_to_glob, Label};
 use alloc::boxed::Box;
@@ -19,13 +20,6 @@ use futures::{future::join_all, TryStreamExt};
 use hf_hub::{repository::ModelInfo, HFClient};
 use serde_json::Value;
 use tracing::{info, warn};
-
-/// Default Hugging Face repository revision used when none is specified.
-pub const DEFAULT_MODEL_REVISION: &str = "main";
-/// Default model search result limit.
-pub const DEFAULT_SEARCH_LIMIT: usize = 200;
-/// Default Hugging Face model search term.
-pub const DEFAULT_SEARCH_TERM: &str = "gguf";
 
 /// Candidate repositories returned by model search.
 pub type Candidates = Vec<Candidate>;
@@ -59,6 +53,10 @@ pub trait HuggingFaceRepository {
 pub trait CandidateSelection {
     /// Select a candidate using the selector configured in `options` when interaction is required.
     fn select(self, options: &Options) -> ApiResult<String>;
+    /// Fallback selector used when the interactive picker is unavailable.
+    ///
+    /// Picks the most-downloaded candidate and warns the user.
+    fn select_interactively(self, options: &Options) -> ApiResult<String>;
 }
 /// Errors produced by Hugging Face repository selection and download helpers
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -91,6 +89,18 @@ pub enum HuggingFaceError {
         reason: Box<str>,
     },
 }
+/// GGUF repository metadata returned by fallback discovery.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Candidate {
+    /// Hugging Face repository identifier
+    pub id: String,
+    /// Downloads during the repository's reported period
+    pub downloads: u64,
+    /// Repository like count
+    pub likes: Option<u64>,
+    /// Quantization formats detected in repository filenames
+    pub quantizations: Vec<String>,
+}
 /// Policy for selecting a preferred file when multiple candidates exist.
 #[derive(Clone, Debug)]
 pub struct FileSelectionPolicy<'a> {
@@ -111,7 +121,7 @@ pub struct Options {
     /// Model repository identifier
     pub identifier: Option<String>,
     /// Model repository revision (branch, tag, or commit)
-    #[builder(default = String::from(DEFAULT_MODEL_REVISION))]
+    #[builder(default = String::from(DEFAULT_HUGGINGFACE_MODEL_REVISION))]
     pub revision: String,
     /// Repository path used for tree requests
     pub path: Option<String>,
@@ -129,14 +139,14 @@ pub struct Options {
     #[builder(default)]
     pub no_fallback: bool,
     /// Maximum number of repositories considered during GGUF fallback discovery
-    #[builder(default = DEFAULT_SEARCH_LIMIT)]
-    pub gguf_search_limit: usize,
+    #[builder(default = DEFAULT_HUGGINGFACE_SEARCH_LIMIT)]
+    pub search_limit: usize,
     /// Whether multiple GGUF fallback repositories should be selected interactively
     #[builder(default)]
     pub interactive: bool,
     /// Selector used when multiple repositories require interactive selection
-    #[builder(default = select_interactively)]
-    pub candidate_selector: CandidateSelector,
+    #[builder(default = select_first)]
+    pub selector: CandidateSelector,
     /// Custom API parameters to include in every request
     #[builder(default = vec![])]
     pub custom_params: Vec<Param>,
@@ -153,18 +163,6 @@ pub struct HuggingFaceRepositoryFile {
     pub path: String,
     /// File size in bytes, when provided by Hugging Face
     pub size: Option<u64>,
-}
-/// GGUF repository metadata returned by fallback discovery.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Candidate {
-    /// Hugging Face repository identifier
-    pub id: String,
-    /// Downloads during the repository's reported period
-    pub downloads: u64,
-    /// Repository like count
-    pub likes: Option<u64>,
-    /// Quantization formats detected in repository filenames
-    pub quantizations: Vec<String>,
 }
 impl fmt::Display for Candidate {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -196,7 +194,7 @@ impl CandidateSelection for Candidates {
             | [] => Err(eyre!(HuggingFaceError::NoGgufQuantizationRepository {
                 identifier: base_model.into()
             })),
-            | [candidate] => Ok(candidate.id.clone()),
+            | [candidate] => Ok(candidate.to_string()),
             | [candidate, ..] if !options.interactive => {
                 if !options.quiet {
                     info!(
@@ -204,21 +202,21 @@ impl CandidateSelection for Candidates {
                         Label::CAUTION
                     );
                 }
-                Ok(candidate.id.clone())
+                Ok(candidate.to_string())
             }
-            | _ => (options.candidate_selector)(self, options),
+            | _ => (options.selector)(self, options),
         }
     }
-}
-fn select_interactively(candidates: Candidates, options: &Options) -> ApiResult<String> {
-    let candidate = candidates.first().ok_or_else(|| eyre!("GGUF search returned no candidates"))?;
-    if !options.quiet {
-        warn!(
-            "=> {} Interactive GGUF picker is unavailable; using most downloaded: '{candidate}'",
-            Label::CAUTION
-        );
+    fn select_interactively(self, options: &Options) -> ApiResult<String> {
+        let candidate = self.first().ok_or_else(|| eyre!("GGUF search returned no candidates"))?;
+        if !options.quiet {
+            warn!(
+                "=> {} Interactive GGUF picker is unavailable; using most downloaded: '{candidate}'",
+                Label::CAUTION
+            );
+        }
+        Ok(candidate.to_string())
     }
-    Ok(candidate.id.clone())
 }
 impl fmt::Display for HuggingFaceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -405,10 +403,37 @@ pub fn auth_headers() -> HeaderMap {
 pub fn has_auth_token() -> bool {
     first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).is_some()
 }
+/// List files in a Hugging Face model repository at `revision`
+pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<HuggingFaceRepositoryFiles> {
+    let template = "huggingface::api";
+    let action = "tree";
+    let params = Params::new()
+        .with_auth(first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).unwrap_or_default().as_str(), None)
+        .with_template("identifier", Some(identifier))
+        .with_template("revision", Some(revision))
+        .with_keyvalue("recursive", Some("1"))
+        .build();
+    match Endpoint::from_template(template) {
+        | Ok(endpoint) => match endpoint.invoke(action, Some(params)).await {
+            | Ok(ResponseContent::Json(content)) => serde_json::from_str::<Vec<TreeEntry>>(&content)
+                .map(|entries| {
+                    entries
+                        .into_iter()
+                        .filter(TreeEntry::is_file)
+                        .map(HuggingFaceRepositoryFile::from)
+                        .collect()
+                })
+                .map_err(|why| eyre!("Failed to parse Hugging Face repository file list — {why}")),
+            | Ok(_) => Err(eyre!("Failed to list Hugging Face model files — response was not JSON")),
+            | Err(why) => Err(eyre!("Failed to list Hugging Face model files — {why}")),
+        },
+        | Err(why) => Err(eyre!("Failed to configure Hugging Face API — {why}")),
+    }
+}
 /// Find repositories matching `term` that declare `identifier` as their source, sorted by downloads.
 pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) -> ApiResult<Candidates> {
-    let term = term.unwrap_or(DEFAULT_SEARCH_TERM);
-    let limit = limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+    let term = term.unwrap_or(DEFAULT_HUGGINGFACE_SEARCH_TERM);
+    let limit = limit.unwrap_or(DEFAULT_HUGGINGFACE_SEARCH_LIMIT);
     let basename = identifier.rsplit('/').next().filter(|value| !value.is_empty());
     match (basename, HFClient::new()) {
         | (Some(basename), Ok(client)) => {
@@ -454,33 +479,6 @@ pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) 
         })),
     }
 }
-/// List files in a Hugging Face model repository at `revision`
-pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<HuggingFaceRepositoryFiles> {
-    let template = "huggingface::api";
-    let action = "tree";
-    let params = Params::new()
-        .with_auth(first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).unwrap_or_default().as_str(), None)
-        .with_template("identifier", Some(identifier))
-        .with_template("revision", Some(revision))
-        .with_keyvalue("recursive", Some("1"))
-        .build();
-    match Endpoint::from_template(template) {
-        | Ok(endpoint) => match endpoint.invoke(action, Some(params)).await {
-            | Ok(ResponseContent::Json(content)) => serde_json::from_str::<Vec<TreeEntry>>(&content)
-                .map(|entries| {
-                    entries
-                        .into_iter()
-                        .filter(TreeEntry::is_file)
-                        .map(HuggingFaceRepositoryFile::from)
-                        .collect()
-                })
-                .map_err(|why| eyre!("Failed to parse Hugging Face repository file list — {why}")),
-            | Ok(_) => Err(eyre!("Failed to list Hugging Face model files — response was not JSON")),
-            | Err(why) => Err(eyre!("Failed to list Hugging Face model files — {why}")),
-        },
-        | Err(why) => Err(eyre!("Failed to configure Hugging Face API — {why}")),
-    }
-}
 fn extract_sha256(content: &str) -> Option<String> {
     content
         .split_whitespace()
@@ -518,6 +516,13 @@ fn is_quantized_base_model_tag(tag: &str, identifier: &str) -> bool {
         }
         | _ => false,
     }
+}
+fn select_first(candidates: Candidates, _options: &Options) -> ApiResult<String> {
+    candidates
+        .into_iter()
+        .next()
+        .map(|candidate| candidate.to_string())
+        .ok_or_else(|| eyre!("GGUF search returned no candidates"))
 }
 fn target_path_from_sidecar(path: &str) -> Option<String> {
     path.strip_suffix(".sha256")
