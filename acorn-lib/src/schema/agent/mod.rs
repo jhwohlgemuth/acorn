@@ -295,6 +295,25 @@ pub enum Quantization {
     #[display("{}", _0)]
     Other(String),
 }
+impl Quantization {
+    /// Detect a quantization tag in a GGUF filename.
+    pub fn from_gguf_filename(filename: &str) -> Option<Self> {
+        let filename = filename.to_ascii_uppercase();
+        filename.strip_suffix(".GGUF").and_then(|stem| {
+            stem.split(['-', '.'])
+                .find(|part| {
+                    matches!(*part, "F16" | "BF16")
+                        || part
+                            .strip_prefix('Q')
+                            .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
+                        || part
+                            .strip_prefix("IQ")
+                            .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
+                })
+                .map(Self::from)
+        })
+    }
+}
 /// Benchmark evaluation result
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]

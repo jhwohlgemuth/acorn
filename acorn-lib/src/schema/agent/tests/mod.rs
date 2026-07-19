@@ -69,6 +69,18 @@ fn quantization_lowercase_from_str_round_trips() {
     assert_eq!(mapped.to_string(), "Q2_K");
 }
 #[test]
+fn quantization_from_gguf_filename_detects_known_and_custom_values() {
+    assert_eq!(
+        Quantization::from_gguf_filename("model-Q4_K_M.gguf").map(|value| value.to_string()),
+        Some("Q4_K_M".to_string())
+    );
+    assert_eq!(
+        Quantization::from_gguf_filename("model-IQ4_XS-00001-of-00002.gguf").map(|value| value.to_string()),
+        Some("IQ4_XS".to_string())
+    );
+    assert!(Quantization::from_gguf_filename("model-Q4_K_M.safetensors").is_none());
+}
+#[test]
 fn weight_quantization_round_trips_in_json() {
     let weight = crate::schema::agent::Weight {
         label: "Q4_K_M".to_string(),

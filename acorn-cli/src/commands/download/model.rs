@@ -1,5 +1,5 @@
 use crate::cli::{CommandOptions, Void};
-use acorn::io::api::huggingface::{self, HuggingFaceError, HuggingFaceRepository};
+use acorn::io::api::huggingface::{self, CandidateSelection, HuggingFaceError, HuggingFaceRepository};
 use acorn::io::api::models_dev;
 use acorn::io::config::{ApplicationConfiguration, AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions};
 use acorn::io::database::schema::ModelRow;
@@ -7,6 +7,8 @@ use acorn::io::database::Row;
 use acorn::io::download::{DownloadItem, DownloadItems};
 use acorn::io::source::source_from_weights;
 use acorn::io::{home_directory, ApiResult, InputOutput, Source, SourceAction};
+#[cfg(feature = "tui")]
+use acorn::prelude::io;
 use acorn::prelude::{create_dir_all, HashSet, Path, PathBuf, String, Vec};
 use acorn::schema::agent::Weight;
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
@@ -16,8 +18,12 @@ use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use fluent_uri::Uri;
 use futures::future::join_all;
+#[cfg(feature = "tui")]
+use is_terminal::IsTerminal;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
+#[cfg(feature = "tui")]
+use tracing::warn;
 use tracing::{error, info};
 
 /// Download model weights for use with acorn research harnesses and local inference
@@ -37,6 +43,7 @@ pub async fn run(
     whitelist: &[String],
     no_fallback: bool,
     gguf_search_limit: usize,
+    interactive: bool,
 ) -> Void {
     let quiet = verbose.is_silent();
     let action = SourceAction::from_options(copy, symlink);
@@ -111,6 +118,7 @@ pub async fn run(
                         .offline(offline)
                         .no_fallback(no_fallback)
                         .gguf_search_limit(gguf_search_limit)
+                        .interactive(interactive)
                         .quiet(quiet)
                         .skip_verify_checksum(skip_verify_checksum)
                         .maybe_filter(regex_join(&filter))
@@ -316,6 +324,7 @@ impl ModelDownloadPlan {
                                 offline,
                                 no_fallback,
                                 gguf_search_limit,
+                                interactive,
                                 quiet,
                                 skip_verify_checksum,
                                 ..
@@ -329,11 +338,17 @@ impl ModelDownloadPlan {
                                 .offline(offline)
                                 .no_fallback(no_fallback)
                                 .gguf_search_limit(gguf_search_limit)
+                                .interactive(interactive)
                                 .skip_verify_checksum(skip_verify_checksum)
                                 .build();
+                            #[cfg(feature = "tui")]
+                            let options = huggingface::Options {
+                                candidate_selector: run_gguf_picker,
+                                ..options
+                            };
                             let is_gguf_error = |e: &eyre::Report| e.downcast_ref::<HuggingFaceError>() == Some(&HuggingFaceError::NoGgufModelFiles);
                             match files.download(&options).await {
-                                | Err(why) if files.should_use_fallback(&options) && !is_gguf_error(&why) => {
+                                | Err(why) if files.should_use_fallback(&options) && is_gguf_error(&why) => {
                                     download_gguf_fallback(&root, options).await
                                 }
                                 | result => result,
@@ -356,14 +371,15 @@ impl ModelDownloadPlan {
 async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<String> {
     let huggingface::Options {
         identifier,
-        quiet,
-        gguf_search_limit,
         filter,
         ignore,
+        quiet,
         offline,
+        gguf_search_limit,
+        interactive,
         skip_verify_checksum,
         ..
-    } = options;
+    } = &options;
     match identifier.as_deref() {
         | Some(identifier) => {
             if !quiet {
@@ -373,34 +389,58 @@ async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> A
                     identifier
                 );
             }
-            match huggingface::find_best_gguf(identifier, gguf_search_limit).await {
-                | Ok(fallback_identifier) => {
-                    let destination = root.join(&fallback_identifier);
-                    match create_dir_all(&destination) {
-                        | Ok(()) => match huggingface::repository_tree(&fallback_identifier, huggingface::DEFAULT_MODEL_REVISION).await {
-                            | Ok(files) => {
-                                let fallback_options = huggingface::Options::init()
-                                    .identifier(&fallback_identifier)
-                                    .maybe_filter(filter)
-                                    .maybe_ignore(ignore)
-                                    .output(destination.to_absolute_string())
-                                    .quiet(quiet)
-                                    .offline(offline)
-                                    .no_fallback(true)
-                                    .gguf_search_limit(gguf_search_limit)
-                                    .skip_verify_checksum(skip_verify_checksum)
-                                    .build();
-                                files.download(&fallback_options).await
-                            }
-                            | Err(why) => Err(why),
-                        },
-                        | Err(why) => Err(eyre!(why)),
+            match huggingface::search(identifier, None, Some(*gguf_search_limit)).await {
+                | Ok(candidates) => match candidates.select(&options) {
+                    | Ok(fallback_identifier) => {
+                        let destination = root.join(&fallback_identifier);
+                        match create_dir_all(&destination) {
+                            | Ok(()) => match huggingface::repository_tree(&fallback_identifier, huggingface::DEFAULT_MODEL_REVISION).await {
+                                | Ok(files) => {
+                                    let fallback_options = huggingface::Options::init()
+                                        .identifier(&fallback_identifier)
+                                        .maybe_filter(filter.clone())
+                                        .maybe_ignore(ignore.clone())
+                                        .output(destination.to_absolute_string())
+                                        .quiet(*quiet)
+                                        .offline(*offline)
+                                        .no_fallback(true)
+                                        .gguf_search_limit(*gguf_search_limit)
+                                        .interactive(*interactive)
+                                        .skip_verify_checksum(*skip_verify_checksum)
+                                        .build();
+                                    files.download(&fallback_options).await
+                                }
+                                | Err(why) => Err(why),
+                            },
+                            | Err(why) => Err(eyre!(why)),
+                        }
                     }
-                }
+                    | Err(why) => Err(why),
+                },
                 | Err(why) => Err(why),
             }
         }
         | None => Err(eyre!("Model identifier is not configured for GGUF fallback")),
+    }
+}
+#[cfg(feature = "tui")]
+fn run_gguf_picker(candidates: huggingface::Candidates, options: &huggingface::Options) -> ApiResult<String> {
+    if !io::stdout().is_terminal() {
+        let candidate = candidates.first().ok_or_else(|| eyre!("GGUF search returned no candidates"))?;
+        if !options.quiet {
+            warn!(
+                "=> {} Interactive GGUF picker requires a terminal; using most downloaded: '{candidate}'",
+                Label::CAUTION
+            );
+        }
+        Ok(candidate.id.clone())
+    } else {
+        let state = acorn_tui::State::new(acorn_tui::GgufPickerData {
+            candidates: candidates.into_iter().map(acorn_tui::Candidate::from).collect(),
+            base_model: options.identifier.clone().unwrap_or_default(),
+            result: None,
+        });
+        acorn_tui::run_tui_with(acorn_tui::Screen::GgufPicker, Some(state))?.ok_or_else(|| eyre!("GGUF repository selection cancelled"))
     }
 }
 async fn download_remote_model(options: CommandOptions) -> ApiResult<()> {

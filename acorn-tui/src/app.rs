@@ -2,6 +2,7 @@ use crate::screens;
 use crate::theme::Theme;
 use crate::Screen;
 use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
+use acorn::io::api::huggingface;
 use color_eyre::eyre::Result;
 use crossterm::event;
 use ratatui::backend::CrosstermBackend;
@@ -9,23 +10,45 @@ use ratatui::Terminal;
 use std::io::Stdout;
 use std::time::{Duration, Instant};
 
-type ThemeBuilder = fn() -> Theme;
-
 /// Main application state
 pub struct App {
     /// Whether the app should quit
     pub should_quit: bool,
     /// Current screen
     pub current_screen: Screen,
+    /// Splash screen command composer state
+    pub dashboard: State<DashboardData>,
     /// Doctor screen state
     pub doctor: DoctorState,
     /// Check screen state
     #[allow(dead_code)]
     pub check: CheckState,
+    /// GGUF picker state
+    pub gguf_picker: Option<State<GgufPickerData>>,
+    /// Theme picker state
+    pub theme_picker: State<ThemePickerData>,
     /// Current theme
     pub theme: Theme,
     /// When the theme was last changed (for debounce)
     theme_last_changed: Instant,
+}
+/// Selection state shared by interactive screens.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct State<T> {
+    /// Screen-specific data
+    pub data: T,
+    /// Currently selected item index
+    pub selected: usize,
+}
+/// Data for the splash screen command composer.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DashboardData {
+    /// Text currently entered in the composer
+    pub input: String,
+    /// Directory in which the TUI started
+    pub working_directory: String,
+    /// Time at which the TUI started
+    pub started_at: Instant,
 }
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
@@ -36,6 +59,44 @@ pub struct CheckState {
     pub selected_index: usize,
     /// Whether loaded
     pub loaded: bool,
+}
+/// A GGUF repository presented by the interactive picker.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Candidate {
+    /// Hugging Face repository identifier
+    pub id: String,
+    /// Downloads during the repository's reported period
+    pub downloads: u64,
+    /// Repository like count
+    pub likes: Option<u64>,
+    /// Quantization formats detected in repository filenames
+    pub quantizations: Vec<String>,
+}
+impl From<huggingface::Candidate> for Candidate {
+    fn from(candidate: huggingface::Candidate) -> Self {
+        Self {
+            id: candidate.id,
+            downloads: candidate.downloads,
+            likes: candidate.likes,
+            quantizations: candidate.quantizations,
+        }
+    }
+}
+/// Data for selecting a GGUF repository.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GgufPickerData {
+    /// Candidates sorted by downloads descending
+    pub candidates: Vec<Candidate>,
+    /// Base model used for discovery
+    pub base_model: String,
+    /// Selected repository ID
+    pub result: Option<String>,
+}
+/// Data for selecting a terminal theme.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ThemePickerData {
+    /// Available theme names
+    pub names: Vec<&'static str>,
 }
 /// Diagnostic data populated once on entering doctor screen
 #[derive(Clone, Debug)]
@@ -122,9 +183,14 @@ impl App {
         Self {
             should_quit: false,
             current_screen: initial_screen,
+            dashboard: State::new(DashboardData::new()),
             theme: Theme::from_env(),
             doctor: DoctorState::new(),
             check: CheckState::new(),
+            gguf_picker: None,
+            theme_picker: State::new(ThemePickerData {
+                names: Theme::NAMES.to_vec(),
+            }),
             theme_last_changed: Instant::now(),
         }
     }
@@ -147,20 +213,34 @@ impl App {
             | Screen::Dashboard => screens::dashboard::render(f, self),
             | Screen::Doctor => screens::doctor::render(f, self),
             | Screen::Check => screens::check::render(f, self),
+            | Screen::GgufPicker => screens::gguf_picker::render(f, self),
+            | Screen::ThemePicker => screens::theme_picker::render(f, self),
         }
     }
     fn handle_event(&mut self, evt: event::Event) {
-        if let event::Event::Key(key) = &evt {
-            if key.kind == event::KeyEventKind::Press && (key.code == event::KeyCode::Char('t') || key.code == event::KeyCode::Char('T')) {
-                self.cycle_theme();
-                return;
+        if self.current_screen != Screen::Dashboard {
+            if let event::Event::Key(key) = &evt {
+                if key.kind == event::KeyEventKind::Press && (key.code == event::KeyCode::Char('t') || key.code == event::KeyCode::Char('T')) {
+                    self.cycle_theme();
+                    return;
+                }
             }
         }
         match self.current_screen {
             | Screen::Dashboard => screens::dashboard::handle_event(self, evt),
             | Screen::Doctor => screens::doctor::handle_event(self, evt),
             | Screen::Check => screens::check::handle_event(self, evt),
+            | Screen::GgufPicker => screens::gguf_picker::handle_event(self, evt),
+            | Screen::ThemePicker => screens::theme_picker::handle_event(self, evt),
         }
+    }
+    /// Set the state used by the GGUF picker screen.
+    pub fn set_gguf_picker(&mut self, state: State<GgufPickerData>) {
+        self.gguf_picker = Some(state);
+    }
+    /// Take the repository ID selected by the GGUF picker.
+    pub fn take_gguf_picker_result(&mut self) -> Option<String> {
+        self.gguf_picker.as_mut().and_then(|state| state.data.result.take())
     }
     /// Cycle between available themes
     pub fn cycle_theme(&mut self) {
@@ -169,10 +249,17 @@ impl App {
             return;
         }
         self.theme_last_changed = Instant::now();
-        const THEMES: &[(ThemeBuilder, &str)] = &[(Theme::nord, "nord"), (Theme::one_dark, "one-dark")];
-        let current_idx = THEMES.iter().position(|(_, name)| *name == self.theme.name).unwrap_or(0);
-        let next_idx = (current_idx + 1) % THEMES.len();
-        self.theme = THEMES[next_idx].0();
+        let current_index = Theme::NAMES.iter().position(|name| *name == self.theme.name).unwrap_or(0);
+        let next_index = (current_index + 1) % Theme::NAMES.len();
+        if let Some(theme) = Theme::named(Theme::NAMES[next_index]) {
+            self.theme = theme;
+        }
+    }
+    /// Select a theme by name.
+    pub fn set_theme(&mut self, name: &str) {
+        if let Some(theme) = Theme::named(name) {
+            self.theme = theme;
+        }
     }
     /// Navigate to a different screen
     pub fn navigate_to(&mut self, screen: Screen) {
@@ -267,6 +354,23 @@ impl App {
         self.doctor.loaded = false;
         self.doctor.data = None;
         self.load_doctor_data();
+    }
+}
+impl<T> State<T> {
+    /// Create screen state with the first item selected.
+    pub fn new(data: T) -> Self {
+        Self { data, selected: 0 }
+    }
+}
+impl DashboardData {
+    fn new() -> Self {
+        Self {
+            input: String::new(),
+            working_directory: std::env::current_dir()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|_| String::from("unknown")),
+            started_at: Instant::now(),
+        }
     }
 }
 impl CheckState {

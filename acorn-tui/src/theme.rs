@@ -1,4 +1,5 @@
 use acorn::prelude::var;
+use acorn::util::constants::env::TUI_THEME;
 use ratatui::style::Color;
 
 #[derive(Clone)]
@@ -19,6 +20,14 @@ pub struct Theme {
     pub selection_fg: Color,
 }
 impl Theme {
+    pub const NAMES: [&'static str; 6] = [
+        "nord",
+        "one-dark",
+        "high-contrast-dark",
+        "high-contrast-light",
+        "colorblind",
+        "monochrome",
+    ];
     pub fn nord() -> Self {
         Self {
             name: "nord",
@@ -51,10 +60,96 @@ impl Theme {
             selection_fg: Color::Rgb(40, 44, 52),
         }
     }
-    pub fn from_env() -> Self {
-        match var("ACORN_TUI_THEME").as_deref() {
-            | Ok("one-dark" | "one_dark") => Self::one_dark(),
-            | _ => Self::nord(),
+    pub fn high_contrast_dark() -> Self {
+        Self {
+            name: "high-contrast-dark",
+            bg: Color::Black,
+            surface: Color::DarkGray,
+            text: Color::White,
+            text_muted: Color::Gray,
+            border: Color::White,
+            accent: Color::Cyan,
+            success: Color::Green,
+            warning: Color::Yellow,
+            error: Color::LightRed,
+            selection_bg: Color::White,
+            selection_fg: Color::Black,
         }
+    }
+    pub fn high_contrast_light() -> Self {
+        Self {
+            name: "high-contrast-light",
+            bg: Color::White,
+            surface: Color::Gray,
+            text: Color::Black,
+            text_muted: Color::DarkGray,
+            border: Color::Black,
+            accent: Color::Blue,
+            success: Color::Rgb(0, 96, 0),
+            warning: Color::Rgb(128, 80, 0),
+            error: Color::Rgb(180, 0, 0),
+            selection_bg: Color::Blue,
+            selection_fg: Color::White,
+        }
+    }
+    pub fn colorblind() -> Self {
+        Self {
+            name: "colorblind",
+            bg: Color::Rgb(24, 24, 24),
+            surface: Color::Rgb(44, 44, 44),
+            text: Color::White,
+            text_muted: Color::Rgb(190, 190, 190),
+            border: Color::Rgb(86, 180, 233),
+            accent: Color::Rgb(86, 180, 233),
+            success: Color::Rgb(0, 158, 115),
+            warning: Color::Rgb(230, 159, 0),
+            error: Color::Rgb(213, 94, 0),
+            selection_bg: Color::Rgb(0, 114, 178),
+            selection_fg: Color::White,
+        }
+    }
+    pub fn monochrome() -> Self {
+        Self {
+            name: "monochrome",
+            bg: Color::Black,
+            surface: Color::Black,
+            text: Color::White,
+            text_muted: Color::Gray,
+            border: Color::Gray,
+            accent: Color::White,
+            success: Color::White,
+            warning: Color::White,
+            error: Color::White,
+            selection_bg: Color::White,
+            selection_fg: Color::Black,
+        }
+    }
+    pub fn from_env() -> Self {
+        if var("NO_COLOR").is_ok() {
+            Self::monochrome()
+        } else {
+            var(TUI_THEME).ok().and_then(|name| Self::named(&name)).unwrap_or_else(Self::nord)
+        }
+    }
+    pub fn named(name: &str) -> Option<Self> {
+        match name {
+            | "nord" => Some(Self::nord()),
+            | "one-dark" | "one_dark" => Some(Self::one_dark()),
+            | "high-contrast-dark" | "high_contrast_dark" => Some(Self::high_contrast_dark()),
+            | "high-contrast-light" | "high_contrast_light" => Some(Self::high_contrast_light()),
+            | "colorblind" | "color-blind" => Some(Self::colorblind()),
+            | "monochrome" | "no-color" | "no_color" => Some(Self::monochrome()),
+            | _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Theme;
+
+    #[test]
+    fn test_every_named_theme_resolves() {
+        assert!(Theme::NAMES.iter().all(|name| Theme::named(name).is_some()));
     }
 }

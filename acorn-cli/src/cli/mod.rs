@@ -64,6 +64,9 @@ pub struct CommandOptions {
     /// Maximum number of repositories considered during GGUF fallback discovery
     #[builder(default = 200)]
     pub gguf_search_limit: usize,
+    /// Flag used to select a GGUF fallback repository interactively
+    #[builder(default)]
+    pub interactive: bool,
     /// Flag used to suppress output
     #[builder(default)]
     pub quiet: bool,

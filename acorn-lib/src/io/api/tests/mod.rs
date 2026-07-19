@@ -307,34 +307,38 @@ mod gguf {
     use crate::io::api::huggingface::HuggingFaceError;
 
     #[test]
-    fn discovery_errors_include_context() {
-        let identifier = "openai/gpt-oss-2b".to_string();
+    fn test_discovery_errors_include_context() {
         assert_eq!(
-            HuggingFaceError::NoGgufQuantizationRepository { identifier }.to_string(),
+            HuggingFaceError::NoGgufQuantizationRepository {
+                identifier: "openai/gpt-oss-2b".into()
+            }
+            .to_string(),
             "no GGUF quantization repo found for openai/gpt-oss-2b"
         );
-        let identifier = "openai/gpt-oss-2b".to_string();
         assert_eq!(
-            HuggingFaceError::InvalidBaseModelIdentifier { identifier }.to_string(),
+            HuggingFaceError::InvalidBaseModelIdentifier {
+                identifier: "openai/gpt-oss-2b".into()
+            }
+            .to_string(),
             "invalid Hugging Face base model identifier: openai/gpt-oss-2b"
         );
         assert_eq!(
             HuggingFaceError::ClientInitializationFailed {
-                reason: "invalid endpoint".to_string()
+                reason: "invalid endpoint".into()
             }
             .to_string(),
             "failed to initialize Hugging Face client: invalid endpoint"
         );
         assert_eq!(
             HuggingFaceError::ModelSearchConfigurationFailed {
-                reason: "invalid query".to_string()
+                reason: "invalid query".into()
             }
             .to_string(),
             "failed to configure Hugging Face model search: invalid query"
         );
         assert_eq!(
             HuggingFaceError::ModelSearchFailed {
-                reason: "request failed".to_string()
+                reason: "request failed".into()
             }
             .to_string(),
             "failed to search Hugging Face models: request failed"

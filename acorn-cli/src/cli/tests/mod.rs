@@ -127,6 +127,17 @@ fn test_download_model_gguf_search_limit_from_env() {
     });
 }
 #[test]
+fn test_download_model_interactive_flag() {
+    let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b", "--interactive"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Download(arguments)) => match arguments.command {
+            | Some(DownloadCommands::Model(arguments)) => assert!(arguments.interactive),
+            | other => panic!("unexpected download command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
 fn test_bot_identifier_from_ci_project_id_env() {
     temp_env::with_vars([("CI_PROJECT_ID", Some("16689"))], || {
         let serve = Arguments::try_parse_from(["acorn", "serve", "bot"]).unwrap();

@@ -367,6 +367,9 @@ pub(crate) struct DownloadModel {
     /// Disable automatic GGUF quantization repository discovery when the target has no GGUF files
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) no_fallback: bool,
+    /// Open an interactive picker when GGUF fallback finds multiple repositories
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) interactive: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

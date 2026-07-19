@@ -5,20 +5,32 @@ use crate::io::config::FilterSet;
 use crate::io::download::{DownloadItem, DownloadItems};
 use crate::io::{first_env_var, http, ApiResult};
 use crate::prelude::{HashMap, Path};
+use crate::schema::agent::Quantization;
 use crate::util::constants::env::HUGGINGFACE_TOKEN_VARIABLE_NAMES;
-use crate::util::{glob_matches, regex_to_glob};
+use crate::util::{glob_matches, regex_to_glob, Label};
+use alloc::boxed::Box;
+use alloc::collections::BTreeSet;
 use async_trait::async_trait;
 use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::eyre;
-use core::fmt;
+use core::{cmp::Reverse, fmt};
 use futures::{future::join_all, TryStreamExt};
 use hf_hub::{repository::ModelInfo, HFClient};
 use serde_json::Value;
+use tracing::{info, warn};
 
 /// Default Hugging Face repository revision used when none is specified.
 pub const DEFAULT_MODEL_REVISION: &str = "main";
+/// Default model search result limit.
+pub const DEFAULT_SEARCH_LIMIT: usize = 200;
+/// Default Hugging Face model search term.
+pub const DEFAULT_SEARCH_TERM: &str = "gguf";
 
+/// Candidate repositories returned by model search.
+pub type Candidates = Vec<Candidate>;
+/// Function used to select from multiple interactive candidates.
+pub type CandidateSelector = fn(Candidates, &Options) -> ApiResult<String>;
 /// Repository files returned by the Hugging Face repository tree API
 pub type HuggingFaceRepositoryFiles = Vec<HuggingFaceRepositoryFile>;
 /// Trait for selecting and filtering files from a Hugging Face repository.
@@ -43,6 +55,11 @@ pub trait HuggingFaceRepository {
     where
         Self: Sized;
 }
+/// Select a repository from model search candidates.
+pub trait CandidateSelection {
+    /// Select a candidate using the selector configured in `options` when interaction is required.
+    fn select(self, options: &Options) -> ApiResult<String>;
+}
 /// Errors produced by Hugging Face repository selection and download helpers
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HuggingFaceError {
@@ -51,27 +68,27 @@ pub enum HuggingFaceError {
     /// No GGUF quantization repository declares the requested base model
     NoGgufQuantizationRepository {
         /// Requested Hugging Face base-model identifier
-        identifier: String,
+        identifier: Box<str>,
     },
     /// The requested Hugging Face base-model identifier is invalid
     InvalidBaseModelIdentifier {
         /// Invalid Hugging Face base-model identifier
-        identifier: String,
+        identifier: Box<str>,
     },
     /// The Hugging Face client could not be initialized
     ClientInitializationFailed {
         /// Underlying client initialization error
-        reason: String,
+        reason: Box<str>,
     },
     /// The Hugging Face model search could not be configured
     ModelSearchConfigurationFailed {
         /// Underlying search configuration error
-        reason: String,
+        reason: Box<str>,
     },
     /// The Hugging Face model search failed while reading results
     ModelSearchFailed {
         /// Underlying model search error
-        reason: String,
+        reason: Box<str>,
     },
 }
 /// Policy for selecting a preferred file when multiple candidates exist.
@@ -112,8 +129,14 @@ pub struct Options {
     #[builder(default)]
     pub no_fallback: bool,
     /// Maximum number of repositories considered during GGUF fallback discovery
-    #[builder(default = 200)]
+    #[builder(default = DEFAULT_SEARCH_LIMIT)]
     pub gguf_search_limit: usize,
+    /// Whether multiple GGUF fallback repositories should be selected interactively
+    #[builder(default)]
+    pub interactive: bool,
+    /// Selector used when multiple repositories require interactive selection
+    #[builder(default = select_interactively)]
+    pub candidate_selector: CandidateSelector,
     /// Custom API parameters to include in every request
     #[builder(default = vec![])]
     pub custom_params: Vec<Param>,
@@ -130,6 +153,72 @@ pub struct HuggingFaceRepositoryFile {
     pub path: String,
     /// File size in bytes, when provided by Hugging Face
     pub size: Option<u64>,
+}
+/// GGUF repository metadata returned by fallback discovery.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Candidate {
+    /// Hugging Face repository identifier
+    pub id: String,
+    /// Downloads during the repository's reported period
+    pub downloads: u64,
+    /// Repository like count
+    pub likes: Option<u64>,
+    /// Quantization formats detected in repository filenames
+    pub quantizations: Vec<String>,
+}
+impl fmt::Display for Candidate {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.id)
+    }
+}
+impl From<ModelInfo> for Candidate {
+    fn from(model: ModelInfo) -> Self {
+        let quantizations = model
+            .siblings
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|sibling| Quantization::from_gguf_filename(&sibling.rfilename).map(|quantization| quantization.to_string()))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        Self {
+            id: model.id,
+            downloads: model.downloads.unwrap_or_default(),
+            likes: model.likes,
+            quantizations,
+        }
+    }
+}
+impl CandidateSelection for Candidates {
+    fn select(self, options: &Options) -> ApiResult<String> {
+        let base_model = options.identifier.as_deref().unwrap_or_default();
+        match self.as_slice() {
+            | [] => Err(eyre!(HuggingFaceError::NoGgufQuantizationRepository {
+                identifier: base_model.into()
+            })),
+            | [candidate] => Ok(candidate.id.clone()),
+            | [candidate, ..] if !options.interactive => {
+                if !options.quiet {
+                    info!(
+                        "=> {} Multiple GGUF repositories found; using most downloaded: '{candidate}' (non-interactive mode)",
+                        Label::CAUTION
+                    );
+                }
+                Ok(candidate.id.clone())
+            }
+            | _ => (options.candidate_selector)(self, options),
+        }
+    }
+}
+fn select_interactively(candidates: Candidates, options: &Options) -> ApiResult<String> {
+    let candidate = candidates.first().ok_or_else(|| eyre!("GGUF search returned no candidates"))?;
+    if !options.quiet {
+        warn!(
+            "=> {} Interactive GGUF picker is unavailable; using most downloaded: '{candidate}'",
+            Label::CAUTION
+        );
+    }
+    Ok(candidate.id.clone())
 }
 impl fmt::Display for HuggingFaceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -316,27 +405,17 @@ pub fn auth_headers() -> HeaderMap {
 pub fn has_auth_token() -> bool {
     first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).is_some()
 }
-/// Find the most-downloaded GGUF repository that declares `base_model` as its source.
-///
-/// # Examples
-///
-/// ```no_run
-/// use acorn::io::api::huggingface::find_best_gguf;
-///
-/// # async fn example() -> acorn::io::ApiResult<()> {
-///     let repository = find_best_gguf("openai/gpt-oss-2b", 20).await?;
-///     assert!(repository.contains('/'));
-///     Ok(())
-/// # }
-/// ```
-pub async fn find_best_gguf(identifier: &str, limit: usize) -> ApiResult<String> {
+/// Find repositories matching `term` that declare `identifier` as their source, sorted by downloads.
+pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) -> ApiResult<Candidates> {
+    let term = term.unwrap_or(DEFAULT_SEARCH_TERM);
+    let limit = limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
     let basename = identifier.rsplit('/').next().filter(|value| !value.is_empty());
     match (basename, HFClient::new()) {
         | (Some(basename), Ok(client)) => {
             let response = client
                 .list_models()
                 .search(basename)
-                .filter("gguf")
+                .filter(term)
                 .sort("downloads")
                 .full(true)
                 .card_data(true)
@@ -344,24 +423,35 @@ pub async fn find_best_gguf(identifier: &str, limit: usize) -> ApiResult<String>
                 .send();
             match response {
                 | Ok(stream) => match stream.try_collect::<Vec<ModelInfo>>().await {
-                    | Ok(models) => models
-                        .into_iter()
-                        .filter(|model| is_declared_quantization_of(model, identifier))
-                        .max_by_key(|model| model.downloads.unwrap_or_default())
-                        .map(|ModelInfo { id, .. }| id)
-                        .ok_or_else(|| {
-                            let identifier = identifier.to_string();
-                            eyre!(HuggingFaceError::NoGgufQuantizationRepository { identifier })
-                        }),
-                    | Err(why) => Err(eyre!(HuggingFaceError::ModelSearchFailed { reason: why.to_string() })),
+                    | Ok(models) => {
+                        let mut candidates = models
+                            .into_iter()
+                            .filter(|model| is_declared_quantization_of(model, identifier))
+                            .map(Candidate::from)
+                            .collect::<Vec<_>>();
+                        candidates.sort_by_key(|candidate| Reverse(candidate.downloads));
+                        match candidates.is_empty() {
+                            | true => Err(eyre!(HuggingFaceError::NoGgufQuantizationRepository {
+                                identifier: identifier.into()
+                            })),
+                            | false => Ok(candidates),
+                        }
+                    }
+                    | Err(why) => Err(eyre!(HuggingFaceError::ModelSearchFailed {
+                        reason: why.to_string().into()
+                    })),
                 },
-                | Err(why) => Err(eyre!(HuggingFaceError::ModelSearchConfigurationFailed { reason: why.to_string() })),
+                | Err(why) => Err(eyre!(HuggingFaceError::ModelSearchConfigurationFailed {
+                    reason: why.to_string().into()
+                })),
             }
         }
         | (None, _) => Err(eyre!(HuggingFaceError::InvalidBaseModelIdentifier {
-            identifier: identifier.to_string()
+            identifier: identifier.into()
         })),
-        | (_, Err(why)) => Err(eyre!(HuggingFaceError::ClientInitializationFailed { reason: why.to_string() })),
+        | (_, Err(why)) => Err(eyre!(HuggingFaceError::ClientInitializationFailed {
+            reason: why.to_string().into()
+        })),
     }
 }
 /// List files in a Hugging Face model repository at `revision`
@@ -438,30 +528,42 @@ fn target_path_from_sidecar(path: &str) -> Option<String> {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-    use super::{extract_sha256, is_declared_quantization_of, target_path_from_sidecar, ModelInfo, Value};
+    use super::{extract_sha256, is_declared_quantization_of, target_path_from_sidecar, Candidate, ModelInfo, Value};
     use serde_json::json;
 
     fn model(value: Value) -> ModelInfo {
         serde_json::from_value(value).unwrap()
     }
+
     #[test]
-    fn declared_quantization_matches_base_models_field() {
+    fn test_is_declared_quantization() {
         let candidate = model(json!({"id": "community/quantized", "baseModels": ["OpenAI/GPT-OSS-2B"]}));
         assert!(is_declared_quantization_of(&candidate, "openai/gpt-oss-2b"));
-    }
-    #[test]
-    fn declared_quantization_matches_quantized_tag() {
         let candidate = model(json!({"id": "community/quantized", "tags": ["base_model:quantized:openai/gpt-oss-2b"]}));
         assert!(is_declared_quantization_of(&candidate, "openai/gpt-oss-2b"));
-    }
-    #[test]
-    fn declared_quantization_rejects_unrelated_model() {
         let candidate = model(json!({
             "id": "community/quantized",
             "baseModels": ["other/model"],
             "tags": ["base_model:quantized:other/model"]
         }));
         assert!(!is_declared_quantization_of(&candidate, "openai/gpt-oss-2b"));
+    }
+    #[test]
+    fn test_gguf_candidate_includes_sorted_unique_quantizations() {
+        let candidate = Candidate::from(model(json!({
+            "id": "community/quantized",
+            "downloads": 42,
+            "likes": 7,
+            "siblings": [
+                {"rfilename": "model-Q5_K_M.gguf"},
+                {"rfilename": "model-Q4_K_M.gguf"},
+                {"rfilename": "model-Q4_K_M-00001-of-00002.gguf"}
+            ]
+        })));
+        assert_eq!(candidate.downloads, 42);
+        assert_eq!(candidate.likes, Some(7));
+        assert_eq!(candidate.quantizations, vec!["Q4_K_M", "Q5_K_M"]);
+        assert_eq!(candidate.to_string(), "community/quantized");
     }
     #[test]
     fn test_target_path_from_sidecar() {

@@ -15,6 +15,15 @@ pub const LOGO: &str = r"
 ⠀⠈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⠀⠀⠀⠀⠀⠀⠀    
    ⣿⣿⠿⠿⠿⠿⠿⠿⠟⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀~ Accessible Content Optimization for Research Needs ~
 ";
+/// Compact ASCII art logo for terminal interfaces with limited space.
+pub const COMPACT_LOGO: [&str; 6] = [
+    " █████╗  ██████╗ ██████╗ ██████╗ ███╗   ██╗",
+    "██╔══██╗██╔════╝██╔═══██╗██╔══██╗████╗  ██║",
+    "███████║██║     ██║   ██║██████╔╝██╔██╗ ██║",
+    "██╔══██║██║     ██║   ██║██╔══██╗██║╚██╗██║",
+    "██║  ██║╚██████╗╚██████╔╝██║  ██║██║ ╚████║",
+    "╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝",
+];
 /// Base URL for deploying ORNL data.
 pub const BASE_URL: &str = "https://research.ornl.gov";
 /// ORNL disclaimer.
