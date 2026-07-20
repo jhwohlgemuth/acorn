@@ -58,45 +58,19 @@ use dotenvy;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
-/// Raw OpenAI completions response payload.
+/// Raw OpenAI API response payload.
 ///
 /// The OpenAI-compatible schema is broad and evolves quickly,
 /// so the baseline implementation preserves the full JSON document.
-pub type CompletionResponse = serde_json::Value;
-/// Raw OpenAI chat completion response payload.
-///
-/// The OpenAI-compatible schema is broad and evolves quickly,
-/// so the baseline implementation preserves the full JSON document.
-pub type ChatCompletionResponse = serde_json::Value;
-/// Raw OpenAI responses API payload.
-///
-/// The OpenAI-compatible schema is broad and evolves quickly,
-/// so the baseline implementation preserves the full JSON document.
-pub type CreateResponseOutput = serde_json::Value;
-/// Raw OpenAI embeddings response payload.
-///
-/// The OpenAI-compatible schema is broad and evolves quickly,
-/// so the baseline implementation preserves the full JSON document.
-pub type EmbeddingResponse = serde_json::Value;
+pub type Response = serde_json::Value;
 /// Raw OpenAI audio speech response payload.
 ///
 /// Audio speech usually returns non-JSON audio bytes, so this preserves the raw response text.
 pub type AudioSpeechResponse = TextResponse;
-/// Raw OpenAI audio transcription response payload.
-///
-/// The OpenAI-compatible schema is broad and evolves quickly,
-/// so the baseline implementation preserves the full JSON document.
-pub type AudioTranscriptionResponse = serde_json::Value;
-/// Raw OpenAI audio voices response payload.
-///
-/// The OpenAI-compatible schema is broad and evolves quickly,
-/// so the baseline implementation preserves the full JSON document.
-pub type AudioVoicesResponse = serde_json::Value;
-/// Raw OpenAI image response payload.
-///
-/// The OpenAI-compatible schema is broad and evolves quickly,
-/// so the baseline implementation preserves the full JSON document.
-pub type ImageResponse = serde_json::Value;
+enum BodyMode {
+    Empty,
+    Required,
+}
 /// OpenAI API error payload
 ///
 /// Matches `#/components/schemas/Error` from the OpenAI OpenAPI specification.
@@ -225,9 +199,45 @@ impl Configuration for Options {
         &self.custom_params
     }
 }
-enum BodyMode {
-    Required,
-    Empty,
+/// Create audio speech via `POST /audio/speech`.
+pub async fn audio_speech(options: &Options) -> ApiResult<AudioSpeechResponse> {
+    invoke(options, "audio-speech", BodyMode::Required).await
+}
+/// Create an audio transcription via `POST /audio/transcriptions`.
+pub async fn audio_transcription(options: &Options) -> ApiResult<Response> {
+    invoke(options, "audio-transcription", BodyMode::Required).await
+}
+/// Retrieve available audio voices via `GET /audio/voices`.
+pub async fn audio_voices(options: &Options) -> ApiResult<Response> {
+    invoke(options, "audio-voices", BodyMode::Empty).await
+}
+/// Create a chat completion response via `POST /chat/completions`.
+pub async fn chat_completion(options: &Options) -> ApiResult<Response> {
+    invoke(options, "chat-completion", BodyMode::Required).await
+}
+/// Create a completion via `POST /completions`.
+pub async fn completion(options: &Options) -> ApiResult<Response> {
+    invoke(options, "completion", BodyMode::Required).await
+}
+/// Create embeddings via `POST /embeddings`.
+pub async fn embedding(options: &Options) -> ApiResult<Response> {
+    invoke(options, "embedding", BodyMode::Required).await
+}
+/// Edit an image via `POST /images/edits`.
+pub async fn image_edit(options: &Options) -> ApiResult<Response> {
+    invoke(options, "image-edit", BodyMode::Required).await
+}
+/// Create an image via `POST /images/generations`.
+pub async fn image_generation(options: &Options) -> ApiResult<Response> {
+    invoke(options, "image-generation", BodyMode::Required).await
+}
+/// Retrieve all models available to the authenticated caller.
+pub async fn models(options: &Options) -> ApiResult<ListModelsResponse> {
+    invoke(options, "models", BodyMode::Empty).await
+}
+/// Create a response via `POST /responses`.
+pub async fn response(options: &Options) -> ApiResult<Response> {
+    invoke(options, "response", BodyMode::Required).await
 }
 async fn invoke<R>(options: &Options, action: &str, body_mode: BodyMode) -> ApiResult<R>
 where
@@ -254,44 +264,4 @@ where
         },
         | Err(why) => Err(why),
     }
-}
-/// Create a completion via `POST /completions`.
-pub async fn completion(options: &Options) -> ApiResult<CompletionResponse> {
-    invoke(options, "completion", BodyMode::Required).await
-}
-/// Create a chat completion response via `POST /chat/completions`.
-pub async fn chat_completion(options: &Options) -> ApiResult<ChatCompletionResponse> {
-    invoke(options, "chat-completion", BodyMode::Required).await
-}
-/// Retrieve all models available to the authenticated caller.
-pub async fn models(options: &Options) -> ApiResult<ListModelsResponse> {
-    invoke(options, "models", BodyMode::Empty).await
-}
-/// Create a response via `POST /responses`.
-pub async fn response(options: &Options) -> ApiResult<CreateResponseOutput> {
-    invoke(options, "response", BodyMode::Required).await
-}
-/// Create embeddings via `POST /embeddings`.
-pub async fn embedding(options: &Options) -> ApiResult<EmbeddingResponse> {
-    invoke(options, "embedding", BodyMode::Required).await
-}
-/// Create audio speech via `POST /audio/speech`.
-pub async fn audio_speech(options: &Options) -> ApiResult<AudioSpeechResponse> {
-    invoke(options, "audio-speech", BodyMode::Required).await
-}
-/// Create an audio transcription via `POST /audio/transcriptions`.
-pub async fn audio_transcription(options: &Options) -> ApiResult<AudioTranscriptionResponse> {
-    invoke(options, "audio-transcription", BodyMode::Required).await
-}
-/// Retrieve available audio voices via `GET /audio/voices`.
-pub async fn audio_voices(options: &Options) -> ApiResult<AudioVoicesResponse> {
-    invoke(options, "audio-voices", BodyMode::Empty).await
-}
-/// Create an image via `POST /images/generations`.
-pub async fn image_generation(options: &Options) -> ApiResult<ImageResponse> {
-    invoke(options, "image-generation", BodyMode::Required).await
-}
-/// Edit an image via `POST /images/edits`.
-pub async fn image_edit(options: &Options) -> ApiResult<ImageResponse> {
-    invoke(options, "image-edit", BodyMode::Required).await
 }
