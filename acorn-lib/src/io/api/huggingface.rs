@@ -396,17 +396,13 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
         }
     }
 }
-impl Weights {
-    /// Construct weights from a source location.
-    ///
-    /// For remote Hugging Face sources, `is_open` controls the open-weight flag.
-    /// For local sources, `is_open` is always `Some(true)`.
-    pub fn from_source(source: &Source, is_open: Option<bool>) -> Self {
+impl From<&Source> for Weights {
+    fn from(source: &Source) -> Self {
         match source {
             | Source::Remote { identifier, .. } => Self(vec![Weight {
                 label: "Hugging Face".to_string(),
                 url: format!("https://{DEFAULT_HUGGINGFACE_DOMAIN}/{identifier}"),
-                is_open,
+                is_open: None,
                 quantization: None,
             }]),
             | Source::Local { path, .. } => Self(vec![Weight {
@@ -416,6 +412,27 @@ impl Weights {
                 quantization: None,
             }]),
             | Source::Unsupported(_) => Self::default(),
+        }
+    }
+}
+impl Weights {
+    /// Set the open-weight flag for the primary source.
+    pub fn open(mut self, is_open: Option<bool>) -> Self {
+        if let Some(weight) = self.0.first_mut() {
+            weight.is_open = is_open;
+        }
+        self
+    }
+    /// Construct weights from a source location with explicit open-weight control.
+    ///
+    /// For remote Hugging Face sources, `is_open` controls the open-weight flag.
+    /// For local sources, `is_open` is always `Some(true)`, regardless of the parameter.
+    pub fn from_source(source: &Source, is_open: Option<bool>) -> Self {
+        let weights = Self::from(source);
+        // Only override is_open for Remote sources; Local sources are always Some(true)
+        match source {
+            | Source::Remote { .. } => weights.open(is_open),
+            | _ => weights,
         }
     }
     /// Resolve the first non-empty model weight URL into a downloadable source.

@@ -104,11 +104,23 @@ pub async fn run(
         error!("=> {} {msg}", Label::fail());
         Err(eyre!(msg))
     } else if dry_run {
-        let models = resolve_dry_run(&selectors, offline, gguf_search_limit).await;
+        let models = resolve_models(&selectors, offline, gguf_search_limit).await;
         if raw {
             output_raw(&models, format)
         } else {
-            output_dry_run(&models);
+            info!(
+                "=> {} {} model{} resolved:",
+                Label::run(),
+                models.len().cyan().bold(),
+                suffix(models.len())
+            );
+            for details in models {
+                let (id, context) = details.report();
+                match context {
+                    | Some(ctx) => info!("  {} {} ({})", "→".cyan(), id.green(), ctx.dimmed()),
+                    | None => info!("  {} {}", "→".cyan(), id.green()),
+                }
+            }
             Ok(())
         }
     } else {
@@ -140,8 +152,7 @@ pub async fn run(
                     match plan.execute(options).await {
                         | Ok(resolved_id) => {
                             success_count = success_count.saturating_add(1);
-                            let mut details = plan.details.clone().unwrap_or_else(|| details_from_plan(plan));
-                            details.id = Some(resolved_id);
+                            let details = plan.details.clone().unwrap_or_else(|| plan.into()).with_id(&resolved_id);
                             results.push(details);
                         }
                         | Err(why) => {
@@ -389,76 +400,16 @@ impl ModelDownloadPlan {
         Option::<Source>::from(details.clone()).map(|source| Self::new(source).with_details(details))
     }
 }
-fn details_from_plan(plan: &ModelDownloadPlan) -> ModelDetails {
-    let is_open = Some(plan.auth != AuthenticationRequirement::Required);
-    ModelDetails {
-        id: Some(plan.selector.identifier()),
-        name: Some(plan.name()),
-        weights: Some(Weights::from_source(&plan.selector, is_open)),
-        ..Default::default()
-    }
-}
-async fn resolve_dry_run(plans: &[ModelDownloadPlan], offline: bool, gguf_search_limit: usize) -> Vec<ModelDetails> {
-    let results = join_all(plans.iter().map(|plan| async {
-        match &plan.selector {
-            | Source::Remote { identifier, .. } if !offline => {
-                let base_details = plan.details.clone().unwrap_or_else(|| details_from_plan(plan));
-                match huggingface::search(identifier, None, Some(gguf_search_limit)).await {
-                    | Ok(candidates) => {
-                        let options = huggingface::Options::init()
-                            .identifier(identifier.clone())
-                            .offline(offline)
-                            .search_limit(gguf_search_limit)
-                            .quiet(true)
-                            .build();
-                        match candidates.select(&options) {
-                            | Ok(resolved_id) if resolved_id != *identifier => {
-                                let mut details = base_details;
-                                details.id = Some(resolved_id);
-                                details.fallback = Some(identifier.clone());
-                                details
-                            }
-                            | Ok(_) => base_details,
-                            | Err(why) => {
-                                error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
-                                base_details
-                            }
-                        }
-                    }
-                    | Err(why) => {
-                        error!("=> {} Search candidates for '{}' — {why}", Label::fail(), plan.name());
-                        base_details
-                    }
-                }
-            }
-            | _ => details_from_plan(plan),
-        }
-    }))
-    .await;
-    results
-}
-fn output_dry_run(models: &[ModelDetails]) {
-    info!(
-        "=> {} {} model{} resolved:",
-        Label::run(),
-        models.len().cyan().bold(),
-        suffix(models.len())
-    );
-    for details in models {
-        let (id, context) = details.report();
-        match context {
-            | Some(ctx) => info!("  {} {} ({})", "→".cyan(), id.green(), ctx.dimmed()),
-            | None => info!("  {} {}", "→".cyan(), id.green()),
+impl From<&ModelDownloadPlan> for ModelDetails {
+    fn from(plan: &ModelDownloadPlan) -> Self {
+        let is_open = Some(plan.auth != AuthenticationRequirement::Required);
+        Self {
+            id: Some(plan.selector.identifier()),
+            name: Some(plan.name()),
+            weights: Some(Weights::from_source(&plan.selector, is_open)),
+            ..Default::default()
         }
     }
-}
-fn output_raw(models: &[ModelDetails], format: &OutputFormat) -> Void {
-    let output = match format {
-        | OutputFormat::Yaml => serde_norway::to_string(models).map_err(|why| eyre!("YAML serialization failed — {why}"))?,
-        | OutputFormat::Json => serde_json::to_string_pretty(models).map_err(|why| eyre!("JSON serialization failed — {why}"))?,
-    };
-    println!("{output}");
-    Ok(())
 }
 async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<String> {
     let huggingface::Options {
@@ -596,6 +547,15 @@ fn materialize_local_model(options: CommandOptions) -> ApiResult<String> {
         | None => Err(eyre!("Model selector is not configured")),
     }
 }
+fn output_raw(models: &[ModelDetails], format: &OutputFormat) -> Void {
+    let output = match format {
+        | OutputFormat::Yaml => serde_norway::to_string(models).map_err(|why| eyre!("{format} serialization failed — {why}")),
+        | OutputFormat::Json => serde_json::to_string_pretty(models).map_err(|why| eyre!("{format} serialization failed — {why}")),
+    };
+    output.map(|serialized| {
+        println!("{serialized}");
+    })
+}
 /// Resolve positional selectors against config entries, merge with entry-based plans, and deduplicate by identifier.
 pub(crate) async fn resolve_plans(
     positional: &[String],
@@ -625,6 +585,43 @@ pub(crate) async fn resolve_plans(
         .unique_by(|plan| plan.selector.identifier())
         .collect();
     Ok(plans)
+}
+async fn resolve_models(plans: &[ModelDownloadPlan], offline: bool, limit: usize) -> Vec<ModelDetails> {
+    let results = join_all(plans.iter().map(|plan| {
+        let plan = plan.clone();
+        async move {
+            match &plan.selector {
+                | Source::Remote { identifier, .. } if !offline => {
+                    let base = plan.details.clone().unwrap_or_else(|| ModelDetails::from(&plan));
+                    match huggingface::search(identifier, None, Some(limit)).await {
+                        | Ok(candidates) => {
+                            let options = huggingface::Options::init()
+                                .identifier(identifier.clone())
+                                .offline(offline)
+                                .search_limit(limit)
+                                .quiet(true)
+                                .build();
+                            match candidates.select(&options) {
+                                | Ok(resolved) if resolved != *identifier => base.with_id(&resolved).with_fallback(identifier),
+                                | Ok(_) => base,
+                                | Err(why) => {
+                                    error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
+                                    base
+                                }
+                            }
+                        }
+                        | Err(why) => {
+                            error!("=> {} Search candidates for '{}' — {why}", Label::fail(), plan.name());
+                            base
+                        }
+                    }
+                }
+                | _ => ModelDetails::from(&plan),
+            }
+        }
+    }))
+    .await;
+    results
 }
 async fn resolve_positional_plan(
     selector: &str,

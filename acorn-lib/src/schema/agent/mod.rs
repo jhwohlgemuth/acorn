@@ -698,6 +698,22 @@ impl ToMarkdown for ModelDetails {
         }
     }
 }
+impl ModelDetails {
+    /// Set the fallback model identifier
+    pub fn with_fallback(self, value: &str) -> Self {
+        Self {
+            fallback: Some(value.to_string()),
+            ..self
+        }
+    }
+    /// Set the identifier
+    pub fn with_id(self, value: &str) -> Self {
+        Self {
+            id: Some(value.to_string()),
+            ..self
+        }
+    }
+}
 impl fmt::Display for PromptFileAsset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
