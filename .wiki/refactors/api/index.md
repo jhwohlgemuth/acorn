@@ -3,6 +3,7 @@
 ## Recommended order
 
 - [API client roadmap](roadmap.md) - Coordinate the shared contract and extraction sequence.
+- [Webhook-driven GitLab bot workflows](gitlab-webhook-bot-workflows.md) - Receive and safely dispatch merge request, note, and work item events.
 - [Endpoint resolution](endpoint-resolution.md) - Centralize template and domain resolution.
 - [Authentication headers](authentication-headers.md) - Share bearer and custom-token parameter construction.
 - [Request parameter composition](request-parameter-composition.md) - Normalize required and optional inputs.
