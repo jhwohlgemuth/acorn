@@ -92,3 +92,9 @@ pub const MAX_ALLOWED_LIX: f64 = 50.0;
 ///
 /// This value maps to upper end of high school (12th grade) reading level.
 pub const MAX_ALLOWED_SMOG: f64 = 13.0;
+/// Embedded skill asset filename.
+pub const SKILL_FILENAME: &str = "SKILL.md";
+/// Embedded skill asset relative path inside the `skills/` embed root.
+pub const SKILL_PATH: &str = "acorn/SKILL.md";
+/// Prompt text copied to clipboard by `acorn skill` for agent use.
+pub const SKILL_CLIPBOARD_PROMPT: &str = "Load the ACORN skill and use it for tasks during this session. Run `acorn skill` to get the skill path.";

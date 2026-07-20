@@ -90,6 +90,7 @@ tower = { version = "0.5.3", default-features = false }
 triomphe = { version = "0.1.15", default-features = false }
 fluent-uri = { version = "0.4", default-features = false }
 validator = { version = "0.20.0", features = ["derive"], default-features = false }
+arboard = { version = "3.6.1", default-features = false }
 
 [workspace.metadata.cross.build]
 default-target = "x86_64-unknown-linux-musl"

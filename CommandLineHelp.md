@@ -20,6 +20,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli import model`↴](#acorn-cli-import-model)
 * [`acorn-cli import spec`↴](#acorn-cli-import-spec)
 * [`acorn-cli link`↴](#acorn-cli-link)
+* [`acorn-cli skill`↴](#acorn-cli-skill)
 * [`acorn-cli serve`↴](#acorn-cli-serve)
 * [`acorn-cli serve bot`↴](#acorn-cli-serve-bot)
 * [`acorn-cli serve mcp`↴](#acorn-cli-serve-mcp)
@@ -57,6 +58,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `gather` — Gather (extract) research activity data
 * `import` — Import external metadata into ACORN
 * `link` — Add linked data context to research activity data
+* `skill` — Print the embedded ACORN skill path and copy agent instructions to clipboard
 * `serve` — Start a server (bot, MCP, etc.)
 * `tui` — Launch the interactive terminal user interface (TUI)
 
@@ -629,6 +631,16 @@ Add linked data context to research activity data
   Default value: `rads`
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli skill`
+
+Print the embedded ACORN skill path and copy agent instructions to clipboard
+
+    $> acorn skill
+
+**Usage:** `acorn-cli skill`
 
 
 

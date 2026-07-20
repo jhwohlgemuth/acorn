@@ -19,6 +19,7 @@ pub mod gather;
 pub mod import;
 pub mod link;
 pub mod serve;
+pub mod skill;
 pub mod tui;
 
 pub use db::{initialize_database, DatabaseConfig};
@@ -300,6 +301,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             initialize_database(config).await?;
             link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await
         }),
+        | Some(Commands::Skill) => skill::run(),
         | Some(Commands::Import { command, .. }) => match command {
             | Some(ImportCommands::Model) => with_runtime(async {
                 initialize_database(config).await?;

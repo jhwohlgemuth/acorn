@@ -7,6 +7,8 @@ The project uses Cargo workspaces with two main crates:
 ```
 acorn/
 ├── acorn-cli/          # CLI application
+│   ├── assets/         # Embedded assets (fonts, images, skills, styles)
+│   │   └── skills/     # Agent skill files (e.g. acorn/SKILL.md)
 │   ├── src/
 │   │   ├── cli/        # Command-line interface definitions
 │   │   ├── commands/   # Command implementations (check, export, etc.)
@@ -65,7 +67,7 @@ acorn/
 
 **CLI Architecture**: Uses `clap` for argument parsing with derive macros and extensive help documentation.
 
-**Asset Embedding**: Uses `rust-embed` to include fonts, images, and configuration files in the binary.
+**Asset Embedding**: Uses `rust-embed` to include fonts, images, agent skill files (`acorn-cli/assets/skills/`), and styles in the binary.
 
 ## Configuration and Environment
 

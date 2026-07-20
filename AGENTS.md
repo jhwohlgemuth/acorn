@@ -102,7 +102,7 @@ cargo run --bin acorn -- export --format pdf path/to/file.json
 1. Check `acorn-lib/src/powerpoint/mod.rs` for OOXML manipulation
 2. Check `acorn-cli/src/template/mod.rs` for HTML template generation
 3. Test both PDF and PPTX targets from `acorn-cli/src/cli/arguments.rs`
-4. Verify embedded assets are included (fonts, images in `acorn-cli/assets/`)
+4. Verify embedded assets are included (fonts, images, skills in `acorn-cli/assets/`)
 
 ## Testing Strategy
 
@@ -403,7 +403,7 @@ Stop and ask the user if:
 - Template generation in `acorn-cli/src/template/`
 - PowerPoint manipulation in `acorn-lib/src/powerpoint/`
 - Supports PDF and PPTX output formats
-- Uses `rust-embed` for embedded assets (fonts, images)
+- Uses `rust-embed` for embedded assets (fonts, images, agent skills)
 
 ## Common Pitfalls to Avoid
 
@@ -485,7 +485,7 @@ pub fn process() { }
 
 **Export output malformed**
 → Check `acorn-cli/src/template/mod.rs` for HTML generation
-→ Verify assets exist in `acorn-cli/assets/`
+→ Verify assets exist in `acorn-cli/assets/` (fonts, images, skills, styles)
 → Compare with working examples in `tests/fixtures/`
 
 ## Performance Considerations

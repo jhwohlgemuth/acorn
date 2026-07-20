@@ -319,6 +319,12 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Link(Box<arguments::Link>),
+    /// Print the embedded ACORN skill path and copy agent instructions to clipboard
+    ///
+    ///     $> acorn skill
+    ///
+    #[clap(verbatim_doc_comment)]
+    Skill,
     /// Start a server (bot, MCP, etc.)
     ///
     ///     Start a GitLab bot server
