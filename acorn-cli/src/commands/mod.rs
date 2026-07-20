@@ -1,3 +1,4 @@
+use crate::cli::arguments::OutputFormat;
 use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands, Void};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::fail;
@@ -186,6 +187,9 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                         args.no_fallback,
                         args.gguf_search_limit,
                         args.interactive,
+                        args.dry_run,
+                        args.raw,
+                        &args.format,
                     )
                     .await
                 }
@@ -207,11 +211,9 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
         }),
         | Some(Commands::Export(arguments)) => {
             if arguments.schema {
-                let format = arguments.format.to_string().to_lowercase();
-                if format != "json" && format != "yaml" {
-                    return Err(eyre!("--schema only supports JSON or YAML output (got '{format}')"));
-                }
-                arguments.standard.to_schema(&format);
+                let format = OutputFormat::from(&arguments.format);
+                let format_str = format.to_string().to_lowercase();
+                arguments.standard.to_schema(&format_str);
                 return Ok(());
             }
             with_runtime(async {

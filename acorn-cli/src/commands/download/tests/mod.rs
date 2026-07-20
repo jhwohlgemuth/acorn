@@ -10,6 +10,7 @@
 )]
 extern crate alloc;
 use super::run;
+use crate::cli::arguments::OutputFormat;
 use crate::test::server::{spawn_ignored_range_server, spawn_no_range_server, spawn_range_server, spawn_retry_resume_server, spawn_sidecar_server};
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile};
@@ -192,6 +193,9 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_ok(), "config-only model resolution should succeed");
@@ -229,6 +233,9 @@ async fn test_download_model_local_config_copy() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_ok(), "config copy mode should succeed");
@@ -262,6 +269,9 @@ async fn test_download_model_local_file_copy() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_ok(), "local file copy should succeed");
@@ -293,6 +303,9 @@ async fn test_download_model_filter_keeps_matching_local_file() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_ok(), "matching filter should keep local model");
@@ -323,6 +336,9 @@ async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> 
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_err(), "ignore should remove the only selected model");
@@ -385,6 +401,9 @@ async fn test_download_model_invalid_filter_errors() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_err(), "invalid filter regex should fail");
@@ -414,6 +433,9 @@ async fn test_download_model_local_file_reference() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_ok(), "local file reference should succeed");
@@ -444,6 +466,9 @@ async fn test_download_model_local_missing_path_errors() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_err(), "missing local model path should return an error");
@@ -474,6 +499,9 @@ async fn test_download_model_local_mixed_offline_errors() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_err(), "mixed local+remote in offline mode should fail");
@@ -503,6 +531,9 @@ async fn test_download_model_local_offline_succeeds() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_ok(), "local model should work in offline mode");
@@ -527,6 +558,9 @@ async fn test_download_model_no_models_errors() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_err(), "empty model list should return an error");
@@ -551,6 +585,9 @@ async fn test_download_model_offline_rejects() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_err(), "offline mode should reject remote model download");
@@ -583,6 +620,9 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_ok(), "positional + config with same model should succeed (deduplicated)");
@@ -615,6 +655,9 @@ async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<(
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_err(), "non-matching whitelist should fail");
@@ -658,6 +701,9 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
         false,
         200,
         false,
+        false,
+        false,
+        &OutputFormat::default(),
     )
     .await;
     assert!(result.is_ok(), "matching whitelist entry should succeed");

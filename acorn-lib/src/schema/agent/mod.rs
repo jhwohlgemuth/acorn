@@ -477,6 +477,8 @@ pub struct ModelDetails {
     pub temperature: Option<bool>,
     /// Whether the model supports tool calling
     pub tool_call: Option<bool>,
+    /// Selected GGUF fallback repository identifier when the base model has no GGUF files
+    pub fallback: Option<String>,
     /// Value that describes niche application of a given model family (e.g., "coder" in "qwen-coder")
     pub variant: Option<String>,
     /// Version of the model
@@ -682,6 +684,7 @@ impl ToMarkdown for ModelDetails {
             self.structured_output.map(|value| format!("- Structured Output: {value}")),
             self.temperature.map(|value| format!("- Temperature: {value}")),
             self.tool_call.map(|value| format!("- Tool Call: {value}")),
+            self.fallback.as_ref().map(|value| format!("- Fallback: {value}")),
             self.variant.as_ref().map(|value| format!("- Variant: {value}")),
             self.version.as_ref().map(|value| format!("- Version: {value}")),
         ]
@@ -907,6 +910,17 @@ fn validate_open_weights(details: &ModelDetails) -> Result<(), ValidationError> 
         Err(ValidationError::new("open_weights").with_message("open_weights must be true when any weight has is_open: true".into()))
     } else {
         Ok(())
+    }
+}
+impl ModelDetails {
+    /// Return display parts for human-readable summary output.
+    ///
+    /// Returns `(primary, optional_context)` where primary is the model identifier
+    /// and context is a fallback annotation when applicable.
+    pub fn report(&self) -> (String, Option<String>) {
+        let id = self.id.as_deref().unwrap_or("unknown").to_string();
+        let context = self.fallback.as_ref().map(|fb| format!("fallback from {fb}"));
+        (id, context)
     }
 }
 

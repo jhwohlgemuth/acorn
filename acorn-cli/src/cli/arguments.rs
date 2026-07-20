@@ -152,6 +152,15 @@ pub enum FileFormat {
     #[display("YAML")]
     Yaml,
 }
+/// Structured output format for raw/dry-run results (JSON or YAML)
+#[derive(Clone, Debug, Default, Display, ValueEnum)]
+pub enum OutputFormat {
+    #[default]
+    #[display("JSON")]
+    Json,
+    #[display("YAML")]
+    Yaml,
+}
 /// Target artifact aspect ratio size available when exporting research activity data using acorn
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum Size {
@@ -370,6 +379,15 @@ pub(crate) struct DownloadModel {
     /// Open an interactive picker when GGUF fallback finds multiple repositories
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) interactive: bool,
+    /// Preview resolved models and fallbacks without downloading
+    #[arg(long = "dry-run", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
+    /// Output structured JSON (or YAML with --format yaml) of resolved models
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) raw: bool,
+    /// Output format for --raw results
+    #[arg(long, value_name = "FORMAT", default_value = "json", requires = "raw", help_heading = "OPTIONS")]
+    pub(crate) format: OutputFormat,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
@@ -655,6 +673,15 @@ impl From<&FileFormat> for MimeType {
             | FileFormat::Markdown => MimeType::Markdown,
             | FileFormat::Powerpoint => MimeType::Powerpoint,
             | FileFormat::Yaml => MimeType::Yaml,
+        }
+    }
+}
+impl From<&FileFormat> for OutputFormat {
+    fn from(format: &FileFormat) -> Self {
+        match format {
+            | FileFormat::Json => Self::Json,
+            | FileFormat::Yaml => Self::Yaml,
+            | _ => Self::default(),
         }
     }
 }

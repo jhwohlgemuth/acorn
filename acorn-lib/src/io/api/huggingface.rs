@@ -5,7 +5,7 @@ use crate::io::config::FilterSet;
 use crate::io::download::{DownloadItem, DownloadItems};
 use crate::io::{first_env_var, http, ApiResult, Source};
 use crate::prelude::{HashMap, Path};
-use crate::schema::agent::{Quantization, Weights};
+use crate::schema::agent::{Quantization, Weight, Weights};
 use crate::util::constants::app::{
     DEFAULT_HUGGINGFACE_DOMAIN, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_HUGGINGFACE_SEARCH_TERM,
 };
@@ -21,6 +21,7 @@ use color_eyre::eyre::eyre;
 use core::{cmp::Reverse, fmt};
 use futures::{future::join_all, TryStreamExt};
 use hf_hub::{repository::ModelInfo, HFClient};
+use serde::Serialize;
 use serde_json::Value;
 use tracing::{info, warn};
 
@@ -93,7 +94,7 @@ pub enum HuggingFaceError {
     },
 }
 /// GGUF repository metadata returned by fallback discovery.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct Candidate {
     /// Hugging Face repository identifier
     pub id: String,
@@ -396,6 +397,27 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
     }
 }
 impl Weights {
+    /// Construct weights from a source location.
+    ///
+    /// For remote Hugging Face sources, `is_open` controls the open-weight flag.
+    /// For local sources, `is_open` is always `Some(true)`.
+    pub fn from_source(source: &Source, is_open: Option<bool>) -> Self {
+        match source {
+            | Source::Remote { identifier, .. } => Self(vec![Weight {
+                label: "Hugging Face".to_string(),
+                url: format!("https://{DEFAULT_HUGGINGFACE_DOMAIN}/{identifier}"),
+                is_open,
+                quantization: None,
+            }]),
+            | Source::Local { path, .. } => Self(vec![Weight {
+                label: "Local".to_string(),
+                url: path.display().to_string(),
+                is_open: Some(true),
+                quantization: None,
+            }]),
+            | Source::Unsupported(_) => Self::default(),
+        }
+    }
     /// Resolve the first non-empty model weight URL into a downloadable source.
     pub fn to_source(self, name: Option<String>) -> Option<Source> {
         self.0.into_iter().find(|weight| !weight.url.trim().is_empty()).map(|weight| {

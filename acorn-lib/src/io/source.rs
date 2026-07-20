@@ -5,6 +5,7 @@ use crate::schema::agent::ModelDetails;
 use crate::util::Label;
 use crate::{Location, Repository, Scheme};
 use color_eyre::eyre::eyre;
+use core::fmt;
 use strum::EnumIs;
 use tracing::error;
 
@@ -177,6 +178,17 @@ impl Source {
         match offline {
             | true => Err(eyre!("Cannot read remote source while offline")),
             | false => http::response_body_bytes(http::get(url).send().await, "Failed to download source").await,
+        }
+    }
+}
+impl fmt::Display for Source {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = self.name();
+        let identifier = self.identifier();
+        if name == identifier {
+            write!(f, "{name}")
+        } else {
+            write!(f, "{name} ({identifier})")
         }
     }
 }

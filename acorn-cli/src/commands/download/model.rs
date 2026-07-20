@@ -1,3 +1,4 @@
+use crate::cli::arguments::OutputFormat;
 use crate::cli::{CommandOptions, Void};
 use acorn::io::api::huggingface::{self, CandidateSelection, HuggingFaceError, HuggingFaceRepository};
 use acorn::io::api::models_dev;
@@ -9,7 +10,7 @@ use acorn::io::{home_directory, ApiResult, InputOutput, Source, SourceAction};
 #[cfg(feature = "tui")]
 use acorn::prelude::io;
 use acorn::prelude::{create_dir_all, HashSet, Path, PathBuf, String, Vec};
-use acorn::schema::agent::Weights;
+use acorn::schema::agent::{ModelDetails, Weights};
 use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MODEL_REVISION;
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
 use bon::Builder;
@@ -44,6 +45,9 @@ pub async fn run(
     no_fallback: bool,
     gguf_search_limit: usize,
     interactive: bool,
+    dry_run: bool,
+    raw: bool,
+    format: &OutputFormat,
 ) -> Void {
     let quiet = verbose.is_silent();
     let action = SourceAction::from_options(copy, symlink);
@@ -99,11 +103,20 @@ pub async fn run(
         };
         error!("=> {} {msg}", Label::fail());
         Err(eyre!(msg))
+    } else if dry_run {
+        let models = resolve_dry_run(&selectors, offline, gguf_search_limit).await;
+        if raw {
+            output_raw(&models, format)
+        } else {
+            output_dry_run(&models);
+            Ok(())
+        }
     } else {
         match output.clone().map_or_else(|| home_directory(".models"), Ok) {
             | Ok(root) => {
                 let mut success_count = 0usize;
                 let mut failure_count = 0usize;
+                let mut results: Vec<ModelDetails> = Vec::new();
                 for plan in &selectors {
                     let filter = merge(&plan.filter, Some(filter));
                     let ignore = merge(&plan.ignore, Some(ignore));
@@ -119,65 +132,61 @@ pub async fn run(
                         .no_fallback(no_fallback)
                         .gguf_search_limit(gguf_search_limit)
                         .interactive(interactive)
-                        .quiet(quiet)
+                        .quiet(quiet || raw)
                         .skip_verify_checksum(skip_verify_checksum)
                         .maybe_filter(regex_join(&filter))
                         .maybe_ignore(regex_join(&ignore))
                         .build();
                     match plan.execute(options).await {
-                        | Ok(_) => success_count = success_count.saturating_add(1),
+                        | Ok(resolved_id) => {
+                            success_count = success_count.saturating_add(1);
+                            let mut details = plan.details.clone().unwrap_or_else(|| details_from_plan(plan));
+                            details.id = Some(resolved_id);
+                            results.push(details);
+                        }
                         | Err(why) => {
                             failure_count = failure_count.saturating_add(1);
                             error!("=> {} Download model '{}' — {why}", Label::fail(), plan.name());
                         }
                     }
                 }
-                if !quiet {
-                    let local_count = selectors.iter().filter(|plan| plan.selector.is_local()).count();
-                    let remote_count = selectors.len().saturating_sub(local_count);
-                    let parts = [(local_count, "local"), (remote_count, "remote")]
-                        .into_iter()
-                        .filter(|(count, _)| *count > 0)
-                        .map(|(count, label)| format!("{} {label}", count.cyan().bold()))
-                        .collect::<Vec<_>>();
-                    info!(
-                        "=> {} {} model{} to download ({})",
-                        Label::run(),
-                        selectors.len().cyan().bold(),
-                        suffix(selectors.len()),
-                        parts.join(", ")
-                    );
-                    for plan in selectors {
-                        match &plan.selector {
-                            | Source::Local { path, .. } => {
-                                info!("  {} {} ({})", "→".cyan(), plan.name().green(), path.display().to_string().dimmed());
-                            }
-                            | Source::Remote { identifier, .. } => {
-                                let name = plan.name();
-                                if name == *identifier {
-                                    info!("  {} {}", "→".cyan(), identifier.green());
-                                } else {
-                                    info!("  {} {} ({})", "→".cyan(), name.green(), identifier.dimmed());
-                                }
-                            }
-                            | Source::Unsupported(value) => info!("  {} {}", "→".cyan(), value.green()),
-                        }
-                    }
-                }
-                super::log_activity("download model", root.to_absolute_string(), database_path, failure_count == 0);
-                if failure_count > 0 {
-                    Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))
+                if raw {
+                    output_raw(&results, format)
                 } else {
                     if !quiet {
-                        println!(
-                            "\n\n   => {} Resolved {} model{} to {}\n",
-                            Label::pass(),
-                            success_count.green(),
-                            suffix(success_count),
-                            root.display()
+                        let local_count = selectors.iter().filter(|plan| plan.selector.is_local()).count();
+                        let remote_count = selectors.len().saturating_sub(local_count);
+                        let parts = [(local_count, "local"), (remote_count, "remote")]
+                            .into_iter()
+                            .filter(|(count, _)| *count > 0)
+                            .map(|(count, label)| format!("{} {label}", count.cyan().bold()))
+                            .collect::<Vec<_>>();
+                        info!(
+                            "=> {} {} model{} to download ({})",
+                            Label::run(),
+                            selectors.len().cyan().bold(),
+                            suffix(selectors.len()),
+                            parts.join(", ")
                         );
+                        for plan in selectors {
+                            info!("  {} {}", "→".cyan(), plan.selector.green());
+                        }
                     }
-                    Ok(())
+                    super::log_activity("download model", root.to_absolute_string(), database_path, failure_count == 0);
+                    if failure_count > 0 {
+                        Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))
+                    } else {
+                        if !quiet {
+                            println!(
+                                "\n\n   => {} Resolved {} model{} to {}\n",
+                                Label::pass(),
+                                success_count.green(),
+                                suffix(success_count),
+                                root.display()
+                            );
+                        }
+                        Ok(())
+                    }
                 }
             }
             | Err(why) => Err(why),
@@ -203,6 +212,7 @@ pub(crate) struct ModelDownloadPlan {
     #[builder(default = Vec::new())]
     pub(crate) ignore: Vec<String>,
     pub(crate) action: Option<SourceAction>,
+    pub(crate) details: Option<ModelDetails>,
 }
 impl fmt::Display for ModelDownloadError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -247,6 +257,12 @@ impl ModelDownloadPlan {
             | None => self,
         }
     }
+    fn with_details(self, details: ModelDetails) -> Self {
+        Self {
+            details: Some(details),
+            ..self
+        }
+    }
     fn is_remote(&self) -> bool {
         self.selector.is_remote()
     }
@@ -256,7 +272,7 @@ impl ModelDownloadPlan {
     pub(crate) fn name(&self) -> String {
         self.selector.name()
     }
-    async fn execute(&self, options: CommandOptions) -> ApiResult<()> {
+    async fn execute(&self, options: CommandOptions) -> ApiResult<String> {
         if matches!(self.auth, AuthenticationRequirement::Required) && self.selector.is_remote() && !huggingface::has_auth_token() {
             Err(eyre!("{}", ModelDownloadError::MissingAuth(self.name())))
         } else {
@@ -280,6 +296,7 @@ impl ModelDownloadPlan {
                                 .dimmed()
                         );
                     }
+                    self.name()
                 }),
                 | Some(Source::Remote { identifier, .. }) if is_http_or_https(identifier) => download_remote_model(options).await,
                 | Some(Source::Remote { .. }) => self.download_from_huggingface(options.clone()).await.map(|identifier| {
@@ -305,6 +322,7 @@ impl ModelDownloadPlan {
                             | Err(why) => info!("=> {} Model '{identifier}' database lookup failed — {why}", Label::CAUTION,),
                         }
                     }
+                    identifier
                 }),
                 | Some(Source::Unsupported(value)) => Err(eyre!("Unsupported model source — {value}")),
                 | None => Err(eyre!("Model selector is not configured")),
@@ -367,6 +385,80 @@ impl ModelDownloadPlan {
             | _ => Err(eyre!("Model selector is not remote")),
         }
     }
+    fn from_details(details: ModelDetails) -> Option<Self> {
+        Option::<Source>::from(details.clone()).map(|source| Self::new(source).with_details(details))
+    }
+}
+fn details_from_plan(plan: &ModelDownloadPlan) -> ModelDetails {
+    let is_open = Some(plan.auth != AuthenticationRequirement::Required);
+    ModelDetails {
+        id: Some(plan.selector.identifier()),
+        name: Some(plan.name()),
+        weights: Some(Weights::from_source(&plan.selector, is_open)),
+        ..Default::default()
+    }
+}
+async fn resolve_dry_run(plans: &[ModelDownloadPlan], offline: bool, gguf_search_limit: usize) -> Vec<ModelDetails> {
+    let results = join_all(plans.iter().map(|plan| async {
+        match &plan.selector {
+            | Source::Remote { identifier, .. } if !offline => {
+                let base_details = plan.details.clone().unwrap_or_else(|| details_from_plan(plan));
+                match huggingface::search(identifier, None, Some(gguf_search_limit)).await {
+                    | Ok(candidates) => {
+                        let options = huggingface::Options::init()
+                            .identifier(identifier.clone())
+                            .offline(offline)
+                            .search_limit(gguf_search_limit)
+                            .quiet(true)
+                            .build();
+                        match candidates.select(&options) {
+                            | Ok(resolved_id) if resolved_id != *identifier => {
+                                let mut details = base_details;
+                                details.id = Some(resolved_id);
+                                details.fallback = Some(identifier.clone());
+                                details
+                            }
+                            | Ok(_) => base_details,
+                            | Err(why) => {
+                                error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
+                                base_details
+                            }
+                        }
+                    }
+                    | Err(why) => {
+                        error!("=> {} Search candidates for '{}' — {why}", Label::fail(), plan.name());
+                        base_details
+                    }
+                }
+            }
+            | _ => details_from_plan(plan),
+        }
+    }))
+    .await;
+    results
+}
+fn output_dry_run(models: &[ModelDetails]) {
+    info!(
+        "=> {} {} model{} resolved:",
+        Label::run(),
+        models.len().cyan().bold(),
+        suffix(models.len())
+    );
+    for details in models {
+        let (id, context) = details.report();
+        match context {
+            | Some(ctx) => info!("  {} {} ({})", "→".cyan(), id.green(), ctx.dimmed()),
+            | None => info!("  {} {}", "→".cyan(), id.green()),
+        }
+    }
+}
+fn output_raw(models: &[ModelDetails], format: &OutputFormat) -> Void {
+    let output = match format {
+        | OutputFormat::Yaml => serde_norway::to_string(models).map_err(|why| eyre!("YAML serialization failed — {why}"))?,
+        | OutputFormat::Json => serde_json::to_string_pretty(models).map_err(|why| eyre!("JSON serialization failed — {why}"))?,
+    };
+    println!("{output}");
+    Ok(())
 }
 async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<String> {
     let huggingface::Options {
@@ -423,7 +515,7 @@ async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> A
         | None => Err(eyre!("Model identifier is not configured for GGUF fallback")),
     }
 }
-async fn download_remote_model(options: CommandOptions) -> ApiResult<()> {
+async fn download_remote_model(options: CommandOptions) -> ApiResult<String> {
     let CommandOptions {
         selector,
         output,
@@ -445,18 +537,22 @@ async fn download_remote_model(options: CommandOptions) -> ApiResult<()> {
                     .unwrap_or_else(|| "model.gguf".to_string()),
                 | Err(_) => "model.gguf".to_string(),
             };
-            let destination = PathBuf::from(&filename)
+            let name = PathBuf::from(&filename)
                 .file_stem()
                 .and_then(|value| value.to_str())
-                .map(|name| root.join(name))
-                .unwrap_or_else(|| root.join("model"));
+                .map(str::to_string)
+                .unwrap_or_else(|| "model".to_string());
+            let destination = root.join(&name);
             let item = DownloadItem {
                 url: identifier,
                 path: filename,
                 size: None,
                 sha: None,
             };
-            DownloadItems::new(&destination, vec![item], quiet, skip_verify_checksum).download().await
+            DownloadItems::new(&destination, vec![item], quiet, skip_verify_checksum)
+                .download()
+                .await
+                .map(|_| name)
         }
         | (_, None) => Err(eyre!("Model output directory is not configured")),
         | (None, _) => Err(eyre!("Model selector is not configured")),
@@ -579,8 +675,7 @@ async fn resolve_positional_plan(
                             .get(trimmed)
                             .cloned()
                             .or_else(|| catalog.models.values().find(|details| details.id.as_deref() == Some(selector)).cloned())
-                            .and_then(Option::<Source>::from)
-                            .map(ModelDownloadPlan::new)
+                            .and_then(ModelDownloadPlan::from_details)
                     });
                     match resolved {
                         | Ok(Some(plan)) => plan,
