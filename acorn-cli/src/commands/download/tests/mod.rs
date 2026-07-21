@@ -664,6 +664,59 @@ async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<(
     Ok(())
 }
 #[tokio::test]
+async fn test_download_model_whitelist_file_keeps_matching_name() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_whitelist_file_match");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join(".acorn.json");
+    let whitelist_path = temp_dir.join("whitelist.yaml");
+    let keep_file = temp_dir.join("keep.gguf");
+    let drop_file = temp_dir.join("drop.gguf");
+    write(&keep_file, b"fake keep model data")?;
+    write(&drop_file, b"fake drop model data")?;
+    write(&whitelist_path, "- name: keep\n")?;
+    write(
+        &config_path,
+        format!(
+            r#"{{"models": [
+            {{"name": "keep", "copy": true, "source": {{"provider": "git", "location": "file:{}"}}}},
+            {{"name": "drop", "copy": true, "source": {{"provider": "git", "location": "file:{}"}}}}
+        ]}}"#,
+            keep_file.display().to_string().replace('\\', "/"),
+            drop_file.display().to_string().replace('\\', "/")
+        ),
+    )?;
+    let verbose = Verbosity::new(0, 1);
+    let output_dir = temp_dir.join("models");
+    let whitelist = super::model::Whitelist::from(Vec::new())
+        .resolve(&Some(whitelist_path.display().to_string()), false)
+        .await?;
+    let result = super::model::run(
+        &[],
+        &[],
+        &[],
+        &Some(config_path),
+        &Some(output_dir.clone()),
+        &None,
+        &verbose,
+        false,
+        false,
+        false,
+        false,
+        &whitelist.0,
+        false,
+        200,
+        false,
+        false,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_ok(), "matching whitelist file entry should succeed");
+    assert!(output_dir.join("keep").join("keep.gguf").exists());
+    assert!(!output_dir.join("drop").join("drop.gguf").exists());
+    Ok(())
+}
+#[tokio::test]
 async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_whitelist_match");
     let _cleanup = TestCleanup::new(temp_dir.clone());
@@ -709,6 +762,66 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     assert!(result.is_ok(), "matching whitelist entry should succeed");
     assert!(output_dir.join("keep").join("keep.gguf").exists());
     assert!(!output_dir.join("drop").join("drop.gguf").exists());
+    Ok(())
+}
+#[test]
+fn test_parse_model_whitelist_file_from_json_model_details() -> Result<()> {
+    let names = super::model::Whitelist::parse(r#"[{"name":"keep"},{"id":"drop"}]"#.to_string())?;
+    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
+    Ok(())
+}
+#[test]
+fn test_parse_model_whitelist_file_from_json_names() -> Result<()> {
+    let names = super::model::Whitelist::parse(r#"["keep", "drop"]"#.to_string())?;
+    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
+    Ok(())
+}
+#[test]
+fn test_parse_model_whitelist_file_from_plain_names() -> Result<()> {
+    let names = super::model::Whitelist::parse(" keep \n\ndrop\n".to_string())?;
+    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
+    Ok(())
+}
+#[test]
+fn test_parse_model_whitelist_file_from_yaml_model_details() -> Result<()> {
+    let names = super::model::Whitelist::parse("- name: keep\n- id: drop\n".to_string())?;
+    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
+    Ok(())
+}
+#[test]
+fn test_parse_model_whitelist_file_rejects_model_without_name_or_id() {
+    let result = super::model::Whitelist::parse("- family: llama\n".to_string());
+    assert!(result.is_err());
+}
+#[tokio::test]
+async fn test_resolve_model_whitelist_from_file_uri() -> Result<()> {
+    let temp_dir = temp_test_dir("resolve_model_whitelist_file_uri");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let whitelist_path = temp_dir.join("whitelist.txt");
+    write(&whitelist_path, "keep\n")?;
+    let source = Some(format!("file://{}", whitelist_path.display()));
+    let names = super::model::Whitelist::from(vec!["inline".to_string()]).resolve(&source, false).await?;
+    assert_eq!(names.0, vec!["inline".to_string(), "keep".to_string()]);
+    Ok(())
+}
+#[tokio::test]
+async fn test_resolve_model_whitelist_rejects_remote_uri_offline() {
+    let source = Some("https://example.com/models.yaml".to_string());
+    let result = super::model::Whitelist::from(Vec::new()).resolve(&source, true).await;
+    assert!(result.is_err());
+}
+#[tokio::test]
+async fn test_resolve_model_whitelist_txt_fixture() -> Result<()> {
+    let source = Some(fixture_path("whitelist.txt").display().to_string());
+    let whitelist = super::model::Whitelist::from(Vec::new()).resolve(&source, false).await?;
+    assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/drop".to_string()]);
+    Ok(())
+}
+#[tokio::test]
+async fn test_resolve_model_whitelist_yaml_fixture() -> Result<()> {
+    let source = Some(fixture_path("whitelist.yaml").display().to_string());
+    let whitelist = super::model::Whitelist::from(Vec::new()).resolve(&source, false).await?;
+    assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/drop".to_string()]);
     Ok(())
 }
 #[test]

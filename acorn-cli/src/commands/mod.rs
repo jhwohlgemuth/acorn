@@ -24,6 +24,7 @@ pub mod skill;
 pub mod tui;
 
 pub use db::{initialize_database, DatabaseConfig};
+use download::model::Whitelist;
 
 macro_rules! preflight {
     ($options:expr) => {
@@ -171,27 +172,32 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             initialize_database(config).await?;
             match &arguments.command {
                 | Some(DownloadCommands::Model(args)) => {
-                    download::model::run(
-                        &args.model,
-                        &args.filter,
-                        &args.ignore,
-                        &args.config,
-                        &args.output,
-                        &config.database_path,
-                        &args.verbose,
-                        offline,
-                        args.copy,
-                        args.symlink,
-                        args.skip_verify_checksum,
-                        &args.whitelist,
-                        args.no_fallback,
-                        args.gguf_search_limit,
-                        args.interactive,
-                        args.dry_run,
-                        args.raw,
-                        &args.format,
-                    )
-                    .await
+                    match Whitelist::from(args.whitelist.as_slice()).resolve(&args.whitelist_file, offline).await {
+                        | Ok(whitelist) => {
+                            download::model::run(
+                                &args.model,
+                                &args.filter,
+                                &args.ignore,
+                                &args.config,
+                                &args.output,
+                                &config.database_path,
+                                &args.verbose,
+                                offline,
+                                args.copy,
+                                args.symlink,
+                                args.skip_verify_checksum,
+                                &whitelist.0,
+                                args.no_fallback,
+                                args.gguf_search_limit,
+                                args.interactive,
+                                args.dry_run,
+                                args.raw,
+                                &args.format,
+                            )
+                            .await
+                        }
+                        | Err(why) => Err(why),
+                    }
                 }
                 | None => {
                     download::run(

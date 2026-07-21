@@ -359,6 +359,11 @@ pub(crate) struct DownloadModel {
     /// Only download models with these user-facing names
     #[arg(long, value_name = "NAME", value_delimiter = ',', help_heading = "OPTIONS")]
     pub(crate) whitelist: Vec<String>,
+    /// URI or local path to a model whitelist file
+    ///
+    /// Accepts a plain-text list of names or a JSON/YAML list of names or model details
+    #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
+    pub(crate) whitelist_file: Option<String>,
     /// Skip SHA-256 checksum verification when checksum sidecar metadata is available
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) skip_verify_checksum: bool,

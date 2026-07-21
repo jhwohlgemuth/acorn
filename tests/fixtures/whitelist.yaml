@@ -1,0 +1,3 @@
+- id: acme/keep
+  name: keep
+- id: acme/drop

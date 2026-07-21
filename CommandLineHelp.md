@@ -367,6 +367,9 @@ Download model weights for use with ACORN research harnesses and local inference
 * `--copy` — Copy local model files into the model directory instead of referencing in place
 * `--symlink` — Create symlinks to local model files in the model directory instead of referencing in place
 * `--whitelist <NAME>` — Only download models with these user-facing names
+* `--whitelist-file <URI_OR_PATH>` — URI or local path to a model whitelist file
+
+   Accepts a plain-text list of names or a JSON/YAML list of names or model details
 * `--skip-verify-checksum` — Skip SHA-256 checksum verification when checksum sidecar metadata is available
 * `--gguf-search-limit <LIMIT>` — Maximum number of Hugging Face repositories to search when discovering GGUF quantizations
 
