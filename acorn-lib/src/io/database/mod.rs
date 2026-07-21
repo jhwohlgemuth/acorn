@@ -14,7 +14,7 @@ use chrono::{Duration, Utc};
 use color_eyre::eyre::eyre;
 use core::marker::PhantomData;
 use directories::ProjectDirs;
-use tracing::info;
+use tracing::{debug, info};
 
 pub mod backend;
 pub(crate) mod macros;
@@ -259,7 +259,7 @@ where
     /// Create all tables defined by the variant provider type.
     pub fn migrate(&self) -> ApiResult<()> {
         T::all().iter().copied().try_fold((), |_, table| self.migrate_table(table)).inspect(|_| {
-            info!("{} Database migration", Label::pass());
+            debug!("{} Database migration", Label::pass());
         })
     }
     /// Delete all rows from a table.

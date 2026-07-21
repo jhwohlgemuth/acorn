@@ -8,7 +8,7 @@ use futures::future::ready;
 use futures::TryFutureExt;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::info;
+use tracing::{debug, info};
 
 pub struct DatabaseConfig {
     pub no_local_database: bool,
@@ -76,7 +76,7 @@ pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> 
                             Report::msg(format!("Failed to clear cache — {why}"))
                         })
                         .inspect(|count| {
-                            info!("{} Cleared {count} entries from cache tables", Label::pass());
+                            debug!("{} Cleared {count} entries from cache tables", Label::pass());
                         })
                         .map(|_| ())
                 } else {
@@ -90,7 +90,7 @@ pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> 
                     ready(db.migrate().and_then(|_| {
                         if !config.no_clear_cache {
                             if let Err(why) = db.cleanup_expired_cache() {
-                                info!("Cache cleanup warning — {why}");
+                                debug!("Cache cleanup warning — {why}");
                             }
                         }
                         db.with_connection(|_| Ok(())).map(|_| ())

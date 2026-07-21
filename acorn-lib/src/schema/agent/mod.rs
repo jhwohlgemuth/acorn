@@ -580,6 +580,7 @@ pub struct TierInfo {
     pub size: u64,
 }
 /// Source for downloading model weights
+#[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Weight {
     /// Display label for the weight source

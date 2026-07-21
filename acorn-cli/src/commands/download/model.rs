@@ -109,7 +109,7 @@ pub async fn run(
             output_raw(&models, format)
         } else {
             info!(
-                "=> {} {} model{} resolved:",
+                "=> {} {} model{} resolved",
                 Label::run(),
                 models.len().cyan().bold(),
                 suffix(models.len())
@@ -117,7 +117,7 @@ pub async fn run(
             for details in models {
                 let (id, context) = details.report();
                 match context {
-                    | Some(ctx) => info!("  {} {} ({})", "→".cyan(), id.green(), ctx.dimmed()),
+                    | Some(ctx) => info!("=> {} {} ({})", Label::using(), id.yellow(), ctx.dimmed()),
                     | None => info!("  {} {}", "→".cyan(), id.green()),
                 }
             }
