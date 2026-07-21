@@ -28,75 +28,6 @@ use serde::Deserialize;
 use tracing::warn;
 use tracing::{error, info};
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum WhitelistFile {
-    Names(Vec<String>),
-    Models(Vec<ModelDetails>),
-}
-pub(crate) struct Whitelist(pub(crate) Vec<String>);
-impl From<&[String]> for Whitelist {
-    fn from(values: &[String]) -> Self {
-        Self(values.to_vec())
-    }
-}
-impl From<Vec<String>> for Whitelist {
-    fn from(values: Vec<String>) -> Self {
-        Self(values)
-    }
-}
-impl TryFrom<String> for Whitelist {
-    type Error = eyre::Report;
-    fn try_from(content: String) -> Result<Self, Self::Error> {
-        let trimmed = content.trim();
-        if trimmed.is_empty() {
-            Err(eyre!("Whitelist file cannot be empty"))
-        } else {
-            match serde_norway::from_str::<WhitelistFile>(trimmed) {
-                | Ok(file) => file.names().map(Self),
-                | Err(why) if trimmed.starts_with('[') || trimmed.lines().any(|line| line.trim_start().starts_with("- ")) => {
-                    Err(eyre!("Failed to parse whitelist file as JSON or YAML — {why}"))
-                }
-                | Err(_) => Ok(Self(
-                    trimmed.lines().map(str::trim).filter(|line| !line.is_empty()).map(String::from).collect(),
-                )),
-            }
-        }
-    }
-}
-impl Whitelist {
-    pub(crate) fn parse(content: String) -> ApiResult<Self> {
-        Self::try_from(content)
-    }
-    pub(crate) async fn resolve(self, source: &Option<String>, offline: bool) -> ApiResult<Self> {
-        match source {
-            | Some(source) => match Source::read(source, offline).await.and_then(Self::parse) {
-                | Ok(file_whitelist) => Ok(Self(self.0.into_iter().chain(file_whitelist.0).collect())),
-                | Err(why) => {
-                    error!("=> {} Read model whitelist file — {why}", Label::fail());
-                    Err(why)
-                }
-            },
-            | None => Ok(self),
-        }
-    }
-}
-impl WhitelistFile {
-    fn names(self) -> ApiResult<Vec<String>> {
-        match self {
-            | Self::Names(names) => Ok(names),
-            | Self::Models(models) => models
-                .into_iter()
-                .map(|details| {
-                    details
-                        .name
-                        .or(details.id)
-                        .ok_or_else(|| eyre!("Model details in whitelist file must define 'name' or 'id'"))
-                })
-                .collect(),
-        }
-    }
-}
 /// Download model weights for use with acorn research harnesses and local inference
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -121,12 +52,11 @@ pub async fn run(
 ) -> Void {
     let quiet = verbose.is_silent();
     let action = SourceAction::from_options(copy, symlink);
-    let entries = ApplicationConfiguration::resolve(config)
-        .and_then(|path| ApplicationConfiguration::read(path).ok())
-        .and_then(|ApplicationConfiguration { models, .. }| models)
-        .unwrap_or_default();
+    let configuration = ApplicationConfiguration::resolve(config).and_then(|path| ApplicationConfiguration::read(path).ok());
+    let (entries, configured_whitelist) = configured_models(configuration);
     let whitelist = whitelist
         .iter()
+        .chain(&configured_whitelist)
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .collect::<HashSet<_>>();
@@ -289,6 +219,12 @@ pub(crate) enum ModelDownloadError {
     MultipleMatches(String),
     MissingAuth(String),
 }
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum WhitelistFile {
+    Names(Vec<String>),
+    Models(Vec<ModelDetails>),
+}
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
 pub(crate) struct ModelDownloadPlan {
@@ -304,6 +240,7 @@ pub(crate) struct ModelDownloadPlan {
     pub(crate) action: Option<SourceAction>,
     pub(crate) details: Option<ModelDetails>,
 }
+pub(crate) struct Whitelist(pub(crate) Vec<String>);
 impl fmt::Display for ModelDownloadError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -502,6 +439,76 @@ impl From<&ModelDownloadPlan> for ModelDetails {
             weights: Some(Weights::from_source(&plan.selector, is_open)),
             ..Default::default()
         }
+    }
+}
+impl From<&[String]> for Whitelist {
+    fn from(values: &[String]) -> Self {
+        Self(values.to_vec())
+    }
+}
+impl From<Vec<String>> for Whitelist {
+    fn from(values: Vec<String>) -> Self {
+        Self(values)
+    }
+}
+impl TryFrom<String> for Whitelist {
+    type Error = eyre::Report;
+    fn try_from(content: String) -> Result<Self, Self::Error> {
+        let trimmed = content.trim();
+        if trimmed.is_empty() {
+            Err(eyre!("Whitelist file cannot be empty"))
+        } else {
+            match serde_norway::from_str::<WhitelistFile>(trimmed) {
+                | Ok(file) => file.names().map(Self),
+                | Err(why) if trimmed.starts_with('[') || trimmed.lines().any(|line| line.trim_start().starts_with("- ")) => {
+                    Err(eyre!("Failed to parse whitelist file as JSON or YAML — {why}"))
+                }
+                | Err(_) => Ok(Self(
+                    trimmed.lines().map(str::trim).filter(|line| !line.is_empty()).map(String::from).collect(),
+                )),
+            }
+        }
+    }
+}
+impl Whitelist {
+    pub(crate) fn parse(content: String) -> ApiResult<Self> {
+        Self::try_from(content)
+    }
+    pub(crate) async fn resolve(self, source: &Option<String>, offline: bool) -> ApiResult<Self> {
+        match source {
+            | Some(source) => match Source::read(source, offline).await.and_then(Self::parse) {
+                | Ok(file_whitelist) => Ok(Self(self.0.into_iter().chain(file_whitelist.0).collect())),
+                | Err(why) => {
+                    error!("=> {} Read model whitelist file — {why}", Label::fail());
+                    Err(why)
+                }
+            },
+            | None => Ok(self),
+        }
+    }
+}
+impl WhitelistFile {
+    fn names(self) -> ApiResult<Vec<String>> {
+        match self {
+            | Self::Names(names) => Ok(names),
+            | Self::Models(models) => models
+                .into_iter()
+                .map(|details| {
+                    details
+                        .name
+                        .or(details.id)
+                        .ok_or_else(|| eyre!("Model details in whitelist file must define 'name' or 'id'"))
+                })
+                .collect(),
+        }
+    }
+}
+pub(crate) fn configured_models(configuration: Option<ApplicationConfiguration>) -> (Vec<ModelEntry>, Vec<String>) {
+    match configuration {
+        | Some(ApplicationConfiguration { models, whitelist, .. }) => {
+            (models.unwrap_or_default(), whitelist.and_then(|lookup| lookup.models).unwrap_or_default())
+        }
+        | None => (Vec::new(), Vec::new()),
     }
 }
 async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<String> {

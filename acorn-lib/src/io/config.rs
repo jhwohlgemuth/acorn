@@ -234,6 +234,9 @@ pub struct ApplicationConfiguration {
     /// List of runners
     #[eserde(compat)]
     pub runners: Option<Vec<RunnerDetails>>,
+    /// Lookup object for whitelisted downloadable items
+    #[eserde(compat)]
+    pub whitelist: Option<WhitelistLookup>,
 }
 /// Detailed model download entry for use in `ApplicationConfiguration.models`
 #[skip_serializing_none]
@@ -357,6 +360,19 @@ pub struct RunnerDetails {
     /// Runner authentication token returned from GitLab API
     #[serde(default)]
     pub token: Option<String>,
+}
+/// Whitelist entry for downloadable items
+/// ### Note
+/// An empty whitelist is interpreted to mean there are no restrictions and any item will be allowed
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[builder(start_fn = init)]
+pub struct WhitelistLookup {
+    /// Whitelisted buckets
+    pub buckets: Option<Vec<String>>,
+    /// Whitelisted models
+    pub models: Option<Vec<String>>,
 }
 impl ApplicationConfiguration {
     /// Resolve application configuration path

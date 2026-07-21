@@ -106,6 +106,26 @@ async fn test_config_fixture_resolves_models() {
         ]
     );
 }
+#[tokio::test]
+async fn test_config_fixture_resolves_whitelisted_models() -> Result<()> {
+    let config = ApplicationConfiguration::read(fixture_path("config/with_models.json"))?;
+    let (entries, whitelist) = super::model::configured_models(Some(config));
+    assert_eq!(whitelist, vec!["meta-llama/Llama-2-7b-hf".to_string(), "openai/gpt-oss-2b".to_string()]);
+    let whitelist = whitelist.into_iter().collect::<HashSet<_>>();
+    let plans = super::model::resolve_plans(&[], &entries, None, &None, true).await?;
+    let resolved = futures::future::join_all(plans.into_iter().map(|plan| {
+        let whitelist = &whitelist;
+        async move { plan.matches(whitelist, true).await.map(|matches| matches.then(|| plan.name())) }
+    }))
+    .await
+    .into_iter()
+    .collect::<Result<Vec<_>>>()?
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
+    assert_eq!(resolved, vec!["meta-llama/Llama-2-7b-hf".to_string()]);
+    Ok(())
+}
 #[test]
 fn test_config_parses_hugging_face_location_model_entry() {
     let content = r#"{"models": [{"name": "tiny-bert", "source": {"provider": "huggingface", "location": {"scheme": "https", "uri": "https://huggingface.co/hf-internal-testing/tiny-random-bert", "revision": "main"}}}]}"#;
@@ -284,6 +304,54 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
     )
     .await;
     assert!(result.is_ok(), "config-only model resolution should succeed");
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_model_config_whitelist_keeps_matching_name() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_config_whitelist_match");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join(".acorn.json");
+    let keep_file = temp_dir.join("keep.gguf");
+    let drop_file = temp_dir.join("drop.gguf");
+    write(&keep_file, b"fake keep model data")?;
+    write(&drop_file, b"fake drop model data")?;
+    write(
+        &config_path,
+        format!(
+            r#"{{"models": [
+            {{"name": "keep", "copy": true, "source": {{"provider": "git", "location": "file:{}"}}}},
+            {{"name": "drop", "copy": true, "source": {{"provider": "git", "location": "file:{}"}}}}
+        ], "whitelist": {{"models": ["keep"]}}}}"#,
+            keep_file.display().to_string().replace('\\', "/"),
+            drop_file.display().to_string().replace('\\', "/")
+        ),
+    )?;
+    let verbose = Verbosity::new(0, 1);
+    let output_dir = temp_dir.join("models");
+    let result = super::model::run(
+        &[],
+        &[],
+        &[],
+        &Some(config_path),
+        &Some(output_dir.clone()),
+        &None,
+        &verbose,
+        false,
+        false,
+        false,
+        false,
+        &[],
+        false,
+        200,
+        false,
+        false,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_ok(), "matching configuration whitelist entry should succeed");
+    assert!(output_dir.join("keep").join("keep.gguf").exists());
+    assert!(!output_dir.join("drop").join("drop.gguf").exists());
     Ok(())
 }
 #[tokio::test]
@@ -1270,7 +1338,11 @@ async fn test_resolve_model_whitelist_from_file_uri() -> Result<()> {
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let whitelist_path = temp_dir.join("whitelist.txt");
     write(&whitelist_path, "keep\n")?;
-    let source = Some(format!("file://{}", whitelist_path.display()));
+    let source = Some(if cfg!(windows) {
+        format!("file:///{}", whitelist_path.to_string_lossy().replace('\\', "/"))
+    } else {
+        format!("file://{}", whitelist_path.display())
+    });
     let names = super::model::Whitelist::from(vec!["inline".to_string()]).resolve(&source, false).await?;
     assert_eq!(names.0, vec!["inline".to_string(), "keep".to_string()]);
     Ok(())

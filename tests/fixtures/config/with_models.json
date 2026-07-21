@@ -18,8 +18,13 @@
             },
             "revision": "main",
             "auth": "optional",
-            "filter": ["Q4_K_M.*\\.gguf$"],
-            "ignore": ["Q2_", "Q3_"]
+            "filter": [
+                "Q4_K_M.*\\.gguf$"
+            ],
+            "ignore": [
+                "Q2_",
+                "Q3_"
+            ]
         },
         {
             "name": "tiny-bert-detailed",
@@ -39,5 +44,11 @@
                 "location": "file:./models/qwen.gguf"
             }
         }
-    ]
+    ],
+    "whitelist": {
+        "models": [
+            "meta-llama/Llama-2-7b-hf",
+            "openai/gpt-oss-2b"
+        ]
+    }
 }
