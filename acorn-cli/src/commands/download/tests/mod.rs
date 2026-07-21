@@ -46,6 +46,21 @@ fn test_config_parses_hugging_face_location_model_entry() {
     assert_eq!(models.len(), 1);
 }
 #[test]
+fn test_config_parses_local_model_entry() {
+    let content = r#"{"models": [{"name": "qwen-local", "source": {"provider": "git", "location": "file:./models/qwen.gguf"}}]}"#;
+    let config = ApplicationConfiguration::parse(content).unwrap();
+    let models = config.models.unwrap();
+    assert_eq!(models.len(), 1);
+}
+#[test]
+fn test_config_parses_mixed_model_entries() {
+    let content =
+        r#"{"models": ["meta-llama/Llama-2-7b-hf", {"name": "qwen-local", "source": {"provider": "git", "location": "file:./models/qwen.gguf"}}]}"#;
+    let config = ApplicationConfiguration::parse(content).unwrap();
+    let models = config.models.unwrap();
+    assert_eq!(models.len(), 2);
+}
+#[test]
 fn test_config_parses_model_download_options() {
     let content = r#"{
         "models": [{
@@ -70,21 +85,6 @@ fn test_config_parses_model_download_options() {
     }
 }
 #[test]
-fn test_config_parses_local_model_entry() {
-    let content = r#"{"models": [{"name": "qwen-local", "source": {"provider": "git", "location": "file:./models/qwen.gguf"}}]}"#;
-    let config = ApplicationConfiguration::parse(content).unwrap();
-    let models = config.models.unwrap();
-    assert_eq!(models.len(), 1);
-}
-#[test]
-fn test_config_parses_mixed_model_entries() {
-    let content =
-        r#"{"models": ["meta-llama/Llama-2-7b-hf", {"name": "qwen-local", "source": {"provider": "git", "location": "file:./models/qwen.gguf"}}]}"#;
-    let config = ApplicationConfiguration::parse(content).unwrap();
-    let models = config.models.unwrap();
-    assert_eq!(models.len(), 2);
-}
-#[test]
 fn test_config_parses_models_field_empty() {
     let content = r#"{"buckets": []}"#;
     let config = ApplicationConfiguration::parse(content).unwrap();
@@ -107,6 +107,23 @@ models:
     let config = ApplicationConfiguration::parse(content).unwrap();
     let models = config.models.unwrap();
     assert_eq!(models.len(), 2);
+}
+#[test]
+fn test_download_item_checksum_mismatch_returns_incomplete_download_error() {
+    let temp_dir = temp_test_dir("download_model_checksum_mismatch");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let file_path = temp_dir.join("model.gguf.part");
+    write(&file_path, b"abc").expect("write model part");
+    let item = DownloadItem {
+        url: "https://example.test/model.gguf".to_string(),
+        path: "model.gguf".to_string(),
+        size: Some(3),
+        sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+    };
+    let result = item.verify_checksum(&file_path, false);
+    assert!(result.is_err());
+    let text = format!("{}", result.expect_err("checksum error"));
+    assert!(text.contains("Model download is incomplete"));
 }
 #[tokio::test]
 async fn test_download_local_config_silent() -> Result<()> {
@@ -202,6 +219,98 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
+async fn test_download_model_filter_keeps_matching_local_file() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_filter_local");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("models");
+    let model_file = temp_dir.join("tiny.gguf");
+    write(&model_file, b"fake model data")?;
+    let verbose = Verbosity::new(0, 1);
+    let result = super::model::run(
+        &[model_file.display().to_string()],
+        &["tiny\\.gguf$".to_string()],
+        &[],
+        &None,
+        &Some(output_dir.clone()),
+        &None,
+        &verbose,
+        false,
+        true,
+        false,
+        false,
+        &[],
+        false,
+        200,
+        false,
+        false,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_ok(), "matching filter should keep local model");
+    assert!(output_dir.join("tiny").join("tiny.gguf").exists());
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_ignore_local");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("models");
+    let model_file = temp_dir.join("tiny.gguf");
+    write(&model_file, b"fake model data")?;
+    let verbose = Verbosity::new(0, 1);
+    let result = super::model::run(
+        &[model_file.display().to_string()],
+        &[],
+        &["tiny\\.gguf$".to_string()],
+        &None,
+        &Some(output_dir),
+        &None,
+        &verbose,
+        false,
+        true,
+        false,
+        false,
+        &[],
+        false,
+        200,
+        false,
+        false,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_err(), "ignore should remove the only selected model");
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_model_invalid_filter_errors() -> Result<()> {
+    let verbose = Verbosity::new(0, 1);
+    let result = super::model::run(
+        &["model.gguf".to_string()],
+        &["[".to_string()],
+        &[],
+        &None,
+        &None,
+        &None,
+        &verbose,
+        false,
+        false,
+        false,
+        false,
+        &[],
+        false,
+        200,
+        false,
+        false,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_err(), "invalid filter regex should fail");
+    Ok(())
+}
+#[tokio::test]
 async fn test_download_model_local_config_copy() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_local_config_copy");
     let _cleanup = TestCleanup::new(temp_dir.clone());
@@ -277,136 +386,6 @@ async fn test_download_model_local_file_copy() -> Result<()> {
     assert!(result.is_ok(), "local file copy should succeed");
     let model_dir = output_dir.join("tiny");
     assert!(model_dir.join("tiny.gguf").exists(), "copy mode should place files in output dir");
-    Ok(())
-}
-#[tokio::test]
-async fn test_download_model_filter_keeps_matching_local_file() -> Result<()> {
-    let temp_dir = temp_test_dir("download_model_filter_local");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let output_dir = temp_dir.join("models");
-    let model_file = temp_dir.join("tiny.gguf");
-    write(&model_file, b"fake model data")?;
-    let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
-        &[model_file.display().to_string()],
-        &["tiny\\.gguf$".to_string()],
-        &[],
-        &None,
-        &Some(output_dir.clone()),
-        &None,
-        &verbose,
-        false,
-        true,
-        false,
-        false,
-        &[],
-        false,
-        200,
-        false,
-        false,
-        false,
-        &OutputFormat::default(),
-    )
-    .await;
-    assert!(result.is_ok(), "matching filter should keep local model");
-    assert!(output_dir.join("tiny").join("tiny.gguf").exists());
-    Ok(())
-}
-#[tokio::test]
-async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> {
-    let temp_dir = temp_test_dir("download_model_ignore_local");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let output_dir = temp_dir.join("models");
-    let model_file = temp_dir.join("tiny.gguf");
-    write(&model_file, b"fake model data")?;
-    let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
-        &[model_file.display().to_string()],
-        &[],
-        &["tiny\\.gguf$".to_string()],
-        &None,
-        &Some(output_dir),
-        &None,
-        &verbose,
-        false,
-        true,
-        false,
-        false,
-        &[],
-        false,
-        200,
-        false,
-        false,
-        false,
-        &OutputFormat::default(),
-    )
-    .await;
-    assert!(result.is_err(), "ignore should remove the only selected model");
-    Ok(())
-}
-#[test]
-fn test_model_select_preferred_file_prefers_marker() {
-    let policy = FileSelectionPolicy {
-        preferred_marker: "Q4_K_M",
-        no_match_message: "No GGUF model files found",
-    };
-    let files = vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q4_K_M.gguf")];
-    let selected = files.select(&policy).unwrap();
-    assert_eq!(selected.len(), 1);
-    assert_eq!(selected.first().map(|file| file.path.as_str()), Some("model.Q4_K_M.gguf"));
-}
-#[test]
-fn test_model_select_preferred_file_errors_when_ambiguous() {
-    let policy = FileSelectionPolicy {
-        preferred_marker: "Q4_K_M",
-        no_match_message: "No GGUF model files found",
-    };
-    let files = vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q6_K.gguf")];
-    let selected = files.select(&policy);
-    assert!(selected.is_err());
-}
-#[tokio::test]
-async fn test_model_resolve_plan_matches_config_name() {
-    let content = r#"{"models": [{"name": "tiny", "revision": "dev", "filter": ["\\.gguf$"], "source": {"provider": "huggingface", "location": "https://huggingface.co/acme/tiny"}}]}"#;
-    let config = ApplicationConfiguration::parse(content).unwrap();
-    let plans = super::model::resolve_plans(&["tiny".to_string()], &config.models.unwrap(), None, &None, false)
-        .await
-        .unwrap();
-    assert_eq!(plans.len(), 1);
-    assert_eq!(plans.first().unwrap().name(), "tiny");
-    assert_eq!(plans.first().unwrap().revision, "dev");
-    assert_eq!(plans.first().unwrap().filter, vec!["\\.gguf$".to_string()]);
-}
-#[test]
-fn test_model_merge_patterns_keeps_config_and_cli_patterns() {
-    let merged = merge(&["Q4".to_string()], Some(&["\\.gguf$".to_string(), "Q4".to_string()]));
-    assert_eq!(merged, vec!["Q4".to_string(), "\\.gguf$".to_string()]);
-}
-#[tokio::test]
-async fn test_download_model_invalid_filter_errors() -> Result<()> {
-    let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
-        &["model.gguf".to_string()],
-        &["[".to_string()],
-        &[],
-        &None,
-        &None,
-        &None,
-        &verbose,
-        false,
-        false,
-        false,
-        false,
-        &[],
-        false,
-        200,
-        false,
-        false,
-        false,
-        &OutputFormat::default(),
-    )
-    .await;
-    assert!(result.is_err(), "invalid filter regex should fail");
     Ok(())
 }
 #[tokio::test]
@@ -764,154 +743,31 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     assert!(!output_dir.join("drop").join("drop.gguf").exists());
     Ok(())
 }
-#[test]
-fn test_parse_model_whitelist_file_from_json_model_details() -> Result<()> {
-    let names = super::model::Whitelist::parse(r#"[{"name":"keep"},{"id":"drop"}]"#.to_string())?;
-    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
-    Ok(())
-}
-#[test]
-fn test_parse_model_whitelist_file_from_json_names() -> Result<()> {
-    let names = super::model::Whitelist::parse(r#"["keep", "drop"]"#.to_string())?;
-    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
-    Ok(())
-}
-#[test]
-fn test_parse_model_whitelist_file_from_plain_names() -> Result<()> {
-    let names = super::model::Whitelist::parse(" keep \n\ndrop\n".to_string())?;
-    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
-    Ok(())
-}
-#[test]
-fn test_parse_model_whitelist_file_from_yaml_model_details() -> Result<()> {
-    let names = super::model::Whitelist::parse("- name: keep\n- id: drop\n".to_string())?;
-    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
-    Ok(())
-}
-#[test]
-fn test_parse_model_whitelist_file_rejects_model_without_name_or_id() {
-    let result = super::model::Whitelist::parse("- family: llama\n".to_string());
-    assert!(result.is_err());
-}
 #[tokio::test]
-async fn test_resolve_model_whitelist_from_file_uri() -> Result<()> {
-    let temp_dir = temp_test_dir("resolve_model_whitelist_file_uri");
+async fn test_download_task_restarts_partial_file_without_http_range_support() {
+    let payload = b"abcdefghij".to_vec();
+    let (url, handle) = spawn_no_range_server(payload.clone());
+    let temp_dir = temp_test_dir("download_model_no_range_restart");
     let _cleanup = TestCleanup::new(temp_dir.clone());
-    let whitelist_path = temp_dir.join("whitelist.txt");
-    write(&whitelist_path, "keep\n")?;
-    let source = Some(format!("file://{}", whitelist_path.display()));
-    let names = super::model::Whitelist::from(vec!["inline".to_string()]).resolve(&source, false).await?;
-    assert_eq!(names.0, vec!["inline".to_string(), "keep".to_string()]);
-    Ok(())
-}
-#[tokio::test]
-async fn test_resolve_model_whitelist_rejects_remote_uri_offline() {
-    let source = Some("https://example.com/models.yaml".to_string());
-    let result = super::model::Whitelist::from(Vec::new()).resolve(&source, true).await;
-    assert!(result.is_err());
-}
-#[tokio::test]
-async fn test_resolve_model_whitelist_txt_fixture() -> Result<()> {
-    let source = Some(fixture_path("whitelist.txt").display().to_string());
-    let whitelist = super::model::Whitelist::from(Vec::new()).resolve(&source, false).await?;
-    assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/drop".to_string()]);
-    Ok(())
-}
-#[tokio::test]
-async fn test_resolve_model_whitelist_yaml_fixture() -> Result<()> {
-    let source = Some(fixture_path("whitelist.yaml").display().to_string());
-    let whitelist = super::model::Whitelist::from(Vec::new()).resolve(&source, false).await?;
-    assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/drop".to_string()]);
-    Ok(())
-}
-#[test]
-fn test_resolve_cli_action() {
-    assert_eq!(SourceAction::from_options(false, false), None);
-    assert_eq!(SourceAction::from_options(true, false), Some(SourceAction::Copy));
-    assert_eq!(SourceAction::from_options(false, true), Some(SourceAction::Symlink));
-}
-#[test]
-fn test_resolve_default_config_path_none_when_missing() -> Result<()> {
-    let temp_dir = temp_test_dir("download_default_config_missing");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let previous_dir = env::current_dir()?;
-    env::set_current_dir(&temp_dir)?;
-    let resolved = ApplicationConfiguration::resolve(&None);
-    env::set_current_dir(previous_dir)?;
-    assert!(resolved.is_none(), "resolver should return none when no default config files exist");
-    Ok(())
-}
-#[test]
-fn test_resolve_default_config_path_prefers_standard_names() -> Result<()> {
-    let temp_dir = temp_test_dir("download_default_config_resolution");
-    let previous_dir = env::current_dir()?;
-    let expected = temp_dir.join(".acorn.json");
-    write(&expected, "{}")?;
-    env::set_current_dir(&temp_dir)?;
-    let resolved = ApplicationConfiguration::resolve(&None);
-    env::set_current_dir(previous_dir)?;
-    assert_eq!(resolved, Some(expected));
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    Ok(())
-}
-#[test]
-fn test_huggingface_filter_extension() {
-    let files = vec![
-        candidate_file("model.Q4_K_M.gguf"),
-        candidate_file("model.Q4_K_S.gguf"),
-        candidate_file("config.json"),
-        candidate_file("tokenizer.model"),
-    ];
-    let result = files.filter(Some("\\.gguf$"), None).unwrap();
-    assert_eq!(result.len(), 2);
-    assert!(result.iter().all(|f| f.path.ends_with(".gguf")));
-}
-#[test]
-fn test_huggingface_filter_ignore() {
-    let files = vec![
-        candidate_file("model.Q4_K_M.gguf"),
-        candidate_file("model.Q2_K.gguf"),
-        candidate_file("model.Q3_K.gguf"),
-    ];
-    let result = files.filter(None, Some("Q2_")).unwrap();
-    assert_eq!(result.len(), 1);
-    assert!(result.iter().all(|f| f.path != "model.Q2_K.gguf"));
-    assert_eq!(result.first().map(|f| f.path.as_str()), Some("model.Q4_K_M.gguf"));
-}
-#[test]
-fn test_huggingface_filter_combined() {
-    let files = vec![
-        candidate_file("model.Q4_K_M.gguf"),
-        candidate_file("model.Q4_K_S.gguf"),
-        candidate_file("model.Q2_K.gguf"),
-        candidate_file("config.json"),
-    ];
-    let result = files.filter(Some("\\.gguf$"), Some("Q2_")).unwrap();
-    assert_eq!(result.len(), 2);
-    assert!(result.iter().all(|f| f.path.ends_with(".gguf") && !f.path.contains("Q2_")));
-}
-#[test]
-fn test_huggingface_filter_works_with_complex_patterns() {
-    let files = vec![candidate_file("model.gguf")];
-    let result = files.filter(Some("[a-z]+"), None);
-    assert!(result.is_ok());
-}
-#[test]
-fn test_download_item_checksum_mismatch_returns_incomplete_download_error() {
-    let temp_dir = temp_test_dir("download_model_checksum_mismatch");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let file_path = temp_dir.join("model.gguf.part");
-    write(&file_path, b"abc").expect("write model part");
+    let destination = temp_dir.join("models");
+    create_dir_all(&destination).expect("create destination directory");
     let item = DownloadItem {
-        url: "https://example.test/model.gguf".to_string(),
+        url,
         path: "model.gguf".to_string(),
-        size: Some(3),
-        sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+        size: Some(payload.len() as u64),
+        sha: None,
     };
-    let result = item.verify_checksum(&file_path, false);
-    assert!(result.is_err());
-    let text = format!("{}", result.expect_err("checksum error"));
-    assert!(text.contains("Model download is incomplete"));
+    let part = item.partial_path(&destination);
+    write(&part, b"stale").expect("seed stale partial file");
+    let task = DownloadTask::new(item, &destination, true, false);
+    let result = task.download().await;
+    assert!(result.is_ok(), "restart download should succeed: {result:?}");
+    let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read restarted file");
+    assert_eq!(
+        final_bytes, payload,
+        "download should restart from byte zero without appending stale content"
+    );
+    handle.join().expect("join no-range server thread");
 }
 #[tokio::test]
 async fn test_download_task_resumes_partial_file_with_http_range() {
@@ -954,55 +810,6 @@ async fn test_download_task_resumes_partial_file_with_http_range() {
     handle.join().expect("join server thread");
 }
 #[tokio::test]
-async fn test_download_task_restarts_partial_file_without_http_range_support() {
-    let payload = b"abcdefghij".to_vec();
-    let (url, handle) = spawn_no_range_server(payload.clone());
-    let temp_dir = temp_test_dir("download_model_no_range_restart");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let destination = temp_dir.join("models");
-    create_dir_all(&destination).expect("create destination directory");
-    let item = DownloadItem {
-        url,
-        path: "model.gguf".to_string(),
-        size: Some(payload.len() as u64),
-        sha: None,
-    };
-    let part = item.partial_path(&destination);
-    write(&part, b"stale").expect("seed stale partial file");
-    let task = DownloadTask::new(item, &destination, true, false);
-    let result = task.download().await;
-    assert!(result.is_ok(), "restart download should succeed: {result:?}");
-    let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read restarted file");
-    assert_eq!(
-        final_bytes, payload,
-        "download should restart from byte zero without appending stale content"
-    );
-    handle.join().expect("join no-range server thread");
-}
-#[tokio::test]
-async fn test_download_task_truncates_when_range_request_returns_200() {
-    let payload = b"abcdefghij".to_vec();
-    let (url, handle) = spawn_ignored_range_server(payload.clone());
-    let temp_dir = temp_test_dir("download_model_ignored_range_restart");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let destination = temp_dir.join("models");
-    create_dir_all(&destination).expect("create destination directory");
-    let item = DownloadItem {
-        url,
-        path: "model.gguf".to_string(),
-        size: Some(payload.len() as u64),
-        sha: None,
-    };
-    let part = item.partial_path(&destination);
-    write(&part, &payload[..4]).expect("seed partial file");
-    let task = DownloadTask::new(item, &destination, true, false);
-    let result = task.download().await;
-    assert!(result.is_ok(), "ignored range download should succeed: {result:?}");
-    let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read restarted file");
-    assert_eq!(final_bytes, payload, "200 OK to ranged GET should truncate partial file before writing");
-    handle.join().expect("join ignored-range server thread");
-}
-#[tokio::test]
 async fn test_download_task_retry_resumes_from_updated_partial_file_length() {
     let payload = b"abcdefghij".to_vec();
     let temp_dir = temp_test_dir("download_model_retry_resume_updated_offset");
@@ -1024,6 +831,29 @@ async fn test_download_task_retry_resumes_from_updated_partial_file_length() {
     let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read retried file");
     assert_eq!(final_bytes, payload, "retry should not duplicate bytes from the original resume offset");
     handle.join().expect("join retry-resume server thread");
+}
+#[tokio::test]
+async fn test_download_task_skip_verify_checksum_allows_checksum_mismatch() {
+    let payload = b"checksum-skip-payload".to_vec();
+    let (url, handle) = spawn_range_server(payload.clone());
+    let temp_dir = temp_test_dir("download_model_skip_checksum_mismatch");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let destination = temp_dir.join("models");
+    create_dir_all(&destination).expect("create destination directory");
+    let item = DownloadItem {
+        url,
+        path: "model.gguf".to_string(),
+        size: Some(payload.len() as u64),
+        sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+    };
+    let part = item.partial_path(&destination);
+    write(&part, &payload[..4]).expect("seed partial file");
+    let task = DownloadTask::new(item, &destination, true, true);
+    let result = task.download().await;
+    assert!(result.is_ok(), "skip checksum should allow mismatch: {result:?}");
+    let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read downloaded file");
+    assert_eq!(final_bytes, payload);
+    handle.join().expect("join range server thread");
 }
 #[tokio::test]
 async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
@@ -1080,10 +910,10 @@ async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
     handle.join().expect("join sidecar server thread");
 }
 #[tokio::test]
-async fn test_download_task_skip_verify_checksum_allows_checksum_mismatch() {
-    let payload = b"checksum-skip-payload".to_vec();
-    let (url, handle) = spawn_range_server(payload.clone());
-    let temp_dir = temp_test_dir("download_model_skip_checksum_mismatch");
+async fn test_download_task_truncates_when_range_request_returns_200() {
+    let payload = b"abcdefghij".to_vec();
+    let (url, handle) = spawn_ignored_range_server(payload.clone());
+    let temp_dir = temp_test_dir("download_model_ignored_range_restart");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let destination = temp_dir.join("models");
     create_dir_all(&destination).expect("create destination directory");
@@ -1091,16 +921,16 @@ async fn test_download_task_skip_verify_checksum_allows_checksum_mismatch() {
         url,
         path: "model.gguf".to_string(),
         size: Some(payload.len() as u64),
-        sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+        sha: None,
     };
     let part = item.partial_path(&destination);
     write(&part, &payload[..4]).expect("seed partial file");
-    let task = DownloadTask::new(item, &destination, true, true);
+    let task = DownloadTask::new(item, &destination, true, false);
     let result = task.download().await;
-    assert!(result.is_ok(), "skip checksum should allow mismatch: {result:?}");
-    let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read downloaded file");
-    assert_eq!(final_bytes, payload);
-    handle.join().expect("join range server thread");
+    assert!(result.is_ok(), "ignored range download should succeed: {result:?}");
+    let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read restarted file");
+    assert_eq!(final_bytes, payload, "200 OK to ranged GET should truncate partial file before writing");
+    handle.join().expect("join ignored-range server thread");
 }
 #[test]
 fn test_gguf_fallback_trigger_conditions() {
@@ -1221,4 +1051,174 @@ fn test_hf_token_not_persisted_in_activity_rows() {
         ];
         assert!(columns.iter().all(|value| !value.contains(token)));
     });
+}
+#[test]
+fn test_huggingface_filter_combined() {
+    let files = vec![
+        candidate_file("model.Q4_K_M.gguf"),
+        candidate_file("model.Q4_K_S.gguf"),
+        candidate_file("model.Q2_K.gguf"),
+        candidate_file("config.json"),
+    ];
+    let result = files.filter(Some("\\.gguf$"), Some("Q2_")).unwrap();
+    assert_eq!(result.len(), 2);
+    assert!(result.iter().all(|f| f.path.ends_with(".gguf") && !f.path.contains("Q2_")));
+}
+#[test]
+fn test_huggingface_filter_extension() {
+    let files = vec![
+        candidate_file("model.Q4_K_M.gguf"),
+        candidate_file("model.Q4_K_S.gguf"),
+        candidate_file("config.json"),
+        candidate_file("tokenizer.model"),
+    ];
+    let result = files.filter(Some("\\.gguf$"), None).unwrap();
+    assert_eq!(result.len(), 2);
+    assert!(result.iter().all(|f| f.path.ends_with(".gguf")));
+}
+#[test]
+fn test_huggingface_filter_ignore() {
+    let files = vec![
+        candidate_file("model.Q4_K_M.gguf"),
+        candidate_file("model.Q2_K.gguf"),
+        candidate_file("model.Q3_K.gguf"),
+    ];
+    let result = files.filter(None, Some("Q2_")).unwrap();
+    assert_eq!(result.len(), 1);
+    assert!(result.iter().all(|f| f.path != "model.Q2_K.gguf"));
+    assert_eq!(result.first().map(|f| f.path.as_str()), Some("model.Q4_K_M.gguf"));
+}
+#[test]
+fn test_huggingface_filter_works_with_complex_patterns() {
+    let files = vec![candidate_file("model.gguf")];
+    let result = files.filter(Some("[a-z]+"), None);
+    assert!(result.is_ok());
+}
+#[test]
+fn test_model_merge_patterns_keeps_config_and_cli_patterns() {
+    let merged = merge(&["Q4".to_string()], Some(&["\\.gguf$".to_string(), "Q4".to_string()]));
+    assert_eq!(merged, vec!["Q4".to_string(), "\\.gguf$".to_string()]);
+}
+#[tokio::test]
+async fn test_model_resolve_plan_matches_config_name() {
+    let content = r#"{"models": [{"name": "tiny", "revision": "dev", "filter": ["\\.gguf$"], "source": {"provider": "huggingface", "location": "https://huggingface.co/acme/tiny"}}]}"#;
+    let config = ApplicationConfiguration::parse(content).unwrap();
+    let plans = super::model::resolve_plans(&["tiny".to_string()], &config.models.unwrap(), None, &None, false)
+        .await
+        .unwrap();
+    assert_eq!(plans.len(), 1);
+    assert_eq!(plans.first().unwrap().name(), "tiny");
+    assert_eq!(plans.first().unwrap().revision, "dev");
+    assert_eq!(plans.first().unwrap().filter, vec!["\\.gguf$".to_string()]);
+}
+#[test]
+fn test_model_select_preferred_file_errors_when_ambiguous() {
+    let policy = FileSelectionPolicy {
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let files = vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q6_K.gguf")];
+    let selected = files.select(&policy);
+    assert!(selected.is_err());
+}
+#[test]
+fn test_model_select_preferred_file_prefers_marker() {
+    let policy = FileSelectionPolicy {
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let files = vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q4_K_M.gguf")];
+    let selected = files.select(&policy).unwrap();
+    assert_eq!(selected.len(), 1);
+    assert_eq!(selected.first().map(|file| file.path.as_str()), Some("model.Q4_K_M.gguf"));
+}
+#[test]
+fn test_parse_model_whitelist_file_from_json_model_details() -> Result<()> {
+    let names = super::model::Whitelist::parse(r#"[{"name":"keep"},{"id":"drop"}]"#.to_string())?;
+    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
+    Ok(())
+}
+#[test]
+fn test_parse_model_whitelist_file_from_json_names() -> Result<()> {
+    let names = super::model::Whitelist::parse(r#"["keep", "drop"]"#.to_string())?;
+    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
+    Ok(())
+}
+#[test]
+fn test_parse_model_whitelist_file_from_plain_names() -> Result<()> {
+    let names = super::model::Whitelist::parse(" keep \n\ndrop\n".to_string())?;
+    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
+    Ok(())
+}
+#[test]
+fn test_parse_model_whitelist_file_from_yaml_model_details() -> Result<()> {
+    let names = super::model::Whitelist::parse("- name: keep\n- id: drop\n".to_string())?;
+    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
+    Ok(())
+}
+#[test]
+fn test_parse_model_whitelist_file_rejects_model_without_name_or_id() {
+    let result = super::model::Whitelist::parse("- family: llama\n".to_string());
+    assert!(result.is_err());
+}
+#[test]
+fn test_resolve_cli_action() {
+    assert_eq!(SourceAction::from_options(false, false), None);
+    assert_eq!(SourceAction::from_options(true, false), Some(SourceAction::Copy));
+    assert_eq!(SourceAction::from_options(false, true), Some(SourceAction::Symlink));
+}
+#[test]
+fn test_resolve_default_config_path_none_when_missing() -> Result<()> {
+    let temp_dir = temp_test_dir("download_default_config_missing");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let previous_dir = env::current_dir()?;
+    env::set_current_dir(&temp_dir)?;
+    let resolved = ApplicationConfiguration::resolve(&None);
+    env::set_current_dir(previous_dir)?;
+    assert!(resolved.is_none(), "resolver should return none when no default config files exist");
+    Ok(())
+}
+#[test]
+fn test_resolve_default_config_path_prefers_standard_names() -> Result<()> {
+    let temp_dir = temp_test_dir("download_default_config_resolution");
+    let previous_dir = env::current_dir()?;
+    let expected = temp_dir.join(".acorn.json");
+    write(&expected, "{}")?;
+    env::set_current_dir(&temp_dir)?;
+    let resolved = ApplicationConfiguration::resolve(&None);
+    env::set_current_dir(previous_dir)?;
+    assert_eq!(resolved, Some(expected));
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    Ok(())
+}
+#[tokio::test]
+async fn test_resolve_model_whitelist_from_file_uri() -> Result<()> {
+    let temp_dir = temp_test_dir("resolve_model_whitelist_file_uri");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let whitelist_path = temp_dir.join("whitelist.txt");
+    write(&whitelist_path, "keep\n")?;
+    let source = Some(format!("file://{}", whitelist_path.display()));
+    let names = super::model::Whitelist::from(vec!["inline".to_string()]).resolve(&source, false).await?;
+    assert_eq!(names.0, vec!["inline".to_string(), "keep".to_string()]);
+    Ok(())
+}
+#[tokio::test]
+async fn test_resolve_model_whitelist_rejects_remote_uri_offline() {
+    let source = Some("https://example.com/models.yaml".to_string());
+    let result = super::model::Whitelist::from(Vec::new()).resolve(&source, true).await;
+    assert!(result.is_err());
+}
+#[tokio::test]
+async fn test_resolve_model_whitelist_txt_fixture() -> Result<()> {
+    let source = Some(fixture_path("whitelist.txt").display().to_string());
+    let whitelist = super::model::Whitelist::from(Vec::new()).resolve(&source, false).await?;
+    assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/drop".to_string()]);
+    Ok(())
+}
+#[tokio::test]
+async fn test_resolve_model_whitelist_yaml_fixture() -> Result<()> {
+    let source = Some(fixture_path("whitelist.yaml").display().to_string());
+    let whitelist = super::model::Whitelist::from(Vec::new()).resolve(&source, false).await?;
+    assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/drop".to_string()]);
+    Ok(())
 }
